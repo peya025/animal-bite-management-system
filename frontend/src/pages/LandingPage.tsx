@@ -81,8 +81,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features Banner + Grid */}
-      <section id="features" className="features-hero">
-        {/* Picture placed at the top of "Everything You Need" section */}
+      <section className="features-hero">
         <div className="features-hero-banner">
           <img 
             src={antiviralVaccineImg} 
@@ -90,7 +89,7 @@ export default function LandingPage() {
           />
         </div>
 
-        <div className="section-header">
+        <div id="features" className="section-header">
           <h2>Everything You Need</h2>
           <p>Powerful features designed specifically for animal bite center management</p>
         </div>

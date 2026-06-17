@@ -42,15 +42,21 @@ flutter doctor
 
 **Independent Clinic Management System** for animal bite vaccination workflow.
 
-### Core Features (MVP)
+### Core Features
 1. ✅ **Authentication** - Sanctum-based login/logout
-2. ✅ **Clinic Setup** - First-time configuration wizard
+2. ✅ **Clinic Setup** - First-time configuration wizard  
 3. ✅ **Users + Roles** - 4 roles (admin, registration, triage, treatment)
-4. ✅ **Patients** - Registration and management
-5. ✅ **Bite Cases** - Animal bite case tracking
-6. ✅ **Vaccination** - Scheduling and administration recording
-7. ✅ **Queue** - Daily patient queue management
-8. ✅ **Invitations** - Basic email invitation system
+4. ✅ **Frontend Dashboard** - Role-specific dashboards with real-time stats
+5. ✅ **Patients** - Registration and management (backend ready)
+6. ✅ **Bite Cases** - Animal bite case tracking (backend ready)
+7. ✅ **Vaccination** - Scheduling and administration recording (backend ready)
+8. ✅ **Queue** - Daily patient queue management (backend ready)
+9. ✅ **Invitations** - Email invitation system (backend ready)
+
+### Implementation Status
+- **Backend API**: 100% Complete (50+ endpoints)
+- **Frontend**: 40% Complete (Login + Dashboards done)
+- **Mobile**: 0% Complete (Ready to start)
 
 ### User Roles
 1. **Admin** - Full system configuration and management
@@ -290,15 +296,16 @@ animal-bite-management-system/
 
 After completing setup, access the web application:
 
-1. Open browser: **http://localhost:5173**
-2. Login with default admin account:
+1. Open browser: **http://localhost:5173** (Landing Page)
+2. Click **"Sign In"** or **"Access Platform"**
+3. Login with default admin account:
    ```
    Email: admin@clinic.com
    Password: password123
    ```
 
-3. Complete the **clinic setup wizard** on first login
-4. Start using the system!
+4. Complete the **clinic setup wizard** on first admin login
+5. Start using the system!
 
 ### Test Accounts (seeded by DefaultClinicSeeder)
 

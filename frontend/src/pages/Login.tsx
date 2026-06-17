@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { APP_NAME } from '../constants';
 import '../styles/Login.css';
 
 export default function Login() {
@@ -22,7 +23,7 @@ export default function Login() {
     }
 
     // Email validation
-    const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address');
       setLoading(false);
@@ -36,30 +37,34 @@ export default function Login() {
     }
 
     try {
-      // Mock API call - Replace with your actual endpoint
-      const response = await fetch('/api/login', {
+      // Temporary: Direct API call without auth service
+      const response = await fetch('http://localhost:8000/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({ email, password, rememberMe }),
+        body: JSON.stringify({ email, password }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Login failed');
+        throw new Error(data.message || 'Invalid credentials');
       }
 
-      const data = await response.json();
-      
-      // Store token and user data
+      // Store token
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userData', JSON.stringify(data.user));
+      localStorage.setItem('clinicData', JSON.stringify(data.user.clinic));
       
-      // Redirect to dashboard
+      // Redirect
+      alert('Login successful! Redirecting to dashboard...');
       window.location.href = '/dashboard';
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
+      console.error('Login error:', err);
+      const errorMessage = err.message || 'Invalid email or password';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -75,7 +80,7 @@ export default function Login() {
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
               <circle cx="12" cy="12" r="3"/>
             </svg>
-            TAGOLOAN ANIMAL BITE TREATMENT APPLICATION
+            {APP_NAME}
           </h1>
           <p>Animal Bite Management & Monitoring System</p>
         </div>
@@ -249,7 +254,7 @@ export default function Login() {
             <line x1="12" y1="8" x2="12" y2="12"/>
             <line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
-          Demo: doctor@TAGOLOAN ANIMAL BITE TREATMENT APPLICATION.org / password123
+          Demo: admin@clinic.com / password123
         </p>
       </div>
     </div>

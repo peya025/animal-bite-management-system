@@ -1,9 +1,18 @@
 import { useState } from 'react';
+import { APP_NAME, APP_SHORT_NAME } from '../constants';
 import '../styles/LandingPage.css';
 import antiviralVaccineImg from '../assets/image.png';
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const handleSignIn = () => {
+    window.location.href = '/login';
+  };
+
+  const handleGetStarted = () => {
+    window.location.href = '/login';
+  };
 
   return (
     <div className="landing-page">
@@ -12,10 +21,10 @@ export default function LandingPage() {
         <div className="nav-container">
           <div className="nav-logo">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" />
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              <circle cx="12" cy="12" r="3"/>
             </svg>
-            <span>Tagoloan ABTC</span>
+            <span>{APP_SHORT_NAME}</span>
           </div>
           
           <button 
@@ -34,7 +43,7 @@ export default function LandingPage() {
             <li><a href="#features">Features</a></li>
             <li><a href="#how-it-works">How It Works</a></li>
             <li><a href="#contact">Contact</a></li>
-            <li><a href="/login" className="nav-btn signin-btn">Sign In</a></li>
+            <li><button onClick={handleSignIn} className="nav-btn signin-btn">Sign In</button></li>
           </ul>
         </div>
       </nav>
@@ -44,32 +53,38 @@ export default function LandingPage() {
         <div className="hero-badge">Healthcare Management Platform</div>
 
         <div className="hero-main">
-          <h1>Animal Bite Center Management System</h1>
-          <p className="hero-sub">A comprehensive platform for managing Animal Bite Centers. Streamline operations, improve patient care, and ensure compliance with our all-in-one solution.</p>
+          <h1>{APP_NAME}</h1>
+          <p className="hero-sub">
+            A comprehensive platform for managing Animal Bite Treatment Centers. 
+            Streamline operations, improve patient care, and ensure WHO protocol compliance 
+            with our all-in-one solution.
+          </p>
 
           <div className="hero-cta">
-            <a href="/login" className="btn btn-pill btn-pill-primary">Access Platform →</a>
+            <button onClick={handleGetStarted} className="btn btn-pill btn-pill-primary">
+              Access Platform →
+            </button>
             <a href="#features" className="btn btn-pill btn-pill-light">Explore Features</a>
           </div>
         </div>
 
         <div className="hero-metrics">
           <div className="metric">
-            <div className="metric-icon">❤</div>
-            <div className="metric-number">10,000+</div>
+            <div className="metric-icon">❤️</div>
+            <div className="metric-number">2,500+</div>
             <div className="metric-label">Patients Treated</div>
           </div>
 
           <div className="metric">
             <div className="metric-icon">🏥</div>
-            <div className="metric-number">50+</div>
-            <div className="metric-label">Clinic Nationwide</div>
+            <div className="metric-number">1</div>
+            <div className="metric-label">Clinic Deployment</div>
           </div>
 
           <div className="metric">
             <div className="metric-icon">👤</div>
-            <div className="metric-number">500+</div>
-            <div className="metric-label">Health Professionals</div>
+            <div className="metric-number">4</div>
+            <div className="metric-label">User Roles</div>
           </div>
 
           <div className="metric">
@@ -85,50 +100,50 @@ export default function LandingPage() {
         <div className="features-hero-banner">
           <img 
             src={antiviralVaccineImg} 
-            alt="ANTIVIRAL VACCINATION - Animal bite prevention and treatment" 
+            alt="Anti-rabies Vaccination - Animal bite prevention and treatment" 
           />
         </div>
 
         <div id="features" className="section-header">
           <h2>Everything You Need</h2>
-          <p>Powerful features designed specifically for animal bite center management</p>
+          <p>Powerful features designed specifically for animal bite treatment center management</p>
         </div>
 
         <div className="features-grid">
           <div className="feature-card">
-            <div className="feature-icon">🏥</div>
-            <h3>Multi-Clinic Support</h3>
-            <p>Manage multiple animal bite centers from a single platform</p>
+            <div className="feature-icon">🩺</div>
+            <h3>WHO Protocol Compliance</h3>
+            <p>Automated 5-dose vaccination schedule following WHO rabies PEP guidelines</p>
           </div>
 
           <div className="feature-card">
             <div className="feature-icon">👥</div>
-            <h3>Staff Management</h3>
-            <p>Easy staff onboarding with role-based access control</p>
+            <h3>Patient Management</h3>
+            <p>Complete patient registry with auto-generated patient numbers and records</p>
           </div>
 
           <div className="feature-card">
             <div className="feature-icon">📅</div>
             <h3>Smart Scheduling</h3>
-            <p>Automated patient scheduling with follow-up reminders</p>
+            <p>Automatic vaccination schedule generation on Day 0, 3, 7, 14, and 28</p>
           </div>
 
           <div className="feature-card">
-            <div className="feature-icon">📦</div>
-            <h3>Inventory Tracking</h3>
-            <p>Real-time vaccine inventory with expiration monitoring</p>
+            <div className="feature-icon">📋</div>
+            <h3>Queue Management</h3>
+            <p>Real-time patient queue with priority management and status tracking</p>
           </div>
 
           <div className="feature-card">
             <div className="feature-icon">🔒</div>
-            <h3>Secure & Compliant</h3>
-            <p>HIPAA-compliant data security and patient privacy</p>
+            <h3>Role-Based Access</h3>
+            <p>4 user roles: Admin, Registration, Triage, and Treatment staff</p>
           </div>
 
           <div className="feature-card">
             <div className="feature-icon">⏱️</div>
-            <h3>Real-Time Updates</h3>
-            <p>Live queue management and treatment status tracking</p>
+            <h3>Real-Time Tracking</h3>
+            <p>Live bite case monitoring and vaccination administration tracking</p>
           </div>
         </div>
       </section>
@@ -137,38 +152,38 @@ export default function LandingPage() {
       <section id="how-it-works" className="how-it-works">
         <div className="section-header">
           <h2>How It Works</h2>
-          <p>Simple, efficient workflow for incident management</p>
+          <p>Simple, efficient workflow for animal bite incident management</p>
         </div>
 
         <div className="steps-container">
           <div className="step">
             <div className="step-number">1</div>
-            <h3>Report Incident</h3>
-            <p>Healthcare professionals quickly report animal bite incidents through the web or mobile app</p>
+            <h3>Register Patient</h3>
+            <p>Registration staff quickly registers patients with auto-generated patient numbers</p>
           </div>
 
           <div className="step-arrow">→</div>
 
           <div className="step">
             <div className="step-number">2</div>
-            <h3>Assessment</h3>
-            <p>System automatically evaluates risk level and vaccination status</p>
+            <h3>Assess & Document</h3>
+            <p>Triage staff creates bite case with WHO category assessment and animal details</p>
           </div>
 
           <div className="step-arrow">→</div>
 
           <div className="step">
             <div className="step-number">3</div>
-            <h3>Action Plan</h3>
-            <p>Generate treatment protocols and notify relevant healthcare providers</p>
+            <h3>Auto Schedule</h3>
+            <p>System automatically generates 5-dose vaccination schedule based on WHO protocol</p>
           </div>
 
           <div className="step-arrow">→</div>
 
           <div className="step">
             <div className="step-number">4</div>
-            <h3>Monitor & Track</h3>
-            <p>Follow up on patient recovery and track outcomes over time</p>
+            <h3>Track Treatment</h3>
+            <p>Treatment staff records vaccinations and monitors patient progress</p>
           </div>
         </div>
       </section>
@@ -177,8 +192,10 @@ export default function LandingPage() {
       <section className="cta-section">
         <div className="cta-content">
           <h2>Ready to Transform Your Animal Bite Management?</h2>
-          <p>Join healthcare facilities already using AnimalCare to save lives</p>
-          <a href="/login" className="btn btn-primary btn-large">Start Free Trial</a>
+          <p>Join healthcare facilities improving patient care with streamlined workflows</p>
+          <button onClick={handleGetStarted} className="btn btn-primary btn-large">
+            Get Started Now
+          </button>
         </div>
       </section>
 
@@ -186,7 +203,7 @@ export default function LandingPage() {
       <footer id="contact" className="footer">
         <div className="footer-content">
           <div className="footer-section">
-            <h4>AnimalCare</h4>
+            <h4>{APP_SHORT_NAME}</h4>
             <p>Animal Bite Management & Monitoring System</p>
             <div className="social-links">
               <a href="#" aria-label="Facebook">
@@ -213,35 +230,32 @@ export default function LandingPage() {
             <h5>Product</h5>
             <ul>
               <li><a href="#features">Features</a></li>
-              <li><a href="#pricing">Pricing</a></li>
-              <li><a href="#security">Security</a></li>
-              <li><a href="#demo">Request Demo</a></li>
+              <li><a href="#how-it-works">How It Works</a></li>
+              <li><button onClick={handleSignIn}>Sign In</button></li>
             </ul>
           </div>
 
           <div className="footer-section">
-            <h5>Company</h5>
+            <h5>Resources</h5>
             <ul>
-              <li><a href="#about">About Us</a></li>
-              <li><a href="#blog">Blog</a></li>
-              <li><a href="#careers">Careers</a></li>
-              <li><a href="#press">Press</a></li>
-            </ul>
-          </div>
-
-          <div className="footer-section">
-            <h5>Support</h5>
-            <ul>
+              <li><a href="#about">About</a></li>
               <li><a href="#help">Help Center</a></li>
               <li><a href="#contact">Contact Us</a></li>
+            </ul>
+          </div>
+
+          <div className="footer-section">
+            <h5>Legal</h5>
+            <ul>
               <li><a href="#privacy">Privacy Policy</a></li>
               <li><a href="#terms">Terms of Service</a></li>
+              <li><a href="#security">Security</a></li>
             </ul>
           </div>
         </div>
 
         <div className="footer-bottom">
-          <p>&copy; 2024 Tagoloan ABTC - Animal Bite Management System. All rights reserved.</p>
+          <p>&copy; 2026 {APP_NAME}. All rights reserved.</p>
         </div>
       </footer>
     </div>

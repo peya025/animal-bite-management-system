@@ -1,17 +1,119 @@
-# mobile
+# Animal Bite Management System - Mobile App
 
-A new Flutter project.
+Flutter mobile application for the Animal Bite Management System.
 
-## Getting Started
+## Prerequisites
 
-This project is a starting point for a Flutter application.
+Before running this app, ensure you have:
 
-A few resources to get you started if this is your first Flutter project:
+- **Flutter SDK** (3.12.1 or higher) - [Install Flutter](https://docs.flutter.dev/get-started/install)
+- **Android Studio** (for Android development) or **Xcode** (for iOS development on macOS)
+- **A connected device or emulator**
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+To verify Flutter installation:
+```bash
+flutter doctor
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Setup Instructions
+
+1. **Navigate to the mobile directory:**
+   ```bash
+   cd c:\xampp\htdocs\abc\animal-bite-management-system\mobile
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   flutter pub get
+   ```
+
+3. **Check connected devices:**
+   ```bash
+   flutter devices
+   ```
+
+## Running the App
+
+### Development Mode
+
+Run on a connected device or emulator:
+```bash
+flutter run
+```
+
+Run on a specific device:
+```bash
+flutter run -d <device-id>
+```
+
+### Run on Android Emulator
+```bash
+flutter run -d android
+```
+
+### Run on iOS Simulator (macOS only)
+```bash
+flutter run -d ios
+```
+
+### Run on Chrome (Web)
+```bash
+flutter run -d chrome
+```
+
+## Building the App
+
+### Build APK (Android)
+```bash
+flutter build apk --release
+```
+
+The APK will be located at: `build/app/outputs/flutter-apk/app-release.apk`
+
+### Build App Bundle (Android - for Play Store)
+```bash
+flutter build appbundle --release
+```
+
+### Build iOS (macOS only)
+```bash
+flutter build ios --release
+```
+
+## Project Structure
+
+```
+mobile/
+├── lib/               # Application source code
+│   └── main.dart     # App entry point
+├── android/          # Android-specific files
+├── ios/              # iOS-specific files
+├── test/             # Unit and widget tests
+└── pubspec.yaml      # Dependencies and assets
+```
+
+## Troubleshooting
+
+**Issue: Dependencies not installing**
+```bash
+flutter clean
+flutter pub get
+```
+
+**Issue: Build errors**
+```bash
+flutter clean
+flutter pub cache repair
+flutter pub get
+```
+
+**Issue: Device not detected**
+- Ensure USB debugging is enabled on Android devices
+- Check device connection: `flutter devices`
+- Restart ADB: `adb kill-server && adb start-server`
+
+## Additional Resources
+
+- [Flutter Documentation](https://docs.flutter.dev/)
+- [Dart Language Tour](https://dart.dev/guides/language/language-tour)
+- [Flutter Cookbook](https://docs.flutter.dev/cookbook)

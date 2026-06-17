@@ -1,12 +1,21 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
+import SetupWizard from './pages/Setup/SetupWizard';
 import './App.css';
 
 // Temporary simple dashboard component
 function SimpleDashboard() {
   const userData = localStorage.getItem('userData');
+  const clinicData = localStorage.getItem('clinicData');
   const user = userData ? JSON.parse(userData) : null;
+  const clinic = clinicData ? JSON.parse(clinicData) : null;
+  
+  // Check if clinic setup is complete
+  if (clinic && !clinic.is_setup_complete && user?.role === 'admin') {
+    window.location.href = '/setup';
+    return null;
+  }
   
   const handleLogout = () => {
     localStorage.clear();
@@ -29,7 +38,8 @@ function SimpleDashboard() {
                 Welcome, {user?.name || 'User'}!
               </h1>
               <p style={{ margin: 0, color: '#6b7280' }}>
-                Role: <strong>{user?.role || 'N/A'}</strong>
+                Role: <strong>{user?.role || 'N/A'}</strong> | 
+                Clinic: <strong>{clinic?.name || 'N/A'}</strong>
               </p>
             </div>
             <button 
@@ -113,6 +123,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/setup" element={<SetupWizard />} />
         <Route path="/dashboard" element={<SimpleDashboard />} />
       </Routes>
     </Router>

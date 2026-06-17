@@ -4,6 +4,10 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ClinicSetupController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\StaffInvitationController;
+use App\Http\Controllers\PatientController;
+use App\Http\Controllers\BiteCaseController;
+use App\Http\Controllers\VaccinationController;
+use App\Http\Controllers\QueueController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -53,5 +57,86 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [StaffInvitationController::class, 'invite']);
         Route::get('/', [StaffInvitationController::class, 'index']);
         Route::post('/{id}/cancel', [StaffInvitationController::class, 'cancel']);
+    });
+
+    // Patient Management (admin, registration, triage, treatment can view)
+    Route::prefix('patients')->group(function () {
+        Route::get('/', [PatientController::class, 'index']); // All roles
+        Route::get('/{id}', [PatientController::class, 'show']); // All roles
+        Route::get('/{id}/cases', [PatientController::class, 'biteCases']); // All roles
+        Route::get('/{id}/vaccinations', [PatientController::class, 'vaccinations']); // All roles
+        
+        // Create & Update (admin, registration only)
+        Route::middleware('role:admin,registration')->group(function () {
+            Route::post('/', [PatientController::class, 'store']);
+            Route::put('/{id}', [PatientController::class, 'update']);
+        });
+        
+        // Delete (admin only)
+        Route::delete('/{id}', [PatientController::class, 'destroy'])->middleware('role:admin');
+    });
+
+    // Bite Case Management (admin, triage can manage; treatment can view)
+    Route::prefix('cases')->group(function () {
+        Route::get('/', [BiteCaseController::class, 'index']); // All roles
+        Route::get('/statistics', [BiteCaseController::class, 'statistics']); // All roles
+        Route::get('/{id}', [BiteCaseController::class, 'show']); // All roles
+        Route::get('/{id}/vaccinations', [BiteCaseController::class, 'vaccinations']); // All roles
+        
+        // Create & Update (admin, triage only)
+        Route::middleware('role:admin,triage')->group(function () {
+            Route::post('/', [BiteCaseController::class, 'store']);
+            Route::put('/{id}', [BiteCaseController::class, 'update']);
+        });
+        
+        // Delete (admin only)
+        Route::delete('/{id}', [BiteCaseController::class, 'destroy'])->middleware('role:admin');
+    });
+
+    // Vaccination Management
+    Route::prefix('vaccinations')->group(function () {
+        Route::get('/', [VaccinationController::class, 'index']); // All roles
+        Route::get('/today', [VaccinationController::class, 'today']); // All roles
+        Route::get('/upcoming', [VaccinationController::class, 'upcoming']); // All roles
+        Route::get('/overdue', [VaccinationController::class, 'overdue']); // All roles
+        Route::get('/statistics', [VaccinationController::class, 'statistics']); // All roles
+        Route::get('/{id}', [VaccinationController::class, 'show']); // All roles
+        
+        // Administration (admin, treatment only)
+        Route::middleware('role:admin,treatment')->group(function () {
+            Route::post('/{id}/administer', [VaccinationController::class, 'administer']);
+            Route::post('/{id}/missed', [VaccinationController::class, 'markAsMissed']);
+        });
+        
+        // Scheduling (admin, triage only)
+        Route::middleware('role:admin,triage')->group(function () {
+            Route::put('/{id}', [VaccinationController::class, 'update']);
+            Route::post('/{id}/reschedule', [VaccinationController::class, 'reschedule']);
+        });
+    });
+
+    // Queue Management
+    Route::prefix('queue')->group(function () {
+        // View queue (admin, registration, triage)
+        Route::middleware('role:admin,registration,triage')->group(function () {
+            Route::get('/', [QueueController::class, 'index']);
+            Route::get('/waiting', [QueueController::class, 'waiting']);
+            Route::get('/next', [QueueController::class, 'next']);
+            Route::get('/statistics', [QueueController::class, 'statistics']);
+            Route::get('/{id}', [QueueController::class, 'show']);
+        });
+        
+        // Add to queue (admin, registration only)
+        Route::middleware('role:admin,registration')->group(function () {
+            Route::post('/', [QueueController::class, 'store']);
+            Route::post('/{id}/cancel', [QueueController::class, 'cancel']);
+            Route::put('/{id}/priority', [QueueController::class, 'updatePriority']);
+        });
+        
+        // Call & Complete (admin, triage only)
+        Route::middleware('role:admin,triage')->group(function () {
+            Route::post('/{id}/call', [QueueController::class, 'call']);
+            Route::post('/{id}/complete', [QueueController::class, 'complete']);
+        });
     });
 });

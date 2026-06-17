@@ -16,6 +16,67 @@ A comprehensive web application for managing animal bite incidents, built with L
 - **Node.js** 18+ and npm
 - **XAMPP** (or any web server with PHP support)
 
+## System Overview
+
+**Independent Clinic Management System** for animal bite vaccination workflow.
+
+### Core Features (MVP)
+1. ✅ **Authentication** - Sanctum-based login/logout
+2. ✅ **Clinic Setup** - First-time configuration wizard
+3. ✅ **Users + Roles** - 4 roles (admin, registration, triage, treatment)
+4. ✅ **Patients** - Registration and management
+5. ✅ **Bite Cases** - Animal bite case tracking
+6. ✅ **Vaccination** - Scheduling and administration recording
+7. ✅ **Queue** - Daily patient queue management
+8. ✅ **Invitations** - Basic email invitation system
+
+### User Roles
+1. **Admin** - Full system configuration and management
+2. **Registration Staff** - Patient registration and queue management
+3. **Triage/Doctor Staff** - Medical assessment and case creation
+4. **Treatment Recording Staff** - Vaccination administration and tracking
+
+📖 **See [FINAL_IMPLEMENTATION.md](FINAL_IMPLEMENTATION.md) for complete implementation guide**
+
+## Tech Stack
+
+This project uses **Laravel Sanctum** for API authentication and **CORS** configuration for frontend-backend communication.
+
+### Quick Setup (Already Done)
+- ✅ Sanctum installed and configured
+- ✅ CORS configured for localhost:5173
+- ✅ Authentication endpoints created
+- ✅ Personal access tokens table migrated
+
+### API Endpoints
+```
+POST /api/register    - Register new user
+POST /api/login       - Login and get token
+POST /api/logout      - Logout (requires Bearer token)
+GET  /api/me          - Get authenticated user info
+```
+
+### Frontend Integration
+To use authentication in your React app:
+1. Install axios: `npm install axios`
+2. Configure axios with Bearer token
+3. See detailed guide: `SANCTUM_CORS_SETUP.md`
+
+### Testing Authentication
+```bash
+# Register
+curl -X POST http://localhost:8000/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test","email":"test@example.com","password":"password123","password_confirmation":"password123"}'
+
+# Login
+curl -X POST http://localhost:8000/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
+```
+
+For complete implementation guide, see **[SANCTUM_CORS_SETUP.md](SANCTUM_CORS_SETUP.md)**
+
 ## Project Structure
 
 ```
@@ -213,9 +274,53 @@ php artisan test
 
 [Your License Here]
 
+## Quick Start
+
+### Backend
+```bash
+cd backend
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan db:seed --class=DefaultClinicSeeder
+php artisan serve
+# Runs on http://localhost:8000
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+# Runs on http://localhost:5173
+```
+
+### First Login
+```
+URL: http://localhost:5173/login
+Email: admin@clinic.com
+Password: password123
+```
+
+After login, complete the clinic setup wizard to start using the system.
+
 ## Additional Documentation
 
-- Frontend setup: `frontend/README.md`
-- Mobile app setup: `mobile/README.md`
-- Design system: `DESIGN_SYSTEM.md`
-- Login pages: `LOGIN_PAGES_README.md`
+### ⭐ Start Here
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - 📋 Quick reference card for all features
+- **[SYSTEM_MAP.md](SYSTEM_MAP.md)** - 🗺️ Visual system architecture and data flows
+- **[FINAL_IMPLEMENTATION.md](FINAL_IMPLEMENTATION.md)** - 🚀 Complete implementation guide
+- **[IMPLEMENTATION_CHECKLIST.md](IMPLEMENTATION_CHECKLIST.md)** - ✅ Step-by-step checklist
+- **[SANCTUM_CORS_SETUP.md](SANCTUM_CORS_SETUP.md)** - 🔐 API authentication setup
+
+### 📚 Architecture References
+- **[MVP_ARCHITECTURE.md](MVP_ARCHITECTURE.md)** - Database design and workflows  
+- **[MVP_SUMMARY.md](MVP_SUMMARY.md)** - Quick overview and phased approach
+- **[SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)** - Full system design (future features)
+
+### 📱 Component Setup
+- **[frontend/README.md](frontend/README.md)** - Frontend setup instructions
+- **[mobile/README.md](mobile/README.md)** - Mobile app setup instructions
+- **[DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)** - Design system guidelines
+- **[LOGIN_PAGES_README.md](LOGIN_PAGES_README.md)** - Login page documentation

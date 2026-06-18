@@ -1,0 +1,106 @@
+/* ── Bar loader (from Uiverse.io by SmartegaAgency) ── */
+.loader {
+  width: 0;
+  height: 4.8px;
+  display: inline-block;
+  position: relative;
+  background: #54f98d;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  box-sizing: border-box;
+  animation: loader-animFw 8s linear infinite;
+}
+
+.loader::after,
+.loader::before {
+  content: '';
+  width: 10px;
+  height: 1px;
+  background: #fff;
+  position: absolute;
+  top: 9px;
+  right: -2px;
+  opacity: 0;
+  transform: rotate(-45deg) translateX(0px);
+  box-sizing: border-box;
+  animation: loader-coli1 0.3s linear infinite;
+}
+
+.loader::before {
+  top: -4px;
+  transform: rotate(45deg);
+  animation: loader-coli2 0.3s linear infinite;
+}
+
+@keyframes loader-animFw {
+  0%   { width: 0; }
+  100% { width: 100%; }
+}
+
+@keyframes loader-coli1 {
+  0%   { transform: rotate(-45deg) translateX(0px);   opacity: 0.7; }
+  100% { transform: rotate(-45deg) translateX(-45px); opacity: 0; }
+}
+
+@keyframes loader-coli2 {
+  0%   { transform: rotate(45deg) translateX(0px);   opacity: 1; }
+  100% { transform: rotate(45deg) translateX(-45px); opacity: 0.7; }
+}
+
+/* ── Inline variant (inside a button) ── */
+.loader-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.loader-inline .loader {
+  flex: 1;
+  min-width: 60px;
+}
+
+.loader-label-inline {
+  font-size: 14px;
+  font-weight: 600;
+  color: inherit;
+  white-space: nowrap;
+}
+
+/* ── Full-screen overlay variant ── */
+.loader-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.loader-box {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 36px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  min-width: 220px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.loader-box .loader {
+  width: 0; /* resets so animation starts from 0 */
+  min-width: 0;
+  /* override to fill the box width */
+  align-self: stretch;
+}
+
+.loader-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+  text-align: center;
+}

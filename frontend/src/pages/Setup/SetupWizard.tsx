@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import ConfirmationModal from '../../components/ConfirmationModal';
 import './SetupWizard.css';
 
 export default function SetupWizard() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [setupData, setSetupData] = useState({
     // Step 1: Customize
     appName: 'Animal Bite Center',
@@ -27,8 +30,8 @@ export default function SetupWizard() {
 
   const handleNext = () => {
     if (currentStep === 3) {
-      // Step 3 is Confirm, so clicking Next completes setup
-      handleCompleteSetup();
+      // Show confirmation modal before completing setup
+      setShowConfirmModal(true);
     } else if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     }
@@ -41,6 +44,7 @@ export default function SetupWizard() {
   };
 
   const handleCompleteSetup = async () => {
+    setShowConfirmModal(false);
     try {
       // Call API to mark setup as complete
       const token = localStorage.getItem('authToken');
@@ -60,14 +64,10 @@ export default function SetupWizard() {
 
       if (response.ok) {
         const data = await response.json();
-        
-        // Update clinic data in localStorage
         localStorage.setItem('clinicData', JSON.stringify(data.clinic));
-        
-        // Show success step
-        setCurrentStep(4);
-        
-        // Auto-redirect after 2 seconds
+
+        // Show success modal then redirect
+        setShowSuccessModal(true);
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 2000);
@@ -147,6 +147,28 @@ export default function SetupWizard() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Confirm Setup Modal */}
+      {showConfirmModal && (
+        <ConfirmationModal
+          variant="warning"
+          title="Complete Setup?"
+          message="Once you complete the setup, your clinic profile will be saved and you'll be redirected to the dashboard. Make sure all information is correct."
+          confirmLabel="Yes, complete setup"
+          onConfirm={handleCompleteSetup}
+          onCancel={() => setShowConfirmModal(false)}
+        />
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <ConfirmationModal
+          variant="success"
+          title="Setup Complete!"
+          message="Your clinic profile has been saved. Redirecting you to the dashboard…"
+          hideCancel
+        />
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { APP_NAME } from '../constants';
+import ConfirmationModal from '../components/ConfirmationModal';
 import '../styles/Login.css';
 
 export default function Login() {
@@ -265,53 +266,24 @@ export default function Login() {
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
-        <div className="modal-overlay" onClick={() => setShowConfirmModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-icon modal-icon--confirm">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                <polyline points="10 17 15 12 10 7"/>
-                <line x1="15" y1="12" x2="3" y2="12"/>
-              </svg>
-            </div>
-            <h3 className="modal-title">Sign in to your account?</h3>
-            <p className="modal-message">
-              You're signing in as <strong>{email}</strong>. Make sure this is the correct account.
-            </p>
-            <div className="modal-actions">
-              <button
-                className="modal-btn modal-btn--cancel"
-                onClick={() => setShowConfirmModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="modal-btn modal-btn--confirm"
-                onClick={handleConfirmLogin}
-              >
-                Yes, sign in
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmationModal
+          variant="confirm"
+          title="Sign in to your account?"
+          message={<>You're signing in as <strong>{email}</strong>. Make sure this is the correct account.</>}
+          confirmLabel="Yes, sign in"
+          onConfirm={handleConfirmLogin}
+          onCancel={() => setShowConfirmModal(false)}
+        />
       )}
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-icon modal-icon--success">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            </div>
-            <h3 className="modal-title">Login Successful!</h3>
-            <p className="modal-message">Welcome back. Redirecting you to the dashboard…</p>
-            <div className="modal-progress">
-              <div className="modal-progress-bar"></div>
-            </div>
-          </div>
-        </div>
+        <ConfirmationModal
+          variant="success"
+          title="Login Successful!"
+          message="Welcome back. Redirecting you to the dashboard…"
+          hideCancel
+        />
       )}
     </div>
   );

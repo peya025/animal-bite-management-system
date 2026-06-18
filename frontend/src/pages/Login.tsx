@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { APP_NAME } from '../constants';
 import ConfirmationModal from '../components/ConfirmationModal';
 import '../styles/Login.css';
@@ -12,6 +12,15 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  useEffect(() => {
+    // Redirect if already authenticated
+    const token = localStorage.getItem('authToken');
+    const userData = localStorage.getItem('userData');
+    if (token && userData) {
+      window.location.replace('/dashboard');
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,10 +72,10 @@ export default function Login() {
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user.clinic));
 
-      // Show success modal then redirect
+      // Show success modal then redirect (use replace to prevent back navigation)
       setShowSuccessModal(true);
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        window.location.replace('/dashboard');
       }, 2000);
     } catch (err: any) {
       console.error('Login error:', err);

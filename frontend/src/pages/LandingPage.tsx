@@ -7,10 +7,12 @@ export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleSignIn = () => {
+    // Always go to login page - it will handle redirect if already authenticated
     window.location.href = '/login';
   };
 
   const handleGetStarted = () => {
+    // Always go to login page - it will handle redirect if already authenticated
     window.location.href = '/login';
   };
 

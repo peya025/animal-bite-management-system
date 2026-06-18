@@ -1,10 +1,35 @@
-import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import SetupWizard from './pages/Setup/SetupWizard';
 import './App.css';
 import './SimpleDashboard.css';
+
+// ─── Auth Check Helper ───────────────────────────────────────
+function isAuthenticated(): boolean {
+  const token = localStorage.getItem('authToken');
+  const userData = localStorage.getItem('userData');
+  return !!(token && userData);
+}
+
+// ─── Protected Route Wrapper ───────────────────────────────────
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  
+  useEffect(() => {
+    // Check auth on mount and when location changes
+    if (!isAuthenticated()) {
+      window.location.href = '/login';
+    }
+  }, [location.pathname]);
+
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
 
 // ─── Role-aware nav items ───────────────────────────────────────
 const NAV = [
@@ -73,14 +98,112 @@ const ROLE_LABELS: Record<string, string> = {
 
 // ─── SimpleDashboard ───────────────────────────────────────────
 function SimpleDashboard() {
-  const userData   = localStorage.getItem('userData');
-  const clinicData = localStorage.getItem('clinicData');
-  const user   = userData   ? JSON.parse(userData)   : null;
-  const clinic = clinicData ? JSON.parse(clinicData) : null;
-
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [clinic, setClinic] = useState<any>(null);
   const [collapsed, setCollapsed] = useState(false);
+  
+  useEffect(() => {
+    const loadUserData = async () => {
+      // Double-check auth on component mount
+      if (!isAuthenticated()) {
+        window.location.href = '/login';
+        return;
+      }
 
-  if (clinic && !clinic.is_setup_complete && user?.role === 'admin') {
+      // Get data from localStorage first
+      const userData = localStorage.getItem('userData');
+      const clinicData = localStorage.getItem('clinicData');
+      const localUser = userData ? JSON.parse(userData) : null;
+      const localClinic = clinicData ? JSON.parse(clinicData) : (localUser?.clinic || null);
+
+      console.log('Initial localStorage data:', { localUser, localClinic });
+
+      // For admin users, fetch fresh data to ensure setup status is accurate
+      if (localUser?.role === 'admin') {
+        try {
+          const token = localStorage.getItem('authToken');
+          const response = await fetch('http://localhost:8000/api/me', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const freshData = await response.json();
+            console.log('Fresh user data from API:', freshData);
+            
+            // Update localStorage with fresh data
+            localStorage.setItem('userData', JSON.stringify(freshData));
+            if (freshData.clinic) {
+              localStorage.setItem('clinicData', JSON.stringify(freshData.clinic));
+            }
+            
+            setUser(freshData);
+            setClinic(freshData.clinic);
+            setIsLoading(false);
+            return;
+          } else {
+            console.error('Failed to fetch user data, using localStorage');
+          }
+        } catch (error) {
+          console.error('Failed to fetch fresh user data:', error);
+        }
+      }
+
+      // Fallback to localStorage data
+      setUser(localUser);
+      setClinic(localClinic);
+      setIsLoading(false);
+    };
+
+    loadUserData();
+  }, []);
+
+  // Show loading spinner while data is being fetched
+  if (isLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        height: '100vh',
+        flexDirection: 'column',
+        gap: '1rem'
+      }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '4px solid #e5e7eb',
+          borderTop: '4px solid #10b981',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }}></div>
+        <p style={{ color: '#6b7280' }}>Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  // Check if we have user data
+  if (!user) {
+    console.error('No user data available, redirecting to login...');
+    window.location.href = '/login';
+    return null;
+  }
+
+  // Check setup status from user.clinic (more reliable than separate clinicData)
+  const setupComplete = user?.clinic?.is_setup_complete ?? clinic?.is_setup_complete ?? false;
+  
+  console.log('Dashboard - Setup check:', {
+    userClinic: user?.clinic,
+    clinicData: clinic,
+    setupComplete,
+    role: user?.role
+  });
+
+  if (!setupComplete && user?.role === 'admin') {
+    console.log('Redirecting to setup...');
     window.location.href = '/setup';
     return null;
   }
@@ -94,6 +217,16 @@ function SimpleDashboard() {
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  const handleLogout = () => {
+    // Clear all auth data
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('clinicData');
+    
+    // Force navigate to login and prevent back navigation
+    window.location.replace('/login');
+  };
 
   return (
     <div className="sd-layout">
@@ -144,7 +277,7 @@ function SimpleDashboard() {
           <button
             className="sd-logout-btn"
             title="Sign out"
-            onClick={() => { localStorage.clear(); window.location.href = '/login'; }}
+            onClick={handleLogout}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -260,8 +393,8 @@ function App() {
       <Routes>
         <Route path="/"          element={<LandingPage />} />
         <Route path="/login"     element={<Login />} />
-        <Route path="/setup"     element={<SetupWizard />} />
-        <Route path="/dashboard" element={<SimpleDashboard />} />
+        <Route path="/setup"     element={<ProtectedRoute><SetupWizard /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
       </Routes>
     </Router>
   );

@@ -59,7 +59,7 @@ export default function LandingPage() {
       </nav>
 
       <section className="hero-landing">
-        <div className="hero-badge">✨ Welcome to Your Healthcare Portal</div>
+        <div className="hero-badge">Welcome to Your Healthcare Portal</div>
 
         <div className="hero-main">
           <h1>{clinicName}</h1>

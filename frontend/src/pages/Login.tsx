@@ -87,67 +87,23 @@ export default function Login() {
 
   return (
     <div className="login-container">
-      {/* Left Side - Mint Green Info Panel */}
       <div className="info-panel">
-        <div className="brand">
-          <h1>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <div className="logo-container">
+          <div className="logo-wrapper">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
               <circle cx="12" cy="12" r="3"/>
             </svg>
-            {APP_NAME}
-          </h1>
-          <p>Animal Bite Management & Monitoring System</p>
+          </div>
+          <h1>{APP_NAME}</h1>
+          <p className="tagline">Animal Bite Management & Monitoring System</p>
         </div>
 
-        <div className="features-section">
-          <div className="feature-item">
-            <div className="feature-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M20 12V8H4v4M12 4v4M4 8h16M4 16h16v4H4z"/>
-                <circle cx="6" cy="14" r="1"/>
-                <circle cx="18" cy="14" r="1"/>
-              </svg>
-            </div>
-            <div className="feature-text">
-              <h4>Real-time Monitoring</h4>
-              <p>Track bite incidents, vaccination status & patient recovery</p>
-            </div>
-          </div>
-
-          <div className="feature-item">
-            <div className="feature-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-            </div>
-            <div className="feature-text">
-              <h4>Secure & Compliant</h4>
-              <p>HIPAA-ready platform with end-to-end encryption</p>
-            </div>
-          </div>
-
-          <div className="feature-item">
-            <div className="feature-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                <path d="M12 22V12M9 10.5l3-1.5 3 1.5"/>
-              </svg>
-            </div>
-            <div className="feature-text">
-              <h4>Analytics Dashboard</h4>
-              <p>Comprehensive reports and outbreak predictions</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="stats-badge">
-          <div className="stat-number">2,500+</div>
-          <div className="stat-label">Cases Managed</div>
+        <div className="minimal-footer">
+          <div className="version-badge">v2.0</div>
         </div>
       </div>
 
-      {/* Right Side - Login Form */}
       <div className="form-panel">
         <div className="form-header">
           <h2>Welcome back</h2>
@@ -157,7 +113,7 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="login-form">
           {error && (
             <div className="error-message">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="12" y1="8" x2="12" y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -166,11 +122,10 @@ export default function Login() {
             </div>
           )}
 
-          {/* Email Field */}
           <div className="input-group">
             <label>Email Address</label>
             <div className="input-wrapper">
-              <svg className="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg className="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
@@ -184,11 +139,10 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Password Field */}
           <div className="input-group">
             <label>Password</label>
             <div className="input-wrapper">
-              <svg className="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg className="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
@@ -206,12 +160,12 @@ export default function Login() {
                 tabIndex={-1}
               >
                 {showPassword ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
                   </svg>
                 ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.26 3.64m-5.88-2.88a3 3 0 0 1-4.24-4.24"/>
                     <line x1="1" y1="1" x2="23" y2="23"/>
                   </svg>
@@ -220,7 +174,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Remember Me & Forgot Password */}
           <div className="form-footer">
             <label className="remember-me">
               <input
@@ -240,7 +193,6 @@ export default function Login() {
             </a>
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             className="login-button"
@@ -254,7 +206,7 @@ export default function Login() {
             ) : (
               <>
                 Sign in
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12"/>
                   <polyline points="12 5 19 12 12 19"/>
                 </svg>
@@ -264,7 +216,7 @@ export default function Login() {
         </form>
 
         <p className="demo-note">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="12"/>
             <line x1="12" y1="16" x2="12.01" y2="16"/>

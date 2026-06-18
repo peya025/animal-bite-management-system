@@ -1,10 +1,11 @@
-/* Mint Green Color Palette */
+/* Modern Green Color Palette - Same as Landing Page */
 :root {
   --primary: #10b981;
   --primary-dark: #059669;
   --primary-light: #d1fae5;
-  --primary-gradient: #6ee7b7;
+  --primary-gradient-light: #6ee7b7;
   --white: #ffffff;
+  --black: #000000;
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
   --gray-200: #e5e7eb;
@@ -13,6 +14,13 @@
   --gray-500: #6b7280;
   --gray-600: #4b5563;
   --gray-700: #374151;
+  --gray-900: #111827;
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(16, 185, 129, 0.15);
   --error: #ef4444;
   --error-light: #fee2e2;
   --error-dark: #b91c1c;
@@ -27,7 +35,8 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
-  background: #f9fafb;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 50%, #f0fdf4 100%);
+  background-attachment: fixed;
   color: var(--gray-700);
 }
 
@@ -42,155 +51,170 @@ html, body, #root {
   grid-template-columns: 1fr 1fr;
   height: 100vh;
   overflow: hidden;
+  background: var(--white);
 }
 
 /* ===== Info Panel (Left) ===== */
 .info-panel {
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
   color: white;
-  padding: 60px 40px;
+  padding: 80px 48px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  overflow-y: auto;
-}
-
-.brand {
-  margin-bottom: 60px;
-}
-
-.brand h1 {
-  font-size: 28px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 12px;
+  overflow-y: auto;
+  position: relative;
 }
 
-.brand h1 svg {
-  width: 32px;
-  height: 32px;
+.info-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+  pointer-events: none;
 }
 
-.brand p {
-  font-size: 14px;
-  opacity: 0.95;
-  line-height: 1.5;
+.logo-container {
+  text-align: center;
+  position: relative;
+  z-index: 1;
 }
 
-/* Features Section */
-.features-section {
-  flex: 1;
-  margin-bottom: 60px;
-}
-
-.feature-item {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 32px;
-  align-items: flex-start;
-}
-
-.feature-icon {
-  flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
+.logo-wrapper {
+  width: 180px;
+  height: 180px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(20px);
+  border-radius: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 0 auto 40px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.logo-wrapper:hover {
+  transform: scale(1.05);
+}
+
+.logo-wrapper svg {
   color: white;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
 }
 
-.feature-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.feature-text h4 {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 4px;
+.logo-container h1 {
+  font-size: 42px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  letter-spacing: -0.02em;
   color: white;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.feature-text p {
-  font-size: 13px;
-  opacity: 0.85;
-  line-height: 1.4;
+.tagline {
+  font-size: 18px;
+  opacity: 1;
+  line-height: 1.6;
+  font-weight: 500;
+  max-width: 320px;
+  margin: 0 auto;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Stats Badge */
-.stats-badge {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
-  padding: 20px;
+.minimal-footer {
+  position: absolute;
+  bottom: 48px;
+  left: 0;
+  right: 0;
   text-align: center;
+  z-index: 1;
 }
 
-.stat-number {
-  font-size: 32px;
+.version-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 24px;
+  padding: 10px 24px;
+  font-size: 14px;
   font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  font-size: 12px;
-  opacity: 0.85;
-  text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: white;
 }
 
 /* ===== Form Panel (Right) ===== */
 .form-panel {
-  background: white;
-  padding: 60px 40px;
+  background: var(--white);
+  padding: 80px 56px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   overflow-y: auto;
+  position: relative;
+}
+
+.form-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--primary-light), transparent);
 }
 
 .form-header {
-  margin-bottom: 40px;
+  margin-bottom: 48px;
 }
 
 .form-header h2 {
-  font-size: 32px;
-  font-weight: 700;
+  font-size: 36px;
+  font-weight: 800;
   color: var(--gray-900);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--gray-900) 0%, var(--gray-700) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .form-header p {
-  font-size: 16px;
+  font-size: 17px;
   color: var(--gray-500);
+  line-height: 1.6;
 }
 
 /* ===== Login Form ===== */
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  margin-bottom: 24px;
+  gap: 24px;
+  margin-bottom: 32px;
 }
 
 .error-message {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: var(--error-light);
   border: 1px solid #fecaca;
-  border-radius: 8px;
+  border-radius: 12px;
   color: var(--error-dark);
   font-size: 14px;
   font-weight: 500;
   animation: slideDown 0.3s ease;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
 }
 
 .error-message svg {
@@ -213,13 +237,14 @@ html, body, #root {
 .input-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .input-group label {
   font-size: 14px;
   font-weight: 600;
   color: var(--gray-700);
+  letter-spacing: -0.01em;
 }
 
 .input-wrapper {
@@ -230,27 +255,32 @@ html, body, #root {
 
 .input-icon {
   position: absolute;
-  left: 12px;
+  left: 14px;
   color: var(--gray-400);
   flex-shrink: 0;
   pointer-events: none;
+  transition: color 0.3s ease;
 }
 
 .input-wrapper input {
   width: 100%;
-  padding: 12px 12px 12px 40px;
+  padding: 14px 14px 14px 44px;
   border: 2px solid var(--gray-200);
-  border-radius: 8px;
-  font-size: 16px;
+  border-radius: 12px;
+  font-size: 15px;
   font-family: inherit;
-  transition: all 0.3s ease;
-  background: white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--white);
 }
 
 .input-wrapper input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+}
+
+.input-wrapper input:focus + .input-icon {
+  color: var(--primary);
 }
 
 .input-wrapper input::placeholder {
@@ -265,7 +295,7 @@ html, body, #root {
 
 .visibility-toggle {
   position: absolute;
-  right: 12px;
+  right: 14px;
   background: none;
   border: none;
   cursor: pointer;
@@ -274,15 +304,18 @@ html, body, #root {
   align-items: center;
   justify-content: center;
   padding: 8px;
-  transition: color 0.3s ease;
+  transition: all 0.3s ease;
+  border-radius: 8px;
 }
 
 .visibility-toggle:hover {
   color: var(--primary);
+  background: var(--primary-light);
 }
 
 .visibility-toggle:focus {
   outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
 /* ===== Form Footer ===== */
@@ -291,18 +324,23 @@ html, body, #root {
   justify-content: space-between;
   align-items: center;
   font-size: 14px;
-  margin-top: 8px;
-  margin-bottom: 8px;
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
 .remember-me {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
   user-select: none;
   color: var(--gray-600);
   font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.remember-me:hover {
+  color: var(--gray-700);
 }
 
 .remember-me input[type="checkbox"] {
@@ -311,6 +349,7 @@ html, body, #root {
   cursor: pointer;
   accent-color: var(--primary);
   border-radius: 4px;
+  transition: all 0.3s ease;
 }
 
 .remember-me input[type="checkbox"]:disabled {
@@ -321,13 +360,28 @@ html, body, #root {
 .forgot-password {
   color: var(--primary);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
   transition: all 0.3s ease;
+  position: relative;
+}
+
+.forgot-password::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--primary-dark);
+  transition: width 0.3s ease;
 }
 
 .forgot-password:hover {
   color: var(--primary-dark);
-  text-decoration: underline;
+}
+
+.forgot-password:hover::after {
+  width: 100%;
 }
 
 /* ===== Login Button ===== */
@@ -335,28 +389,45 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 24px;
+  gap: 10px;
+  padding: 14px 28px;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
   font-family: inherit;
-  margin-top: 8px;
+  margin-top: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.login-button:hover::before {
+  left: 100%;
 }
 
 .login-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
 }
 
 .login-button:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateY(-1px);
 }
 
 .login-button:disabled {
@@ -366,8 +437,8 @@ html, body, #root {
 
 .spinner {
   display: inline-block;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: white;
   border-radius: 50%;
@@ -384,20 +455,25 @@ html, body, #root {
 .demo-note {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 10px;
+  font-size: 13px;
   color: var(--gray-500);
   text-align: center;
   justify-content: center;
-  margin-top: 24px;
-  padding-top: 24px;
+  margin-top: 28px;
+  padding-top: 28px;
   border-top: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  padding: 16px;
+  border-radius: 12px;
+  font-weight: 500;
 }
 
 .demo-note svg {
   flex-shrink: 0;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
 }
 
 /* ===== Responsive Design ===== */
@@ -411,7 +487,7 @@ html, body, #root {
   }
 
   .form-panel {
-    padding: 40px 24px;
+    padding: 60px 32px;
     justify-content: flex-start;
     min-height: 100vh;
   }
@@ -419,15 +495,15 @@ html, body, #root {
 
 @media (max-width: 768px) {
   .form-panel {
-    padding: 32px 20px;
+    padding: 48px 24px;
   }
 
   .form-header h2 {
-    font-size: 24px;
+    font-size: 28px;
   }
 
   .form-header p {
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .input-wrapper input {
@@ -436,6 +512,7 @@ html, body, #root {
 
   .login-button {
     font-size: 16px;
+    padding: 14px 24px;
   }
 
   .form-footer {
@@ -451,15 +528,15 @@ html, body, #root {
 
 @media (max-width: 480px) {
   .form-panel {
-    padding: 24px 16px;
+    padding: 40px 20px;
   }
 
   .form-header h2 {
-    font-size: 20px;
+    font-size: 24px;
   }
 
   .form-header p {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .feature-item {
@@ -472,5 +549,9 @@ html, body, #root {
 
   .login-button {
     padding: 14px 20px;
+  }
+
+  .demo-note {
+    font-size: 12px;
   }
 }

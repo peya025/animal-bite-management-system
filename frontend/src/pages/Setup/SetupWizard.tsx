@@ -29,6 +29,14 @@ export default function SetupWizard() {
   ];
 
   const handleNext = () => {
+    // Validate Step 2 (Clinic Profile) before proceeding
+    if (currentStep === 2) {
+      if (!setupData.clinicName || !setupData.address || !setupData.phone || !setupData.email) {
+        alert('Please fill in all required fields (Clinic Name, Address, Phone, Email)');
+        return;
+      }
+    }
+
     if (currentStep === 3) {
       // Show confirmation modal before completing setup
       setShowConfirmModal(true);
@@ -45,11 +53,20 @@ export default function SetupWizard() {
 
   const handleCompleteSetup = async () => {
     setShowConfirmModal(false);
+    
     try {
-      // Call API to mark setup as complete
       const token = localStorage.getItem('authToken');
-      const response = await fetch('http://localhost:8000/api/clinic/complete-setup', {
-        method: 'POST',
+      
+      if (!token) {
+        alert('Authentication token not found. Please log in again.');
+        window.location.href = '/login';
+        return;
+      }
+      
+      // Step 1: Update clinic information
+      console.log('Updating clinic information...');
+      const updateResponse = await fetch('http://localhost:8000/api/setup/clinic', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -62,9 +79,44 @@ export default function SetupWizard() {
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        console.error('Update clinic failed:', errorData);
+        alert(`Failed to update clinic information: ${errorData.message || 'Unknown error'}`);
+        return;
+      }
+
+      const updateData = await updateResponse.json();
+      console.log('Clinic updated successfully:', updateData);
+
+      // Step 2: Mark setup as complete
+      console.log('Marking setup as complete...');
+      const completeResponse = await fetch('http://localhost:8000/api/setup/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (completeResponse.ok) {
+        const data = await completeResponse.json();
+        console.log('Setup completed successfully:', data);
+        
+        // Update localStorage with clinic data
         localStorage.setItem('clinicData', JSON.stringify(data.clinic));
+        
+        // Update user data in localStorage to reflect setup completion
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        if (userData.clinic) {
+          userData.clinic.is_setup_complete = true;
+          userData.clinic.setup_completed_at = data.clinic.setup_completed_at;
+          userData.clinic.name = data.clinic.name;
+          userData.clinic.address = data.clinic.address;
+          userData.clinic.phone = data.clinic.phone;
+          userData.clinic.email = data.clinic.email;
+        }
+        localStorage.setItem('userData', JSON.stringify(userData));
 
         // Show success modal then redirect
         setShowSuccessModal(true);
@@ -72,11 +124,13 @@ export default function SetupWizard() {
           window.location.href = '/dashboard';
         }, 2000);
       } else {
-        alert('Failed to complete setup. Please try again.');
+        const errorData = await completeResponse.json();
+        console.error('Complete setup failed:', errorData);
+        alert(`Failed to complete setup: ${errorData.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Setup error:', error);
-      alert('An error occurred. Please try again.');
+      alert(`An error occurred: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
     }
   };
 

@@ -1,18 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { APP_NAME, APP_SHORT_NAME } from '../constants';
 import '../styles/LandingPage.css';
 import antiviralVaccineImg from '../assets/image.png';
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [clinicName, setClinicName] = useState('Animal Bite Treatment Center');
+
+  useEffect(() => {
+    // Try to get clinic name from localStorage if available
+    const clinicData = localStorage.getItem('clinicData');
+    if (clinicData) {
+      try {
+        const clinic = JSON.parse(clinicData);
+        if (clinic.name) {
+          setClinicName(clinic.name);
+        }
+      } catch (e) {
+        console.error('Failed to parse clinic data:', e);
+      }
+    }
+  }, []);
 
   const handleSignIn = () => {
-    // Always go to login page - it will handle redirect if already authenticated
-    window.location.href = '/login';
-  };
-
-  const handleGetStarted = () => {
-    // Always go to login page - it will handle redirect if already authenticated
     window.location.href = '/login';
   };
 
@@ -42,62 +52,62 @@ export default function LandingPage() {
           </button>
 
           <ul className={`nav-links ${isMenuOpen ? 'active' : ''}`}>
-            <li><a href="#features">Features</a></li>
-            <li><a href="#how-it-works">How It Works</a></li>
-            <li><a href="#contact">Contact</a></li>
-            <li><button onClick={handleSignIn} className="nav-btn signin-btn">Sign In</button></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="#help">Help Center</a></li>
+            <li><a href="#contact">Contact Support</a></li>
+            <li><button onClick={handleSignIn} className="nav-btn signin-btn">Staff Sign In</button></li>
           </ul>
         </div>
       </nav>
 
       {/* Hero Section */}
       <section className="hero-landing">
-        <div className="hero-badge">Healthcare Management Platform</div>
+        <div className="hero-badge">Welcome to Your Healthcare Portal</div>
 
         <div className="hero-main">
-          <h1>{APP_NAME}</h1>
+          <h1>{clinicName}</h1>
           <p className="hero-sub">
-            A comprehensive platform for managing Animal Bite Treatment Centers. 
-            Streamline operations, improve patient care, and ensure WHO protocol compliance 
-            with our all-in-one solution.
+            Animal Bite Treatment Center Management System. 
+            Providing efficient, WHO-compliant care for animal bite incidents 
+            with streamlined patient management and vaccination tracking.
           </p>
 
           <div className="hero-cta">
-            <button onClick={handleGetStarted} className="btn btn-pill btn-pill-primary">
-              Access Platform →
+            <button onClick={handleSignIn} className="btn btn-pill btn-pill-primary">
+              Staff Login →
             </button>
-            <a href="#features" className="btn btn-pill btn-pill-light">Explore Features</a>
+            <a href="#help" className="btn btn-pill btn-pill-light">Need Help?</a>
           </div>
         </div>
 
         <div className="hero-metrics">
           <div className="metric">
-            <div className="metric-icon">❤️</div>
-            <div className="metric-number">2,500+</div>
-            <div className="metric-label">Patients Treated</div>
-          </div>
-
-          <div className="metric">
             <div className="metric-icon">🏥</div>
-            <div className="metric-number">1</div>
-            <div className="metric-label">Clinic Deployment</div>
+            <div className="metric-number">24/7</div>
+            <div className="metric-label">System Access</div>
           </div>
 
           <div className="metric">
-            <div className="metric-icon">👤</div>
-            <div className="metric-number">4</div>
-            <div className="metric-label">User Roles</div>
+            <div className="metric-icon">🔒</div>
+            <div className="metric-number">100%</div>
+            <div className="metric-label">Secure</div>
           </div>
 
           <div className="metric">
-            <div className="metric-icon">📈</div>
-            <div className="metric-number">99.9%</div>
-            <div className="metric-label">System Uptime</div>
+            <div className="metric-icon">✓</div>
+            <div className="metric-number">WHO</div>
+            <div className="metric-label">Protocol Compliant</div>
+          </div>
+
+          <div className="metric">
+            <div className="metric-icon">⚡</div>
+            <div className="metric-number">Fast</div>
+            <div className="metric-label">Real-time Updates</div>
           </div>
         </div>
       </section>
 
-      {/* Features Banner + Grid */}
+      {/* About Banner + Info */}
       <section className="features-hero">
         <div className="features-hero-banner">
           <img 
@@ -106,158 +116,184 @@ export default function LandingPage() {
           />
         </div>
 
-        <div id="features" className="section-header">
-          <h2>Everything You Need</h2>
-          <p>Powerful features designed specifically for animal bite treatment center management</p>
+        <div id="about" className="section-header">
+          <h2>About This System</h2>
+          <p>WHO-compliant animal bite management for healthcare professionals</p>
         </div>
 
         <div className="features-grid">
           <div className="feature-card">
             <div className="feature-icon">🩺</div>
             <h3>WHO Protocol Compliance</h3>
-            <p>Automated 5-dose vaccination schedule following WHO rabies PEP guidelines</p>
+            <p>Automated 5-dose vaccination schedule following WHO rabies PEP guidelines (Day 0, 3, 7, 14, and 28)</p>
           </div>
 
           <div className="feature-card">
             <div className="feature-icon">👥</div>
             <h3>Patient Management</h3>
-            <p>Complete patient registry with auto-generated patient numbers and records</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">📅</div>
-            <h3>Smart Scheduling</h3>
-            <p>Automatic vaccination schedule generation on Day 0, 3, 7, 14, and 28</p>
+            <p>Complete patient registry with auto-generated patient numbers and comprehensive medical records</p>
           </div>
 
           <div className="feature-card">
             <div className="feature-icon">📋</div>
             <h3>Queue Management</h3>
-            <p>Real-time patient queue with priority management and status tracking</p>
+            <p>Real-time patient queue with priority management and status tracking for efficient workflows</p>
           </div>
 
           <div className="feature-card">
             <div className="feature-icon">🔒</div>
             <h3>Role-Based Access</h3>
-            <p>4 user roles: Admin, Registration, Triage, and Treatment staff</p>
+            <p>Secure access for Admin, Registration, Triage, and Treatment staff with appropriate permissions</p>
           </div>
 
           <div className="feature-card">
-            <div className="feature-icon">⏱️</div>
-            <h3>Real-Time Tracking</h3>
-            <p>Live bite case monitoring and vaccination administration tracking</p>
+            <div className="feature-icon">📊</div>
+            <h3>Real-Time Reporting</h3>
+            <p>Live bite case monitoring, vaccination tracking, and comprehensive statistics dashboard</p>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-icon">💾</div>
+            <h3>Data Security</h3>
+            <p>Secure data storage with regular backups and compliance with healthcare data standards</p>
           </div>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section id="how-it-works" className="how-it-works">
+      {/* Help Center */}
+      <section id="help" className="how-it-works">
         <div className="section-header">
-          <h2>How It Works</h2>
-          <p>Simple, efficient workflow for animal bite incident management</p>
+          <h2>Help Center</h2>
+          <p>Quick guides and resources for staff members</p>
         </div>
 
-        <div className="steps-container">
-          <div className="step">
-            <div className="step-number">1</div>
-            <h3>Register Patient</h3>
-            <p>Registration staff quickly registers patients with auto-generated patient numbers</p>
+        <div className="features-grid" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <div className="feature-card" style={{ textAlign: 'left' }}>
+            <div className="feature-icon">📖</div>
+            <h3>User Guides</h3>
+            <p>Step-by-step instructions for each role: Admin, Registration, Triage, and Treatment staff</p>
+            <a href="#contact" style={{ color: '#10b981', textDecoration: 'none', fontSize: '0.9rem' }}>
+              Request documentation →
+            </a>
           </div>
 
-          <div className="step-arrow">→</div>
-
-          <div className="step">
-            <div className="step-number">2</div>
-            <h3>Assess & Document</h3>
-            <p>Triage staff creates bite case with WHO category assessment and animal details</p>
+          <div className="feature-card" style={{ textAlign: 'left' }}>
+            <div className="feature-icon">🎥</div>
+            <h3>Video Tutorials</h3>
+            <p>Watch demonstration videos on patient registration, bite case management, and vaccination tracking</p>
+            <a href="#contact" style={{ color: '#10b981', textDecoration: 'none', fontSize: '0.9rem' }}>
+              Request training →
+            </a>
           </div>
 
-          <div className="step-arrow">→</div>
-
-          <div className="step">
-            <div className="step-number">3</div>
-            <h3>Auto Schedule</h3>
-            <p>System automatically generates 5-dose vaccination schedule based on WHO protocol</p>
+          <div className="feature-card" style={{ textAlign: 'left' }}>
+            <div className="feature-icon">❓</div>
+            <h3>FAQs</h3>
+            <p>Common questions about system features, workflows, WHO protocols, and troubleshooting</p>
+            <a href="#contact" style={{ color: '#10b981', textDecoration: 'none', fontSize: '0.9rem' }}>
+              View FAQs →
+            </a>
           </div>
 
-          <div className="step-arrow">→</div>
-
-          <div className="step">
-            <div className="step-number">4</div>
-            <h3>Track Treatment</h3>
-            <p>Treatment staff records vaccinations and monitors patient progress</p>
+          <div className="feature-card" style={{ textAlign: 'left' }}>
+            <div className="feature-icon">🛠️</div>
+            <h3>Technical Support</h3>
+            <p>Need help with login issues, system errors, or technical questions? Contact our support team</p>
+            <a href="#contact" style={{ color: '#10b981', textDecoration: 'none', fontSize: '0.9rem' }}>
+              Get support →
+            </a>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="cta-section">
+      {/* Contact Support Section */}
+      <section id="contact" className="cta-section">
         <div className="cta-content">
-          <h2>Ready to Transform Your Animal Bite Management?</h2>
-          <p>Join healthcare facilities improving patient care with streamlined workflows</p>
-          <button onClick={handleGetStarted} className="btn btn-primary btn-large">
-            Get Started Now
-          </button>
+          <h2>Need Assistance?</h2>
+          <p>Our support team is here to help with any questions or technical issues</p>
+          
+          <div style={{ 
+            display: 'flex', 
+            gap: '2rem', 
+            justifyContent: 'center', 
+            flexWrap: 'wrap',
+            marginTop: '2rem',
+            fontSize: '0.95rem'
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📧</div>
+              <strong>Email Support</strong>
+              <p style={{ margin: '0.25rem 0', color: '#6b7280' }}>support@abmms.dev</p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📱</div>
+              <strong>Phone Support</strong>
+              <p style={{ margin: '0.25rem 0', color: '#6b7280' }}>+63 XXX XXX XXXX</p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>⏰</div>
+              <strong>Support Hours</strong>
+              <p style={{ margin: '0.25rem 0', color: '#6b7280' }}>Mon-Fri: 8AM - 5PM PHT</p>
+            </div>
+          </div>
+
+          <div style={{ 
+            marginTop: '2rem',
+            padding: '1.5rem',
+            background: '#f3f4f6',
+            borderRadius: '8px',
+            maxWidth: '600px',
+            margin: '2rem auto 0'
+          }}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#4b5563' }}>
+              <strong>For urgent technical issues:</strong> Contact your clinic administrator or 
+              email <span style={{ color: '#10b981' }}>urgent@abmms.dev</span> with "URGENT" in the subject line.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer id="contact" className="footer">
+      <footer className="footer">
         <div className="footer-content">
           <div className="footer-section">
             <h4>{APP_SHORT_NAME}</h4>
             <p>Animal Bite Management & Monitoring System</p>
-            <div className="social-links">
-              <a href="#" aria-label="Facebook">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-                </svg>
-              </a>
-              <a href="#" aria-label="Twitter">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" />
-                </svg>
-              </a>
-              <a href="#" aria-label="LinkedIn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
-                  <rect x="2" y="9" width="4" height="12" />
-                  <circle cx="4" cy="4" r="2" />
-                </svg>
-              </a>
-            </div>
+            <p style={{ fontSize: '0.85rem', color: '#9ca3af', marginTop: '0.5rem' }}>
+              Developed for {clinicName}
+            </p>
           </div>
 
           <div className="footer-section">
-            <h5>Product</h5>
+            <h5>Quick Links</h5>
             <ul>
-              <li><a href="#features">Features</a></li>
-              <li><a href="#how-it-works">How It Works</a></li>
-              <li><button onClick={handleSignIn}>Sign In</button></li>
-            </ul>
-          </div>
-
-          <div className="footer-section">
-            <h5>Resources</h5>
-            <ul>
-              <li><a href="#about">About</a></li>
+              <li><a href="#about">About System</a></li>
               <li><a href="#help">Help Center</a></li>
-              <li><a href="#contact">Contact Us</a></li>
+              <li><button onClick={handleSignIn}>Staff Login</button></li>
             </ul>
           </div>
 
           <div className="footer-section">
-            <h5>Legal</h5>
+            <h5>Support</h5>
             <ul>
-              <li><a href="#privacy">Privacy Policy</a></li>
-              <li><a href="#terms">Terms of Service</a></li>
-              <li><a href="#security">Security</a></li>
+              <li><a href="#contact">Contact Support</a></li>
+              <li><a href="#help">User Guides</a></li>
+              <li><a href="#help">FAQs</a></li>
+            </ul>
+          </div>
+
+          <div className="footer-section">
+            <h5>System Info</h5>
+            <ul>
+              <li><a href="#about">Features</a></li>
+              <li><a href="#about">Security</a></li>
+              <li><a href="#contact">Report Issue</a></li>
             </ul>
           </div>
         </div>
 
         <div className="footer-bottom">
-          <p>&copy; 2026 {APP_NAME}. All rights reserved.</p>
+          <p>&copy; 2026 {APP_NAME}. Powered by ABMMS. All rights reserved.</p>
         </div>
       </footer>
     </div>

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import SetupWizard from './pages/Setup/SetupWizard';
+import ConfirmationModal from './components/ConfirmationModal';
 import './App.css';
 import './SimpleDashboard.css';
 
@@ -102,6 +103,7 @@ function SimpleDashboard() {
   const [user, setUser] = useState<any>(null);
   const [clinic, setClinic] = useState<any>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   
   useEffect(() => {
     const loadUserData = async () => {
@@ -219,6 +221,10 @@ function SimpleDashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = () => {
     // Clear all auth data
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
@@ -370,6 +376,19 @@ function SimpleDashboard() {
 
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <ConfirmationModal
+          variant="warning"
+          title="Confirm Logout"
+          message="Are you sure you want to sign out? You'll need to log in again to access the system."
+          confirmLabel="Yes, sign out"
+          cancelLabel="Cancel"
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogoutModal(false)}
+        />
+      )}
     </div>
   );
 }

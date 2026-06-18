@@ -9,35 +9,39 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
-    // Validate form
+    // Validate form before showing modal
     if (!email || !password) {
       setError('Please fill in all fields');
-      setLoading(false);
       return;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address');
-      setLoading(false);
       return;
     }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
-      setLoading(false);
       return;
     }
 
+    // Show confirmation modal
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmLogin = async () => {
+    setShowConfirmModal(false);
+    setLoading(true);
+
     try {
-      // Temporary: Direct API call without auth service
       const response = await fetch('http://localhost:8000/api/login', {
         method: 'POST',
         headers: {
@@ -57,14 +61,15 @@ export default function Login() {
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user.clinic));
-      
-      // Redirect
-      alert('Login successful! Redirecting to dashboard...');
-      window.location.href = '/dashboard';
+
+      // Show success modal then redirect
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 2000);
     } catch (err: any) {
       console.error('Login error:', err);
-      const errorMessage = err.message || 'Invalid email or password';
-      setError(errorMessage);
+      setError(err.message || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -257,6 +262,57 @@ export default function Login() {
           Demo: admin@clinic.com / password123
         </p>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="modal-overlay" onClick={() => setShowConfirmModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-icon modal-icon--confirm">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                <polyline points="10 17 15 12 10 7"/>
+                <line x1="15" y1="12" x2="3" y2="12"/>
+              </svg>
+            </div>
+            <h3 className="modal-title">Sign in to your account?</h3>
+            <p className="modal-message">
+              You're signing in as <strong>{email}</strong>. Make sure this is the correct account.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="modal-btn modal-btn--cancel"
+                onClick={() => setShowConfirmModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="modal-btn modal-btn--confirm"
+                onClick={handleConfirmLogin}
+              >
+                Yes, sign in
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-icon modal-icon--success">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <h3 className="modal-title">Login Successful!</h3>
+            <p className="modal-message">Welcome back. Redirecting you to the dashboard…</p>
+            <div className="modal-progress">
+              <div className="modal-progress-bar"></div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

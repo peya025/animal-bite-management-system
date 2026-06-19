@@ -5,6 +5,7 @@ import antiviralVaccineImg from '../assets/image.png';
 import icon from '../assets/metrics/24 7.png'
 import secureIcon from '../assets/metrics/secure.png';
 
+
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [clinicName, setClinicName] = useState('Animal Bite Treatment Center');

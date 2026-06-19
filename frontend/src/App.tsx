@@ -177,8 +177,6 @@ function SimpleDashboard() {
     : '?';
 
   const now = new Date();
-  const hour = now.getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const confirmLogout = () => {
     localStorage.removeItem('authToken');
@@ -257,53 +255,107 @@ function SimpleDashboard() {
         </header>
 
         <main className="sd-content">
-          <div className="sd-greeting">
+          <div className="sd-dash-header">
             <div>
-              <h1>{greeting}, {user?.name?.split(' ')[0] || 'User'} 👋</h1>
-              <p>Here's your overview for today.</p>
+              <h1>Animal Bite Treatment Center</h1>
+              <p>Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+            </div>
+            <div className="sd-dash-tabs">
+              <button className="sd-dash-tab sd-dash-tab--active">Overview</button>
+              <button className="sd-dash-tab">Cases</button>
+              <button className="sd-dash-tab">Vaccinations</button>
             </div>
           </div>
 
-          <div className="sd-stats">
-            <SdStatCard label="Total Patients"       value="0" color="#3b82f6" bg="#dbeafe"
-              icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
-            />
-            <SdStatCard label="Active Cases"         value="0" color="#ef4444" bg="#fee2e2"
-              icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>}
-            />
-            <SdStatCard label="Pending Vaccinations" value="0" color="#f59e0b" bg="#fef3c7"
-              icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2"><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/><circle cx="12" cy="12" r="9"/></svg>}
-            />
-            <SdStatCard label="Today's Queue"        value="0" color="#10b981" bg="#d1fae5"
-              icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>}
-            />
+          {/* 4×2 stat cards */}
+          <div className="sd-cards-grid">
+            <SdCard color="purple"  label="Total Patients"      value="0" sub="Registered" />
+            <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
+            <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
+            <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
+            <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
+            <SdCard color="cyan"    label="Follow-up Patients"   value="0" sub="This week" />
+            <SdCard color="green"   label="Bite Cases"           value="0" sub="Total" />
+            <SdCard color="emerald" label="New Today"            value="0" sub="Registered" />
           </div>
 
-          <div className="sd-info-card">
-            <div className="sd-info-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
+          {/* Charts row */}
+          <div className="sd-charts-row">
+            <div className="sd-chart-card">
+              <p className="sd-chart-title">Cases Over Time <span>(last 6 months)</span></p>
+              <SdLineChart />
             </div>
-            <div>
-              <h3>System Ready</h3>
-              <p>You're logged in as <strong>{ROLE_LABELS[user?.role] || user?.role}</strong> at <strong>{clinic?.name}</strong>. Use the sidebar to navigate.</p>
+            <div className="sd-chart-card">
+              <p className="sd-chart-title">Case Distribution</p>
+              <SdDonutChart
+                data={[
+                  { label: 'Category I',   pct: 35, color: '#4f7ef7' },
+                  { label: 'Category II',  pct: 40, color: '#6c63ff' },
+                  { label: 'Category III', pct: 25, color: '#10b981' },
+                ]}
+              />
+            </div>
+            <div className="sd-filter-card">
+              <p className="sd-filter-title">Filters</p>
+              <div className="sd-filter-group">
+                <span className="sd-filter-label">Role</span>
+                <select className="sd-filter-select">
+                  <option>All</option><option>Admin</option><option>Triage</option>
+                  <option>Registration</option><option>Treatment</option>
+                </select>
+              </div>
+              <hr className="sd-filter-divider" />
+              <div className="sd-filter-group">
+                <span className="sd-filter-label">Status</span>
+                <select className="sd-filter-select">
+                  <option>All</option><option>Ongoing</option>
+                  <option>Completed</option><option>Abandoned</option>
+                </select>
+              </div>
+              <hr className="sd-filter-divider" />
+              <div className="sd-filter-group">
+                <span className="sd-filter-label">Date Range</span>
+                <select className="sd-filter-select">
+                  <option>This Month</option><option>Last 3 Months</option>
+                  <option>Last 6 Months</option><option>This Year</option>
+                </select>
+              </div>
+              <hr className="sd-filter-divider" />
+              <div style={{ marginTop: 'auto' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#1e2a4a', margin: '0 0 8px' }}>Quick Links</p>
+                <button className="sd-filter-link" onClick={() => { window.location.href = '/patients'; }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                  </svg>
+                  View Patients
+                </button>
+                <button className="sd-filter-link" style={{ marginTop: 8 }} onClick={() => { window.location.href = '/bite-cases'; }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                  </svg>
+                  View Cases
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="sd-quick-grid">
-            {visibleNav.filter(n => n.path !== '/dashboard').map(item => (
-              <button
-                key={item.path}
-                className="sd-quick-btn"
-                onClick={() => { window.location.href = item.path; }}
-              >
-                <span className="sd-quick-icon">{NAV_ICONS[item.label]}</span>
-                <span>{item.label}</span>
-              </button>
-            ))}
+          {/* Bottom row */}
+          <div className="sd-charts-bottom">
+            <div className="sd-chart-card">
+              <p className="sd-chart-title">Vaccination Trend <span>(last 6 months)</span></p>
+              <SdLineChart color="#10b981" />
+            </div>
+            <div className="sd-chart-card">
+              <p className="sd-chart-title">Animal Bite Severity</p>
+              <SdDonutChart
+                data={[
+                  { label: 'Cat. I (Minor)',    pct: 30, color: '#10b981' },
+                  { label: 'Cat. II (Moderate)', pct: 45, color: '#f59e0b' },
+                  { label: 'Cat. III (Severe)',  pct: 25, color: '#ef4444' },
+                ]}
+              />
+            </div>
           </div>
         </main>
       </div>
@@ -323,13 +375,77 @@ function SimpleDashboard() {
   );
 }
 
-function SdStatCard({ label, value, color, bg, icon }: any) {
+function SdCard({ color, label, value, sub }: { color: string; label: string; value: string; sub: string }) {
   return (
-    <div className="sd-stat-card" style={{ borderTop: `3px solid ${color}` }}>
-      <div className="sd-stat-icon" style={{ background: bg }}>{icon}</div>
-      <div className="sd-stat-body">
-        <span className="sd-stat-value">{value}</span>
-        <span className="sd-stat-label">{label}</span>
+    <div className={`sd-card sd-card--${color}`}>
+      <p className="sd-card-label">{label}</p>
+      <p className="sd-card-value">{value}</p>
+      <p className="sd-card-sub">{sub}</p>
+    </div>
+  );
+}
+
+function SdLineChart({ color = '#4f7ef7' }: { color?: string }) {
+  const points = [20, 45, 30, 60, 40, 75, 55, 80, 65, 90, 70, 85];
+  const w = 400, h = 130, pad = 20;
+  const maxV = Math.max(...points);
+  const xs = points.map((_, i) => pad + (i / (points.length - 1)) * (w - pad * 2));
+  const ys = points.map(v => pad + (1 - v / maxV) * (h - pad * 2));
+  const path = xs.map((x, i) => `${i === 0 ? 'M' : 'L'} ${x} ${ys[i]}`).join(' ');
+  const area = `${path} L ${xs[xs.length - 1]} ${h - pad} L ${xs[0]} ${h - pad} Z`;
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="sd-line-chart" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#grad-${color.replace('#', '')})`} />
+      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {xs.map((x, i) => i % 2 === 0 && (
+        <text key={i} x={x} y={h - 4} textAnchor="middle" fontSize="9" fill="#9ca3af">
+          {months[i]}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
+function SdDonutChart({ data }: { data: { label: string; pct: number; color: string }[] }) {
+  const r = 50, cx = 70, cy = 70, stroke = 22;
+  const circ = 2 * Math.PI * r;
+  let offset = 0;
+  const slices = data.map(d => {
+    const len = (d.pct / 100) * circ;
+    const s = { ...d, dasharray: `${len} ${circ - len}`, offset };
+    offset += len;
+    return s;
+  });
+  return (
+    <div className="sd-donut-wrap">
+      <svg viewBox="0 0 140 140" width="140" height="140">
+        {slices.map((s, i) => (
+          <circle key={i} cx={cx} cy={cy} r={r}
+            fill="none" stroke={s.color} strokeWidth={stroke}
+            strokeDasharray={s.dasharray}
+            strokeDashoffset={-s.offset}
+            transform="rotate(-90, 70, 70)"
+          />
+        ))}
+        <text x={cx} y={cy + 5} textAnchor="middle" fontSize="14" fontWeight="700" fill="#1e2a4a">
+          {data.reduce((a, d) => a + d.pct, 0)}%
+        </text>
+      </svg>
+      <div className="sd-donut-legend">
+        {data.map((d, i) => (
+          <div key={i} className="sd-donut-legend-item">
+            <div className="sd-donut-legend-dot" style={{ background: d.color }} />
+            <span>{d.label}</span>
+            <span className="sd-donut-legend-pct">{d.pct}%</span>
+          </div>
+        ))}
       </div>
     </div>
   );

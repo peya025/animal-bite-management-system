@@ -403,7 +403,7 @@ export default function AddPatientModal({ onClose, onSuccess }: Props) {
             </Field>
           </div>
           <div className="fm-section">
-            <p className="fm-section-title">II. For CHU / RHU Personnel Only (Para sa Kinatawan ng CHU / RHU Lamang)</p>
+            <p className="fm-section-title">II. For CHU / RHU Personnel Only</p>
 
             <div className="fm-grid fm-grid--2" style={{marginBottom:14}}>
               <Field label="Mode of Transaction">

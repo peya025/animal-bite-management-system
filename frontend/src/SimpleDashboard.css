@@ -429,3 +429,298 @@
   .sd-content { padding: 20px 16px; }
   .sd-topbar-date { display: none; }
 }
+
+/* ===== CRM Dashboard ===== */
+
+/* Dash header */
+.sd-dash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.sd-dash-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1e2a4a;
+  margin: 0 0 4px;
+}
+
+.sd-dash-header p {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.sd-dash-tabs {
+  display: flex;
+  gap: 6px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.sd-dash-tab {
+  padding: 7px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.sd-dash-tab:hover { color: #1e2a4a; }
+
+.sd-dash-tab--active {
+  background: #fff;
+  color: #1e2a4a;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+/* 4×2 stat cards grid */
+.sd-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.sd-card {
+  border-radius: 12px;
+  padding: 18px 20px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sd-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.sd-card::after {
+  content: '';
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+}
+
+.sd-card-label {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.85;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.sd-card-value {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  line-height: 1;
+}
+
+.sd-card-sub {
+  font-size: 11px;
+  opacity: 0.75;
+  margin: 0;
+}
+
+/* Card color variants */
+.sd-card--purple  { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.sd-card--blue    { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+.sd-card--indigo  { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.sd-card--teal    { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+.sd-card--violet  { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
+.sd-card--cyan    { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+.sd-card--green   { background: linear-gradient(135deg, #22c55e, #16a34a); }
+.sd-card--emerald { background: linear-gradient(135deg, #10b981, #059669); }
+
+/* Charts row (3 columns: line + donut + filter) */
+.sd-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 280px;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Charts bottom row (2 columns) */
+.sd-charts-bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Chart card */
+.sd-chart-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sd-chart-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e2a4a;
+  margin: 0;
+}
+
+.sd-chart-title span {
+  font-weight: 400;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+/* SVG line chart */
+.sd-line-chart {
+  width: 100%;
+  height: 130px;
+  display: block;
+}
+
+/* Donut chart */
+.sd-donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sd-donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 110px;
+}
+
+.sd-donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.sd-donut-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sd-donut-legend-pct {
+  margin-left: auto;
+  font-weight: 700;
+  color: #1e2a4a;
+}
+
+/* Filter/slicer card */
+.sd-filter-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sd-filter-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e2a4a;
+  margin: 0 0 14px;
+}
+
+.sd-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.sd-filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sd-filter-select {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1e2a4a;
+  background: #f9fafb;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.sd-filter-select:focus { border-color: #6366f1; }
+
+.sd-filter-divider {
+  border: none;
+  border-top: 1px solid #f3f4f6;
+  margin: 4px 0 12px;
+}
+
+.sd-filter-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.sd-filter-link:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #2563eb;
+}
+
+/* ===== Responsive – CRM dashboard ===== */
+@media (max-width: 1200px) {
+  .sd-cards-grid { grid-template-columns: repeat(2, 1fr); }
+  .sd-charts-row { grid-template-columns: 1fr 1fr; }
+  .sd-filter-card { grid-column: span 2; }
+}
+
+@media (max-width: 768px) {
+  .sd-cards-grid { grid-template-columns: repeat(2, 1fr); }
+  .sd-charts-row,
+  .sd-charts-bottom { grid-template-columns: 1fr; }
+  .sd-filter-card { grid-column: auto; }
+}

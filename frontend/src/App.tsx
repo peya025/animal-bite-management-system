@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import SetupWizard from './pages/Setup/SetupWizard';
+import PatientList from './pages/Patients/PatientList';
 import ConfirmationModal from './components/ConfirmationModal';
 import './App.css';
 import './SimpleDashboard.css';
@@ -17,30 +18,26 @@ function isAuthenticated(): boolean {
 // ─── Protected Route Wrapper ───────────────────────────────────
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  
   useEffect(() => {
-    // Check auth on mount and when location changes
     if (!isAuthenticated()) {
       window.location.href = '/login';
     }
   }, [location.pathname]);
-
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />;
   }
-
   return <>{children}</>;
 }
 
 // ─── Role-aware nav items ───────────────────────────────────────
 const NAV = [
-  { label: 'Dashboard',    path: '/dashboard',   roles: ['admin','registration','triage','treatment'] },
-  { label: 'Patients',     path: '/patients',    roles: ['admin','registration','triage','treatment'] },
-  { label: 'Queue',        path: '/queue',       roles: ['admin','registration','triage'] },
-  { label: 'Bite Cases',   path: '/bite-cases',  roles: ['admin','triage','treatment'] },
-  { label: 'Vaccinations', path: '/vaccinations',roles: ['admin','triage','treatment'] },
-  { label: 'Users',        path: '/users',       roles: ['admin'] },
-  { label: 'Clinic Setup', path: '/setup',       roles: ['admin'] },
+  { label: 'Dashboard',    path: '/dashboard',    roles: ['admin','registration','triage','treatment'] },
+  { label: 'Patients',     path: '/patients',     roles: ['admin','registration','triage','treatment'] },
+  { label: 'Queue',        path: '/queue',        roles: ['admin','registration','triage'] },
+  { label: 'Bite Cases',   path: '/bite-cases',   roles: ['admin','triage','treatment'] },
+  { label: 'Vaccinations', path: '/vaccinations', roles: ['admin','triage','treatment'] },
+  { label: 'Users',        path: '/users',        roles: ['admin'] },
+  { label: 'Clinic Setup', path: '/setup',        roles: ['admin'] },
 ];
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
@@ -104,24 +101,18 @@ function SimpleDashboard() {
   const [clinic, setClinic] = useState<any>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  
+
   useEffect(() => {
     const loadUserData = async () => {
-      // Double-check auth on component mount
       if (!isAuthenticated()) {
         window.location.href = '/login';
         return;
       }
-
-      // Get data from localStorage first
       const userData = localStorage.getItem('userData');
       const clinicData = localStorage.getItem('clinicData');
       const localUser = userData ? JSON.parse(userData) : null;
       const localClinic = clinicData ? JSON.parse(clinicData) : (localUser?.clinic || null);
 
-      console.log('Initial localStorage data:', { localUser, localClinic });
-
-      // For admin users, fetch fresh data to ensure setup status is accurate
       if (localUser?.role === 'admin') {
         try {
           const token = localStorage.getItem('authToken');
@@ -131,87 +122,56 @@ function SimpleDashboard() {
               'Accept': 'application/json',
             },
           });
-
           if (response.ok) {
             const freshData = await response.json();
-            console.log('Fresh user data from API:', freshData);
-            
-            // Update localStorage with fresh data
             localStorage.setItem('userData', JSON.stringify(freshData));
             if (freshData.clinic) {
               localStorage.setItem('clinicData', JSON.stringify(freshData.clinic));
             }
-            
             setUser(freshData);
             setClinic(freshData.clinic);
             setIsLoading(false);
             return;
-          } else {
-            console.error('Failed to fetch user data, using localStorage');
           }
         } catch (error) {
           console.error('Failed to fetch fresh user data:', error);
         }
       }
-
-      // Fallback to localStorage data
       setUser(localUser);
       setClinic(localClinic);
       setIsLoading(false);
     };
-
     loadUserData();
   }, []);
 
-  // Show loading spinner while data is being fetched
   if (isLoading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        height: '100vh',
-        flexDirection: 'column',
-        gap: '1rem'
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100vh', flexDirection: 'column', gap: '1rem'
       }}>
         <div style={{
-          width: '40px',
-          height: '40px',
-          border: '4px solid #e5e7eb',
-          borderTop: '4px solid #10b981',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
+          width: '40px', height: '40px',
+          border: '4px solid #e5e7eb', borderTop: '4px solid #10b981',
+          borderRadius: '50%', animation: 'spin 1s linear infinite'
         }}></div>
         <p style={{ color: '#6b7280' }}>Loading dashboard...</p>
       </div>
     );
   }
 
-  // Check if we have user data
   if (!user) {
-    console.error('No user data available, redirecting to login...');
     window.location.href = '/login';
     return null;
   }
 
-  // Check setup status from user.clinic (more reliable than separate clinicData)
   const setupComplete = user?.clinic?.is_setup_complete ?? clinic?.is_setup_complete ?? false;
-  
-  console.log('Dashboard - Setup check:', {
-    userClinic: user?.clinic,
-    clinicData: clinic,
-    setupComplete,
-    role: user?.role
-  });
-
   if (!setupComplete && user?.role === 'admin') {
-    console.log('Redirecting to setup...');
     window.location.href = '/setup';
     return null;
   }
 
   const visibleNav = NAV.filter(n => user?.role && n.roles.includes(user.role));
-
   const initials = user?.name
     ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : '?';
@@ -220,27 +180,17 @@ function SimpleDashboard() {
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  const handleLogout = () => {
-    setShowLogoutModal(true);
-  };
-
   const confirmLogout = () => {
-    // Clear all auth data
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
     localStorage.removeItem('clinicData');
-    
-    // Force navigate to login and prevent back navigation
     window.location.replace('/login');
   };
 
   return (
     <div className="sd-layout">
-
       {/* ── Sidebar ── */}
       <aside className={`sd-sidebar ${collapsed ? 'sd-sidebar--collapsed' : ''}`}>
-
-        {/* Brand */}
         <div className="sd-brand">
           <div className="sd-brand-logo">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
@@ -256,7 +206,6 @@ function SimpleDashboard() {
           )}
         </div>
 
-        {/* Nav */}
         <nav className="sd-nav">
           {visibleNav.map(item => (
             <button
@@ -271,7 +220,6 @@ function SimpleDashboard() {
           ))}
         </nav>
 
-        {/* User */}
         <div className="sd-user">
           <div className="sd-user-avatar">{initials}</div>
           {!collapsed && (
@@ -280,11 +228,7 @@ function SimpleDashboard() {
               <span className="sd-user-role">{ROLE_LABELS[user?.role] || user?.role}</span>
             </div>
           )}
-          <button
-            className="sd-logout-btn"
-            title="Sign out"
-            onClick={handleLogout}
-          >
+          <button className="sd-logout-btn" title="Sign out" onClick={() => setShowLogoutModal(true)}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
               <polyline points="16 17 21 12 16 7"/>
@@ -293,21 +237,15 @@ function SimpleDashboard() {
           </button>
         </div>
 
-        {/* Collapse toggle */}
         <button className="sd-toggle" onClick={() => setCollapsed(!collapsed)}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            {collapsed
-              ? <path d="M9 18l6-6-6-6"/>
-              : <path d="M15 18l-6-6 6-6"/>
-            }
+            {collapsed ? <path d="M9 18l6-6-6-6"/> : <path d="M15 18l-6-6 6-6"/>}
           </svg>
         </button>
       </aside>
 
       {/* ── Main ── */}
       <div className="sd-main">
-
-        {/* Topbar */}
         <header className="sd-topbar">
           <span className="sd-topbar-title">Dashboard</span>
           <div className="sd-topbar-right">
@@ -318,10 +256,7 @@ function SimpleDashboard() {
           </div>
         </header>
 
-        {/* Content */}
         <main className="sd-content">
-
-          {/* Greeting */}
           <div className="sd-greeting">
             <div>
               <h1>{greeting}, {user?.name?.split(' ')[0] || 'User'} 👋</h1>
@@ -329,7 +264,6 @@ function SimpleDashboard() {
             </div>
           </div>
 
-          {/* Stat cards */}
           <div className="sd-stats">
             <SdStatCard label="Total Patients"       value="0" color="#3b82f6" bg="#dbeafe"
               icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
@@ -345,7 +279,6 @@ function SimpleDashboard() {
             />
           </div>
 
-          {/* Info card */}
           <div className="sd-info-card">
             <div className="sd-info-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
@@ -360,7 +293,6 @@ function SimpleDashboard() {
             </div>
           </div>
 
-          {/* Quick actions */}
           <div className="sd-quick-grid">
             {visibleNav.filter(n => n.path !== '/dashboard').map(item => (
               <button
@@ -373,11 +305,9 @@ function SimpleDashboard() {
               </button>
             ))}
           </div>
-
         </main>
       </div>
 
-      {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <ConfirmationModal
           variant="warning"
@@ -405,6 +335,109 @@ function SdStatCard({ label, value, color, bg, icon }: any) {
   );
 }
 
+// ─── Shared layout wrapper for inner pages ─────────────────────
+function AppLayout({ children, title }: { children: React.ReactNode; title: string }) {
+  const userData   = localStorage.getItem('userData');
+  const clinicData = localStorage.getItem('clinicData');
+  const user   = userData   ? JSON.parse(userData)   : null;
+  const clinic = clinicData ? JSON.parse(clinicData) : null;
+
+  const [collapsed, setCollapsed]       = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const visibleNav = NAV.filter(n => user?.role && n.roles.includes(user.role));
+  const initials = user?.name
+    ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
+
+  const confirmLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('clinicData');
+    window.location.replace('/login');
+  };
+
+  return (
+    <div className="sd-layout">
+      <aside className={`sd-sidebar ${collapsed ? 'sd-sidebar--collapsed' : ''}`}>
+        <div className="sd-brand">
+          <div className="sd-brand-logo">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+          {!collapsed && (
+            <div className="sd-brand-text">
+              <span className="sd-brand-clinic">{clinic?.name || 'Clinic'}</span>
+              <span className="sd-brand-app">ABTC System</span>
+            </div>
+          )}
+        </div>
+        <nav className="sd-nav">
+          {visibleNav.map(item => (
+            <button
+              key={item.path}
+              className={`sd-nav-item ${window.location.pathname === item.path ? 'sd-nav-item--active' : ''}`}
+              onClick={() => { window.location.href = item.path; }}
+              title={collapsed ? item.label : undefined}
+            >
+              <span className="sd-nav-icon">{NAV_ICONS[item.label]}</span>
+              {!collapsed && <span className="sd-nav-label">{item.label}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="sd-user">
+          <div className="sd-user-avatar">{initials}</div>
+          {!collapsed && (
+            <div className="sd-user-info">
+              <span className="sd-user-name">{user?.name || 'User'}</span>
+              <span className="sd-user-role">{ROLE_LABELS[user?.role] || user?.role}</span>
+            </div>
+          )}
+          <button className="sd-logout-btn" title="Sign out" onClick={() => setShowLogoutModal(true)}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+        <button className="sd-toggle" onClick={() => setCollapsed(!collapsed)}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            {collapsed ? <path d="M9 18l6-6-6-6"/> : <path d="M15 18l-6-6 6-6"/>}
+          </svg>
+        </button>
+      </aside>
+
+      <div className="sd-main">
+        <header className="sd-topbar">
+          <span className="sd-topbar-title">{title}</span>
+          <div className="sd-topbar-right">
+            <span className="sd-topbar-date">
+              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+            <div className="sd-topbar-avatar">{initials}</div>
+          </div>
+        </header>
+        <main className="sd-content">{children}</main>
+      </div>
+
+      {showLogoutModal && (
+        <ConfirmationModal
+          variant="warning"
+          title="Confirm Logout"
+          message="Are you sure you want to sign out?"
+          confirmLabel="Yes, sign out"
+          cancelLabel="Cancel"
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogoutModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── App ───────────────────────────────────────────────────────
 function App() {
   return (
@@ -414,6 +447,7 @@ function App() {
         <Route path="/login"     element={<Login />} />
         <Route path="/setup"     element={<ProtectedRoute><SetupWizard /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
+        <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
       </Routes>
     </Router>
   );

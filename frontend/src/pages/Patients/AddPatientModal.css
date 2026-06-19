@@ -1,0 +1,75 @@
+/* ── Tabs ── */
+.apm-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid #f3f4f6;
+  margin-bottom: 20px;
+}
+
+.apm-tab {
+  padding: 9px 18px;
+  border: none;
+  background: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.apm-tab:hover { color: #111827; }
+
+.apm-tab--active {
+  color: #10b981;
+  border-bottom-color: #10b981;
+}
+
+/* ── Address preview ── */
+.apm-address-preview {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #065f46;
+  margin-top: 6px;
+}
+
+/* ── Checkbox grid ── */
+.apm-check-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.apm-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.apm-check input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #10b981;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── Vital signs row ── */
+.apm-vitals {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .apm-vitals { grid-template-columns: 1fr 1fr; }
+  .apm-check-grid { grid-template-columns: 1fr; }
+}

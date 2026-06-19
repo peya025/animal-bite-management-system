@@ -37,7 +37,7 @@ curl -X POST http://localhost:8000/api/login \
 
 ```bash
 curl -X POST http://localhost:8000/api/patients \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Authorization: Bearer 8|WO7TL8NXfAALM4EbtbRNxLBYxfAnUx8Gf8uoy1Vo6933f17d" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Juan Dela Cruz",
@@ -68,21 +68,21 @@ curl -X POST http://localhost:8000/api/patients \
 
 ```bash
 curl -X GET http://localhost:8000/api/patients \
-  -H "Authorization: Bearer YOUR_TOKEN"
+  -H "Authorization: Bearer 8|WO7TL8NXfAALM4EbtbRNxLBYxfAnUx8Gf8uoy1Vo6933f17d"
 ```
 
 ### Search Patients
 
 ```bash
 curl -X GET "http://localhost:8000/api/patients?search=Juan" \
-  -H "Authorization: Bearer YOUR_TOKEN"
+  -H "Authorization: Bearer 8|WO7TL8NXfAALM4EbtbRNxLBYxfAnUx8Gf8uoy1Vo6933f17d"
 ```
 
 ### Get Patient Details
 
 ```bash
 curl -X GET http://localhost:8000/api/patients/1 \
-  -H "Authorization: Bearer YOUR_TOKEN"
+  -H "Authorization: Bearer 8|WO7TL8NXfAALM4EbtbRNxLBYxfAnUx8Gf8uoy1Vo6933f17d"
 ```
 
 ---
@@ -93,7 +93,7 @@ curl -X GET http://localhost:8000/api/patients/1 \
 
 ```bash
 curl -X POST http://localhost:8000/api/queue \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Authorization: Bearer 8|WO7TL8NXfAALM4EbtbRNxLBYxfAnUx8Gf8uoy1Vo6933f17d" \
   -H "Content-Type: application/json" \
   -d '{
     "patient_id": 1,
@@ -120,21 +120,21 @@ curl -X POST http://localhost:8000/api/queue \
 
 ```bash
 curl -X GET http://localhost:8000/api/queue \
-  -H "Authorization: Bearer YOUR_TOKEN"
+  -H "Authorization: Bearer 8|WO7TL8NXfAALM4EbtbRNxLBYxfAnUx8Gf8uoy1Vo6933f17d"
 ```
 
 ### Get Next Patient (Triage Staff)
 
 ```bash
 curl -X GET http://localhost:8000/api/queue/next \
-  -H "Authorization: Bearer YOUR_TOKEN"
+  -H "Authorization: Bearer 8|WO7TL8NXfAALM4EbtbRNxLBYxfAnUx8Gf8uoy1Vo6933f17d"
 ```
 
 ### Call Patient from Queue (Triage)
 
 ```bash
 curl -X POST http://localhost:8000/api/queue/1/call \
-  -H "Authorization: Bearer YOUR_TOKEN"
+  -H "Authorization: Bearer 8|WO7TL8NXfAALM4EbtbRNxLBYxfAnUx8Gf8uoy1Vo6933f17d"
 ```
 
 **Status changes:** `waiting` → `in_consultation`
@@ -147,7 +147,7 @@ curl -X POST http://localhost:8000/api/queue/1/call \
 
 ```bash
 curl -X POST http://localhost:8000/api/cases \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Authorization: Bearer 8|WO7TL8NXfAALM4EbtbRNxLBYxfAnUx8Gf8uoy1Vo6933f17d" \
   -H "Content-Type: application/json" \
   -d '{
     "patient_id": 1,

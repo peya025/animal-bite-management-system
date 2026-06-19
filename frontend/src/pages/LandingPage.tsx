@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { APP_NAME, APP_SHORT_NAME } from '../constants';
 import '../styles/LandingPage.css';
 import antiviralVaccineImg from '../assets/image.png';
+import icon from '../assets/metrics/24 7.png'
+import secureIcon from '../assets/metrics/secure.png';
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -78,16 +80,12 @@ export default function LandingPage() {
         </div>
 
         <div className="hero-metrics">
-          <div className="metric">
-            <div className="metric-icon">🏥</div>
-            <div className="metric-number">24/7</div>
-            <div className="metric-label">System Access</div>
+          <div className="metric" style={{ background: 'transparent', border: 'none', padding: 0, boxShadow: 'none' }}>
+            <img src={icon} alt="24/7 Access" style={{ width: '100%', height: '100%', minHeight: '180px', objectFit: 'contain', borderRadius: '20px' }} />
           </div>
 
-          <div className="metric">
-            <div className="metric-icon">🔒</div>
-            <div className="metric-number">100%</div>
-            <div className="metric-label">Secure</div>
+          <div className="metric" style={{ background: 'transparent', border: 'none', padding: 0, boxShadow: 'none' }}>
+            <img src={secureIcon} alt="100% Secure" style={{ width: '100%', height: '100%', minHeight: '180px', objectFit: 'contain', borderRadius: '20px' }} />
           </div>
 
           <div className="metric">

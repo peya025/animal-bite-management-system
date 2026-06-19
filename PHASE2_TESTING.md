@@ -47,7 +47,7 @@ curl -X GET http://localhost:8000/api/setup/status \
 
 ```bash
 curl -X PUT http://localhost:8000/api/setup/clinic \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -H "Authorization: Bearer 7|rBu9vWqhuktKAwBweu6dGU3DCvBIsPStVy71eoMf840fbb33" \
   -H "Content-Type: application/json" \
   -d "{\"name\":\"My Animal Bite Center\",\"address\":\"456 New Street\",\"phone\":\"09876543210\",\"email\":\"contact@abc.com\"}"
 ```
@@ -56,7 +56,7 @@ curl -X PUT http://localhost:8000/api/setup/clinic \
 
 ```bash
 curl -X POST http://localhost:8000/api/setup/complete \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+  -H "Authorization: Bearer 7|rBu9vWqhuktKAwBweu6dGU3DCvBIsPStVy71eoMf840fbb33"
 ```
 
 ---
@@ -67,14 +67,14 @@ curl -X POST http://localhost:8000/api/setup/complete \
 
 ```bash
 curl -X GET http://localhost:8000/api/users \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+  -H "Authorization: Bearer 7|rBu9vWqhuktKAwBweu6dGU3DCvBIsPStVy71eoMf840fbb33"
 ```
 
 ### 6. Create New User
 
 ```bash
 curl -X POST http://localhost:8000/api/users \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -H "Authorization: Bearer 7|rBu9vWqhuktKAwBweu6dGU3DCvBIsPStVy71eoMf840fbb33" \
   -H "Content-Type: application/json" \
   -d "{\"name\":\"New Staff\",\"email\":\"newstaff@clinic.com\",\"password\":\"password123\",\"role\":\"registration\",\"phone\":\"09111111111\"}"
 ```
@@ -83,14 +83,14 @@ curl -X POST http://localhost:8000/api/users \
 
 ```bash
 curl -X GET http://localhost:8000/api/users/1 \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+  -H "Authorization: Bearer 7|rBu9vWqhuktKAwBweu6dGU3DCvBIsPStVy71eoMf840fbb33"
 ```
 
 ### 8. Update User
 
 ```bash
 curl -X PUT http://localhost:8000/api/users/2 \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -H "Authorization: Bearer 7|rBu9vWqhuktKAwBweu6dGU3DCvBIsPStVy71eoMf840fbb33" \
   -H "Content-Type: application/json" \
   -d "{\"name\":\"Updated Name\",\"phone\":\"09222222222\"}"
 ```
@@ -99,7 +99,7 @@ curl -X PUT http://localhost:8000/api/users/2 \
 
 ```bash
 curl -X DELETE http://localhost:8000/api/users/5 \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+  -H "Authorization: Bearer Bearer 7|rBu9vWqhuktKAwBweu6dGU3DCvBIsPStVy71eoMf840fbb33"
 ```
 
 ---

@@ -45,4 +45,44 @@ class Clinic extends Model
     {
         return $this->users()->whereIn('role', ['registration', 'triage', 'treatment']);
     }
+
+    /**
+     * Get all patients for this clinic
+     */
+    public function patients(): HasMany
+    {
+        return $this->hasMany(Patient::class);
+    }
+
+    /**
+     * Get all bite incidents for this clinic
+     */
+    public function biteIncidents(): HasMany
+    {
+        return $this->hasMany(BiteIncident::class);
+    }
+
+    /**
+     * Get all treatment records for this clinic
+     */
+    public function treatmentRecords(): HasMany
+    {
+        return $this->hasMany(TreatmentRecord::class);
+    }
+
+    /**
+     * Get all queues for this clinic
+     */
+    public function queues(): HasMany
+    {
+        return $this->hasMany(Queue::class);
+    }
+
+    /**
+     * Get all vaccine inventory for this clinic
+     */
+    public function vaccineInventory(): HasMany
+    {
+        return $this->hasMany(VaccineInventory::class);
+    }
 }

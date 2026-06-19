@@ -96,14 +96,19 @@ class BiteIncident extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function vaccinationSchedules()
+    public function location()
     {
-        return $this->hasMany(VaccinationSchedule::class, 'bite_incident_id', 'bite_id');
+        return $this->hasOne(BiteLocation::class, 'bite_id', 'bite_id');
     }
 
-    public function queueEntries()
+    public function treatmentRecords()
     {
-        return $this->hasMany(PatientQueue::class, 'bite_incident_id', 'bite_id');
+        return $this->hasMany(TreatmentRecord::class, 'bite_id', 'bite_id');
+    }
+
+    public function queues()
+    {
+        return $this->hasMany(Queue::class, 'bite_id', 'bite_id');
     }
 
     /**

@@ -91,14 +91,24 @@ class Patient extends Model
         return $this->hasMany(BiteIncident::class, 'patient_id', 'patient_id');
     }
 
-    public function vaccinationSchedules()
+    public function treatmentRecords()
     {
-        return $this->hasMany(VaccinationSchedule::class, 'patient_id', 'patient_id');
+        return $this->hasMany(TreatmentRecord::class, 'patient_id', 'patient_id');
     }
 
-    public function queueEntries()
+    public function appointments()
     {
-        return $this->hasMany(PatientQueue::class, 'patient_id', 'patient_id');
+        return $this->hasMany(Appointment::class, 'patient_id', 'patient_id');
+    }
+
+    public function queues()
+    {
+        return $this->hasMany(Queue::class, 'patient_id', 'patient_id');
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class, 'patient_id', 'patient_id');
     }
 
     /**
@@ -110,11 +120,11 @@ class Patient extends Model
     }
 
     /**
-     * Helper: Get pending vaccinations
+     * Helper: Get pending vaccinations (scheduled treatments)
      */
     public function pendingVaccinations()
     {
-        return $this->vaccinationSchedules()
+        return $this->treatmentRecords()
             ->whereIn('status', ['scheduled', 'missed'])
             ->orderBy('scheduled_date');
     }

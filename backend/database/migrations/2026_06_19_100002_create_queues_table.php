@@ -6,15 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        Schema::create('patient_queue', function (Blueprint $table) {
-            $table->id();
+        Schema::create('queues', function (Blueprint $table) {
+            $table->id('queue_id');
+            
+            // Foreign Keys
             $table->foreignId('clinic_id')->constrained('clinics', 'id')->cascadeOnDelete();
             $table->foreignId('patient_id')->constrained('patients', 'patient_id')->cascadeOnDelete();
-            $table->foreignId('bite_incident_id')->nullable()->constrained('bite_incidents', 'bite_id')->nullOnDelete();
+            $table->foreignId('appointment_id')->nullable()->constrained('appointments', 'appointment_id')->nullOnDelete();
+            $table->foreignId('bite_id')->nullable()->constrained('bite_incidents', 'bite_id')->nullOnDelete();
             
-            // Queue Management
+            // Queue Management (merged from patient_queue)
             $table->integer('queue_number'); // Auto-generated daily: 1, 2, 3...
             $table->date('queue_date');
             $table->enum('visit_type', ['new_case', 'follow_up', 'vaccination', 'observation'])->default('new_case');
@@ -38,15 +44,20 @@ return new class extends Migration
             
             $table->timestamps();
             
-            // Ensure unique queue number per day per clinic
+            // Indexes
             $table->unique(['clinic_id', 'queue_date', 'queue_number'], 'unique_daily_queue');
+            $table->index('queue_number');
+            $table->index('status');
             $table->index(['queue_date', 'status']);
             $table->index(['clinic_id', 'queue_date']);
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        Schema::dropIfExists('patient_queue');
+        Schema::dropIfExists('queues');
     }
 };

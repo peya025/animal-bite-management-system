@@ -8,6 +8,7 @@ use App\Http\Controllers\PatientController;
 use App\Http\Controllers\BiteCaseController;
 use App\Http\Controllers\VaccinationController;
 use App\Http\Controllers\QueueController;
+use App\Http\Controllers\VaccineInventoryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -113,6 +114,18 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/{id}', [VaccinationController::class, 'update']);
             Route::post('/{id}/reschedule', [VaccinationController::class, 'reschedule']);
         });
+    });
+
+    // Vaccine Inventory (admin only)
+    Route::prefix('inventory')->middleware('role:admin')->group(function () {
+        Route::get('/statistics', [VaccineInventoryController::class, 'statistics']);
+        Route::get('/', [VaccineInventoryController::class, 'index']);
+        Route::post('/', [VaccineInventoryController::class, 'store']);
+        Route::get('/{id}', [VaccineInventoryController::class, 'show']);
+        Route::put('/{id}', [VaccineInventoryController::class, 'update']);
+        Route::delete('/{id}', [VaccineInventoryController::class, 'destroy']);
+        Route::post('/{id}/adjust', [VaccineInventoryController::class, 'adjustStock']);
+        Route::get('/{id}/transactions', [VaccineInventoryController::class, 'transactions']);
     });
 
     // Queue Management

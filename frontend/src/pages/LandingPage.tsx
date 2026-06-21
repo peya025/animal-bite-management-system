@@ -5,9 +5,7 @@ import antiviralVaccineImg from '../assets/image.png';
 import icon from '../assets/metrics/24 7.png';
 import secureIcon from '../assets/metrics/secure.png';
 import rorOrModified from '../assets/roror-modified.png';
-import IconButton from '@mui/material/IconButton';
-import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
-import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+
 
 
 export default function LandingPage() {
@@ -108,25 +106,31 @@ export default function LandingPage() {
           </div>
 
           <div className="carousel-container">
-            <IconButton 
+            <button
               className="carousel-nav-btn carousel-nav-left"
               onClick={() => scrollCarousel('left')}
-              sx={{
+              style={{
                 position: 'absolute',
                 left: '-20px',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 zIndex: 10,
                 backgroundColor: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                '&:hover': {
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                },
               }}
             >
-              <ArrowBackIosNewIcon />
-            </IconButton>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
 
             <div className="services-carousel" ref={carouselRef}>
               <div className="service-card">
@@ -237,25 +241,31 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <IconButton 
+            <button
               className="carousel-nav-btn carousel-nav-right"
               onClick={() => scrollCarousel('right')}
-              sx={{
+              style={{
                 position: 'absolute',
                 right: '-20px',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 zIndex: 10,
                 backgroundColor: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                '&:hover': {
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                },
               }}
             >
-              <ArrowForwardIosIcon />
-            </IconButton>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
           </div>
         </section>
 

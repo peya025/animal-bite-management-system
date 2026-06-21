@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import {
   Alert,
   Box,
+  Button,
   Chip,
   IconButton,
   InputAdornment,
@@ -13,15 +14,46 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  Save as SaveIcon,
   Refresh as RefreshIcon,
+  LocalHospital as LocalHospitalIcon,
   Business as BusinessIcon,
   Badge as BadgeIcon,
   LocationOn as LocationOnIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import api from '../../services/api';
 import WorkingHoursModal, { DAYS, DAY_LABELS, formatTimeLabel } from './WorkingHoursModal';
+
+// Soft "filled" field style: subtle gray fill at rest, white with a green
+// focus ring when active — replaces the boxed outline + floating label look.
+const filledFieldSx = {
+  '& .MuiFilledInput-root': {
+    borderRadius: 2.5,
+    bgcolor: '#f8fafc',
+    border: '1px solid #f1f5f9',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
+    '&:before, &:after': { display: 'none' },
+    '&:hover': { bgcolor: '#f1f5f9' },
+    '&.Mui-focused': {
+      bgcolor: '#fff',
+      borderColor: '#10b981',
+      boxShadow: '0 0 0 3px rgba(16,185,129,0.12)',
+    },
+  },
+  '& .MuiFilledInput-input': { fontSize: 14, color: '#0f172a', py: '12px' },
+};
+
+function FieldLabel({ children, required }: { children: ReactNode; required?: boolean }) {
+  return (
+    <Typography component="label" sx={{ fontSize: 13, fontWeight: 600, color: '#374151', mb: 0.75, display: 'block' }}>
+      {children}
+      {required && <Box component="span" sx={{ color: '#ef4444', ml: 0.4 }}>*</Box>}
+    </Typography>
+  );
+}
 
 interface ClinicData {
   name: string;
@@ -228,7 +260,7 @@ export default function ClinicInformation() {
       {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-
+          
           <Box>
             <Typography component="h1" sx={{ fontWeight: 700, fontSize: '20px', color: '#111827', margin: '0 0 4px 0' }}>
               Clinic Information
@@ -250,148 +282,188 @@ export default function ClinicInformation() {
               </IconButton>
             </span>
           </Tooltip>
-          <button
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
             onClick={handleSubmit}
             disabled={saving}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '7px',
-              padding: '9px 18px',
-              background: saving ? '#9ca3af' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '13px',
+            disableElevation
+            sx={{
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              textTransform: 'none',
               fontWeight: 600,
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit',
+              borderRadius: 2,
               boxShadow: '0 2px 8px rgba(16,185,129,0.25)',
-              transition: 'all 0.2s',
-              whiteSpace: 'nowrap',
-              opacity: saving ? 0.6 : 1,
-            }}
-            onMouseEnter={(e) => {
-              if (!saving) {
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.35)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!saving) {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(16,185,129,0.25)';
-              }
+              '&:hover': {
+                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                boxShadow: '0 4px 12px rgba(16,185,129,0.35)',
+              },
             }}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-              <polyline points="17 21 17 13 7 13 7 21"/>
-              <polyline points="7 3 7 8 15 8"/>
-            </svg>
             {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          </Button>
         </Box>
       </Box>
 
       {/* Basic Information */}
-      <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: 3, p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#111827' }}>
-          Basic Information
-        </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-            <Box sx={{ flex: '1 1 300px' }}>
-              <TextField
-                fullWidth
-                label="Clinic Name"
-                value={clinic.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                required
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BusinessIcon sx={{ color: '#9ca3af', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
-            <Box sx={{ flex: '1 1 300px' }}>
-              <TextField
-                fullWidth
-                label="License Number"
-                value={clinic.license_number}
-                onChange={(e) => handleInputChange('license_number', e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BadgeIcon sx={{ color: '#9ca3af', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
+      <Paper
+        elevation={0}
+        sx={{
+          border: '1px solid #f1f5f9',
+          borderRadius: 4,
+          p: { xs: 2.5, sm: 4 },
+          mb: 3,
+          boxShadow: '0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06)',
+        }}
+      >
+        {/* Profile-style header: avatar initial + section label */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 4 }}>
+          <Box
+            sx={{
+              width: 64,
+              height: 64,
+              borderRadius: '50%',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              boxShadow: '0 4px 12px rgba(16,185,129,0.25)',
+            }}
+          >
+            {clinic.name?.trim() ? (
+              <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 24 }}>
+                {clinic.name.trim().charAt(0).toUpperCase()}
+              </Typography>
+            ) : (
+              <LocalHospitalIcon sx={{ color: '#fff', fontSize: 28 }} />
+            )}
           </Box>
+          <Box>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: '#10b981', textTransform: 'uppercase', mb: 0.5 }}>
+              General
+            </Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#0f172a' }}>
+              Basic Information
+            </Typography>
+            <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.5 }}>
+              Shown on receipts, appointment confirmations, and the patient portal
+            </Typography>
+          </Box>
+        </Box>
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
+          <Box>
+            <FieldLabel required>Clinic Name</FieldLabel>
+            <TextField
+              fullWidth
+              variant="filled"
+              hiddenLabel
+              placeholder="e.g., Wellness Family Clinic"
+              value={clinic.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              sx={filledFieldSx}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <BusinessIcon sx={{ color: '#94a3b8', fontSize: 19 }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          </Box>
+          <Box>
+            <FieldLabel>License Number</FieldLabel>
+            <TextField
+              fullWidth
+              variant="filled"
+              hiddenLabel
+              placeholder="e.g., DOH-12345"
+              value={clinic.license_number}
+              onChange={(e) => handleInputChange('license_number', e.target.value)}
+              sx={filledFieldSx}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <BadgeIcon sx={{ color: '#94a3b8', fontSize: 19 }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          </Box>
+        </Box>
+
+        <Box sx={{ mt: 2.5 }}>
+          <FieldLabel>Address</FieldLabel>
           <TextField
             fullWidth
-            label="Address"
-            value={clinic.address}
-            onChange={(e) => handleInputChange('address', e.target.value)}
+            variant="filled"
+            hiddenLabel
             multiline
             rows={2}
+            placeholder="Street, barangay, city"
+            value={clinic.address}
+            onChange={(e) => handleInputChange('address', e.target.value)}
+            sx={filledFieldSx}
             slotProps={{
               input: {
                 startAdornment: (
-                  <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                    <LocationOnIcon sx={{ color: '#9ca3af', fontSize: 20 }} />
+                  <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: '14px' }}>
+                    <LocationOnIcon sx={{ color: '#94a3b8', fontSize: 19 }} />
                   </InputAdornment>
                 ),
               },
             }}
           />
-          <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-            <Box sx={{ flex: '1 1 300px' }}>
-              <TextField
-                fullWidth
-                label="Contact Number"
-                value={clinic.contact_number}
-                onChange={(e) => handleInputChange('contact_number', e.target.value)}
-                placeholder="e.g., +63 912 345 6789"
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PhoneIcon sx={{ color: '#9ca3af', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
-            <Box sx={{ flex: '1 1 300px' }}>
-              <TextField
-                fullWidth
-                label="Email Address"
-                type="email"
-                value={clinic.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                placeholder="clinic@example.com"
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <EmailIcon sx={{ color: '#9ca3af', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
+        </Box>
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5, mt: 2.5 }}>
+          <Box>
+            <FieldLabel>Contact Number</FieldLabel>
+            <TextField
+              fullWidth
+              variant="filled"
+              hiddenLabel
+              placeholder="+63 912 345 6789"
+              value={clinic.contact_number}
+              onChange={(e) => handleInputChange('contact_number', e.target.value)}
+              sx={filledFieldSx}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PhoneIcon sx={{ color: '#94a3b8', fontSize: 19 }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          </Box>
+          <Box>
+            <FieldLabel>Email Address</FieldLabel>
+            <TextField
+              fullWidth
+              variant="filled"
+              hiddenLabel
+              type="email"
+              placeholder="clinic@example.com"
+              value={clinic.email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              sx={filledFieldSx}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailIcon sx={{ color: '#94a3b8', fontSize: 19 }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
           </Box>
         </Box>
       </Paper>
@@ -407,40 +479,21 @@ export default function ClinicInformation() {
               Open {openDaysCount} of 7 days a week
             </Typography>
           </Box>
-          <button
+          <Button
+            variant="outlined"
+            startIcon={<ScheduleIcon />}
             onClick={() => setHoursModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '7px',
-              padding: '9px 18px',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '13px',
+            sx={{
+              textTransform: 'none',
               fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              boxShadow: '0 2px 8px rgba(16,185,129,0.25)',
-              transition: 'all 0.2s',
-              whiteSpace: 'nowrap',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.35)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(16,185,129,0.25)';
+              borderRadius: 2,
+              borderColor: '#d1d5db',
+              color: '#374151',
+              '&:hover': { borderColor: '#10b981', color: '#059669', bgcolor: '#ecfdf5' },
             }}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
             Edit Working Hours
-          </button>
+          </Button>
         </Box>
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>

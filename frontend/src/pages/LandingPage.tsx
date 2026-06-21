@@ -1,15 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { APP_NAME, APP_SHORT_NAME } from '../constants';
 import '../styles/LandingPage.css';
 import antiviralVaccineImg from '../assets/image.png';
 import icon from '../assets/metrics/24 7.png';
 import secureIcon from '../assets/metrics/secure.png';
 import rorOrModified from '../assets/roror-modified.png';
+import IconButton from '@mui/material/IconButton';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [clinicName, setClinicName] = useState('Animal Bite Treatment Center');
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const clinicData = localStorage.getItem('clinicData');
@@ -27,6 +31,20 @@ export default function LandingPage() {
 
   const handleSignIn = () => {
     window.location.href = '/login';
+  };
+
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    if (carouselRef.current) {
+      const scrollAmount = 400; // Scroll by approximately one card width + gap
+      const newScrollPosition = direction === 'left' 
+        ? carouselRef.current.scrollLeft - scrollAmount
+        : carouselRef.current.scrollLeft + scrollAmount;
+      
+      carouselRef.current.scrollTo({
+        left: newScrollPosition,
+        behavior: 'smooth'
+      });
+    }
   };
 
   return (
@@ -80,36 +98,164 @@ export default function LandingPage() {
               </button>
               <a href="#help" className="btn btn-pill btn-pill-light">Need Help?</a>
             </div>
+          </div>   
+        </section>
+
+        <section id="about" className="services-section">
+          <div className="section-header">
+            <p className="section-tag">| Our Services</p>
+            <h2>About The System</h2>
           </div>
 
-          <div className="hero-metrics">
-            <div className="metric">
-              <div className="metric-icon">
-                <img src={icon} alt="24/7" />
+          <div className="carousel-container">
+            <IconButton 
+              className="carousel-nav-btn carousel-nav-left"
+              onClick={() => scrollCarousel('left')}
+              sx={{
+                position: 'absolute',
+                left: '-20px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 10,
+                backgroundColor: 'white',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                '&:hover': {
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                },
+              }}
+            >
+              <ArrowBackIosNewIcon />
+            </IconButton>
+
+            <div className="services-carousel" ref={carouselRef}>
+              <div className="service-card">
+                <div className="service-image">
+                  <img src={antiviralVaccineImg} alt="WHO Protocol Compliance" />
+                  <div className="service-icon-badge service-badge-red">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                  </div>
+                </div>
+                <div className="service-content">
+                  <h3>WHO Protocol Compliance</h3>
+                  <p>Automated 5-dose vaccination schedule following WHO rabies PEP guidelines (Day 0, 3, 7, 14, and 28)</p>
+                  <button className="service-btn">Read More</button>
+                </div>
               </div>
-              <div className="metric-number">24/7</div>
-              <div className="metric-label">Always Available</div>
-            </div>
 
-            <div className="metric">
-              <div className="metric-icon">
-                <img src={secureIcon} alt="Secure" />
+              <div className="service-card">
+                <div className="service-image">
+                  <img src={antiviralVaccineImg} alt="Patient Management" />
+                  <div className="service-icon-badge service-badge-orange">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                  </div>
+                </div>
+                <div className="service-content">
+                  <h3>Patient Management</h3>
+                  <p>Complete patient registry with auto-generated patient numbers and comprehensive medical records</p>
+                  <button className="service-btn">Read More</button>
+                </div>
               </div>
-              <div className="metric-number">Secure</div>
-              <div className="metric-label">100% Protected</div>
+
+              <div className="service-card">
+                <div className="service-image">
+                  <img src={antiviralVaccineImg} alt="Queue Management" />
+                  <div className="service-icon-badge service-badge-green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <line x1="8" y1="6" x2="21" y2="6"/>
+                      <line x1="8" y1="12" x2="21" y2="12"/>
+                      <line x1="8" y1="18" x2="21" y2="18"/>
+                      <line x1="3" y1="6" x2="3.01" y2="6"/>
+                      <line x1="3" y1="12" x2="3.01" y2="12"/>
+                      <line x1="3" y1="18" x2="3.01" y2="18"/>
+                    </svg>
+                  </div>
+                </div>
+                <div className="service-content">
+                  <h3>Queue Management</h3>
+                  <p>Real-time patient queue with priority management and status tracking for efficient workflows</p>
+                  <button className="service-btn">Read More</button>
+                </div>
+              </div>
+
+              <div className="service-card">
+                <div className="service-image">
+                  <img src={antiviralVaccineImg} alt="Role-Based Access" />
+                  <div className="service-icon-badge service-badge-blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  </div>
+                </div>
+                <div className="service-content">
+                  <h3>Role-Based Access</h3>
+                  <p>Secure access for Admin, Registration, Triage, and Treatment staff with appropriate permissions</p>
+                  <button className="service-btn">Read More</button>
+                </div>
+              </div>
+
+              <div className="service-card">
+                <div className="service-image">
+                  <img src={antiviralVaccineImg} alt="Real-Time Reporting" />
+                  <div className="service-icon-badge service-badge-purple">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <line x1="12" y1="20" x2="12" y2="10"/>
+                      <line x1="18" y1="20" x2="18" y2="4"/>
+                      <line x1="6" y1="20" x2="6" y2="16"/>
+                    </svg>
+                  </div>
+                </div>
+                <div className="service-content">
+                  <h3>Real-Time Reporting</h3>
+                  <p>Live bite case monitoring, vaccination tracking, and comprehensive statistics dashboard</p>
+                  <button className="service-btn">Read More</button>
+                </div>
+              </div>
+
+              <div className="service-card">
+                <div className="service-image">
+                  <img src={antiviralVaccineImg} alt="Data Security" />
+                  <div className="service-icon-badge service-badge-teal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  </div>
+                </div>
+                <div className="service-content">
+                  <h3>Data Security</h3>
+                  <p>Secure data storage with regular backups and compliance with healthcare data standards</p>
+                  <button className="service-btn">Read More</button>
+                </div>
+              </div>
             </div>
 
-            <div className="metric">
-              <div className="metric-icon">✓</div>
-              <div className="metric-number">WHO</div>
-              <div className="metric-label">Protocol Compliant</div>
-            </div>
-
-            <div className="metric">
-              <div className="metric-icon">⚡</div>
-              <div className="metric-number">Fast</div>
-              <div className="metric-label">Real-time Updates</div>
-            </div>
+            <IconButton 
+              className="carousel-nav-btn carousel-nav-right"
+              onClick={() => scrollCarousel('right')}
+              sx={{
+                position: 'absolute',
+                right: '-20px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 10,
+                backgroundColor: 'white',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                '&:hover': {
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                },
+              }}
+            >
+              <ArrowForwardIosIcon />
+            </IconButton>
           </div>
         </section>
 
@@ -140,50 +286,7 @@ export default function LandingPage() {
           </div>
         </section>
         
-        <section id="about" className="features-hero">
-          <div className="section-header">
-            <h2>About This System</h2>
-            <p>WHO-compliant animal bite management for healthcare professionals</p>
-          </div>
-
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">🩺</div>
-              <h3>WHO Protocol Compliance</h3>
-              <p>Automated 5-dose vaccination schedule following WHO rabies PEP guidelines (Day 0, 3, 7, 14, and 28)</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon">👥</div>
-              <h3>Patient Management</h3>
-              <p>Complete patient registry with auto-generated patient numbers and comprehensive medical records</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon">📋</div>
-              <h3>Queue Management</h3>
-              <p>Real-time patient queue with priority management and status tracking for efficient workflows</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon">🔒</div>
-              <h3>Role-Based Access</h3>
-              <p>Secure access for Admin, Registration, Triage, and Treatment staff with appropriate permissions</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon">📊</div>
-              <h3>Real-Time Reporting</h3>
-              <p>Live bite case monitoring, vaccination tracking, and comprehensive statistics dashboard</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon">💾</div>
-              <h3>Data Security</h3>
-              <p>Secure data storage with regular backups and compliance with healthcare data standards</p>
-            </div>
-          </div>
-        </section>
+        
 
         <section id="help" className="how-it-works">
           <div className="section-header">

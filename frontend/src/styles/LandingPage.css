@@ -833,6 +833,187 @@ a {
   line-height: 1.6;
 }
 
+/* ===== Services Section (About This System) ===== */
+.services-section {
+  padding: 80px 0;
+  background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
+  overflow: hidden;
+}
+
+.section-tag {
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+.carousel-container {
+  position: relative;
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 0 60px;
+}
+
+.services-carousel {
+  display: flex;
+  gap: 32px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  padding: 20px 24px 40px;
+  
+  /* Hide scrollbar */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.services-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.service-card {
+  background: var(--white);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--gray-200);
+  min-width: 350px;
+  max-width: 350px;
+  flex-shrink: 0;
+}
+
+.service-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.service-image {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  overflow: hidden;
+}
+
+.service-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.service-card:hover .service-image img {
+  transform: scale(1.1);
+}
+
+.service-icon-badge {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transition: transform 0.3s ease;
+}
+
+.service-card:hover .service-icon-badge {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.service-badge-red {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.service-badge-orange {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+}
+
+.service-badge-green {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.service-badge-blue {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.service-badge-purple {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.service-badge-teal {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+}
+
+.service-content {
+  padding: 28px 24px;
+}
+
+.service-content h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.service-content p {
+  font-size: 14px;
+  color: var(--gray-600);
+  line-height: 1.7;
+  margin-bottom: 20px;
+  min-height: 60px;
+}
+
+.service-btn {
+  background: #1e40af;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: capitalize;
+}
+
+.service-btn:hover {
+  background: #1e3a8a;
+  transform: translateX(4px);
+}
+
+/* Services Responsive */
+@media (max-width: 768px) {
+  .service-card {
+    min-width: 300px;
+    max-width: 300px;
+  }
+  
+  .services-carousel {
+    padding: 20px 16px 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .service-card {
+    min-width: 280px;
+    max-width: 280px;
+  }
+
+  .service-image {
+    height: 200px;
+  }
+  
+  .service-content {
+    padding: 24px 20px;
+  }
+}
+
 /* ===== How It Works / Help Center ===== */
 .how-it-works {
   padding: var(--spacing-4xl) var(--spacing-lg);

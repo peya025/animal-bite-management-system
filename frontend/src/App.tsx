@@ -31,7 +31,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 // ─── Role-aware nav items ───────────────────────────────────────
-const NAV = [
+interface NavItem {
+  label: string;
+  path?: string;
+  roles: string[];
+  submenu?: { label: string; path: string }[];
+}
+
+const NAV: NavItem[] = [
   { label: 'Dashboard',    path: '/dashboard',    roles: ['admin','registration','triage','treatment'] },
   { label: 'Patients',     path: '/patients',     roles: ['admin','registration','triage','treatment'] },
   { label: 'Queue',        path: '/queue',        roles: ['admin','registration','triage'] },
@@ -39,7 +46,16 @@ const NAV = [
   { label: 'Vaccinations', path: '/vaccinations', roles: ['admin','triage','treatment'] },
   { label: 'Inventory',    path: '/inventory',    roles: ['admin'] },
   { label: 'Users',        path: '/users',        roles: ['admin'] },
-  { label: 'Clinic Setup', path: '/setup',        roles: ['admin'] },
+  { 
+    label: 'Clinic Setup',
+    roles: ['admin'],
+    submenu: [
+      { label: 'Clinic Information', path: '/setup/clinic-info' },
+      { label: 'Predefined Templates', path: '/setup/templates' },
+      { label: 'Working Hours', path: '/setup/working-hours' },
+      { label: 'Vaccination Schedules', path: '/setup/vaccination-schedules' },
+    ],
+  },
 ];
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
@@ -111,6 +127,7 @@ function SimpleDashboard() {
   const [clinic, setClinic] = useState<any>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -188,6 +205,17 @@ function SimpleDashboard() {
 
   const now = new Date();
 
+  const isActive = (path: string) =>
+    window.location.pathname === path ||
+    (path !== '/dashboard' && window.location.pathname.startsWith(path));
+
+  const isSubmenuActive = (submenu?: { label: string; path: string }[]) =>
+    submenu?.some(sub => isActive(sub.path));
+
+  const toggleSubmenu = (itemLabel: string) => {
+    setExpandedMenu(expandedMenu === itemLabel ? null : itemLabel);
+  };
+
   const confirmLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
@@ -216,15 +244,59 @@ function SimpleDashboard() {
 
         <nav className="sd-nav">
           {visibleNav.map(item => (
-            <button
-              key={item.path}
-              className={`sd-nav-item ${window.location.pathname === item.path ? 'sd-nav-item--active' : ''}`}
-              onClick={() => { window.location.href = item.path; }}
-              title={collapsed ? item.label : undefined}
-            >
-              <span className="sd-nav-icon">{NAV_ICONS[item.label]}</span>
-              {!collapsed && <span className="sd-nav-label">{item.label}</span>}
-            </button>
+            <div key={item.label}>
+              <button
+                className={`sd-nav-item ${
+                  item.submenu
+                    ? isSubmenuActive(item.submenu) ? 'sd-nav-item--active' : ''
+                    : item.path && isActive(item.path) ? 'sd-nav-item--active' : ''
+                }`}
+                onClick={() => {
+                  if (item.submenu) {
+                    toggleSubmenu(item.label);
+                  } else if (item.path) {
+                    window.location.href = item.path;
+                  }
+                }}
+                title={collapsed ? item.label : undefined}
+              >
+                <span className="sd-nav-icon">{NAV_ICONS[item.label]}</span>
+                {!collapsed && (
+                  <>
+                    <span className="sd-nav-label">{item.label}</span>
+                    {item.submenu && (
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className={`sd-nav-chevron ${expandedMenu === item.label ? 'sd-nav-chevron--expanded' : ''}`}
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    )}
+                  </>
+                )}
+              </button>
+              
+              {/* Submenu */}
+              {item.submenu && !collapsed && expandedMenu === item.label && (
+                <div className="sd-submenu">
+                  {item.submenu.map(subItem => (
+                    <button
+                      key={subItem.path}
+                      onClick={() => { window.location.href = subItem.path; }}
+                      className={`sd-submenu-item ${isActive(subItem.path) ? 'sd-submenu-item--active' : ''}`}
+                    >
+                      <span className="sd-submenu-dot"></span>
+                      <span className="sd-submenu-label">{subItem.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </nav>
 
@@ -470,11 +542,23 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
 
   const [collapsed, setCollapsed]       = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
   const visibleNav = NAV.filter(n => user?.role && n.roles.includes(user.role));
   const initials = user?.name
     ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : '?';
+
+  const isActive = (path: string) =>
+    window.location.pathname === path ||
+    (path !== '/dashboard' && window.location.pathname.startsWith(path));
+
+  const isSubmenuActive = (submenu?: { label: string; path: string }[]) =>
+    submenu?.some(sub => isActive(sub.path));
+
+  const toggleSubmenu = (itemLabel: string) => {
+    setExpandedMenu(expandedMenu === itemLabel ? null : itemLabel);
+  };
 
   const confirmLogout = () => {
     localStorage.removeItem('authToken');
@@ -502,15 +586,59 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
         </div>
         <nav className="sd-nav">
           {visibleNav.map(item => (
-            <button
-              key={item.path}
-              className={`sd-nav-item ${window.location.pathname === item.path ? 'sd-nav-item--active' : ''}`}
-              onClick={() => { window.location.href = item.path; }}
-              title={collapsed ? item.label : undefined}
-            >
-              <span className="sd-nav-icon">{NAV_ICONS[item.label]}</span>
-              {!collapsed && <span className="sd-nav-label">{item.label}</span>}
-            </button>
+            <div key={item.label}>
+              <button
+                className={`sd-nav-item ${
+                  item.submenu
+                    ? isSubmenuActive(item.submenu) ? 'sd-nav-item--active' : ''
+                    : item.path && isActive(item.path) ? 'sd-nav-item--active' : ''
+                }`}
+                onClick={() => {
+                  if (item.submenu) {
+                    toggleSubmenu(item.label);
+                  } else if (item.path) {
+                    window.location.href = item.path;
+                  }
+                }}
+                title={collapsed ? item.label : undefined}
+              >
+                <span className="sd-nav-icon">{NAV_ICONS[item.label]}</span>
+                {!collapsed && (
+                  <>
+                    <span className="sd-nav-label">{item.label}</span>
+                    {item.submenu && (
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className={`sd-nav-chevron ${expandedMenu === item.label ? 'sd-nav-chevron--expanded' : ''}`}
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    )}
+                  </>
+                )}
+              </button>
+              
+              {/* Submenu */}
+              {item.submenu && !collapsed && expandedMenu === item.label && (
+                <div className="sd-submenu">
+                  {item.submenu.map(subItem => (
+                    <button
+                      key={subItem.path}
+                      onClick={() => { window.location.href = subItem.path; }}
+                      className={`sd-submenu-item ${isActive(subItem.path) ? 'sd-submenu-item--active' : ''}`}
+                    >
+                      <span className="sd-submenu-dot"></span>
+                      <span className="sd-submenu-label">{subItem.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </nav>
         <div className="sd-user">

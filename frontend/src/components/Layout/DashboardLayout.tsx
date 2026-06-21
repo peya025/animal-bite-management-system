@@ -1,16 +1,26 @@
-import { ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { APP_NAME, ROLE_LABELS } from '../../constants';
 import ConfirmationModal from '../ConfirmationModal';
 import './DashboardLayout.css';
 
+// Force rebuild - 2026-06-21 15:30
+
 interface DashboardLayoutProps {
   children: ReactNode;
   pageTitle?: string;
 }
 
-const NAV_ITEMS = [
+interface NavItem {
+  name: string;
+  icon: React.ReactNode;
+  path?: string;
+  roles: string[];
+  submenu?: { name: string; path: string }[];
+}
+
+const NAV_ITEMS: NavItem[] = [
   {
     name: 'Dashboard',
     icon: (
@@ -74,6 +84,17 @@ const NAV_ITEMS = [
     roles: ['admin', 'triage', 'treatment'],
   },
   {
+    name: 'Inventory',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18M9 3v18"/>
+      </svg>
+    ),
+    path: '/inventory',
+    roles: ['admin', 'triage', 'treatment'],
+  },
+  {
     name: 'Users',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -92,8 +113,13 @@ const NAV_ITEMS = [
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
     ),
-    path: '/setup',
     roles: ['admin'],
+    submenu: [
+      { name: 'Clinic Information', path: '/setup/clinic-info' },
+      { name: 'Predefined Templates', path: '/setup/templates' },
+      { name: 'Working Hours', path: '/setup/working-hours' },
+      { name: 'Vaccination Schedules', path: '/setup/vaccination-schedules' },
+    ],
   },
 ];
 
@@ -103,6 +129,7 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
   const filteredNav = NAV_ITEMS.filter(item =>
     user?.role ? item.roles.includes(user.role) : false
@@ -115,6 +142,16 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
   const isActive = (path: string) =>
     location.pathname === path ||
     (path !== '/dashboard' && location.pathname.startsWith(path));
+
+  const isSubmenuActive = (submenu?: { name: string; path: string }[]) =>
+    submenu?.some(sub => location.pathname === sub.path || location.pathname.startsWith(sub.path));
+
+  const toggleSubmenu = (itemName: string) => {
+    console.log('Toggle submenu:', itemName);
+    setExpandedMenu(expandedMenu === itemName ? null : itemName);
+  };
+
+  console.log('DashboardLayout rendered, expandedMenu:', expandedMenu, 'filteredNav:', filteredNav.map(i => ({ name: i.name, hasSubmenu: !!i.submenu })));
 
   return (
     <div className="dashboard-layout">
@@ -141,15 +178,59 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
         {/* Nav */}
         <nav className="sidebar-nav">
           {filteredNav.map(item => (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`nav-item ${isActive(item.path) ? 'active' : ''}`}
-              title={!sidebarOpen ? item.name : undefined}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              {sidebarOpen && <span className="nav-label">{item.name}</span>}
-            </button>
+            <div key={item.name}>
+              <button
+                onClick={() => {
+                  if (item.submenu) {
+                    toggleSubmenu(item.name);
+                  } else if (item.path) {
+                    navigate(item.path);
+                  }
+                }}
+                className={`nav-item ${
+                  item.submenu
+                    ? isSubmenuActive(item.submenu) ? 'active' : ''
+                    : item.path && isActive(item.path) ? 'active' : ''
+                }`}
+                title={!sidebarOpen ? item.name : undefined}
+              >
+                <span className="nav-icon">{item.icon}</span>
+                {sidebarOpen && (
+                  <>
+                    <span className="nav-label">{item.name}</span>
+                    {item.submenu && (
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className={`nav-chevron ${expandedMenu === item.name ? 'expanded' : ''}`}
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    )}
+                  </>
+                )}
+              </button>
+              
+              {/* Submenu */}
+              {item.submenu && sidebarOpen && expandedMenu === item.name && (
+                <div className="submenu">
+                  {item.submenu.map(subItem => (
+                    <button
+                      key={subItem.path}
+                      onClick={() => navigate(subItem.path)}
+                      className={`submenu-item ${isActive(subItem.path) ? 'active' : ''}`}
+                    >
+                      <span className="submenu-dot"></span>
+                      <span className="submenu-label">{subItem.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </nav>
 

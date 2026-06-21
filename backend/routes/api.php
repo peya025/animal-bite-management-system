@@ -40,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Clinic Setup (admin only)
     Route::prefix('setup')->middleware('role:admin')->group(function () {
         Route::get('/status', [ClinicSetupController::class, 'checkSetup']);
+        Route::get('/clinic', [ClinicSetupController::class, 'getProfile']);
         Route::put('/clinic', [ClinicSetupController::class, 'updateClinic']);
         Route::post('/complete', [ClinicSetupController::class, 'completeSetup']);
     });

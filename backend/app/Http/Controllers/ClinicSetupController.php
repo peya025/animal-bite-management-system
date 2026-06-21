@@ -21,6 +21,16 @@ class ClinicSetupController extends Controller
     }
 
     /**
+     * Get clinic profile
+     */
+    public function getProfile(Request $request)
+    {
+        $clinic = $request->user()->clinic;
+
+        return response()->json($clinic);
+    }
+
+    /**
      * Update clinic information
      */
     public function updateClinic(Request $request)
@@ -28,8 +38,10 @@ class ClinicSetupController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'nullable|string',
-            'phone' => 'nullable|string|max:50',
+            'contact_number' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
+            'license_number' => 'nullable|string|max:255',
+            'opening_hours' => 'nullable|string',
             'logo' => 'nullable|image|max:2048', // 2MB max
         ]);
 

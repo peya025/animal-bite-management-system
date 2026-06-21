@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import SetupWizard from './pages/Setup/SetupWizard';
 import PatientList from './pages/Patients/PatientList';
 import VaccineInventory from './pages/Inventory/VaccineInventory';
+import ClinicInformation from './pages/Setup/ClinicInformation';
 import ConfirmationModal from './components/ConfirmationModal';
 import './App.css';
 import './SimpleDashboard.css';
@@ -52,7 +53,6 @@ const NAV: NavItem[] = [
     submenu: [
       { label: 'Clinic Information', path: '/setup/clinic-info' },
       { label: 'Predefined Templates', path: '/setup/templates' },
-      { label: 'Working Hours', path: '/setup/working-hours' },
       { label: 'Vaccination Schedules', path: '/setup/vaccination-schedules' },
     ],
   },
@@ -703,6 +703,7 @@ function App() {
         <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
         <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
         <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
+        <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
       </Routes>
     </Router>
   );

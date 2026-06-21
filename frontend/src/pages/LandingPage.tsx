@@ -298,98 +298,44 @@ export default function LandingPage() {
         
         
 
-        <section id="help" className="how-it-works">
+        <section id="help" className="help-center">
           <div className="section-header">
             <h2>Help Center</h2>
             <p>Quick guides and resources for staff members</p>
           </div>
 
-          <div className="features-grid" style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            <div className="feature-card" style={{ textAlign: 'left' }}>
-              <div className="feature-icon">📖</div>
+          <div className="help-grid">
+            <div className="help-card">
+              <div className="help-icon">📖</div>
               <h3>User Guides</h3>
-              <p>Step-by-step instructions for each role: Admin, Registration, Triage, and Treatment staff</p>
-              <a href="#contact" style={{ color: '#10b981', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '600' }}>
-                Request documentation →
-              </a>
+              <p>Step-by-step instructions for each role</p>
+              <a href="#contact" className="help-link">Learn more →</a>
             </div>
 
-            <div className="feature-card" style={{ textAlign: 'left' }}>
-              <div className="feature-icon">🎥</div>
+            <div className="help-card">
+              <div className="help-icon">🎥</div>
               <h3>Video Tutorials</h3>
-              <p>Watch demonstration videos on patient registration, bite case management, and vaccination tracking</p>
-              <a href="#contact" style={{ color: '#10b981', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '600' }}>
-                Request training →
-              </a>
+              <p>Watch demonstration videos</p>
+              <a href="#contact" className="help-link">Watch now →</a>
             </div>
 
-            <div className="feature-card" style={{ textAlign: 'left' }}>
-              <div className="feature-icon">❓</div>
+            <div className="help-card">
+              <div className="help-icon">❓</div>
               <h3>FAQs</h3>
-              <p>Common questions about system features, workflows, WHO protocols, and troubleshooting</p>
-              <a href="#contact" style={{ color: '#10b981', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '600' }}>
-                View FAQs →
-              </a>
+              <p>Common questions and answers</p>
+              <a href="#contact" className="help-link">View FAQs →</a>
             </div>
 
-            <div className="feature-card" style={{ textAlign: 'left' }}>
-              <div className="feature-icon">🛠️</div>
+            <div className="help-card">
+              <div className="help-icon">🛠️</div>
               <h3>Technical Support</h3>
-              <p>Need help with login issues, system errors, or technical questions? Contact our support team</p>
-              <a href="#contact" style={{ color: '#10b981', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '600' }}>
-                Get support →
-              </a>
+              <p>Get help with system issues</p>
+              <a href="#contact" className="help-link">Contact us →</a>
             </div>
           </div>
         </section>
 
-        <section id="contact" className="cta-section">
-          <div className="cta-content">
-            <h2>Need Assistance?</h2>
-            <p>Our support team is here to help with any questions or technical issues</p>
-            
-            <div style={{ 
-              display: 'flex', 
-              gap: '2.5rem', 
-              justifyContent: 'center', 
-              flexWrap: 'wrap',
-              marginTop: '2.5rem',
-              fontSize: '0.95rem'
-            }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📧</div>
-                <strong style={{ fontSize: '1rem' }}>Email Support</strong>
-                <p style={{ margin: '0.5rem 0', color: 'rgba(255,255,255,0.85)' }}>support@abmms.dev</p>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📱</div>
-                <strong style={{ fontSize: '1rem' }}>Phone Support</strong>
-                <p style={{ margin: '0.5rem 0', color: 'rgba(255,255,255,0.85)' }}>+63 XXX XXX XXXX</p>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⏰</div>
-                <strong style={{ fontSize: '1rem' }}>Support Hours</strong>
-                <p style={{ margin: '0.5rem 0', color: 'rgba(255,255,255,0.85)' }}>Mon-Fri: 8AM - 5PM PHT</p>
-              </div>
-            </div>
-
-            <div style={{ 
-              marginTop: '2.5rem',
-              padding: '1.75rem',
-              background: 'rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: '12px',
-              maxWidth: '600px',
-              margin: '2.5rem auto 0',
-              border: '1px solid rgba(255,255,255,0.2)'
-            }}>
-              <p style={{ margin: 0, fontSize: '0.95rem', color: 'rgba(255,255,255,0.95)', lineHeight: '1.6' }}>
-                <strong>For urgent technical issues:</strong> Contact your clinic administrator or 
-                email <span style={{ color: '#d1fae5', fontWeight: '600' }}>urgent@abmms.dev</span> with "URGENT" in the subject line.
-              </p>
-            </div>
-          </div>
-        </section>
+        
       </main>
 
       <footer className="footer">

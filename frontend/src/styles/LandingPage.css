@@ -970,21 +970,45 @@ a {
 }
 
 .service-btn {
-  background: #1e40af;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
   color: white;
-  padding: 10px 24px;
-  border-radius: 8px;
+  padding: 12px 32px;
+  border-radius: 12px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-transform: capitalize;
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+}
+
+.service-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.service-btn:hover::before {
+  left: 100%;
 }
 
 .service-btn:hover {
-  background: #1e3a8a;
-  transform: translateX(4px);
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #047857 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+}
+
+.service-btn:active {
+  transform: translateY(-1px);
 }
 
 /* Services Responsive */
@@ -1014,62 +1038,118 @@ a {
   }
 }
 
-/* ===== How It Works / Help Center ===== */
-.how-it-works {
-  padding: var(--spacing-4xl) var(--spacing-lg);
-  max-width: var(--container-xl);
+/* ===== Help Center ===== */
+.help-center {
+  padding: 80px 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+}
+
+.help-grid {
+  max-width: 1200px;
   margin: 0 auto;
-  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 50%, #ffffff 100%);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
 }
 
-.steps-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-  margin-top: 60px;
-}
-
-.step {
-  flex: 1;
-  min-width: 200px;
+.help-card {
+  background: var(--white);
+  padding: 32px 24px;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--gray-200);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: center;
   position: relative;
+  overflow: hidden;
 }
 
-.step-number {
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-  color: var(--white);
-  border-radius: 50%;
+.help-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-gradient-light));
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.help-card:hover::before {
+  transform: scaleX(1);
+}
+
+.help-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.12);
+  border-color: var(--primary-light);
+}
+
+.help-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24px;
-  font-weight: 700;
-  margin: 0 auto 20px;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--white) 100%);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+  transition: all 0.3s ease;
 }
 
-.step h3 {
-  font-size: 18px;
+.help-card:hover .help-icon {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.help-card h3 {
+  font-size: 16px;
   font-weight: 700;
   color: var(--gray-900);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
 }
 
-.step p {
-  font-size: 14px;
-  color: var(--gray-500);
+.help-card p {
+  font-size: 13px;
+  color: var(--gray-600);
   line-height: 1.6;
+  margin-bottom: 16px;
+  min-height: 40px;
 }
 
-.step-arrow {
-  font-size: 28px;
+.help-link {
   color: var(--primary);
-  font-weight: 300;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.help-link:hover {
+  color: var(--primary-dark);
+  transform: translateX(4px);
+}
+
+/* Help Center Responsive */
+@media (max-width: 900px) {
+  .help-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .help-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .help-card {
+    padding: 28px 20px;
+  }
 }
 
 /* ===== CTA Section ===== */
@@ -1175,7 +1255,7 @@ a {
 .footer {
   background: var(--gray-900);
   color: var(--white);
-  padding: var(--spacing-4xl) var(--spacing-lg) var(--spacing-lg);
+  padding: 60px 24px 24px;
   position: relative;
 }
 
@@ -1194,13 +1274,13 @@ a {
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--spacing-3xl);
-  margin-bottom: var(--spacing-3xl);
+  gap: 40px;
+  margin-bottom: 40px;
 }
 
 .footer-section h4,
 .footer-section h5 {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   font-weight: 700;
 }
 
@@ -1227,7 +1307,7 @@ a {
 }
 
 .footer-section ul li {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .footer-section a {
@@ -1273,7 +1353,7 @@ a {
 .footer-bottom {
   max-width: 1200px;
   margin: 0 auto;
-  padding-top: 24px;
+  padding-top: 20px;
   border-top: 1px solid var(--gray-700);
   text-align: center;
   color: var(--gray-400);

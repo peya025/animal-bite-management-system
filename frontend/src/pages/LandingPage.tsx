@@ -4,6 +4,7 @@ import '../styles/LandingPage.css';
 import antiviralVaccineImg from '../assets/image.png';
 import icon from '../assets/metrics/24 7.png'
 import secureIcon from '../assets/metrics/secure.png';
+import rorOrModified from '../assets/roror-modified.png';
 
 
 export default function LandingPage() {
@@ -104,11 +105,29 @@ export default function LandingPage() {
       </section>
 
       <section className="features-hero">
-        <div className="features-hero-banner">
-          <img 
-            src={antiviralVaccineImg} 
-            alt="Anti-rabies Vaccination - Animal bite prevention and treatment" 
-          />
+        <div className="features-hero-container">
+          <div className="features-hero-content">
+            <h2 className="features-hero-title">
+              <span className="title-creative">innovative</span>
+              <span className="title-solutions">healthcare</span>
+              <span className="title-solutions-cyan">solutions</span>
+            </h2>
+            <p className="features-hero-description">
+              Comprehensive animal bite management system providing efficient, 
+              WHO-compliant care for animal bite incidents with streamlined 
+              patient management and vaccination tracking.
+            </p>
+            <button onClick={handleSignIn} className="features-hero-btn">
+              GET STARTED
+            </button>
+          </div>
+          
+          <div className="features-hero-illustration">
+            <img 
+              src={rorOrModified} 
+              alt="Healthcare Solutions Illustration" 
+            />
+          </div>
         </div>
 
         <div id="about" className="section-header">

@@ -14,6 +14,8 @@ import {
   Vaccines as VaccineIcon,
 } from '@mui/icons-material';
 
+import TablePaginator from '../ui/TablePaginator';
+
 interface InventoryItem {
   inventory_id: number;
   clinic_id: number;
@@ -344,8 +346,8 @@ export default function InventoryTable({
                       borderRadius: 2,
                       strokeColor: '#374151',
                       mx: 'auto',
-                      fontWeight: 600,
-                      mb: 2,
+                      fontWeight: 200,
+                      mb: 0.5,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -484,7 +486,7 @@ export default function InventoryTable({
                           color: statusInfo.color,
                           borderRadius: 1,
                           fontSize: 12,
-                          fontWeight: 600,
+                          fontWeight: 200,
                         }}
                       >
                         {statusInfo.label}
@@ -561,31 +563,14 @@ export default function InventoryTable({
       </TableContainer>
 
       {/* ── Pagination ── */}
-      <Box sx={{ borderTop: '1px solid #e5e7eb', bgcolor: '#f9fafb', px: 2 }}>
-        <TablePagination
-          component="div"
+              <TablePaginator
           count={total}
           page={page}
           rowsPerPage={rowsPerPage}
-          onPageChange={(_, p) => onPageChange(p)}
-          onRowsPerPageChange={(e) => {
-            onRowsPerPageChange(Number(e.target.value));
-            onPageChange(0);
-          }}
-          rowsPerPageOptions={[5, 10, 25]}
-          labelRowsPerPage="Rows:"
-          sx={{
-            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-              fontSize: 13,
-              color: '#6b7280',
-            },
-            '& .MuiTablePagination-select': {
-              fontSize: 13,
-            },
-          }}
+          onPageChange={onPageChange}
+          onRowsPerPageChange={onRowsPerPageChange}
         />
-      </Box>
-    </Paper>
+            </Paper>
     </Box>
   );
 }

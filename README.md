@@ -60,6 +60,37 @@ animal-bite-management-system/
 
 # Backend Setup (Laravel)
 
+## Quick Setup (Recommended for First-Time Setup)
+
+For first-time setup, you can use the automated setup script:
+
+**Windows CMD:**
+```bash
+cd backend
+quick-setup.bat
+```
+
+**PowerShell:**
+```bash
+cd backend
+.\quick-setup.ps1
+```
+
+This script will:
+- Install dependencies
+- Create .env file
+- Generate app key
+- Create database
+- Run migrations
+- Seed default data
+- Verify setup
+
+**Or follow the manual steps below:**
+
+---
+
+## Manual Setup
+
 ## Step 1: Navigate to Backend Directory
 
 ```bash
@@ -156,7 +187,27 @@ This creates:
 
 ---
 
-## Step 8: Start Laravel Server
+## Step 8: Verify Setup (Optional but Recommended)
+
+Run the setup verification script to ensure everything is configured correctly:
+
+```bash
+php verify-setup.php
+```
+
+This will check:
+- PHP version and extensions
+- File permissions
+- .env configuration
+- Database connection
+- Migrations status
+- Seeded data
+
+If all checks pass, you're ready to start the server!
+
+---
+
+## Step 9: Start Laravel Server
 
 ```bash
 php artisan serve
@@ -372,32 +423,11 @@ flutter doctor
 
 # Troubleshooting
 
-### Backend Not Starting
+⚠️ **Having setup issues?** See [SETUP_TROUBLESHOOTING.md](SETUP_TROUBLESHOOTING.md) for detailed solutions to common problems.
 
-```bash
-composer install
-php artisan key:generate
-php artisan migrate
-```
+### Quick Fixes
 
-### Frontend Cannot Connect to API
-
-Verify:
-
-```env
-VITE_API_URL=http://localhost:8000
-```
-
-and ensure Laravel is running:
-
-```bash
-php artisan serve
-```
-
-### Fresh Project Setup
-
-If starting from scratch:
-
+**Backend Not Starting:**
 ```bash
 cd backend
 composer install
@@ -407,9 +437,42 @@ php artisan migrate:fresh --seed
 php artisan serve
 ```
 
-Then:
-
+**Frontend Cannot Connect:**
 ```bash
+# Check backend/.env has:
+FRONTEND_URL=http://localhost:5173
+
+# Check frontend/.env has:
+VITE_API_URL=http://localhost:8000
+
+# Clear backend cache:
+cd backend
+php artisan config:clear
+
+# Restart both servers
+```
+
+**Database Issues:**
+```bash
+cd backend
+# Delete and recreate database
+del database\database.sqlite
+type nul > database\database.sqlite
+php artisan migrate:fresh --seed
+```
+
+**Complete Reset:**
+```bash
+# Backend
+cd backend
+php artisan config:clear
+php artisan cache:clear
+del database\database.sqlite
+type nul > database\database.sqlite
+php artisan migrate:fresh --seed
+php artisan serve
+
+# Frontend (new terminal)
 cd frontend
 npm install
 npm run dev
@@ -417,16 +480,17 @@ npm run dev
 
 The application should now be accessible at:
 
-Frontend:
-`http://localhost:5173`
+Frontend: `http://localhost:5173`  
+Backend API: `http://localhost:8000`
 
-Backend API:
-`http://localhost:8000`
+📖 **For detailed troubleshooting**, migration issues, CORS problems, and more solutions, see [SETUP_TROUBLESHOOTING.md](SETUP_TROUBLESHOOTING.md)
 
 
 ## 📖 Additional Documentation
 
 ### ⭐ Getting Started (Read These First)
+- **[SETUP_TROUBLESHOOTING.md](SETUP_TROUBLESHOOTING.md)** - 🆘 Common setup issues and solutions
+- **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** - 🔄 Database migration order and dependencies
 - **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference card for all features
 - **[FINAL_IMPLEMENTATION.md](FINAL_IMPLEMENTATION.md)** - Complete implementation guide
 - **[IMPLEMENTATION_CHECKLIST.md](IMPLEMENTATION_CHECKLIST.md)** - Step-by-step checklist

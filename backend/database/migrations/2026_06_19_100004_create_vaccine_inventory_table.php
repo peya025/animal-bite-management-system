@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('batch_number');
             $table->integer('current_quantity')->default(0);
             $table->date('expiration_date')->nullable();
-            $table->enum('status', ['active', 'expired', 'depleted'])->default('active');
+            $table->enum('status', ['active', 'expired', 'depleted', 'deleted'])->default('active');
             
             $table->timestamps();
             

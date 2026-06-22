@@ -11,14 +11,37 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Create clinics table FIRST (no dependencies)
+        Schema::create('clinics', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->text('address')->nullable();
+            $table->string('phone', 50)->nullable();
+            $table->string('email')->nullable();
+            $table->string('logo_path')->nullable();
+            $table->boolean('is_setup_complete')->default(false);
+            $table->timestamp('setup_completed_at')->nullable();
+            $table->timestamps();
+        });
+
+        // Create users table WITH clinic_id from the start
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics', 'id')->cascadeOnDelete();
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->enum('role', ['admin', 'registration', 'triage', 'treatment']);
+            $table->boolean('is_active')->default(true);
+            $table->string('phone', 50)->nullable();
             $table->rememberToken();
+            $table->timestamp('last_login_at')->nullable();
             $table->timestamps();
+            
+            $table->index('clinic_id');
+            $table->index('email');
+            $table->index('role');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -42,8 +65,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('users');
+        Schema::dropIfExists('clinics');
     }
 };

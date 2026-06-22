@@ -8,127 +8,64 @@ interface StatCardProps {
   loading?: boolean;
 }
 
-export default function StatCard({ label, value, icon, color, loading: isLoading }: StatCardProps) {
-  // Soft, light color palette
-  const softColors: Record<string, { main: string; light: string }> = {
-    success: { main: '#6ee7b7', light: '#d1fae5' },  // lighter green
-    info: { main: '#93c5fd', light: '#dbeafe' },     // lighter blue
-    warning: { main: '#fbbf24', light: '#fef3c7' },  // lighter orange
-    error: { main: '#fca5a5', light: '#fee2e2' },    // lighter red
-    primary: { main: '#c4b5fd', light: '#ede9fe' },  // lighter purple
-  };
+const COLORS: Record<string, { stroke: string; track: string }> = {
+  success: { stroke: '#1D9E75', track: '#d1fae5' },
+  info:    { stroke: '#378ADD', track: '#dbeafe' },
+  warning: { stroke: '#EF9F27', track: '#fef3c7' },
+  error:   { stroke: '#E24B4A', track: '#fee2e2' },
+  primary: { stroke: '#7F77DD', track: '#ede9fe' },
+};
 
-  const softColor = softColors[color] || { main: '#d1d5db', light: '#f3f4f6' };
+const RADIUS = 26;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-  // Random percentage for visual effect (you can make this dynamic based on actual data)
-  const percentage = 75;
-  const circumference = 2 * Math.PI * 45; // radius = 45
-  const offset = circumference - (percentage / 100) * circumference;
+export default function StatCard({ label, value, color, loading }: StatCardProps) {
+  const c = COLORS[color] ?? COLORS.info;
 
   return (
     <Paper
       elevation={0}
       sx={{
-        background: '#ffffff',
-        border: '1px solid',
-        borderColor: '#f3f4f6',
+        border: '0.5px solid #e5e7eb',
         borderRadius: 3,
-        p: 3,
-        height: '100%',
+        p: '14px 12px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
-        gap: 2.5,
+        gap: 1,
+        bgcolor: '#fff',
       }}
     >
-      {/* Circular Pie Chart */}
-      <Box
-        sx={{
-          position: 'relative',
-          width: 100,
-          height: 100,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {/* SVG Donut Chart */}
-        <svg
-          width="100"
-          height="100"
-          viewBox="0 0 100 100"
-          style={{ transform: 'rotate(-90deg)' }}
-        >
-          {/* Background circle */}
-          <circle
-            cx="50"
-            cy="50"
-            r="45"
-            fill="none"
-            stroke={softColor.light}
-            strokeWidth="10"
-          />
-          {/* Progress circle */}
-          <circle
-            cx="50"
-            cy="50"
-            r="45"
-            fill="none"
-            stroke={softColor.main}
-            strokeWidth="10"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            style={{
-              transition: 'stroke-dashoffset 1s ease-in-out',
-            }}
-          />
+      <Box sx={{ position: 'relative', width: 64, height: 64 }}>
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <circle cx="32" cy="32" r={RADIUS} stroke={c.track} strokeWidth="6" />
+          {!loading && (
+            <circle
+              cx="32" cy="32" r={RADIUS}
+              stroke={c.stroke}
+              strokeWidth="6"
+              strokeDasharray={`${CIRCUMFERENCE * 0.72} ${CIRCUMFERENCE * 0.28}`}
+              strokeDashoffset="41"
+              strokeLinecap="round"
+            />
+          )}
         </svg>
-
-        {/* Center icon */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            color: softColor.main,
-            '& svg': { fontSize: 32 },
-          }}
-        >
-          {icon}
+        <Box sx={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {loading
+            ? <Skeleton width={24} height={20} />
+            : <Typography sx={{ fontSize: 14, fontWeight: 500, color: '#111827', lineHeight: 1 }}>
+                {value}
+              </Typography>
+          }
         </Box>
       </Box>
 
-      {/* Value and Label */}
-      <Box>
-        {isLoading ? (
-          <Skeleton width={70} height={36} sx={{ mb: 0.5, mx: 'auto' }} />
-        ) : (
-          <Typography
-            sx={{
-              fontWeight: 700,
-              fontSize: 32,
-              lineHeight: 1.2,
-              color: '#111827',
-              mb: 0.5,
-            }}
-          >
-            {value}
-          </Typography>
-        )}
-        <Typography
-          sx={{
-            fontSize: 13,
-            fontWeight: 500,
-            color: '#6b7280',
-          }}
-        >
-          {label}
-        </Typography>
-      </Box>
+      <Typography sx={{ fontSize: 11, color: '#6b7280', textAlign: 'center', lineHeight: 1.3 }}>
+        {label}
+      </Typography>
     </Paper>
   );
 }

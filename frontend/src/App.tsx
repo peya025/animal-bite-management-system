@@ -41,8 +41,8 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { label: 'Dashboard',    path: '/dashboard',    roles: ['admin','registration','triage','treatment'] },
-  { label: 'Patients',     path: '/patients',     roles: ['admin','registration','triage','treatment'] },
-  { label: 'Queue',        path: '/queue',        roles: ['admin','registration','triage'] },
+  { label: 'Patients',     path: '/patients',     roles: ['registration','triage','treatment'] },
+  { label: 'Queue',        path: '/queue',        roles: ['registration','triage'] },
   { label: 'Bite Cases',   path: '/bite-cases',   roles: ['admin','triage','treatment'] },
   { label: 'Vaccinations', path: '/vaccinations', roles: ['admin','triage','treatment'] },
   { label: 'Inventory',    path: '/inventory',    roles: ['admin'] },

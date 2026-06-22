@@ -20,16 +20,36 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
+        // Create a default clinic for the admin user
+        $clinic = \App\Models\Clinic::create([
+            'name' => 'My Clinic',
+            'is_setup_complete' => false,
+        ]);
+
         $user = User::create([
+            'clinic_id' => $clinic->id,
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => 'admin', // First user is always admin
+            'is_active' => true,
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        // Load clinic relationship
+        $user->load('clinic');
+
         return response()->json([
-            'user' => $user,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'phone' => $user->phone,
+                'is_active' => $user->is_active,
+                'clinic' => $user->clinic,
+            ],
             'token' => $token,
             'token_type' => 'Bearer',
         ], 201);

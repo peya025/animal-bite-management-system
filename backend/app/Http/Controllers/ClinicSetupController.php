@@ -27,6 +27,12 @@ class ClinicSetupController extends Controller
     {
         $clinic = $request->user()->clinic;
 
+        if (!$clinic) {
+            return response()->json([
+                'message' => 'No clinic found for this user',
+            ], 404);
+        }
+
         return response()->json($clinic);
     }
 

@@ -58,6 +58,9 @@ export default function VaccineInventory() {
   const [total, setTotal]               = useState(0);
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [batchFilter, setBatchFilter]   = useState('');
+  const [expiryFrom, setExpiryFrom]     = useState('');
+  const [expiryTo, setExpiryTo]         = useState('');
   const [snackbar, setSnackbar]         = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
@@ -73,6 +76,9 @@ export default function VaccineInventory() {
       const params: Record<string, string | number> = { page: page + 1, per_page: rowsPerPage };
       if (search)       params.vaccine_type = search;
       if (statusFilter) params.status       = statusFilter;
+      if (batchFilter)  params.batch_number = batchFilter;
+      if (expiryFrom)   params.expiry_from  = expiryFrom;
+      if (expiryTo)     params.expiry_to    = expiryTo;
       const [inventoryRes, statsRes] = await Promise.all([
         api.get('/inventory', { params }),
         api.get('/inventory/statistics'),
@@ -86,7 +92,7 @@ export default function VaccineInventory() {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, statusFilter]);
+  }, [page, rowsPerPage, search, statusFilter, batchFilter, expiryFrom, expiryTo]);
 
   useEffect(() => {
     loadData();
@@ -177,8 +183,14 @@ export default function VaccineInventory() {
         total={total}
         search={search}
         statusFilter={statusFilter}
+        batchFilter={batchFilter}
+        expiryFrom={expiryFrom}
+        expiryTo={expiryTo}
         onSearchChange={setSearch}
         onStatusFilterChange={setStatusFilter}
+        onBatchFilterChange={setBatchFilter}
+        onExpiryFromChange={setExpiryFrom}
+        onExpiryToChange={setExpiryTo}
         onPageChange={setPage}
         onRowsPerPageChange={setRowsPerPage}
         onEdit={setEditItem}

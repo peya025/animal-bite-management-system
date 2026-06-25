@@ -20,7 +20,7 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import api from '../../services/api';
-import StatCard from '../../components/StatCard';
+import StatCard from '../../components/common/StatCard';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal';
 import { DataTable, TablePager } from '../../components/data-display';
 import type { ColumnDef } from '../../components/data-display';

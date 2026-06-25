@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/Layout/DashboardLayout';
-import StatCard from '../components/Dashboard/StatCard';
+import StatCard from '../components/common/StatCard';
 import dashboardService from '../services/dashboardService';
 import type { DashboardStats } from '../services/dashboardService';
 import './Dashboard.css';

@@ -262,12 +262,17 @@ frontend/src/
 **Time**: 1 hour  
 **Risk**: Medium (requires testing)
 
-#### Step 2.1: Merge StatCard Components
-- [ ] Analyze both `components/StatCard.tsx` and `components/Dashboard/StatCard.tsx`
-- [ ] Keep the better implementation
-- [ ] Move to `components/common/StatCard/`
-- [ ] Update all imports
-- [ ] Test on Dashboard and Inventory pages
+#### Step 2.1: Merge StatCard Components ✅ COMPLETED
+- [x] Analyze both `components/StatCard.tsx` and `components/Dashboard/StatCard.tsx`
+- [x] Keep the better implementation (MUI donut chart version)
+- [x] Move to `components/common/StatCard/`
+- [x] Update all imports (Dashboard, Inventory, Queue)
+- [x] Delete old files
+- [x] Zero TypeScript errors
+- [ ] **PENDING**: Manual testing on Dashboard and Inventory pages
+- **See**: [PHASE_2_PART_1_COMPLETE.md](PHASE_2_PART_1_COMPLETE.md)
+
+**📝 TODO (Later)**: Replace `SdCard` component in `App.tsx` with unified `StatCard` for consistency across all dashboards. Currently, the universal dashboard (App.tsx) uses a separate `SdCard` component while role-based dashboards use the new `StatCard`. This should be unified in a future phase.
 
 #### Step 2.2: Consolidate Modal Components
 - [ ] Review all modal/dialog patterns

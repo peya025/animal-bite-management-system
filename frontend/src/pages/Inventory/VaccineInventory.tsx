@@ -11,7 +11,7 @@ import {
   People as PeopleIcon,
 } from '@mui/icons-material';
 import api from '../../services/api';
-import StatCard from '../../components/StatCard';
+import StatCard from '../../components/common/StatCard';
 import AddEditInventoryDialog from '../../components/Inventory/AddEditInventoryDialog';
 import AdjustStockDialog from '../../components/Inventory/AdjustStockDialog';
 import TransactionHistoryDialog from '../../components/Inventory/TransactionHistoryDialog';

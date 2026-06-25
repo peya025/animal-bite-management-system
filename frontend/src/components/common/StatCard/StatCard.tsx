@@ -3,10 +3,20 @@ import { Box, Paper, Skeleton, Typography } from '@mui/material';
 interface StatCardProps {
   label: string;
   value: number | string;
-  icon: React.ReactNode;
-  color: string;
+  icon?: React.ReactNode;
+  color: 'success' | 'info' | 'warning' | 'error' | 'primary' | 
+         'blue' | 'green' | 'yellow' | 'red' | 'purple';  // Support both naming conventions
   loading?: boolean;
 }
+
+// Color mapping for backwards compatibility with Dashboard
+const COLOR_MAP: Record<string, keyof typeof COLORS> = {
+  blue: 'info',
+  green: 'success',
+  yellow: 'warning',
+  red: 'error',
+  purple: 'primary',
+};
 
 const COLORS: Record<string, { stroke: string; track: string }> = {
   success: { stroke: '#1D9E75', track: '#d1fae5' },
@@ -19,8 +29,15 @@ const COLORS: Record<string, { stroke: string; track: string }> = {
 const RADIUS = 26;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export default function StatCard({ label, value, color, loading }: StatCardProps) {
-  const c = COLORS[color] ?? COLORS.info;
+export default function StatCard({ 
+  label, 
+  value, 
+  color, 
+  loading 
+}: StatCardProps) {
+  // Map old color names to new ones
+  const mappedColor = (COLOR_MAP[color] || color) as keyof typeof COLORS;
+  const c = COLORS[mappedColor] ?? COLORS.info;
 
   return (
     <Paper
@@ -36,9 +53,12 @@ export default function StatCard({ label, value, color, loading }: StatCardProps
         bgcolor: '#fff',
       }}
     >
+      {/* Donut chart visualization */}
       <Box sx={{ position: 'relative', width: 64, height: 64 }}>
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          {/* Background circle */}
           <circle cx="32" cy="32" r={RADIUS} stroke={c.track} strokeWidth="6" />
+          {/* Progress circle (72% filled) */}
           {!loading && (
             <circle
               cx="32" cy="32" r={RADIUS}
@@ -50,6 +70,7 @@ export default function StatCard({ label, value, color, loading }: StatCardProps
             />
           )}
         </svg>
+        {/* Value in center */}
         <Box sx={{
           position: 'absolute', inset: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -63,6 +84,7 @@ export default function StatCard({ label, value, color, loading }: StatCardProps
         </Box>
       </Box>
 
+      {/* Label */}
       <Typography sx={{ fontSize: 11, color: '#6b7280', textAlign: 'center', lineHeight: 1.3 }}>
         {label}
       </Typography>

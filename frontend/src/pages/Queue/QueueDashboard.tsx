@@ -3,8 +3,7 @@ import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, Divider, FormControl, Grid, IconButton,
   InputAdornment, InputLabel, LinearProgress, MenuItem, Paper, Select,
-  Skeleton, Snackbar, Stack, Table, TableBody, TableCell, TableContainer,
-  TableHead, TablePagination, TableRow, TextField, Tooltip, Typography,
+  Snackbar, Stack, TextField, Tooltip, Typography,
 } from '@mui/material';
 import {
   AccessTime as WaitIcon,
@@ -19,13 +18,12 @@ import {
   Refresh as RefreshIcon,
   Error as EmergencyIcon,
   Search as SearchIcon,
-  QueueMusic as QueueIcon,
 } from '@mui/icons-material';
 import api from '../../services/api';
 import StatCard from '../../components/StatCard';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal';
-import { DataTable, TablePager } from '../../components/ui';
-import type { ColumnDef } from '../../components/ui';
+import { DataTable, TablePager } from '../../components/data-display';
+import type { ColumnDef } from '../../components/data-display';
 
 // ─── Types ────────────────────────────────────────────────────
 interface QueueEntry {
@@ -547,221 +545,24 @@ export default function QueueDashboard() {
           </Grid>
         </Box>
 
-        <TableContainer>
-          <Table sx={{ minWidth: 1100 }}>
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#ffffff', borderBottom: '1px solid #e5e7eb' }}>
-                {['QUEUE ID', 'QUEUE #', 'PATIENT', 'APPT. ID', 'VISIT TYPE', 'PRIORITY', 'STATUS', 'WAIT TIME', 'ACTIONS'].map((h, i) => (
-                  <TableCell key={h} align={i === 8 ? 'right' : 'left'}
-                    sx={{ fontWeight: 600, color: '#6b7280', fontSize: 12, py: 2.5, border: 'none' }}>
-                    {h}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: rowsPerPage }).map((_, i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: 9 }).map((__, j) => (
-                      <TableCell key={j} sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}>
-                        <Skeleton height={20} />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : paginated.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 12, border: 0 }}>
-                    <Box sx={{
-                      width: 80, height: 80, borderRadius: 3, bgcolor: '#f9fafb',
-                      mx: 'auto', mb: 2.5,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <WaitIcon sx={{ fontSize: 36, color: '#d1d5db' }} />
-                    </Box>
-                    <Typography sx={{ fontWeight: 600, fontSize: 15, color: '#6b7280', mb: 0.5 }}>
-                      {statusFilter ? `No ${STATUS_CFG[statusFilter]?.label ?? statusFilter} patients` : 'Queue is empty'}
-                    </Typography>
-                    <Typography sx={{ fontSize: 13, color: '#9ca3af' }}>
-                      Patients added by registration will appear here
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginated.map(entry => {
-                  const isWaiting = entry.status === 'waiting';
-                  const isConsult = entry.status === 'in_consultation';
-                  const stCfg    = STATUS_CFG[entry.status]   ?? STATUS_CFG.cancelled;
-                  const priCfg   = PRIORITY_CFG[entry.priority] ?? PRIORITY_CFG.normal;
+        <DataTable
+          columns={columns}
+          rows={paginated}
+          loading={loading}
+          skeletonRows={rowsPerPage}
+          rowKey={e => e.queue_id}
+          emptyIcon={<WaitIcon sx={{ fontSize: 36, color: '#d1d5db' }} />}
+          emptyTitle={statusFilter ? `No ${STATUS_CFG[statusFilter]?.label ?? statusFilter} patients` : 'Queue is empty'}
+          emptySubtitle="Patients added by registration will appear here"
+        />
 
-                  return (
-                    <TableRow key={entry.queue_id}
-                      sx={{ '&:hover': { bgcolor: '#fafafa' }, transition: 'background 0.15s' }}>
-
-                      {/* QUEUE ID (PK) */}
-                      <TableCell sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}>
-                        <Box sx={{
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          px: 1.25, py: 0.25,
-                          bgcolor: '#f3f4f6', borderRadius: 1,
-                          fontSize: 12, fontWeight: 700,
-                          fontFamily: 'monospace', color: '#6b7280',
-                        }}>
-                          #{entry.queue_id}
-                        </Box>
-                      </TableCell>
-
-                      {/* QUEUE # */}
-                      <TableCell sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}>
-                        <Box sx={{
-                          width: 40, height: 40, borderRadius: 2,
-                          bgcolor: '#eff6ff',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#3b82f6' }}>
-                            {entry.queue_number}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-
-                      {/* PATIENT (patient_id FK) */}
-                      <TableCell sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}>
-                        <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#111827', lineHeight: 1.3 }}>
-                          {entry.patient.name}
-                        </Typography>
-                        <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
-                          {entry.patient.age}y · {entry.patient.gender}
-                          {entry.biteIncident && ` · ${entry.biteIncident.case_number}`}
-                        </Typography>
-                      </TableCell>
-
-                      {/* APPT. ID (appointment_id FK) */}
-                      <TableCell sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}>
-                        {(entry as any).appointment_id ? (
-                          <Box sx={{
-                            display: 'inline-flex', alignItems: 'center',
-                            px: 1.5, py: 0.4,
-                            bgcolor: '#f0fdf4', borderRadius: 1.5,
-                            fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: '#15803d',
-                          }}>
-                            #{(entry as any).appointment_id}
-                          </Box>
-                        ) : (
-                          <Typography sx={{ fontSize: 12, color: '#d1d5db' }}>—</Typography>
-                        )}
-                      </TableCell>
-
-                      {/* VISIT TYPE */}
-                      <TableCell sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}>
-                        <Box sx={{
-                          display: 'inline-flex', alignItems: 'center',
-                          px: 2, py: 0.5,
-                          bgcolor: '#f9fafb', borderRadius: 1.5,
-                          fontSize: 12, fontWeight: 600, color: '#374151',
-                        }}>
-                          {VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
-                        </Box>
-                      </TableCell>
-
-                      {/* PRIORITY */}
-                      <TableCell sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}>
-                        <Box sx={{
-                          display: 'inline-flex', alignItems: 'center', gap: 0.5,
-                          px: 1.5, py: 0.5, borderRadius: 1.5,
-                          bgcolor: priCfg.bg, color: priCfg.color,
-                          fontSize: 12, fontWeight: 600,
-                        }}>
-                          {entry.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
-                          {entry.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
-                          {priCfg.label}
-                        </Box>
-                      </TableCell>
-
-                      {/* STATUS */}
-                      <TableCell sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}>
-                        <Box sx={{
-                          display: 'inline-flex', alignItems: 'center',
-                          px: 2, py: 0.5,
-                          bgcolor: stCfg.bg, color: stCfg.color,
-                          borderRadius: 1.5, fontSize: 12, fontWeight: 600,
-                        }}>
-                          {stCfg.label}
-                        </Box>
-                      </TableCell>
-
-                      {/* WAIT TIME */}
-                      <TableCell sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}>
-                        {(isWaiting || isConsult) ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <WaitIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
-                            <Typography sx={{ fontSize: 13, color: '#6b7280' }}>
-                              {waitTime(entry.checked_in_at)}
-                            </Typography>
-                          </Box>
-                        ) : (
-                          <Typography sx={{ fontSize: 13, color: '#d1d5db' }}>—</Typography>
-                        )}
-                      </TableCell>
-
-                      {/* ACTIONS */}
-                      <TableCell align="right" sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}>
-                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                          {isWaiting && (
-                            <Tooltip title="Call Patient">
-                              <IconButton size="small" onClick={() => setCallTarget(entry)}
-                                sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#eff6ff', color: '#3b82f6' } }}>
-                                <CallIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {isConsult && (
-                            <Tooltip title="Complete Consultation">
-                              <IconButton size="small" onClick={() => setCompleteTarget(entry)}
-                                sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ecfdf5', color: '#059669' } }}>
-                                <CompleteIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {(isWaiting || isConsult) && (
-                            <Tooltip title="Cancel">
-                              <IconButton size="small" onClick={() => setCancelTarget(entry)}
-                                sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
-                                <CancelIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {!isWaiting && !isConsult && (
-                            <Typography sx={{ fontSize: 12, color: '#d1d5db', lineHeight: '32px' }}>—</Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        {/* Pagination */}
-        <Box sx={{ pt: 2, borderTop: '1px solid #f3f4f6', bgcolor: '#fafafa', mt: 3, mx: -3, px: 3 }}>
-          <TablePagination
-            component="div"
-            count={filtered.length}
-            page={page}
-            rowsPerPage={rowsPerPage}
-            onPageChange={(_, p) => setPage(p)}
-            onRowsPerPageChange={e => { setRowsPerPage(Number(e.target.value)); setPage(0); }}
-            rowsPerPageOptions={[5, 10, 25]}
-            labelRowsPerPage="Rows:"
-            sx={{
-              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-                fontSize: 13, color: '#6b7280',
-              },
-            }}
-          />
-        </Box>
+        <TablePager
+          count={filtered.length}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={n => { setRowsPerPage(n); setPage(0); }}
+        />
       </Paper>
 
       {/* ── Confirmation Modals ── */}

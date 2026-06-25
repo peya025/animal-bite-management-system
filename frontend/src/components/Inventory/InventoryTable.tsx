@@ -14,7 +14,7 @@ import {
   Vaccines as VaccineIcon,
 } from '@mui/icons-material';
 
-import TablePaginator from '../ui/TablePaginator';
+import TablePaginator from '../data-display/TablePaginator';
 
 interface InventoryItem {
   inventory_id: number;

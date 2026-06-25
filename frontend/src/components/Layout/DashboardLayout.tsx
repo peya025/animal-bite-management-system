@@ -117,7 +117,6 @@ const NAV_ITEMS: NavItem[] = [
     submenu: [
       { name: 'Clinic Information', path: '/setup/clinic-info' },
       { name: 'Predefined Templates', path: '/setup/templates' },
-      { name: 'Working Hours', path: '/setup/working-hours' },
       { name: 'Vaccination Schedules', path: '/setup/vaccination-schedules' },
     ],
   },

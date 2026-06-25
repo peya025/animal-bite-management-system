@@ -168,7 +168,7 @@ export default function VaccineInventory() {
           { label: 'Expiring Soon',       value: stats?.expiring_soon,                          icon: <WarningIcon />,   color: 'warning' },
           { label: 'Depleted',            value: stats?.depleted_batches,                       icon: <CancelIcon />,    color: 'error'   },
         ].map(s => (
-          <Grid key={s.label} size={{ xs: 6, sm: 4, md: 12/5 }}>
+          <Grid key={s.label} size={{ xs: 6, sm: 4, md: 2 }}>
             <StatCard label={s.label} value={s.value ?? '-'} icon={s.icon} color={s.color} loading={!stats} />
           </Grid>
         ))}

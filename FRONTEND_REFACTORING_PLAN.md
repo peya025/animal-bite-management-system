@@ -229,7 +229,7 @@ frontend/src/
 
 #### Step 1.1: Delete Unused Files ✅
 - Deleted `frontend/src/App-backup.tsx`
-- Deleted `frontend/src/SimpleDashboard.css`
+- Deleted `frontend/src/SimpleDashboard.css` ⚠️ **REVERTED** — this file drives the entire `sd-*` CSS class system used by `SimpleDashboard` and `AppLayout` in `App.tsx`. It was restored.
 - Deleted `frontend/src/components/404.tsx`
 - Removed dead `import './SimpleDashboard.css'` from `App.tsx`
 

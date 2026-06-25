@@ -9,6 +9,7 @@ import QueueDashboard from './pages/Queue/QueueDashboard';
 import ClinicInformation from './pages/Setup/ClinicInformation';
 import ConfirmationModal from './components/ConfirmationModal';
 import './App.css';
+import './SimpleDashboard.css';
 
 // ─── Auth Check Helper ───────────────────────────────────────
 function isAuthenticated(): boolean {

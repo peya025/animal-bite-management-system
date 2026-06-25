@@ -2,7 +2,7 @@ import { type ReactNode, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { APP_NAME, ROLE_LABELS } from '../../constants';
-import ConfirmationModal from '../ConfirmationModal';
+import ConfirmationDialog from '../feedback/ConfirmationDialog';
 import './DashboardLayout.css';
 
 // Force rebuild - 2026-06-21 15:30
@@ -296,7 +296,7 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
 
       {/* Logout modal */}
       {showLogoutModal && (
-        <ConfirmationModal
+        <ConfirmationDialog
           variant="danger"
           title="Sign out?"
           message="You'll be returned to the login page."

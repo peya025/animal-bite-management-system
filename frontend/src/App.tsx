@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';
-import SetupWizard from './pages/Setup/SetupWizard';
-import PatientList from './pages/Patients/PatientList';
-import VaccineInventory from './pages/Inventory/VaccineInventory';
-import QueueDashboard from './pages/Queue/QueueDashboard';
-import ClinicInformation from './pages/Setup/ClinicInformation';
-import ConfirmationModal from './components/ConfirmationModal';
+import Login from './features/auth/pages/LoginPage';
+import SetupWizard from './features/clinic-setup/pages/SetupWizardPage';
+import PatientList from './features/patients/pages/PatientListPage';
+import VaccineInventory from './features/inventory/pages/VaccineInventoryPage';
+import QueueDashboard from './features/queue/pages/QueueDashboardPage';
+import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
+import ConfirmationDialog from './components/feedback/ConfirmationDialog';
 import './App.css';
 import './SimpleDashboard.css';
 
@@ -444,7 +444,7 @@ function SimpleDashboard() {
       </div>
 
       {showLogoutModal && (
-        <ConfirmationModal
+        <ConfirmationDialog
           variant="warning"
           title="Confirm Logout"
           message="Are you sure you want to sign out? You'll need to log in again to access the system."
@@ -679,7 +679,7 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
       </div>
 
       {showLogoutModal && (
-        <ConfirmationModal
+        <ConfirmationDialog
           variant="warning"
           title="Confirm Logout"
           message="Are you sure you want to sign out?"

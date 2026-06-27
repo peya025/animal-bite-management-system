@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
-import '../styles/SetupWizard.css';
+import { SetupWizardRoot } from '../styles/SetupWizard.styles';
 
 export default function SetupWizard() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -135,7 +135,7 @@ export default function SetupWizard() {
   };
 
   return (
-    <div className="setup-wizard">
+    <SetupWizardRoot>
       {currentStep === 0 && <WelcomeScreen onStart={() => setCurrentStep(1)} />}
       
       {currentStep > 0 && (
@@ -224,7 +224,7 @@ export default function SetupWizard() {
           hideCancel
         />
       )}
-    </div>
+    </SetupWizardRoot>
   );
 }
 

@@ -1,4 +1,11 @@
-/* Landing Page Styles - Modern Green Theme */
+/**
+ * Landing-page styles preserved verbatim during Phase 4.
+ *
+ * GlobalStyles is intentional here: the original stylesheet contains root,
+ * body, reset, animation, and responsive rules whose cascade must remain
+ * unchanged during the no-redesign migration.
+ */
+export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Green Theme */
 
 /* ===== Variables ===== */
 :root {
@@ -1648,4 +1655,4 @@ a {
 .feature-card:nth-child(3) { animation-delay: 0.3s; }
 .feature-card:nth-child(4) { animation-delay: 0.4s; }
 .feature-card:nth-child(5) { animation-delay: 0.5s; }
-.feature-card:nth-child(6) { animation-delay: 0.6s; }
+.feature-card:nth-child(6) { animation-delay: 0.6s; }`;

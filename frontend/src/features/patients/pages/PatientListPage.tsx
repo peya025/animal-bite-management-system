@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import AddPatientModal from '../components/AddPatientModal';
-import '../styles/PatientList.css';
+import { PatientListRoot } from '../styles/PatientList.styles';
 
 interface Patient {
   id: number;
@@ -80,7 +80,7 @@ export default function PatientList() {
   const pendingCount = patients.filter(p => getStatus(p) === 'pending').length;
 
   return (
-    <div className="pm-page">
+    <PatientListRoot>
       {/* ── Breadcrumb ── */}
       <div className="pm-breadcrumb">
         <button className="pm-breadcrumb-link" onClick={() => { window.location.href = '/dashboard'; }}>
@@ -312,6 +312,6 @@ export default function PatientList() {
           onSuccess={() => { setShowAddModal(false); fetchPatients(); }}
         />
       )}
-    </div>
+    </PatientListRoot>
   );
 }

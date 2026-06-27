@@ -1,4 +1,13 @@
-import './FormModal.css';
+import {
+  Body,
+  CloseButton,
+  Footer,
+  Header,
+  Modal,
+  Overlay,
+  Subtitle,
+  Title,
+} from './FormModal.styles';
 
 interface FormModalProps {
   title: string;
@@ -20,32 +29,31 @@ export default function FormModal({
   maxWidth = 720,
 }: FormModalProps) {
   return (
-    <div className="fm-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div
-        className="fm-modal"
-        style={{ maxWidth }}
+    <Overlay onClick={onClose} role="dialog" aria-modal="true">
+      <Modal
+        maxWidth={maxWidth}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="fm-header">
+        <Header>
           <div>
-            <h2 className="fm-title">{title}</h2>
-            {subtitle && <p className="fm-subtitle">{subtitle}</p>}
+            <Title>{title}</Title>
+            {subtitle && <Subtitle>{subtitle}</Subtitle>}
           </div>
-          <button className="fm-close" onClick={onClose} aria-label="Close">
+          <CloseButton onClick={onClose} aria-label="Close">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="18" y1="6" x2="6" y2="18"/>
               <line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
-          </button>
-        </div>
+          </CloseButton>
+        </Header>
 
         {/* Scrollable body */}
-        <div className="fm-body">{children}</div>
+        <Body>{children}</Body>
 
         {/* Footer */}
-        {footer && <div className="fm-footer">{footer}</div>}
-      </div>
-    </div>
+        {footer && <Footer>{footer}</Footer>}
+      </Modal>
+    </Overlay>
   );
 }

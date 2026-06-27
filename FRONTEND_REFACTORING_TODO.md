@@ -72,17 +72,25 @@ import StatCard from './components/common/StatCard';
 **When**: Phase 4 (styling standardization)
 
 **Files with Separate CSS**:
-- [ ] `SimpleDashboard.css` (App.tsx)
-- [ ] `Dashboard.css` (pages/Dashboard.tsx)
-- [ ] `DashboardLayout.css` (components/Layout/)
-- [ ] `PatientList.css` (pages/Patients/)
-- [ ] `LandingPage.css` (styles/)
-- [ ] `Login.css` (styles/)
+- [x] `SimpleDashboard.css` migrated to scoped MUI `styled`
+- [x] `Dashboard.css` migrated to scoped MUI `styled`
+- [x] `DashboardLayout.css` migrated to scoped MUI `styled`
+- [x] `PatientList.css` migrated to scoped MUI `styled`
+- [x] `LandingPage.css` moved verbatim to MUI `GlobalStyles`
+- [x] `Login.css` migrated to scoped MUI `styled`
+- [x] `SetupWizard.css` migrated to scoped MUI `styled`
+- [x] `AddPatientModal.css` migrated to MUI `styled`
+- [x] `FormModal.css` migrated to MUI `styled`
+- [x] `ConfirmationDialog.css` migrated to MUI `styled`
+- [x] `Loader.css` migrated to MUI `styled`
+- [x] `App.css` verified unused and removed
+- [x] `index.css` renamed to the sole `styles/global.css`
 
-**Decision Needed**:
-- Option A: Convert all to MUI `sx` prop (recommended)
-- Option B: Keep CSS for complex layouts, MUI for components
-- Option C: Use styled-components or emotion
+**Decision**:
+- ✅ Use a shared MUI theme, `sx` for short one-off styles, and MUI `styled`
+  for reusable or complex responsive styles.
+- See [PHASE_4_EXECUTION_PLAN.md](PHASE_4_EXECUTION_PLAN.md) for the audited
+  13-file migration inventory, execution order, and verification matrix.
 
 ---
 
@@ -124,16 +132,16 @@ import { ConfirmationDialog } from '../../components/feedback';
 
 ---
 
-### 6. Move SimpleDashboard CSS to Theme
+### 6. Move SimpleDashboard CSS to Theme ✅
 **Location**: `frontend/src/SimpleDashboard.css`  
 **Issue**: Global CSS file for component-specific styles  
 **When**: Phase 4 (styling standardization)
 
 **Action Items**:
-- [ ] Extract CSS variables to MUI theme
-- [ ] Convert component styles to MUI
-- [ ] Remove SimpleDashboard.css
-- [ ] Update import in App.tsx
+- [x] Preserve existing literal values during the parity migration
+- [x] Convert component styles to scoped MUI `styled`
+- [x] Remove SimpleDashboard.css
+- [x] Update App.tsx
 
 ---
 

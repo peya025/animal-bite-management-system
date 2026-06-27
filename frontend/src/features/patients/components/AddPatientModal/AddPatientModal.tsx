@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import FormModal from '../../../../components/forms/FormModal';
-import './AddPatientModal.css';
+import { PatientFormContent } from './AddPatientModal.styles';
 
 // ── PSGC ─────────────────────────────────────────────────────
 const PSGC = 'https://psgc.gitlab.io/api';
@@ -155,6 +155,7 @@ export default function AddPatientModal({ onClose, onSuccess }: Props) {
         </>
       }
     >
+      <PatientFormContent>
       {/* Tabs */}
       <div className="apm-tabs">
         <button className={`apm-tab ${tab==='enrolment'?'apm-tab--active':''}`} onClick={()=>setTab('enrolment')}>
@@ -509,6 +510,7 @@ export default function AddPatientModal({ onClose, onSuccess }: Props) {
           </div>
         </>
       )}
+      </PatientFormContent>
     </FormModal>
   );
 }

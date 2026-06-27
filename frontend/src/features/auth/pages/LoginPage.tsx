@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { APP_NAME } from '../../../constants';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
-import '../../../styles/Login.css';
+import { LoginRoot } from '../styles/Login.styles';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -86,7 +86,7 @@ export default function Login() {
   };
 
   return (
-    <div className="login-container">
+    <LoginRoot>
       <div className="info-panel">
         <div className="logo-container">
           <div className="logo-wrapper">
@@ -246,6 +246,6 @@ export default function Login() {
           hideCancel
         />
       )}
-    </div>
+    </LoginRoot>
   );
 }

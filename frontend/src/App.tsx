@@ -8,8 +8,7 @@ import VaccineInventory from './features/inventory/pages/VaccineInventoryPage';
 import QueueDashboard from './features/queue/pages/QueueDashboardPage';
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
 import ConfirmationDialog from './components/feedback/ConfirmationDialog';
-import './App.css';
-import './SimpleDashboard.css';
+import { AppStyleScope } from './styles/SimpleDashboard.styles';
 
 // ─── Auth Check Helper ───────────────────────────────────────
 function isAuthenticated(): boolean {
@@ -696,18 +695,20 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
 // ─── App ───────────────────────────────────────────────────────
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/"          element={<LandingPage />} />
-        <Route path="/login"     element={<Login />} />
-        <Route path="/setup"     element={<ProtectedRoute><SetupWizard /></ProtectedRoute>} />
-        <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
-        <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
-        <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
-        <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
-        <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
-      </Routes>
-    </Router>
+    <AppStyleScope>
+      <Router>
+        <Routes>
+          <Route path="/"          element={<LandingPage />} />
+          <Route path="/login"     element={<Login />} />
+          <Route path="/setup"     element={<ProtectedRoute><SetupWizard /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
+          <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
+          <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
+          <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
+        </Routes>
+      </Router>
+    </AppStyleScope>
   );
 }
 

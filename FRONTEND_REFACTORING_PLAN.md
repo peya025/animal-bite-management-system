@@ -315,64 +315,34 @@ frontend/src/
 ---
 
 ### Phase 4: Standardize Styling Approach (Medium Risk)
-**Time**: 3-4 hours  
-**Risk**: High (many import changes)
-
-#### Step 3.1: Migrate Auth Feature
-```
-Move files:
-pages/Login.tsx → features/auth/pages/LoginPage.tsx
-pages/Auth/* → features/auth/pages/
-styles/Login.css → features/auth/styles/ or inline with MUI
-services/authService.ts → features/auth/services/
-```
-
-#### Step 3.2: Migrate Patients Feature
-```
-Move files:
-pages/Patients/* → features/patients/pages/
-components/ConfirmationModal → components/feedback/ConfirmationDialog/
-Update imports
-```
-
-#### Step 3.3: Migrate Inventory Feature
-```
-Move files:
-pages/Inventory/* → features/inventory/pages/
-components/Inventory/* → features/inventory/components/
-Update imports
-Test all inventory functionality
-```
-
-#### Step 3.4: Migrate Remaining Features
-- [ ] Bite Cases
-- [ ] Vaccinations
-- [ ] Queue Management
-- [ ] Reports
-- [ ] Users
-- [ ] Clinic Setup
-- [ ] Dashboard
-
----
-
-### Phase 4: Standardize Styling Approach (Medium Risk)
-**Time**: 2 hours  
-**Risk**: Medium (visual changes)
+**Time**: 12-18 hours
+**Risk**: Medium-High (approximately 4,600 CSS lines and visual changes)
+**Status**: ✅ COMPLETE - See
+[PHASE_4_EXECUTION_PLAN.md](PHASE_4_EXECUTION_PLAN.md) and
+[PHASE_4_COMPLETE.md](PHASE_4_COMPLETE.md)
 
 #### Step 4.1: Decide on Styling Strategy
-**Recommendation**: Use MUI's `sx` prop + theme (eliminate separate CSS files)
+**Decision**: Use a shared MUI theme, `sx` for short one-off styles, and MUI
+`styled` for reusable or complex responsive styles.
 
-#### Step 4.2: Migrate CSS to MUI
-- [ ] Convert `PatientList.css` to MUI styles
-- [ ] Convert `DashboardLayout.css` to MUI styles
-- [ ] Convert `Dashboard.css` to MUI styles
-- [ ] Remove separate CSS files
-- [ ] Create theme configuration in `styles/theme.ts`
+#### Step 4.2: Establish Theme Foundation
+- [x] Create theme configuration in `styles/theme.ts`
+- [x] Add `ThemeProvider`
+- [ ] Add `CssBaseline` after visually auditing the existing global reset
+- [ ] Define semantic design tokens and component defaults
 
-#### Step 4.3: Global Styles Cleanup
-- [ ] Keep only `global.css` for resets
-- [ ] Move all component styles inline
-- [ ] Configure MUI theme properly
+#### Step 4.3: Migrate CSS in Risk-Ordered Batches
+- [x] Shared components (Loader, dialogs, modals)
+- [x] Feature pages (clinic setup, patients, dashboard)
+- [x] Authenticated app shell and layouts
+- [x] Login and landing pages
+- [x] Remove obsolete component/page CSS files
+
+#### Step 4.4: Global Styles Cleanup and Verification
+- [x] Keep only `global.css` for global rules
+- [x] Remove stale CSS imports and component/page CSS files
+- [ ] Verify at 375, 768, 1024, and 1440 pixel widths
+- [ ] Run build and lint after every migration batch
 
 ---
 

@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { APP_NAME, ROLE_LABELS } from '../../constants';
 import ConfirmationDialog from '../feedback/ConfirmationDialog';
-import './DashboardLayout.css';
+import { DashboardLayoutRoot } from './DashboardLayout.styles';
 
 // Force rebuild - 2026-06-21 15:30
 
@@ -153,7 +153,7 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
   console.log('DashboardLayout rendered, expandedMenu:', expandedMenu, 'filteredNav:', filteredNav.map(i => ({ name: i.name, hasSubmenu: !!i.submenu })));
 
   return (
-    <div className="dashboard-layout">
+    <DashboardLayoutRoot>
 
       {/* ── Sidebar ── */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
@@ -305,6 +305,6 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
           onCancel={() => setShowLogoutModal(false)}
         />
       )}
-    </div>
+    </DashboardLayoutRoot>
   );
 }

@@ -5,7 +5,15 @@ import DashboardLayout from '../../../components/Layout/DashboardLayout';
 import StatCard from '../../../components/common/StatCard';
 import dashboardService from '../../../services/dashboardService';
 import type { DashboardStats } from '../../../services/dashboardService';
-import './Dashboard.css';
+import { DashboardStylesRoot } from '../styles/Dashboard.styles';
+
+function StyledDashboardLayout(props: React.ComponentProps<typeof DashboardLayout>) {
+  return (
+    <DashboardStylesRoot>
+      <DashboardLayout {...props} />
+    </DashboardStylesRoot>
+  );
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -30,23 +38,23 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <DashboardLayout pageTitle="Dashboard">
+      <StyledDashboardLayout pageTitle="Dashboard">
         <div className="dashboard-loading">
           <div className="spinner" />
           <p>Loading dashboard…</p>
         </div>
-      </DashboardLayout>
+      </StyledDashboardLayout>
     );
   }
 
   if (error) {
     return (
-      <DashboardLayout pageTitle="Dashboard">
+      <StyledDashboardLayout pageTitle="Dashboard">
         <div className="dashboard-error">
           <p>{error}</p>
           <button onClick={loadData}>Retry</button>
         </div>
-      </DashboardLayout>
+      </StyledDashboardLayout>
     );
   }
 
@@ -57,9 +65,9 @@ export default function Dashboard() {
     case 'treatment':    return <TreatmentDashboard stats={stats} />;
     default:
       return (
-        <DashboardLayout pageTitle="Dashboard">
+        <StyledDashboardLayout pageTitle="Dashboard">
           <div className="dashboard-error"><p>Unknown role.</p></div>
-        </DashboardLayout>
+        </StyledDashboardLayout>
       );
   }
 }
@@ -68,7 +76,7 @@ export default function Dashboard() {
 function AdminDashboard({ stats }: { stats: DashboardStats | null }) {
   const navigate = useNavigate();
   return (
-    <DashboardLayout pageTitle="Admin Dashboard">
+    <StyledDashboardLayout pageTitle="Admin Dashboard">
       <div className="dashboard-container">
         <div className="dashboard-header">
           <h1>Admin Dashboard</h1>
@@ -106,7 +114,7 @@ function AdminDashboard({ stats }: { stats: DashboardStats | null }) {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </StyledDashboardLayout>
   );
 }
 
@@ -114,7 +122,7 @@ function AdminDashboard({ stats }: { stats: DashboardStats | null }) {
 function RegistrationDashboard({ stats }: { stats: DashboardStats | null }) {
   const navigate = useNavigate();
   return (
-    <DashboardLayout pageTitle="Registration Dashboard">
+    <StyledDashboardLayout pageTitle="Registration Dashboard">
       <div className="dashboard-container">
         <div className="dashboard-header">
           <h1>Registration Dashboard</h1>
@@ -133,7 +141,7 @@ function RegistrationDashboard({ stats }: { stats: DashboardStats | null }) {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </StyledDashboardLayout>
   );
 }
 
@@ -147,7 +155,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
   const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <DashboardLayout pageTitle="Triage Dashboard">
+    <StyledDashboardLayout pageTitle="Triage Dashboard">
       <div className="dashboard-container">
 
         {/* Header */}
@@ -282,7 +290,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
 
         </div>
       </div>
-    </DashboardLayout>
+    </StyledDashboardLayout>
   );
 }
 
@@ -290,7 +298,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
 function TreatmentDashboard({ stats }: { stats: DashboardStats | null }) {
   const navigate = useNavigate();
   return (
-    <DashboardLayout pageTitle="Treatment Dashboard">
+    <StyledDashboardLayout pageTitle="Treatment Dashboard">
       <div className="dashboard-container">
         <div className="dashboard-header">
           <h1>Treatment Dashboard</h1>
@@ -327,7 +335,7 @@ function TreatmentDashboard({ stats }: { stats: DashboardStats | null }) {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </StyledDashboardLayout>
   );
 }
 

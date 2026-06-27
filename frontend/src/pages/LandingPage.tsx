@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { APP_NAME, APP_SHORT_NAME } from '../constants';
-import '../styles/LandingPage.css';
+import GlobalStyles from '@mui/material/GlobalStyles';
+import { landingPageStyles } from '../styles/LandingPage.styles';
 import antiviralVaccineImg from '../assets/image.png';
 import rorOrModified from '../assets/roror-modified.png';
 
@@ -45,6 +46,7 @@ export default function LandingPage() {
 
   return (
     <div className="landing-page">
+      <GlobalStyles styles={landingPageStyles} />
       <nav className="navbar">
         <div className="nav-container">
           <div className="nav-logo">

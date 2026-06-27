@@ -1,7 +1,19 @@
-import './ConfirmationDialog.css';
+import {
+  Actions,
+  CancelButton,
+  ConfirmButton,
+  Icon,
+  LoaderBar,
+  LoaderWrap,
+  Message,
+  Modal,
+  Overlay,
+  Title,
+  type ConfirmationVariant,
+} from './ConfirmationDialog.styles';
 
 interface ConfirmationDialogProps {
-  variant?: 'confirm' | 'success' | 'warning' | 'danger';
+  variant?: ConfirmationVariant;
   title: string;
   message: React.ReactNode;
   confirmLabel?: string;
@@ -51,38 +63,37 @@ export default function ConfirmationDialog({
   onCancel,
 }: ConfirmationDialogProps) {
   return (
-    <div
-      className="cm-overlay"
+    <Overlay
       onClick={hideCancel ? undefined : onCancel}
       role="dialog"
       aria-modal="true"
       aria-labelledby="cm-title"
     >
-      <div className="cm-modal" onClick={(e) => e.stopPropagation()}>
-        <div className={`cm-icon cm-icon--${variant}`}>
+      <Modal onClick={(e) => e.stopPropagation()}>
+        <Icon variant={variant}>
           {ICONS[variant]}
-        </div>
+        </Icon>
 
-        <h3 id="cm-title" className="cm-title">{title}</h3>
-        <p className="cm-message">{message}</p>
+        <Title id="cm-title">{title}</Title>
+        <Message>{message}</Message>
 
         {variant === 'success' && (
-          <div className="cm-loader-wrap">
-            <span className="cm-loader" />
-          </div>
+          <LoaderWrap>
+            <LoaderBar />
+          </LoaderWrap>
         )}
 
         {!hideCancel && (
-          <div className="cm-actions">
-            <button className="cm-btn cm-btn--cancel" onClick={onCancel}>
+          <Actions>
+            <CancelButton onClick={onCancel}>
               {cancelLabel}
-            </button>
-            <button className={`cm-btn cm-btn--${variant}`} onClick={onConfirm}>
+            </CancelButton>
+            <ConfirmButton variant={variant} onClick={onConfirm}>
               {confirmLabel}
-            </button>
-          </div>
+            </ConfirmButton>
+          </Actions>
         )}
-      </div>
-    </div>
+      </Modal>
+    </Overlay>
   );
 }

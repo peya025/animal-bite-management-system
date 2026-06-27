@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { APP_NAME, APP_SHORT_NAME } from '../constants';
 import '../styles/LandingPage.css';
 import antiviralVaccineImg from '../assets/image.png';
-import icon from '../assets/metrics/24 7.png';
-import secureIcon from '../assets/metrics/secure.png';
 import rorOrModified from '../assets/roror-modified.png';
 
 

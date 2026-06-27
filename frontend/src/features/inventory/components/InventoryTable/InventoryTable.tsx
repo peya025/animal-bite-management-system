@@ -1,7 +1,7 @@
 import {
   Box, Button, FormControl, Grid, IconButton, InputAdornment, InputLabel,
   MenuItem, Paper, Select, Skeleton, Stack, Table,
-  TableBody, TableCell, TableContainer, TableHead, TablePagination,
+  TableBody, TableCell, TableContainer, TableHead,
   TableRow, TextField, Tooltip, Typography,
 } from '@mui/material';
 import {
@@ -11,7 +11,6 @@ import {
   Inventory2 as InventoryIcon,
   Search as SearchIcon,
   Tune as AdjustIcon,
-  Vaccines as VaccineIcon,
 } from '@mui/icons-material';
 
 import TablePaginator from '../../../../components/data-display/TablePaginator';
@@ -84,11 +83,6 @@ export default function InventoryTable({
   onDelete,
   onAddFirst,
 }: InventoryTableProps) {
-  const isExpiringSoon = (d: string) => {
-    const diff = (new Date(d).getTime() - Date.now()) / 86400000;
-    return diff >= 0 && diff <= 30;
-  };
-
   const isLowStock = (q: number) => q > 0 && q <= 10;
 
   return (

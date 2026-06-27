@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Clinic, LoginCredentials, AuthContextType } from '../types';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import type { User, Clinic, LoginCredentials, AuthContextType } from '../types';
 import authService from '../services/authService';
 import { useNavigate } from 'react-router-dom';
 

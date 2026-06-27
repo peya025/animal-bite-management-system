@@ -85,7 +85,7 @@ export default function WorkingHoursModal({
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pb: 1.5 }}>
         <Box>
-          <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#111827' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>
             Working Hours
           </Typography>
           <Typography sx={{ fontSize: 13, color: '#6b7280', mt: 0.5 }}>

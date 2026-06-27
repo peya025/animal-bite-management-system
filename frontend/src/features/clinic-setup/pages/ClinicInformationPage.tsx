@@ -299,7 +299,7 @@ export default function ClinicInformation() {
             bgcolor: '#fff',
           }}
         >
-          <Typography sx={{ fontSize: '16px', fontWeight: 600, color: '#10b981', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#10b981', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             I. CLINIC INFORMATION
           </Typography>
           <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
@@ -319,7 +319,7 @@ export default function ClinicInformation() {
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <BusinessIcon sx={{ color: '#9ca3af', fontSize: 18 }} />
+                        <BusinessIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
                       </InputAdornment>
                     ),
                   },
@@ -341,7 +341,7 @@ export default function ClinicInformation() {
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <BadgeIcon sx={{ color: '#9ca3af', fontSize: 18 }} />
+                        <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
                       </InputAdornment>
                     ),
                   },
@@ -365,7 +365,7 @@ export default function ClinicInformation() {
                   input: {
                     startAdornment: (
                       <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                        <LocationOnIcon sx={{ color: '#9ca3af', fontSize: 18 }} />
+                        <LocationOnIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
                       </InputAdornment>
                     ),
                   },
@@ -379,7 +379,7 @@ export default function ClinicInformation() {
               <TextField
                 fullWidth
                 size="small"
-                placeholder="+63 912 345 6789"
+                placeholder="+63 XXX XXX XXXX"
                 value={clinic.contact_number}
                 onChange={(e) => handleInputChange('contact_number', e.target.value)}
                 sx={cleanFieldSx}
@@ -387,7 +387,7 @@ export default function ClinicInformation() {
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <PhoneIcon sx={{ color: '#9ca3af', fontSize: 18 }} />
+                        <PhoneIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
                       </InputAdornment>
                     ),
                   },
@@ -410,7 +410,7 @@ export default function ClinicInformation() {
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <EmailIcon sx={{ color: '#9ca3af', fontSize: 18 }} />
+                        <EmailIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
                       </InputAdornment>
                     ),
                   },
@@ -430,7 +430,7 @@ export default function ClinicInformation() {
             bgcolor: '#fff',
           }}
         >
-          <Typography sx={{ fontSize: '16px', fontWeight: 600, color: '#10b981', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#10b981', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             II. WORKING HOURS
           </Typography>
           <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />

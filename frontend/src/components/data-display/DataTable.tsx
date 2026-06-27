@@ -1,5 +1,5 @@
 import {
-  Box, Paper, Skeleton, Table, TableBody, TableCell,
+  Box, Skeleton, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
 

@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';
-import SetupWizard from './pages/Setup/SetupWizard';
-import PatientList from './pages/Patients/PatientList';
-import VaccineInventory from './pages/Inventory/VaccineInventory';
-import QueueDashboard from './pages/Queue/QueueDashboard';
-import ClinicInformation from './pages/Setup/ClinicInformation';
-import ConfirmationModal from './components/ConfirmationModal';
-import './App.css';
-import './SimpleDashboard.css';
+import Login from './features/auth/pages/LoginPage';
+import SetupWizard from './features/clinic-setup/pages/SetupWizardPage';
+import PatientList from './features/patients/pages/PatientListPage';
+import VaccineInventory from './features/inventory/pages/VaccineInventoryPage';
+import QueueDashboard from './features/queue/pages/QueueDashboardPage';
+import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
+import ConfirmationDialog from './components/feedback/ConfirmationDialog';
+import { AppStyleScope } from './styles/SimpleDashboard.styles';
 
 // ─── Auth Check Helper ───────────────────────────────────────
 function isAuthenticated(): boolean {
@@ -444,7 +443,7 @@ function SimpleDashboard() {
       </div>
 
       {showLogoutModal && (
-        <ConfirmationModal
+        <ConfirmationDialog
           variant="warning"
           title="Confirm Logout"
           message="Are you sure you want to sign out? You'll need to log in again to access the system."
@@ -679,7 +678,7 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
       </div>
 
       {showLogoutModal && (
-        <ConfirmationModal
+        <ConfirmationDialog
           variant="warning"
           title="Confirm Logout"
           message="Are you sure you want to sign out?"
@@ -696,18 +695,20 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
 // ─── App ───────────────────────────────────────────────────────
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/"          element={<LandingPage />} />
-        <Route path="/login"     element={<Login />} />
-        <Route path="/setup"     element={<ProtectedRoute><SetupWizard /></ProtectedRoute>} />
-        <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
-        <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
-        <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
-        <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
-        <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
-      </Routes>
-    </Router>
+    <AppStyleScope>
+      <Router>
+        <Routes>
+          <Route path="/"          element={<LandingPage />} />
+          <Route path="/login"     element={<Login />} />
+          <Route path="/setup"     element={<ProtectedRoute><SetupWizard /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
+          <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
+          <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
+          <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
+        </Routes>
+      </Router>
+    </AppStyleScope>
   );
 }
 

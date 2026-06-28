@@ -2,8 +2,8 @@ import { type ReactNode, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { APP_NAME, ROLE_LABELS } from '../../constants';
-import ConfirmationModal from '../ConfirmationModal';
-import './DashboardLayout.css';
+import ConfirmationDialog from '../feedback/ConfirmationDialog';
+import { DashboardLayoutRoot } from './DashboardLayout.styles';
 
 // Force rebuild - 2026-06-21 15:30
 
@@ -117,7 +117,6 @@ const NAV_ITEMS: NavItem[] = [
     submenu: [
       { name: 'Clinic Information', path: '/setup/clinic-info' },
       { name: 'Predefined Templates', path: '/setup/templates' },
-      { name: 'Working Hours', path: '/setup/working-hours' },
       { name: 'Vaccination Schedules', path: '/setup/vaccination-schedules' },
     ],
   },
@@ -154,7 +153,7 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
   console.log('DashboardLayout rendered, expandedMenu:', expandedMenu, 'filteredNav:', filteredNav.map(i => ({ name: i.name, hasSubmenu: !!i.submenu })));
 
   return (
-    <div className="dashboard-layout">
+    <DashboardLayoutRoot>
 
       {/* ── Sidebar ── */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
@@ -297,7 +296,7 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
 
       {/* Logout modal */}
       {showLogoutModal && (
-        <ConfirmationModal
+        <ConfirmationDialog
           variant="danger"
           title="Sign out?"
           message="You'll be returned to the login page."
@@ -306,6 +305,6 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
           onCancel={() => setShowLogoutModal(false)}
         />
       )}
-    </div>
+    </DashboardLayoutRoot>
   );
 }

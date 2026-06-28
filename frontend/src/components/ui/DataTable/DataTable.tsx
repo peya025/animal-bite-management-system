@@ -2,7 +2,7 @@ import {
   Box, Button, Paper, Skeleton, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
-import type { Column, DataTableProps } from './types';
+import type { DataTableProps } from './types';
 
 export default function DataTable<T>({
   columns,

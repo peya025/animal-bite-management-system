@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { APP_NAME, ROLE_LABELS } from '../../constants';
 import ConfirmationDialog from '../feedback/ConfirmationDialog';
 import { DashboardLayoutRoot } from './DashboardLayout.styles';
+import { ROUTES } from '../../shared/config/routes';
 
 // Force rebuild - 2026-06-21 15:30
 
@@ -31,7 +32,7 @@ const NAV_ITEMS: NavItem[] = [
         <rect x="14" y="14" width="7" height="7" rx="1"/>
       </svg>
     ),
-    path: '/dashboard',
+    path: ROUTES.DASHBOARD,
     roles: ['admin', 'registration', 'triage', 'treatment'],
   },
   {
@@ -43,7 +44,7 @@ const NAV_ITEMS: NavItem[] = [
         <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
       </svg>
     ),
-    path: '/patients',
+    path: ROUTES.PATIENTS.LIST,
     roles: ['admin', 'registration', 'triage', 'treatment'],
   },
   {
@@ -58,7 +59,7 @@ const NAV_ITEMS: NavItem[] = [
         <line x1="3" y1="18" x2="3.01" y2="18"/>
       </svg>
     ),
-    path: '/queue',
+    path: ROUTES.QUEUE.DASHBOARD,
     roles: ['admin', 'registration', 'triage'],
   },
   {
@@ -68,7 +69,7 @@ const NAV_ITEMS: NavItem[] = [
         <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
       </svg>
     ),
-    path: '/bite-cases',
+    path: ROUTES.BITE_CASES.LIST,
     roles: ['admin', 'triage', 'treatment'],
   },
   {
@@ -80,7 +81,7 @@ const NAV_ITEMS: NavItem[] = [
         <circle cx="12" cy="12" r="9"/>
       </svg>
     ),
-    path: '/vaccinations',
+    path: ROUTES.VACCINATIONS.LIST,
     roles: ['admin', 'triage', 'treatment'],
   },
   {
@@ -91,7 +92,7 @@ const NAV_ITEMS: NavItem[] = [
         <path d="M3 9h18M9 3v18"/>
       </svg>
     ),
-    path: '/inventory',
+    path: ROUTES.INVENTORY.LIST,
     roles: ['admin', 'triage', 'treatment'],
   },
   {
@@ -102,7 +103,7 @@ const NAV_ITEMS: NavItem[] = [
         <circle cx="12" cy="7" r="4"/>
       </svg>
     ),
-    path: '/users',
+    path: ROUTES.USERS.LIST,
     roles: ['admin'],
   },
   {
@@ -115,9 +116,9 @@ const NAV_ITEMS: NavItem[] = [
     ),
     roles: ['admin'],
     submenu: [
-      { name: 'Clinic Information', path: '/setup/clinic-info' },
-      { name: 'Predefined Templates', path: '/setup/templates' },
-      { name: 'Vaccination Schedules', path: '/setup/vaccination-schedules' },
+      { name: 'Clinic Information',    path: ROUTES.CLINIC_SETUP.INFO      },
+      { name: 'Predefined Templates',  path: ROUTES.CLINIC_SETUP.TEMPLATES },
+      { name: 'Vaccination Schedules', path: ROUTES.CLINIC_SETUP.VAX_SCHED },
     ],
   },
 ];

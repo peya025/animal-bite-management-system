@@ -9,6 +9,7 @@ import QueueDashboard from './features/queue/pages/QueueDashboardPage';
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
 import ConfirmationDialog from './components/feedback/ConfirmationDialog';
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
+import { ROUTES } from './shared/config/routes';
 
 // ─── Auth Check Helper ───────────────────────────────────────
 function isAuthenticated(): boolean {
@@ -22,11 +23,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   useEffect(() => {
     if (!isAuthenticated()) {
-      window.location.href = '/login';
+      window.location.href = ROUTES.LOGIN;
     }
   }, [location.pathname]);
   if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={ROUTES.LOGIN} replace />;
   }
   return <>{children}</>;
 }
@@ -40,20 +41,20 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard',    path: '/dashboard',    roles: ['admin','registration','triage','treatment'] },
-  { label: 'Patients',     path: '/patients',     roles: ['registration','triage','treatment'] },
-  { label: 'Queue',        path: '/queue',        roles: ['registration','triage'] },
-  { label: 'Bite Cases',   path: '/bite-cases',   roles: ['admin','triage','treatment'] },
-  { label: 'Vaccinations', path: '/vaccinations', roles: ['admin','triage','treatment'] },
-  { label: 'Inventory',    path: '/inventory',    roles: ['admin'] },
-  { label: 'Users',        path: '/users',        roles: ['admin'] },
+  { label: 'Dashboard',    path: ROUTES.DASHBOARD,         roles: ['admin','registration','triage','treatment'] },
+  { label: 'Patients',     path: ROUTES.PATIENTS.LIST,     roles: ['registration','triage','treatment'] },
+  { label: 'Queue',        path: ROUTES.QUEUE.DASHBOARD,   roles: ['registration','triage'] },
+  { label: 'Bite Cases',   path: ROUTES.BITE_CASES.LIST,   roles: ['admin','triage','treatment'] },
+  { label: 'Vaccinations', path: ROUTES.VACCINATIONS.LIST, roles: ['admin','triage','treatment'] },
+  { label: 'Inventory',    path: ROUTES.INVENTORY.LIST,    roles: ['admin'] },
+  { label: 'Users',        path: ROUTES.USERS.LIST,        roles: ['admin'] },
   { 
     label: 'Clinic Setup',
     roles: ['admin'],
     submenu: [
-      { label: 'Clinic Information', path: '/setup/clinic-info' },
-      { label: 'Predefined Templates', path: '/setup/templates' },
-      { label: 'Vaccination Schedules', path: '/setup/vaccination-schedules' },
+      { label: 'Clinic Information',    path: ROUTES.CLINIC_SETUP.INFO      },
+      { label: 'Predefined Templates',  path: ROUTES.CLINIC_SETUP.TEMPLATES },
+      { label: 'Vaccination Schedules', path: ROUTES.CLINIC_SETUP.VAX_SCHED },
     ],
   },
 ];
@@ -132,7 +133,7 @@ function SimpleDashboard() {
   useEffect(() => {
     const loadUserData = async () => {
       if (!isAuthenticated()) {
-        window.location.href = '/login';
+        window.location.href = ROUTES.LOGIN;
         return;
       }
       const userData = localStorage.getItem('userData');
@@ -188,13 +189,13 @@ function SimpleDashboard() {
   }
 
   if (!user) {
-    window.location.href = '/login';
+    window.location.href = ROUTES.LOGIN;
     return null;
   }
 
   const setupComplete = user?.clinic?.is_setup_complete ?? clinic?.is_setup_complete ?? false;
   if (!setupComplete && user?.role === 'admin') {
-    window.location.href = '/setup';
+    window.location.href = ROUTES.SETUP;
     return null;
   }
 
@@ -405,14 +406,14 @@ function SimpleDashboard() {
               <hr className="sd-filter-divider" />
               <div style={{ marginTop: 'auto' }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#1e2a4a', margin: '0 0 8px' }}>Quick Links</p>
-                <button className="sd-filter-link" onClick={() => { window.location.href = '/patients'; }}>
+                <button className="sd-filter-link" onClick={() => { window.location.href = ROUTES.PATIENTS.LIST; }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                     <circle cx="9" cy="7" r="4"/>
                   </svg>
                   View Patients
                 </button>
-                <button className="sd-filter-link" style={{ marginTop: 8 }} onClick={() => { window.location.href = '/bite-cases'; }}>
+                <button className="sd-filter-link" style={{ marginTop: 8 }} onClick={() => { window.location.href = ROUTES.BITE_CASES.LIST; }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
                   </svg>
@@ -698,14 +699,14 @@ function App() {
     <AppStyleScope>
       <Router>
         <Routes>
-          <Route path="/"          element={<LandingPage />} />
-          <Route path="/login"     element={<Login />} />
-          <Route path="/setup"     element={<ProtectedRoute><SetupWizard /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
-          <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
-          <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
-          <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
-          <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
+          <Route path={ROUTES.HOME}      element={<LandingPage />} />
+          <Route path={ROUTES.LOGIN}     element={<Login />} />
+          <Route path={ROUTES.SETUP}     element={<ProtectedRoute><SetupWizard /></ProtectedRoute>} />
+          <Route path={ROUTES.DASHBOARD} element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
+          <Route path={ROUTES.PATIENTS.LIST}     element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
+          <Route path={ROUTES.INVENTORY.LIST}    element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
+          <Route path={ROUTES.QUEUE.DASHBOARD}   element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
+          <Route path={ROUTES.CLINIC_SETUP.INFO} element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
         </Routes>
       </Router>
     </AppStyleScope>

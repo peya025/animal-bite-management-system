@@ -4,6 +4,7 @@ import GlobalStyles from '@mui/material/GlobalStyles';
 import { landingPageStyles } from '../styles/LandingPage.styles';
 import antiviralVaccineImg from '../assets/image.png';
 import rorOrModified from '../assets/roror-modified.png';
+import { ROUTES } from '../shared/config/routes';
 
 
 
@@ -27,7 +28,7 @@ export default function LandingPage() {
   }, []);
 
   const handleSignIn = () => {
-    window.location.href = '/login';
+    window.location.href = ROUTES.LOGIN;
   };
 
   const scrollCarousel = (direction: 'left' | 'right') => {

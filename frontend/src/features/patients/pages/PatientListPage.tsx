@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import AddPatientModal from '../components/AddPatientModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
+import { ROUTES } from '../../../shared/config/routes';
 
 interface Patient {
   id: number;
@@ -83,7 +84,7 @@ export default function PatientList() {
     <PatientListRoot>
       {/* ── Breadcrumb ── */}
       <div className="pm-breadcrumb">
-        <button className="pm-breadcrumb-link" onClick={() => { window.location.href = '/dashboard'; }}>
+        <button className="pm-breadcrumb-link" onClick={() => { window.location.href = ROUTES.DASHBOARD; }}>
           Dashboard
         </button>
         <span className="pm-breadcrumb-sep">›</span>

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import type { User, Clinic, LoginCredentials, AuthContextType } from '../types';
 import authService from '../services/auth.service';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../config/routes';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -35,9 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setClinic(response.clinic);
 
       if (!response.clinic.setup_completed && response.user.role === 'admin') {
-        navigate('/setup');
+        navigate(ROUTES.SETUP);
       } else {
-        navigate('/dashboard');
+        navigate(ROUTES.DASHBOARD);
       }
     } finally {
       setIsLoading(false);
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setClinic(null);
     setToken(null);
-    navigate('/login');
+    navigate(ROUTES.LOGIN);
   };
 
   const value: AuthContextType = {

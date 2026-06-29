@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { SetupWizardRoot } from '../styles/SetupWizard.styles';
+import { ROUTES } from '../../../shared/config/routes';
 
 export default function SetupWizard() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -59,7 +60,7 @@ export default function SetupWizard() {
       
       if (!token) {
         alert('Authentication token not found. Please log in again.');
-        window.location.href = '/login';
+        window.location.href = ROUTES.LOGIN;
         return;
       }
       
@@ -121,7 +122,7 @@ export default function SetupWizard() {
         // Show success modal then redirect
         setShowSuccessModal(true);
         setTimeout(() => {
-          window.location.href = '/dashboard';
+          window.location.href = ROUTES.DASHBOARD;
         }, 2000);
       } else {
         const errorData = await completeResponse.json();
@@ -419,7 +420,7 @@ function DoneStep() {
       <p>Your Animal Bite Center is ready to use.</p>
       <button 
         className="btn-dashboard"
-        onClick={() => window.location.href = '/dashboard'}
+        onClick={() => window.location.href = ROUTES.DASHBOARD}
       >
         Go to Dashboard
       </button>

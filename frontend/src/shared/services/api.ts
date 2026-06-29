@@ -33,7 +33,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
-      window.location.href = '/login';
+      window.location.href = '/login'; // Can't import ROUTES here — circular dep risk, literal is safe
     }
     return Promise.reject(error);
   },

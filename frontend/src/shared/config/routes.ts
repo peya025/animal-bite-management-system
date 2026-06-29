@@ -51,7 +51,11 @@ export const ROUTES = {
   },
 
   SETUP: '/setup',
-  CLINIC_INFO: '/clinic-info',
+  CLINIC_SETUP: {
+    INFO:      '/setup/clinic-info',
+    TEMPLATES: '/setup/templates',
+    VAX_SCHED: '/setup/vaccination-schedules',
+  },
   PROFILE: '/profile',
 } as const;
 

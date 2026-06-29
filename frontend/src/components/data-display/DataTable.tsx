@@ -1,42 +1,64 @@
 import {
-  Box, Skeleton, Table, TableBody, TableCell,
+  Box, Button, Skeleton, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
+import type { ReactNode } from 'react';
 
-// ─── Types ────────────────────────────────────────────────────
+// ─── Column Definition ────────────────────────────────────────
+
 export interface ColumnDef<T> {
-  /** Column header label (uppercase) */
-  header: string;
   /** Unique key for React reconciliation */
   key: string;
-  /** Width hint, e.g. '80px', '1fr' */
+  /** Column header label */
+  header: string;
+  /** Width hint, e.g. '80px' */
   width?: string;
-  /** Align content — defaults to 'left' */
+  /** Cell alignment — defaults to 'left' */
   align?: 'left' | 'center' | 'right';
   /** Render function for the cell */
-  render: (row: T, index: number) => React.ReactNode;
+  render: (row: T, index: number) => ReactNode;
 }
 
-interface DataTableProps<T> {
+// ─── Empty State ─────────────────────────────────────────────
+
+export interface EmptyStateConfig {
+  /** Icon element to display */
+  icon?: ReactNode;
+  /** Primary message */
+  title?: string;
+  /** Secondary message */
+  subtitle?: string;
+  /** Optional call-to-action button */
+  action?: { label: string; onClick: () => void };
+}
+
+// ─── DataTable Props ─────────────────────────────────────────
+
+export interface DataTableProps<T> {
   /** Column definitions in display order */
   columns: ColumnDef<T>[];
   /** Row data */
   rows: T[];
-  /** Show skeleton rows while loading */
+  /** Show skeleton rows while data is loading */
   loading?: boolean;
-  /** Number of skeleton rows to show while loading */
+  /** Number of skeleton rows to show (default 5) */
   skeletonRows?: number;
   /** Unique key extractor for each row */
   rowKey: (row: T) => string | number;
-  /** Optional row-level background color */
+  /** Optional per-row background colour override */
   rowBg?: (row: T) => string | undefined;
-  /** Empty state icon node */
-  emptyIcon?: React.ReactNode;
-  /** Empty state primary message */
+  /** Click handler for an entire row */
+  onRowClick?: (row: T) => void;
+  /** Empty state configuration */
+  emptyIcon?: ReactNode;
   emptyTitle?: string;
-  /** Empty state secondary message */
   emptySubtitle?: string;
+  emptyAction?: { label: string; onClick: () => void };
+  /** Minimum table width (default 600) */
+  minWidth?: number;
 }
+
+// ─── Component ────────────────────────────────────────────────
 
 export default function DataTable<T>({
   columns,
@@ -45,13 +67,17 @@ export default function DataTable<T>({
   skeletonRows = 5,
   rowKey,
   rowBg,
+  onRowClick,
   emptyIcon,
   emptyTitle = 'No records found',
-  emptySubtitle = '',
+  emptySubtitle,
+  emptyAction,
+  minWidth = 600,
 }: DataTableProps<T>) {
   return (
     <TableContainer>
-      <Table sx={{ minWidth: 600 }}>
+      <Table sx={{ minWidth }}>
+
         {/* ── Header ── */}
         <TableHead>
           <TableRow sx={{ bgcolor: '#ffffff', borderBottom: '1px solid #e5e7eb' }}>
@@ -61,9 +87,14 @@ export default function DataTable<T>({
                 align={col.align ?? 'left'}
                 width={col.width}
                 sx={{
-                  fontWeight: 600, color: '#6b7280',
-                  fontSize: 12, py: 2.5, border: 'none',
+                  fontWeight: 600,
+                  color: '#6b7280',
+                  fontSize: 12,
+                  py: 2.5,
+                  border: 'none',
                   letterSpacing: 0.5,
+                  textTransform: 'uppercase',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {col.header}
@@ -75,7 +106,7 @@ export default function DataTable<T>({
         {/* ── Body ── */}
         <TableBody>
           {loading ? (
-            /* Skeleton rows */
+            /* Skeleton loading rows */
             Array.from({ length: skeletonRows }).map((_, i) => (
               <TableRow key={i}>
                 {columns.map(col => (
@@ -105,9 +136,28 @@ export default function DataTable<T>({
                   {emptyTitle}
                 </Typography>
                 {emptySubtitle && (
-                  <Typography sx={{ fontSize: 13, color: '#9ca3af' }}>
+                  <Typography sx={{ fontSize: 13, color: '#9ca3af', mb: emptyAction ? 2 : 0 }}>
                     {emptySubtitle}
                   </Typography>
+                )}
+                {emptyAction && (
+                  <Button
+                    onClick={emptyAction.onClick}
+                    variant="contained"
+                    disableElevation
+                    sx={{
+                      mt: emptySubtitle ? 0 : 2,
+                      bgcolor: '#10b981',
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      fontSize: 13,
+                      py: 1,
+                      borderRadius: 1.5,
+                      '&:hover': { bgcolor: '#059669' },
+                    }}
+                  >
+                    {emptyAction.label}
+                  </Button>
                 )}
               </TableCell>
             </TableRow>
@@ -116,8 +166,10 @@ export default function DataTable<T>({
             rows.map((row, idx) => (
               <TableRow
                 key={rowKey(row)}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
                 sx={{
                   bgcolor: rowBg ? (rowBg(row) ?? 'inherit') : 'inherit',
+                  cursor: onRowClick ? 'pointer' : 'default',
                   '&:hover': { bgcolor: '#fafafa' },
                   transition: 'background 0.15s',
                 }}
@@ -126,7 +178,7 @@ export default function DataTable<T>({
                   <TableCell
                     key={col.key}
                     align={col.align ?? 'left'}
-                    sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}
+                    sx={{ py: 2.5, border: 'none', borderBottom: '1px solid #f9fafb' }}
                   >
                     {col.render(row, idx)}
                   </TableCell>
@@ -135,6 +187,7 @@ export default function DataTable<T>({
             ))
           )}
         </TableBody>
+
       </Table>
     </TableContainer>
   );

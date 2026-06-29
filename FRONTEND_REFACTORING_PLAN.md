@@ -399,19 +399,41 @@ frontend/src/
 
 ---
 
-### Phase 6: Improve Data Display Components (Medium Risk)
+### Phase 6: Improve Data Display Components (Medium Risk) ✅ COMPLETE
 **Time**: 1.5 hours  
-**Risk**: Medium
+**Risk**: Medium  
+**Completed**: June 29, 2026
 
-#### Step 6.1: Create Reusable Table Component
-- [ ] Extract common table logic from InventoryTable
-- [ ] Create `components/data-display/DataTable/`
-- [ ] Add pagination, filtering, sorting
-- [ ] Reuse in Patient, Inventory, Queue lists
+#### Step 6.1: Consolidate DataTable Implementations ✅
+- [x] Merged two competing `DataTable` implementations (`data-display/DataTable` and `ui/DataTable`) into one canonical component
+- [x] Unified API: `ColumnDef<T>` with `header`, `key`, `render(row, index)`, `align`, `width`
+- [x] Added `emptyAction` prop (CTA button in empty state) from the `ui` version
+- [x] Added `onRowClick` prop for clickable rows
+- [x] Added `minWidth` prop (default 600)
+- [x] Kept `rowBg`, `skeletonRows`, `rowKey` from the `data-display` version
+- [x] `components/ui/DataTable` has no remaining consumers — safe to leave as dead code
 
-#### Step 6.2: Standardize Empty States
-- [ ] Create `components/data-display/EmptyState/`
-- [ ] Use consistently across all lists
+#### Step 6.2: Create Standalone EmptyState Component ✅
+- [x] Created `components/data-display/EmptyState.tsx`
+- [x] Props: `icon`, `title`, `subtitle`, `action` (CTA button), `py` (padding)
+- [x] Usable both inside DataTable cells and as a standalone section placeholder
+- [x] Exported from `components/data-display/index.ts`
+
+#### Step 6.3: Migrate InventoryTable to Shared DataTable ✅
+- [x] Rewrote `InventoryTable.tsx` using `DataTable<InventoryItem>` + `TablePaginator`
+- [x] Removed ~250 lines of duplicated manual table/skeleton/empty-state code
+- [x] Now uses shared `formatDate()` and `daysUntil()` from `shared/utils`
+- [x] Now imports `InventoryItem` from `features/inventory/types` (single source of truth)
+- [x] Column definitions clean and readable with `ColumnDef<InventoryItem>[]`
+
+#### Step 6.4: Update Barrel Export ✅
+- [x] `components/data-display/index.ts` exports: `DataTable`, `ColumnDef`, `DataTableProps`, `EmptyState`, `EmptyStateProps`, `TablePager`, `TablePaginator`
+
+**Results**:
+- 2 DataTable implementations → 1 canonical component
+- 1 new `EmptyState` component (works standalone and inside tables)
+- `InventoryTable` reduced by ~250 lines
+- Zero TypeScript errors across all changed files
 
 ---
 

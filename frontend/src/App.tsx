@@ -350,7 +350,7 @@ function SimpleDashboard() {
             </div>
           </div>
 
-          {/* 4×2 stat cards */}
+          {/* ─── Stat Cards ─── */}
           <div className="sd-cards-grid">
             <SdCard color="purple"  label="Total Patients"      value="0" sub="Registered" />
             <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
@@ -362,82 +362,168 @@ function SimpleDashboard() {
             <SdCard color="emerald" label="New Today"            value="0" sub="Registered" />
           </div>
 
-          {/* Charts row */}
-          <div className="sd-charts-row">
-            <div className="sd-chart-card">
-              <p className="sd-chart-title">Cases Over Time <span>(last 6 months)</span></p>
-              <SdLineChart />
+          {/* ─── Charts + Filters in one unified 3-column row ─── */}
+          <div className="sd-charts-row" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            {/* Cases Over Time */}
+            <div
+              className="sd-chart-card"
+              style={{
+                background: '#f9fafb',
+                borderRadius: '14px',
+                padding: '20px 24px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                transition: 'box-shadow 0.2s',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: '220px',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
+              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
+            >
+              <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Cases Over Time <span>(last 6 months)</span></p>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <SdLineChart />
+              </div>
             </div>
-            <div className="sd-chart-card">
-              <p className="sd-chart-title">Case Distribution</p>
-              <SdDonutChart
-                data={[
-                  { label: 'Category I',   pct: 35, color: '#4f7ef7' },
-                  { label: 'Category II',  pct: 40, color: '#6c63ff' },
-                  { label: 'Category III', pct: 25, color: '#10b981' },
-                ]}
-              />
+
+            {/* Case Distribution */}
+            <div
+              className="sd-chart-card"
+              style={{
+                background: '#f9fafb',
+                borderRadius: '14px',
+                padding: '20px 24px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                transition: 'box-shadow 0.2s',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: '220px',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
+              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
+            >
+              <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Case Distribution</p>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <SdDonutChart
+                  data={[
+                    { label: 'Category I',   pct: 35, color: '#4f7ef7' },
+                    { label: 'Category II',  pct: 40, color: '#6c63ff' },
+                    { label: 'Category III', pct: 25, color: '#10b981' },
+                  ]}
+                />
+              </div>
             </div>
-            <div className="sd-filter-card">
-              <p className="sd-filter-title">Filters</p>
-              <div className="sd-filter-group">
-                <span className="sd-filter-label">Role</span>
-                <select className="sd-filter-select">
-                  <option>All</option><option>Admin</option><option>Triage</option>
-                  <option>Registration</option><option>Treatment</option>
-                </select>
-              </div>
-              <hr className="sd-filter-divider" />
-              <div className="sd-filter-group">
-                <span className="sd-filter-label">Status</span>
-                <select className="sd-filter-select">
-                  <option>All</option><option>Ongoing</option>
-                  <option>Completed</option><option>Abandoned</option>
-                </select>
-              </div>
-              <hr className="sd-filter-divider" />
-              <div className="sd-filter-group">
-                <span className="sd-filter-label">Date Range</span>
-                <select className="sd-filter-select">
-                  <option>This Month</option><option>Last 3 Months</option>
-                  <option>Last 6 Months</option><option>This Year</option>
-                </select>
-              </div>
-              <hr className="sd-filter-divider" />
-              <div style={{ marginTop: 'auto' }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#1e2a4a', margin: '0 0 8px' }}>Quick Links</p>
-                <button className="sd-filter-link" onClick={() => { window.location.href = '/patients'; }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                  </svg>
-                  View Patients
-                </button>
-                <button className="sd-filter-link" style={{ marginTop: 8 }} onClick={() => { window.location.href = '/bite-cases'; }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                  </svg>
-                  View Cases
-                </button>
+
+            {/* Filters – now matching the exact same size and style */}
+            <div
+              className="sd-filter-card"
+              style={{
+                background: '#f9fafb',
+                borderRadius: '14px',
+                padding: '20px 24px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                transition: 'box-shadow 0.2s',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: '220px',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
+              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
+            >
+              <p className="sd-filter-title" style={{ marginBottom: '12px', fontSize: '13px', fontWeight: 700, color: '#1e2a4a' }}>Filters</p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Role</span>
+                  <select className="sd-filter-select" style={{ padding: '6px 10px', fontSize: '12px', width: '100%' }}>
+                    <option>All</option><option>Admin</option><option>Triage</option>
+                    <option>Registration</option><option>Treatment</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
+                  <select className="sd-filter-select" style={{ padding: '6px 10px', fontSize: '12px', width: '100%' }}>
+                    <option>All</option><option>Ongoing</option>
+                    <option>Completed</option><option>Abandoned</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Range</span>
+                  <select className="sd-filter-select" style={{ padding: '6px 10px', fontSize: '12px', width: '100%' }}>
+                    <option>This Month</option><option>Last 3 Months</option>
+                    <option>Last 6 Months</option><option>This Year</option>
+                  </select>
+                </div>
+
+                <div style={{ marginTop: 'auto', display: 'flex', gap: '8px' }}>
+                  <button className="sd-filter-link" onClick={() => { window.location.href = '/patients'; }} style={{ padding: '6px 12px', fontSize: '12px', flex: 1 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                    </svg>
+                    Patients
+                  </button>
+                  <button className="sd-filter-link" onClick={() => { window.location.href = '/bite-cases'; }} style={{ padding: '6px 12px', fontSize: '12px', flex: 1 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                    Cases
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Bottom row */}
-          <div className="sd-charts-bottom">
-            <div className="sd-chart-card">
-              <p className="sd-chart-title">Vaccination Trend <span>(last 6 months)</span></p>
-              <SdLineChart color="#10b981" />
+          {/* ─── Charts Row 2: Vaccination Trend + Animal Bite Severity ─── */}
+          <div className="sd-charts-bottom" style={{ gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+            <div
+              className="sd-chart-card"
+              style={{
+                background: '#f9fafb',
+                borderRadius: '14px',
+                padding: '20px 24px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                transition: 'box-shadow 0.2s',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: '220px',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
+              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
+            >
+              <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Vaccination Trend <span>(last 6 months)</span></p>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <SdLineChart color="#10b981" />
+              </div>
             </div>
-            <div className="sd-chart-card">
-              <p className="sd-chart-title">Animal Bite Severity</p>
-              <SdDonutChart
-                data={[
-                  { label: 'Cat. I (Minor)',    pct: 30, color: '#10b981' },
-                  { label: 'Cat. II (Moderate)', pct: 45, color: '#f59e0b' },
-                  { label: 'Cat. III (Severe)',  pct: 25, color: '#ef4444' },
-                ]}
-              />
+
+            <div
+              className="sd-chart-card"
+              style={{
+                background: '#f9fafb',
+                borderRadius: '14px',
+                padding: '20px 24px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                transition: 'box-shadow 0.2s',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: '220px',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
+              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
+            >
+              <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Animal Bite Severity</p>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <SdDonutChart
+                  data={[
+                    { label: 'Cat. I (Minor)',    pct: 30, color: '#10b981' },
+                    { label: 'Cat. II (Moderate)', pct: 45, color: '#f59e0b' },
+                    { label: 'Cat. III (Severe)',  pct: 25, color: '#ef4444' },
+                  ]}
+                />
+              </div>
             </div>
           </div>
         </main>
@@ -458,6 +544,7 @@ function SimpleDashboard() {
   );
 }
 
+// ─── Stat Card – unchanged ────────────────────────────────────
 function SdCard({ color, label, value, sub }: { color: string; label: string; value: string; sub: string }) {
   return (
     <div className={`sd-card sd-card--${color}`}>
@@ -468,9 +555,11 @@ function SdCard({ color, label, value, sub }: { color: string; label: string; va
   );
 }
 
+// ─── Line Chart ────────────────────────────────────────────────
 function SdLineChart({ color = '#4f7ef7' }: { color?: string }) {
   const points = [20, 45, 30, 60, 40, 75, 55, 80, 65, 90, 70, 85];
-  const w = 400, h = 130, pad = 20;
+  const w = 400, h = 140;
+  const pad = 20;
   const maxV = Math.max(...points);
   const xs = points.map((_, i) => pad + (i / (points.length - 1)) * (w - pad * 2));
   const ys = points.map(v => pad + (1 - v / maxV) * (h - pad * 2));
@@ -478,7 +567,12 @@ function SdLineChart({ color = '#4f7ef7' }: { color?: string }) {
   const area = `${path} L ${xs[xs.length - 1]} ${h - pad} L ${xs[0]} ${h - pad} Z`;
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="sd-line-chart" preserveAspectRatio="none">
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      className="sd-line-chart"
+      style={{ width: '100%', height: '100%' }}
+      preserveAspectRatio="none"
+    >
       <defs>
         <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.2" />
@@ -496,8 +590,9 @@ function SdLineChart({ color = '#4f7ef7' }: { color?: string }) {
   );
 }
 
+// ─── Donut Chart ──────────────────────────────────────────────
 function SdDonutChart({ data }: { data: { label: string; pct: number; color: string }[] }) {
-  const r = 50, cx = 70, cy = 70, stroke = 22;
+  const r = 55, cx = 75, cy = 75, stroke = 24;
   const circ = 2 * Math.PI * r;
   let offset = 0;
   const slices = data.map(d => {
@@ -507,26 +602,26 @@ function SdDonutChart({ data }: { data: { label: string; pct: number; color: str
     return s;
   });
   return (
-    <div className="sd-donut-wrap">
-      <svg viewBox="0 0 140 140" width="140" height="140">
+    <div className="sd-donut-wrap" style={{ width: '100%', justifyContent: 'center', gap: '16px' }}>
+      <svg viewBox={`0 0 ${cx * 2} ${cy * 2}`} width="150" height="150">
         {slices.map((s, i) => (
           <circle key={i} cx={cx} cy={cy} r={r}
             fill="none" stroke={s.color} strokeWidth={stroke}
             strokeDasharray={s.dasharray}
             strokeDashoffset={-s.offset}
-            transform="rotate(-90, 70, 70)"
+            transform="rotate(-90, 75, 75)"
           />
         ))}
-        <text x={cx} y={cy + 5} textAnchor="middle" fontSize="14" fontWeight="700" fill="#1e2a4a">
+        <text x={cx} y={cy + 5} textAnchor="middle" fontSize="15" fontWeight="700" fill="#1e2a4a">
           {data.reduce((a, d) => a + d.pct, 0)}%
         </text>
       </svg>
       <div className="sd-donut-legend">
         {data.map((d, i) => (
-          <div key={i} className="sd-donut-legend-item">
-            <div className="sd-donut-legend-dot" style={{ background: d.color }} />
+          <div key={i} className="sd-donut-legend-item" style={{ fontSize: '12px' }}>
+            <div className="sd-donut-legend-dot" style={{ background: d.color, width: '10px', height: '10px' }} />
             <span>{d.label}</span>
-            <span className="sd-donut-legend-pct">{d.pct}%</span>
+            <span className="sd-donut-legend-pct" style={{ fontWeight: 700 }}>{d.pct}%</span>
           </div>
         ))}
       </div>

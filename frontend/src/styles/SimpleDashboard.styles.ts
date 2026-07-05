@@ -4,44 +4,49 @@ export const AppStyleScope = styled('div')`
   display: contents;
 
   *, *::before, *::after { box-sizing: border-box; }
+  .sd-layout, .sd-layout * {
+    font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
+  }
   .sd-layout {
-    display: flex; min-height: 100vh; background: #f5f6fa;
-    font-family: 'Inter', 'Segoe UI', sans-serif;
+    display: flex; min-height: 100vh; background: #ffffff;
+    font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
   }
   .sd-sidebar {
-    width: 240px; min-height: 100vh; background: #1e2a4a; display: flex;
+    width: 240px; min-height: 100vh; background: #ffffff; display: flex;
     flex-direction: column; padding: 0; position: sticky; top: 0; flex-shrink: 0;
     transition: width 0.2s ease; overflow: hidden;
+    border-right: 1px solid #e5e7eb;
   }
   .sd-sidebar--collapsed { width: 64px; }
   .sd-brand {
-    display: flex; align-items: center; gap: 10px; padding: 20px 16px 16px;
-    border-bottom: 1px solid rgba(255,255,255,0.07); min-height: 64px;
+    display: flex; align-items: center; gap: 10px; padding: 0 16px;
+    border-bottom: 1px solid rgba(6,78,59,0.12);
+    height: 56px; min-height: 56px; flex-shrink: 0;
   }
   .sd-brand-logo {
-    width: 36px; height: 36px; background: rgba(16,185,129,0.15);
+    width: 36px; height: 36px; background: rgba(6,78,59,0.12);
     border-radius: 10px; display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
   .sd-brand-text { display: flex; flex-direction: column; overflow: hidden; }
   .sd-brand-clinic {
-    font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap;
+    font-size: 13px; font-weight: 700; color: #064e3b; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis;
   }
-  .sd-brand-app { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+  .sd-brand-app { font-size: 10px; color: rgba(6,78,59,0.55); margin-top: 1px; }
   .sd-nav {
     flex: 1; padding: 12px 8px; display: flex; flex-direction: column;
     gap: 2px; overflow-y: auto;
   }
   .sd-nav-item {
     width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px;
-    border: none; background: transparent; color: rgba(255,255,255,0.55);
+    border: none; background: transparent; color: rgba(6,78,59,0.65);
     border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;
     text-align: left; transition: all 0.15s; white-space: nowrap; font-family: inherit;
   }
-  .sd-nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
-  .sd-nav-item--active { background: rgba(16,185,129,0.18); color: #10b981; }
-  .sd-nav-item--active:hover { background: rgba(16,185,129,0.25); }
+  .sd-nav-item:hover { background: rgba(6,78,59,0.1); color: #064e3b; }
+  .sd-nav-item--active { background: rgba(6,78,59,0.15); color: #064e3b; font-weight: 700; }
+  .sd-nav-item--active:hover { background: rgba(6,78,59,0.2); }
   .sd-nav-icon { display: flex; align-items: center; flex-shrink: 0; }
   .sd-nav-label { flex: 1; }
   .sd-nav-chevron {
@@ -54,19 +59,19 @@ export const AppStyleScope = styled('div')`
   }
   .sd-submenu-item {
     width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 10px;
-    border: none; background: transparent; color: rgba(255,255,255,0.45);
+    border: none; background: transparent; color: rgba(6,78,59,0.55);
     border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;
     text-align: left; transition: all 0.15s; font-family: inherit;
   }
-  .sd-submenu-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); }
-  .sd-submenu-item--active { color: #10b981; background: rgba(16,185,129,0.12); }
+  .sd-submenu-item:hover { background: rgba(6,78,59,0.08); color: #064e3b; }
+  .sd-submenu-item--active { color: #064e3b; background: rgba(6,78,59,0.12); font-weight: 700; }
   .sd-submenu-dot {
     width: 5px; height: 5px; border-radius: 50%; background: currentColor;
     flex-shrink: 0; opacity: 0.6;
   }
   .sd-user {
     display: flex; align-items: center; gap: 10px; padding: 12px 14px;
-    border-top: 1px solid rgba(255,255,255,0.07); min-height: 60px;
+    border-top: 1px solid #e5e7eb; min-height: 60px;
   }
   .sd-user-avatar {
     width: 32px; height: 32px; border-radius: 50%;
@@ -76,20 +81,20 @@ export const AppStyleScope = styled('div')`
   }
   .sd-user-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
   .sd-user-name {
-    font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap;
+    font-size: 12px; font-weight: 600; color: #064e3b; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis;
   }
-  .sd-user-role { font-size: 10px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+  .sd-user-role { font-size: 10px; color: rgba(6,78,59,0.55); white-space: nowrap; }
   .sd-logout-btn {
-    background: transparent; border: none; color: rgba(255,255,255,0.4);
+    background: transparent; border: none; color: rgba(6,78,59,0.5);
     cursor: pointer; padding: 4px; border-radius: 6px; display: flex;
     transition: all 0.15s; flex-shrink: 0;
   }
   .sd-logout-btn:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
   .sd-toggle {
     position: absolute; bottom: 72px; right: -12px; width: 24px; height: 24px;
-    background: #1e2a4a; border: 1.5px solid rgba(255,255,255,0.15);
-    border-radius: 50%; color: rgba(255,255,255,0.6); display: flex;
+    background: #fff; border: 1.5px solid #e5e7eb;
+    border-radius: 50%; color: #064e3b; display: flex;
     align-items: center; justify-content: center; cursor: pointer;
     transition: all 0.15s; z-index: 10;
   }
@@ -111,7 +116,7 @@ export const AppStyleScope = styled('div')`
     font-size: 12px; font-weight: 700; display: flex; align-items: center;
     justify-content: center;
   }
-  .sd-content { flex: 1; padding: 24px; overflow-y: auto; }
+  .sd-content { flex: 1; padding: 24px; overflow-y: auto; background: #ffffff; }
   .sd-dash-header {
     display: flex; align-items: flex-start; justify-content: space-between;
     margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
@@ -133,27 +138,82 @@ export const AppStyleScope = styled('div')`
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
   }
   .sd-card {
-    background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #f0f1f3;
+    border-radius: 22px;
+    padding: 22px 20px 20px;
+    border: none;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: 130px;
+    cursor: default;
+    transition: transform 0.22s cubic-bezier(0.2,0.9,0.4,1), box-shadow 0.22s ease;
   }
-  .sd-card-label { font-size: 12px; color: #9ca3af; font-weight: 500; margin: 0 0 8px; }
-  .sd-card-value { font-size: 28px; font-weight: 800; margin: 0 0 4px; }
-  .sd-card-sub { font-size: 11px; font-weight: 500; margin: 0; opacity: 0.65; }
-  .sd-card--purple { border-top: 3px solid #8b5cf6; }
-  .sd-card--purple .sd-card-value, .sd-card--purple .sd-card-sub { color: #7c3aed; }
-  .sd-card--blue { border-top: 3px solid #3b82f6; }
-  .sd-card--blue .sd-card-value, .sd-card--blue .sd-card-sub { color: #2563eb; }
-  .sd-card--indigo { border-top: 3px solid #6366f1; }
-  .sd-card--indigo .sd-card-value, .sd-card--indigo .sd-card-sub { color: #4f46e5; }
-  .sd-card--teal { border-top: 3px solid #14b8a6; }
-  .sd-card--teal .sd-card-value, .sd-card--teal .sd-card-sub { color: #0d9488; }
-  .sd-card--violet { border-top: 3px solid #a78bfa; }
-  .sd-card--violet .sd-card-value, .sd-card--violet .sd-card-sub { color: #7c3aed; }
-  .sd-card--cyan { border-top: 3px solid #22d3ee; }
-  .sd-card--cyan .sd-card-value, .sd-card--cyan .sd-card-sub { color: #0891b2; }
-  .sd-card--green { border-top: 3px solid #22c55e; }
-  .sd-card--green .sd-card-value, .sd-card--green .sd-card-sub { color: #16a34a; }
-  .sd-card--emerald { border-top: 3px solid #10b981; }
-  .sd-card--emerald .sd-card-value, .sd-card--emerald .sd-card-sub { color: #059669; }
+  .sd-card:hover {
+    transform: translateY(-5px) scale(1.015);
+    box-shadow: 0 16px 36px rgba(0,0,0,0.13);
+  }
+  /* Large decorative circle — top right (simulates illustration) */
+  .sd-card::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.22);
+    pointer-events: none;
+  }
+  /* Smaller inner circle */
+  .sd-card::after {
+    content: '';
+    position: absolute;
+    top: 10px; right: 10px;
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    pointer-events: none;
+  }
+  .sd-card-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; margin: 0 0 6px; opacity: 0.75;
+    position: relative; z-index: 1;
+  }
+  .sd-card-value {
+    font-size: 2.5rem; font-weight: 900; margin: 0 0 2px;
+    line-height: 1; letter-spacing: -1px;
+    position: relative; z-index: 1;
+  }
+  .sd-card-sub {
+    font-size: 12px; font-weight: 500; margin: 0; opacity: 0.7;
+    position: relative; z-index: 1;
+  }
+
+  /* All cards — pastel mint green, #064e3b font */
+  .sd-card--purple,
+  .sd-card--blue,
+  .sd-card--indigo,
+  .sd-card--teal,
+  .sd-card--violet,
+  .sd-card--cyan,
+  .sd-card--green,
+  .sd-card--emerald {
+    background: linear-gradient(135deg, #abffd5ff, #ffffffff);
+    color: #064e3b;
+    border-color: transparent;
+  }
+
+  /* Unified hover shadow */
+  .sd-card--purple:hover,
+  .sd-card--blue:hover,
+  .sd-card--indigo:hover,
+  .sd-card--teal:hover,
+  .sd-card--violet:hover,
+  .sd-card--cyan:hover,
+  .sd-card--green:hover,
+  .sd-card--emerald:hover {
+    box-shadow: 0 16px 36px rgba(16,185,129,0.3);
+  }
   .sd-charts-row, .sd-charts-bottom {
     display: grid; grid-template-columns: 1fr 1fr 280px; gap: 16px; margin-bottom: 24px;
   }

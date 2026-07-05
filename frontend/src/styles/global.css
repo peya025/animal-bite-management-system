@@ -63,6 +63,8 @@ html {
 
 body {
   margin: 0;
+  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,

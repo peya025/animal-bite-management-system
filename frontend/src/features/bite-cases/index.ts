@@ -1,2 +1,1 @@
-// Pages
-export * from './pages';
+export { BiteCaseRiskDashboard } from './pages';

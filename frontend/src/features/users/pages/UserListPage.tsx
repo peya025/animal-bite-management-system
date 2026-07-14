@@ -213,10 +213,10 @@ export default function UserListPage() {
         }}
       >
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          <Typography variant="h5" sx={{ color: '#173d29', mb: '7px' }}>
             User management
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: '#77877d' }}>
             Manage clinic accounts, access roles, and availability.
           </Typography>
         </Box>

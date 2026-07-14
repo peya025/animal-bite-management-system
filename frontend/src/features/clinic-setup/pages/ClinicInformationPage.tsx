@@ -31,15 +31,15 @@ const cleanFieldSx = {
     bgcolor: '#fff',
     fontSize: '14px',
     '& fieldset': {
-      borderColor: '#d1d5db',
+      borderColor: '#d7e3da',
       borderWidth: '1px',
     },
     '&:hover fieldset': {
-      borderColor: '#9ca3af',
+      borderColor: '#9fc5ad',
     },
     '&.Mui-focused fieldset': {
-      borderColor: '#10b981',
-      borderWidth: '2px',
+      borderColor: '#277a4b',
+      borderWidth: '1.5px',
     },
   },
   '& .MuiOutlinedInput-input': {
@@ -54,14 +54,14 @@ const timeFieldSx = {
     bgcolor: '#fff',
     fontSize: '13px',
     '& fieldset': {
-      borderColor: '#d1d5db',
+      borderColor: '#d7e3da',
     },
     '&:hover fieldset': {
-      borderColor: '#9ca3af',
+      borderColor: '#9fc5ad',
     },
     '&.Mui-focused fieldset': {
-      borderColor: '#10b981',
-      borderWidth: '2px',
+      borderColor: '#277a4b',
+      borderWidth: '1.5px',
     },
   },
   '& .MuiOutlinedInput-input': {
@@ -238,14 +238,14 @@ export default function ClinicInformation() {
   }
 
   return (
-    <Box sx={{ maxWidth: 1400, mx: 'auto', p: { xs: 2, sm: 3, md: 4 } }}>
+    <Box sx={{ width: '100%' }}>
       {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography component="h1" sx={{ fontWeight: 600, fontSize: '20px', color: '#111827', mb: 0.5, letterSpacing: '-0.02em' }}>
+          <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, color: '#173d29', mb: '7px', letterSpacing: '-0.5px' }}>
             Clinic Information
           </Typography>
-          <Typography sx={{ fontSize: '12px', color: '#6b7280' }}>
+          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d' }}>
             Manage your clinic details and operating hours
           </Typography>
         </Box>
@@ -254,7 +254,7 @@ export default function ClinicInformation() {
             onClick={loadClinicData}
             disabled={loading}
             sx={{ 
-              border: '1px solid #e5e7eb', 
+              border: '1px solid #e0eae3',
               borderRadius: 1.5,
               width: 40,
               height: 40,
@@ -293,13 +293,13 @@ export default function ClinicInformation() {
         <Paper
           elevation={0}
           sx={{
-            border: '1px solid #e5e7eb',
+            border: '1px solid #e0eae3',
             borderRadius: 2,
             p: 3,
             bgcolor: '#fff',
           }}
         >
-          <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#10b981', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             I. CLINIC INFORMATION
           </Typography>
           <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
@@ -424,13 +424,13 @@ export default function ClinicInformation() {
         <Paper
           elevation={0}
           sx={{
-            border: '1px solid #e5e7eb',
+            border: '1px solid #e0eae3',
             borderRadius: 2,
             p: 3,
             bgcolor: '#fff',
           }}
         >
-          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#10b981', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             II. WORKING HOURS
           </Typography>
           <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />

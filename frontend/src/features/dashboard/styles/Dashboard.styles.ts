@@ -3,10 +3,17 @@ import { styled } from '@mui/material/styles';
 export const DashboardStylesRoot = styled('div')`
   display: contents;
 
+  &, button, input, select, textarea {
+    font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
+  }
+
   .dashboard-container { max-width: 1400px; margin: 0 auto; }
   .dashboard-header { margin-bottom: 32px; }
-  .dashboard-header h1 { font-size: 32px; font-weight: 700; color: #111827; margin: 0 0 8px 0; }
-  .dashboard-header p { font-size: 16px; color: #6b7280; margin: 0; }
+  .dashboard-header h1 {
+    font-size: 25px; line-height: 1.2; letter-spacing: -0.5px;
+    font-weight: 600; color: #173d29; margin: 0 0 7px;
+  }
+  .dashboard-header p { font-size: 13px; line-height: 1.5; color: #77877d; margin: 0; }
   .stats-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 24px; margin-bottom: 32px;

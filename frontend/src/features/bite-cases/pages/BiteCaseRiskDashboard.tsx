@@ -341,10 +341,20 @@ export default function BiteCaseRiskDashboard() {
       {/* ── Header ── */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography component="h1" sx={{ fontWeight: 700, fontSize: 20, color: '#111827', mb: 0.5 }}>
+          <Typography
+            component="h1"
+            sx={{
+              fontWeight: 600,
+              fontSize: '25px',
+              lineHeight: 1.2,
+              letterSpacing: '-0.5px',
+              color: '#173d29',
+              mb: '7px',
+            }}
+          >
             Bite Case Risk Dashboard
           </Typography>
-          <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d' }}>
             Track high and low risk locations for animal bites
           </Typography>
         </Box>
@@ -358,12 +368,12 @@ export default function BiteCaseRiskDashboard() {
       {/* ── Stats ── */}
       <Grid container spacing={2} sx={{ mb: 3, alignItems: 'stretch' }}>
         {[
-          { label: 'Total Cases',    value: stats?.total_cases     ?? '-', icon: <StatsIcon />,   color: 'primary'  as const },
-          { label: 'Active Cases',   value: stats?.active_cases    ?? '-', icon: <HighIcon />,    color: 'error'    as const },
-          { label: 'Completed',      value: stats?.completed_cases ?? '-', icon: <LowIcon />,     color: 'success'  as const },
-          { label: 'High Risk Zones',value: loading ? '-' : highRisk,      icon: <HighRiskIcon />,color: 'error'    as const },
-          { label: 'Medium Risk',    value: loading ? '-' : mediumRisk,    icon: <MedIcon />,     color: 'warning'  as const },
-          { label: 'Low Risk',       value: loading ? '-' : lowRisk,       icon: <LowIcon />,     color: 'success'  as const },
+          { label: 'Total Cases',    value: stats?.total_cases     ?? '-',    color: 'primary'  as const },
+          { label: 'Active Cases',   value: stats?.active_cases    ?? '-',    color: 'error'    as const },
+          { label: 'Completed',      value: stats?.completed_cases ?? '-',   color: 'success'  as const },
+          { label: 'High Risk Zones',value: loading ? '-' : highRisk,      color: 'error'    as const },
+          { label: 'Medium Risk',    value: loading ? '-' : mediumRisk,    color: 'warning'  as const },
+          { label: 'Low Risk',       value: loading ? '-' : lowRisk,       color: 'success'  as const },
         ].map(s => (
           <Grid key={s.label} size={{ xs: 6, sm: 4, md: 2 }}>
             <StatCard label={s.label} value={s.value} icon={s.icon} color={s.color} loading={loading} />

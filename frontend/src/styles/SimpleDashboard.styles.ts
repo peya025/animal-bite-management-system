@@ -8,24 +8,24 @@ export const AppStyleScope = styled('div')`
     font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
   }
   .sd-layout {
-    display: flex; min-height: 100vh; background: #ffffff;
+    display: flex; min-height: 100vh; background: #f5f8f6;
     font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
   }
   .sd-sidebar {
-    width: 240px; min-height: 100vh; background: #ffffff; display: flex;
+    width: 248px; min-height: 100vh; background: #fbfdfb; display: flex;
     flex-direction: column; padding: 0; position: sticky; top: 0; flex-shrink: 0;
     transition: width 0.2s ease; overflow: hidden;
-    border-right: 1px solid #e5e7eb;
+    border-right: 1px solid #e2ebe5;
   }
   .sd-sidebar--collapsed { width: 64px; }
   .sd-brand {
     display: flex; align-items: center; gap: 10px; padding: 0 16px;
-    border-bottom: 1px solid rgba(6,78,59,0.12);
-    height: 56px; min-height: 56px; flex-shrink: 0;
+    border-bottom: 1px solid #e6eee8;
+    height: 68px; min-height: 68px; flex-shrink: 0;
   }
   .sd-brand-logo {
-    width: 36px; height: 36px; background: rgba(6,78,59,0.12);
-    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; background: #e7f6ed;
+    border: 1px solid #d2ebdc; border-radius: 10px; display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
   .sd-brand-text { display: flex; flex-direction: column; overflow: hidden; }
@@ -35,18 +35,18 @@ export const AppStyleScope = styled('div')`
   }
   .sd-brand-app { font-size: 10px; color: rgba(6,78,59,0.55); margin-top: 1px; }
   .sd-nav {
-    flex: 1; padding: 12px 8px; display: flex; flex-direction: column;
+    flex: 1; padding: 18px 12px; display: flex; flex-direction: column;
     gap: 2px; overflow-y: auto;
   }
   .sd-nav-item {
     width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px;
-    border: none; background: transparent; color: rgba(6,78,59,0.65);
-    border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;
+    border: 1px solid transparent; background: transparent; color: #64736a;
+    border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500;
     text-align: left; transition: all 0.15s; white-space: nowrap; font-family: inherit;
   }
-  .sd-nav-item:hover { background: rgba(6,78,59,0.1); color: #064e3b; }
-  .sd-nav-item--active { background: rgba(6,78,59,0.15); color: #064e3b; font-weight: 700; }
-  .sd-nav-item--active:hover { background: rgba(6,78,59,0.2); }
+  .sd-nav-item:hover { background: #f0f7f2; color: #17653a; }
+  .sd-nav-item--active { background: #e8f5ed; border-color: #d7ebdf; color: #17653a; font-weight: 650; }
+  .sd-nav-item--active:hover { background: #e2f1e8; }
   .sd-nav-icon { display: flex; align-items: center; flex-shrink: 0; }
   .sd-nav-label { flex: 1; }
   .sd-nav-chevron {
@@ -71,11 +71,11 @@ export const AppStyleScope = styled('div')`
   }
   .sd-user {
     display: flex; align-items: center; gap: 10px; padding: 12px 14px;
-    border-top: 1px solid #e5e7eb; min-height: 60px;
+    border-top: 1px solid #e6eee8; min-height: 68px;
   }
   .sd-user-avatar {
     width: 32px; height: 32px; border-radius: 50%;
-    background: linear-gradient(135deg,#10b981,#059669); color: #fff;
+    background: #277a4b; color: #fff;
     font-size: 12px; font-weight: 700; display: flex; align-items: center;
     justify-content: center; flex-shrink: 0;
   }
@@ -103,84 +103,86 @@ export const AppStyleScope = styled('div')`
     flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
   }
   .sd-topbar {
-    height: 56px; background: #fff; border-bottom: 1px solid #e5e7eb;
+    height: 68px; background: rgba(251,253,251,0.92); border-bottom: 1px solid #e2ebe5;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 24px; flex-shrink: 0; position: sticky; top: 0; z-index: 5;
+    padding: 0 32px; flex-shrink: 0; position: sticky; top: 0; z-index: 5;
+    backdrop-filter: blur(12px);
   }
-  .sd-topbar-title { font-size: 15px; font-weight: 700; color: #1e2a4a; }
+  .sd-topbar-title { font-size: 15px; font-weight: 650; color: #173d29; }
   .sd-topbar-right { display: flex; align-items: center; gap: 14px; }
   .sd-topbar-date { font-size: 12px; color: #9ca3af; }
   .sd-topbar-avatar {
     width: 32px; height: 32px; border-radius: 50%;
-    background: linear-gradient(135deg,#10b981,#059669); color: #fff;
+    background: #277a4b; color: #fff;
     font-size: 12px; font-weight: 700; display: flex; align-items: center;
     justify-content: center;
   }
-  .sd-content { flex: 1; padding: 24px; overflow-y: auto; background: #ffffff; }
+  .sd-content { flex: 1; padding: 32px; overflow-y: auto; background: #f5f8f6; }
   .sd-dash-header {
     display: flex; align-items: flex-start; justify-content: space-between;
-    margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+    margin-bottom: 28px; flex-wrap: wrap; gap: 16px;
   }
-  .sd-dash-header h1 { font-size: 22px; font-weight: 800; color: #1e2a4a; margin: 0 0 4px; }
-  .sd-dash-header p { font-size: 13px; color: #9ca3af; margin: 0; }
-  .sd-dash-tabs { display: flex; gap: 4px; background: #f3f4f6; border-radius: 10px; padding: 4px; }
+  .sd-dash-header h1 { font-size: 25px; line-height: 1.2; letter-spacing: -0.5px; font-weight: 600; color: #173d29; margin: 0 0 7px; }
+  .sd-dash-header p { font-size: 13px; color: #77877d; margin: 0; }
+  .sd-dash-tabs { display: flex; gap: 3px; background: #eaf1ec; border-radius: 10px; padding: 4px; }
   .sd-dash-tab {
     padding: 6px 14px; border: none; background: transparent; color: #6b7280;
     border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500;
     font-family: inherit; transition: all 0.15s;
   }
-  .sd-dash-tab:hover { color: #1e2a4a; background: rgba(0,0,0,0.04); }
+  .sd-dash-tab:hover { color: #17653a; background: rgba(255,255,255,0.55); }
   .sd-dash-tab--active {
-    background: #fff; color: #1e2a4a; font-weight: 700;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    background: #fff; color: #17653a; font-weight: 650;
+    box-shadow: 0 1px 3px rgba(23,61,41,0.08);
   }
   .sd-cards-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px;
   }
   .sd-card {
-    border-radius: 22px;
-    padding: 22px 20px 20px;
-    border: none;
+    border-radius: 14px;
+    padding: 20px;
+    border: 1px solid #e0eae3;
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    min-height: 130px;
+    min-height: 118px;
     cursor: default;
-    transition: transform 0.22s cubic-bezier(0.2,0.9,0.4,1), box-shadow 0.22s ease;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
   }
   .sd-card:hover {
-    transform: translateY(-5px) scale(1.015);
-    box-shadow: 0 16px 36px rgba(0,0,0,0.13);
+    transform: translateY(-2px);
+    border-color: #bdd9c8;
+    box-shadow: 0 8px 24px rgba(24,83,50,0.08);
   }
   /* Large decorative circle — top right (simulates illustration) */
   .sd-card::before {
     content: '';
     position: absolute;
-    top: -30px; right: -30px;
-    width: 110px; height: 110px;
+    top: 18px; right: 18px;
+    width: 8px; height: 8px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.22);
+    background: #59a978;
     pointer-events: none;
   }
   /* Smaller inner circle */
   .sd-card::after {
     content: '';
     position: absolute;
-    top: 10px; right: 10px;
-    width: 52px; height: 52px;
+    top: 15px; right: 15px;
+    width: 14px; height: 14px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.18);
+    background: #dceee3;
     pointer-events: none;
   }
   .sd-card-label {
-    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
     text-transform: uppercase; margin: 0 0 6px; opacity: 0.75;
     position: relative; z-index: 1;
   }
   .sd-card-value {
-    font-size: 2.5rem; font-weight: 900; margin: 0 0 2px;
+    font-size: 2rem; font-weight: 700; margin: 0 0 5px;
     line-height: 1; letter-spacing: -1px;
     position: relative; z-index: 1;
   }
@@ -198,7 +200,7 @@ export const AppStyleScope = styled('div')`
   .sd-card--cyan,
   .sd-card--green,
   .sd-card--emerald {
-    background: linear-gradient(135deg, #abffd5ff, #ffffffff);
+    background: #ffffff;
     color: #064e3b;
     border-color: transparent;
   }
@@ -212,16 +214,16 @@ export const AppStyleScope = styled('div')`
   .sd-card--cyan:hover,
   .sd-card--green:hover,
   .sd-card--emerald:hover {
-    box-shadow: 0 16px 36px rgba(16,185,129,0.3);
+    box-shadow: 0 8px 24px rgba(24,83,50,0.08);
   }
   .sd-charts-row, .sd-charts-bottom {
     display: grid; grid-template-columns: 1fr 1fr 280px; gap: 16px; margin-bottom: 24px;
   }
   .sd-charts-bottom { grid-template-columns: 1fr 1fr; }
   .sd-chart-card {
-    background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #f0f1f3;
+    background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #e0eae3;
   }
-  .sd-chart-title { font-size: 13px; font-weight: 700; color: #1e2a4a; margin: 0 0 16px; }
+  .sd-chart-title { font-size: 13px; font-weight: 650; color: #244b34; margin: 0 0 16px; }
   .sd-chart-title span { color: #9ca3af; font-weight: 400; margin-left: 4px; }
   .sd-line-chart { width: 100%; display: block; }
   .sd-donut-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
@@ -230,7 +232,7 @@ export const AppStyleScope = styled('div')`
   .sd-donut-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
   .sd-donut-legend-pct { margin-left: auto; font-weight: 700; color: #1e2a4a; padding-left: 12px; }
   .sd-filter-card {
-    background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #f0f1f3;
+    background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #e0eae3;
     display: flex; flex-direction: column; gap: 0;
   }
   .sd-filter-title { font-size: 13px; font-weight: 700; color: #1e2a4a; margin: 0 0 16px; }

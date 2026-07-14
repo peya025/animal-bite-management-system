@@ -16,18 +16,18 @@ export default function DataTable<T>({
   emptyAction,
 }: DataTableProps<T>) {
   return (
-    <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff' }}>
+    <Paper elevation={0} sx={{ border: '1px solid #e0eae3', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff' }}>
       <TableContainer sx={{ '& .MuiTableCell-root': { p: 1 } }}>
         <Table sx={{ minWidth: 500 }}>
 
           {/* ── Head ── */}
           <TableHead>
-            <TableRow sx={{ bgcolor: '#f9fafb' }}>
+            <TableRow sx={{ bgcolor: '#f7faf8' }}>
               {columns.map((col) => (
                 <TableCell
                   key={col.key}
                   align={col.align ?? 'left'}
-                  sx={{ fontWeight: 200, color: '#374151', fontSize: 12, borderBottom: '1px solid #e5e7eb' }}
+                  sx={{ fontWeight: 600, color: '#526158', fontSize: 12, borderBottom: '1px solid #e0eae3' }}
                 >
                   {col.label}
                 </TableCell>

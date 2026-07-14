@@ -5,7 +5,7 @@ export const DashboardLayoutRoot = styled('div')`
   height: 100vh;
   overflow: hidden;
   background: #f5f7fa;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
 
   .sidebar {
     width: 248px; background: #ffffff; border-right: 1px solid #e5e7eb;

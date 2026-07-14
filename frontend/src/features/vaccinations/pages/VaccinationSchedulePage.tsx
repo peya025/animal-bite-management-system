@@ -103,12 +103,8 @@ export default function VaccinationSchedulePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, summary] = await Promise.all([
-        api.get('/vaccinations', { params: status ? { status } : {} }),
-        api.get('/vaccinations/statistics'),
-      ]);
+      const list = await api.get('/vaccinations', { params: status ? { status } : {} });
       setRecords(list.data.data ?? []);
-      setStats(summary.data);
     } catch {
       setNotice('Unable to load vaccination records.');
     } finally {
@@ -129,6 +125,18 @@ export default function VaccinationSchedulePage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    api.get('/vaccinations/statistics')
+      .then(response => setStats(response.data))
+      .catch(() => setNotice('Unable to load vaccination statistics.'));
+  }, []);
+
+  const refreshStats = useCallback(() => {
+    api.get('/vaccinations/statistics')
+      .then(response => setStats(response.data))
+      .catch(() => setNotice('Unable to load vaccination statistics.'));
+  }, []);
+
   // Handlers
   const administer = async () => {
     if (!selected || !brand || !batch || !site) return;
@@ -144,6 +152,7 @@ export default function VaccinationSchedulePage() {
       setSite('');
       setNotice('Vaccination recorded successfully.');
       load();
+      refreshStats();
     } catch {
       setNotice('Unable to record vaccination.');
     }
@@ -154,6 +163,7 @@ export default function VaccinationSchedulePage() {
       await api.post(`/vaccinations/${record.treatment_id}/missed`);
       setNotice('Vaccination marked as missed.');
       load();
+      refreshStats();
     } catch {
       setNotice('Unable to update vaccination status.');
     }
@@ -175,6 +185,7 @@ export default function VaccinationSchedulePage() {
       setNewVaccine({ patientId: '', doseNumber: 1, scheduledDate: '' });
       setNotice('New vaccination scheduled successfully.');
       load();
+      refreshStats();
     } catch {
       setNotice('Unable to create vaccination.');
     } finally {
@@ -266,10 +277,10 @@ export default function VaccinationSchedulePage() {
         }}
       >
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          <Typography variant="h5" sx={{ color: '#173d29', mb: '7px' }}>
             Vaccinations
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: '#77877d' }}>
             Track scheduled doses and record vaccine administration.
           </Typography>
         </Box>
@@ -289,10 +300,10 @@ export default function VaccinationSchedulePage() {
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {(
           [
-            { label: 'Scheduled', value: stats?.pending, icon: <Schedule />, color: 'info' },
-            { label: 'Completed', value: stats?.completed, icon: <CheckCircle />, color: 'success' },
-            { label: 'Due Today', value: stats?.today_count, icon: <Vaccines />, color: 'warning' },
-            { label: 'Overdue', value: stats?.overdue_count, icon: <EventBusy />, color: 'error' },
+            { label: 'Scheduled', value: stats?.pending,  color: 'info' },
+            { label: 'Completed', value: stats?.completed,color: 'success' },
+            { label: 'Due Today', value: stats?.today_count, color: 'warning' },
+            { label: 'Overdue', value: stats?.overdue_count,color: 'error' },
           ] as const
         ).map((s) => (
           <Grid key={s.label} size={{ xs: 6, md: 3 }}>

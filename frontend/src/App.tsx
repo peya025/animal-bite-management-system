@@ -133,6 +133,7 @@ function SimpleDashboard() {
   const [clinic, setClinic] = useState<any>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -144,6 +145,11 @@ function SimpleDashboard() {
       const clinicData = localStorage.getItem('clinicData');
       const localUser = userData ? JSON.parse(userData) : null;
       const localClinic = clinicData ? JSON.parse(clinicData) : (localUser?.clinic || null);
+
+      // Render immediately from the authenticated session; refresh in the background.
+      setUser(localUser);
+      setClinic(localClinic);
+      setIsLoading(false);
 
       if (localUser?.role === 'admin') {
         try {
@@ -162,16 +168,12 @@ function SimpleDashboard() {
             }
             setUser(freshData);
             setClinic(freshData.clinic);
-            setIsLoading(false);
             return;
           }
         } catch (error) {
           console.error('Failed to fetch fresh user data:', error);
         }
       }
-      setUser(localUser);
-      setClinic(localClinic);
-      setIsLoading(false);
     };
     loadUserData();
   }, []);
@@ -372,10 +374,11 @@ function SimpleDashboard() {
             <div
               className="sd-chart-card"
               style={{
-                background: '#f9fafb',
+                background: '#ffffff',
                 borderRadius: '14px',
                 padding: '20px 24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                border: '1px solid #e0eae3',
+                boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
                 transition: 'box-shadow 0.2s',
                 display: 'flex',
                 flexDirection: 'column',
@@ -394,10 +397,11 @@ function SimpleDashboard() {
             <div
               className="sd-chart-card"
               style={{
-                background: '#f9fafb',
+                background: '#ffffff',
                 borderRadius: '14px',
                 padding: '20px 24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                border: '1px solid #e0eae3',
+                boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
                 transition: 'box-shadow 0.2s',
                 display: 'flex',
                 flexDirection: 'column',
@@ -410,9 +414,9 @@ function SimpleDashboard() {
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <SdDonutChart
                   data={[
-                    { label: 'Category I',   pct: 35, color: '#4f7ef7' },
-                    { label: 'Category II',  pct: 40, color: '#6c63ff' },
-                    { label: 'Category III', pct: 25, color: '#10b981' },
+                    { label: 'Category I',   pct: 35, color: '#a7d7b9' },
+                    { label: 'Category II',  pct: 40, color: '#56a978' },
+                    { label: 'Category III', pct: 25, color: '#1f7043' },
                   ]}
                 />
               </div>
@@ -422,10 +426,11 @@ function SimpleDashboard() {
             <div
               className="sd-filter-card"
               style={{
-                background: '#f9fafb',
+                background: '#ffffff',
                 borderRadius: '14px',
                 padding: '20px 24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                border: '1px solid #e0eae3',
+                boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
                 transition: 'box-shadow 0.2s',
                 display: 'flex',
                 flexDirection: 'column',
@@ -485,10 +490,11 @@ function SimpleDashboard() {
             <div
               className="sd-chart-card"
               style={{
-                background: '#f9fafb',
+                background: '#ffffff',
                 borderRadius: '14px',
                 padding: '20px 24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                border: '1px solid #e0eae3',
+                boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
                 transition: 'box-shadow 0.2s',
                 display: 'flex',
                 flexDirection: 'column',
@@ -506,10 +512,11 @@ function SimpleDashboard() {
             <div
               className="sd-chart-card"
               style={{
-                background: '#f9fafb',
+                background: '#ffffff',
                 borderRadius: '14px',
                 padding: '20px 24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                border: '1px solid #e0eae3',
+                boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
                 transition: 'box-shadow 0.2s',
                 display: 'flex',
                 flexDirection: 'column',
@@ -522,9 +529,9 @@ function SimpleDashboard() {
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <SdDonutChart
                   data={[
-                    { label: 'Cat. I (Minor)',    pct: 30, color: '#10b981' },
-                    { label: 'Cat. II (Moderate)', pct: 45, color: '#f59e0b' },
-                    { label: 'Cat. III (Severe)',  pct: 25, color: '#ef4444' },
+                    { label: 'Cat. I (Minor)',     pct: 30, color: '#a7d7b9' },
+                    { label: 'Cat. II (Moderate)', pct: 45, color: '#56a978' },
+                    { label: 'Cat. III (Severe)',  pct: 25, color: '#1f7043' },
                   ]}
                 />
               </div>

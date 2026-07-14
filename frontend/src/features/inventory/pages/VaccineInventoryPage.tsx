@@ -3,12 +3,7 @@ import {
   Alert, Box, Grid, IconButton, Snackbar, Stack, Tooltip, Typography,
 } from '@mui/material';
 import {
-  Cancel as CancelIcon,
-  CheckCircle as CheckIcon,
   Refresh as RefreshIcon,
-  Vaccines as VaccineIcon,
-  Warning as WarningIcon,
-  People as PeopleIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import StatCard from '../../../components/common/StatCard';
@@ -79,14 +74,10 @@ export default function VaccineInventory() {
       if (batchFilter)  params.batch_number = batchFilter;
       if (expiryFrom)   params.expiry_from  = expiryFrom;
       if (expiryTo)     params.expiry_to    = expiryTo;
-      const [inventoryRes, statsRes] = await Promise.all([
-        api.get('/inventory', { params }),
-        api.get('/inventory/statistics'),
-      ]);
+      const inventoryRes = await api.get('/inventory', { params });
       const data: PaginatedResponse = inventoryRes.data;
       setItems(data.data);
       setTotal(data.total);
-      setStats(statsRes.data);
     } catch {
       setSnackbar({ open: true, message: 'Failed to load inventory data', severity: 'error' });
     } finally {
@@ -94,11 +85,24 @@ export default function VaccineInventory() {
     }
   }, [page, rowsPerPage, search, statusFilter, batchFilter, expiryFrom, expiryTo]);
 
+  const loadStats = useCallback(() => {
+    api.get('/inventory/statistics')
+      .then(response => setStats(response.data))
+      .catch(() => setSnackbar({ open: true, message: 'Failed to load inventory statistics', severity: 'error' }));
+  }, []);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const showSuccess = (msg: string) => setSnackbar({ open: true, message: msg, severity: 'success' });
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  const showSuccess = (msg: string) => {
+    setSnackbar({ open: true, message: msg, severity: 'success' });
+    loadStats();
+  };
 
   return (
     <Box sx={{ px: 3 }}>
@@ -106,14 +110,16 @@ export default function VaccineInventory() {
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography component="h1" sx={{ 
-            fontWeight: 700, 
-            fontSize: '20px',
-            color: '#111827', 
-            margin: '0 0 8px 0'
+            fontWeight: 600,
+            fontSize: '25px',
+            lineHeight: 1.2,
+            letterSpacing: '-0.5px',
+            color: '#173d29',
+            margin: '0 0 7px 0'
           }}>
             Vaccine Inventory
           </Typography>
-          <Typography sx={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
+          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
             Manage stock levels and track transactions
           </Typography>
         </Box>
@@ -162,14 +168,14 @@ export default function VaccineInventory() {
       {/* ── Stats Cards ── */}
       <Grid container spacing={2} sx={{ mb: 3, alignItems: 'stretch' }}>
         {([
-          { label: 'Active Batches',      value: stats?.active_batches,                         icon: <CheckIcon />,     color: 'success' as const },
-          { label: 'Total Vials',         value: stats ? `${stats.total_stock}` : '-',          icon: <VaccineIcon />,   color: 'info' as const    },
-          { label: 'Patients Coverable',  value: stats ? `${stats.total_stock * 3}` : '-',      icon: <PeopleIcon />,    color: 'success' as const },
-          { label: 'Expiring Soon',       value: stats?.expiring_soon,                          icon: <WarningIcon />,   color: 'warning' as const },
-          { label: 'Depleted',            value: stats?.depleted_batches,                       icon: <CancelIcon />,    color: 'error' as const   },
+          { label: 'Active Batches',      value: stats?.active_batches,                             color: 'success' as const },
+          { label: 'Total Vials',         value: stats ? `${stats.total_stock}` : '-',            color: 'info' as const    },
+          { label: 'Patients Coverable',  value: stats ? `${stats.total_stock * 3}` : '-',      color: 'success' as const },
+          { label: 'Expiring Soon',       value: stats?.expiring_soon,                          color: 'warning' as const },
+          { label: 'Depleted',            value: stats?.depleted_batches,                       color: 'error' as const   },
         ] as const).map(s => (
           <Grid key={s.label} size={{ xs: 6, sm: 4, md: 2 }}>
-            <StatCard label={s.label} value={s.value ?? '-'} icon={s.icon} color={s.color} loading={!stats} />
+            <StatCard label={s.label} value={s.value ?? '-'}  color={s.color} loading={!stats} />
           </Grid>
         ))}
       </Grid>

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
+import 'menu_surface.dart';
+import 'section_header.dart';
 
 class ScheduleSection extends StatelessWidget {
   const ScheduleSection({super.key});
@@ -10,36 +12,50 @@ class ScheduleSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'UPCOMING SCHEDULES',
-          style: TextStyle(
-            color: AppColors.gray700,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+        MenuSectionHeader(
+          title: 'Upcoming schedules',
+          actionLabel: 'View all',
+          onAction: () {},
         ),
         const SizedBox(height: 8),
-        Container(
-          height: 82,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            border: Border.all(color: const Color(0xFFE1E5E4)),
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x16000000),
-                blurRadius: 4,
-                offset: Offset(0, 2),
+        MenuSurface(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.event_available_outlined,
+                  color: AppColors.primaryDark,
+                ),
               ),
+              const SizedBox(width: 13),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'No appointments yet',
+                      style: TextStyle(
+                        color: AppColors.gray900,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Your next vaccination schedule will appear here.',
+                      style: TextStyle(color: AppColors.gray500, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.gray500),
             ],
-          ),
-          child: const Align(
-            alignment: Alignment.topLeft,
-            child: Text(
-              'No schedule at this moment.',
-              style: TextStyle(color: AppColors.gray700),
-            ),
           ),
         ),
       ],

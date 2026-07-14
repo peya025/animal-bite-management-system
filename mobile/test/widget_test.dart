@@ -1,5 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/views/booking_view.dart';
+import 'package:mobile/views/history_view.dart';
+import 'package:mobile/views/menu_view.dart';
+import 'package:mobile/views/settings_view.dart';
+import 'package:flutter/material.dart';
 
 void main() {
   testWidgets('opens the login view from the welcome view', (tester) async {
@@ -39,5 +44,80 @@ void main() {
     expect(find.text('REGISTER'), findsOneWidget);
     expect(find.text('Have an account?'), findsOneWidget);
     expect(find.text('Log in'), findsOneWidget);
+  });
+
+  testWidgets('menu renders at a phone viewport without overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(theme: ThemeData(useMaterial3: true), home: const MenuView()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Animal Bite Center'), findsOneWidget);
+    expect(find.text('Bite care guide'), findsOneWidget);
+    expect(find.text('Upcoming schedules'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('book navigation opens the sample booking page', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: const MenuView(),
+        routes: {'/booking': (_) => const BookingView()},
+      ),
+    );
+
+    await tester.tap(find.text('Book'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Book appointment'), findsOneWidget);
+    expect(find.text('Select a service'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('CONFIRM BOOKING'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('CONFIRM BOOKING'), findsOneWidget);
+  });
+
+  testWidgets('history navigation opens demo records', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: const MenuView(),
+        routes: {'/history': (_) => const HistoryView()},
+      ),
+    );
+
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Appointments and vaccination activity.'), findsOneWidget);
+    expect(find.text('Bite consultation'), findsOneWidget);
+  });
+
+  testWidgets('settings navigation opens demo preferences', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: const MenuView(),
+        routes: {'/settings': (_) => const SettingsView()},
+      ),
+    );
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Manage your profile and app preferences.'),
+      findsOneWidget,
+    );
+    expect(find.text('Preferences'), findsOneWidget);
+    expect(find.text('Notifications'), findsOneWidget);
   });
 }

@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
+import 'menu_surface.dart';
+import 'section_header.dart';
 
 class InformationPanels extends StatelessWidget {
   const InformationPanels({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _WorkingHoursPanel()),
-        SizedBox(width: 16),
-        Expanded(child: _AwarenessPanel()),
+        MenuSectionHeader(title: 'Clinic information'),
+        SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _WorkingHoursPanel()),
+            SizedBox(width: 10),
+            Expanded(child: _AwarenessPanel()),
+          ],
+        ),
       ],
     );
   }
@@ -23,62 +32,45 @@ class _WorkingHoursPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 144,
-      padding: const EdgeInsets.all(10),
-      decoration: _panelDecoration(),
-      child: const Column(
+    return MenuSurface(
+      height: 156,
+      padding: const EdgeInsets.all(13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'WORKING HOURS',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          const _PanelIcon(
+            icon: Icons.schedule_rounded,
+            background: AppColors.primaryLight,
+            foreground: AppColors.primaryDark,
           ),
-          SizedBox(height: 7),
-          Wrap(
-            spacing: 7,
-            runSpacing: 5,
-            alignment: WrapAlignment.center,
-            children: [
-              _DayChip('Monday', Color(0xFFFFE7AA)),
-              _DayChip('Tuesday', Color(0xFFE4F4A9)),
-              _DayChip('Thursday', Color(0xFFBDE7F2)),
-              _DayChip('Friday', Color(0xFFFFE7AA)),
-            ],
-          ),
-          SizedBox(height: 8),
-          Text('TIME', style: TextStyle(fontSize: 9)),
-          SizedBox(height: 4),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color(0xFFBDEFF2),
-              borderRadius: BorderRadius.all(Radius.circular(6)),
+          const Spacer(),
+          const Text(
+            'Working hours',
+            style: TextStyle(
+              color: AppColors.gray900,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
             ),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              child: Text('8:00 AM - 4:00 PM', style: TextStyle(fontSize: 11)),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Mon - Fri',
+            style: TextStyle(color: AppColors.gray500, fontSize: 11),
+          ),
+          const SizedBox(height: 3),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '8:00 AM - 4:00 PM',
+              style: TextStyle(
+                color: AppColors.primaryDark,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _DayChip extends StatelessWidget {
-  const _DayChip(this.label, this.color);
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        child: Text(label, style: const TextStyle(fontSize: 9)),
       ),
     );
   }
@@ -89,36 +81,65 @@ class _AwarenessPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 144,
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(),
+    return MenuSurface(
+      height: 156,
+      padding: const EdgeInsets.all(13),
+      onTap: () {},
       child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _PanelIcon(
+            icon: Icons.campaign_outlined,
+            background: Color(0xFFFFF1D6),
+            foreground: Color(0xFFB86A00),
+          ),
+          Spacer(),
           Text(
-            'AWARENESS',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            'Awareness hub',
+            style: TextStyle(
+              color: AppColors.gray900,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          Spacer(),
-          Icon(
-            Icons.health_and_safety_outlined,
-            color: AppColors.primary,
-            size: 42,
+          SizedBox(height: 4),
+          Text(
+            'Prevention tips and bite-care resources',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: AppColors.gray500,
+              fontSize: 11,
+              height: 1.25,
+            ),
           ),
-          Spacer(),
         ],
       ),
     );
   }
 }
 
-BoxDecoration _panelDecoration() {
-  return BoxDecoration(
-    color: AppColors.white,
-    border: Border.all(color: AppColors.primary),
-    borderRadius: BorderRadius.circular(8),
-    boxShadow: const [
-      BoxShadow(color: Color(0x16000000), blurRadius: 4, offset: Offset(0, 2)),
-    ],
-  );
+class _PanelIcon extends StatelessWidget {
+  const _PanelIcon({
+    required this.icon,
+    required this.background,
+    required this.foreground,
+  });
+
+  final IconData icon;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, color: foreground, size: 21),
+    );
+  }
 }

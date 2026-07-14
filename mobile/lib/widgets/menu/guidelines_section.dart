@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
+import 'menu_surface.dart';
+import 'section_header.dart';
 
 class GuidelinesSection extends StatelessWidget {
   const GuidelinesSection({super.key});
@@ -10,31 +12,37 @@ class GuidelinesSection extends StatelessWidget {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionLabel('CAT OR DOG BITE GUIDELINES'),
-        SizedBox(height: 8),
+        MenuSectionHeader(title: 'Bite care guide'),
+        SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: _GuidelineTile(
-                icon: Icons.clean_hands_outlined,
-                label: 'Wash wound',
-                color: Color(0xFFE6F6F1),
+                icon: Icons.water_drop_outlined,
+                label: 'Wash',
+                detail: 'Clean wound',
+                color: Color(0xFFE0F4F1),
+                iconColor: AppColors.primaryDark,
               ),
             ),
-            SizedBox(width: 12),
+            SizedBox(width: 10),
             Expanded(
               child: _GuidelineTile(
-                icon: Icons.medical_services_outlined,
-                label: 'Seek care',
-                color: Color(0xFFFFF2D8),
+                icon: Icons.local_hospital_outlined,
+                label: 'Consult',
+                detail: 'Seek care',
+                color: Color(0xFFFFF1D6),
+                iconColor: Color(0xFFB86A00),
               ),
             ),
-            SizedBox(width: 12),
+            SizedBox(width: 10),
             Expanded(
               child: _GuidelineTile(
                 icon: Icons.vaccines_outlined,
-                label: 'Get vaccine',
-                color: Color(0xFFE8F0FA),
+                label: 'Vaccinate',
+                detail: 'Stay protected',
+                color: Color(0xFFE8EEFF),
+                iconColor: Color(0xFF4867B3),
               ),
             ),
           ],
@@ -44,59 +52,57 @@ class GuidelinesSection extends StatelessWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.label);
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        color: AppColors.gray700,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-}
-
 class _GuidelineTile extends StatelessWidget {
   const _GuidelineTile({
     required this.icon,
     required this.label,
+    required this.detail,
     required this.color,
+    required this.iconColor,
   });
 
   final IconData icon;
   final String label;
+  final String detail;
   final Color color;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 92,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(color: const Color(0xFFD8DEDC)),
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x16000000),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
+    return MenuSurface(
+      height: 116,
+      padding: const EdgeInsets.all(12),
+      onTap: () {},
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            backgroundColor: color,
-            child: Icon(icon, color: AppColors.primaryDark),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: iconColor, size: 21),
           ),
-          const SizedBox(height: 6),
-          Text(label, style: const TextStyle(fontSize: 11)),
+          const Spacer(),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.gray900,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            detail,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: AppColors.gray500, fontSize: 10),
+          ),
         ],
       ),
     );

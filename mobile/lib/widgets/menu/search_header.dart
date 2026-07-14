@@ -7,30 +7,75 @@ class MenuSearchHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: SizedBox(
-            height: 44,
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search',
-                hintStyle: const TextStyle(color: AppColors.gray500),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                suffixIcon: IconButton(
-                  tooltip: 'Search',
-                  onPressed: () {},
-                  icon: const Icon(Icons.search, color: AppColors.gray700),
-                ),
+        Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.health_and_safety_outlined,
+                color: AppColors.primaryDark,
               ),
             ),
-          ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Good morning',
+                    style: TextStyle(color: AppColors.gray500, fontSize: 12),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Animal Bite Center',
+                    style: TextStyle(
+                      color: AppColors.gray900,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Badge(
+              smallSize: 8,
+              child: IconButton.filledTonal(
+                tooltip: 'Notifications',
+                onPressed: () {},
+                icon: const Icon(Icons.notifications_none_rounded),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        IconButton(
-          tooltip: 'Notifications',
-          onPressed: () {},
-          icon: const Icon(Icons.notifications, color: Colors.black),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 48,
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Search services or schedules',
+              hintStyle: const TextStyle(
+                color: AppColors.gray500,
+                fontSize: 14,
+              ),
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: IconButton(
+                tooltip: 'Filters',
+                onPressed: () {},
+                icon: const Icon(Icons.tune_rounded, size: 20),
+              ),
+              filled: true,
+              fillColor: AppColors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+          ),
         ),
       ],
     );

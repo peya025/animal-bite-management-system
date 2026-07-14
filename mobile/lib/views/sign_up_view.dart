@@ -71,9 +71,9 @@ class _SignUpViewState extends State<SignUpView> {
                       selected: AuthMode.signUp,
                       onChanged: (mode) {
                         if (mode == AuthMode.login) {
-                          Navigator.of(context).pushReplacementNamed(
-                            AppRoutes.login,
-                          );
+                          Navigator.of(
+                            context,
+                          ).pushReplacementNamed(AppRoutes.login);
                         }
                       },
                     ),
@@ -171,7 +171,8 @@ class _SignUpField extends StatelessWidget {
             enabled: true,
             keyboardType: keyboardType,
             textCapitalization: textCapitalization,
-            validator: validator ??
+            validator:
+                validator ??
                 (value) => value == null || value.trim().isEmpty
                     ? '$label is required'
                     : null,

@@ -37,9 +37,7 @@ abstract final class AppTheme {
           foregroundColor: AppColors.white,
           minimumSize: const Size(44, 48),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       inputDecorationTheme: const InputDecorationTheme(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../views/login_view.dart';
+import '../views/menu_view.dart';
 import '../views/sign_up_view.dart';
 import '../views/welcome_view.dart';
 import 'app_routes.dart';
@@ -20,6 +21,7 @@ class AnimalCareApp extends StatelessWidget {
         AppRoutes.welcome: (_) => const WelcomeView(),
         AppRoutes.login: (_) => const LoginView(),
         AppRoutes.signUp: (_) => const SignUpView(),
+        AppRoutes.menu: (_) => const MenuView(),
       },
     );
   }

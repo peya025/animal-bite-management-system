@@ -20,9 +20,8 @@ class WelcomeView extends StatelessWidget {
               const Spacer(flex: 3),
               PrimaryActionButton(
                 label: 'GET STARTED',
-                onPressed: () => Navigator.of(context).pushNamed(
-                  AppRoutes.login,
-                ),
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.login),
               ),
             ],
           ),

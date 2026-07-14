@@ -48,6 +48,9 @@ class _LoginViewState extends State<LoginView> {
           backgroundColor: AppColors.primary,
         ),
       );
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);
     } catch (error) {
       if (mounted) setState(() => _errorMessage = 'Login failed: $error');
     } finally {
@@ -79,9 +82,9 @@ class _LoginViewState extends State<LoginView> {
                         selected: AuthMode.login,
                         onChanged: (mode) {
                           if (mode == AuthMode.signUp) {
-                            Navigator.of(context).pushReplacementNamed(
-                              AppRoutes.signUp,
-                            );
+                            Navigator.of(
+                              context,
+                            ).pushReplacementNamed(AppRoutes.signUp);
                           }
                         },
                       ),
@@ -104,8 +107,12 @@ class _LoginViewState extends State<LoginView> {
                         autofillHints: const [AutofillHints.email],
                         validator: (value) {
                           final email = value?.trim() ?? '';
-                          if (email.isEmpty) return 'Email is required';
-                          if (!email.contains('@')) return 'Enter a valid email';
+                          if (email.isEmpty) {
+                            return 'Email is required';
+                          }
+                          if (!email.contains('@')) {
+                            return 'Enter a valid email';
+                          }
                           return null;
                         },
                       ),
@@ -122,7 +129,9 @@ class _LoginViewState extends State<LoginView> {
                             ? 'Password is required'
                             : null,
                         onFieldSubmitted: (_) {
-                          if (!_isLoading) _submit();
+                          if (!_isLoading) {
+                            _submit();
+                          }
                         },
                         decoration: InputDecoration(
                           suffixIcon: IconButton(
@@ -132,9 +141,8 @@ class _LoginViewState extends State<LoginView> {
                             onPressed: _isLoading
                                 ? null
                                 : () => setState(
-                                      () => _obscurePassword =
-                                          !_obscurePassword,
-                                    ),
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
                             icon: Icon(
                               _obscurePassword
                                   ? Icons.visibility_outlined
@@ -156,8 +164,8 @@ class _LoginViewState extends State<LoginView> {
                               onChanged: _isLoading
                                   ? null
                                   : (value) => setState(
-                                        () => _rememberMe = value ?? false,
-                                      ),
+                                      () => _rememberMe = value ?? false,
+                                    ),
                             ),
                           ),
                           const Text(
@@ -165,14 +173,25 @@ class _LoginViewState extends State<LoginView> {
                             style: TextStyle(fontSize: 13),
                           ),
                           const Spacer(),
-                          TextButton(
-                            onPressed: _isLoading ? null : () {},
-                            child: const Text(
-                              'Forgot your password?',
-                              style: TextStyle(
-                                color: AppColors.gray700,
-                                decoration: TextDecoration.underline,
-                                fontSize: 13,
+                          Flexible(
+                            child: TextButton(
+                              onPressed: _isLoading ? null : () {},
+                              style: TextButton.styleFrom(
+                                minimumSize: const Size(0, 40),
+                                padding: const EdgeInsets.only(left: 8),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  'Forgot your password?',
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    color: AppColors.gray700,
+                                    decoration: TextDecoration.underline,
+                                    fontSize: 13,
+                                  ),
+                                ),
                               ),
                             ),
                           ),

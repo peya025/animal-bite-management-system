@@ -132,7 +132,6 @@ function SimpleDashboard() {
   const [user, setUser] = useState<any>(null);
   const [clinic, setClinic] = useState<any>(null);
   const [collapsed, setCollapsed] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
   useEffect(() => {

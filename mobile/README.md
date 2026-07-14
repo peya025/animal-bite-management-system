@@ -2,6 +2,26 @@
 
 Flutter mobile application for managing animal bite cases and vaccination workflows on mobile devices.
 
+## Architecture
+
+Application code under `lib/` uses a simple view, model, and repository-oriented structure:
+
+```text
+lib/
+|-- app/          # App bootstrap, routes, and shared theme
+|-- models/       # Typed application and API data
+|-- views/        # Screens, presentation widgets, and local UI state
+|-- repositories/ # API access boundaries (added during integration)
+`-- main.dart     # Flutter entry point
+```
+
+- **Models** must not import views. Keep typed API response and request data here.
+- **Views** render models and may own small local state such as form loading and password visibility.
+- **Repositories** call the Laravel API and convert responses into models. Views must not make HTTP requests directly.
+- **App** contains concerns shared by every feature, such as routes, colors, themes, and startup configuration.
+
+As the app grows, group related files consistently by feature name, for example `patient_model.dart`, `patient_view.dart`, and `patient_repository.dart`. Introduce a state-management solution only when state must be shared across multiple views or workflows.
+
 ## 📱 Overview
 
 This is the mobile companion app for the Animal Bite Management System, built with Flutter for cross-platform support (Android & iOS).

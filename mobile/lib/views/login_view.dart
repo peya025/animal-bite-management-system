@@ -1,0 +1,274 @@
+import 'package:flutter/material.dart';
+
+import '../app/app_theme.dart';
+import '../app/app_routes.dart';
+import '../widgets/auth_mode_selector.dart';
+import '../widgets/buttons/primary_action_button.dart';
+import '../widgets/buttons/social_auth_button.dart';
+
+class LoginView extends StatefulWidget {
+  const LoginView({super.key});
+
+  @override
+  State<LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends State<LoginView> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _rememberMe = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Replace this delay with the authentication repository call.
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login successful! (Demo)'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _errorMessage = 'Login failed: $error');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: Form(
+                key: _formKey,
+                child: AutofillGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.sizeOf(context).height < 760
+                            ? 20
+                            : 48,
+                      ),
+                      AuthModeSelector(
+                        selected: AuthMode.login,
+                        onChanged: (mode) {
+                          if (mode == AuthMode.signUp) {
+                            Navigator.of(context).pushReplacementNamed(
+                              AppRoutes.signUp,
+                            );
+                          }
+                        },
+                      ),
+                      SizedBox(
+                        height: MediaQuery.sizeOf(context).height < 760
+                            ? 48
+                            : 80,
+                      ),
+                      if (_errorMessage case final message?) ...[
+                        _ErrorBanner(message: message),
+                        const SizedBox(height: 20),
+                      ],
+                      const _FieldLabel('EMAIL'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _emailController,
+                        enabled: !_isLoading,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.email],
+                        validator: (value) {
+                          final email = value?.trim() ?? '';
+                          if (email.isEmpty) return 'Email is required';
+                          if (!email.contains('@')) return 'Enter a valid email';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      const _FieldLabel('PASSWORD'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _passwordController,
+                        enabled: !_isLoading,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.password],
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Password is required'
+                            : null,
+                        onFieldSubmitted: (_) {
+                          if (!_isLoading) _submit();
+                        },
+                        decoration: InputDecoration(
+                          suffixIcon: IconButton(
+                            tooltip: _obscurePassword
+                                ? 'Show password'
+                                : 'Hide password',
+                            onPressed: _isLoading
+                                ? null
+                                : () => setState(
+                                      () => _obscurePassword =
+                                          !_obscurePassword,
+                                    ),
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              color: AppColors.gray500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 32,
+                            height: 40,
+                            child: Checkbox(
+                              value: _rememberMe,
+                              activeColor: AppColors.primary,
+                              onChanged: _isLoading
+                                  ? null
+                                  : (value) => setState(
+                                        () => _rememberMe = value ?? false,
+                                      ),
+                            ),
+                          ),
+                          const Text(
+                            'Remember Me',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: _isLoading ? null : () {},
+                            child: const Text(
+                              'Forgot your password?',
+                              style: TextStyle(
+                                color: AppColors.gray700,
+                                decoration: TextDecoration.underline,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: PrimaryActionButton(
+                          label: 'LOGIN',
+                          width: 210,
+                          isLoading: _isLoading,
+                          onPressed: _submit,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const _DividerLabel(),
+                      const SizedBox(height: 14),
+                      SocialAuthButton(
+                        provider: SocialAuthProvider.google,
+                        onPressed: _isLoading ? null : () {},
+                      ),
+                      const SizedBox(height: 12),
+                      SocialAuthButton(
+                        provider: SocialAuthProvider.apple,
+                        onPressed: _isLoading ? null : () {},
+                      ),
+                      const SizedBox(height: 28),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DividerLabel extends StatelessWidget {
+  const _DividerLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        Expanded(child: Divider(indent: 45)),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 10),
+          child: Text('or', style: TextStyle(color: AppColors.gray500)),
+        ),
+        Expanded(child: Divider(endIndent: 45)),
+      ],
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: AppColors.primaryDark,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.errorLight,
+        borderRadius: BorderRadius.circular(8),
+        border: const Border(
+          left: BorderSide(color: AppColors.error, width: 4),
+        ),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: AppColors.errorDark,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}

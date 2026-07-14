@@ -10,6 +10,7 @@ import BiteCaseRiskDashboard from './features/bite-cases/pages/BiteCaseRiskDashb
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
 import ConfirmationDialog from './components/feedback/ConfirmationDialog';
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
+import { ROUTES } from './shared/config/routes';
 
 // ─── Auth Check Helper ───────────────────────────────────────
 function isAuthenticated(): boolean {
@@ -23,11 +24,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   useEffect(() => {
     if (!isAuthenticated()) {
-      window.location.href = '/login';
+      window.location.href = ROUTES.LOGIN;
     }
   }, [location.pathname]);
   if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={ROUTES.LOGIN} replace />;
   }
   return <>{children}</>;
 }
@@ -41,20 +42,20 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard',    path: '/dashboard',    roles: ['admin','registration','triage','treatment'] },
-  { label: 'Patients',     path: '/patients',     roles: ['registration','triage','treatment'] },
-  { label: 'Queue',        path: '/queue',        roles: ['registration','triage'] },
-  { label: 'Bite Cases',   path: '/bite-cases',   roles: ['admin','triage','treatment'] },
-  { label: 'Vaccinations', path: '/vaccinations', roles: ['admin','triage','treatment'] },
-  { label: 'Inventory',    path: '/inventory',    roles: ['admin'] },
-  { label: 'Users',        path: '/users',        roles: ['admin'] },
+  { label: 'Dashboard',    path: ROUTES.DASHBOARD,         roles: ['admin','registration','triage','treatment'] },
+  { label: 'Patients',     path: ROUTES.PATIENTS.LIST,     roles: ['registration','triage','treatment'] },
+  { label: 'Queue',        path: ROUTES.QUEUE.DASHBOARD,   roles: ['registration','triage'] },
+  { label: 'Bite Cases',   path: ROUTES.BITE_CASES.LIST,   roles: ['admin','triage','treatment'] },
+  { label: 'Vaccinations', path: ROUTES.VACCINATIONS.LIST, roles: ['admin','triage','treatment'] },
+  { label: 'Inventory',    path: ROUTES.INVENTORY.LIST,    roles: ['admin'] },
+  { label: 'Users',        path: ROUTES.USERS.LIST,        roles: ['admin'] },
   { 
     label: 'Clinic Setup',
     roles: ['admin'],
     submenu: [
-      { label: 'Clinic Information', path: '/setup/clinic-info' },
-      { label: 'Predefined Templates', path: '/setup/templates' },
-      { label: 'Vaccination Schedules', path: '/setup/vaccination-schedules' },
+      { label: 'Clinic Information',    path: ROUTES.CLINIC_SETUP.INFO      },
+      { label: 'Predefined Templates',  path: ROUTES.CLINIC_SETUP.TEMPLATES },
+      { label: 'Vaccination Schedules', path: ROUTES.CLINIC_SETUP.VAX_SCHED },
     ],
   },
 ];
@@ -133,7 +134,7 @@ function SimpleDashboard() {
   useEffect(() => {
     const loadUserData = async () => {
       if (!isAuthenticated()) {
-        window.location.href = '/login';
+        window.location.href = ROUTES.LOGIN;
         return;
       }
       const userData = localStorage.getItem('userData');
@@ -189,13 +190,13 @@ function SimpleDashboard() {
   }
 
   if (!user) {
-    window.location.href = '/login';
+    window.location.href = ROUTES.LOGIN;
     return null;
   }
 
   const setupComplete = user?.clinic?.is_setup_complete ?? clinic?.is_setup_complete ?? false;
   if (!setupComplete && user?.role === 'admin') {
-    window.location.href = '/setup';
+    window.location.href = ROUTES.SETUP;
     return null;
   }
 

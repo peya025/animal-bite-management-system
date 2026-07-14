@@ -6,6 +6,7 @@ import StatCard from '../../../components/common/StatCard';
 import dashboardService from '../../../services/dashboardService';
 import type { DashboardStats } from '../../../services/dashboardService';
 import { DashboardStylesRoot } from '../styles/Dashboard.styles';
+import { ROUTES } from '../../../shared/config/routes';
 
 function StyledDashboardLayout(props: React.ComponentProps<typeof DashboardLayout>) {
   return (
@@ -106,10 +107,10 @@ function AdminDashboard({ stats }: { stats: DashboardStats | null }) {
           <div className="dashboard-card">
             <h3>Quick Actions</h3>
             <div className="quick-actions">
-              <button className="action-btn action-primary"   onClick={() => navigate('/users')}>      <span>👥</span> Manage Users     </button>
-              <button className="action-btn action-secondary" onClick={() => navigate('/setup')}>      <span>⚙️</span> Clinic Settings  </button>
-              <button className="action-btn action-secondary" onClick={() => navigate('/bite-cases')}> <span>📊</span> View Cases       </button>
-              <button className="action-btn action-secondary" onClick={() => navigate('/queue')}>      <span>📋</span> View Queue       </button>
+              <button className="action-btn action-primary"   onClick={() => navigate(ROUTES.USERS.LIST)}>      <span>👥</span> Manage Users     </button>
+              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.SETUP)}>           <span>⚙️</span> Clinic Settings  </button>
+              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.BITE_CASES.LIST)}> <span>📊</span> View Cases       </button>
+              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}> <span>📋</span> View Queue       </button>
             </div>
           </div>
         </div>
@@ -135,9 +136,9 @@ function RegistrationDashboard({ stats }: { stats: DashboardStats | null }) {
         <div className="dashboard-card">
           <h3>Quick Actions</h3>
           <div className="quick-actions">
-            <button className="action-btn action-primary"   onClick={() => navigate('/patients')}> <span>➕</span> Register Patient </button>
-            <button className="action-btn action-secondary" onClick={() => navigate('/queue')}>    <span>📋</span> Add to Queue     </button>
-            <button className="action-btn action-secondary" onClick={() => navigate('/patients')}> <span>🔍</span> Search Patients  </button>
+            <button className="action-btn action-primary"   onClick={() => navigate(ROUTES.PATIENTS.LIST)}> <span>➕</span> Register Patient </button>
+            <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>    <span>📋</span> Add to Queue     </button>
+            <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.PATIENTS.LIST)}> <span>🔍</span> Search Patients  </button>
           </div>
         </div>
       </div>
@@ -164,7 +165,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
             <h1>{greeting}, {user?.name?.split(' ')[0]} 👋</h1>
             <p>{dateLabel}</p>
           </div>
-          <button className="triage-primary-btn" onClick={() => navigate('/bite-cases/new')}>
+          <button className="triage-primary-btn" onClick={() => navigate(ROUTES.BITE_CASES.NEW)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
@@ -187,7 +188,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
           <div className="dashboard-card">
             <div className="card-header">
               <h3>Today's Queue</h3>
-              <button className="card-link-btn" onClick={() => navigate('/queue')}>View all →</button>
+              <button className="card-link-btn" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>View all →</button>
             </div>
             {stats?.today_queue && stats.today_queue > 0 ? (
               <div className="queue-summary">
@@ -195,7 +196,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
                   <span className="qs-value">{stats.today_queue}</span>
                   <span className="qs-label">Waiting</span>
                 </div>
-                <button className="triage-action-btn triage-action-green" onClick={() => navigate('/queue')}>
+                <button className="triage-action-btn triage-action-green" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
                   Go to Queue
                 </button>
@@ -215,7 +216,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
           <div className="dashboard-card">
             <div className="card-header">
               <h3>Upcoming Vaccinations</h3>
-              <button className="card-link-btn" onClick={() => navigate('/vaccinations')}>View all →</button>
+              <button className="card-link-btn" onClick={() => navigate(ROUTES.VACCINATIONS.LIST)}>View all →</button>
             </div>
             {stats?.upcoming_vaccinations?.length ? (
               <div className="vaccination-list">
@@ -244,7 +245,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
           <div className="dashboard-card">
             <div className="card-header">
               <h3>Active Bite Cases</h3>
-              <button className="card-link-btn" onClick={() => navigate('/bite-cases')}>View all →</button>
+              <button className="card-link-btn" onClick={() => navigate(ROUTES.BITE_CASES.LIST)}>View all →</button>
             </div>
             {stats?.active_cases && stats.active_cases > 0 ? (
               <div className="triage-cases-placeholder">
@@ -252,7 +253,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
                   <span>{stats.active_cases}</span>
                   <p>ongoing cases require attention</p>
                 </div>
-                <button className="triage-action-btn triage-action-red" onClick={() => navigate('/bite-cases')}>
+                <button className="triage-action-btn triage-action-red" onClick={() => navigate(ROUTES.BITE_CASES.LIST)}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                   View Active Cases
                 </button>
@@ -269,19 +270,19 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
           <div className="dashboard-card">
             <div className="card-header"><h3>Quick Actions</h3></div>
             <div className="triage-actions-grid">
-              <button className="triage-quick-action triage-qa-primary" onClick={() => navigate('/bite-cases/new')}>
+              <button className="triage-quick-action triage-qa-primary" onClick={() => navigate(ROUTES.BITE_CASES.NEW)}>
                 <div className="tqa-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
                 <span>New Bite Case</span>
               </button>
-              <button className="triage-quick-action triage-qa-blue" onClick={() => navigate('/queue')}>
+              <button className="triage-quick-action triage-qa-blue" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>
                 <div className="tqa-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
                 <span>View Queue</span>
               </button>
-              <button className="triage-quick-action triage-qa-yellow" onClick={() => navigate('/vaccinations')}>
+              <button className="triage-quick-action triage-qa-yellow" onClick={() => navigate(ROUTES.VACCINATIONS.LIST)}>
                 <div className="tqa-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/><circle cx="12" cy="12" r="9"/></svg></div>
                 <span>Vaccinations</span>
               </button>
-              <button className="triage-quick-action triage-qa-gray" onClick={() => navigate('/patients')}>
+              <button className="triage-quick-action triage-qa-gray" onClick={() => navigate(ROUTES.PATIENTS.LIST)}>
                 <div className="tqa-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
                 <span>All Patients</span>
               </button>
@@ -328,9 +329,9 @@ function TreatmentDashboard({ stats }: { stats: DashboardStats | null }) {
           <div className="dashboard-card">
             <h3>Quick Actions</h3>
             <div className="quick-actions">
-              <button className="action-btn action-primary"   onClick={() => navigate('/vaccinations')}> <span>💉</span> Record Vaccination </button>
-              <button className="action-btn action-secondary" onClick={() => navigate('/vaccinations')}> <span>📅</span> View Schedule      </button>
-              <button className="action-btn action-secondary" onClick={() => navigate('/queue')}>        <span>✅</span> Complete Queue     </button>
+              <button className="action-btn action-primary"   onClick={() => navigate(ROUTES.VACCINATIONS.LIST)}> <span>💉</span> Record Vaccination </button>
+              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.VACCINATIONS.LIST)}> <span>📅</span> View Schedule      </button>
+              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>   <span>✅</span> Complete Queue     </button>
             </div>
           </div>
         </div>

@@ -1,16 +1,13 @@
-// TODO: User Profile Page
-// View and edit own profile
-// Features:
-// - View profile information
-// - Edit name, phone
-// - Change password
-// - Update avatar
-// - Activity log
+// @ts-nocheck
+import { useEffect, useState } from 'react';
+import { Alert, Box, Divider, Paper, Snackbar, Stack, TextField, Typography } from '@mui/material';
+import api from '../../../services/api';
+import AppButton from '../../../components/button';
 
-export default function UserProfile() {
-  return (
-    <div>
-      <h1>User Profile - Coming Soon</h1>
-    </div>
-  );
+export default function UserProfilePage() {
+  const [form, setForm] = useState({ name: '', email: '', phone: '', current_password: '', password: '', password_confirmation: '' }); const [message, setMessage] = useState(''); const [saving, setSaving] = useState(false);
+  useEffect(() => { api.get('/me').then(({ data }) => setForm(f => ({ ...f, name: data.name || '', email: data.email || '', phone: data.phone || '' }))).catch(() => setMessage('Unable to load your profile.')); }, []);
+  const set = (key: keyof typeof form, value: string) => setForm(f => ({ ...f, [key]: value }));
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); setSaving(true); try { const { name, phone, current_password, password, password_confirmation } = form; const { data } = await api.put('/me', { name, phone, ...(password ? { current_password, password, password_confirmation } : {}) }); localStorage.setItem('userData', JSON.stringify(data.user)); setForm(f => ({ ...f, current_password: '', password: '', password_confirmation: '' })); setMessage('Profile updated successfully.'); } catch { setMessage('Unable to update profile. Check your current password and try again.'); } finally { setSaving(false); } };
+  return <Box sx={{ px: 3, maxWidth: 720 }}><Typography variant="h5" sx={{ fontWeight: 700 }}>My profile</Typography><Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Update your contact details and password.</Typography><Paper component="form" onSubmit={submit} elevation={0} sx={{ p: 3, border: '1px solid #e5e7eb', borderRadius: 3 }}><Stack spacing={2}><TextField required label="Full name" value={form.name} onChange={e => set('name', e.target.value)} /><TextField disabled label="Email address" value={form.email} /><TextField label="Phone number" value={form.phone} onChange={e => set('phone', e.target.value)} /><Divider sx={{ my: 1 }}><Typography sx={{ fontSize: 12, color: '#6b7280' }}>CHANGE PASSWORD (OPTIONAL)</Typography></Divider><TextField type="password" label="Current password" value={form.current_password} onChange={e => set('current_password', e.target.value)} /><TextField type="password" label="New password" helperText="At least 8 characters" value={form.password} onChange={e => set('password', e.target.value)} /><TextField type="password" label="Confirm new password" value={form.password_confirmation} onChange={e => set('password_confirmation', e.target.value)} /><Box textAlign="right"><AppButton type="submit" disabled={saving}>Save profile</AppButton></Box></Stack></Paper><Snackbar open={!!message} autoHideDuration={4000} onClose={() => setMessage('')}><Alert severity={message.includes('Unable') ? 'error' : 'success'}>{message}</Alert></Snackbar></Box>;
 }

@@ -8,6 +8,10 @@ import VaccineInventory from './features/inventory/pages/VaccineInventoryPage';
 import QueueDashboard from './features/queue/pages/QueueDashboardPage';
 import BiteCaseRiskDashboard from './features/bite-cases/pages/BiteCaseRiskDashboard';
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
+import VaccinationSchedulePage from './features/vaccinations/pages/VaccinationSchedulePage';
+import UserListPage from './features/users/pages/UserListPage';
+import UserCreatePage from './features/users/pages/UserCreatePage';
+import UserProfilePage from './features/users/pages/UserProfilePage';
 import ConfirmationDialog from './components/feedback/ConfirmationDialog';
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
 import { ROUTES } from './shared/config/routes';
@@ -803,6 +807,11 @@ function App() {
           <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
           <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
           <Route path="/bite-cases" element={<ProtectedRoute><AppLayout title="Bite Cases"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
+          <Route path="/vaccinations" element={<ProtectedRoute><AppLayout title="Vaccinations"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
+          <Route path="/vaccinations/record" element={<ProtectedRoute><AppLayout title="Record Vaccination"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute><AppLayout title="User Management"><UserListPage /></AppLayout></ProtectedRoute>} />
+          <Route path="/users/create" element={<ProtectedRoute><AppLayout title="Add User"><UserCreatePage /></AppLayout></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><AppLayout title="My Profile"><UserProfilePage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
         </Routes>
       </Router>

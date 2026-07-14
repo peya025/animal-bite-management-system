@@ -134,4 +134,25 @@ class AuthController extends Controller
             'clinic' => $user->clinic,
         ]);
     }
+
+    /** Update the authenticated user's own profile. */
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:50',
+            'current_password' => 'nullable|required_with:password|string',
+            'password' => 'nullable|string|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+        if ($request->filled('password') && !Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages(['current_password' => ['Your current password is incorrect.']]);
+        }
+
+        $data = $request->only(['name', 'phone']);
+        if ($request->filled('password')) $data['password'] = Hash::make($request->password);
+        $user->update($data);
+        return response()->json(['message' => 'Profile updated successfully', 'user' => $user->fresh()->load('clinic')]);
+    }
 }

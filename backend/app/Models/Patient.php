@@ -96,6 +96,11 @@ class Patient extends Model
         return $this->hasMany(TreatmentRecord::class, 'patient_id', 'patient_id');
     }
 
+    public function vaccinationSchedules()
+    {
+        return $this->hasMany(VaccinationSchedule::class, 'patient_id', 'patient_id');
+    }
+
     public function appointments()
     {
         return $this->hasMany(Appointment::class, 'patient_id', 'patient_id');

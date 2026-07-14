@@ -10,7 +10,7 @@ import {
   Search as SearchIcon,
   Tune as AdjustIcon,
 } from '@mui/icons-material';
-import { DataTable, TablePaginator, EmptyState } from '../../../../components/data-display';
+import { DataTable, TablePaginator } from '../../../../components/data-display';
 import type { ColumnDef } from '../../../../components/data-display';
 import type { InventoryItem } from '../../types';
 import { formatDate, daysUntil } from '../../../../shared/utils';

@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::put('/me', [AuthController::class, 'updateProfile']);
 
     // Clinic Setup (admin only)
     Route::prefix('setup')->middleware('role:admin')->group(function () {

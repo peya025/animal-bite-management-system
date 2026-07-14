@@ -4,6 +4,7 @@ import '../views/login_view.dart';
 import '../views/booking_view.dart';
 import '../views/history_view.dart';
 import '../views/menu_view.dart';
+import '../views/notifications_view.dart';
 import '../views/sign_up_view.dart';
 import '../views/settings_view.dart';
 import '../views/welcome_view.dart';
@@ -28,6 +29,7 @@ class AnimalCareApp extends StatelessWidget {
         AppRoutes.booking: (_) => const BookingView(),
         AppRoutes.history: (_) => const HistoryView(),
         AppRoutes.settings: (_) => const SettingsView(),
+        AppRoutes.notifications: (_) => const NotificationsView(),
       },
     );
   }

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../app/app_theme.dart';
 
 class MenuSearchHeader extends StatelessWidget {
-  const MenuSearchHeader({super.key});
+  const MenuSearchHeader({super.key, required this.onNotificationsPressed});
+
+  final VoidCallback onNotificationsPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +51,7 @@ class MenuSearchHeader extends StatelessWidget {
               smallSize: 8,
               child: IconButton.filledTonal(
                 tooltip: 'Notifications',
-                onPressed: () {},
+                onPressed: onNotificationsPressed,
                 icon: const Icon(Icons.notifications_none_rounded),
               ),
             ),

@@ -8,6 +8,7 @@ import '../widgets/booking/service_selector.dart';
 import '../widgets/booking/time_slot_selector.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
+import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class BookingView extends StatefulWidget {
   const BookingView({super.key});
@@ -18,7 +19,7 @@ class BookingView extends StatefulWidget {
 
 class _BookingViewState extends State<BookingView> {
   BookingService _service = BookingService.consultation;
-  int _dateIndex = 0;
+  DateTime _selectedDate = DateSelector.firstDate;
   String _time = TimeSlotSelector.slots.first;
 
   void _openHome() {
@@ -67,9 +68,9 @@ class _BookingViewState extends State<BookingView> {
                       ),
                       const SizedBox(height: 26),
                       DateSelector(
-                        selectedIndex: _dateIndex,
-                        onSelected: (index) {
-                          setState(() => _dateIndex = index);
+                        selectedDate: _selectedDate,
+                        onSelected: (date) {
+                          setState(() => _selectedDate = date);
                         },
                       ),
                       const SizedBox(height: 26),
@@ -82,7 +83,7 @@ class _BookingViewState extends State<BookingView> {
                       const SizedBox(height: 26),
                       BookingSummary(
                         service: _service,
-                        date: DateSelector.dates[_dateIndex].fullLabel,
+                        date: DateSelector.formatDate(_selectedDate),
                         time: _time,
                         onConfirm: _confirmBooking,
                       ),
@@ -98,7 +99,9 @@ class _BookingViewState extends State<BookingView> {
         selectedIndex: 1,
         onSelected: _handleNavigation,
       ),
-      floatingActionButton: PatientActionButton(onPressed: () {}),
+      floatingActionButton: PatientActionButton(
+        onPressed: () => showDigitalVaccinationCard(context),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }

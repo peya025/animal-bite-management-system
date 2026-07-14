@@ -8,6 +8,7 @@ import '../widgets/history/history_summary.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/menu_surface.dart';
 import '../widgets/menu/patient_action_button.dart';
+import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class HistoryView extends StatefulWidget {
   const HistoryView({super.key});
@@ -112,7 +113,9 @@ class _HistoryViewState extends State<HistoryView> {
         selectedIndex: 2,
         onSelected: _navigate,
       ),
-      floatingActionButton: PatientActionButton(onPressed: () {}),
+      floatingActionButton: PatientActionButton(
+        onPressed: () => showDigitalVaccinationCard(context),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }

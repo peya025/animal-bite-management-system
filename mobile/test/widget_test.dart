@@ -3,6 +3,7 @@ import 'package:mobile/app/app.dart';
 import 'package:mobile/views/booking_view.dart';
 import 'package:mobile/views/history_view.dart';
 import 'package:mobile/views/menu_view.dart';
+import 'package:mobile/views/notifications_view.dart';
 import 'package:mobile/views/settings_view.dart';
 import 'package:flutter/material.dart';
 
@@ -119,5 +120,40 @@ void main() {
     );
     expect(find.text('Preferences'), findsOneWidget);
     expect(find.text('Notifications'), findsOneWidget);
+  });
+
+  testWidgets('center action opens the demo digital vaccination card', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: ThemeData(useMaterial3: true), home: const MenuView()),
+    );
+
+    await tester.tap(find.byTooltip('Patient card'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Digital vaccination card'), findsOneWidget);
+    expect(find.text('DEMO QR'), findsOneWidget);
+    expect(find.text('2 of 4 doses'), findsOneWidget);
+  });
+
+  testWidgets('notification bell opens demo notifications', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: const MenuView(),
+        routes: {'/notifications': (_) => const NotificationsView()},
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Notifications'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reminders and clinic updates.'), findsOneWidget);
+    expect(find.text('Vaccination reminder'), findsOneWidget);
+    expect(find.text('Unread (3)'), findsOneWidget);
+
+    await tester.tap(find.text('Vaccination reminder'));
+    await tester.pump();
+    expect(find.text('Unread (2)'), findsOneWidget);
   });
 }

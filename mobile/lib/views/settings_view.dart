@@ -6,6 +6,7 @@ import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/settings/profile_card.dart';
 import '../widgets/settings/settings_group.dart';
+import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -159,7 +160,9 @@ class _SettingsViewState extends State<SettingsView> {
         selectedIndex: 3,
         onSelected: _navigate,
       ),
-      floatingActionButton: PatientActionButton(onPressed: () {}),
+      floatingActionButton: PatientActionButton(
+        onPressed: () => showDigitalVaccinationCard(context),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }

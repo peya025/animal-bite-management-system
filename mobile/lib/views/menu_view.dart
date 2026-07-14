@@ -8,6 +8,7 @@ import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/menu/schedule_section.dart';
 import '../widgets/menu/search_header.dart';
+import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class MenuView extends StatefulWidget {
   const MenuView({super.key});
@@ -33,16 +34,20 @@ class _MenuViewState extends State<MenuView> {
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
                   sliver: SliverList.list(
-                    children: const [
-                      MenuSearchHeader(),
-                      SizedBox(height: 20),
-                      CampaignBanner(),
-                      SizedBox(height: 26),
-                      GuidelinesSection(),
-                      SizedBox(height: 26),
-                      ScheduleSection(),
-                      SizedBox(height: 24),
-                      InformationPanels(),
+                    children: [
+                      MenuSearchHeader(
+                        onNotificationsPressed: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.notifications),
+                      ),
+                      const SizedBox(height: 20),
+                      const CampaignBanner(),
+                      const SizedBox(height: 26),
+                      const GuidelinesSection(),
+                      const SizedBox(height: 26),
+                      const ScheduleSection(),
+                      const SizedBox(height: 24),
+                      const InformationPanels(),
                     ],
                   ),
                 ),
@@ -67,7 +72,9 @@ class _MenuViewState extends State<MenuView> {
           setState(() => _selectedIndex = index);
         },
       ),
-      floatingActionButton: PatientActionButton(onPressed: () {}),
+      floatingActionButton: PatientActionButton(
+        onPressed: () => showDigitalVaccinationCard(context),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }

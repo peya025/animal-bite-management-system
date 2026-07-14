@@ -1,32 +1,49 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
+import '../menu/menu_surface.dart';
 import '../menu/section_header.dart';
-
-class BookingDate {
-  const BookingDate(this.day, this.date, this.fullLabel);
-  final String day;
-  final String date;
-  final String fullLabel;
-}
 
 class DateSelector extends StatelessWidget {
   const DateSelector({
     super.key,
-    required this.selectedIndex,
+    required this.selectedDate,
     required this.onSelected,
   });
 
-  static const dates = [
-    BookingDate('MON', '16', 'Monday, March 16'),
-    BookingDate('TUE', '17', 'Tuesday, March 17'),
-    BookingDate('WED', '18', 'Wednesday, March 18'),
-    BookingDate('THU', '19', 'Thursday, March 19'),
-    BookingDate('FRI', '20', 'Friday, March 20'),
-  ];
+  static final firstDate = DateTime(2026, 7, 15);
+  static final lastDate = DateTime(2027, 7, 15);
 
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
+  final DateTime selectedDate;
+  final ValueChanged<DateTime> onSelected;
+
+  static String formatDate(DateTime date) {
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    return '${weekdays[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,55 +52,92 @@ class DateSelector extends StatelessWidget {
       children: [
         const MenuSectionHeader(title: 'Choose a date'),
         const SizedBox(height: 10),
-        SizedBox(
-          height: 78,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: dates.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 9),
-            itemBuilder: (context, index) {
-              final selected = selectedIndex == index;
-              return InkWell(
-                onTap: () => onSelected(index),
-                borderRadius: BorderRadius.circular(8),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 62,
-                  decoration: BoxDecoration(
-                    color: selected ? AppColors.primary : AppColors.white,
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.primary
-                          : const Color(0xFFE2E8E6),
+        MenuSurface(
+          padding: const EdgeInsets.fromLTRB(6, 8, 6, 12),
+          child: Column(
+            children: [
+              Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: Theme.of(context).colorScheme.copyWith(
+                    primary: AppColors.primary,
+                    onPrimary: AppColors.white,
+                    surface: AppColors.white,
+                  ),
+                  datePickerTheme: const DatePickerThemeData(
+                    headerForegroundColor: AppColors.gray900,
+                    weekdayStyle: TextStyle(
+                      color: AppColors.gray500,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
+                    dayStyle: TextStyle(color: AppColors.gray700, fontSize: 12),
+                    todayBorder: BorderSide(color: AppColors.primary),
+                  ),
+                ),
+                child: CalendarDatePicker(
+                  key: ValueKey(selectedDate),
+                  initialDate: selectedDate,
+                  firstDate: firstDate,
+                  lastDate: lastDate,
+                  onDateChanged: onSelected,
+                  selectableDayPredicate: (date) {
+                    return date.weekday != DateTime.sunday;
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Row(
                     children: [
-                      Text(
-                        dates[index].day,
-                        style: TextStyle(
-                          color: selected ? AppColors.white : AppColors.gray500,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      const Icon(
+                        Icons.event_available_outlined,
+                        color: AppColors.primaryDark,
+                        size: 20,
                       ),
-                      const SizedBox(height: 5),
-                      Text(
-                        dates[index].date,
-                        style: TextStyle(
-                          color: selected ? AppColors.white : AppColors.gray900,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          formatDate(selectedDate),
+                          style: const TextStyle(
+                            color: AppColors.primaryDark,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            },
+              ),
+            ],
           ),
+        ),
+        const SizedBox(height: 8),
+        const Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              color: AppColors.gray500,
+              size: 16,
+            ),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Sundays are unavailable. Available times appear after choosing a date.',
+                style: TextStyle(color: AppColors.gray500, fontSize: 10),
+              ),
+            ),
+          ],
         ),
       ],
     );

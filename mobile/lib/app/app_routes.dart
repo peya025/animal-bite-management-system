@@ -8,4 +8,5 @@ abstract final class AppRoutes {
   static const settings = '/settings';
   static const notifications = '/notifications';
   static const profileSetup = '/profiles/new';
+  static const biteIntake = '/booking/bite-intake';
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BiteIncident;
+use App\Models\BiteIncidentIntake;
 use App\Models\VaccinationSchedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,11 +36,11 @@ class BiteCaseController extends Controller
         // Search
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('case_number', 'like', "%{$search}%")
-                  ->orWhereHas('patient', function($pq) use ($search) {
-                      $pq->searchName($search);
-                  });
+                    ->orWhereHas('patient', function ($pq) use ($search) {
+                        $pq->searchName($search);
+                    });
             });
         }
 
@@ -70,6 +71,7 @@ class BiteCaseController extends Controller
             'wound_description' => 'nullable|string',
             'referred_from' => 'nullable|string',
             'remarks' => 'nullable|string',
+            'intake_id' => 'nullable|exists:bite_incident_intakes,intake_id',
         ]);
 
         DB::beginTransaction();
@@ -96,6 +98,18 @@ class BiteCaseController extends Controller
                 'created_by' => $request->user()->id,
             ]);
 
+            if ($request->filled('intake_id')) {
+                $intake = BiteIncidentIntake::where('clinic_id', $request->user()->clinic_id)
+                    ->where('patient_id', $request->patient_id)
+                    ->findOrFail($request->intake_id);
+                $intake->update([
+                    'status' => 'converted',
+                    'reviewed_by' => $request->user()->id,
+                    'reviewed_at' => now(),
+                    'bite_id' => $incident->bite_id,
+                ]);
+            }
+
             // Auto-generate vaccination schedule if needed
             if ($incident->requiresVaccination()) {
                 VaccinationSchedule::generateWhoSchedule($incident);
@@ -112,6 +126,7 @@ class BiteCaseController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'message' => 'Failed to create bite case',
                 'error' => $e->getMessage(),
@@ -129,10 +144,10 @@ class BiteCaseController extends Controller
             ->with([
                 'patient',
                 'createdBy',
-                'vaccinationSchedules' => function($query) {
+                'vaccinationSchedules' => function ($query) {
                     $query->orderBy('dose_number');
                 },
-                'queueEntries'
+                'queueEntries',
             ])
             ->findOrFail($id);
 

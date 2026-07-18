@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/booking_draft.dart';
+import '../models/bite_intake_draft.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_account_profile.dart';
 
@@ -123,6 +124,7 @@ class MobileApi {
   Future<void> book({
     required PatientProfile patient,
     required BookingDraft booking,
+    BiteIntakeDraft? intake,
   }) async {
     await _send(
       'POST',
@@ -131,6 +133,7 @@ class MobileApi {
         'patient_id': patient.id,
         'appointment_type': booking.service.name,
         'scheduled_date': booking.date.toIso8601String().split('T').first,
+        if (intake != null) 'intake': intake.toJson(),
       },
     );
   }

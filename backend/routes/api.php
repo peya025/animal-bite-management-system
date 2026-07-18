@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BiteCaseController;
+use App\Http\Controllers\BiteIncidentIntakeController;
 use App\Http\Controllers\ClinicSetupController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
 use App\Http\Controllers\Mobile\MobileNotificationController;
@@ -108,6 +109,12 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Bite Case Management (admin, triage can manage; treatment can view)
+    Route::prefix('bite-intakes')->middleware('role:admin,registration,triage')->group(function () {
+        Route::get('/', [BiteIncidentIntakeController::class, 'index']);
+        Route::get('/{intake}', [BiteIncidentIntakeController::class, 'show']);
+        Route::post('/{intake}/reviewed', [BiteIncidentIntakeController::class, 'markReviewed']);
+    });
+
     Route::prefix('cases')->group(function () {
         Route::get('/', [BiteCaseController::class, 'index']); // All roles
         Route::get('/statistics', [BiteCaseController::class, 'statistics']); // All roles

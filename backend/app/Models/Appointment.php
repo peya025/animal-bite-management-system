@@ -72,4 +72,9 @@ class Appointment extends Model
     {
         return $this->hasMany(TreatmentRecord::class, 'appointment_id', 'appointment_id');
     }
+
+    public function biteIntake()
+    {
+        return $this->hasOne(BiteIncidentIntake::class, 'appointment_id', 'appointment_id');
+    }
 }

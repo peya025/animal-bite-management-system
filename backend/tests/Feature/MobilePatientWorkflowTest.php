@@ -118,9 +118,62 @@ class MobilePatientWorkflowTest extends TestCase
 
         $this->postJson('/api/mobile/appointments', [
             'patient_id' => $patient->patient_id,
-            'appointment_type' => 'consultation',
+            'appointment_type' => 'vaccination',
             'scheduled_date' => $date,
         ])->assertNotFound();
+    }
+
+    public function test_consultation_booking_requires_and_stores_patient_reported_bite_intake(): void
+    {
+        $clinic = Clinic::create(['name' => 'Test Clinic']);
+        $account = $this->account();
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'first_name' => 'Juan',
+            'last_name' => 'Dela Cruz',
+            'gender' => 'male',
+            'registration_source' => 'mobile',
+        ]);
+        $account->patients()->attach($patient, [
+            'relationship' => 'self',
+            'status' => 'pending',
+        ]);
+        Sanctum::actingAs($account);
+
+        $booking = [
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date' => now()->addDay()->toDateString(),
+        ];
+
+        $this->postJson('/api/mobile/appointments', $booking)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('intake');
+
+        $this->postJson('/api/mobile/appointments', [
+            ...$booking,
+            'intake' => [
+                'bite_date' => now()->toDateString(),
+                'bite_place' => 'Home',
+                'site_washed' => true,
+                'exposure_type' => 'bite',
+                'animal_type' => 'dog',
+                'animal_status' => 'owned',
+                'animal_captured' => true,
+                'wound_location' => 'Left hand',
+                'patient_description' => 'Small visible puncture.',
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('bite_intake.patient_id', $patient->patient_id)
+            ->assertJsonPath('bite_intake.status', 'pending');
+
+        $this->assertDatabaseHas('bite_incident_intakes', [
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'patient_account_id' => $account->id,
+            'site_washed' => true,
+            'status' => 'pending',
+        ]);
     }
 
     public function test_vaccination_card_requires_verified_patient_access(): void

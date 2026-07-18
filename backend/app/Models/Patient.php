@@ -151,6 +151,11 @@ class Patient extends Model
         return $this->hasMany(BiteIncident::class, 'patient_id', 'patient_id');
     }
 
+    public function biteIntakes()
+    {
+        return $this->hasMany(BiteIncidentIntake::class, 'patient_id', 'patient_id');
+    }
+
     public function treatmentRecords()
     {
         return $this->hasMany(TreatmentRecord::class, 'patient_id', 'patient_id');

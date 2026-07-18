@@ -57,4 +57,9 @@ class PatientAccount extends Authenticatable
     {
         return $this->hasMany(Notification::class, 'patient_account_id');
     }
+
+    public function biteIntakes(): HasMany
+    {
+        return $this->hasMany(BiteIncidentIntake::class, 'patient_account_id');
+    }
 }

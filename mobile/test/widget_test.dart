@@ -1,6 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/app/app_router.dart';
+import 'package:mobile/models/bite_intake_route_args.dart';
+import 'package:mobile/models/booking_draft.dart';
+import 'package:mobile/models/patient_profile.dart';
+import 'package:mobile/views/bite_intake_view.dart';
 import 'package:mobile/views/booking_view.dart';
 import 'package:mobile/views/history_view.dart';
 import 'package:mobile/views/menu_view.dart';
@@ -109,6 +113,44 @@ void main() {
     expect(find.text('FIRST NAME *'), findsOneWidget);
     expect(find.text('GENDER *'), findsOneWidget);
     expect(find.text('SAVE PATIENT PROFILE'), findsOneWidget);
+  });
+
+  testWidgets('bite intake locks identity and asks incident questions', (
+    tester,
+  ) async {
+    const patient = PatientProfile(
+      id: 1,
+      name: 'Juan Dela Cruz',
+      firstName: 'Juan',
+      lastName: 'Dela Cruz',
+      relationship: 'self',
+      status: 'verified',
+    );
+    final booking = BookingDraft(
+      service: BookingService.consultation,
+      date: DateTime(2026, 7, 25),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BiteIntakeView(
+          args: BiteIntakeRouteArgs(patient: patient, booking: booking),
+        ),
+      ),
+    );
+
+    expect(find.text('Bite incident intake'), findsOneWidget);
+    expect(find.text('Juan'), findsOneWidget);
+    expect(find.text('Dela Cruz'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Juan'))
+          .enabled,
+      isFalse,
+    );
+    expect(find.text('TYPE OF EXPOSURE *'), findsOneWidget);
+    expect(find.text('WAS THE WOUND WASHED? *'), findsOneWidget);
+    expect(find.text('SUBMIT INTAKE AND BOOK'), findsOneWidget);
   });
 
   testWidgets('history navigation opens demo records', (tester) async {

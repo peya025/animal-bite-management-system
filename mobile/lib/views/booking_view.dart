@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../models/booking_draft.dart';
+import '../models/bite_intake_route_args.dart';
 import '../models/patient_profile.dart';
 import '../services/mobile_api.dart';
 import '../app/app_theme.dart';
@@ -88,11 +89,20 @@ class _BookingViewState extends State<BookingView> {
       return;
     }
 
+    final booking = BookingDraft(service: _service, date: _selectedDate);
+    if (_service == BookingService.consultation) {
+      await Navigator.of(context).pushNamed(
+        AppRoutes.biteIntake,
+        arguments: BiteIntakeRouteArgs(patient: patient, booking: booking),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
     try {
       await MobileApi.instance.book(
         patient: patient,
-        booking: BookingDraft(service: _service, date: _selectedDate),
+        booking: booking,
       );
       if (!mounted) return;
       await showDialog<void>(

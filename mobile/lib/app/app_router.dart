@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../views/booking_view.dart';
+import '../models/bite_intake_route_args.dart';
+import '../views/bite_intake_view.dart';
 import '../views/history_view.dart';
 import '../views/login_view.dart';
 import '../views/menu_view.dart';
@@ -28,6 +30,11 @@ abstract final class AppRouter {
             : 'self',
         returnToBooking: settings.arguments == 'add-dependent',
       ),
+      AppRoutes.biteIntake => settings.arguments is BiteIntakeRouteArgs
+          ? BiteIntakeView(
+              args: settings.arguments! as BiteIntakeRouteArgs,
+            )
+          : const BookingView(),
       _ => const WelcomeView(),
     };
 

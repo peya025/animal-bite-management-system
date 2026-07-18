@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Patient extends Model
 {
@@ -14,6 +15,7 @@ class Patient extends Model
     protected $fillable = [
         'clinic_id',
         'patient_number',
+        'card_token',
         'first_name',
         'middle_name',
         'last_name',
@@ -26,7 +28,12 @@ class Patient extends Model
         'emergency_contact_name',
         'emergency_contact_number',
         'registered_by',
+        'registration_source',
         'registration_date',
+    ];
+
+    protected $hidden = [
+        'card_token',
     ];
 
     protected $casts = [
@@ -78,11 +85,14 @@ class Patient extends Model
         parent::boot();
 
         static::creating(function ($patient) {
-            if (!$patient->patient_number) {
+            if (! $patient->patient_number) {
                 $patient->patient_number = static::generatePatientNumber($patient->clinic_id);
             }
-            if (!$patient->registration_date) {
+            if (! $patient->registration_date) {
                 $patient->registration_date = now();
+            }
+            if (! $patient->card_token) {
+                $patient->card_token = (string) Str::uuid();
             }
         });
     }
@@ -94,7 +104,7 @@ class Patient extends Model
     {
         $year = date('Y');
         $prefix = "P-{$year}-";
-        
+
         // Get last patient number for this clinic and year
         $lastPatient = static::where('clinic_id', $clinicId)
             ->where('patient_number', 'like', "{$prefix}%")
@@ -123,6 +133,17 @@ class Patient extends Model
     public function registeredBy()
     {
         return $this->belongsTo(User::class, 'registered_by');
+    }
+
+    public function accounts()
+    {
+        return $this->belongsToMany(
+            PatientAccount::class,
+            'patient_account_patient',
+            'patient_id',
+            'patient_account_id',
+        )->withPivot(['relationship', 'is_primary', 'status', 'verified_by', 'verified_at'])
+            ->withTimestamps();
     }
 
     public function biteIncidents()

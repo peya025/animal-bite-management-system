@@ -1,8 +1,12 @@
 <?php
 
+use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\EnsureEmailIsVerified;
+use App\Http\Middleware\EnsurePatientAccount;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,12 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Apply CORS middleware to all API routes
         $middleware->api(prepend: [
-            \Illuminate\Http\Middleware\HandleCors::class,
+            HandleCors::class,
         ]);
 
         $middleware->alias([
-            'verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
-            'role' => \App\Http\Middleware\CheckRole::class,
+            'verified' => EnsureEmailIsVerified::class,
+            'role' => CheckRole::class,
+            'patient.account' => EnsurePatientAccount::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

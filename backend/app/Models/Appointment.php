@@ -10,11 +10,14 @@ class Appointment extends Model
     use HasFactory;
 
     protected $table = 'appointments';
+
     protected $primaryKey = 'appointment_id';
 
     protected $fillable = [
         'patient_id',
+        'booked_by_account_id',
         'staff_id',
+        'appointment_type',
         'scheduled_date',
         'status',
         'queue_number',
@@ -39,6 +42,11 @@ class Appointment extends Model
     public function staff()
     {
         return $this->belongsTo(User::class, 'staff_id', 'id');
+    }
+
+    public function bookedByAccount()
+    {
+        return $this->belongsTo(PatientAccount::class, 'booked_by_account_id');
     }
 
     /**

@@ -10,18 +10,23 @@ class Notification extends Model
     use HasFactory;
 
     protected $table = 'notifications';
+
     protected $primaryKey = 'notification_id';
 
     protected $fillable = [
         'patient_id',
+        'patient_account_id',
         'appointment_id',
         'type',
+        'message',
         'status',
         'send_time',
+        'read_at',
     ];
 
     protected $casts = [
         'send_time' => 'datetime',
+        'read_at' => 'datetime',
     ];
 
     /**
@@ -38,5 +43,10 @@ class Notification extends Model
     public function appointment()
     {
         return $this->belongsTo(Appointment::class, 'appointment_id', 'appointment_id');
+    }
+
+    public function patientAccount()
+    {
+        return $this->belongsTo(PatientAccount::class, 'patient_account_id');
     }
 }

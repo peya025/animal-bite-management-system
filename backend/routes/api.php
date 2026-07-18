@@ -1,15 +1,20 @@
 <?php
 
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\ClinicSetupController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\StaffInvitationController;
-use App\Http\Controllers\PatientController;
 use App\Http\Controllers\BiteCaseController;
-use App\Http\Controllers\VaccinationController;
+use App\Http\Controllers\ClinicSetupController;
+use App\Http\Controllers\Mobile\MobileAppointmentController;
+use App\Http\Controllers\Mobile\MobileNotificationController;
+use App\Http\Controllers\Mobile\MobileVaccinationCardController;
+use App\Http\Controllers\Mobile\PatientAccountAuthController;
+use App\Http\Controllers\Mobile\PatientProfileController;
+use App\Http\Controllers\PatientAccessController;
+use App\Http\Controllers\PatientController;
 use App\Http\Controllers\QueueController;
+use App\Http\Controllers\StaffInvitationController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\VaccinationController;
 use App\Http\Controllers\VaccineInventoryController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Test route - check if API is working
@@ -24,6 +29,26 @@ Route::get('/test', function () {
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+Route::prefix('mobile')->group(function () {
+    Route::post('/register', [PatientAccountAuthController::class, 'register']);
+    Route::post('/login', [PatientAccountAuthController::class, 'login']);
+
+    Route::middleware(['auth:sanctum', 'patient.account'])->group(function () {
+        Route::get('/me', [PatientAccountAuthController::class, 'me']);
+        Route::post('/logout', [PatientAccountAuthController::class, 'logout']);
+
+        Route::get('/patients', [PatientProfileController::class, 'index']);
+        Route::post('/patients', [PatientProfileController::class, 'store']);
+        Route::get('/patients/{patient}/vaccination-card', [MobileVaccinationCardController::class, 'show']);
+
+        Route::get('/appointments', [MobileAppointmentController::class, 'index']);
+        Route::post('/appointments', [MobileAppointmentController::class, 'store']);
+
+        Route::get('/notifications', [MobileNotificationController::class, 'index']);
+        Route::patch('/notifications/{notification}/read', [MobileNotificationController::class, 'markAsRead']);
+    });
+});
 
 // Invitation acceptance (public, token-based)
 Route::prefix('invitations')->group(function () {
@@ -68,13 +93,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [PatientController::class, 'show']); // All roles
         Route::get('/{id}/cases', [PatientController::class, 'biteCases']); // All roles
         Route::get('/{id}/vaccinations', [PatientController::class, 'vaccinations']); // All roles
-        
+
         // Create & Update (admin, registration only)
         Route::middleware('role:admin,registration')->group(function () {
             Route::post('/', [PatientController::class, 'store']);
             Route::put('/{id}', [PatientController::class, 'update']);
+            Route::post('/{patient}/accounts/{account}/verify', [PatientAccessController::class, 'verify']);
+            Route::post('/{patient}/accounts/{account}/reject', [PatientAccessController::class, 'reject']);
         });
-        
+
         // Delete (admin only)
         Route::delete('/{id}', [PatientController::class, 'destroy'])->middleware('role:admin');
     });
@@ -85,13 +112,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/statistics', [BiteCaseController::class, 'statistics']); // All roles
         Route::get('/{id}', [BiteCaseController::class, 'show']); // All roles
         Route::get('/{id}/vaccinations', [BiteCaseController::class, 'vaccinations']); // All roles
-        
+
         // Create & Update (admin, triage only)
         Route::middleware('role:admin,triage')->group(function () {
             Route::post('/', [BiteCaseController::class, 'store']);
             Route::put('/{id}', [BiteCaseController::class, 'update']);
         });
-        
+
         // Delete (admin only)
         Route::delete('/{id}', [BiteCaseController::class, 'destroy'])->middleware('role:admin');
     });
@@ -104,13 +131,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/overdue', [VaccinationController::class, 'overdue']); // All roles
         Route::get('/statistics', [VaccinationController::class, 'statistics']); // All roles
         Route::get('/{id}', [VaccinationController::class, 'show']); // All roles
-        
+
         // Administration (admin, treatment only)
         Route::middleware('role:admin,treatment')->group(function () {
             Route::post('/{id}/administer', [VaccinationController::class, 'administer']);
             Route::post('/{id}/missed', [VaccinationController::class, 'markAsMissed']);
         });
-        
+
         // Scheduling (admin, triage only)
         Route::middleware('role:admin,triage')->group(function () {
             Route::put('/{id}', [VaccinationController::class, 'update']);
@@ -140,14 +167,14 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/statistics', [QueueController::class, 'statistics']);
             Route::get('/{id}', [QueueController::class, 'show']);
         });
-        
+
         // Add to queue (admin, registration only)
         Route::middleware('role:admin,registration')->group(function () {
             Route::post('/', [QueueController::class, 'store']);
             Route::post('/{id}/cancel', [QueueController::class, 'cancel']);
             Route::put('/{id}/priority', [QueueController::class, 'updatePriority']);
         });
-        
+
         // Call & Complete (admin, triage only)
         Route::middleware('role:admin,triage')->group(function () {
             Route::post('/{id}/call', [QueueController::class, 'call']);

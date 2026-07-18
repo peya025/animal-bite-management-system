@@ -2,9 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Alert, Box, Grid, IconButton, Snackbar, Stack, Tooltip, Typography,
 } from '@mui/material';
-import {
-  Refresh as RefreshIcon,
-} from '@mui/icons-material';
+import { Refresh as RefreshIcon } from '@mui/icons-material';
 import api from '../../../services/api';
 import StatCard from '../../../components/common/StatCard';
 import AddEditInventoryDialog from '../components/AddEditInventoryDialog/AddEditInventoryDialog';
@@ -56,7 +54,7 @@ export default function VaccineInventory() {
   const [batchFilter, setBatchFilter]   = useState('');
   const [expiryFrom, setExpiryFrom]     = useState('');
   const [expiryTo, setExpiryTo]         = useState('');
-  const [snackbar, setSnackbar]         = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
   const [addOpen,     setAddOpen]     = useState(false);
@@ -74,8 +72,8 @@ export default function VaccineInventory() {
       if (batchFilter)  params.batch_number = batchFilter;
       if (expiryFrom)   params.expiry_from  = expiryFrom;
       if (expiryTo)     params.expiry_to    = expiryTo;
-      const inventoryRes = await api.get('/inventory', { params });
-      const data: PaginatedResponse = inventoryRes.data;
+      const res = await api.get('/inventory', { params });
+      const data: PaginatedResponse = res.data;
       setItems(data.data);
       setTotal(data.total);
     } catch {
@@ -87,17 +85,12 @@ export default function VaccineInventory() {
 
   const loadStats = useCallback(() => {
     api.get('/inventory/statistics')
-      .then(response => setStats(response.data))
+      .then(r => setStats(r.data))
       .catch(() => setSnackbar({ open: true, message: 'Failed to load inventory statistics', severity: 'error' }));
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
+  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadStats(); }, [loadStats]);
 
   const showSuccess = (msg: string) => {
     setSnackbar({ open: true, message: msg, severity: 'success' });
@@ -109,14 +102,7 @@ export default function VaccineInventory() {
       {/* ── Header ── */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography component="h1" sx={{ 
-            fontWeight: 600,
-            fontSize: '25px',
-            lineHeight: 1.2,
-            letterSpacing: '-0.5px',
-            color: '#173d29',
-            margin: '0 0 7px 0'
-          }}>
+          <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: '#173d29', margin: '0 0 7px 0' }}>
             Vaccine Inventory
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
@@ -127,38 +113,20 @@ export default function VaccineInventory() {
           <Tooltip title="Refresh">
             <IconButton onClick={loadData} disabled={loading}><RefreshIcon /></IconButton>
           </Tooltip>
-          <button 
-            className="pm-add-btn" 
+          <button
             onClick={() => setAddOpen(true)}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '7px',
-              padding: '9px 18px',
+              display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '9px 18px',
               background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              boxShadow: '0 2px 8px rgba(16,185,129,0.25)',
-              transition: 'all 0.2s',
-              whiteSpace: 'nowrap',
+              color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px',
+              fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 2px 8px rgba(16,185,129,0.25)', transition: 'all 0.2s', whiteSpace: 'nowrap',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.35)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(16,185,129,0.25)';
-            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.35)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(16,185,129,0.25)'; }}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
             Add Stock
           </button>
@@ -168,80 +136,42 @@ export default function VaccineInventory() {
       {/* ── Stats Cards ── */}
       <Grid container spacing={2} sx={{ mb: 3, alignItems: 'stretch' }}>
         {([
-          { label: 'Active Batches',      value: stats?.active_batches,                             color: 'success' as const },
-          { label: 'Total Vials',         value: stats ? `${stats.total_stock}` : '-',            color: 'info' as const    },
-          { label: 'Patients Coverable',  value: stats ? `${stats.total_stock * 3}` : '-',      color: 'success' as const },
-          { label: 'Expiring Soon',       value: stats?.expiring_soon,                          color: 'warning' as const },
-          { label: 'Depleted',            value: stats?.depleted_batches,                       color: 'error' as const   },
+          { label: 'Active Batches',     value: stats?.active_batches,              color: 'success' as const },
+          { label: 'Total Vials',        value: stats ? `${stats.total_stock}` : '-', color: 'info' as const },
+          { label: 'Patients Coverable', value: stats ? `${stats.total_stock * 3}` : '-', color: 'success' as const },
+          { label: 'Expiring Soon',      value: stats?.expiring_soon,               color: 'warning' as const },
+          { label: 'Depleted',           value: stats?.depleted_batches,            color: 'error' as const },
         ] as const).map(s => (
           <Grid key={s.label} size={{ xs: 6, sm: 4, md: 2 }}>
-            <StatCard label={s.label} value={s.value ?? '-'}  color={s.color} loading={!stats} />
+            <StatCard label={s.label} value={s.value ?? '-'} color={s.color} loading={!stats} />
           </Grid>
         ))}
       </Grid>
 
       {/* ── Table ── */}
       <InventoryTable
-        items={items}
-        loading={loading}
-        page={page}
-        rowsPerPage={rowsPerPage}
-        total={total}
-        search={search}
-        statusFilter={statusFilter}
-        batchFilter={batchFilter}
-        expiryFrom={expiryFrom}
-        expiryTo={expiryTo}
-        onSearchChange={setSearch}
-        onStatusFilterChange={setStatusFilter}
-        onBatchFilterChange={setBatchFilter}
-        onExpiryFromChange={setExpiryFrom}
-        onExpiryToChange={setExpiryTo}
-        onPageChange={setPage}
-        onRowsPerPageChange={setRowsPerPage}
-        onEdit={setEditItem}
-        onAdjust={setAdjustItem}
-        onHistory={setHistoryItem}
-        onDelete={setDeleteItem}
-        onAddFirst={() => setAddOpen(true)}
+        items={items} loading={loading} page={page} rowsPerPage={rowsPerPage} total={total}
+        search={search} statusFilter={statusFilter} batchFilter={batchFilter}
+        expiryFrom={expiryFrom} expiryTo={expiryTo}
+        onSearchChange={setSearch} onStatusFilterChange={setStatusFilter}
+        onBatchFilterChange={setBatchFilter} onExpiryFromChange={setExpiryFrom}
+        onExpiryToChange={setExpiryTo} onPageChange={setPage}
+        onRowsPerPageChange={setRowsPerPage} onEdit={setEditItem}
+        onAdjust={setAdjustItem} onHistory={setHistoryItem}
+        onDelete={setDeleteItem} onAddFirst={() => setAddOpen(true)}
       />
 
       {/* ── Dialogs ── */}
       <AddEditInventoryDialog
-        open={addOpen || !!editItem}
-        editItem={editItem}
-        onClose={() => {
-          setAddOpen(false);
-          setEditItem(null);
-        }}
-        onSaved={() => {
-          loadData();
-          showSuccess(editItem ? 'Inventory updated successfully' : 'Stock added successfully');
-        }}
+        open={addOpen || !!editItem} editItem={editItem}
+        onClose={() => { setAddOpen(false); setEditItem(null); }}
+        onSaved={() => { loadData(); showSuccess(editItem ? 'Inventory updated successfully' : 'Stock added successfully'); }}
       />
-      <AdjustStockDialog
-        open={!!adjustItem}
-        item={adjustItem}
-        onClose={() => setAdjustItem(null)}
-        onSaved={() => {
-          loadData();
-          showSuccess('Stock adjusted successfully');
-        }}
-      />
-      <TransactionHistoryDialog
-        open={!!historyItem}
-        item={historyItem}
-        onClose={() => setHistoryItem(null)}
-      />
-      <DeleteDialog
-        open={!!deleteItem}
-        item={deleteItem}
-        onClose={() => setDeleteItem(null)}
-        onDeleted={() => {
-          loadData();
-          showSuccess('Inventory record deleted');
-        }}
-      />
+      <AdjustStockDialog open={!!adjustItem} item={adjustItem} onClose={() => setAdjustItem(null)}
+        onSaved={() => { loadData(); showSuccess('Stock adjusted successfully'); }} />
+      <TransactionHistoryDialog open={!!historyItem} item={historyItem} onClose={() => setHistoryItem(null)} />
+      <DeleteDialog open={!!deleteItem} item={deleteItem} onClose={() => setDeleteItem(null)}
+        onDeleted={() => { loadData(); showSuccess('Inventory record deleted'); }} />
 
       {/* ── Snackbar ── */}
       <Snackbar open={snackbar.open} autoHideDuration={4000}

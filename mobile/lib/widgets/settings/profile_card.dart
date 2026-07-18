@@ -4,8 +4,19 @@ import '../../app/app_theme.dart';
 import '../menu/menu_surface.dart';
 
 class ProfileCard extends StatelessWidget {
-  const ProfileCard({super.key, required this.onEdit});
+  const ProfileCard({
+    super.key,
+    required this.name,
+    required this.email,
+    required this.patientCount,
+    required this.onEdit,
+    this.phone,
+  });
 
+  final String name;
+  final String email;
+  final String? phone;
+  final int patientCount;
   final VoidCallback onEdit;
 
   @override
@@ -28,27 +39,39 @@ class ProfileCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Juan Dela Cruz',
-                  style: TextStyle(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: AppColors.gray900,
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
-                  'juan@example.com',
-                  style: TextStyle(color: AppColors.gray500, fontSize: 12),
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.gray500,
+                    fontSize: 12,
+                  ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
-                  'Patient ID: P-2026-0042',
-                  style: TextStyle(color: AppColors.gray500, fontSize: 11),
+                  phone?.isNotEmpty == true
+                      ? phone!
+                      : '$patientCount managed patient ${patientCount == 1 ? 'profile' : 'profiles'}',
+                  style: const TextStyle(
+                    color: AppColors.gray500,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),

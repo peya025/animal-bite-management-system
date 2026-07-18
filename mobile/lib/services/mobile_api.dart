@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/booking_draft.dart';
 import '../models/patient_profile.dart';
+import '../models/patient_account_profile.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message);
@@ -84,6 +85,25 @@ class MobileApi {
     await _storage.delete(key: _tokenKey);
   }
 
+  Future<PatientAccountProfile> account() async {
+    final data = await _send('GET', '/me') as Map<String, dynamic>;
+    return PatientAccountProfile.fromJson(data);
+  }
+
+  Future<PatientAccountProfile> updateAccount({
+    required String name,
+    required String phone,
+  }) async {
+    final data =
+        await _send(
+              'PATCH',
+              '/me',
+              body: {'name': name, 'phone': phone.isEmpty ? null : phone},
+            )
+            as Map<String, dynamic>;
+    return PatientAccountProfile.fromJson(data);
+  }
+
   Future<List<PatientProfile>> patients() async {
     final data = await _send('GET', '/patients') as List<dynamic>;
     return data
@@ -131,6 +151,7 @@ class MobileApi {
     final response = switch (method) {
       'GET' => await http.get(uri, headers: headers),
       'POST' => await http.post(uri, headers: headers, body: encodedBody),
+      'PATCH' => await http.patch(uri, headers: headers, body: encodedBody),
       _ => throw ArgumentError.value(method, 'method'),
     };
 

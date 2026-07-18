@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../services/mobile_api.dart';
+import '../models/patient_account_profile.dart';
+import '../models/patient_profile.dart';
 import '../widgets/common/app_page_header.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/settings/profile_card.dart';
 import '../widgets/settings/settings_group.dart';
+import '../widgets/settings/edit_account_dialog.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class SettingsView extends StatefulWidget {
@@ -18,6 +21,63 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   bool _notificationsEnabled = true;
+  PatientAccountProfile? _account;
+  bool _loadingAccount = true;
+  String? _accountError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAccount();
+  }
+
+  Future<void> _loadAccount() async {
+    setState(() {
+      _loadingAccount = true;
+      _accountError = null;
+    });
+    try {
+      final account = await MobileApi.instance.account();
+      if (mounted) setState(() => _account = account);
+    } catch (error) {
+      if (mounted) setState(() => _accountError = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingAccount = false);
+    }
+  }
+
+  Future<void> _editAccount() async {
+    final account = _account;
+    if (account == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => EditAccountDialog(
+        account: account,
+        onSave: (name, phone) async {
+          final updated = await MobileApi.instance.updateAccount(
+            name: name,
+            phone: phone,
+          );
+          if (mounted) setState(() => _account = updated);
+        },
+      ),
+    );
+  }
+
+  Future<void> _addDependent() async {
+    final created = await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.profileSetup, arguments: 'add-dependent');
+    if (created != null && mounted) await _loadAccount();
+  }
+
+  String _relationshipLabel(PatientProfile patient) {
+    return switch (patient.relationship) {
+      'self' => 'Self',
+      'child' => 'Child',
+      _ => 'Dependent',
+    };
+  }
 
   void _navigate(int index) {
     final route = switch (index) {
@@ -84,10 +144,51 @@ class _SettingsViewState extends State<SettingsView> {
                         subtitle: 'Manage your profile and app preferences.',
                       ),
                       const SizedBox(height: 22),
-                      ProfileCard(
-                        onEdit: () => _showDemoMessage(
-                          'Profile editing will be added later.',
+                      if (_loadingAccount)
+                        const Center(child: CircularProgressIndicator())
+                      else if (_account case final account?)
+                        ProfileCard(
+                          name: account.name,
+                          email: account.email,
+                          phone: account.phone,
+                          patientCount: account.patients.length,
+                          onEdit: _editAccount,
+                        )
+                      else
+                        SettingsTile(
+                          icon: Icons.sync_problem_rounded,
+                          title: 'Could not load account',
+                          subtitle: _accountError ?? 'Try again',
+                          onTap: _loadAccount,
                         ),
+                      const SizedBox(height: 26),
+                      SettingsGroup(
+                        title: 'Managed patients',
+                        children: [
+                          for (final patient in _account?.patients ?? const [])
+                            SettingsTile(
+                              icon: patient.relationship == 'child'
+                                  ? Icons.child_care_rounded
+                                  : Icons.person_outline_rounded,
+                              title: patient.name,
+                              subtitle:
+                                  '${_relationshipLabel(patient)} - ${patient.status}',
+                              trailing: Icon(
+                                patient.isVerified
+                                    ? Icons.verified_rounded
+                                    : Icons.schedule_rounded,
+                                color: patient.isVerified
+                                    ? Colors.green
+                                    : Colors.orange,
+                              ),
+                            ),
+                          SettingsTile(
+                            icon: Icons.person_add_alt_1_outlined,
+                            title: 'Add child or dependent',
+                            subtitle: 'Create another patient profile',
+                            onTap: _addDependent,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 26),
                       SettingsGroup(

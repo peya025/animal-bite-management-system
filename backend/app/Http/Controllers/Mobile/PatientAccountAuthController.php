@@ -65,6 +65,20 @@ class PatientAccountAuthController extends Controller
         );
     }
 
+    public function update(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $request->user()->update($validated);
+
+        return response()->json(
+            $request->user()->fresh()->load('patients'),
+        );
+    }
+
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()?->delete();

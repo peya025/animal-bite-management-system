@@ -57,6 +57,25 @@ class MobilePatientWorkflowTest extends TestCase
         $this->assertDatabaseCount('patient_account_patient', 2);
     }
 
+    public function test_patient_account_can_update_its_profile(): void
+    {
+        $account = $this->account();
+        Sanctum::actingAs($account);
+
+        $this->patchJson('/api/mobile/me', [
+            'name' => 'Updated Parent',
+            'phone' => '09171234567',
+        ])->assertOk()
+            ->assertJsonPath('name', 'Updated Parent')
+            ->assertJsonPath('phone', '09171234567');
+
+        $this->assertDatabaseHas('patient_accounts', [
+            'id' => $account->id,
+            'name' => 'Updated Parent',
+            'phone' => '09171234567',
+        ]);
+    }
+
     public function test_booking_is_scoped_to_an_authorized_patient_and_creates_a_recipient_notification(): void
     {
         $clinic = Clinic::create(['name' => 'Test Clinic']);

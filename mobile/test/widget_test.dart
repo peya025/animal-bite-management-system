@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/app/app_router.dart';
 import 'package:mobile/views/booking_view.dart';
 import 'package:mobile/views/history_view.dart';
 import 'package:mobile/views/menu_view.dart';
@@ -79,13 +80,35 @@ void main() {
 
     expect(find.text('Book appointment'), findsOneWidget);
     expect(find.text('Select a service'), findsOneWidget);
+    expect(find.text('Choose a booking date'), findsOneWidget);
+    expect(find.text('Vaccination'), findsWidgets);
+  });
 
-    await tester.scrollUntilVisible(
-      find.text('CONFIRM BOOKING'),
-      300,
-      scrollable: find.byType(Scrollable).first,
+  testWidgets('booking continues to backend-aligned patient information', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        initialRoute: '/booking',
+        onGenerateRoute: AppRouter.onGenerateRoute,
+      ),
     );
-    expect(find.text('CONFIRM BOOKING'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byType(CustomScrollView),
+      const Offset(0, -1000),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('BOOK APPOINTMENT'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('BOOK APPOINTMENT'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Patient information'), findsOneWidget);
+    expect(find.text('FULL NAME *'), findsOneWidget);
+    expect(find.text('GENDER *'), findsOneWidget);
+    expect(find.text('CONTACT NUMBER'), findsWidgets);
   });
 
   testWidgets('history navigation opens demo records', (tester) async {

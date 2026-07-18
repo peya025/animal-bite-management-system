@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
+import '../../models/booking_draft.dart';
 import '../buttons/primary_action_button.dart';
 import '../menu/menu_surface.dart';
 import 'service_selector.dart';
@@ -10,13 +11,11 @@ class BookingSummary extends StatelessWidget {
     super.key,
     required this.service,
     required this.date,
-    required this.time,
     required this.onConfirm,
   });
 
   final BookingService service;
   final String date;
-  final String time;
   final VoidCallback onConfirm;
 
   @override
@@ -35,13 +34,11 @@ class BookingSummary extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          _SummaryRow(icon: service.icon, label: service.title),
+          _SummaryRow(icon: service.icon, label: service.label),
           const SizedBox(height: 10),
           _SummaryRow(icon: Icons.event_outlined, label: date),
-          const SizedBox(height: 10),
-          _SummaryRow(icon: Icons.schedule_outlined, label: time),
           const SizedBox(height: 18),
-          PrimaryActionButton(label: 'CONFIRM BOOKING', onPressed: onConfirm),
+          PrimaryActionButton(label: 'BOOK APPOINTMENT', onPressed: onConfirm),
         ],
       ),
     );

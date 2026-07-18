@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
+import '../models/booking_draft.dart';
 import '../widgets/booking/booking_header.dart';
 import '../widgets/booking/booking_summary.dart';
 import '../widgets/booking/date_selector.dart';
 import '../widgets/booking/service_selector.dart';
-import '../widgets/booking/time_slot_selector.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
@@ -20,7 +20,6 @@ class BookingView extends StatefulWidget {
 class _BookingViewState extends State<BookingView> {
   BookingService _service = BookingService.consultation;
   DateTime _selectedDate = DateSelector.firstDate;
-  String _time = TimeSlotSelector.slots.first;
 
   void _openHome() {
     Navigator.of(context).pushReplacementNamed(AppRoutes.menu);
@@ -37,9 +36,10 @@ class _BookingViewState extends State<BookingView> {
     if (route != null) Navigator.of(context).pushReplacementNamed(route);
   }
 
-  void _confirmBooking() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sample appointment booked successfully.')),
+  void _continueBooking() {
+    Navigator.of(context).pushNamed(
+      AppRoutes.patientInformation,
+      arguments: BookingDraft(service: _service, date: _selectedDate),
     );
   }
 
@@ -74,18 +74,10 @@ class _BookingViewState extends State<BookingView> {
                         },
                       ),
                       const SizedBox(height: 26),
-                      TimeSlotSelector(
-                        selected: _time,
-                        onSelected: (time) {
-                          setState(() => _time = time);
-                        },
-                      ),
-                      const SizedBox(height: 26),
                       BookingSummary(
                         service: _service,
                         date: DateSelector.formatDate(_selectedDate),
-                        time: _time,
-                        onConfirm: _confirmBooking,
+                        onConfirm: _continueBooking,
                       ),
                     ],
                   ),

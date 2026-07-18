@@ -1,28 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
+import '../../models/booking_draft.dart';
 import '../menu/menu_surface.dart';
 import '../menu/section_header.dart';
 
-enum BookingService { consultation, vaccination, followUp }
-
 extension BookingServiceDetails on BookingService {
-  String get title => switch (this) {
-    BookingService.consultation => 'Bite consultation',
-    BookingService.vaccination => 'Vaccination',
-    BookingService.followUp => 'Follow-up visit',
-  };
-
-  String get duration => switch (this) {
-    BookingService.consultation => '30 min',
-    BookingService.vaccination => '20 min',
-    BookingService.followUp => '15 min',
+  String get description => switch (this) {
+    BookingService.consultation => 'Assessment for a new bite or exposure',
+    BookingService.vaccination => 'Schedule an anti-rabies vaccination',
   };
 
   IconData get icon => switch (this) {
     BookingService.consultation => Icons.medical_information_outlined,
     BookingService.vaccination => Icons.vaccines_outlined,
-    BookingService.followUp => Icons.monitor_heart_outlined,
   };
 }
 
@@ -94,7 +85,7 @@ class _ServiceTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      service.title,
+                      service.label,
                       style: const TextStyle(
                         color: AppColors.gray900,
                         fontWeight: FontWeight.w700,
@@ -102,7 +93,7 @@ class _ServiceTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      service.duration,
+                      service.description,
                       style: const TextStyle(
                         color: AppColors.gray500,
                         fontSize: 11,

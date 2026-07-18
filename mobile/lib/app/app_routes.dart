@@ -7,5 +7,5 @@ abstract final class AppRoutes {
   static const history = '/history';
   static const settings = '/settings';
   static const notifications = '/notifications';
-  static const patientInformation = '/booking/patient-information';
+  static const profileSetup = '/profiles/new';
 }

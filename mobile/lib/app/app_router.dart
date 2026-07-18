@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../models/booking_draft.dart';
 import '../views/booking_view.dart';
 import '../views/history_view.dart';
 import '../views/login_view.dart';
 import '../views/menu_view.dart';
 import '../views/notifications_view.dart';
-import '../views/patient_information_view.dart';
+import '../views/profile_setup_view.dart';
 import '../views/settings_view.dart';
 import '../views/sign_up_view.dart';
 import '../views/welcome_view.dart';
@@ -23,12 +22,12 @@ abstract final class AppRouter {
       AppRoutes.history => const HistoryView(),
       AppRoutes.settings => const SettingsView(),
       AppRoutes.notifications => const NotificationsView(),
-      AppRoutes.patientInformation =>
-        settings.arguments is BookingDraft
-            ? PatientInformationView(
-                booking: settings.arguments! as BookingDraft,
-              )
-            : const BookingView(),
+      AppRoutes.profileSetup => ProfileSetupView(
+        initialRelationship: settings.arguments == 'add-dependent'
+            ? 'child'
+            : 'self',
+        returnToBooking: settings.arguments == 'add-dependent',
+      ),
       _ => const WelcomeView(),
     };
 

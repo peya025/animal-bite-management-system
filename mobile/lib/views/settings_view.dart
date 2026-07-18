@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
+import '../services/mobile_api.dart';
 import '../widgets/common/app_page_header.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
@@ -40,7 +41,7 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Log out?'),
-        content: const Text('This will return you to the demo login screen.'),
+        content: const Text('You will need to sign in again to access patient records.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -55,6 +56,8 @@ class _SettingsViewState extends State<SettingsView> {
     );
 
     if (shouldLogout == true && mounted) {
+      await MobileApi.instance.logout();
+      if (!mounted) return;
       Navigator.of(
         context,
       ).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);

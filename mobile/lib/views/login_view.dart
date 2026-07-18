@@ -5,6 +5,7 @@ import '../app/app_routes.dart';
 import '../widgets/auth_mode_selector.dart';
 import '../widgets/buttons/primary_action_button.dart';
 import '../widgets/buttons/social_auth_button.dart';
+import '../services/mobile_api.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -38,21 +39,26 @@ class _LoginViewState extends State<LoginView> {
     });
 
     try {
-      // Replace this delay with the authentication repository call.
-      await Future<void>.delayed(const Duration(seconds: 2));
+      await MobileApi.instance.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        remember: _rememberMe,
+      );
+      final patients = await MobileApi.instance.patients();
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Login successful! (Demo)'),
+          content: Text('Login successful.'),
           backgroundColor: AppColors.primary,
         ),
       );
-      Navigator.of(
-        context,
-      ).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        patients.isEmpty ? AppRoutes.profileSetup : AppRoutes.menu,
+        (route) => false,
+      );
     } catch (error) {
-      if (mounted) setState(() => _errorMessage = 'Login failed: $error');
+      if (mounted) setState(() => _errorMessage = error.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

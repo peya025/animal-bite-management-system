@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../models/booking_draft.dart';
+import '../models/patient_profile.dart';
+import '../services/mobile_api.dart';
+import '../app/app_theme.dart';
 import '../widgets/booking/booking_header.dart';
 import '../widgets/booking/booking_summary.dart';
 import '../widgets/booking/date_selector.dart';
@@ -9,6 +12,7 @@ import '../widgets/booking/service_selector.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../widgets/menu/menu_surface.dart';
 
 class BookingView extends StatefulWidget {
   const BookingView({super.key});
@@ -20,6 +24,47 @@ class BookingView extends StatefulWidget {
 class _BookingViewState extends State<BookingView> {
   BookingService _service = BookingService.consultation;
   DateTime _selectedDate = DateSelector.firstDate;
+  List<PatientProfile> _patients = const [];
+  PatientProfile? _selectedPatient;
+  bool _loadingPatients = true;
+  bool _submitting = false;
+  String? _profileError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPatients();
+  }
+
+  Future<void> _loadPatients({int? selectPatientId}) async {
+    try {
+      final patients = await MobileApi.instance.patients();
+      if (!mounted) return;
+      setState(() {
+        _patients = patients;
+        _selectedPatient = patients.isEmpty
+            ? null
+            : patients.firstWhere(
+                (patient) => patient.id == selectPatientId,
+                orElse: () => patients.first,
+              );
+        _profileError = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _profileError = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingPatients = false);
+    }
+  }
+
+  Future<void> _addDependent() async {
+    final created = await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.profileSetup, arguments: 'add-dependent');
+    if (created is PatientProfile && mounted) {
+      await _loadPatients(selectPatientId: created.id);
+    }
+  }
 
   void _openHome() {
     Navigator.of(context).pushReplacementNamed(AppRoutes.menu);
@@ -36,11 +81,51 @@ class _BookingViewState extends State<BookingView> {
     if (route != null) Navigator.of(context).pushReplacementNamed(route);
   }
 
-  void _continueBooking() {
-    Navigator.of(context).pushNamed(
-      AppRoutes.patientInformation,
-      arguments: BookingDraft(service: _service, date: _selectedDate),
-    );
+  Future<void> _continueBooking() async {
+    final patient = _selectedPatient;
+    if (patient == null) {
+      await _addDependent();
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await MobileApi.instance.book(
+        patient: patient,
+        booking: BookingDraft(service: _service, date: _selectedDate),
+      );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          icon: const Icon(
+            Icons.event_available_rounded,
+            color: AppColors.primary,
+          ),
+          title: const Text('Appointment booked'),
+          content: Text(
+            '${patient.name} is scheduled for ${_service.label.toLowerCase()} on ${DateSelector.formatDate(_selectedDate)}.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+      );
+      if (mounted) _openHome();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString()),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -60,6 +145,76 @@ class _BookingViewState extends State<BookingView> {
                     children: [
                       BookingHeader(onBack: _openHome),
                       const SizedBox(height: 26),
+                      const Text(
+                        'Who is this appointment for?',
+                        style: TextStyle(
+                          color: AppColors.gray900,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      MenuSurface(
+                        padding: const EdgeInsets.all(14),
+                        child: _loadingPatients
+                            ? const Center(child: CircularProgressIndicator())
+                            : _patients.isEmpty
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    _profileError ??
+                                        'Add a patient profile before booking.',
+                                    style: const TextStyle(
+                                      color: AppColors.gray700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  OutlinedButton.icon(
+                                    onPressed: _addDependent,
+                                    icon: const Icon(
+                                      Icons.person_add_alt_1_outlined,
+                                    ),
+                                    label: const Text('ADD PATIENT PROFILE'),
+                                  ),
+                                ],
+                              )
+                            : DropdownButtonFormField<PatientProfile>(
+                                initialValue: _selectedPatient,
+                                decoration: const InputDecoration(
+                                  prefixIcon: Icon(
+                                    Icons.people_outline_rounded,
+                                  ),
+                                ),
+                                items: _patients
+                                    .map(
+                                      (patient) => DropdownMenuItem(
+                                        value: patient,
+                                        child: Text(
+                                          '${patient.name} · ${patient.relationship}',
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: _submitting
+                                    ? null
+                                    : (patient) => setState(
+                                        () => _selectedPatient = patient,
+                                      ),
+                              ),
+                      ),
+                      if (_patients.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: _submitting ? null : _addDependent,
+                            icon: const Icon(Icons.person_add_alt_1_outlined),
+                            label: const Text('ADD CHILD OR DEPENDENT'),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 26),
                       ServiceSelector(
                         selected: _service,
                         onSelected: (service) {
@@ -77,6 +232,8 @@ class _BookingViewState extends State<BookingView> {
                       BookingSummary(
                         service: _service,
                         date: DateSelector.formatDate(_selectedDate),
+                        patientName: _selectedPatient?.name,
+                        isLoading: _submitting,
                         onConfirm: _continueBooking,
                       ),
                     ],

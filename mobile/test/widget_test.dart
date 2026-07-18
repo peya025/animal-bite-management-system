@@ -79,14 +79,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Book appointment'), findsOneWidget);
+    expect(find.text('Who is this appointment for?'), findsOneWidget);
     expect(find.text('Select a service'), findsOneWidget);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await tester.pumpAndSettle();
     expect(find.text('Choose a booking date'), findsOneWidget);
     expect(find.text('Vaccination'), findsWidgets);
   });
 
-  testWidgets('booking continues to backend-aligned patient information', (
-    tester,
-  ) async {
+  testWidgets('booking requires a reusable patient profile', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         initialRoute: '/booking',
@@ -95,20 +96,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.drag(
-      find.byType(CustomScrollView),
-      const Offset(0, -1000),
-    );
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1000));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('BOOK APPOINTMENT'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('BOOK APPOINTMENT'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Patient information'), findsOneWidget);
-    expect(find.text('FULL NAME *'), findsOneWidget);
+    expect(find.text('Patient profile'), findsOneWidget);
+    expect(find.text('RELATIONSHIP'), findsOneWidget);
+    expect(find.text('My child'), findsOneWidget);
+    expect(find.text('FIRST NAME *'), findsOneWidget);
     expect(find.text('GENDER *'), findsOneWidget);
-    expect(find.text('CONTACT NUMBER'), findsWidgets);
+    expect(find.text('SAVE PATIENT PROFILE'), findsOneWidget);
   });
 
   testWidgets('history navigation opens demo records', (tester) async {

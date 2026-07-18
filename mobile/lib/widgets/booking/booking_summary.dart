@@ -12,11 +12,15 @@ class BookingSummary extends StatelessWidget {
     required this.service,
     required this.date,
     required this.onConfirm,
+    this.patientName,
+    this.isLoading = false,
   });
 
   final BookingService service;
   final String date;
   final VoidCallback onConfirm;
+  final String? patientName;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -34,11 +38,19 @@ class BookingSummary extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
+          if (patientName case final name?) ...[
+            _SummaryRow(icon: Icons.person_outline_rounded, label: name),
+            const SizedBox(height: 10),
+          ],
           _SummaryRow(icon: service.icon, label: service.label),
           const SizedBox(height: 10),
           _SummaryRow(icon: Icons.event_outlined, label: date),
           const SizedBox(height: 18),
-          PrimaryActionButton(label: 'BOOK APPOINTMENT', onPressed: onConfirm),
+          PrimaryActionButton(
+            label: 'BOOK APPOINTMENT',
+            isLoading: isLoading,
+            onPressed: onConfirm,
+          ),
         ],
       ),
     );

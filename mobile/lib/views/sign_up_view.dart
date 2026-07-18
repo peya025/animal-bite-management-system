@@ -5,6 +5,7 @@ import '../app/app_theme.dart';
 import '../widgets/auth_mode_selector.dart';
 import '../widgets/buttons/account_login_prompt.dart';
 import '../widgets/buttons/primary_action_button.dart';
+import '../services/mobile_api.dart';
 
 class SignUpView extends StatefulWidget {
   const SignUpView({super.key});
@@ -18,35 +19,52 @@ class _SignUpViewState extends State<SignUpView> {
   final _emailController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _firstNameController = TextEditingController();
-  final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _passwordConfirmationController = TextEditingController();
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
     _emailController.dispose();
     _lastNameController.dispose();
     _firstNameController.dispose();
-    _addressController.dispose();
     _phoneController.dispose();
+    _passwordController.dispose();
+    _passwordConfirmationController.dispose();
     super.dispose();
   }
 
   Future<void> _register() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
-      // The API payload will combine first and last name into `name`.
-      await Future<void>.delayed(const Duration(seconds: 2));
+      await MobileApi.instance.register(
+        name:
+            '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
+        passwordConfirmation: _passwordConfirmationController.text,
+      );
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Registration successful! (Demo)'),
+          content: Text('Account created. Add your patient profile.'),
           backgroundColor: AppColors.primary,
         ),
       );
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppRoutes.profileSetup, (route) => false);
+    } catch (error) {
+      if (mounted) setState(() => _errorMessage = error.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -78,6 +96,16 @@ class _SignUpViewState extends State<SignUpView> {
                       },
                     ),
                     const SizedBox(height: 56),
+                    if (_errorMessage case final message?) ...[
+                      Text(
+                        message,
+                        style: const TextStyle(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     _SignUpField(
                       label: 'EMAIL',
                       controller: _emailController,
@@ -92,20 +120,37 @@ class _SignUpViewState extends State<SignUpView> {
                     _SignUpField(
                       label: 'LAST NAME',
                       controller: _lastNameController,
+                      textCapitalization: TextCapitalization.words,
                     ),
                     _SignUpField(
                       label: 'FIRST NAME',
                       controller: _firstNameController,
-                    ),
-                    _SignUpField(
-                      label: 'ADDRESS',
-                      controller: _addressController,
                       textCapitalization: TextCapitalization.words,
                     ),
                     _SignUpField(
                       label: 'PHONE',
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      required: false,
+                    ),
+                    _SignUpField(
+                      label: 'PASSWORD',
+                      controller: _passwordController,
+                      obscureText: true,
+                      validator: (value) {
+                        if (value == null || value.length < 8) {
+                          return 'Use at least 8 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    _SignUpField(
+                      label: 'CONFIRM PASSWORD',
+                      controller: _passwordConfirmationController,
+                      obscureText: true,
+                      validator: (value) => value != _passwordController.text
+                          ? 'Passwords do not match'
+                          : null,
                     ),
                     const SizedBox(height: 12),
                     Center(
@@ -142,6 +187,8 @@ class _SignUpField extends StatelessWidget {
     this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
     this.validator,
+    this.obscureText = false,
+    this.required = true,
   });
 
   final String label;
@@ -149,6 +196,8 @@ class _SignUpField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
   final String? Function(String?)? validator;
+  final bool obscureText;
+  final bool required;
 
   @override
   Widget build(BuildContext context) {
@@ -171,9 +220,10 @@ class _SignUpField extends StatelessWidget {
             enabled: true,
             keyboardType: keyboardType,
             textCapitalization: textCapitalization,
+            obscureText: obscureText,
             validator:
                 validator ??
-                (value) => value == null || value.trim().isEmpty
+                (value) => required && (value == null || value.trim().isEmpty)
                     ? '$label is required'
                     : null,
           ),

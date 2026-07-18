@@ -16,7 +16,10 @@ return new class extends Migration
             $table->string('patient_number', 50)->unique();
             
             // Personal Information
-            $table->string('name');
+            $table->string('first_name');
+            $table->string('middle_name')->nullable();
+            $table->string('last_name');
+            $table->string('suffix')->nullable();
             $table->enum('gender', ['male', 'female']);
             $table->integer('age')->nullable();
             $table->date('date_of_birth')->nullable();
@@ -35,7 +38,10 @@ return new class extends Migration
             $table->softDeletes(); // For audit trail
             
             $table->index('patient_number');
-            $table->index('name');
+            $table->index(
+                ['clinic_id', 'last_name', 'first_name'],
+                'patients_clinic_name_index'
+            );
             $table->index(['clinic_id', 'patient_number']);
         });
     }

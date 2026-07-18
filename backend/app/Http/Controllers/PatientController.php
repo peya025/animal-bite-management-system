@@ -20,9 +20,11 @@ class PatientController extends Controller
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('patient_number', 'like', "%{$search}%")
-                  ->orWhere('contact_number', 'like', "%{$search}%");
+                $q->where('patient_number', 'like', "%{$search}%")
+                  ->orWhere('contact_number', 'like', "%{$search}%")
+                  ->orWhere(function ($nameQuery) use ($search) {
+                      $nameQuery->searchName($search);
+                  });
             });
         }
 
@@ -50,7 +52,10 @@ class PatientController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'suffix' => 'nullable|string|max:50',
             'gender' => 'required|in:male,female',
             'age' => 'nullable|integer|min:0|max:150',
             'date_of_birth' => 'nullable|date|before:today',
@@ -62,7 +67,10 @@ class PatientController extends Controller
 
         $patient = Patient::create([
             'clinic_id' => $request->user()->clinic_id,
-            'name' => $request->name,
+            'first_name' => $request->first_name,
+            'middle_name' => $request->middle_name,
+            'last_name' => $request->last_name,
+            'suffix' => $request->suffix,
             'gender' => $request->gender,
             'age' => $request->age,
             'date_of_birth' => $request->date_of_birth,
@@ -111,7 +119,10 @@ class PatientController extends Controller
             ->findOrFail($id);
 
         $request->validate([
-            'name' => 'sometimes|required|string|max:255',
+            'first_name' => 'sometimes|required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'last_name' => 'sometimes|required|string|max:255',
+            'suffix' => 'nullable|string|max:50',
             'gender' => 'sometimes|required|in:male,female',
             'age' => 'nullable|integer|min:0|max:150',
             'date_of_birth' => 'nullable|date|before:today',

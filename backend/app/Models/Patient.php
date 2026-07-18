@@ -14,7 +14,10 @@ class Patient extends Model
     protected $fillable = [
         'clinic_id',
         'patient_number',
-        'name',
+        'first_name',
+        'middle_name',
+        'last_name',
+        'suffix',
         'gender',
         'age',
         'date_of_birth',
@@ -30,6 +33,42 @@ class Patient extends Model
         'date_of_birth' => 'date',
         'registration_date' => 'datetime',
     ];
+
+    protected $appends = [
+        'name',
+    ];
+
+    /**
+     * Preserve the legacy API display field without storing duplicate data.
+     */
+    public function getNameAttribute(): string
+    {
+        return collect([
+            $this->first_name,
+            $this->middle_name,
+            $this->last_name,
+            $this->suffix,
+        ])->filter()->implode(' ');
+    }
+
+    /**
+     * Search every structured name part while supporting multi-word queries.
+     */
+    public function scopeSearchName($query, string $search)
+    {
+        $terms = preg_split('/\s+/', trim($search), -1, PREG_SPLIT_NO_EMPTY);
+
+        foreach ($terms as $term) {
+            $query->where(function ($nameQuery) use ($term) {
+                $nameQuery->where('first_name', 'like', "%{$term}%")
+                    ->orWhere('middle_name', 'like', "%{$term}%")
+                    ->orWhere('last_name', 'like', "%{$term}%")
+                    ->orWhere('suffix', 'like', "%{$term}%");
+            });
+        }
+
+        return $query;
+    }
 
     /**
      * Boot method - auto-generate patient number

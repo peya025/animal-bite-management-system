@@ -38,7 +38,7 @@ class BiteCaseController extends Controller
             $query->where(function($q) use ($search) {
                 $q->where('case_number', 'like', "%{$search}%")
                   ->orWhereHas('patient', function($pq) use ($search) {
-                      $pq->where('name', 'like', "%{$search}%");
+                      $pq->searchName($search);
                   });
             });
         }

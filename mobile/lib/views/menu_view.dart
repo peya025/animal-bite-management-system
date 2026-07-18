@@ -45,7 +45,11 @@ class _MenuViewState extends State<MenuView> {
                       const SizedBox(height: 26),
                       const GuidelinesSection(),
                       const SizedBox(height: 26),
-                      const ScheduleSection(),
+                      ScheduleSection(
+                        onOpenAppointments: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.appointments),
+                      ),
                       const SizedBox(height: 24),
                       const InformationPanels(),
                     ],

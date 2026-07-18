@@ -46,6 +46,7 @@ Route::prefix('mobile')->group(function () {
 
         Route::get('/appointments', [MobileAppointmentController::class, 'index']);
         Route::post('/appointments', [MobileAppointmentController::class, 'store']);
+        Route::patch('/appointments/{appointment}/cancel', [MobileAppointmentController::class, 'cancel']);
 
         Route::get('/notifications', [MobileNotificationController::class, 'index']);
         Route::patch('/notifications/{notification}/read', [MobileNotificationController::class, 'markAsRead']);

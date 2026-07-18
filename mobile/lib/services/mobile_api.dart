@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/booking_draft.dart';
 import '../models/bite_intake_draft.dart';
+import '../models/appointment_summary.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_account_profile.dart';
 
@@ -136,6 +137,29 @@ class MobileApi {
         if (intake != null) 'intake': intake.toJson(),
       },
     );
+  }
+
+  Future<List<AppointmentSummary>> appointments() async {
+    final data = await _send('GET', '/appointments') as List<dynamic>;
+    return data
+        .map(
+          (item) => AppointmentSummary.fromJson(item as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<AppointmentSummary> cancelAppointment({
+    required int appointmentId,
+    String? reason,
+  }) async {
+    final data =
+        await _send(
+              'PATCH',
+              '/appointments/$appointmentId/cancel',
+              body: {'reason': reason},
+            )
+            as Map<String, dynamic>;
+    return AppointmentSummary.fromJson(data);
   }
 
   Future<dynamic> _send(

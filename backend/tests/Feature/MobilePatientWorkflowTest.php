@@ -34,6 +34,21 @@ class MobilePatientWorkflowTest extends TestCase
         ];
     }
 
+    private function intakePayload(): array
+    {
+        return [
+            'bite_date' => now()->toDateString(),
+            'bite_place' => 'Home',
+            'site_washed' => true,
+            'exposure_type' => 'bite',
+            'animal_type' => 'dog',
+            'animal_status' => 'owned',
+            'animal_captured' => true,
+            'wound_location' => 'Left hand',
+            'patient_description' => 'Small visible puncture.',
+        ];
+    }
+
     public function test_account_can_create_one_self_profile_and_dependents(): void
     {
         $clinic = Clinic::create(['name' => 'Test Clinic']);
@@ -95,12 +110,15 @@ class MobilePatientWorkflowTest extends TestCase
         Sanctum::actingAs($account);
         $date = now()->addDay()->toDateString();
 
-        $this->postJson('/api/mobile/appointments', [
+        $response = $this->postJson('/api/mobile/appointments', [
             'patient_id' => $patient->patient_id,
             'appointment_type' => 'vaccination',
             'scheduled_date' => $date,
+            'intake' => $this->intakePayload(),
         ])->assertCreated()
             ->assertJsonPath('patient.patient_id', $patient->patient_id);
+
+        $appointmentId = $response->json('appointment_id');
 
         $this->assertDatabaseHas('appointments', [
             'patient_id' => $patient->patient_id,
@@ -113,6 +131,15 @@ class MobilePatientWorkflowTest extends TestCase
             'type' => 'booking_confirmation',
         ]);
 
+        $this->patchJson("/api/mobile/appointments/{$appointmentId}/cancel", [
+            'reason' => 'Schedule conflict',
+        ])->assertOk()
+            ->assertJsonPath('status', 'cancelled')
+            ->assertJsonPath('cancellation_reason', 'Schedule conflict');
+
+        $this->patchJson("/api/mobile/appointments/{$appointmentId}/cancel")
+            ->assertUnprocessable();
+
         $unrelatedAccount = $this->account();
         Sanctum::actingAs($unrelatedAccount);
 
@@ -120,6 +147,7 @@ class MobilePatientWorkflowTest extends TestCase
             'patient_id' => $patient->patient_id,
             'appointment_type' => 'vaccination',
             'scheduled_date' => $date,
+            'intake' => $this->intakePayload(),
         ])->assertNotFound();
     }
 
@@ -152,17 +180,7 @@ class MobilePatientWorkflowTest extends TestCase
 
         $this->postJson('/api/mobile/appointments', [
             ...$booking,
-            'intake' => [
-                'bite_date' => now()->toDateString(),
-                'bite_place' => 'Home',
-                'site_washed' => true,
-                'exposure_type' => 'bite',
-                'animal_type' => 'dog',
-                'animal_status' => 'owned',
-                'animal_captured' => true,
-                'wound_location' => 'Left hand',
-                'patient_description' => 'Small visible puncture.',
-            ],
+            'intake' => $this->intakePayload(),
         ])->assertCreated()
             ->assertJsonPath('bite_intake.patient_id', $patient->patient_id)
             ->assertJsonPath('bite_intake.status', 'pending');

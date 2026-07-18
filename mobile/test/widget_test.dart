@@ -4,7 +4,9 @@ import 'package:mobile/app/app_router.dart';
 import 'package:mobile/models/bite_intake_route_args.dart';
 import 'package:mobile/models/booking_draft.dart';
 import 'package:mobile/models/patient_profile.dart';
+import 'package:mobile/models/appointment_summary.dart';
 import 'package:mobile/views/bite_intake_view.dart';
+import 'package:mobile/widgets/appointments/appointment_card.dart';
 import 'package:mobile/views/booking_view.dart';
 import 'package:mobile/views/history_view.dart';
 import 'package:mobile/views/menu_view.dart';
@@ -69,6 +71,56 @@ void main() {
     expect(find.text('Bite care guide'), findsOneWidget);
     expect(find.text('Upcoming schedules'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home upcoming schedules redirects to appointment list', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: const MenuView(),
+        routes: {
+          '/appointments': (_) =>
+              const Scaffold(body: Text('Appointment list destination')),
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View all'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Appointment list destination'), findsOneWidget);
+  });
+
+  testWidgets('scheduled appointment exposes cancellation action', (
+    tester,
+  ) async {
+    var cancelled = false;
+    final appointment = AppointmentSummary(
+      id: 1,
+      patientId: 1,
+      patientName: 'Juan Dela Cruz',
+      type: 'vaccination',
+      scheduledDate: DateTime(2026, 7, 25),
+      status: 'scheduled',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AppointmentCard(
+            appointment: appointment,
+            onCancel: () => cancelled = true,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('CANCEL APPOINTMENT'));
+    expect(cancelled, isTrue);
   });
 
   testWidgets('book navigation opens the sample booking page', (tester) async {

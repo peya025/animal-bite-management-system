@@ -20,12 +20,15 @@ class Appointment extends Model
         'appointment_type',
         'scheduled_date',
         'status',
+        'cancellation_reason',
+        'cancelled_at',
         'queue_number',
     ];
 
     protected $casts = [
         'scheduled_date' => 'datetime',
         'queue_number' => 'integer',
+        'cancelled_at' => 'datetime',
     ];
 
     /**

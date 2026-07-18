@@ -27,13 +27,13 @@ class MobileAppointmentController extends Controller
             'patient_id' => ['required', 'integer', 'exists:patients,patient_id'],
             'appointment_type' => ['required', 'in:consultation,vaccination'],
             'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
-            'intake' => ['required_if:appointment_type,consultation', 'array'],
-            'intake.bite_date' => ['required_if:appointment_type,consultation', 'date', 'before_or_equal:today'],
+            'intake' => ['required', 'array'],
+            'intake.bite_date' => ['required', 'date', 'before_or_equal:today'],
             'intake.bite_place' => ['nullable', 'string', 'max:255'],
-            'intake.site_washed' => ['required_if:appointment_type,consultation', 'boolean'],
-            'intake.exposure_type' => ['required_if:appointment_type,consultation', 'in:bite,scratch,lick,other'],
-            'intake.animal_type' => ['required_if:appointment_type,consultation', 'string', 'max:100'],
-            'intake.animal_status' => ['required_if:appointment_type,consultation', 'in:owned,stray,unknown'],
+            'intake.site_washed' => ['required', 'boolean'],
+            'intake.exposure_type' => ['required', 'in:bite,scratch,lick,other'],
+            'intake.animal_type' => ['required', 'string', 'max:100'],
+            'intake.animal_status' => ['required', 'in:owned,stray,unknown'],
             'intake.animal_captured' => ['nullable', 'boolean'],
             'intake.wound_location' => ['nullable', 'string', 'max:255'],
             'intake.patient_description' => ['nullable', 'string', 'max:2000'],
@@ -54,16 +54,14 @@ class MobileAppointmentController extends Controller
                 'status' => 'scheduled',
             ]);
 
-            if ($appointment->appointment_type === 'consultation') {
-                BiteIncidentIntake::create([
-                    ...$validated['intake'],
-                    'clinic_id' => $patient->clinic_id,
-                    'patient_id' => $patient->patient_id,
-                    'patient_account_id' => $account->id,
-                    'appointment_id' => $appointment->appointment_id,
-                    'status' => 'pending',
-                ]);
-            }
+            BiteIncidentIntake::create([
+                ...$validated['intake'],
+                'clinic_id' => $patient->clinic_id,
+                'patient_id' => $patient->patient_id,
+                'patient_account_id' => $account->id,
+                'appointment_id' => $appointment->appointment_id,
+                'status' => 'pending',
+            ]);
 
             Notification::create([
                 'patient_id' => $patient->patient_id,
@@ -79,5 +77,37 @@ class MobileAppointmentController extends Controller
         });
 
         return response()->json($appointment->load(['patient', 'biteIntake']), 201);
+    }
+
+    public function cancel(Request $request, int $appointment)
+    {
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $appointment = $request->user()->appointments()
+            ->whereKey($appointment)
+            ->with('patient')
+            ->firstOrFail();
+
+        abort_unless($appointment->status === 'scheduled', 422, 'Only scheduled appointments can be cancelled.');
+
+        $appointment->update([
+            'status' => 'cancelled',
+            'cancellation_reason' => $validated['reason'] ?? null,
+            'cancelled_at' => now(),
+        ]);
+
+        Notification::create([
+            'patient_id' => $appointment->patient_id,
+            'patient_account_id' => $request->user()->id,
+            'appointment_id' => $appointment->appointment_id,
+            'type' => 'booking_cancelled',
+            'message' => "{$appointment->patient->name}'s {$appointment->appointment_type} appointment was cancelled.",
+            'status' => 'pending',
+            'send_time' => now(),
+        ]);
+
+        return response()->json($appointment->fresh()->load('patient'));
     }
 }

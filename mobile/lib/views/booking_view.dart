@@ -28,7 +28,6 @@ class _BookingViewState extends State<BookingView> {
   List<PatientProfile> _patients = const [];
   PatientProfile? _selectedPatient;
   bool _loadingPatients = true;
-  bool _submitting = false;
   String? _profileError;
 
   @override
@@ -90,52 +89,10 @@ class _BookingViewState extends State<BookingView> {
     }
 
     final booking = BookingDraft(service: _service, date: _selectedDate);
-    if (_service == BookingService.consultation) {
-      await Navigator.of(context).pushNamed(
-        AppRoutes.biteIntake,
-        arguments: BiteIntakeRouteArgs(patient: patient, booking: booking),
-      );
-      return;
-    }
-
-    setState(() => _submitting = true);
-    try {
-      await MobileApi.instance.book(
-        patient: patient,
-        booking: booking,
-      );
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          icon: const Icon(
-            Icons.event_available_rounded,
-            color: AppColors.primary,
-          ),
-          title: const Text('Appointment booked'),
-          content: Text(
-            '${patient.name} is scheduled for ${_service.label.toLowerCase()} on ${DateSelector.formatDate(_selectedDate)}.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Done'),
-            ),
-          ],
-        ),
-      );
-      if (mounted) _openHome();
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString()),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    await Navigator.of(context).pushNamed(
+      AppRoutes.biteIntake,
+      arguments: BiteIntakeRouteArgs(patient: patient, booking: booking),
+    );
   }
 
   @override
@@ -206,11 +163,9 @@ class _BookingViewState extends State<BookingView> {
                                       ),
                                     )
                                     .toList(),
-                                onChanged: _submitting
-                                    ? null
-                                    : (patient) => setState(
-                                        () => _selectedPatient = patient,
-                                      ),
+                                onChanged: (patient) => setState(
+                                  () => _selectedPatient = patient,
+                                ),
                               ),
                       ),
                       if (_patients.isNotEmpty) ...[
@@ -218,7 +173,7 @@ class _BookingViewState extends State<BookingView> {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: TextButton.icon(
-                            onPressed: _submitting ? null : _addDependent,
+                            onPressed: _addDependent,
                             icon: const Icon(Icons.person_add_alt_1_outlined),
                             label: const Text('ADD CHILD OR DEPENDENT'),
                           ),
@@ -243,7 +198,6 @@ class _BookingViewState extends State<BookingView> {
                         service: _service,
                         date: DateSelector.formatDate(_selectedDate),
                         patientName: _selectedPatient?.name,
-                        isLoading: _submitting,
                         onConfirm: _continueBooking,
                       ),
                     ],

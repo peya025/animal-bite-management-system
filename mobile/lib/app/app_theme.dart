@@ -5,6 +5,7 @@ abstract final class AppColors {
   static const primaryDark = Color(0xFF08766D);
   static const primaryLight = Color(0xFFE1F5F1);
   static const white = Color(0xFFFFFFFF);
+  static const pageBackground = Color(0xFFF5F8F7);
   static const gray50 = Color(0xFFF9FAFB);
   static const gray100 = Color(0xFFF3F4F6);
   static const border = Color(0xFFDCE3E1);

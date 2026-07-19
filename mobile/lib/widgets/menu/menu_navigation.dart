@@ -29,33 +29,36 @@ class MenuNavigation extends StatelessWidget {
       ),
     ];
 
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: BottomAppBar(
-        height: 72,
-        padding: EdgeInsets.zero,
-        color: AppColors.white,
-        surfaceTintColor: Colors.transparent,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: SafeArea(
-          top: false,
-          child: Row(
-            children: [
-              for (var index = 0; index < items.length; index++) ...[
-                if (index == 2) const SizedBox(width: 72),
-                Expanded(
-                  child: _NavigationDestination(
-                    item: items[index],
-                    selected: selectedIndex == index,
-                    onTap: () => onSelected(index),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: AppColors.white,
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: BottomAppBar(
+          height: 72,
+          padding: EdgeInsets.zero,
+          color: AppColors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: const CircularNotchedRectangle(),
+          notchMargin: 8,
+          child: SafeArea(
+            top: false,
+            child: Row(
+              children: [
+                for (var index = 0; index < items.length; index++) ...[
+                  if (index == 2) const SizedBox(width: 72),
+                  Expanded(
+                    child: _NavigationDestination(
+                      item: items[index],
+                      selected: selectedIndex == index,
+                      onTap: () => onSelected(index),
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

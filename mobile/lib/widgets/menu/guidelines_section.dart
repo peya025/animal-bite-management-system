@@ -93,7 +93,7 @@ class _GuidelineTile extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.gray900,
               fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 2),

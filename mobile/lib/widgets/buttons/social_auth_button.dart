@@ -31,9 +31,10 @@ class SocialAuthButton extends StatelessWidget {
         ),
       ),
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 48),
-        side: const BorderSide(color: Color(0xFFD8DEDC)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        minimumSize: const Size(double.infinity, 52),
+        backgroundColor: AppColors.white,
+        side: const BorderSide(color: AppColors.border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

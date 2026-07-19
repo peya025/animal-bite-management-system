@@ -75,7 +75,7 @@ class CampaignBanner extends StatelessWidget {
                         style: TextStyle(
                           color: AppColors.white,
                           fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -89,7 +89,7 @@ class CampaignBanner extends StatelessWidget {
                           color: AppColors.white,
                           fontSize: compact ? 19 : 23,
                           height: 1.05,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -113,7 +113,7 @@ class CampaignBanner extends StatelessWidget {
                         'View workflow',
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),

@@ -27,7 +27,7 @@ class AccountLoginPrompt extends StatelessWidget {
             'Log in',
             style: TextStyle(
               color: AppColors.primaryDark,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

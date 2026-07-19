@@ -30,7 +30,13 @@ class PrimaryActionButton extends StatelessWidget {
                   strokeWidth: 2,
                 ),
               )
-            : Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+            : Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
   }

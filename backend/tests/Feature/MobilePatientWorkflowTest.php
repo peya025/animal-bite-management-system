@@ -131,6 +131,22 @@ class MobilePatientWorkflowTest extends TestCase
             'type' => 'booking_confirmation',
         ]);
 
+        $this->getJson('/api/mobile/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.0.patient.name', 'Maria Dela Cruz')
+            ->assertJsonPath('data.0.status', 'pending');
+
+        $notificationId = $account->notifications()->value('notification_id');
+        $this->patchJson("/api/mobile/notifications/{$notificationId}/read")
+            ->assertOk()
+            ->assertJsonPath('status', 'read');
+
+        $this->patchJson('/api/mobile/notifications/read-all')->assertOk();
+        $this->assertDatabaseMissing('notifications', [
+            'patient_account_id' => $account->id,
+            'status' => 'pending',
+        ]);
+
         $this->patchJson("/api/mobile/appointments/{$appointmentId}/cancel", [
             'reason' => 'Schedule conflict',
         ])->assertOk()

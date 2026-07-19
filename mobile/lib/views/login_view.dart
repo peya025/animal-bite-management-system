@@ -5,6 +5,8 @@ import '../app/app_routes.dart';
 import '../widgets/auth_mode_selector.dart';
 import '../widgets/buttons/primary_action_button.dart';
 import '../widgets/buttons/social_auth_button.dart';
+import '../widgets/forms/app_text_field.dart';
+import '../widgets/forms/form_error_banner.dart';
 import '../services/mobile_api.dart';
 
 class LoginView extends StatefulWidget {
@@ -72,7 +74,7 @@ class _LoginViewState extends State<LoginView> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 360),
+              constraints: const BoxConstraints(maxWidth: 400),
               child: Form(
                 key: _formKey,
                 child: AutofillGroup(
@@ -81,8 +83,8 @@ class _LoginViewState extends State<LoginView> {
                     children: [
                       SizedBox(
                         height: MediaQuery.sizeOf(context).height < 760
-                            ? 20
-                            : 48,
+                            ? 12
+                            : 28,
                       ),
                       AuthModeSelector(
                         selected: AuthMode.login,
@@ -96,18 +98,19 @@ class _LoginViewState extends State<LoginView> {
                       ),
                       SizedBox(
                         height: MediaQuery.sizeOf(context).height < 760
-                            ? 48
-                            : 80,
+                            ? 36
+                            : 48,
                       ),
                       if (_errorMessage case final message?) ...[
-                        _ErrorBanner(message: message),
+                        FormErrorBanner(message: message),
                         const SizedBox(height: 20),
                       ],
-                      const _FieldLabel('EMAIL'),
-                      const SizedBox(height: 6),
-                      TextFormField(
+                      AppTextField(
+                        label: 'EMAIL',
                         controller: _emailController,
                         enabled: !_isLoading,
+                        hintText: 'you@example.com',
+                        prefixIcon: Icons.mail_outline_rounded,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.email],
@@ -122,12 +125,13 @@ class _LoginViewState extends State<LoginView> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 20),
-                      const _FieldLabel('PASSWORD'),
-                      const SizedBox(height: 6),
-                      TextFormField(
+                      const SizedBox(height: 18),
+                      AppTextField(
+                        label: 'PASSWORD',
                         controller: _passwordController,
                         enabled: !_isLoading,
+                        hintText: 'Enter your password',
+                        prefixIcon: Icons.lock_outline_rounded,
                         obscureText: _obscurePassword,
                         textInputAction: TextInputAction.done,
                         autofillHints: const [AutofillHints.password],
@@ -139,22 +143,20 @@ class _LoginViewState extends State<LoginView> {
                             _submit();
                           }
                         },
-                        decoration: InputDecoration(
-                          suffixIcon: IconButton(
-                            tooltip: _obscurePassword
-                                ? 'Show password'
-                                : 'Hide password',
-                            onPressed: _isLoading
-                                ? null
-                                : () => setState(
-                                    () => _obscurePassword = !_obscurePassword,
-                                  ),
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                              color: AppColors.gray500,
-                            ),
+                        suffixIcon: IconButton(
+                          tooltip: _obscurePassword
+                              ? 'Show password'
+                              : 'Hide password',
+                          onPressed: _isLoading
+                              ? null
+                              : () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: AppColors.gray500,
                           ),
                         ),
                       ),
@@ -176,7 +178,11 @@ class _LoginViewState extends State<LoginView> {
                           ),
                           const Text(
                             'Remember Me',
-                            style: TextStyle(fontSize: 13),
+                            style: TextStyle(
+                              color: AppColors.gray700,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                           const Spacer(),
                           Flexible(
@@ -194,8 +200,8 @@ class _LoginViewState extends State<LoginView> {
                                   maxLines: 1,
                                   style: TextStyle(
                                     color: AppColors.gray700,
-                                    decoration: TextDecoration.underline,
-                                    fontSize: 13,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
@@ -203,14 +209,11 @@ class _LoginViewState extends State<LoginView> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      Center(
-                        child: PrimaryActionButton(
-                          label: 'LOGIN',
-                          width: 210,
-                          isLoading: _isLoading,
-                          onPressed: _submit,
-                        ),
+                      const SizedBox(height: 14),
+                      PrimaryActionButton(
+                        label: 'LOGIN',
+                        isLoading: _isLoading,
+                        onPressed: _submit,
                       ),
                       const SizedBox(height: 14),
                       const _DividerLabel(),
@@ -251,49 +254,6 @@ class _DividerLabel extends StatelessWidget {
         ),
         Expanded(child: Divider(endIndent: 45)),
       ],
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: AppColors.primaryDark,
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-      ),
-    );
-  }
-}
-
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.errorLight,
-        borderRadius: BorderRadius.circular(8),
-        border: const Border(
-          left: BorderSide(color: AppColors.error, width: 4),
-        ),
-      ),
-      child: Text(
-        message,
-        style: const TextStyle(
-          color: AppColors.errorDark,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
     );
   }
 }

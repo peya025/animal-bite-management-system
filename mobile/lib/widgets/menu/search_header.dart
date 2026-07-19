@@ -41,7 +41,7 @@ class MenuSearchHeader extends StatelessWidget {
                     style: TextStyle(
                       color: AppColors.gray900,
                       fontSize: 17,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],

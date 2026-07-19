@@ -18,11 +18,12 @@ class AuthModeSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        width: 240,
-        height: 48,
+        width: 280,
+        height: 52,
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: AppColors.gray100,
-          borderRadius: BorderRadius.circular(8),
+          color: AppColors.surfaceMuted,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
@@ -59,16 +60,16 @@ class _ModeButton extends StatelessWidget {
     return Expanded(
       child: Material(
         color: selected ? AppColors.primary : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(9),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(9),
           child: Center(
             child: Text(
               label,
               style: TextStyle(
                 color: selected ? AppColors.white : AppColors.primaryDark,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

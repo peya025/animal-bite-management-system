@@ -148,6 +148,7 @@ class _BookingViewState extends State<BookingView> {
                               )
                             : DropdownButtonFormField<PatientProfile>(
                                 initialValue: _selectedPatient,
+                                isExpanded: true,
                                 decoration: const InputDecoration(
                                   prefixIcon: Icon(
                                     Icons.people_outline_rounded,
@@ -158,7 +159,9 @@ class _BookingViewState extends State<BookingView> {
                                       (patient) => DropdownMenuItem(
                                         value: patient,
                                         child: Text(
-                                          '${patient.name} · ${patient.relationship}',
+                                          '${patient.name} - ${patient.relationship}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     )

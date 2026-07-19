@@ -24,7 +24,7 @@ class MenuSectionHeader extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.gray900,
               fontSize: 16,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

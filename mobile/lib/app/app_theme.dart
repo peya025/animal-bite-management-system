@@ -7,6 +7,8 @@ abstract final class AppColors {
   static const white = Color(0xFFFFFFFF);
   static const gray50 = Color(0xFFF9FAFB);
   static const gray100 = Color(0xFFF3F4F6);
+  static const border = Color(0xFFDCE3E1);
+  static const surfaceMuted = Color(0xFFF4F6F5);
   static const gray500 = Color(0xFF6B7280);
   static const gray700 = Color(0xFF374151);
   static const gray900 = Color(0xFF1F2937);
@@ -25,6 +27,7 @@ abstract final class AppTheme {
     return ThemeData(
       colorScheme: colorScheme,
       useMaterial3: true,
+      fontFamily: 'Poppins',
       scaffoldBackgroundColor: AppColors.white,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.primary,
@@ -35,27 +38,44 @@ abstract final class AppTheme {
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.white,
-          minimumSize: const Size(44, 48),
+          minimumSize: const Size(44, 52),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       inputDecorationTheme: const InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.white,
+        fillColor: AppColors.gray50,
         border: OutlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFD8DEDC)),
-          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderSide: BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFD8DEDC)),
-          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderSide: BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
         ),
         focusedBorder: OutlineInputBorder(
           borderSide: BorderSide(color: AppColors.primary, width: 2),
-          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
         ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        errorBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.error),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.error, width: 2),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        hintStyle: TextStyle(color: AppColors.gray500, fontSize: 13),
+        errorStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(4)),
+        ),
       ),
     );
   }

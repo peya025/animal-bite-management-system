@@ -42,24 +42,16 @@ abstract final class AppRouter {
 
     return PageRouteBuilder<dynamic>(
       settings: settings,
-      transitionDuration: const Duration(milliseconds: 320),
-      reverseTransitionDuration: const Duration(milliseconds: 220),
+      transitionDuration: const Duration(milliseconds: 180),
+      reverseTransitionDuration: const Duration(milliseconds: 150),
       pageBuilder: (_, animation, secondaryAnimation) => page,
       transitionsBuilder: (_, animation, secondaryAnimation, child) {
         final curvedAnimation = CurvedAnimation(
           parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
+          curve: Curves.easeOut,
+          reverseCurve: Curves.easeIn,
         );
-        final slideAnimation = Tween<Offset>(
-          begin: const Offset(0.045, 0),
-          end: Offset.zero,
-        ).animate(curvedAnimation);
-
-        return FadeTransition(
-          opacity: curvedAnimation,
-          child: SlideTransition(position: slideAnimation, child: child),
-        );
+        return FadeTransition(opacity: curvedAnimation, child: child);
       },
     );
   }

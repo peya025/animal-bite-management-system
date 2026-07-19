@@ -80,7 +80,7 @@ class _ScheduleSectionState extends State<ScheduleSection> {
                           : _next?.typeLabel ?? 'No appointments yet',
                       style: const TextStyle(
                         color: AppColors.gray900,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 3),

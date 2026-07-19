@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
+import '../models/app_notification.dart';
+import '../services/mobile_api.dart';
 import '../widgets/common/app_page_header.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/menu_surface.dart';
@@ -19,60 +21,88 @@ class NotificationsView extends StatefulWidget {
 
 class _NotificationsViewState extends State<NotificationsView> {
   NotificationFilter _filter = NotificationFilter.all;
-  final Set<int> _readIds = {3};
+  List<AppNotification> _notifications = const [];
+  bool _loading = true;
+  bool _markingAll = false;
+  String? _error;
 
-  static const _notifications = [
-    DemoNotification(
-      id: 1,
-      type: DemoNotificationType.vaccination,
-      title: 'Vaccination reminder',
-      message:
-          'Your Day 7 anti-rabies vaccine is scheduled tomorrow at 10:00 AM.',
-      time: '10 minutes ago',
-    ),
-    DemoNotification(
-      id: 2,
-      type: DemoNotificationType.appointment,
-      title: 'Appointment confirmed',
-      message: 'Your bite consultation has been confirmed for July 18, 2026.',
-      time: '2 hours ago',
-    ),
-    DemoNotification(
-      id: 3,
-      type: DemoNotificationType.awareness,
-      title: 'Rabies prevention tip',
-      message:
-          'Wash bite wounds with soap and running water for at least 15 minutes.',
-      time: 'Yesterday',
-    ),
-    DemoNotification(
-      id: 4,
-      type: DemoNotificationType.system,
-      title: 'Digital card updated',
-      message: 'Your latest vaccination dose was added to your digital card.',
-      time: 'July 12, 2026',
-    ),
-  ];
-
-  int get _unreadCount {
-    return _notifications.where((item) => !_readIds.contains(item.id)).length;
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  Iterable<DemoNotification> get _visibleNotifications {
+  int get _unreadCount =>
+      _notifications.where((notification) => !notification.isRead).length;
+
+  Iterable<AppNotification> get _visibleNotifications {
     if (_filter == NotificationFilter.unread) {
-      return _notifications.where((item) => !_readIds.contains(item.id));
+      return _notifications.where((notification) => !notification.isRead);
     }
     return _notifications;
   }
 
-  void _markRead(int id) {
-    setState(() => _readIds.add(id));
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final notifications = await MobileApi.instance.notifications();
+      if (mounted) setState(() => _notifications = notifications);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
-  void _markAllRead() {
+  Future<void> _markRead(AppNotification notification) async {
+    if (notification.isRead) return;
+    final previous = _notifications;
     setState(() {
-      _readIds.addAll(_notifications.map((item) => item.id));
+      _notifications = _notifications
+          .map(
+            (item) => item.id == notification.id
+                ? item.copyWith(status: 'read')
+                : item,
+          )
+          .toList();
     });
+    try {
+      await MobileApi.instance.markNotificationRead(notification.id);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _notifications = previous);
+      _showError(error);
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    if (_unreadCount == 0 || _markingAll) return;
+    final previous = _notifications;
+    setState(() {
+      _markingAll = true;
+      _notifications = _notifications
+          .map((item) => item.copyWith(status: 'read'))
+          .toList();
+    });
+    try {
+      await MobileApi.instance.markAllNotificationsRead();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _notifications = previous);
+        _showError(error);
+      }
+    } finally {
+      if (mounted) setState(() => _markingAll = false);
+    }
+  }
+
+  void _showError(Object error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error.toString()), backgroundColor: AppColors.error),
+    );
   }
 
   void _navigate(int index) {
@@ -88,6 +118,7 @@ class _NotificationsViewState extends State<NotificationsView> {
 
   @override
   Widget build(BuildContext context) {
+    final visible = _visibleNotifications.toList();
     return Scaffold(
       backgroundColor: const Color(0xFFF5F8F7),
       body: SafeArea(
@@ -95,63 +126,77 @@ class _NotificationsViewState extends State<NotificationsView> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
-                  sliver: SliverList.list(
-                    children: [
-                      AppPageHeader(
-                        title: 'Notifications',
-                        subtitle: 'Reminders and clinic updates.',
-                        onBack: () => Navigator.of(context).pop(),
-                        trailing: TextButton(
-                          onPressed: _unreadCount == 0 ? null : _markAllRead,
-                          child: const Text('Read all'),
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
+                    sliver: SliverList.list(
+                      children: [
+                        AppPageHeader(
+                          title: 'Notifications',
+                          subtitle: 'Reminders and clinic updates.',
+                          onBack: () => Navigator.of(context).pop(),
+                          trailing: TextButton.icon(
+                            onPressed: _unreadCount == 0 || _markingAll
+                                ? null
+                                : _markAllRead,
+                            icon: _markingAll
+                                ? const SizedBox.square(
+                                    dimension: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.done_all_rounded, size: 18),
+                            label: const Text('Read all'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 22),
-                      NotificationFilterControl(
-                        selected: _filter,
-                        unreadCount: _unreadCount,
-                        onSelected: (filter) =>
-                            setState(() => _filter = filter),
-                      ),
-                      const SizedBox(height: 16),
-                      if (_visibleNotifications.isEmpty)
-                        const MenuSurface(
-                          padding: EdgeInsets.all(28),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.notifications_off_outlined,
-                                color: AppColors.gray500,
-                                size: 36,
-                              ),
-                              SizedBox(height: 10),
-                              Text(
-                                'You are all caught up.',
-                                style: TextStyle(
-                                  color: AppColors.gray700,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        for (final notification in _visibleNotifications) ...[
-                          NotificationCard(
-                            notification: notification,
-                            isRead: _readIds.contains(notification.id),
-                            onTap: () => _markRead(notification.id),
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                    ],
+                        const SizedBox(height: 20),
+                        NotificationFilterControl(
+                          selected: _filter,
+                          unreadCount: _unreadCount,
+                          onSelected: (filter) =>
+                              setState(() => _filter = filter),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_loading)
+                          const _NotificationState(
+                            title: 'Checking for updates',
+                            subtitle: 'Loading your latest clinic activity.',
+                            showProgress: true,
+                          )
+                        else if (_error case final message?)
+                          _NotificationState(
+                            title: 'Could not load notifications',
+                            subtitle: message,
+                            action: TextButton.icon(
+                              onPressed: _load,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('RETRY'),
+                            ),
+                          )
+                        else if (visible.isEmpty)
+                          const _NotificationState(
+                            title: 'You are all caught up',
+                            subtitle:
+                                'Appointment and vaccination updates will appear here.',
+                          )
+                        else
+                          for (final notification in visible) ...[
+                            NotificationCard(
+                              notification: notification,
+                              onTap: () => _markRead(notification),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -164,6 +209,75 @@ class _NotificationsViewState extends State<NotificationsView> {
         onPressed: () => showDigitalVaccinationCard(context),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
+  }
+}
+
+class _NotificationState extends StatelessWidget {
+  const _NotificationState({
+    required this.title,
+    required this.subtitle,
+    this.action,
+    this.showProgress = false,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget? action;
+  final bool showProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    return MenuSurface(
+      padding: const EdgeInsets.fromLTRB(22, 12, 22, 22),
+      child: Column(
+        children: [
+          Container(
+            width: 92,
+            height: 92,
+            margin: const EdgeInsets.symmetric(vertical: 16),
+            decoration: const BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              size: 42,
+              color: AppColors.primaryDark,
+            ),
+          ),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.gray900,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.gray500,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+          if (showProgress) ...[
+            const SizedBox(height: 14),
+            const SizedBox(
+              width: 90,
+              child: LinearProgressIndicator(minHeight: 3),
+            ),
+          ],
+          if (action != null) ...[
+            const SizedBox(height: 10),
+            action!,
+          ],
+        ],
+      ),
     );
   }
 }

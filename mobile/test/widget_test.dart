@@ -1,24 +1,59 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/app/app_router.dart';
+import 'package:mobile/models/app_notification.dart';
+import 'package:mobile/models/appointment_summary.dart';
 import 'package:mobile/models/bite_intake_route_args.dart';
 import 'package:mobile/models/booking_draft.dart';
 import 'package:mobile/models/patient_profile.dart';
-import 'package:mobile/models/appointment_summary.dart';
 import 'package:mobile/views/bite_intake_view.dart';
-import 'package:mobile/widgets/appointments/appointment_card.dart';
 import 'package:mobile/views/booking_view.dart';
 import 'package:mobile/views/history_view.dart';
 import 'package:mobile/views/menu_view.dart';
 import 'package:mobile/views/notifications_view.dart';
 import 'package:mobile/views/settings_view.dart';
+import 'package:mobile/widgets/appointments/appointment_card.dart';
+import 'package:mobile/widgets/notifications/notification_card.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  test('parses the mobile notification API payload', () {
+    final notification = AppNotification.fromJson({
+      'notification_id': 7,
+      'type': 'booking_confirmation',
+      'message': 'Your appointment is confirmed.',
+      'status': 'pending',
+      'created_at': '2026-07-19T12:00:00.000000Z',
+      'patient': {'name': 'Maria Dela Cruz'},
+    });
+
+    expect(notification.title, 'Appointment confirmed');
+    expect(notification.patientName, 'Maria Dela Cruz');
+    expect(notification.isRead, isFalse);
+  });
+
   testWidgets('opens the login view from the welcome view', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const AnimalCareApp());
 
     expect(find.text('ANIMAL BITE CENTER'), findsOneWidget);
+    expect(find.text('Welcome to Animal Bite Center'), findsOneWidget);
+
+    await tester.tap(find.text('NEXT'));
+    await tester.pumpAndSettle();
+    expect(find.text('Keep your care in one place'), findsOneWidget);
+
+    await tester.tap(find.text('NEXT'));
+    await tester.pumpAndSettle();
+    expect(find.text('Set up your patient profiles'), findsOneWidget);
+
+    await tester.tap(find.text('NEXT'));
+    await tester.pumpAndSettle();
+    expect(find.text('Book the visit you need'), findsOneWidget);
 
     await tester.tap(find.text('GET STARTED'));
     await tester.pumpAndSettle();
@@ -29,7 +64,7 @@ void main() {
 
   testWidgets('login form shows required field validation', (tester) async {
     await tester.pumpWidget(const AnimalCareApp());
-    await tester.tap(find.text('GET STARTED'));
+    await tester.tap(find.text('SKIP'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('LOGIN').last);
@@ -41,7 +76,7 @@ void main() {
 
   testWidgets('sign up tab opens the registration form', (tester) async {
     await tester.pumpWidget(const AnimalCareApp());
-    await tester.tap(find.text('GET STARTED'));
+    await tester.tap(find.text('SKIP'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('SIGN UP'));
@@ -254,7 +289,9 @@ void main() {
     expect(find.text('2 of 4 doses'), findsOneWidget);
   });
 
-  testWidgets('notification bell opens demo notifications', (tester) async {
+  testWidgets('notification bell opens the live notifications page', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: const MenuView(),
@@ -263,14 +300,38 @@ void main() {
     );
 
     await tester.tap(find.byTooltip('Notifications'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Reminders and clinic updates.'), findsOneWidget);
-    expect(find.text('Vaccination reminder'), findsOneWidget);
-    expect(find.text('Unread (3)'), findsOneWidget);
+    expect(find.text('All'), findsOneWidget);
+    expect(find.text('Unread (0)'), findsOneWidget);
+  });
+
+  testWidgets('notification card marks a live item as read', (tester) async {
+    var tapped = false;
+    final notification = AppNotification(
+      id: 1,
+      type: 'vaccination_reminder',
+      message: 'Your next vaccination dose is due tomorrow.',
+      status: 'pending',
+      createdAt: DateTime.now(),
+      patientName: 'Juan Dela Cruz',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NotificationCard(
+            notification: notification,
+            onTap: () => tapped = true,
+          ),
+        ),
+      ),
+    );
 
     await tester.tap(find.text('Vaccination reminder'));
-    await tester.pump();
-    expect(find.text('Unread (2)'), findsOneWidget);
+    expect(tapped, isTrue);
+    expect(find.textContaining('Juan Dela Cruz'), findsOneWidget);
   });
 }

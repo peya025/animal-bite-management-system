@@ -5,6 +5,8 @@ import '../app/app_theme.dart';
 import '../widgets/auth_mode_selector.dart';
 import '../widgets/buttons/account_login_prompt.dart';
 import '../widgets/buttons/primary_action_button.dart';
+import '../widgets/forms/app_text_field.dart';
+import '../widgets/forms/form_error_banner.dart';
 import '../services/mobile_api.dart';
 
 class SignUpView extends StatefulWidget {
@@ -23,6 +25,8 @@ class _SignUpViewState extends State<SignUpView> {
   final _passwordController = TextEditingController();
   final _passwordConfirmationController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscurePasswordConfirmation = true;
   String? _errorMessage;
 
   @override
@@ -78,156 +82,183 @@ class _SignUpViewState extends State<SignUpView> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 360),
+              constraints: const BoxConstraints(maxWidth: 400),
               child: Form(
                 key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 34),
-                    AuthModeSelector(
-                      selected: AuthMode.signUp,
-                      onChanged: (mode) {
-                        if (mode == AuthMode.login) {
-                          Navigator.of(
-                            context,
-                          ).pushReplacementNamed(AppRoutes.login);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 56),
-                    if (_errorMessage case final message?) ...[
-                      Text(
-                        message,
-                        style: const TextStyle(
-                          color: AppColors.error,
-                          fontWeight: FontWeight.w600,
-                        ),
+                child: AutofillGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.sizeOf(context).height < 760
+                            ? 12
+                            : 28,
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                    _SignUpField(
-                      label: 'EMAIL',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        final email = value?.trim() ?? '';
-                        if (email.isEmpty) return 'Email is required';
-                        if (!email.contains('@')) return 'Enter a valid email';
-                        return null;
-                      },
-                    ),
-                    _SignUpField(
-                      label: 'LAST NAME',
-                      controller: _lastNameController,
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                    _SignUpField(
-                      label: 'FIRST NAME',
-                      controller: _firstNameController,
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                    _SignUpField(
-                      label: 'PHONE',
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      required: false,
-                    ),
-                    _SignUpField(
-                      label: 'PASSWORD',
-                      controller: _passwordController,
-                      obscureText: true,
-                      validator: (value) {
-                        if (value == null || value.length < 8) {
-                          return 'Use at least 8 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    _SignUpField(
-                      label: 'CONFIRM PASSWORD',
-                      controller: _passwordConfirmationController,
-                      obscureText: true,
-                      validator: (value) => value != _passwordController.text
-                          ? 'Passwords do not match'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    Center(
-                      child: PrimaryActionButton(
+                      AuthModeSelector(
+                        selected: AuthMode.signUp,
+                        onChanged: (mode) {
+                          if (mode == AuthMode.login) {
+                            Navigator.of(
+                              context,
+                            ).pushReplacementNamed(AppRoutes.login);
+                          }
+                        },
+                      ),
+                      SizedBox(
+                        height: MediaQuery.sizeOf(context).height < 760
+                            ? 36
+                            : 48,
+                      ),
+                      if (_errorMessage case final message?) ...[
+                        FormErrorBanner(message: message),
+                        const SizedBox(height: 20),
+                      ],
+                      AppTextField(
+                        label: 'EMAIL',
+                        controller: _emailController,
+                        enabled: !_isLoading,
+                        hintText: 'you@example.com',
+                        prefixIcon: Icons.mail_outline_rounded,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.email],
+                        validator: (value) {
+                          final email = value?.trim() ?? '';
+                          if (email.isEmpty) return 'Email is required';
+                          if (!email.contains('@')) return 'Enter a valid email';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      AppTextField(
+                        label: 'FIRST NAME',
+                        controller: _firstNameController,
+                        enabled: !_isLoading,
+                        hintText: 'Enter your first name',
+                        prefixIcon: Icons.person_outline_rounded,
+                        textInputAction: TextInputAction.next,
+                        textCapitalization: TextCapitalization.words,
+                        autofillHints: const [AutofillHints.givenName],
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                            ? 'FIRST NAME is required'
+                            : null,
+                      ),
+                      const SizedBox(height: 18),
+                      AppTextField(
+                        label: 'LAST NAME',
+                        controller: _lastNameController,
+                        enabled: !_isLoading,
+                        hintText: 'Enter your last name',
+                        prefixIcon: Icons.badge_outlined,
+                        textInputAction: TextInputAction.next,
+                        textCapitalization: TextCapitalization.words,
+                        autofillHints: const [AutofillHints.familyName],
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                            ? 'LAST NAME is required'
+                            : null,
+                      ),
+                      const SizedBox(height: 18),
+                      AppTextField(
+                        label: 'PHONE',
+                        controller: _phoneController,
+                        enabled: !_isLoading,
+                        hintText: '09XX XXX XXXX',
+                        prefixIcon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.telephoneNumber],
+                      ),
+                      const SizedBox(height: 18),
+                      AppTextField(
+                        label: 'PASSWORD',
+                        controller: _passwordController,
+                        enabled: !_isLoading,
+                        hintText: 'At least 8 characters',
+                        prefixIcon: Icons.lock_outline_rounded,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.newPassword],
+                        suffixIcon: IconButton(
+                          tooltip: _obscurePassword
+                              ? 'Show password'
+                              : 'Hide password',
+                          onPressed: _isLoading
+                              ? null
+                              : () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: AppColors.gray500,
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.length < 8) {
+                            return 'Use at least 8 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      AppTextField(
+                        label: 'CONFIRM PASSWORD',
+                        controller: _passwordConfirmationController,
+                        enabled: !_isLoading,
+                        hintText: 'Enter the password again',
+                        prefixIcon: Icons.lock_reset_rounded,
+                        obscureText: _obscurePasswordConfirmation,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.newPassword],
+                        suffixIcon: IconButton(
+                          tooltip: _obscurePasswordConfirmation
+                              ? 'Show password confirmation'
+                              : 'Hide password confirmation',
+                          onPressed: _isLoading
+                              ? null
+                              : () => setState(
+                                  () => _obscurePasswordConfirmation =
+                                      !_obscurePasswordConfirmation,
+                                ),
+                          icon: Icon(
+                            _obscurePasswordConfirmation
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: AppColors.gray500,
+                          ),
+                        ),
+                        validator: (value) =>
+                            value != _passwordController.text
+                            ? 'Passwords do not match'
+                            : null,
+                        onFieldSubmitted: (_) {
+                          if (!_isLoading) _register();
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      PrimaryActionButton(
                         label: 'REGISTER',
-                        width: 210,
                         isLoading: _isLoading,
                         onPressed: _register,
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    AccountLoginPrompt(
-                      enabled: !_isLoading,
-                      onLogin: () => Navigator.of(
-                        context,
-                      ).pushReplacementNamed(AppRoutes.login),
-                    ),
-                    const SizedBox(height: 28),
-                  ],
+                      const SizedBox(height: 16),
+                      AccountLoginPrompt(
+                        enabled: !_isLoading,
+                        onLogin: () => Navigator.of(
+                          context,
+                        ).pushReplacementNamed(AppRoutes.login),
+                      ),
+                      const SizedBox(height: 28),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SignUpField extends StatelessWidget {
-  const _SignUpField({
-    required this.label,
-    required this.controller,
-    this.keyboardType,
-    this.textCapitalization = TextCapitalization.none,
-    this.validator,
-    this.obscureText = false,
-    this.required = true,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final TextInputType? keyboardType;
-  final TextCapitalization textCapitalization;
-  final String? Function(String?)? validator;
-  final bool obscureText;
-  final bool required;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.gray700,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: controller,
-            enabled: true,
-            keyboardType: keyboardType,
-            textCapitalization: textCapitalization,
-            obscureText: obscureText,
-            validator:
-                validator ??
-                (value) => required && (value == null || value.trim().isEmpty)
-                    ? '$label is required'
-                    : null,
-          ),
-        ],
       ),
     );
   }

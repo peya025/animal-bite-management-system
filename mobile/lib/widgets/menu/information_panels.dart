@@ -49,7 +49,7 @@ class _WorkingHoursPanel extends StatelessWidget {
             style: TextStyle(
               color: AppColors.gray900,
               fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
@@ -66,7 +66,7 @@ class _WorkingHoursPanel extends StatelessWidget {
               style: TextStyle(
                 color: AppColors.primaryDark,
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -99,7 +99,7 @@ class _AwarenessPanel extends StatelessWidget {
             style: TextStyle(
               color: AppColors.gray900,
               fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
           SizedBox(height: 4),

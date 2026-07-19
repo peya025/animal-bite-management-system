@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -6,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/booking_draft.dart';
 import '../models/bite_intake_draft.dart';
 import '../models/appointment_summary.dart';
+import '../models/app_notification.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_account_profile.dart';
 
@@ -28,6 +30,7 @@ class MobileApi {
   );
   static const clinicId = int.fromEnvironment('CLINIC_ID', defaultValue: 1);
   static const _tokenKey = 'patient_account_token';
+  static const _requestTimeout = Duration(seconds: 12);
   static const _storage = FlutterSecureStorage();
 
   String? _token;
@@ -162,6 +165,23 @@ class MobileApi {
     return AppointmentSummary.fromJson(data);
   }
 
+  Future<List<AppNotification>> notifications() async {
+    final response =
+        await _send('GET', '/notifications') as Map<String, dynamic>;
+    final data = response['data'] as List<dynamic>;
+    return data
+        .map((item) => AppNotification.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> markNotificationRead(int notificationId) async {
+    await _send('PATCH', '/notifications/$notificationId/read');
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _send('PATCH', '/notifications/read-all');
+  }
+
   Future<dynamic> _send(
     String method,
     String path, {
@@ -175,12 +195,30 @@ class MobileApi {
     };
     final encodedBody = body == null ? null : jsonEncode(body);
 
-    final response = switch (method) {
-      'GET' => await http.get(uri, headers: headers),
-      'POST' => await http.post(uri, headers: headers, body: encodedBody),
-      'PATCH' => await http.patch(uri, headers: headers, body: encodedBody),
-      _ => throw ArgumentError.value(method, 'method'),
-    };
+    late final Future<http.Response> request;
+    switch (method) {
+      case 'GET':
+        request = http.get(uri, headers: headers);
+      case 'POST':
+        request = http.post(uri, headers: headers, body: encodedBody);
+      case 'PATCH':
+        request = http.patch(uri, headers: headers, body: encodedBody);
+      default:
+        throw ArgumentError.value(method, 'method');
+    }
+
+    late final http.Response response;
+    try {
+      response = await request.timeout(_requestTimeout);
+    } on TimeoutException {
+      throw const ApiException(
+        'The clinic server took too long to respond. Check your connection.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Could not reach the clinic server. Check that Laravel is running.',
+      );
+    }
 
     final decoded = response.body.isEmpty ? null : jsonDecode(response.body);
     if (response.statusCode >= 200 && response.statusCode < 300) {

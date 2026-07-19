@@ -1,62 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
-
-enum DemoNotificationType { vaccination, appointment, awareness, system }
-
-class DemoNotification {
-  const DemoNotification({
-    required this.id,
-    required this.type,
-    required this.title,
-    required this.message,
-    required this.time,
-  });
-
-  final int id;
-  final DemoNotificationType type;
-  final String title;
-  final String message;
-  final String time;
-}
-
-extension DemoNotificationStyle on DemoNotificationType {
-  IconData get icon => switch (this) {
-    DemoNotificationType.vaccination => Icons.vaccines_outlined,
-    DemoNotificationType.appointment => Icons.event_available_outlined,
-    DemoNotificationType.awareness => Icons.campaign_outlined,
-    DemoNotificationType.system => Icons.security_outlined,
-  };
-
-  Color get background => switch (this) {
-    DemoNotificationType.vaccination => AppColors.primaryLight,
-    DemoNotificationType.appointment => const Color(0xFFE8EEFF),
-    DemoNotificationType.awareness => const Color(0xFFFFF1D6),
-    DemoNotificationType.system => const Color(0xFFF0E9FA),
-  };
-
-  Color get foreground => switch (this) {
-    DemoNotificationType.vaccination => AppColors.primaryDark,
-    DemoNotificationType.appointment => const Color(0xFF4867B3),
-    DemoNotificationType.awareness => const Color(0xFFB86A00),
-    DemoNotificationType.system => const Color(0xFF72519A),
-  };
-}
+import '../../models/app_notification.dart';
 
 class NotificationCard extends StatelessWidget {
   const NotificationCard({
     super.key,
     required this.notification,
-    required this.isRead,
     required this.onTap,
   });
 
-  final DemoNotification notification;
-  final bool isRead;
+  final AppNotification notification;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final isRead = notification.isRead;
     return Material(
       color: isRead ? AppColors.white : const Color(0xFFF0FAF7),
       borderRadius: BorderRadius.circular(8),
@@ -78,12 +37,12 @@ class NotificationCard extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: notification.type.background,
+                  color: notification.kind.background,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  notification.type.icon,
-                  color: notification.type.foreground,
+                  notification.kind.icon,
+                  color: notification.kind.foreground,
                   size: 21,
                 ),
               ),
@@ -128,7 +87,7 @@ class NotificationCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 7),
                     Text(
-                      notification.time,
+                      '${notification.patientName}  |  ${notification.relativeTime}',
                       style: const TextStyle(
                         color: AppColors.gray500,
                         fontSize: 10,

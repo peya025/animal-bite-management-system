@@ -30,4 +30,16 @@ class MobileNotificationController extends Controller
 
         return response()->json($notification);
     }
+
+    public function markAllAsRead(Request $request)
+    {
+        $request->user()->notifications()
+            ->where('status', '!=', 'read')
+            ->update([
+                'status' => 'read',
+                'read_at' => now(),
+            ]);
+
+        return response()->json(['message' => 'All notifications marked as read.']);
+    }
 }

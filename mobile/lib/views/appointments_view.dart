@@ -4,6 +4,7 @@ import '../app/app_theme.dart';
 import '../models/appointment_summary.dart';
 import '../services/mobile_api.dart';
 import '../widgets/appointments/appointment_card.dart';
+import '../widgets/appointments/appointment_filter.dart';
 import '../widgets/common/app_page_header.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/forms/app_text_field.dart';
@@ -21,6 +22,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   String? _error;
   bool _scheduledOnly = true;
   int? _cancellingId;
+
+  int get _scheduledCount => _appointments
+      .where((appointment) => appointment.status == 'scheduled')
+      .length;
 
   @override
   void initState() {
@@ -144,7 +149,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   Widget build(BuildContext context) {
     final visible = _visible;
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.pageBackground,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -165,37 +170,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           centered: true,
                         ),
                         const SizedBox(height: 22),
-                        Center(
-                          child: SizedBox(
-                            width: 280,
-                            child: SegmentedButton<bool>(
-                              showSelectedIcon: false,
-                              segments: const [
-                                ButtonSegment(
-                                  value: true,
-                                  label: Text('Scheduled'),
-                                ),
-                                ButtonSegment(
-                                  value: false,
-                                  label: Text('All'),
-                                ),
-                              ],
-                              selected: {_scheduledOnly},
-                              style: SegmentedButton.styleFrom(
-                                backgroundColor: AppColors.surfaceMuted,
-                                selectedBackgroundColor: AppColors.primary,
-                                selectedForegroundColor: AppColors.white,
-                                foregroundColor: AppColors.gray700,
-                                side: BorderSide.none,
-                                textStyle: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              onSelectionChanged: (selection) => setState(
-                                () => _scheduledOnly = selection.first,
-                              ),
-                            ),
+                        AppointmentFilterControl(
+                          scheduledOnly: _scheduledOnly,
+                          scheduledCount: _scheduledCount,
+                          onChanged: (scheduledOnly) => setState(
+                            () => _scheduledOnly = scheduledOnly,
                           ),
                         ),
                         const SizedBox(height: 20),

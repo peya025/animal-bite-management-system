@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../app/app_theme.dart';
 import '../../models/appointment_summary.dart';
 import '../common/status_chip.dart';
-import '../menu/menu_surface.dart';
 
 class AppointmentCard extends StatelessWidget {
   const AppointmentCard({
@@ -20,180 +19,153 @@ class AppointmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCancelled = appointment.status == 'cancelled';
-    return MenuSurface(
-      padding: const EdgeInsets.all(14),
-      color: AppColors.surfaceMuted,
-      showBorder: false,
-      showShadow: false,
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DateTile(
-                date: appointment.scheduledDate,
-                cancelled: isCancelled,
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          appointment.type == 'vaccination'
-                              ? Icons.vaccines_outlined
-                              : Icons.medical_information_outlined,
-                          color: isCancelled
-                              ? AppColors.errorDark
-                              : AppColors.primaryDark,
-                          size: 18,
+    final isScheduled = appointment.status == 'scheduled';
+    final leadingBackground = isCancelled
+        ? AppColors.errorLight
+        : appointment.type == 'vaccination'
+        ? AppColors.primaryLight
+        : const Color(0xFFE8EEFF);
+    final leadingForeground = isCancelled
+        ? AppColors.errorDark
+        : appointment.type == 'vaccination'
+        ? AppColors.primaryDark
+        : const Color(0xFF4867B3);
+
+    return Material(
+      color: isScheduled ? const Color(0xFFF0FAF7) : AppColors.white,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isScheduled ? const Color(0xFFB8E4DB) : AppColors.border,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: leadingBackground,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    appointment.type == 'vaccination'
+                        ? Icons.vaccines_outlined
+                        : Icons.medical_information_outlined,
+                    color: leadingForeground,
+                    size: 21,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              appointment.typeLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.gray900,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          StatusChip(status: appointment.status),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        'Appointment for ${appointment.patientName}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.gray500,
+                          fontSize: 11,
+                          height: 1.35,
                         ),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: Text(
-                            appointment.typeLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 7),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            color: AppColors.gray500,
+                            size: 13,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            appointment.formattedDate,
                             style: const TextStyle(
-                              color: AppColors.gray900,
-                              fontSize: 13,
+                              color: AppColors.gray500,
+                              fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        StatusChip(status: appointment.status),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      appointment.patientName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.gray700,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      appointment.formattedDate,
-                      style: const TextStyle(
-                        color: AppColors.gray500,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          if (appointment.cancellationReason case final reason?) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.errorLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                reason,
-                style: const TextStyle(
-                  color: AppColors.errorDark,
-                  fontSize: 11,
-                ),
-              ),
+              ],
             ),
-          ],
-          if (appointment.canCancel && onCancel != null) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: isCancelling ? null : onCancel,
-                icon: isCancelling
-                    ? const SizedBox.square(
-                        dimension: 17,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.event_busy_outlined, size: 18),
-                label: Text(
-                  isCancelling ? 'CANCELLING...' : 'CANCEL APPOINTMENT',
+            if (appointment.cancellationReason case final reason?) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.errorLight,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.errorDark,
-                  minimumSize: const Size.fromHeight(44),
-                  side: const BorderSide(color: Color(0xFFF1B5B5)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                child: Text(
+                  reason,
+                  style: const TextStyle(
+                    color: AppColors.errorDark,
+                    fontSize: 11,
                   ),
                 ),
               ),
-            ),
+            ],
+            if (appointment.canCancel && onCancel != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isCancelling ? null : onCancel,
+                  icon: isCancelling
+                      ? const SizedBox.square(
+                          dimension: 17,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.event_busy_outlined, size: 18),
+                  label: Text(
+                    isCancelling ? 'CANCELLING...' : 'CANCEL APPOINTMENT',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.errorDark,
+                    minimumSize: const Size.fromHeight(44),
+                    side: const BorderSide(color: Color(0xFFF1B5B5)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _DateTile extends StatelessWidget {
-  const _DateTile({required this.date, required this.cancelled});
-
-  final DateTime date;
-  final bool cancelled;
-
-  @override
-  Widget build(BuildContext context) {
-    const months = [
-      'JAN',
-      'FEB',
-      'MAR',
-      'APR',
-      'MAY',
-      'JUN',
-      'JUL',
-      'AUG',
-      'SEP',
-      'OCT',
-      'NOV',
-      'DEC',
-    ];
-    final localDate = date.toLocal();
-    final foreground = cancelled ? AppColors.errorDark : AppColors.primaryDark;
-
-    return Container(
-      width: 52,
-      height: 62,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            months[localDate.month - 1],
-            style: TextStyle(
-              color: foreground,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${localDate.day}',
-            style: TextStyle(
-              color: foreground,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

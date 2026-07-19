@@ -202,6 +202,7 @@ Create or improve shared components before redesigning individual pages.
 | `StatusChip` | Vaccination, consultation, follow-up, cancelled states | `widgets/common/status_chip.dart` |
 | `EmptyState` | Icon, short message, and one relevant action | `widgets/common/empty_state.dart` |
 | `AppBottomNavigation` | Stable navigation shared by all main destinations | Refactor existing menu navigation |
+| `SegmentedFilterControl` | Shared full-width filter treatment for list screens | Reuse the Notifications/Appointments pattern |
 
 Use Material icons already available in Flutter. Choose the outlined/rounded family consistently, such as `person_outline_rounded`, `calendar_month_outlined`, `notifications_none_rounded`, and `settings_outlined`.
 
@@ -270,6 +271,37 @@ Refactor existing menu widgets instead of rebuilding them inside `menu_view.dart
 - Put cancel/reschedule actions in a menu or clear secondary action area; require confirmation before cancellation.
 - Long patient names must use ellipsis and never overflow dropdowns or cards.
 
+### Appointment List Pattern
+
+Use the Notifications screen as the visual reference for appointment and activity lists.
+
+- Place one full-width segmented filter directly below the page header.
+- Use a light teal background and dark teal icon/text for the selected filter.
+- Use a white background and medium-gray icon/text for unselected filters.
+- Include useful counts in labels when available, such as `Scheduled (2)` or `Unread (3)`.
+- Keep filter height, icon size, label weight, and padding identical across Appointments, Notifications, and History.
+- Do not use a separate raised card style for each type of list.
+
+Each list row should use:
+
+- A white background for normal/read/inactive records.
+- A soft teal background and teal-tinted border for current, scheduled, or unread records.
+- A `1px` neutral border for other records.
+- An `8px` row radius with no shadow.
+- A `42 x 42` leading icon container with a relevant status or service color.
+- A semibold primary title, concise supporting message, and compact metadata line.
+- A status chip aligned without squeezing or overflowing the title.
+- `10px` vertical space between separate rows.
+- Ellipsis or a controlled two-line limit for long patient names and messages.
+
+Appointment-specific actions:
+
+- Keep cancellation visually separate below the row content.
+- Use the shared outlined destructive style and require confirmation.
+- Preserve button dimensions while the cancellation request is loading.
+- Show cancellation reasons in a soft error surface inside the same row.
+- Sort appointments chronologically and keep pull-to-refresh available.
+
 ## Notifications
 
 - Use a centered `Notifications` header with an optional mark-all-read action.
@@ -279,6 +311,7 @@ Refactor existing menu widgets instead of rebuilding them inside `menu_view.dart
 - Unread rows may use `primarySoft`; read rows use white or muted neutral.
 - Tapping a notification should open the related appointment, vaccination record, or profile when available.
 - Keep notification cards flat and compact; avoid a separate floating card for every short message.
+- Reuse the shared segmented-filter and bordered-list-row pattern documented above.
 
 ## History
 
@@ -352,7 +385,7 @@ Use the same bottom navigation on Home, Book, History, and Settings.
 - [x] Settings and profile use organized grouped rows based on the reference.
 - [x] Home uses a compact dashboard hierarchy with appointment and quick actions prioritized.
 - [x] Booking uses shared patient fields, grouped services, a clear calendar, and a compact summary.
-- [x] Appointments use date-led rows, shared status chips, and a guarded cancellation flow.
+- [x] Appointments use the shared notification-style filter/list pattern, status chips, and a guarded cancellation flow.
 - [x] Home, Book, History, Notifications, and Settings share one bottom navigation.
 - [ ] Cards use no more than an `8px` radius; fields and buttons use the agreed `12px` radius.
 - [ ] Icons use one consistent Material icon family and size system.

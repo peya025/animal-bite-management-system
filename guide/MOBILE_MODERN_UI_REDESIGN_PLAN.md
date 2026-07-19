@@ -275,6 +275,7 @@ Use the same bottom navigation on Home, Book, History, and Settings.
 - [x] Settings and profile use organized grouped rows based on the reference.
 - [x] Home uses a compact dashboard hierarchy with appointment and quick actions prioritized.
 - [x] Booking uses shared patient fields, grouped services, a clear calendar, and a compact summary.
+- [x] Appointments use date-led rows, shared status chips, and a guarded cancellation flow.
 - [x] Home, Book, History, Notifications, and Settings share one bottom navigation.
 - [ ] Cards use no more than an `8px` radius; fields and buttons use the agreed `12px` radius.
 - [ ] Icons use one consistent Material icon family and size system.

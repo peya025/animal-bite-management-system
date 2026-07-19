@@ -5,7 +5,8 @@ import '../models/appointment_summary.dart';
 import '../services/mobile_api.dart';
 import '../widgets/appointments/appointment_card.dart';
 import '../widgets/common/app_page_header.dart';
-import '../widgets/menu/menu_surface.dart';
+import '../widgets/common/empty_state.dart';
+import '../widgets/forms/app_text_field.dart';
 
 class AppointmentsView extends StatefulWidget {
   const AppointmentsView({super.key});
@@ -19,6 +20,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   bool _loading = true;
   String? _error;
   bool _scheduledOnly = true;
+  int? _cancellingId;
 
   @override
   void initState() {
@@ -26,9 +28,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     _load();
   }
 
-  Iterable<AppointmentSummary> get _visible => _scheduledOnly
-      ? _appointments.where((appointment) => appointment.status == 'scheduled')
-      : _appointments;
+  List<AppointmentSummary> get _visible {
+    final appointments = _scheduledOnly
+        ? _appointments
+              .where((appointment) => appointment.status == 'scheduled')
+              .toList()
+        : [..._appointments];
+    appointments.sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
+    return appointments;
+  }
 
   Future<void> _load() async {
     setState(() {
@@ -50,23 +58,44 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         icon: const Icon(Icons.event_busy_outlined, color: AppColors.error),
-        title: const Text('Cancel appointment?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('${appointment.patientName} - ${appointment.formattedDate}'),
-            const SizedBox(height: 14),
-            TextField(
-              controller: reason,
-              maxLines: 3,
-              maxLength: 1000,
-              decoration: const InputDecoration(
-                labelText: 'Reason (optional)',
+        title: const Text(
+          'Cancel appointment?',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${appointment.patientName}\n${appointment.formattedDate}',
+                  style: const TextStyle(
+                    color: AppColors.gray700,
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              AppTextField(
+                label: 'REASON (OPTIONAL)',
+                controller: reason,
+                hintText: 'Tell the clinic why you need to cancel',
+                minLines: 3,
+                maxLines: 3,
+                maxLength: 1000,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -85,6 +114,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     reason.dispose();
     if (confirmed != true || !mounted) return;
 
+    setState(() => _cancellingId = appointment.id);
     try {
       final updated = await MobileApi.instance.cancelAppointment(
         appointmentId: appointment.id,
@@ -105,14 +135,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           SnackBar(content: Text(error.toString()), backgroundColor: AppColors.error),
         );
       }
+    } finally {
+      if (mounted) setState(() => _cancellingId = null);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final visible = _visible.toList();
+    final visible = _visible;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F8F7),
+      backgroundColor: AppColors.white,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -123,43 +155,78 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                     sliver: SliverList.list(
                       children: [
                         AppPageHeader(
                           title: 'Appointments',
                           subtitle: 'Family bookings and schedules.',
                           onBack: () => Navigator.of(context).pop(),
+                          centered: true,
                         ),
-                        const SizedBox(height: 20),
-                        SegmentedButton<bool>(
-                          segments: const [
-                            ButtonSegment(value: true, label: Text('Scheduled')),
-                            ButtonSegment(value: false, label: Text('All')),
-                          ],
-                          selected: {_scheduledOnly},
-                          onSelectionChanged: (selection) => setState(
-                            () => _scheduledOnly = selection.first,
+                        const SizedBox(height: 22),
+                        Center(
+                          child: SizedBox(
+                            width: 280,
+                            child: SegmentedButton<bool>(
+                              showSelectedIcon: false,
+                              segments: const [
+                                ButtonSegment(
+                                  value: true,
+                                  label: Text('Scheduled'),
+                                ),
+                                ButtonSegment(
+                                  value: false,
+                                  label: Text('All'),
+                                ),
+                              ],
+                              selected: {_scheduledOnly},
+                              style: SegmentedButton.styleFrom(
+                                backgroundColor: AppColors.surfaceMuted,
+                                selectedBackgroundColor: AppColors.primary,
+                                selectedForegroundColor: AppColors.white,
+                                foregroundColor: AppColors.gray700,
+                                side: BorderSide.none,
+                                textStyle: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              onSelectionChanged: (selection) => setState(
+                                () => _scheduledOnly = selection.first,
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         if (_loading)
-                          const Center(child: CircularProgressIndicator())
-                        else if (_error case final message?)
-                          MenuSurface(
-                            padding: const EdgeInsets.all(18),
-                            child: Column(
-                              children: [
-                                Text(message, textAlign: TextAlign.center),
-                                const SizedBox(height: 8),
-                                TextButton(onPressed: _load, child: const Text('RETRY')),
-                              ],
+                          Container(
+                            height: 160,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceMuted,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const SizedBox.square(
+                              dimension: 26,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           )
+                        else if (_error case final message?)
+                          EmptyState(
+                            icon: Icons.sync_problem_rounded,
+                            title: 'Could not load appointments',
+                            message: message,
+                            actionLabel: 'RETRY',
+                            onAction: _load,
+                          )
                         else if (visible.isEmpty)
-                          const MenuSurface(
-                            padding: EdgeInsets.all(24),
-                            child: Center(child: Text('No appointments found.')),
+                          EmptyState(
+                            icon: Icons.event_available_outlined,
+                            title: 'No appointments found',
+                            message: _scheduledOnly
+                                ? 'You have no scheduled visits right now.'
+                                : 'Your appointment activity will appear here.',
                           )
                         else
                           for (final appointment in visible) ...[
@@ -168,6 +235,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               onCancel: appointment.canCancel
                                   ? () => _cancel(appointment)
                                   : null,
+                              isCancelling:
+                                  _cancellingId == appointment.id,
                             ),
                             const SizedBox(height: 10),
                           ],

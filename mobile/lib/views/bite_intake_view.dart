@@ -37,7 +37,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   @override
   void initState() {
     super.initState();
-    _selectedBiteDate = DateTime.now();
+    _selectedBiteDate = DateUtils.dateOnly(DateTime.now());
     _biteDate.text = _formatDate(_selectedBiteDate);
   }
 
@@ -74,6 +74,12 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    final today = DateUtils.dateOnly(DateTime.now());
+    final incidentDate = DateUtils.dateOnly(_selectedBiteDate);
+    if (incidentDate.isAfter(today)) {
+      setState(() => _error = 'The incident date must be today or earlier.');
+      return;
+    }
     if (_siteWashed == null) {
       setState(() => _error = 'Please indicate whether the wound was washed.');
       return;

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\PatientAccount;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -208,6 +209,42 @@ class MobilePatientWorkflowTest extends TestCase
             'site_washed' => true,
             'status' => 'pending',
         ]);
+    }
+
+    public function test_booking_accepts_the_current_manila_date_at_the_utc_day_boundary(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-19 16:30:00', 'UTC'));
+
+        try {
+            $this->assertSame('Asia/Manila', config('app.timezone'));
+
+            $clinic = Clinic::create(['name' => 'Test Clinic']);
+            $account = $this->account();
+            $patient = Patient::create([
+                'clinic_id' => $clinic->id,
+                'first_name' => 'Juan',
+                'last_name' => 'Dela Cruz',
+                'gender' => 'male',
+                'registration_source' => 'mobile',
+            ]);
+            $account->patients()->attach($patient, [
+                'relationship' => 'self',
+                'status' => 'pending',
+            ]);
+            Sanctum::actingAs($account);
+
+            $this->postJson('/api/mobile/appointments', [
+                'patient_id' => $patient->patient_id,
+                'appointment_type' => 'consultation',
+                'scheduled_date' => '2026-07-20',
+                'intake' => [
+                    ...$this->intakePayload(),
+                    'bite_date' => '2026-07-20',
+                ],
+            ])->assertCreated();
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_vaccination_card_requires_verified_patient_access(): void

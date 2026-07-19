@@ -73,29 +73,7 @@ class CampaignBanner extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    TextButton.icon(
-                      onPressed: () {},
-                      style: TextButton.styleFrom(
-                        backgroundColor: AppColors.white,
-                        foregroundColor: AppColors.primaryDark,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      iconAlignment: IconAlignment.end,
-                      icon: const Icon(Icons.arrow_forward_rounded, size: 17),
-                      label: const Text(
-                        'View workflow',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                    const _WorkflowButton(),
                   ],
                 ),
               ),
@@ -103,6 +81,64 @@ class CampaignBanner extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _WorkflowButton extends StatefulWidget {
+  const _WorkflowButton();
+
+  @override
+  State<_WorkflowButton> createState() => _WorkflowButtonState();
+}
+
+class _WorkflowButtonState extends State<_WorkflowButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  bool get _arrowActive => _hovered || _pressed;
+
+  void _setHovered(bool value) {
+    if (_hovered != value) setState(() => _hovered = value);
+  }
+
+  void _setPressed(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => _setHovered(true),
+      onExit: (_) => _setHovered(false),
+      child: Listener(
+        onPointerDown: (_) => _setPressed(true),
+        onPointerUp: (_) => _setPressed(false),
+        onPointerCancel: (_) => _setPressed(false),
+        child: TextButton.icon(
+          onPressed: () {},
+          style: TextButton.styleFrom(
+            backgroundColor: AppColors.white,
+            foregroundColor: AppColors.primaryDark,
+            elevation: 2,
+            shadowColor: const Color(0x33000000),
+            side: const BorderSide(color: Color(0x3308766D)),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            shape: const StadiumBorder(),
+          ),
+          iconAlignment: IconAlignment.end,
+          icon: AnimatedSlide(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            offset: Offset(_arrowActive ? 0.18 : 0, 0),
+            child: const Icon(Icons.arrow_forward_rounded, size: 17),
+          ),
+          label: const Text(
+            'View workflow',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
     );
   }
 }

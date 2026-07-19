@@ -31,6 +31,7 @@ class QuickActionsSection extends StatelessWidget {
               child: _QuickAction(
                 icon: Icons.calendar_month_outlined,
                 label: 'Book now',
+                primary: true,
                 onTap: onBook,
               ),
             ),
@@ -46,7 +47,7 @@ class QuickActionsSection extends StatelessWidget {
             Expanded(
               child: _QuickAction(
                 icon: Icons.badge_outlined,
-                label: 'Patient card',
+                label: 'Patient',
                 onTap: onPatientCard,
               ),
             ),
@@ -70,39 +71,52 @@ class _QuickAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.primary = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool primary;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surfaceMuted,
-      borderRadius: BorderRadius.circular(8),
+      color: primary ? AppColors.primary : AppColors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: primary
+            ? BorderSide.none
+            : const BorderSide(color: AppColors.border),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
+        customBorder: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: SizedBox(
-          height: 88,
+          height: 90,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: AppColors.primaryDark, size: 23),
+                Icon(
+                  icon,
+                  color: primary ? AppColors.white : AppColors.primary,
+                  size: 22,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   label,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.gray700,
+                  style: TextStyle(
+                    color: primary ? AppColors.white : AppColors.gray900,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    height: 1.2,
                   ),
                 ),
               ],

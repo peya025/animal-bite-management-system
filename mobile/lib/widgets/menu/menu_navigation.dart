@@ -33,13 +33,6 @@ class MenuNavigation extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(top: BorderSide(color: AppColors.border)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x0D111827),
-            blurRadius: 10,
-            offset: Offset(0, -2),
-          ),
-        ],
       ),
       child: BottomAppBar(
         height: 72,
@@ -102,7 +95,7 @@ class _NavigationDestination extends StatelessWidget {
               child: Icon(
                 selected ? item.selectedIcon : item.icon,
                 size: 21,
-                color: selected ? AppColors.primary : AppColors.gray500,
+                color: selected ? AppColors.primary : AppColors.gray700,
               ),
             ),
             const SizedBox(height: 2),
@@ -111,7 +104,7 @@ class _NavigationDestination extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected ? AppColors.primary : AppColors.gray500,
+                color: selected ? AppColors.primary : AppColors.gray700,
               ),
             ),
           ],

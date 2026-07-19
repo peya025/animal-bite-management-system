@@ -36,6 +36,7 @@ Define these centrally in `mobile/lib/app/app_theme.dart` or small supporting th
 | `primary` | Existing `#12AD9B` | Main actions and active states |
 | `primaryDark` | Existing `#08766D` | Pressed states and high-emphasis text |
 | `primarySoft` | `#E8F7F4` | Selected rows, chips, and subtle highlights |
+| `pageBackground` | `#F5F8F7` | Soft green-gray page background used to separate controls from the canvas |
 | `surface` | `#FFFFFF` | Main page and input surfaces |
 | `surfaceMuted` | `#F4F6F5` | Grouped settings and summary areas |
 | `border` | `#DCE3E1` | Fields, dividers, and outlined actions |
@@ -44,6 +45,16 @@ Define these centrally in `mobile/lib/app/app_theme.dart` or small supporting th
 | `success` | `#159A68` | Vaccination and completed statuses |
 | `warning` | `#E58A2B` | Follow-up and attention statuses |
 | `error` | Existing `#EF4444` | Errors and destructive actions |
+
+### Page Background
+
+- Use `#F5F8F7`, matching the existing History background, as the standard background for main mobile pages.
+- The subtle green-gray tone should make teal primary buttons and white outlined controls easier to distinguish from the page.
+- Keep fields, secondary buttons, appointment rows, and important grouped surfaces white or light neutral so their boundaries remain clear.
+- Do not darken the background enough to reduce text contrast or make the app feel heavily tinted.
+- Avoid gradients, decorative blobs, and background shadows.
+- Full-width navigation and modal surfaces may remain white to create clear visual layers.
+- Apply the background consistently through `AppTheme` or a shared scaffold token instead of repeating raw color values in every page.
 
 ### Shape
 
@@ -337,6 +348,7 @@ Use the same bottom navigation on Home, Book, History, and Settings.
 - [x] Poppins is bundled locally and applied globally through `AppTheme`.
 - [ ] Primary, secondary, social, and destructive buttons have consistent dimensions and states.
 - [ ] Every main page uses the same header and horizontal padding.
+- [ ] Main pages use the shared `#F5F8F7` green-gray background instead of page-specific canvas colors.
 - [x] Settings and profile use organized grouped rows based on the reference.
 - [x] Home uses a compact dashboard hierarchy with appointment and quick actions prioritized.
 - [x] Booking uses shared patient fields, grouped services, a clear calendar, and a compact summary.

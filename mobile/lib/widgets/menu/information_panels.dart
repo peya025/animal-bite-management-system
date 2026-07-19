@@ -35,15 +35,14 @@ class _WorkingHoursPanel extends StatelessWidget {
     return MenuSurface(
       height: 156,
       padding: const EdgeInsets.all(13),
-      color: AppColors.surfaceMuted,
-      showBorder: false,
+      color: AppColors.white,
+      showBorder: true,
       showShadow: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _PanelIcon(
             icon: Icons.schedule_rounded,
-            background: AppColors.primaryLight,
             foreground: AppColors.primaryDark,
           ),
           const Spacer(),
@@ -87,16 +86,14 @@ class _AwarenessPanel extends StatelessWidget {
     return MenuSurface(
       height: 156,
       padding: const EdgeInsets.all(13),
-      color: AppColors.surfaceMuted,
-      showBorder: false,
+      color: AppColors.white,
+      showBorder: true,
       showShadow: false,
-      onTap: () {},
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _PanelIcon(
             icon: Icons.campaign_outlined,
-            background: Color(0xFFFFF1D6),
             foreground: Color(0xFFB86A00),
           ),
           Spacer(),
@@ -126,26 +123,20 @@ class _AwarenessPanel extends StatelessWidget {
 }
 
 class _PanelIcon extends StatelessWidget {
-  const _PanelIcon({
-    required this.icon,
-    required this.background,
-    required this.foreground,
-  });
+  const _PanelIcon({required this.icon, required this.foreground});
 
   final IconData icon;
-  final Color background;
   final Color foreground;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 38,
       height: 38,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Icon(icon, color: foreground, size: 22),
       ),
-      child: Icon(icon, color: foreground, size: 21),
     );
   }
 }

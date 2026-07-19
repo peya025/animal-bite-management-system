@@ -108,6 +108,71 @@ flutter:
 
 Set `fontFamily: 'Poppins'` once in `AppTheme.light`. Avoid setting the family separately on individual widgets.
 
+## Button System
+
+Use this approved button hierarchy throughout the mobile app. New pages must reuse these rules instead of creating page-specific button styles.
+
+### Primary Button
+
+- Use a solid `AppColors.primary` background.
+- Use white text and a white icon.
+- Do not add a border.
+- Use Poppins SemiBold (`600`).
+- Use a `12px` corner radius for rectangular controls.
+- Use an icon size of about `22px` for action tiles.
+- Keep the control height and padding stable during loading and disabled states.
+- Use only one obvious primary action in the same section or action group.
+
+Examples:
+
+- `Book now` on the Home quick-action row.
+- The currently selected booking service, such as `Bite consultation` or `Vaccination`.
+- `Wash` as the urgent first step in the Bite Care Guide.
+- Full-width form commands such as `LOGIN`, `REGISTER`, and `BOOK APPOINTMENT`.
+
+### Secondary Button
+
+- Use a white or very light neutral background.
+- Add a `1px` `AppColors.border` outline.
+- Use an accent-colored icon and dark primary text.
+- Use Poppins SemiBold (`600`) for the label.
+- Match the primary button's height, padding, icon size, and `12px` radius when the controls appear in the same group.
+- Do not add a shadow.
+
+Examples:
+
+- `Profiles`, `Patient`, and `Records` on Home.
+- The unselected booking service.
+- `Consult` and `Vaccinate` in the Bite Care Guide.
+- Upcoming appointment previews and Clinic Information panels use the same flat outlined visual language, while remaining informational surfaces rather than fake buttons.
+- Social authentication buttons use the secondary structure with their provider icon.
+
+### Group Rules
+
+- Buttons in a row or grid must have equal height regardless of label length.
+- Prefer short one-line labels. Use `Patient` instead of `Patient card` in a compact four-column row.
+- Use stable constraints such as `SizedBox`, `minimumSize`, or a shared component so text cannot resize the layout.
+- Use `8-12px` gaps between adjacent controls from the shared spacing scale.
+- Selected options use the primary style; unselected options use the secondary style.
+- Do not mix filled, outlined, tonal, elevated, and custom card styles in one action group.
+- Text-only controls are reserved for low-emphasis actions such as `Skip`, `Forgot password`, `View all`, or dialog cancellation.
+- Destructive actions use the same geometry but replace teal with the error color. They must not be confused with the main positive action.
+
+### Approved Exceptions
+
+- The campaign `View workflow` CTA is a white pill with a subtle darker border and small shadow. Its right arrow may slide `2-4px` on hover or press.
+- The center vaccination-card FAB is circular, raised slightly above the bottom navigation, surrounded by a thin background-colored ring, and uses a small shadow.
+- Shadows are reserved for the banner CTA and floating action button. Regular primary, secondary, care, clinic, and service buttons remain flat.
+- Cards and grouped information surfaces remain at an `8px` radius; `12px` is reserved for buttons, fields, and selectable controls.
+
+### Interaction States
+
+- Pressed: use the Material ink response or a small color change without resizing the control.
+- Focused: show a visible teal focus treatment for keyboard and accessibility navigation.
+- Disabled: keep the label readable while clearly reducing emphasis.
+- Loading: replace the icon or label with a small progress indicator without changing dimensions.
+- Hover: use a subtle response only on pointer-capable devices; do not rely on hover for meaning.
+
 ## Reusable Flutter Components
 
 Create or improve shared components before redesigning individual pages.
@@ -239,10 +304,10 @@ Use the same bottom navigation on Home, Book, History, and Settings.
 
 - Keep destinations stable: Home, Book, Vaccination Card, History, Settings.
 - Highlight the active icon and label in teal.
-- Use muted gray for inactive destinations.
+- Use a medium gray such as `AppColors.gray700` for inactive destinations so icons and labels maintain accessible contrast.
 - Keep labels short and icon touch areas at least `44px`.
 - Preserve bottom safe-area padding on gesture-navigation devices.
-- The center vaccination card action may remain elevated, but it must not overlap page actions or obscure the final list item.
+- The center vaccination card action remains slightly elevated, with a background-colored ring and small shadow, but must not overlap page actions or obscure the final list item.
 
 ## Animation and Feedback
 

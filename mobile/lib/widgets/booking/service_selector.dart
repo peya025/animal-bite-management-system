@@ -33,28 +33,15 @@ class ServiceSelector extends StatelessWidget {
       children: [
         const MenuSectionHeader(title: 'Select a service'),
         const SizedBox(height: 10),
-        Material(
-          color: AppColors.surfaceMuted,
-          borderRadius: BorderRadius.circular(8),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              for (
-                var index = 0;
-                index < BookingService.values.length;
-                index++
-              ) ...[
-                _ServiceTile(
-                  service: BookingService.values[index],
-                  selected: selected == BookingService.values[index],
-                  onTap: () => onSelected(BookingService.values[index]),
-                ),
-                if (index != BookingService.values.length - 1)
-                  const Divider(height: 1, indent: 70, color: AppColors.border),
-              ],
-            ],
+        for (var index = 0; index < BookingService.values.length; index++) ...[
+          _ServiceTile(
+            service: BookingService.values[index],
+            selected: selected == BookingService.values[index],
+            onTap: () => onSelected(BookingService.values[index]),
           ),
-        ),
+          if (index != BookingService.values.length - 1)
+            const SizedBox(height: 10),
+        ],
       ],
     );
   }
@@ -73,58 +60,70 @@ class _ServiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        color: selected ? AppColors.primaryLight : Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : AppColors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                service.icon,
-                color: selected ? AppColors.white : AppColors.primaryDark,
-              ),
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    service.label,
-                    style: const TextStyle(
-                      color: AppColors.gray900,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+    return Material(
+      color: selected ? AppColors.primary : AppColors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: selected
+            ? BorderSide.none
+            : const BorderSide(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: SizedBox(
+          height: 82,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            child: Row(
+              children: [
+                Icon(
+                  service.icon,
+                  color: selected ? AppColors.white : AppColors.primary,
+                  size: 22,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        service.label,
+                        style: TextStyle(
+                          color: selected ? AppColors.white : AppColors.gray900,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        service.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: selected
+                              ? AppColors.white.withValues(alpha: 0.82)
+                              : AppColors.gray500,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    service.description,
-                    style: const TextStyle(
-                      color: AppColors.gray500,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 10),
+                Icon(
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: selected ? AppColors.white : AppColors.primary,
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            Icon(
-              selected
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked_rounded,
-              color: selected ? AppColors.primary : AppColors.gray500,
-            ),
-          ],
+          ),
         ),
       ),
     );

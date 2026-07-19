@@ -35,6 +35,9 @@ class _WorkingHoursPanel extends StatelessWidget {
     return MenuSurface(
       height: 156,
       padding: const EdgeInsets.all(13),
+      color: AppColors.surfaceMuted,
+      showBorder: false,
+      showShadow: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -84,6 +87,9 @@ class _AwarenessPanel extends StatelessWidget {
     return MenuSurface(
       height: 156,
       padding: const EdgeInsets.all(13),
+      color: AppColors.surfaceMuted,
+      showBorder: false,
+      showShadow: false,
       onTap: () {},
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,

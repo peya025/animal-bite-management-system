@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
-import '../services/mobile_api.dart';
+import '../app/app_theme.dart';
 import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
+import '../services/mobile_api.dart';
 import '../widgets/common/app_page_header.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
+import '../widgets/settings/edit_account_dialog.dart';
 import '../widgets/settings/profile_card.dart';
 import '../widgets/settings/settings_group.dart';
-import '../widgets/settings/edit_account_dialog.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class SettingsView extends StatefulWidget {
@@ -127,7 +128,7 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F8F7),
+      backgroundColor: AppColors.white,
       body: SafeArea(
         bottom: false,
         child: Center(
@@ -136,14 +137,15 @@ class _SettingsViewState extends State<SettingsView> {
             child: CustomScrollView(
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                   sliver: SliverList.list(
                     children: [
                       const AppPageHeader(
                         title: 'Settings',
                         subtitle: 'Manage your profile and app preferences.',
+                        centered: true,
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 24),
                       if (_loadingAccount)
                         const Center(child: CircularProgressIndicator())
                       else if (_account case final account?)
@@ -161,9 +163,9 @@ class _SettingsViewState extends State<SettingsView> {
                           subtitle: _accountError ?? 'Try again',
                           onTap: _loadAccount,
                         ),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 24),
                       SettingsGroup(
-                        title: 'Managed patients',
+                        title: 'Patient profiles',
                         children: [
                           for (final patient in _account?.patients ?? const [])
                             SettingsTile(
@@ -178,8 +180,8 @@ class _SettingsViewState extends State<SettingsView> {
                                     ? Icons.verified_rounded
                                     : Icons.schedule_rounded,
                                 color: patient.isVerified
-                                    ? Colors.green
-                                    : Colors.orange,
+                                    ? AppColors.success
+                                    : AppColors.warning,
                               ),
                             ),
                           SettingsTile(
@@ -190,7 +192,7 @@ class _SettingsViewState extends State<SettingsView> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 24),
                       SettingsGroup(
                         title: 'Preferences',
                         children: [
@@ -223,7 +225,7 @@ class _SettingsViewState extends State<SettingsView> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 24),
                       SettingsGroup(
                         title: 'Support',
                         children: [

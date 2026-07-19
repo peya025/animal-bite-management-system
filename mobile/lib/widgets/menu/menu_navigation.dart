@@ -32,11 +32,12 @@ class MenuNavigation extends StatelessWidget {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppColors.white,
+        border: Border(top: BorderSide(color: AppColors.border)),
         boxShadow: [
           BoxShadow(
-            color: Color(0x15111827),
-            blurRadius: 16,
-            offset: Offset(0, -4),
+            color: Color(0x0D111827),
+            blurRadius: 10,
+            offset: Offset(0, -2),
           ),
         ],
       ),
@@ -95,18 +96,13 @@ class _NavigationDestination extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
+            SizedBox(
               width: 34,
               height: 28,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primaryLight : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
               child: Icon(
                 selected ? item.selectedIcon : item.icon,
                 size: 21,
-                color: selected ? AppColors.primaryDark : AppColors.gray500,
+                color: selected ? AppColors.primary : AppColors.gray500,
               ),
             ),
             const SizedBox(height: 2),
@@ -114,8 +110,8 @@ class _NavigationDestination extends StatelessWidget {
               item.label,
               style: TextStyle(
                 fontSize: 10,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? AppColors.primaryDark : AppColors.gray500,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected ? AppColors.primary : AppColors.gray500,
               ),
             ),
           ],

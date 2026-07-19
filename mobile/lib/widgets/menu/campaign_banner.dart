@@ -13,35 +13,14 @@ class CampaignBanner extends StatelessWidget {
         final imageWidth = compact ? 150.0 : 190.0;
 
         return Container(
-          height: 190,
+          height: 184,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: AppColors.primaryDark,
+            color: AppColors.primary,
             borderRadius: BorderRadius.circular(8),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x2412AD9B),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
           ),
           child: Stack(
             children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        AppColors.primary,
-                        AppColors.primaryDark.withValues(alpha: 0.96),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
               Positioned(
                 left: compact ? -40 : -28,
                 top: 0,

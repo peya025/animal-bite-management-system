@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
 import '../../models/patient_account_profile.dart';
+import '../forms/app_text_field.dart';
+import '../forms/form_error_banner.dart';
 
 class EditAccountDialog extends StatefulWidget {
   const EditAccountDialog({
@@ -20,6 +22,7 @@ class EditAccountDialog extends StatefulWidget {
 class _EditAccountDialogState extends State<EditAccountDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
+  late final TextEditingController _email;
   late final TextEditingController _phone;
   bool _saving = false;
   String? _error;
@@ -28,12 +31,14 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
   void initState() {
     super.initState();
     _name = TextEditingController(text: widget.account.name);
+    _email = TextEditingController(text: widget.account.email);
     _phone = TextEditingController(text: widget.account.phone);
   }
 
   @override
   void dispose() {
     _name.dispose();
+    _email.dispose();
     _phone.dispose();
     super.dispose();
   }
@@ -57,46 +62,61 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: AppColors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       icon: const Icon(
         Icons.manage_accounts_outlined,
         color: AppColors.primary,
       ),
-      title: const Text('Edit account'),
-      content: Form(
-        key: _formKey,
-        child: SizedBox(
-          width: 360,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_error case final message?) ...[
-                Text(message, style: const TextStyle(color: AppColors.error)),
-                const SizedBox(height: 12),
+      title: const Text(
+        'Edit account',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      ),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_error case final message?) ...[
+                  FormErrorBanner(message: message),
+                  const SizedBox(height: 16),
+                ],
+                AppTextField(
+                  label: 'ACCOUNT NAME',
+                  controller: _name,
+                  enabled: !_saving,
+                  prefixIcon: Icons.person_outline_rounded,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Account name is required'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  label: 'EMAIL',
+                  controller: _email,
+                  enabled: false,
+                  prefixIcon: Icons.mail_outline_rounded,
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  label: 'PHONE',
+                  controller: _phone,
+                  enabled: !_saving,
+                  prefixIcon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) {
+                    if (!_saving) _submit();
+                  },
+                ),
               ],
-              TextFormField(
-                controller: _name,
-                enabled: !_saving,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Account name'),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Account name is required'
-                    : null,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                initialValue: widget.account.email,
-                enabled: false,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _phone,
-                enabled: !_saving,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Phone'),
-              ),
-            ],
+            ),
           ),
         ),
       ),

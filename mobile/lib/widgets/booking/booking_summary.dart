@@ -26,6 +26,9 @@ class BookingSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return MenuSurface(
       padding: const EdgeInsets.all(16),
+      color: AppColors.surfaceMuted,
+      showBorder: false,
+      showShadow: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -34,7 +37,7 @@ class BookingSummary extends StatelessWidget {
             style: TextStyle(
               color: AppColors.gray900,
               fontSize: 16,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 14),
@@ -66,7 +69,15 @@ class _SummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: AppColors.primaryDark, size: 20),
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: AppColors.primaryDark, size: 18),
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(

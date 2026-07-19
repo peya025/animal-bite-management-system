@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
+import '../services/mobile_api.dart';
 import '../widgets/auth_mode_selector.dart';
 import '../widgets/buttons/account_login_prompt.dart';
 import '../widgets/buttons/primary_action_button.dart';
 import '../widgets/forms/app_text_field.dart';
 import '../widgets/forms/form_error_banner.dart';
-import '../services/mobile_api.dart';
 
 class SignUpView extends StatefulWidget {
   const SignUpView({super.key});

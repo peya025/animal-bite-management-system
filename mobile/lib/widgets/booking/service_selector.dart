@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
 import '../../models/booking_draft.dart';
-import '../menu/menu_surface.dart';
 import '../menu/section_header.dart';
 
 extension BookingServiceDetails on BookingService {
@@ -34,14 +33,28 @@ class ServiceSelector extends StatelessWidget {
       children: [
         const MenuSectionHeader(title: 'Select a service'),
         const SizedBox(height: 10),
-        for (final service in BookingService.values) ...[
-          _ServiceTile(
-            service: service,
-            selected: selected == service,
-            onTap: () => onSelected(service),
+        Material(
+          color: AppColors.surfaceMuted,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (
+                var index = 0;
+                index < BookingService.values.length;
+                index++
+              ) ...[
+                _ServiceTile(
+                  service: BookingService.values[index],
+                  selected: selected == BookingService.values[index],
+                  onTap: () => onSelected(BookingService.values[index]),
+                ),
+                if (index != BookingService.values.length - 1)
+                  const Divider(height: 1, indent: 70, color: AppColors.border),
+              ],
+            ],
           ),
-          if (service != BookingService.values.last) const SizedBox(height: 10),
-        ],
+        ),
       ],
     );
   }
@@ -60,69 +73,60 @@ class _ServiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        MenuSurface(
-          onTap: onTap,
-          padding: const EdgeInsets.all(13),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.primary : AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  service.icon,
-                  color: selected ? AppColors.white : AppColors.primaryDark,
-                ),
+    return InkWell(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        color: selected ? AppColors.primaryLight : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : AppColors.white,
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      service.label,
-                      style: const TextStyle(
-                        color: AppColors.gray900,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      service.description,
-                      style: const TextStyle(
-                        color: AppColors.gray500,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                color: selected ? AppColors.primary : AppColors.gray500,
-              ),
-            ],
-          ),
-        ),
-        if (selected)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.primary, width: 2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+              child: Icon(
+                service.icon,
+                color: selected ? AppColors.white : AppColors.primaryDark,
               ),
             ),
-          ),
-      ],
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    service.label,
+                    style: const TextStyle(
+                      color: AppColors.gray900,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    service.description,
+                    style: const TextStyle(
+                      color: AppColors.gray500,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: selected ? AppColors.primary : AppColors.gray500,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
+import '../app/app_theme.dart';
 import '../models/booking_draft.dart';
 import '../models/bite_intake_route_args.dart';
 import '../models/patient_profile.dart';
 import '../services/mobile_api.dart';
-import '../app/app_theme.dart';
 import '../widgets/booking/booking_header.dart';
 import '../widgets/booking/booking_summary.dart';
 import '../widgets/booking/date_selector.dart';
 import '../widgets/booking/service_selector.dart';
+import '../widgets/forms/app_dropdown_field.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
-import '../widgets/menu/menu_surface.dart';
 
 class BookingView extends StatefulWidget {
   const BookingView({super.key});
@@ -70,6 +70,15 @@ class _BookingViewState extends State<BookingView> {
     Navigator.of(context).pushReplacementNamed(AppRoutes.menu);
   }
 
+  String _patientLabel(PatientProfile patient) {
+    final relationship = switch (patient.relationship) {
+      'self' => 'Self',
+      'child' => 'Child',
+      _ => 'Dependent',
+    };
+    return '${patient.name} - $relationship';
+  }
+
   void _handleNavigation(int index) {
     final route = switch (index) {
       0 => AppRoutes.menu,
@@ -98,7 +107,7 @@ class _BookingViewState extends State<BookingView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F8F7),
+      backgroundColor: AppColors.white,
       body: SafeArea(
         bottom: false,
         child: Center(
@@ -107,70 +116,92 @@ class _BookingViewState extends State<BookingView> {
             child: CustomScrollView(
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                   sliver: SliverList.list(
                     children: [
                       BookingHeader(onBack: _openHome),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 24),
                       const Text(
                         'Who is this appointment for?',
                         style: TextStyle(
                           color: AppColors.gray900,
                           fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 10),
-                      MenuSurface(
-                        padding: const EdgeInsets.all(14),
-                        child: _loadingPatients
-                            ? const Center(child: CircularProgressIndicator())
-                            : _patients.isEmpty
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    _profileError ??
-                                        'Add a patient profile before booking.',
-                                    style: const TextStyle(
-                                      color: AppColors.gray700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  OutlinedButton.icon(
-                                    onPressed: _addDependent,
-                                    icon: const Icon(
-                                      Icons.person_add_alt_1_outlined,
-                                    ),
-                                    label: const Text('ADD PATIENT PROFILE'),
-                                  ),
-                                ],
-                              )
-                            : DropdownButtonFormField<PatientProfile>(
-                                initialValue: _selectedPatient,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(
-                                    Icons.people_outline_rounded,
-                                  ),
-                                ),
-                                items: _patients
-                                    .map(
-                                      (patient) => DropdownMenuItem(
-                                        value: patient,
-                                        child: Text(
-                                          '${patient.name} - ${patient.relationship}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (patient) => setState(
-                                  () => _selectedPatient = patient,
+                      if (_loadingPatients)
+                        Container(
+                          height: 72,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceMuted,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const SizedBox.square(
+                            dimension: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      else if (_patients.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceMuted,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                _profileError ??
+                                    'Add a patient profile before booking.',
+                                style: const TextStyle(
+                                  color: AppColors.gray700,
+                                  fontSize: 12,
                                 ),
                               ),
-                      ),
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(
+                                onPressed: _addDependent,
+                                icon: const Icon(
+                                  Icons.person_add_alt_1_outlined,
+                                ),
+                                label: const Text('ADD PATIENT PROFILE'),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(52),
+                                  side: const BorderSide(
+                                    color: AppColors.border,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        AppDropdownField<PatientProfile>(
+                          label: 'PATIENT PROFILE',
+                          initialValue: _selectedPatient,
+                          prefixIcon: Icons.people_outline_rounded,
+                          items: _patients
+                              .map(
+                                (patient) => DropdownMenuItem(
+                                  value: patient,
+                                  child: Text(
+                                    _patientLabel(patient),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (patient) => setState(
+                            () => _selectedPatient = patient,
+                          ),
+                        ),
                       if (_patients.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Align(
@@ -182,21 +213,21 @@ class _BookingViewState extends State<BookingView> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 24),
                       ServiceSelector(
                         selected: _service,
                         onSelected: (service) {
                           setState(() => _service = service);
                         },
                       ),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 24),
                       DateSelector(
                         selectedDate: _selectedDate,
                         onSelected: (date) {
                           setState(() => _selectedDate = date);
                         },
                       ),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 24),
                       BookingSummary(
                         service: _service,
                         date: DateSelector.formatDate(_selectedDate),

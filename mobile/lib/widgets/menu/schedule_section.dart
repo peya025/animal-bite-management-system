@@ -54,6 +54,9 @@ class _ScheduleSectionState extends State<ScheduleSection> {
         const SizedBox(height: 8),
         MenuSurface(
           padding: const EdgeInsets.all(14),
+          color: AppColors.surfaceMuted,
+          showBorder: false,
+          showShadow: false,
           onTap: widget.onOpenAppointments,
           child: Row(
             children: [

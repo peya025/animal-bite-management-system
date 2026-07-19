@@ -268,12 +268,14 @@ Use the same bottom navigation on Home, Book, History, and Settings.
 
 ## Completion Checklist
 
-- [ ] Login and sign-up fields use one shared component and identical border behavior.
+- [x] Login and sign-up fields use one shared component and identical border behavior.
 - [x] Poppins is bundled locally and applied globally through `AppTheme`.
 - [ ] Primary, secondary, social, and destructive buttons have consistent dimensions and states.
 - [ ] Every main page uses the same header and horizontal padding.
-- [ ] Settings and profile use organized grouped rows based on the reference.
-- [ ] Home, Book, History, Notifications, and Settings share one bottom navigation.
+- [x] Settings and profile use organized grouped rows based on the reference.
+- [x] Home uses a compact dashboard hierarchy with appointment and quick actions prioritized.
+- [x] Booking uses shared patient fields, grouped services, a clear calendar, and a compact summary.
+- [x] Home, Book, History, Notifications, and Settings share one bottom navigation.
 - [ ] Cards use no more than an `8px` radius; fields and buttons use the agreed `12px` radius.
 - [ ] Icons use one consistent Material icon family and size system.
 - [ ] Text does not overflow at `320px`, `360px`, `390px`, or tablet widths.

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
-import '../menu/menu_surface.dart';
 import '../menu/section_header.dart';
 
 class SettingsGroup extends StatelessWidget {
@@ -17,14 +16,21 @@ class SettingsGroup extends StatelessWidget {
       children: [
         MenuSectionHeader(title: title),
         const SizedBox(height: 10),
-        MenuSurface(
-          padding: EdgeInsets.zero,
+        Material(
+          color: AppColors.surfaceMuted,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               for (var index = 0; index < children.length; index++) ...[
                 children[index],
                 if (index != children.length - 1)
-                  const Divider(height: 1, indent: 58),
+                  const Divider(
+                    height: 1,
+                    indent: 62,
+                    endIndent: 14,
+                    color: AppColors.border,
+                  ),
               ],
             ],
           ),
@@ -64,7 +70,7 @@ class SettingsTile extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: destructive ? AppColors.errorLight : AppColors.primaryLight,
+          color: destructive ? AppColors.errorLight : AppColors.white,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
@@ -78,7 +84,7 @@ class SettingsTile extends StatelessWidget {
         style: TextStyle(
           color: foreground,
           fontSize: 13,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
       subtitle: Text(
@@ -89,7 +95,12 @@ class SettingsTile extends StatelessWidget {
       ),
       trailing:
           trailing ??
-          const Icon(Icons.chevron_right_rounded, color: AppColors.gray500),
+          (onTap == null
+              ? null
+              : const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.gray500,
+                )),
     );
   }
 }

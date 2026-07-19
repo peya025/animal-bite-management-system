@@ -85,6 +85,7 @@ class DateSelector extends StatelessWidget {
         const SizedBox(height: 10),
         MenuSurface(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
+          showShadow: false,
           child: Column(
             children: [
               TableCalendar<CalendarBookingType>(
@@ -110,19 +111,19 @@ class DateSelector extends StatelessWidget {
                   titleTextStyle: TextStyle(
                     color: AppColors.gray900,
                     fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 daysOfWeekStyle: const DaysOfWeekStyle(
                   weekdayStyle: TextStyle(
                     color: AppColors.gray500,
                     fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                   weekendStyle: TextStyle(
                     color: AppColors.gray500,
                     fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 calendarStyle: const CalendarStyle(
@@ -202,7 +203,7 @@ class DateSelector extends StatelessWidget {
                         style: const TextStyle(
                           color: AppColors.primaryDark,
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),

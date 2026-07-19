@@ -15,6 +15,8 @@ abstract final class AppColors {
   static const error = Color(0xFFEF4444);
   static const errorLight = Color(0xFFFEE2E2);
   static const errorDark = Color(0xFFB91C1C);
+  static const success = Color(0xFF159A68);
+  static const warning = Color(0xFFE58A2B);
 }
 
 abstract final class AppTheme {

@@ -122,8 +122,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -700));
-    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('View all'));
     await tester.tap(find.text('View all'));
     await tester.pumpAndSettle();
 

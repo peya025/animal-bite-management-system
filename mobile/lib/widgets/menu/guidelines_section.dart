@@ -72,6 +72,9 @@ class _GuidelineTile extends StatelessWidget {
     return MenuSurface(
       height: 116,
       padding: const EdgeInsets.all(12),
+      color: AppColors.surfaceMuted,
+      showBorder: false,
+      showShadow: false,
       onTap: () {},
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -9,17 +9,23 @@ class MenuSurface extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.height,
     this.onTap,
+    this.color = AppColors.white,
+    this.showBorder = true,
+    this.showShadow = true,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double? height;
   final VoidCallback? onTap;
+  final Color color;
+  final bool showBorder;
+  final bool showShadow;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.white,
+      color: color,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -28,15 +34,17 @@ class MenuSurface extends StatelessWidget {
           height: height,
           padding: padding,
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE5EAE8)),
+            border: showBorder ? Border.all(color: AppColors.border) : null,
             borderRadius: BorderRadius.circular(8),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0D111827),
-                blurRadius: 12,
-                offset: Offset(0, 4),
-              ),
-            ],
+            boxShadow: showShadow
+                ? const [
+                    BoxShadow(
+                      color: Color(0x0D111827),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: child,
         ),

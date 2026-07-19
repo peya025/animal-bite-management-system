@@ -6,6 +6,7 @@ import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import '../services/mobile_api.dart';
 import '../widgets/common/app_page_header.dart';
+import '../widgets/common/status_chip.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/settings/edit_account_dialog.dart';
@@ -128,7 +129,7 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.pageBackground,
       body: SafeArea(
         bottom: false,
         child: Center(
@@ -146,6 +147,8 @@ class _SettingsViewState extends State<SettingsView> {
                         centered: true,
                       ),
                       const SizedBox(height: 24),
+                      const SettingsSectionLabel(title: 'Profile card'),
+                      const SizedBox(height: 10),
                       if (_loadingAccount)
                         const Center(child: CircularProgressIndicator())
                       else if (_account case final account?)
@@ -173,16 +176,8 @@ class _SettingsViewState extends State<SettingsView> {
                                   ? Icons.child_care_rounded
                                   : Icons.person_outline_rounded,
                               title: patient.name,
-                              subtitle:
-                                  '${_relationshipLabel(patient)} - ${patient.status}',
-                              trailing: Icon(
-                                patient.isVerified
-                                    ? Icons.verified_rounded
-                                    : Icons.schedule_rounded,
-                                color: patient.isVerified
-                                    ? AppColors.success
-                                    : AppColors.warning,
-                              ),
+                              subtitle: _relationshipLabel(patient),
+                              trailing: StatusChip(status: patient.status),
                             ),
                           SettingsTile(
                             icon: Icons.person_add_alt_1_outlined,
@@ -202,6 +197,10 @@ class _SettingsViewState extends State<SettingsView> {
                             subtitle: 'Appointment and vaccination reminders',
                             trailing: Switch(
                               value: _notificationsEnabled,
+                              activeThumbColor: AppColors.white,
+                              activeTrackColor: AppColors.primary,
+                              inactiveThumbColor: AppColors.white,
+                              inactiveTrackColor: AppColors.gray500,
                               onChanged: (value) {
                                 setState(() => _notificationsEnabled = value);
                               },

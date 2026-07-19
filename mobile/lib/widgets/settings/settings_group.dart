@@ -1,7 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
-import '../menu/section_header.dart';
+
+class SettingsSectionLabel extends StatelessWidget {
+  const SettingsSectionLabel({super.key, required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: AppColors.gray500,
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+}
 
 class SettingsGroup extends StatelessWidget {
   const SettingsGroup({super.key, required this.title, required this.children});
@@ -14,10 +31,10 @@ class SettingsGroup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MenuSectionHeader(title: title),
+        SettingsSectionLabel(title: title),
         const SizedBox(height: 10),
         Material(
-          color: AppColors.surfaceMuted,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(8),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -64,34 +81,34 @@ class SettingsTile extends StatelessWidget {
 
     return ListTile(
       onTap: onTap,
-      minTileHeight: 68,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
-      leading: Container(
+      minTileHeight: 72,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: SizedBox(
         width: 36,
         height: 36,
-        decoration: BoxDecoration(
-          color: destructive ? AppColors.errorLight : AppColors.white,
-          borderRadius: BorderRadius.circular(8),
-        ),
         child: Icon(
           icon,
           color: destructive ? AppColors.errorDark : AppColors.primaryDark,
-          size: 20,
+          size: 22,
         ),
       ),
       title: Text(
         title,
         style: TextStyle(
           color: foreground,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
         ),
       ),
       subtitle: Text(
         subtitle,
-        maxLines: 1,
+        maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: AppColors.gray500, fontSize: 11),
+        style: const TextStyle(
+          color: AppColors.gray500,
+          fontSize: 11,
+          height: 1.3,
+        ),
       ),
       trailing:
           trailing ??

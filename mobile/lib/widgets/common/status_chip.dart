@@ -12,6 +12,8 @@ class StatusChip extends StatelessWidget {
     final (foreground, background) = switch (status.toLowerCase()) {
       'scheduled' => (AppColors.primaryDark, AppColors.primaryLight),
       'completed' => (AppColors.success, const Color(0xFFE8F7ED)),
+      'verified' => (AppColors.success, const Color(0xFFE8F7ED)),
+      'pending' => (const Color(0xFFA85A00), const Color(0xFFFFE4A8)),
       'cancelled' => (AppColors.errorDark, AppColors.errorLight),
       'follow-up' ||
       'follow_up' => (const Color(0xFFA85A00), const Color(0xFFFFF1D6)),

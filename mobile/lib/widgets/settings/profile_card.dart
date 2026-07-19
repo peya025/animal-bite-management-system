@@ -23,22 +23,18 @@ class ProfileCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: const BoxDecoration(
-              color: AppColors.white,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
+          const SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(
               Icons.person_outline_rounded,
               color: AppColors.primaryDark,
-              size: 30,
+              size: 28,
             ),
           ),
           const SizedBox(width: 14),
@@ -66,52 +62,19 @@ class ProfileCard extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        phone?.isNotEmpty == true ? phone! : 'No phone number',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.gray500,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '$patientCount ${patientCount == 1 ? 'patient' : 'patients'}',
-                        style: const TextStyle(
-                          color: AppColors.primaryDark,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          IconButton.filled(
+          IconButton.outlined(
             tooltip: 'Edit profile',
             onPressed: onEdit,
             style: IconButton.styleFrom(
               backgroundColor: AppColors.white,
               foregroundColor: AppColors.primaryDark,
-              minimumSize: const Size(40, 40),
+              minimumSize: const Size(44, 44),
+              side: const BorderSide(color: AppColors.border),
+              shape: const CircleBorder(),
             ),
             icon: const Icon(Icons.edit_outlined, size: 19),
           ),

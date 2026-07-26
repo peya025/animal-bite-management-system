@@ -44,6 +44,21 @@ export const PatientListRoot = styled('div')`
   .pm-show-entries {
     display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280;
   }
+  .pm-controls-right {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .pm-print-btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white; border: none; border-radius: 8px; font-size: 13px;
+    font-weight: 600; cursor: pointer; font-family: inherit;
+    box-shadow: 0 2px 8px rgba(16,185,129,0.25);
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .pm-print-btn:hover {
+    transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,185,129,0.35);
+  }
+  .pm-print-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   .pm-entries-select {
     padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px;
     font-size: 13px; font-family: inherit; background: #fff; color: #374151;

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './features/auth/pages/LoginPage';
@@ -16,6 +16,183 @@ import ReportsDashboardPage from './features/reports/pages/ReportsDashboardPage'
 import ConfirmationDialog from './components/feedback/ConfirmationDialog';
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
 import { ROUTES } from './shared/config/routes';
+
+// ─── Notification Bell ────────────────────────────────────────
+
+interface AppNotif {
+  id: number; icon: string; iconBg: string;
+  title: string; message: string; time: string;
+  tags: { label: string; color: string; bg: string }[];
+  read: boolean;
+}
+
+const INIT_NOTIFS: AppNotif[] = [
+  { id:1, icon:'🐕', iconBg:'#fee2e2', title:'New Bite Case Registered',
+    message:'Case #BC-2026-0042 has been created for patient Juan Dela Cruz.',
+    time:'1m ago', read:false,
+    tags:[{label:'New Case',color:'#dc2626',bg:'#fee2e2'},{label:'Category II',color:'#c2410c',bg:'#fff7ed'}] },
+  { id:2, icon:'💉', iconBg:'#dbeafe', title:'Vaccination Due Today',
+    message:'Maria Santos is scheduled for Dose 3 (Day 7) today.',
+    time:'15m ago', read:false,
+    tags:[{label:'Vaccination',color:'#1d4ed8',bg:'#dbeafe'},{label:'Day 7',color:'#6b7280',bg:'#f3f4f6'}] },
+  { id:3, icon:'⚠️', iconBg:'#fef9c3', title:'Low Vaccine Stock Alert',
+    message:'Batch VB-2026-11 is below the minimum threshold (5 vials remaining).',
+    time:'1h ago', read:false,
+    tags:[{label:'Inventory',color:'#a16207',bg:'#fef9c3'},{label:'Low Stock',color:'#dc2626',bg:'#fee2e2'}] },
+  { id:4, icon:'👤', iconBg:'#ecfdf5', title:'New Patient Registered',
+    message:'Pedro Reyes (P-2026-0118) has been registered by Registration staff.',
+    time:'2h ago', read:true,
+    tags:[{label:'Patient',color:'#059669',bg:'#ecfdf5'},{label:'Registration',color:'#6b7280',bg:'#f3f4f6'}] },
+  { id:5, icon:'✅', iconBg:'#ecfdf5', title:'Queue Consultation Complete',
+    message:'Queue #47 — Ana Gonzales has completed consultation.',
+    time:'3h ago', read:true,
+    tags:[{label:'Queue',color:'#059669',bg:'#ecfdf5'},{label:'Completed',color:'#6b7280',bg:'#f3f4f6'}] },
+];
+
+function NotificationBell() {
+  const [notifs, setNotifs] = useState<AppNotif[]>(INIT_NOTIFS);
+  const [open, setOpen]     = useState(false);
+  const wrapRef             = useRef<HTMLDivElement>(null);
+  const unread              = notifs.filter(n => !n.read).length;
+
+  const markAll = () => setNotifs(p => p.map(n => ({ ...n, read: true })));
+  const markOne = (id: number) => setNotifs(p => p.map(n => n.id === id ? { ...n, read: true } : n));
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-flex' }}>
+      {/* Bell button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Notifications"
+        style={{
+          position: 'relative', width: 32, height: 32,
+          border: 'none', background: 'transparent',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', color: '#374151', flexShrink: 0,
+          padding: 0,
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        {unread > 0 && (
+          <span style={{
+            position:'absolute', top:2, right:1,
+            width:10, height:10, borderRadius:'50%',
+            background:'#f97316', border:'2px solid #fff',
+          }} />
+        )}
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 10px)', right:0,
+          width:370, background:'#fff', borderRadius:14,
+          boxShadow:'0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.07)',
+          border:'1px solid #e5e7eb', zIndex:9999, overflow:'hidden',
+          fontFamily:'inherit',
+        }}>
+          {/* Panel header */}
+          <div style={{
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'14px 16px 12px', borderBottom:'1px solid #f3f4f6',
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontSize:15, fontWeight:700, color:'#111827' }}>Notifications</span>
+              {unread > 0 && (
+                <span style={{
+                  background:'#10b981', color:'#fff', fontSize:11, fontWeight:700,
+                  borderRadius:999, padding:'1px 7px',
+                }}>{unread}</span>
+              )}
+            </div>
+            {unread > 0 && (
+              <button onClick={markAll} style={{
+                background:'none', border:'none', cursor:'pointer',
+                fontSize:12, fontWeight:600, color:'#10b981', fontFamily:'inherit',
+              }}>Mark all as read</button>
+            )}
+          </div>
+
+          {/* Items */}
+          <div style={{ maxHeight:390, overflowY:'auto' }}>
+            {notifs.map((n, idx) => (
+              <div key={n.id} onClick={() => markOne(n.id)}
+                style={{
+                  display:'flex', gap:11, padding:'12px 16px',
+                  borderBottom: idx < notifs.length-1 ? '1px solid #f9fafb' : 'none',
+                  background: n.read ? '#fff' : '#f0fdf4',
+                  cursor:'pointer', transition:'background 0.15s', alignItems:'flex-start',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background='#f9fafb')}
+                onMouseLeave={e => (e.currentTarget.style.background=n.read?'#fff':'#f0fdf4')}
+              >
+                {/* Icon */}
+                <div style={{
+                  width:38, height:38, borderRadius:'50%', background:n.iconBg,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:17, flexShrink:0,
+                }}>{n.icon}</div>
+
+                {/* Text */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:2 }}>
+                    <span style={{
+                      fontSize:13, fontWeight:600, color:'#111827',
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:210,
+                    }}>{n.title}</span>
+                    <span style={{ fontSize:11, color:'#9ca3af', flexShrink:0, marginLeft:6 }}>{n.time}</span>
+                  </div>
+                  <p style={{
+                    fontSize:12, color:'#6b7280', margin:'0 0 7px', lineHeight:1.45,
+                    display:'-webkit-box', WebkitLineClamp:2,
+                    WebkitBoxOrient:'vertical', overflow:'hidden',
+                  }}>{n.message}</p>
+                  <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                    {n.tags.map(t => (
+                      <span key={t.label} style={{
+                        fontSize:11, fontWeight:600, padding:'2px 7px',
+                        borderRadius:999, background:t.bg, color:t.color,
+                      }}>{t.label}</span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Unread dot */}
+                {!n.read && (
+                  <div style={{
+                    width:8, height:8, borderRadius:'50%',
+                    background:'#10b981', flexShrink:0, marginTop:4,
+                  }} />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div style={{ padding:'9px 16px', borderTop:'1px solid #f3f4f6', textAlign:'center' }}>
+            <button style={{
+              background:'none', border:'none', cursor:'pointer',
+              fontSize:12, fontWeight:600, color:'#6b7280', fontFamily:'inherit',
+            }}>View all notifications</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ΓöÇΓöÇΓöÇ Auth Check Helper ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function isAuthenticated(): boolean {
@@ -347,6 +524,7 @@ function SimpleDashboard() {
         <header className="sd-topbar">
           <span className="sd-topbar-title">Dashboard</span>
           <div className="sd-topbar-right">
+            <NotificationBell />
             <span className="sd-topbar-date">
               {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
@@ -832,6 +1010,7 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
         <header className="sd-topbar">
           <span className="sd-topbar-title">{title}</span>
           <div className="sd-topbar-right">
+            <NotificationBell />
             <span className="sd-topbar-date">
               {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
             </span>

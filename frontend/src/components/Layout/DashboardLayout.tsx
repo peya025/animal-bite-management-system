@@ -1,10 +1,256 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { APP_NAME, ROLE_LABELS } from '../../constants';
 import ConfirmationDialog from '../feedback/ConfirmationDialog';
 import { DashboardLayoutRoot } from './DashboardLayout.styles';
 import { ROUTES } from '../../shared/config/routes';
+
+// ─── Sample Notifications ─────────────────────────────────────
+
+interface Notification {
+  id: number;
+  icon: string;       // emoji used as avatar fallback
+  iconBg: string;     // background colour for icon circle
+  title: string;
+  message: string;
+  time: string;
+  tags: { label: string; color: string; bg: string }[];
+  read: boolean;
+}
+
+const SAMPLE_NOTIFICATIONS: Notification[] = [
+  {
+    id: 1,
+    icon: '🐕',
+    iconBg: '#fee2e2',
+    title: 'New Bite Case Registered',
+    message: 'Case #BC-2026-0042 has been created for patient Juan Dela Cruz.',
+    time: '1m ago',
+    tags: [
+      { label: 'New Case',    color: '#dc2626', bg: '#fee2e2' },
+      { label: 'Category II', color: '#c2410c', bg: '#fff7ed' },
+    ],
+    read: false,
+  },
+  {
+    id: 2,
+    icon: '💉',
+    iconBg: '#dbeafe',
+    title: 'Vaccination Due Today',
+    message: 'Maria Santos is scheduled for Dose 3 (Day 7) today.',
+    time: '15m ago',
+    tags: [
+      { label: 'Vaccination', color: '#1d4ed8', bg: '#dbeafe' },
+      { label: 'Day 7',       color: '#6b7280', bg: '#f3f4f6' },
+    ],
+    read: false,
+  },
+  {
+    id: 3,
+    icon: '⚠️',
+    iconBg: '#fef9c3',
+    title: 'Low Vaccine Stock Alert',
+    message: 'Batch VB-2026-11 is below the minimum threshold (5 vials remaining).',
+    time: '1h ago',
+    tags: [
+      { label: 'Inventory',  color: '#a16207', bg: '#fef9c3' },
+      { label: 'Low Stock',  color: '#dc2626', bg: '#fee2e2' },
+    ],
+    read: false,
+  },
+  {
+    id: 4,
+    icon: '👤',
+    iconBg: '#ecfdf5',
+    title: 'New Patient Registered',
+    message: 'Pedro Reyes (P-2026-0118) has been registered by the Registration staff.',
+    time: '2h ago',
+    tags: [
+      { label: 'Patient',      color: '#059669', bg: '#ecfdf5' },
+      { label: 'Registration', color: '#6b7280', bg: '#f3f4f6' },
+    ],
+    read: true,
+  },
+  {
+    id: 5,
+    icon: '✅',
+    iconBg: '#ecfdf5',
+    title: 'Queue Consultation Complete',
+    message: 'Queue #47 — Ana Gonzales has completed consultation.',
+    time: '3h ago',
+    tags: [
+      { label: 'Queue',     color: '#059669', bg: '#ecfdf5' },
+      { label: 'Completed', color: '#6b7280', bg: '#f3f4f6' },
+    ],
+    read: true,
+  },
+];
+
+// ─── Notification Panel ───────────────────────────────────────
+
+function NotificationPanel({
+  notifications,
+  onMarkAllRead,
+  onMarkRead,
+}: {
+  notifications: Notification[];
+  onMarkAllRead: () => void;
+  onMarkRead: (id: number) => void;
+}) {
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  return (
+    <div style={{
+      position: 'absolute',
+      top: 'calc(100% + 10px)',
+      right: 0,
+      width: 380,
+      background: '#fff',
+      borderRadius: 14,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+      border: '1px solid #e5e7eb',
+      zIndex: 9999,
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '16px 18px 12px',
+        borderBottom: '1px solid #f3f4f6',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>
+            Notifications
+          </span>
+          {unreadCount > 0 && (
+            <span style={{
+              background: '#10b981', color: '#fff', fontSize: 11, fontWeight: 700,
+              borderRadius: 999, padding: '1px 7px', lineHeight: '18px',
+            }}>
+              {unreadCount}
+            </span>
+          )}
+        </div>
+        {unreadCount > 0 && (
+          <button
+            onClick={onMarkAllRead}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 600, color: '#10b981', fontFamily: 'inherit',
+              padding: '2px 4px',
+            }}
+          >
+            Mark all as read
+          </button>
+        )}
+      </div>
+
+      {/* List */}
+      <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+        {notifications.length === 0 ? (
+          <div style={{
+            padding: '40px 24px', textAlign: 'center',
+            color: '#9ca3af', fontSize: 13,
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🔔</div>
+            You're all caught up!
+          </div>
+        ) : (
+          notifications.map((n, idx) => (
+            <div
+              key={n.id}
+              onClick={() => onMarkRead(n.id)}
+              style={{
+                display: 'flex', gap: 12, padding: '14px 18px',
+                borderBottom: idx < notifications.length - 1 ? '1px solid #f9fafb' : 'none',
+                background: n.read ? '#fff' : '#f0fdf4',
+                cursor: 'pointer', transition: 'background 0.15s',
+                alignItems: 'flex-start',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f9fafb')}
+              onMouseLeave={e => (e.currentTarget.style.background = n.read ? '#fff' : '#f0fdf4')}
+            >
+              {/* Icon circle */}
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%',
+                background: n.iconBg, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: 18,
+                flexShrink: 0,
+              }}>
+                {n.icon}
+              </div>
+
+              {/* Content */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center',
+                  justifyContent: 'space-between', marginBottom: 2,
+                }}>
+                  <span style={{
+                    fontSize: 13, fontWeight: 600, color: '#111827',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    maxWidth: 220,
+                  }}>
+                    {n.title}
+                  </span>
+                  <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0, marginLeft: 6 }}>
+                    {n.time}
+                  </span>
+                </div>
+
+                <p style={{
+                  fontSize: 12, color: '#6b7280', margin: '0 0 8px',
+                  lineHeight: 1.5,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}>
+                  {n.message}
+                </p>
+
+                {/* Tags */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {n.tags.map(tag => (
+                    <span key={tag.label} style={{
+                      fontSize: 11, fontWeight: 600, padding: '2px 8px',
+                      borderRadius: 999, background: tag.bg, color: tag.color,
+                    }}>
+                      {tag.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Unread dot */}
+              {!n.read && (
+                <div style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: '#10b981', flexShrink: 0, marginTop: 4,
+                }} />
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        padding: '10px 18px',
+        borderTop: '1px solid #f3f4f6',
+        textAlign: 'center',
+      }}>
+        <button style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: 12, fontWeight: 600, color: '#6b7280', fontFamily: 'inherit',
+        }}>
+          View all notifications
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // Force rebuild - 2026-06-21 15:30
 
@@ -145,6 +391,30 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
+  // ── Notification state ────────────────────────────────────
+  const [notifications, setNotifications] = useState<Notification[]>(SAMPLE_NOTIFICATIONS);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const markAllRead = () =>
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+
+  const markRead = (id: number) =>
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    }
+    if (notifOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notifOpen]);
+
   const filteredNav = NAV_ITEMS.filter(item =>
     user?.role ? item.roles.includes(user.role) : false
   );
@@ -161,11 +431,8 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
     submenu?.some(sub => location.pathname === sub.path || location.pathname.startsWith(sub.path));
 
   const toggleSubmenu = (itemName: string) => {
-    console.log('Toggle submenu:', itemName);
     setExpandedMenu(expandedMenu === itemName ? null : itemName);
   };
-
-  console.log('DashboardLayout rendered, expandedMenu:', expandedMenu, 'filteredNav:', filteredNav.map(i => ({ name: i.name, hasSubmenu: !!i.submenu })));
 
   return (
     <DashboardLayoutRoot>
@@ -287,6 +554,46 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
             <h1>{pageTitle || 'Animal Bite Management System'}</h1>
           </div>
           <div className="header-right">
+            {/* ── Notification bell ── */}
+            <div ref={notifRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setNotifOpen(o => !o)}
+                style={{
+                  position: 'relative',
+                  width: 38, height: 38, borderRadius: 8,
+                  border: '1px solid #e5e7eb',
+                  background: notifOpen ? '#f0fdf4' : '#ffffff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', transition: 'all 0.2s',
+                  color: notifOpen ? '#10b981' : '#6b7280',
+                }}
+                title="Notifications"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: 5, right: 5,
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: '#ef4444',
+                    border: '2px solid #fff',
+                  }} />
+                )}
+              </button>
+
+              {notifOpen && (
+                <NotificationPanel
+                  notifications={notifications}
+                  onMarkAllRead={markAllRead}
+                  onMarkRead={markRead}
+                />
+              )}
+            </div>
+
+            {/* ── User info + logout ── */}
             <div className="user-menu">
               <div className="user-info">
                 <div className="user-avatar">{initials}</div>

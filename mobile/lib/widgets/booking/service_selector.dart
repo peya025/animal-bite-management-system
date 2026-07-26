@@ -31,24 +31,38 @@ class ServiceSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const MenuSectionHeader(title: 'Select a service'),
-        const SizedBox(height: 10),
-        for (var index = 0; index < BookingService.values.length; index++) ...[
-          _ServiceTile(
-            service: BookingService.values[index],
-            selected: selected == BookingService.values[index],
-            onTap: () => onSelected(BookingService.values[index]),
+        const MenuSectionHeader(title: 'Service type'),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            border: Border.all(
+              color: AppColors.divider,
+              width: 0.5,
+            ),
+            borderRadius: BorderRadius.circular(8),
           ),
-          if (index != BookingService.values.length - 1)
-            const SizedBox(height: 10),
-        ],
+          child: Column(
+            children: [
+              for (var index = 0; index < BookingService.values.length; index++) ...[
+                _ServiceRow(
+                  service: BookingService.values[index],
+                  selected: selected == BookingService.values[index],
+                  onTap: () => onSelected(BookingService.values[index]),
+                ),
+                if (index != BookingService.values.length - 1)
+                  const Divider(height: 0.5, thickness: 0.5),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
 }
 
-class _ServiceTile extends StatelessWidget {
-  const _ServiceTile({
+class _ServiceRow extends StatelessWidget {
+  const _ServiceRow({
     required this.service,
     required this.selected,
     required this.onTap,
@@ -61,68 +75,67 @@ class _ServiceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.primary : AppColors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: selected
-            ? BorderSide.none
-            : const BorderSide(color: AppColors.border),
-      ),
-      clipBehavior: Clip.antiAlias,
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        customBorder: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: SizedBox(
-          height: 82,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            child: Row(
-              children: [
-                Icon(
-                  service.icon,
-                  color: selected ? AppColors.white : AppColors.primary,
-                  size: 22,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Icon(
+                service.icon,
+                color: selected ? AppColors.primary : AppColors.textSecondary,
+                size: 20,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      service.label,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      service.description,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        service.label,
-                        style: TextStyle(
-                          color: selected ? AppColors.white : AppColors.gray900,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        service.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: selected
-                              ? AppColors.white.withValues(alpha: 0.82)
-                              : AppColors.gray500,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
+              ),
+              const SizedBox(width: 12),
+              // Selection indicator - simple checkmark circle
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? AppColors.primary : Colors.transparent,
+                  border: Border.all(
+                    color: selected ? AppColors.primary : AppColors.divider,
+                    width: selected ? 0 : 1.5,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Icon(
-                  selected
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  color: selected ? AppColors.white : AppColors.primary,
-                ),
-              ],
-            ),
+                child: selected
+                    ? const Icon(
+                        Icons.check,
+                        color: AppColors.white,
+                        size: 14,
+                      )
+                    : null,
+              ),
+            ],
           ),
         ),
       ),

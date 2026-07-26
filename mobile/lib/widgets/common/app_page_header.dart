@@ -30,7 +30,11 @@ class AppPageHeader extends StatelessWidget {
               child: IconButton(
                 tooltip: 'Back',
                 onPressed: onBack,
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 18,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
           Padding(
@@ -41,18 +45,22 @@ class AppPageHeader extends StatelessWidget {
                   title,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: AppColors.gray900,
+                    color: AppColors.textPrimary,
                     fontSize: 20,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.3,
+                    height: 1.3,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: AppColors.gray500,
-                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -81,20 +89,25 @@ class AppPageHeader extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  color: AppColors.gray900,
+                  color: AppColors.textPrimary,
                   fontSize: 22,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.3,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(color: AppColors.gray500, fontSize: 12),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
             ],
           ),
         ),
-        ?trailing,
+        if (trailing != null) trailing!,
       ],
     );
   }

@@ -20,11 +20,13 @@ class MenuSectionHeader extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            title,
+            title.toUpperCase(),
             style: const TextStyle(
-              color: AppColors.gray900,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.8,
+              height: 1.3,
             ),
           ),
         ),
@@ -34,6 +36,11 @@ class MenuSectionHeader extends StatelessWidget {
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               minimumSize: const Size(44, 36),
+              foregroundColor: AppColors.primary,
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             child: Text(actionLabel!),
           ),

@@ -24,7 +24,7 @@ class PrimaryActionButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         child: isLoading
             ? const SizedBox.square(
-                dimension: 20,
+                dimension: 18,
                 child: CircularProgressIndicator(
                   color: AppColors.white,
                   strokeWidth: 2,
@@ -33,8 +33,9 @@ class PrimaryActionButton extends StatelessWidget {
             : Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0,
                 ),
               ),
       ),

@@ -379,16 +379,17 @@ Use the same bottom navigation on Home, Book, History, and Settings.
 
 - [x] Login and sign-up fields use one shared component and identical border behavior.
 - [x] Poppins is bundled locally and applied globally through `AppTheme`.
-- [ ] Primary, secondary, social, and destructive buttons have consistent dimensions and states.
-- [ ] Every main page uses the same header and horizontal padding.
-- [ ] Main pages use the shared `#F5F8F7` green-gray background instead of page-specific canvas colors.
+- [x] Primary, secondary, social, and destructive buttons have consistent dimensions and states.
+- [x] Every main page uses the same header and horizontal padding.
+- [x] Main pages use the shared `#F5F8F7` green-gray background instead of page-specific canvas colors.
 - [x] Settings and profile use organized grouped rows based on the reference.
 - [x] Home uses a compact dashboard hierarchy with appointment and quick actions prioritized.
 - [x] Booking uses shared patient fields, grouped services, a clear calendar, and a compact summary.
+- [x] Booking typography matches design system: 20px page title, 17px section titles, 14px card titles, 13px body text.
 - [x] Appointments use the shared notification-style filter/list pattern, status chips, and a guarded cancellation flow.
 - [x] Home, Book, History, Notifications, and Settings share one bottom navigation.
-- [ ] Cards use no more than an `8px` radius; fields and buttons use the agreed `12px` radius.
-- [ ] Icons use one consistent Material icon family and size system.
+- [x] Cards use no more than an `8px` radius; fields and buttons use the agreed `12px` radius.
+- [x] Icons use one consistent Material icon family and size system.
 - [ ] Text does not overflow at `320px`, `360px`, `390px`, or tablet widths.
 - [ ] Layout works with large text scaling and keyboard display.
 - [ ] Loading and disabled states do not resize controls.

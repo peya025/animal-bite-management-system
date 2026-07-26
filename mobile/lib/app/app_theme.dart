@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const primary = Color(0xFF12AD9B);
-  static const primaryDark = Color(0xFF08766D);
-  static const primaryLight = Color(0xFFE1F5F1);
+  // Minimalist design system colors
+  static const primary = Color(0xFF14A98C); // Bright emerald teal - accents, dots, active
+  static const primaryDark = Color(0xFF0C6B5E); // Deep teal - CTA buttons, strong emphasis
+  static const primaryLight = Color(0xFFE1F5F1); // Light teal (keeping for compatibility)
+  
   static const white = Color(0xFFFFFFFF);
-  static const pageBackground = Color(0xFFF5F8F7);
+  static const pageBackground = Color(0xFFFAFAFA); // Off-white instead of tinted
+  
+  // Text hierarchy
+  static const textPrimary = Color(0xFF1A1A1A); // Near-black body text
+  static const textSecondary = Color(0xFF6B6B6B); // Medium gray supporting text
+  static const textMuted = Color(0xFFA8A8A8); // Light gray muted/disabled text
+  
+  // Legacy aliases for compatibility
   static const gray50 = Color(0xFFF9FAFB);
   static const gray100 = Color(0xFFF3F4F6);
-  static const border = Color(0xFFDCE3E1);
+  static const gray500 = textSecondary;
+  static const gray700 = textPrimary;
+  static const gray900 = textPrimary;
+  
+  // Dividers and borders
+  static const divider = Color(0xFFEBEBEB); // Hairline dividers
+  static const border = Color(0xFFEBEBEB); // Very light gray
+  
   static const surfaceMuted = Color(0xFFF4F6F5);
-  static const gray500 = Color(0xFF6B7280);
-  static const gray700 = Color(0xFF374151);
-  static const gray900 = Color(0xFF1F2937);
   static const error = Color(0xFFEF4444);
   static const errorLight = Color(0xFFFEE2E2);
   static const errorDark = Color(0xFFB91C1C);
@@ -32,52 +45,86 @@ abstract final class AppTheme {
       useMaterial3: true,
       fontFamily: 'Poppins',
       scaffoldBackgroundColor: AppColors.white,
+      
+      // Minimalist dividers
+      dividerTheme: const DividerThemeData(
+        color: AppColors.divider,
+        thickness: 0.5,
+        space: 1,
+      ),
+      
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.primaryDark,
         foregroundColor: AppColors.white,
         elevation: 0,
       ),
+      
+      // Primary CTA button - deep teal, no shadow
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.primaryDark,
           foregroundColor: AppColors.white,
           minimumSize: const Size(44, 52),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          elevation: 0,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500, // Medium weight only
+            letterSpacing: 0,
           ),
         ),
       ),
-      inputDecorationTheme: const InputDecorationTheme(
+      
+      // Minimalist input fields - hairline borders
+      inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.gray50,
+        fillColor: AppColors.white,
         border: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.border),
-          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: const BorderSide(color: AppColors.divider, width: 0.5),
+          borderRadius: BorderRadius.circular(8),
         ),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.border),
-          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: const BorderSide(color: AppColors.divider, width: 0.5),
+          borderRadius: BorderRadius.circular(8),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.primary, width: 2),
-          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1),
+          borderRadius: BorderRadius.circular(8),
         ),
         errorBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.error),
-          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: const BorderSide(color: AppColors.error, width: 0.5),
+          borderRadius: BorderRadius.circular(8),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.error, width: 2),
-          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: const BorderSide(color: AppColors.error, width: 1),
+          borderRadius: BorderRadius.circular(8),
         ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        hintStyle: TextStyle(color: AppColors.gray500, fontSize: 13),
-        errorStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        hintStyle: const TextStyle(
+          color: AppColors.textMuted,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+        labelStyle: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.5,
+        ),
+        errorStyle: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w400,
+          color: AppColors.error,
+        ),
       ),
+      
       checkboxTheme: CheckboxThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(4)),
+          borderRadius: BorderRadius.circular(4),
         ),
       ),
     );

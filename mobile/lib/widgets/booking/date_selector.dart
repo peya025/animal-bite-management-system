@@ -110,7 +110,7 @@ class DateSelector extends StatelessWidget {
                   rightChevronIcon: Icon(Icons.chevron_right_rounded),
                   titleTextStyle: TextStyle(
                     color: AppColors.gray900,
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

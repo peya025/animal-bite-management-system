@@ -28,29 +28,34 @@ class AppDropdownField<T> extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          label.toUpperCase(),
           style: const TextStyle(
-            color: AppColors.gray700,
+            color: AppColors.textMuted,
             fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.8,
           ),
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: 8),
         DropdownButtonFormField<T>(
           initialValue: initialValue,
           isExpanded: true,
           items: items,
           onChanged: enabled ? onChanged : null,
           style: const TextStyle(
-            color: AppColors.gray900,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+            color: AppColors.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
           ),
           decoration: InputDecoration(
             hintText: hintText,
             prefixIcon: prefixIcon == null
                 ? null
-                : Icon(prefixIcon, color: AppColors.gray500, size: 21),
+                : Icon(
+                    prefixIcon,
+                    color: AppColors.textSecondary,
+                    size: 20,
+                  ),
           ),
         ),
       ],

@@ -13,6 +13,7 @@ import '../widgets/booking/service_selector.dart';
 import '../widgets/forms/app_dropdown_field.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
+import '../widgets/menu/section_header.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class BookingView extends StatefulWidget {
@@ -66,10 +67,6 @@ class _BookingViewState extends State<BookingView> {
     }
   }
 
-  void _openHome() {
-    Navigator.of(context).pushReplacementNamed(AppRoutes.menu);
-  }
-
   String _patientLabel(PatientProfile patient) {
     final relationship = switch (patient.relationship) {
       'self' => 'Self',
@@ -107,7 +104,7 @@ class _BookingViewState extends State<BookingView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.pageBackground,
       body: SafeArea(
         bottom: false,
         child: Center(
@@ -119,17 +116,10 @@ class _BookingViewState extends State<BookingView> {
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                   sliver: SliverList.list(
                     children: [
-                      BookingHeader(onBack: _openHome),
+                      const BookingHeader(),
                       const SizedBox(height: 24),
-                      const Text(
-                        'Who is this appointment for?',
-                        style: TextStyle(
-                          color: AppColors.gray900,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
+                     
+                      const SizedBox(height: 12),
                       if (_loadingPatients)
                         Container(
                           height: 72,
@@ -166,15 +156,22 @@ class _BookingViewState extends State<BookingView> {
                                 onPressed: _addDependent,
                                 icon: const Icon(
                                   Icons.person_add_alt_1_outlined,
+                                  size: 18,
                                 ),
-                                label: const Text('ADD PATIENT PROFILE'),
+                                label: const Text('Add patient profile'),
                                 style: OutlinedButton.styleFrom(
                                   minimumSize: const Size.fromHeight(52),
                                   side: const BorderSide(
-                                    color: AppColors.border,
+                                    color: AppColors.divider,
+                                    width: 0.5,
                                   ),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  foregroundColor: AppColors.textPrimary,
+                                  textStyle: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
@@ -183,7 +180,7 @@ class _BookingViewState extends State<BookingView> {
                         )
                       else
                         AppDropdownField<PatientProfile>(
-                          label: 'PATIENT PROFILE',
+                          label: 'Patient profile',
                           initialValue: _selectedPatient,
                           prefixIcon: Icons.people_outline_rounded,
                           items: _patients
@@ -208,8 +205,18 @@ class _BookingViewState extends State<BookingView> {
                           alignment: Alignment.centerLeft,
                           child: TextButton.icon(
                             onPressed: _addDependent,
-                            icon: const Icon(Icons.person_add_alt_1_outlined),
-                            label: const Text('ADD CHILD OR DEPENDENT'),
+                            icon: const Icon(
+                              Icons.person_add_alt_1_outlined,
+                              size: 16,
+                            ),
+                            label: const Text('Add child or dependent'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              textStyle: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ),
                       ],

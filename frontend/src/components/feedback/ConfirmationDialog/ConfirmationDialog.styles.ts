@@ -30,7 +30,7 @@ const sparkUp = keyframes`
 const iconColors: Record<ConfirmationVariant, { background: string; color: string }> = {
   confirm: { background: '#d1fae5', color: '#065f46' },
   success: { background: '#d1fae5', color: '#065f46' },
-  warning: { background: '#fef3c7', color: '#92400e' },
+  warning: { background: '#fee2e2', color: '#dc2626' },
   danger: { background: '#fee2e2', color: '#991b1b' },
 };
 
@@ -49,9 +49,9 @@ const buttonColors: Record<
     hoverShadow: '0 6px 16px rgba(16, 185, 129, 0.45)',
   },
   warning: {
-    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-    shadow: '0 4px 12px rgba(245, 158, 11, 0.35)',
-    hoverShadow: '0 6px 16px rgba(245, 158, 11, 0.45)',
+    background: 'linear-gradient(135deg, #f87171 0%, #ef4444 100%)',
+    shadow: '0 4px 12px rgba(248, 113, 113, 0.35)',
+    hoverShadow: '0 6px 16px rgba(248, 113, 113, 0.45)',
   },
   danger: {
     background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',

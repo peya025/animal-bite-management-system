@@ -367,16 +367,62 @@ function SimpleDashboard() {
             </div>
           </div>
 
-          {/* ΓöÇΓöÇΓöÇ Stat Cards ΓöÇΓöÇΓöÇ */}
+          {/* ΓöÇΓöÇΓöÇ Stat Cards - Role Specific ΓöÇΓöÇΓöÇ */}
           <div className="sd-cards-grid">
-            <SdCard color="purple"  label="Total Patients"      value="0" sub="Registered" />
-            <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
-            <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
-            <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
-            <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
-            <SdCard color="cyan"    label="Follow-up Patients"   value="0" sub="This week" />
-            <SdCard color="green"   label="Bite Cases"           value="0" sub="Total" />
-            <SdCard color="emerald" label="New Today"            value="0" sub="Registered" />
+            {(() => {
+              switch (user?.role) {
+                case 'admin':
+                  return (
+                    <>
+                      <SdCard color="purple"  label="Total Patients"      value="0" sub="Registered" />
+                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
+                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
+                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
+                      <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
+                      <SdCard color="cyan"    label="Follow-up Patients"   value="0" sub="This week" />
+                      <SdCard color="green"   label="Bite Cases"           value="0" sub="Total" />
+                      <SdCard color="emerald" label="New Today"            value="0" sub="Registered" />
+                    </>
+                  );
+                case 'registration':
+                  return (
+                    <>
+                      <SdCard color="purple"  label="Total Patients" value="0" sub="Registered" />
+                      <SdCard color="teal"    label="Today's Queue"  value="0" sub="Waiting" />
+                      <SdCard color="emerald" label="New Today"       value="0" sub="Registered" />
+                    </>
+                  );
+                case 'triage':
+                  return (
+                    <>
+                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
+                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
+                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
+                      <SdCard color="purple"  label="Total Patients"       value="0" sub="Registered" />
+                      <SdCard color="green"   label="Bite Cases"           value="0" sub="Total" />
+                      <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
+                    </>
+                  );
+                case 'treatment':
+                  return (
+                    <>
+                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
+                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
+                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
+                      <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
+                    </>
+                  );
+                default:
+                  return (
+                    <>
+                      <SdCard color="purple"  label="Total Patients"      value="0" sub="Registered" />
+                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
+                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
+                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
+                    </>
+                  );
+              }
+            })()}
           </div>
 
           {/* ΓöÇΓöÇΓöÇ Charts + Filters in one unified 3-column row ΓöÇΓöÇΓöÇ */}

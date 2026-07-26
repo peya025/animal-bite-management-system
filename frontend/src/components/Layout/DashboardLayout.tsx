@@ -306,7 +306,31 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
           </div>
         </header>
 
-        <main className="page-content">{children}</main>
+        <main className="page-content">
+          {/* Breadcrumb — shown on all inner pages */}
+          {pageTitle && pageTitle !== 'Animal Bite Management System' && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: 13, color: '#6b7280', marginBottom: 16,
+            }}>
+              <button
+                onClick={() => navigate(ROUTES.DASHBOARD)}
+                style={{
+                  background: 'none', border: 'none', padding: 0,
+                  color: '#3b82f6', fontSize: 13, fontFamily: 'inherit',
+                  cursor: 'pointer', transition: 'color 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#2563eb')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#3b82f6')}
+              >
+                Dashboard
+              </button>
+              <span style={{ color: '#d1d5db' }}>›</span>
+              <span style={{ color: '#374151', fontWeight: 500 }}>{pageTitle}</span>
+            </div>
+          )}
+          {children}
+        </main>
       </div>
 
       {/* Logout modal */}

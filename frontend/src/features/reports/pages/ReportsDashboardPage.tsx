@@ -396,6 +396,17 @@ export default function ReportsDashboardPage(): JSX.Element {
         <div>
           <h1 style={{ fontSize: 25, fontWeight: 700, color: '#173d29', margin: '0 0 6px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
           <p style={{ fontSize: 13, color: '#77877d', margin: 0 }}>Generate and print system reports for the clinic</p>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+            <button
+              onClick={() => { window.location.href = '/dashboard'; }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Reports</span>
+          </div>
         </div>
         <button onClick={handleOpenPrint}
           disabled={loading || (activeTab !== 'inventory' && !stats) || (activeTab === 'inventory' && invLoading)}

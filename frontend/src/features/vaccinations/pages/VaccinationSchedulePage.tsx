@@ -283,6 +283,17 @@ export default function VaccinationSchedulePage() {
           <Typography variant="body2" sx={{ color: '#77877d' }}>
             Track scheduled doses and record vaccine administration.
           </Typography>
+          {/* Breadcrumb */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', mt: '8px', fontSize: '13px', color: '#9ca3af' }}>
+            <button
+              onClick={() => { window.location.href = '/dashboard'; }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              Dashboard
+            </button>
+            <span>›</span>
+            <span style={{ color: '#6b7280' }}>Vaccinations</span>
+          </Box>
         </Box>
         {canAdminister && (
           <AppButton

@@ -357,6 +357,17 @@ export default function BiteCaseRiskDashboard() {
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d' }}>
             Track high and low risk locations for animal bites
           </Typography>
+          {/* Breadcrumb */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+            <button
+              onClick={() => { window.location.href = '/dashboard'; }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Bite Cases</span>
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Tooltip title="Refresh">

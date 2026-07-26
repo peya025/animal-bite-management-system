@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './features/auth/pages/LoginPage';
@@ -17,14 +17,14 @@ import ConfirmationDialog from './components/feedback/ConfirmationDialog';
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
 import { ROUTES } from './shared/config/routes';
 
-// ─── Auth Check Helper ───────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Auth Check Helper ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function isAuthenticated(): boolean {
   const token = localStorage.getItem('authToken');
   const userData = localStorage.getItem('userData');
   return !!(token && userData);
 }
 
-// ─── Protected Route Wrapper ───────────────────────────────────
+// ΓöÇΓöÇΓöÇ Protected Route Wrapper ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   useEffect(() => {
@@ -38,7 +38,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// ─── Role-aware nav items ───────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Role-aware nav items ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 interface NavItem {
   label: string;
   path?: string;
@@ -137,7 +137,7 @@ const ROLE_LABELS: Record<string, string> = {
   treatment:    'Treatment Staff',
 };
 
-// ─── SimpleDashboard ───────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ SimpleDashboard ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function SimpleDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -243,7 +243,7 @@ function SimpleDashboard() {
 
   return (
     <div className="sd-layout">
-      {/* ── Sidebar ── */}
+      {/* ΓöÇΓöÇ Sidebar ΓöÇΓöÇ */}
       <aside className={`sd-sidebar ${collapsed ? 'sd-sidebar--collapsed' : ''}`}>
         <div className="sd-brand">
           <div className="sd-brand-logo">
@@ -342,7 +342,7 @@ function SimpleDashboard() {
         </button>
       </aside>
 
-      {/* ── Main ── */}
+      {/* ΓöÇΓöÇ Main ΓöÇΓöÇ */}
       <div className="sd-main">
         <header className="sd-topbar">
           <span className="sd-topbar-title">Dashboard</span>
@@ -367,19 +367,65 @@ function SimpleDashboard() {
             </div>
           </div>
 
-          {/* ─── Stat Cards ─── */}
+          {/* ΓöÇΓöÇΓöÇ Stat Cards - Role Specific ΓöÇΓöÇΓöÇ */}
           <div className="sd-cards-grid">
-            <SdCard color="purple"  label="Total Patients"      value="0" sub="Registered" />
-            <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
-            <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
-            <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
-            <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
-            <SdCard color="cyan"    label="Follow-up Patients"   value="0" sub="This week" />
-            <SdCard color="green"   label="Bite Cases"           value="0" sub="Total" />
-            <SdCard color="emerald" label="New Today"            value="0" sub="Registered" />
+            {(() => {
+              switch (user?.role) {
+                case 'admin':
+                  return (
+                    <>
+                      <SdCard color="purple"  label="Total Patients"      value="0" sub="Registered" />
+                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
+                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
+                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
+                      <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
+                      <SdCard color="cyan"    label="Follow-up Patients"   value="0" sub="This week" />
+                      <SdCard color="green"   label="Bite Cases"           value="0" sub="Total" />
+                      <SdCard color="emerald" label="New Today"            value="0" sub="Registered" />
+                    </>
+                  );
+                case 'registration':
+                  return (
+                    <>
+                      <SdCard color="purple"  label="Total Patients" value="0" sub="Registered" />
+                      <SdCard color="teal"    label="Today's Queue"  value="0" sub="Waiting" />
+                      <SdCard color="emerald" label="New Today"       value="0" sub="Registered" />
+                    </>
+                  );
+                case 'triage':
+                  return (
+                    <>
+                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
+                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
+                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
+                      <SdCard color="purple"  label="Total Patients"       value="0" sub="Registered" />
+                      <SdCard color="green"   label="Bite Cases"           value="0" sub="Total" />
+                      <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
+                    </>
+                  );
+                case 'treatment':
+                  return (
+                    <>
+                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
+                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
+                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
+                      <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
+                    </>
+                  );
+                default:
+                  return (
+                    <>
+                      <SdCard color="purple"  label="Total Patients"      value="0" sub="Registered" />
+                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
+                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
+                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
+                    </>
+                  );
+              }
+            })()}
           </div>
 
-          {/* ─── Charts + Filters in one unified 3-column row ─── */}
+          {/* ΓöÇΓöÇΓöÇ Charts + Filters in one unified 3-column row ΓöÇΓöÇΓöÇ */}
           <div className="sd-charts-row" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
             {/* Cases Over Time */}
             <div
@@ -433,7 +479,7 @@ function SimpleDashboard() {
               </div>
             </div>
 
-            {/* Filters – now matching the exact same size and style */}
+            {/* Filters ΓÇô now matching the exact same size and style */}
             <div
               className="sd-filter-card"
               style={{
@@ -496,7 +542,7 @@ function SimpleDashboard() {
             </div>
           </div>
 
-          {/* ─── Charts Row 2: Vaccination Trend + Animal Bite Severity ─── */}
+          {/* ΓöÇΓöÇΓöÇ Charts Row 2: Vaccination Trend + Animal Bite Severity ΓöÇΓöÇΓöÇ */}
           <div className="sd-charts-bottom" style={{ gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
             <div
               className="sd-chart-card"
@@ -566,7 +612,7 @@ function SimpleDashboard() {
   );
 }
 
-// ─── Stat Card – unchanged ────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Stat Card ΓÇô unchanged ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function SdCard({ color, label, value, sub }: { color: string; label: string; value: string; sub: string }) {
   return (
     <div className={`sd-card sd-card--${color}`}>
@@ -577,7 +623,7 @@ function SdCard({ color, label, value, sub }: { color: string; label: string; va
   );
 }
 
-// ─── Line Chart ────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Line Chart ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function SdLineChart({ color = '#4f7ef7' }: { color?: string }) {
   const points = [20, 45, 30, 60, 40, 75, 55, 80, 65, 90, 70, 85];
   const w = 400, h = 140;
@@ -612,7 +658,7 @@ function SdLineChart({ color = '#4f7ef7' }: { color?: string }) {
   );
 }
 
-// ─── Donut Chart ──────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Donut Chart ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function SdDonutChart({ data }: { data: { label: string; pct: number; color: string }[] }) {
   const r = 55, cx = 75, cy = 75, stroke = 24;
   const circ = 2 * Math.PI * r;
@@ -651,7 +697,7 @@ function SdDonutChart({ data }: { data: { label: string; pct: number; color: str
   );
 }
 
-// ─── Shared layout wrapper for inner pages ─────────────────────
+// ΓöÇΓöÇΓöÇ Shared layout wrapper for inner pages ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function AppLayout({ children, title }: { children: React.ReactNode; title: string }) {
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
@@ -792,7 +838,9 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
             <div className="sd-topbar-avatar">{initials}</div>
           </div>
         </header>
-        <main className="sd-content">{children}</main>
+        <main className="sd-content">
+          {children}
+        </main>
       </div>
 
       {showLogoutModal && (
@@ -810,7 +858,7 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
   );
 }
 
-// ─── App ───────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ App ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function App() {
   return (
     <AppStyleScope>

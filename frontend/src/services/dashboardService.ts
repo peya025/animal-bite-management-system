@@ -10,34 +10,32 @@ export interface DashboardStats {
 }
 
 class DashboardService {
-  /**
-   * Get dashboard statistics
-   */
   async getStats(): Promise<DashboardStats> {
-    // Since there's no dedicated dashboard endpoint, we'll fetch data from multiple endpoints
+    // Fetch each endpoint independently — a failure on one won't crash the dashboard
+    const safe = async (fn: () => Promise<any>) => {
+      try { return await fn(); } catch { return null; }
+    };
+
     const [patients, biteCases, vaccinations, queue] = await Promise.all([
-      api.get('/patients'),
-      api.get('/bite-cases'),
-      api.get('/vaccinations/today'),
-      api.get('/queue'),
+      safe(() => api.get('/patients',    { params: { per_page: 100 } })),
+      safe(() => api.get('/bite-cases',  { params: { per_page: 100 } })),
+      safe(() => api.get('/vaccinations',{ params: { per_page: 100 } })),
+      safe(() => api.get('/queue',       { params: { per_page: 100 } })),
     ]);
 
-    return {
-      total_patients: patients.data.data?.length || patients.data.total || 0,
-      active_cases: biteCases.data.data?.filter((c: any) => c.status === 'ongoing').length || 0,
-      pending_vaccinations: vaccinations.data.data?.filter((v: any) => v.status === 'pending').length || 0,
-      today_queue: queue.data.data?.filter((q: any) => q.status === 'waiting').length || 0,
-      recent_patients: patients.data.data?.slice(0, 5) || [],
-      upcoming_vaccinations: vaccinations.data.data?.slice(0, 5) || [],
-    };
-  }
+    const patientsData     = patients?.data?.data     ?? patients?.data     ?? [];
+    const biteCasesData    = biteCases?.data?.data    ?? biteCases?.data    ?? [];
+    const vaccinationsData = vaccinations?.data?.data ?? vaccinations?.data ?? [];
+    const queueData        = queue?.data?.data        ?? queue?.data        ?? [];
 
-  /**
-   * Get bite case statistics
-   */
-  async getBiteCaseStats() {
-    const response = await api.get('/bite-cases/stats');
-    return response.data;
+    return {
+      total_patients:       patients?.data?.total       ?? (Array.isArray(patientsData)     ? patientsData.length     : 0),
+      active_cases:         Array.isArray(biteCasesData)    ? biteCasesData.filter((c: any)    => c.status === 'ongoing' || c.status === 'active').length : 0,
+      pending_vaccinations: Array.isArray(vaccinationsData) ? vaccinationsData.filter((v: any) => v.status === 'pending' || v.status === 'scheduled').length : 0,
+      today_queue:          Array.isArray(queueData)        ? queueData.filter((q: any)        => q.status === 'waiting' || q.status === 'pending').length  : 0,
+      recent_patients:      Array.isArray(patientsData)     ? patientsData.slice(0, 5)     : [],
+      upcoming_vaccinations:Array.isArray(vaccinationsData) ? vaccinationsData.slice(0, 5) : [],
+    };
   }
 }
 

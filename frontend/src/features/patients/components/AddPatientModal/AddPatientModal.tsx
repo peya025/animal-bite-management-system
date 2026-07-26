@@ -80,10 +80,18 @@ const CONSULT_TYPES = [
 ];
 
 // ── Component ────────────────────────────────────────────────
-interface Props { onClose: () => void; onSuccess: () => void; }
+interface Props { onClose: () => void; onSuccess: () => void; role?: string; }
 
-export default function AddPatientModal({ onClose, onSuccess }: Props) {
-  const [tab, setTab]             = useState<'enrolment'|'treatment'>('enrolment');
+export default function AddPatientModal({ onClose, onSuccess, role }: Props) {
+  // Determine which tabs this role can see
+  // registration → form 1 only | triage → form 2 only | admin/others → both
+  const canSeeForm1 = !role || role === 'registration' || role === 'admin';
+  const canSeeForm2 = role === 'triage' || role === 'admin';
+
+  const defaultTab: 'enrolment' | 'treatment' =
+    role === 'triage' ? 'treatment' : 'enrolment';
+
+  const [tab, setTab]             = useState<'enrolment'|'treatment'>(defaultTab);
   const [enrolment, setEnrolment] = useState(E0);
   const [treatment, setTreatment] = useState(T0);
   const [saving, setSaving]       = useState(false);
@@ -142,7 +150,11 @@ export default function AddPatientModal({ onClose, onSuccess }: Props) {
   return (
     <FormModal
       title="Patient Record"
-      subtitle="Integrated Clinic Information System (iCLINICSYS)"
+      subtitle={
+        role === 'registration' ? 'Form 1 — Patient Enrolment' :
+        role === 'triage'       ? 'Form 2 — Individual Treatment Record' :
+        'Integrated Clinic Information System (iCLINICSYS)'
+      }
       onClose={onClose}
       maxWidth={800}
       footer={
@@ -156,18 +168,20 @@ export default function AddPatientModal({ onClose, onSuccess }: Props) {
       }
     >
       <PatientFormContent>
-      {/* Tabs */}
-      <div className="apm-tabs">
-        <button className={`apm-tab ${tab==='enrolment'?'apm-tab--active':''}`} onClick={()=>setTab('enrolment')}>
-          Form 1 — Patient Enrolment
-        </button>
-        <button className={`apm-tab ${tab==='treatment'?'apm-tab--active':''}`} onClick={()=>setTab('treatment')}>
-          Form 2 — Individual Treatment
-        </button>
-      </div>
+      {/* Tabs — only shown when both forms are available */}
+      {canSeeForm1 && canSeeForm2 && (
+        <div className="apm-tabs">
+          <button className={`apm-tab ${tab==='enrolment'?'apm-tab--active':''}`} onClick={()=>setTab('enrolment')}>
+            Form 1 — Patient Enrolment
+          </button>
+          <button className={`apm-tab ${tab==='treatment'?'apm-tab--active':''}`} onClick={()=>setTab('treatment')}>
+            Form 2 — Individual Treatment
+          </button>
+        </div>
+      )}
 
       {/* ════ FORM 1 ════ */}
-      {tab === 'enrolment' && (
+      {tab === 'enrolment' && canSeeForm1 && (
         <>
           <div className="fm-section">
             <p className="fm-section-title">I. Patient Information</p>
@@ -368,7 +382,7 @@ export default function AddPatientModal({ onClose, onSuccess }: Props) {
       )}
 
       {/* ════ FORM 2 ════ */}
-      {tab === 'treatment' && (
+      {tab === 'treatment' && canSeeForm2 && (
         <>
           {/* Section I — Patient Info (auto-filled from Form 1) */}
           <div className="fm-section">

@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import AddPatientModal from '../components/AddPatientModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
-import { ROUTES } from '../../../shared/config/routes';
+import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
+import { printDocument } from '../../../components/print/printDocument';
 
+// ─── Types ───────────────────────────────────────────────────
 interface Patient {
   id: number;
   patient_number: string;
@@ -17,49 +19,47 @@ interface Patient {
   status?: 'active' | 'pending' | 'inactive';
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric',
-  });
-}
+const formatDate = (d: string) =>
+  new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
+const fullName = (p: Patient) =>
+  [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
+
+// ─── Main Component ───────────────────────────────────────────
 export default function PatientList() {
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [perPage, setPerPage] = useState(10);
+  const [patients,       setPatients]       = useState<Patient[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState('');
+  const [search,         setSearch]         = useState('');
+  const [page,           setPage]           = useState(1);
+  const [totalPages,     setTotalPages]     = useState(1);
+  const [total,          setTotal]          = useState(0);
+  const [perPage,        setPerPage]        = useState(10);
+  const [showAddModal,   setShowAddModal]   = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+
+  const userData   = localStorage.getItem('userData');
+  const clinicData = localStorage.getItem('clinicData');
+  const userRole   = userData   ? (JSON.parse(userData)?.role  ?? '') : '';
+  const printedBy  = userData   ? (JSON.parse(userData)?.name  ?? 'Unknown') : 'Unknown';
+  const clinicName = clinicData ? (JSON.parse(clinicData)?.name ?? 'Animal Bite Treatment Center') : 'Animal Bite Treatment Center';
 
   const fetchPatients = useCallback(async () => {
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
-      const token = localStorage.getItem('authToken');
+      const token  = localStorage.getItem('authToken');
       const params = new URLSearchParams({
-        page: String(page),
-        per_page: String(perPage),
-        ...(search ? { search } : {}),
+        page: String(page), per_page: String(perPage), ...(search ? { search } : {}),
       });
       const res = await fetch(`http://localhost:8000/api/patients?${params}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
       });
       if (!res.ok) throw new Error('Failed to load patients');
       const json = await res.json();
       if (Array.isArray(json)) {
-        setPatients(json);
-        setTotal(json.length);
-        setTotalPages(1);
+        setPatients(json); setTotal(json.length); setTotalPages(1);
       } else {
-        setPatients(json.data ?? []);
-        setTotal(json.total ?? 0);
-        setTotalPages(json.last_page ?? 1);
+        setPatients(json.data ?? []); setTotal(json.total ?? 0); setTotalPages(json.last_page ?? 1);
       }
     } catch (e: any) {
       setError(e.message || 'Failed to load patients');
@@ -71,33 +71,83 @@ export default function PatientList() {
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
   useEffect(() => { setPage(1); }, [search, perPage]);
 
-  const fullName = (p: Patient) =>
-    [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
-
-  const getStatus = (p: Patient): 'active' | 'pending' | 'inactive' =>
-    p.status ?? 'active';
-
+  const getStatus = (p: Patient): 'active' | 'pending' | 'inactive' => p.status ?? 'active';
   const activeCount  = patients.filter(p => getStatus(p) === 'active').length;
   const pendingCount = patients.filter(p => getStatus(p) === 'pending').length;
 
+  // Build the patient table HTML for the print window
+  const buildPrintBody = () => {
+    const rows = patients.map((p, i) => {
+      const dob    = new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const reg    = new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const status = p.status ?? 'active';
+      return `<tr>
+        <td style="text-align:center">${i + 1}</td>
+        <td style="font-family:monospace">${p.patient_number}</td>
+        <td style="font-weight:700">${fullName(p)}</td>
+        <td style="text-align:center">${dob}</td>
+        <td style="text-align:center;text-transform:capitalize">${p.gender}</td>
+        <td>${p.address || '—'}</td>
+        <td style="text-align:center">${reg}</td>
+        <td style="text-align:center;text-transform:capitalize">${status}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <h3 class="sec">I. Registered Patients (${patients.length} shown)</h3>
+      <p class="note">Total registered patients in the system: ${total}</p>
+      <table>
+        <thead><tr>
+          <th style="text-align:center;width:3%">#</th>
+          <th>Patient No.</th><th>Full Name</th>
+          <th style="text-align:center">Date of Birth</th>
+          <th style="text-align:center">Gender</th>
+          <th>Address</th>
+          <th style="text-align:center">Registered On</th>
+          <th style="text-align:center">Status</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#888">No patients found.</td></tr>'}</tbody>
+      </table>`;
+  };
+
+  const handleConfirmPrint = () => {
+    printDocument({
+      clinicName,
+      printedBy,
+      title: 'Patient Registry',
+      refPrefix: 'PT',
+      bodyHtml: buildPrintBody(),
+    });
+    setShowPrintModal(false);
+  };
+
+  // Preview table for the modal
+  const th: React.CSSProperties = {
+    background: '#f0fdf4', color: '#173d29', fontWeight: 600,
+    padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #10b981',
+    whiteSpace: 'nowrap', fontSize: 11,
+  };
+  const td: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid #f0f0f0', fontSize: 11 };
+
   return (
     <PatientListRoot>
-      {/* ── Breadcrumb ── */}
-      <div className="pm-breadcrumb">
-        <button className="pm-breadcrumb-link" onClick={() => { window.location.href = ROUTES.DASHBOARD; }}>
-          Dashboard
-        </button>
-        <span className="pm-breadcrumb-sep">›</span>
-        <span>Patients</span>
-      </div>
-
       <div className="pm-layout">
-        {/* ── Left: Table panel ── */}
+        {/* ── Table panel ── */}
         <div className="pm-main-panel">
           <div className="pm-panel-header">
             <div>
               <h1 className="pm-title">Patient Management</h1>
               <p className="pm-subtitle">Manage and track all registered patients</p>
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+                <button
+                  onClick={() => { window.location.href = '/dashboard'; }}
+                  style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+                >
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Patients</span>
+              </div>
             </div>
             <button className="pm-add-btn" onClick={() => setShowAddModal(true)}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -107,15 +157,11 @@ export default function PatientList() {
             </button>
           </div>
 
-          {/* Controls row */}
+          {/* Controls */}
           <div className="pm-controls">
             <div className="pm-show-entries">
               <span>Show</span>
-              <select
-                className="pm-entries-select"
-                value={perPage}
-                onChange={e => setPerPage(Number(e.target.value))}
-              >
+              <select className="pm-entries-select" value={perPage} onChange={e => setPerPage(Number(e.target.value))}>
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -127,12 +173,7 @@ export default function PatientList() {
                 <svg className="pm-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                <input
-                  className="pm-search"
-                  placeholder="Search patients…"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
+                <input className="pm-search" placeholder="Search patients…" value={search} onChange={e => setSearch(e.target.value)} />
                 {search && (
                   <button className="pm-search-clear" onClick={() => setSearch('')}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -141,12 +182,8 @@ export default function PatientList() {
                   </button>
                 )}
               </div>
-              <button
-                className="pm-print-btn"
-                onClick={() => window.print()}
-                title="Print patient list"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <button className="pm-print-btn" onClick={() => setShowPrintModal(true)} title="Print patient list">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="6 9 6 2 18 2 18 9"/>
                   <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
                   <rect x="6" y="14" width="12" height="8"/>
@@ -159,16 +196,11 @@ export default function PatientList() {
           {/* Table */}
           <div className="pm-table-wrap">
             {loading ? (
-              <div className="pm-state">
-                <div className="pm-spinner" />
-                <p>Loading patients…</p>
-              </div>
+              <div className="pm-state"><div className="pm-spinner" /><p>Loading patients…</p></div>
             ) : error ? (
               <div className="pm-state">
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="1.5">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="8" x2="12" y2="12"/>
-                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
                 <p style={{ color: '#ef4444' }}>{error}</p>
                 <button className="pm-retry-btn" onClick={fetchPatients}>Retry</button>
@@ -186,11 +218,8 @@ export default function PatientList() {
               <table className="pm-table">
                 <thead>
                   <tr>
-                    <th>Patient No.</th>
-                    <th>Patient Name</th>
-                    <th>Date Registered</th>
-                    <th>Status</th>
-                    <th>Action</th>
+                    <th>Patient No.</th><th>Patient Name</th>
+                    <th>Date Registered</th><th>Status</th><th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -198,12 +227,8 @@ export default function PatientList() {
                     const status = getStatus(p);
                     return (
                       <tr key={p.id}>
-                        <td>
-                          <span className="pm-patient-no">{p.patient_number}</span>
-                        </td>
-                        <td>
-                          <span className="pm-patient-name">{fullName(p)}</span>
-                        </td>
+                        <td><span className="pm-patient-no">{p.patient_number}</span></td>
+                        <td><span className="pm-patient-name">{fullName(p)}</span></td>
                         <td>{formatDate(p.created_at)}</td>
                         <td>
                           <span className={`pm-status pm-status--${status}`}>
@@ -212,14 +237,13 @@ export default function PatientList() {
                         </td>
                         <td>
                           <div className="pm-actions">
-                            <button className="pm-btn-view" title="View">
+                            <button className="pm-btn-view">
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                               </svg>
                               View
                             </button>
-                            <button className="pm-btn-edit" title="Edit">
+                            <button className="pm-btn-edit">
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -239,48 +263,27 @@ export default function PatientList() {
           {/* Pagination */}
           {!loading && !error && totalPages > 1 && (
             <div className="pm-pagination">
-              <span className="pm-page-info">
-                Page {page} of {totalPages} ({total} total)
-              </span>
+              <span className="pm-page-info">Page {page} of {totalPages} ({total} total)</span>
               <div className="pm-page-btns">
-                <button
-                  className="pm-page-btn"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  ← Prev
-                </button>
+                <button className="pm-page-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>← Prev</button>
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   const pg = Math.max(1, Math.min(page - 2 + i, totalPages - 4 + i));
                   return (
-                    <button
-                      key={pg}
-                      className={`pm-page-btn ${pg === page ? 'pm-page-btn--active' : ''}`}
-                      onClick={() => setPage(pg)}
-                    >
-                      {pg}
-                    </button>
+                    <button key={pg} className={`pm-page-btn ${pg === page ? 'pm-page-btn--active' : ''}`} onClick={() => setPage(pg)}>{pg}</button>
                   );
                 })}
-                <button
-                  className="pm-page-btn"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  Next →
-                </button>
+                <button className="pm-page-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next →</button>
               </div>
             </div>
           )}
         </div>
 
-        {/* ── Right: Stat cards ── */}
+        {/* ── Stat cards ── */}
         <div className="pm-side-panel">
           <div className="pm-stat-card pm-stat-card--teal">
             <div className="pm-stat-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
             </div>
@@ -290,12 +293,10 @@ export default function PatientList() {
               <p className="pm-stat-sub">All registered</p>
             </div>
           </div>
-
           <div className="pm-stat-card pm-stat-card--green">
             <div className="pm-stat-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22 4 12 14.01 9 11.01"/>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
             </div>
             <div className="pm-stat-body">
@@ -304,12 +305,10 @@ export default function PatientList() {
               <p className="pm-stat-sub">Currently active</p>
             </div>
           </div>
-
           <div className="pm-stat-card pm-stat-card--emerald">
             <div className="pm-stat-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
             </div>
             <div className="pm-stat-body">
@@ -321,11 +320,59 @@ export default function PatientList() {
         </div>
       </div>
 
+      {/* ── Modals ── */}
       {showAddModal && (
         <AddPatientModal
+          role={userRole}
           onClose={() => setShowAddModal(false)}
           onSuccess={() => { setShowAddModal(false); fetchPatients(); }}
         />
+      )}
+
+      {showPrintModal && (
+        <PrintPreviewModal
+          title="Patient Registry"
+          clinicName={clinicName}
+          printedBy={printedBy}
+          onConfirm={handleConfirmPrint}
+          onCancel={() => setShowPrintModal(false)}
+        >
+          {/* Preview table */}
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#173d29', borderLeft: '3px solid #10b981', paddingLeft: 10, marginBottom: 10 }}>
+            Registered Patients ({patients.length} shown)
+          </div>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>{['#', 'Patient No.', 'Full Name', 'DOB', 'Gender', 'Registered On', 'Status'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {patients.length === 0
+                  ? <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>No patients.</td></tr>
+                  : patients.map((p, i) => (
+                    <tr key={p.id} style={i % 2 !== 0 ? { background: '#f9fafb' } : {}}>
+                      <td style={td}>{i + 1}</td>
+                      <td style={{ ...td, fontFamily: 'monospace', fontSize: 10 }}>{p.patient_number}</td>
+                      <td style={{ ...td, fontWeight: 600 }}>{fullName(p)}</td>
+                      <td style={td}>{formatDate(p.date_of_birth)}</td>
+                      <td style={{ ...td, textTransform: 'capitalize' }}>{p.gender}</td>
+                      <td style={td}>{formatDate(p.created_at)}</td>
+                      <td style={td}>
+                        <span style={{
+                          padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                          background: p.status === 'active' ? '#d1fae5' : p.status === 'pending' ? '#fef3c7' : '#f3f4f6',
+                          color:      p.status === 'active' ? '#065f46' : p.status === 'pending' ? '#92400e' : '#374151',
+                        }}>
+                          {(p.status ?? 'active').charAt(0).toUpperCase() + (p.status ?? 'active').slice(1)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          </div>
+        </PrintPreviewModal>
       )}
     </PatientListRoot>
   );

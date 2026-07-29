@@ -51,6 +51,7 @@ class PatientController extends Controller
      */
     public function store(Request $request)
     {
+        // Validate basic patient data
         $request->validate([
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
@@ -63,6 +64,24 @@ class PatientController extends Controller
             'contact_number' => 'nullable|string|max:50',
             'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_number' => 'nullable|string|max:50',
+            // Extended Form 1 fields
+            'blood_type' => 'nullable|string|max:10',
+            'mother_maiden_name' => 'nullable|string|max:255',
+            'civil_status' => 'nullable|in:single,married,widowed,separated,annulled,cohabitation',
+            'spouse_name' => 'nullable|string|max:255',
+            'address_municipality' => 'nullable|string|max:255',
+            'address_barangay' => 'nullable|string|max:255',
+            'address_purok' => 'nullable|string|max:255',
+            'province' => 'nullable|string|max:100',
+            'educational_attainment' => 'nullable|string|max:50',
+            'employment_status' => 'nullable|string|max:50',
+            'family_member' => 'nullable|string|max:50',
+            'philhealth_member' => 'nullable|in:yes,no',
+            'philhealth_status' => 'nullable|in:member,dependent',
+            'philhealth_no' => 'nullable|string|max:50',
+            'philhealth_category' => 'nullable|string|max:50',
+            'fourps_member' => 'nullable|in:yes,no',
+            'dswd_nhts' => 'nullable|in:yes,no',
         ]);
 
         $patient = Patient::create([
@@ -81,9 +100,22 @@ class PatientController extends Controller
             'registered_by' => $request->user()->id,
         ]);
 
+        // Create patient details if any extended data provided
+        $detailsData = $request->only([
+            'blood_type', 'mother_maiden_name', 'civil_status', 'spouse_name',
+            'address_municipality', 'address_barangay', 'address_purok', 'province',
+            'educational_attainment', 'employment_status', 'family_member',
+            'philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category',
+            'fourps_member', 'dswd_nhts',
+        ]);
+        
+        if (!empty(array_filter($detailsData))) {
+            $patient->details()->create($detailsData);
+        }
+
         return response()->json([
             'message' => 'Patient registered successfully',
-            'patient' => $patient->load('registeredBy'),
+            'patient' => $patient->load(['registeredBy', 'details']),
         ], 201);
     }
 

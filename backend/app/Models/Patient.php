@@ -181,6 +181,11 @@ class Patient extends Model
         return $this->hasMany(Notification::class, 'patient_id', 'patient_id');
     }
 
+    public function details()
+    {
+        return $this->hasOne(PatientDetails::class, 'patient_id', 'patient_id');
+    }
+
     /**
      * Helper: Get active bite cases
      */

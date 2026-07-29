@@ -1,4 +1,4 @@
-/* Developer Database Explorer — Minimalist Layout & Standard Header */
+/* Developer Database Explorer — Minimalist Layout, Standard Header & KPI Cards */
 
 .db-explorer-container {
   width: 100%;
@@ -32,6 +32,55 @@
 .db-explorer-back-btn:hover {
   background: #e8f5ed;
   color: #173d29;
+}
+
+/* Database Explorer KPI Grid */
+.db-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.db-kpi-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  border: 1px solid #e0eae3;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 96px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.db-kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.db-kpi-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #77877d;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.db-kpi-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #173d29;
+  line-height: 1.2;
+  margin-top: 0.25rem;
+}
+
+.db-kpi-sub {
+  font-size: 0.75rem;
+  color: #17653a;
+  font-weight: 400;
+  margin-top: 0.35rem;
 }
 
 /* Split View Layout */
@@ -86,7 +135,7 @@
 }
 
 .db-explorer-table-list {
-  max-height: calc(100vh - 230px);
+  max-height: calc(100vh - 340px);
   overflow-y: auto;
 }
 

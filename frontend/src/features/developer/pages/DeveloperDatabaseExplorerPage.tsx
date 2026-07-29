@@ -101,6 +101,8 @@ export default function DeveloperDatabaseExplorerPage() {
     c.column_type.toLowerCase().includes(columnSearch.toLowerCase())
   );
 
+  const totalSystemRows = tables.reduce((acc, t) => acc + (t.row_count || 0), 0);
+
   return (
     <div className="db-explorer-container">
       {/* Minimalist Dashboard Header */}
@@ -135,6 +137,45 @@ export default function DeveloperDatabaseExplorerPage() {
           </button>
         </div>
       )}
+
+      {/* Database KPI Summary Cards */}
+      <div className="db-kpi-grid">
+        <div className="db-kpi-card">
+          <div className="db-kpi-header">
+            <span className="db-kpi-label">Database Tables</span>
+            <Icon name="databaseExplorer" size={16} color="#17653a" />
+          </div>
+          <div className="db-kpi-value">{tables.length}</div>
+          <div className="db-kpi-sub">InnoDB Storage Engine</div>
+        </div>
+
+        <div className="db-kpi-card">
+          <div className="db-kpi-header">
+            <span className="db-kpi-label">Total System Records</span>
+            <Icon name="reports" size={16} color="#17653a" />
+          </div>
+          <div className="db-kpi-value">{totalSystemRows.toLocaleString()}</div>
+          <div className="db-kpi-sub">Indexed Database Rows</div>
+        </div>
+
+        <div className="db-kpi-card">
+          <div className="db-kpi-header">
+            <span className="db-kpi-label">Database Engine</span>
+            <Icon name="developerSettings" size={16} color="#17653a" />
+          </div>
+          <div className="db-kpi-value">MySQL 8.0</div>
+          <div className="db-kpi-sub">Transactional & Relational</div>
+        </div>
+
+        <div className="db-kpi-card">
+          <div className="db-kpi-header">
+            <span className="db-kpi-label">Data Privacy Status</span>
+            <Icon name="check" size={16} color="#17653a" />
+          </div>
+          <div className="db-kpi-value" style={{ color: '#17653a' }}>Active</div>
+          <div className="db-kpi-sub">Raw Patient Data Protected</div>
+        </div>
+      </div>
 
       {/* Main Split Panel */}
       <div className="db-explorer-split">

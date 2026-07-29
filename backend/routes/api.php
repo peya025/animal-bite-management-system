@@ -34,9 +34,15 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
 
+use App\Http\Controllers\DeveloperDatabaseExplorerController;
+
 Route::middleware(['auth:sanctum', 'role:developer,admin'])->group(function () {
     Route::post('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
     Route::put('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
+
+    // Developer Database Explorer Routes (XAMPP / phpMyAdmin Style)
+    Route::get('/developer/database/tables', [DeveloperDatabaseExplorerController::class, 'getTables']);
+    Route::get('/developer/database/tables/{tableName}', [DeveloperDatabaseExplorerController::class, 'getTableDetails']);
 });
 
 Route::prefix('mobile')->group(function () {

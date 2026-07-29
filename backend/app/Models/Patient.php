@@ -142,7 +142,8 @@ class Patient extends Model
             'patient_account_patient',
             'patient_id',
             'patient_account_id',
-        )->withPivot(['relationship', 'is_primary', 'status', 'verified_by', 'verified_at'])
+        )->using(PatientAccountPatient::class)
+            ->withPivot(['relationship', 'is_primary', 'status', 'verified_by', 'verified_at'])
             ->withTimestamps();
     }
 

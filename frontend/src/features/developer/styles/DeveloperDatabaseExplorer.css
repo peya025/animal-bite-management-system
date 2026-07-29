@@ -1,0 +1,221 @@
+/* Developer Database Explorer — Minimalist Layout & Standard Header */
+
+.db-explorer-container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.db-explorer-dbname {
+  color: #17653a;
+  background: #e8f5ed;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+  font-family: monospace;
+  font-weight: 500;
+}
+
+.db-explorer-back-btn {
+  background: #ffffff;
+  color: #17653a;
+  border: 1px solid #d7ebdf;
+  padding: 0.45rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  transition: all 150ms ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.db-explorer-back-btn:hover {
+  background: #e8f5ed;
+  color: #173d29;
+}
+
+/* Split View Layout */
+.db-explorer-split {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* Left Sidebar Table Selector */
+.db-explorer-sidebar {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e0eae3;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+
+.db-explorer-sidebar-header {
+  padding: 0.85rem 1rem;
+  background: #fbfdfb;
+  border-bottom: 1px solid #e6eee8;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: #173d29;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.db-explorer-search-box {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #f0f7f2;
+}
+
+.db-explorer-input {
+  width: 100%;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  outline: none;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+.db-explorer-input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12);
+}
+
+.db-explorer-table-list {
+  max-height: calc(100vh - 230px);
+  overflow-y: auto;
+}
+
+.db-explorer-table-item {
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.9rem;
+  border: none;
+  border-bottom: 1px solid #f8fafc;
+  background: transparent;
+  color: #475569;
+  font-weight: 400;
+  font-size: 0.8125rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all 150ms ease;
+  box-sizing: border-box;
+}
+
+.db-explorer-table-item:hover {
+  background: #f0f7f2;
+  color: #17653a;
+}
+
+.db-explorer-table-item.active {
+  background: #e8f5ed;
+  color: #17653a;
+  font-weight: 500;
+  border-left-color: #17653a;
+}
+
+.db-explorer-table-name {
+  font-family: monospace;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-explorer-badge-count {
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  font-weight: 400;
+}
+
+.db-explorer-table-item.active .db-explorer-badge-count {
+  background: #17653a;
+  color: #ffffff;
+}
+
+/* Right Panel */
+.db-explorer-main {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e0eae3;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  padding: 1.25rem;
+}
+
+.db-explorer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #f0f7f2;
+  padding-bottom: 0.75rem;
+}
+
+.db-explorer-table-title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #173d29;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.db-explorer-table-meta {
+  font-size: 0.8125rem;
+  color: #77877d;
+  font-weight: 400;
+}
+
+.db-explorer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Data & Structure Tables */
+.db-explorer-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #e0eae3;
+  border-radius: 0.5rem;
+}
+
+.db-explorer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.db-explorer-table th {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  font-weight: 400;
+  color: #173d29;
+  background: #f5f8f6;
+  border-bottom: 1px solid #e0eae3;
+  white-space: nowrap;
+  font-family: monospace;
+}
+
+.db-explorer-table td {
+  padding: 0.55rem 0.75rem;
+  color: #334155;
+  font-weight: 400;
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.db-explorer-table tr:nth-child(even) {
+  background: #fafcfb;
+}

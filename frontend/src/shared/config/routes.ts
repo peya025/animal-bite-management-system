@@ -58,6 +58,7 @@ export const ROUTES = {
   },
   PROFILE: '/profile',
   DEVELOPER_SETTINGS: '/developer/landing-settings',
+  DATABASE_EXPLORER: '/developer/database-explorer',
 } as const;
 
 /** Helper: build a concrete path by replacing :params */

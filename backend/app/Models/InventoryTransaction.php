@@ -17,6 +17,12 @@ class InventoryTransaction extends Model
         'staff_id',
         'transaction_type',
         'quantity',
+        'quantity_received',
+        'received_from',
+        'dispensed',
+        'transferred',
+        'expired',
+        'balanced',
         'transaction_date',
         'reference_id',
         'remarks',
@@ -24,6 +30,11 @@ class InventoryTransaction extends Model
 
     protected $casts = [
         'quantity' => 'integer',
+        'quantity_received' => 'integer',
+        'dispensed' => 'integer',
+        'transferred' => 'integer',
+        'expired' => 'integer',
+        'balanced' => 'integer',
         'transaction_date' => 'datetime',
     ];
 

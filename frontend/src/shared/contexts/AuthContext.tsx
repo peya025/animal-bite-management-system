@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(response.user);
       setClinic(response.clinic);
 
-      if (!response.clinic.setup_completed && response.user.role === 'admin') {
+      if (!response.clinic?.is_setup_complete && response.user.role === 'admin') {
         navigate(ROUTES.SETUP);
       } else {
         navigate(ROUTES.DASHBOARD);

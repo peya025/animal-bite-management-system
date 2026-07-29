@@ -63,70 +63,73 @@ export default function SetupWizard() {
         window.location.href = ROUTES.LOGIN;
         return;
       }
+
+      const jsonHeaders = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',       // ← required so Laravel returns JSON errors
+        'Authorization': `Bearer ${token}`,
+      };
       
       // Step 1: Update clinic information
-      console.log('Updating clinic information...');
       const updateResponse = await fetch('http://localhost:8000/api/setup/clinic', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: jsonHeaders,
         body: JSON.stringify({
-          name: setupData.clinicName,
-          address: setupData.address,
-          phone: setupData.phone,
-          email: setupData.email,
+          name:           setupData.clinicName,
+          address:        setupData.address,
+          contact_number: setupData.phone,   // ← backend column is contact_number
+          email:          setupData.email,
         }),
       });
 
       if (!updateResponse.ok) {
         const errorData = await updateResponse.json();
-        console.error('Update clinic failed:', errorData);
-        alert(`Failed to update clinic information: ${errorData.message || 'Unknown error'}`);
+        // If unauthenticated, token is stale — force re-login
+        if (updateResponse.status === 401) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('userData');
+          localStorage.removeItem('clinicData');
+          alert('Your session has expired. Please log in again.');
+          window.location.href = ROUTES.LOGIN;
+          return;
+        }
+        const msg = errorData.message
+          || (errorData.errors ? Object.values(errorData.errors).flat().join(', ') : 'Unknown error');
+        alert(`Failed to update clinic information: ${msg}`);
         return;
       }
 
       const updateData = await updateResponse.json();
-      console.log('Clinic updated successfully:', updateData);
 
       // Step 2: Mark setup as complete
-      console.log('Marking setup as complete...');
       const completeResponse = await fetch('http://localhost:8000/api/setup/complete', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: jsonHeaders,
       });
 
       if (completeResponse.ok) {
         const data = await completeResponse.json();
-        console.log('Setup completed successfully:', data);
         
-        // Update localStorage with clinic data
+        // Update localStorage with latest clinic data
         localStorage.setItem('clinicData', JSON.stringify(data.clinic));
         
-        // Update user data in localStorage to reflect setup completion
         const userData = JSON.parse(localStorage.getItem('userData') || '{}');
         if (userData.clinic) {
-          userData.clinic.is_setup_complete = true;
-          userData.clinic.setup_completed_at = data.clinic.setup_completed_at;
-          userData.clinic.name = data.clinic.name;
-          userData.clinic.address = data.clinic.address;
-          userData.clinic.phone = data.clinic.phone;
-          userData.clinic.email = data.clinic.email;
+          userData.clinic.is_setup_complete   = true;
+          userData.clinic.setup_completed_at  = data.clinic.setup_completed_at;
+          userData.clinic.name                = data.clinic.name;
+          userData.clinic.address             = data.clinic.address;
+          userData.clinic.contact_number      = data.clinic.contact_number;
+          userData.clinic.email               = data.clinic.email;
         }
         localStorage.setItem('userData', JSON.stringify(userData));
 
-        // Show success modal then redirect
         setShowSuccessModal(true);
         setTimeout(() => {
           window.location.href = ROUTES.DASHBOARD;
         }, 2000);
       } else {
         const errorData = await completeResponse.json();
-        console.error('Complete setup failed:', errorData);
         alert(`Failed to complete setup: ${errorData.message || 'Unknown error'}`);
       }
     } catch (error) {

@@ -210,7 +210,11 @@ function SimpleDashboard() {
     return null;
   }
 
-  const setupComplete = user?.clinic?.is_setup_complete ?? clinic?.is_setup_complete ?? false;
+  // Backend uses 'is_setup_complete' on the clinic model
+  const setupComplete =
+    user?.clinic?.is_setup_complete ??
+    clinic?.is_setup_complete ??
+    false;
   if (!setupComplete && user?.role === 'admin') {
     window.location.href = ROUTES.SETUP;
     return null;

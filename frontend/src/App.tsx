@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './features/auth/pages/LoginPage';
@@ -13,6 +13,7 @@ import UserListPage from './features/users/pages/UserListPage';
 import UserCreatePage from './features/users/pages/UserCreatePage';
 import UserProfilePage from './features/users/pages/UserProfilePage';
 import ReportsDashboardPage from './features/reports/pages/ReportsDashboardPage';
+import DeveloperLandingSettingsPage from './features/developer/pages/DeveloperLandingSettingsPage';
 import ConfirmationDialog from './components/feedback/ConfirmationDialog';
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
 import { ROUTES } from './shared/config/routes';
@@ -47,17 +48,18 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard',    path: ROUTES.DASHBOARD,         roles: ['admin','registration','triage','treatment'] },
-  { label: 'Patients',     path: ROUTES.PATIENTS.LIST,     roles: ['registration','triage','treatment'] },
-  { label: 'Queue',        path: ROUTES.QUEUE.DASHBOARD,   roles: ['registration','triage'] },
-  { label: 'Bite Cases',   path: ROUTES.BITE_CASES.LIST,   roles: ['admin','triage','treatment'] },
-  { label: 'Vaccinations', path: ROUTES.VACCINATIONS.LIST, roles: ['admin','triage','treatment'] },
-  { label: 'Inventory',    path: ROUTES.INVENTORY.LIST,    roles: ['admin'] },
-  { label: 'Reports',      path: ROUTES.REPORTS.LIST,      roles: ['admin', 'triage'] },
-  { label: 'Users',        path: ROUTES.USERS.LIST,        roles: ['admin'] },
+  { label: 'Dashboard',    path: ROUTES.DASHBOARD,         roles: ['developer','admin','registration','triage','treatment'] },
+  { label: 'Patients',     path: ROUTES.PATIENTS.LIST,     roles: ['developer','registration','triage','treatment'] },
+  { label: 'Queue',        path: ROUTES.QUEUE.DASHBOARD,   roles: ['developer','registration','triage'] },
+  { label: 'Bite Cases',   path: ROUTES.BITE_CASES.LIST,   roles: ['developer','admin','triage','treatment'] },
+  { label: 'Vaccinations', path: ROUTES.VACCINATIONS.LIST, roles: ['developer','admin','triage','treatment'] },
+  { label: 'Inventory',    path: ROUTES.INVENTORY.LIST,    roles: ['developer','admin'] },
+  { label: 'Reports',      path: ROUTES.REPORTS.LIST,      roles: ['developer','admin', 'triage'] },
+  { label: 'Users',        path: ROUTES.USERS.LIST,        roles: ['developer','admin'] },
+  { label: 'Developer Settings', path: ROUTES.DEVELOPER_SETTINGS, roles: ['developer','admin'] },
   { 
     label: 'Clinic Setup',
-    roles: ['admin'],
+    roles: ['developer','admin'],
     submenu: [
       { label: 'Clinic Information',    path: ROUTES.CLINIC_SETUP.INFO      },
       { label: 'Predefined Templates',  path: ROUTES.CLINIC_SETUP.TEMPLATES },
@@ -131,6 +133,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
+  developer:    'Developer',
   admin:        'Administrator',
   registration: 'Registration Staff',
   triage:       'Triage / Doctor',
@@ -882,6 +885,7 @@ function App() {
           <Route path="/reports" element={<ProtectedRoute><AppLayout title="Reports &amp; Analytics"><ReportsDashboardPage /></AppLayout></ProtectedRoute>} />
           <Route path="/users/create" element={<ProtectedRoute><AppLayout title="Add User"><UserCreatePage /></AppLayout></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><AppLayout title="My Profile"><UserProfilePage /></AppLayout></ProtectedRoute>} />
+          <Route path="/developer/landing-settings" element={<ProtectedRoute><AppLayout title="Developer Landing Settings"><DeveloperLandingSettingsPage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
         </Routes>
       </Router>

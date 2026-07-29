@@ -3,10 +3,9 @@ import {
   Box, Button, CircularProgress, Paper, Typography,
 } from '@mui/material';
 import { Print as PrintIcon } from '@mui/icons-material';
-import api from '../../../../services/api';
 import type { InventoryItem } from '../../types';
 import { formatDate } from '../../../../shared/utils';
-import { DEMO_TRANSACTIONS_MAP, type DemoTransaction } from '../../data/inventoryDemoData';
+import { DEMO_TRANSACTIONS_MAP } from '../../data/inventoryDemoData';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -32,7 +31,7 @@ function mapTx(tx: Transaction) {
 
 // ─── Single Stock Card Table Component ────────────────────────
 
-function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; isDemo?: boolean }) {
+function SingleStockCardTable({ item }: { item: InventoryItem; isDemo?: boolean }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const cardRef = useRef<HTMLDivElement>(null);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Alert, Box, Button, Grid, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
+  Alert, Box, Grid, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
 } from '@mui/material';
 import { Refresh as RefreshIcon, Science as DemoIcon } from '@mui/icons-material';
 // Backend API imported but calls commented out below as requested to use local sample data
@@ -50,7 +50,6 @@ export default function VaccineInventory() {
   const [batchFilter, setBatchFilter]   = useState('');
   const [expiryFrom, setExpiryFrom]     = useState('');
   const [expiryTo, setExpiryTo]         = useState('');
-  const [isDemoMode, setIsDemoMode]     = useState(true);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -117,7 +116,7 @@ export default function VaccineInventory() {
     setStats({
       total_batches: DEMO_INVENTORY_ITEMS.length,
       active_batches: DEMO_INVENTORY_ITEMS.filter(i => i.status === 'active').length,
-      depleted_batches: DEMO_INVENTORY_ITEMS.filter(i => i.status === 'depleted').length,
+      depleted_batches: DEMO_INVENTORY_ITEMS.filter(i => i.current_quantity === 0).length,
       expired_batches: 0,
       total_stock: DEMO_INVENTORY_ITEMS.reduce((sum, i) => sum + i.current_quantity, 0),
       expiring_soon: 0,

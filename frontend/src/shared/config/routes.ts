@@ -57,6 +57,7 @@ export const ROUTES = {
     VAX_SCHED: '/setup/vaccination-schedules',
   },
   PROFILE: '/profile',
+  DEVELOPER_SETTINGS: '/developer/landing-settings',
 } as const;
 
 /** Helper: build a concrete path by replacing :params */

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Clinic;
 use App\Models\User;
+use App\Models\LandingPageSetting;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -17,10 +18,21 @@ class DefaultClinicSeeder extends Seeder
         // Create default clinic
         $clinic = Clinic::create([
             'name' => 'Animal Bite Center',
-            'address' => '123 Main Street, City',
+            'address' => 'Poblacion, Tagoloan, Misamis Oriental',
             'phone' => '09123456789',
             'email' => 'info@animalbitecenter.com',
-            'is_setup_complete' => false,
+            'is_setup_complete' => true,
+        ]);
+
+        // Create developer user
+        User::create([
+            'clinic_id' => $clinic->id,
+            'name' => 'Lead Developer',
+            'email' => 'developer@clinic.com',
+            'password' => Hash::make('password123'),
+            'role' => 'developer',
+            'is_active' => true,
+            'phone' => '09999999999',
         ]);
 
         // Create admin user
@@ -65,9 +77,42 @@ class DefaultClinicSeeder extends Seeder
             'phone' => '09123456792',
         ]);
 
-        $this->command->info('✅ Default clinic and users created successfully!');
+        // Seed Landing Page & Footer Settings
+        LandingPageSetting::create([
+            'clinic_id' => $clinic->id,
+            'app_short_name' => 'TABTA',
+            'app_full_name' => 'TAGOLOAN ANIMAL BITE TREATMENT CENTER',
+            'abtc_brand_title' => 'ABTC',
+            'abtc_description' => 'Animal Bite Management & Monitoring System',
+            'developed_for_text' => 'Developed for Animal Bite Treatment Center',
+            'quick_links' => [
+                ['label' => 'About System', 'url' => '#about'],
+                ['label' => 'Help Center', 'url' => '#help'],
+                ['label' => 'Staff Login', 'url' => '#login'],
+            ],
+            'support_links' => [
+                ['label' => 'Contact Support', 'url' => '#contact'],
+                ['label' => 'User Guides', 'url' => '#guides'],
+                ['label' => 'FAQs', 'url' => '#faqs'],
+            ],
+            'system_info_links' => [
+                ['label' => 'Features', 'url' => '#features'],
+                ['label' => 'Security', 'url' => '#security'],
+                ['label' => 'Report Issue', 'url' => '#report'],
+            ],
+            'operating_schedule' => 'SCHEDULE: MONDAYS & THURSDAYS',
+            'operating_hours' => '8:00 AM – 5:00 PM',
+            'registration_window' => '8:00 AM – 10:00 AM (Come Early!)',
+            'requirement_notice' => 'Please bring updated PhilHealth MDR',
+        ]);
+
+        $this->command->info('✅ Default clinic, developer account, and landing page settings created successfully!');
         $this->command->newLine();
         $this->command->info('📋 Login Credentials:');
+        $this->command->newLine();
+        $this->command->info('💻 Developer:');
+        $this->command->info('   Email: developer@clinic.com');
+        $this->command->info('   Password: password123');
         $this->command->newLine();
         $this->command->info('👤 Admin:');
         $this->command->info('   Email: admin@clinic.com');

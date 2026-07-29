@@ -1,30 +1,54 @@
 import { useState, useEffect, useRef } from 'react';
-import { APP_NAME, APP_SHORT_NAME } from '../constants';
+import { APP_SHORT_NAME } from '../constants';
 import GlobalStyles from '@mui/material/GlobalStyles';
 import { landingPageStyles } from '../styles/LandingPage.styles';
 import antiviralVaccineImg from '../assets/image.png';
 import rorOrModified from '../assets/roror-modified.png';
 import { ROUTES } from '../shared/config/routes';
 
-
-
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [clinicName, setClinicName] = useState('Animal Bite Treatment Center');
   const carouselRef = useRef<HTMLDivElement>(null);
 
+  const [dynSettings, setDynSettings] = useState({
+    app_short_name: APP_SHORT_NAME || 'TABTA',
+    app_full_name: 'TAGOLOAN ANIMAL BITE TREATMENT CENTER',
+    abtc_brand_title: 'ABTC',
+    abtc_description: 'Animal Bite Management & Monitoring System',
+    developed_for_text: 'Developed for Animal Bite Treatment Center',
+    quick_links: [
+      { label: 'About System', url: '#about' },
+      { label: 'Help Center', url: '#help' },
+      { label: 'Staff Login', url: '#login' },
+    ],
+    support_links: [
+      { label: 'Contact Support', url: '#contact' },
+      { label: 'User Guides', url: '#help' },
+      { label: 'FAQs', url: '#help' },
+    ],
+    system_info_links: [
+      { label: 'Features', url: '#about' },
+      { label: 'Security', url: '#about' },
+      { label: 'Report Issue', url: '#contact' },
+    ],
+    operating_schedule: 'SCHEDULE: MONDAYS & THURSDAYS',
+    operating_hours: '8:00 AM – 5:00 PM',
+    registration_window: '8:00 AM – 10:00 AM (Come Early!)',
+    requirement_notice: 'Please bring updated PhilHealth MDR',
+  });
+
   useEffect(() => {
-    const clinicData = localStorage.getItem('clinicData');
-    if (clinicData) {
-      try {
-        const clinic = JSON.parse(clinicData);
-        if (clinic.name) {
-          setClinicName(clinic.name);
+    fetch('/api/landing-page-settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.app_short_name) {
+          setDynSettings(prev => ({
+            ...prev,
+            ...data,
+          }));
         }
-      } catch (e) {
-        console.error('Failed to parse clinic data:', e);
-      }
-    }
+      })
+      .catch(() => console.log('Using default landing page settings'));
   }, []);
 
   const handleSignIn = () => {
@@ -288,8 +312,8 @@ export default function LandingPage() {
                   <circle cx="12" cy="12" r="3"/>
                 </svg>
                 <div className="brand-text-col">
-                  <span className="brand-abbr">{APP_SHORT_NAME}</span>
-                  <span className="brand-fullname">TAGOLOAN ANIMAL BITE TREATMENT CENTER</span>
+                  <span className="brand-abbr">{dynSettings.app_short_name}</span>
+                  <span className="brand-fullname">{dynSettings.app_full_name}</span>
                 </div>
               </div>
             </div>
@@ -614,43 +638,49 @@ export default function LandingPage() {
       <footer className="footer">
         <div className="footer-content">
           <div className="footer-section">
-            <h4>{APP_SHORT_NAME}</h4>
-            <p>Animal Bite Management & Monitoring System</p>
+            <h4>{dynSettings.abtc_brand_title || dynSettings.app_short_name}</h4>
+            <p>{dynSettings.abtc_description}</p>
             <p style={{ fontSize: '0.85rem', color: '#9ca3af', marginTop: '0.5rem' }}>
-              Developed for {clinicName}
+              {dynSettings.developed_for_text}
             </p>
           </div>
 
           <div className="footer-section">
             <h5>Quick Links</h5>
             <ul>
-              <li><a href="#about">About System</a></li>
-              <li><a href="#help">Help Center</a></li>
-              <li><button onClick={handleSignIn}>Staff Login</button></li>
+              {dynSettings.quick_links && dynSettings.quick_links.map((link: any, idx: number) => (
+                <li key={idx}>
+                  {link.url === '#login' ? (
+                    <button onClick={handleSignIn}>{link.label}</button>
+                  ) : (
+                    <a href={link.url}>{link.label}</a>
+                  )}
+                </li>
+              ))}
             </ul>
           </div>
 
           <div className="footer-section">
             <h5>Support</h5>
             <ul>
-              <li><a href="#contact">Contact Support</a></li>
-              <li><a href="#help">User Guides</a></li>
-              <li><a href="#help">FAQs</a></li>
+              {dynSettings.support_links && dynSettings.support_links.map((link: any, idx: number) => (
+                <li key={idx}><a href={link.url}>{link.label}</a></li>
+              ))}
             </ul>
           </div>
 
           <div className="footer-section">
             <h5>System Info</h5>
             <ul>
-              <li><a href="#about">Features</a></li>
-              <li><a href="#about">Security</a></li>
-              <li><a href="#contact">Report Issue</a></li>
+              {dynSettings.system_info_links && dynSettings.system_info_links.map((link: any, idx: number) => (
+                <li key={idx}><a href={link.url}>{link.label}</a></li>
+              ))}
             </ul>
           </div>
         </div>
 
         <div className="footer-bottom">
-          <p>&copy; 2026 {APP_NAME}. Powered by ABMMS. All rights reserved.</p>
+          <p>&copy; 2026 {dynSettings.app_full_name}. Powered by {dynSettings.app_short_name}. All rights reserved.</p>
         </div>
       </footer>
     </div>

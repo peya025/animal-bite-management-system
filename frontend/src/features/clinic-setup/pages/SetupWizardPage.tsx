@@ -99,7 +99,7 @@ export default function SetupWizard() {
         return;
       }
 
-      const updateData = await updateResponse.json();
+      await updateResponse.json();
 
       // Step 2: Mark setup as complete
       const completeResponse = await fetch('http://localhost:8000/api/setup/complete', {

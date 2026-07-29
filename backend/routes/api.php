@@ -18,6 +18,8 @@ use App\Http\Controllers\VaccinationController;
 use App\Http\Controllers\VaccineInventoryController;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\LandingPageSettingsController;
+
 // Test route - check if API is working
 Route::get('/test', function () {
     return response()->json([
@@ -30,6 +32,12 @@ Route::get('/test', function () {
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
+
+Route::middleware(['auth:sanctum', 'role:developer,admin'])->group(function () {
+    Route::post('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
+    Route::put('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
+});
 
 Route::prefix('mobile')->group(function () {
     Route::post('/register', [PatientAccountAuthController::class, 'register']);

@@ -4,6 +4,7 @@ export const APP_NAME = 'Tagoloan Animal Bite Treatment Application';
 export const APP_SHORT_NAME = 'ABTC';
 
 export const ROLES = {
+  DEVELOPER: 'developer',
   ADMIN: 'admin',
   REGISTRATION: 'registration',
   TRIAGE: 'triage',
@@ -11,6 +12,7 @@ export const ROLES = {
 } as const;
 
 export const ROLE_LABELS = {
+  developer: 'System Developer',
   admin: 'Administrator',
   registration: 'Registration Staff',
   triage: 'Triage/Doctor Staff',

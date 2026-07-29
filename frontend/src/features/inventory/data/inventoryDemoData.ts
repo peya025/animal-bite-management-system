@@ -59,7 +59,7 @@ export const DEMO_INVENTORY_ITEMS: InventoryItem[] = [
     batch_number: 'RP-2025-004X',
     current_quantity: 0,
     expiration_date: '2026-06-30',
-    status: 'depleted',
+    status: 'expired',
     created_at: '2026-06-01T08:00:00Z',
     updated_at: '2026-07-01T09:00:00Z',
     transactions_count: 4,

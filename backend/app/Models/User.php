@@ -64,11 +64,19 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is developer
+     */
+    public function isDeveloper(): bool
+    {
+        return $this->role === 'developer';
+    }
+
+    /**
      * Check if user is admin
      */
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->role === 'admin' || $this->role === 'developer';
     }
 
     /**

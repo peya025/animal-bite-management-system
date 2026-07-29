@@ -349,6 +349,57 @@ export const LoginRoot = styled('div')`
     color: var(--primary);
   }
 
+  .seeded-demo-container {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--gray-200);
+  }
+  .seeded-demo-header {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--gray-400);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    text-align: left;
+  }
+  .seeded-demo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .role-demo-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 12px;
+    color: var(--gray-700);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .role-demo-btn:hover {
+    border-color: var(--primary);
+    background: #ecfdf5;
+    color: #064e3b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+  }
+  .role-demo-btn svg {
+    color: var(--gray-500);
+    transition: color 0.2s ease;
+    flex-shrink: 0;
+  }
+  .role-demo-btn:hover svg {
+    color: #059669;
+  }
+
   @media (max-width: 1024px) {
     grid-template-columns: 1fr;
     .info-panel { display: none; }

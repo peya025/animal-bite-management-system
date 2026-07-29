@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Alert, Box, Grid, IconButton, Snackbar, Stack, Tooltip, Typography,
+  Alert, Box, Button, Grid, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
 } from '@mui/material';
-import { Refresh as RefreshIcon } from '@mui/icons-material';
-import api from '../../../services/api';
+import { Refresh as RefreshIcon, Science as DemoIcon } from '@mui/icons-material';
+// Backend API imported but calls commented out below as requested to use local sample data
+// import api from '../../../services/api';
 import StatCard from '../../../components/common/StatCard';
 import AddEditInventoryDialog from '../components/AddEditInventoryDialog/AddEditInventoryDialog';
 import AdjustStockDialog from '../components/AdjustStockDialog/AdjustStockDialog';
 import TransactionHistoryDialog from '../components/TransactionHistoryDialog/TransactionHistoryDialog';
 import DeleteDialog from '../components/DeleteDialog/DeleteDialog';
 import InventoryTable from '../components/InventoryTable/InventoryTable';
+import StockCardView from '../components/StockCardView/StockCardView';
+import { DEMO_INVENTORY_ITEMS } from '../data/inventoryDemoData';
 
 // ─── Types ────────────────────────────────────────────────────
 interface InventoryItem {
@@ -33,27 +36,22 @@ interface InventoryStats {
   expiring_soon: number;
   low_stock: number;
 }
-interface PaginatedResponse {
-  data: InventoryItem[];
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
-}
 
 // ─── Main Component ───────────────────────────────────────────
 export default function VaccineInventory() {
-  const [items, setItems]               = useState<InventoryItem[]>([]);
+  const [items, setItems]               = useState<InventoryItem[]>(DEMO_INVENTORY_ITEMS);
   const [stats, setStats]               = useState<InventoryStats | null>(null);
-  const [loading, setLoading]           = useState(true);
+  const [loading, setLoading]           = useState(false);
   const [page, setPage]                 = useState(0);
   const [rowsPerPage, setRowsPerPage]   = useState(10);
-  const [total, setTotal]               = useState(0);
+  const [total, setTotal]               = useState(DEMO_INVENTORY_ITEMS.length);
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [batchFilter, setBatchFilter]   = useState('');
   const [expiryFrom, setExpiryFrom]     = useState('');
   const [expiryTo, setExpiryTo]         = useState('');
+  const [isDemoMode, setIsDemoMode]     = useState(true);
+
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
@@ -62,7 +60,11 @@ export default function VaccineInventory() {
   const [adjustItem,  setAdjustItem]  = useState<InventoryItem | null>(null);
   const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
   const [deleteItem,  setDeleteItem]  = useState<InventoryItem | null>(null);
+  const [view, setView]               = useState<'table' | 'stockcard'>('table');
 
+  /* 
+   * BACKEND API CALLS COMMENTED OUT TO USE SAMPLE DATA DIRECTLY
+   * 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -73,20 +75,54 @@ export default function VaccineInventory() {
       if (expiryFrom)   params.expiry_from  = expiryFrom;
       if (expiryTo)     params.expiry_to    = expiryTo;
       const res = await api.get('/inventory', { params });
-      const data: PaginatedResponse = res.data;
-      setItems(data.data);
-      setTotal(data.total);
+      setItems(res.data.data);
+      setTotal(res.data.total);
     } catch {
       setSnackbar({ open: true, message: 'Failed to load inventory data', severity: 'error' });
     } finally {
       setLoading(false);
     }
   }, [page, rowsPerPage, search, statusFilter, batchFilter, expiryFrom, expiryTo]);
+  */
 
+  const loadData = useCallback(() => {
+    setLoading(true);
+    // Filter sample data locally
+    let filtered = [...DEMO_INVENTORY_ITEMS];
+    if (search) {
+      filtered = filtered.filter(i => i.vaccine_type.toLowerCase().includes(search.toLowerCase()));
+    }
+    if (statusFilter) {
+      filtered = filtered.filter(i => i.status === statusFilter);
+    }
+    if (batchFilter) {
+      filtered = filtered.filter(i => i.batch_number.toLowerCase().includes(batchFilter.toLowerCase()));
+    }
+    setItems(filtered);
+    setTotal(filtered.length);
+    setLoading(false);
+  }, [search, statusFilter, batchFilter]);
+
+  /* 
+   * BACKEND STATS API COMMENTED OUT TO USE SAMPLE DATA
+   *
   const loadStats = useCallback(() => {
     api.get('/inventory/statistics')
       .then(r => setStats(r.data))
-      .catch(() => setSnackbar({ open: true, message: 'Failed to load inventory statistics', severity: 'error' }));
+      .catch(() => loadSampleStats());
+  }, []);
+  */
+
+  const loadStats = useCallback(() => {
+    setStats({
+      total_batches: DEMO_INVENTORY_ITEMS.length,
+      active_batches: DEMO_INVENTORY_ITEMS.filter(i => i.status === 'active').length,
+      depleted_batches: DEMO_INVENTORY_ITEMS.filter(i => i.status === 'depleted').length,
+      expired_batches: 0,
+      total_stock: DEMO_INVENTORY_ITEMS.reduce((sum, i) => sum + i.current_quantity, 0),
+      expiring_soon: 0,
+      low_stock: 0,
+    });
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -102,11 +138,21 @@ export default function VaccineInventory() {
       {/* ── Header ── */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: '#173d29', margin: '0 0 7px 0' }}>
-            Vaccine Inventory
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: '#173d29', margin: '0 0 4px 0' }}>
+              Vaccine Inventory
+            </Typography>
+            <Chip
+              icon={<DemoIcon style={{ fontSize: 16 }} />}
+              label="Sample Data Active"
+              color="success"
+              variant="outlined"
+              size="small"
+              sx={{ fontWeight: 600, fontSize: '11px' }}
+            />
+          </Box>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
-            Manage stock levels and track transactions
+            Manage stock levels, official Stock Cards, and track transactions (Sample Data Mode)
           </Typography>
           {/* Breadcrumb */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
@@ -120,7 +166,50 @@ export default function VaccineInventory() {
             <span style={{ color: '#6b7280' }}>Vaccine Inventory</span>
           </Box>
         </Box>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* View toggle */}
+          <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: 1, overflow: 'hidden' }}>
+            <Tooltip title="Inventory List View">
+              <IconButton
+                size="small"
+                onClick={() => setView('table')}
+                sx={{
+                  borderRadius: 0, px: 1.5,
+                  background: view === 'table' ? '#10b981' : '#fff',
+                  color: view === 'table' ? '#fff' : '#6b7280',
+                  '&:hover': { background: view === 'table' ? '#059669' : '#f3f4f6' },
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <path d="M3 9h18M3 15h18M9 3v18"/>
+                </svg>
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Official Stock Card Table View">
+              <IconButton
+                size="small"
+                onClick={() => setView('stockcard')}
+                sx={{
+                  borderRadius: 0, px: 1.5,
+                  borderLeft: '1px solid #e5e7eb',
+                  background: view === 'stockcard' ? '#10b981' : '#fff',
+                  color: view === 'stockcard' ? '#fff' : '#6b7280',
+                  '&:hover': { background: view === 'stockcard' ? '#059669' : '#f3f4f6' },
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+              </IconButton>
+            </Tooltip>
+          </Box>
+
           <Tooltip title="Refresh">
             <IconButton onClick={loadData} disabled={loading}><RefreshIcon /></IconButton>
           </Tooltip>
@@ -159,18 +248,24 @@ export default function VaccineInventory() {
         ))}
       </Grid>
 
-      {/* ── Table ── */}
-      <InventoryTable
-        items={items} loading={loading} page={page} rowsPerPage={rowsPerPage} total={total}
-        search={search} statusFilter={statusFilter} batchFilter={batchFilter}
-        expiryFrom={expiryFrom} expiryTo={expiryTo}
-        onSearchChange={setSearch} onStatusFilterChange={setStatusFilter}
-        onBatchFilterChange={setBatchFilter} onExpiryFromChange={setExpiryFrom}
-        onExpiryToChange={setExpiryTo} onPageChange={setPage}
-        onRowsPerPageChange={setRowsPerPage} onEdit={setEditItem}
-        onAdjust={setAdjustItem} onHistory={setHistoryItem}
-        onDelete={setDeleteItem} onAddFirst={() => setAddOpen(true)}
-      />
+      {/* ── Table or Official Stock Card View ── */}
+      {view === 'table' ? (
+        <InventoryTable
+          items={items} loading={loading} page={page} rowsPerPage={rowsPerPage} total={total}
+          search={search} statusFilter={statusFilter} batchFilter={batchFilter}
+          expiryFrom={expiryFrom} expiryTo={expiryTo}
+          onSearchChange={setSearch} onStatusFilterChange={setStatusFilter}
+          onBatchFilterChange={setBatchFilter} onExpiryFromChange={setExpiryFrom}
+          onExpiryToChange={setExpiryTo} onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage} onEdit={setEditItem}
+          onAdjust={setAdjustItem} onHistory={setHistoryItem}
+          onDelete={setDeleteItem}
+          onViewStockCard={() => setView('stockcard')}
+          onAddFirst={() => setAddOpen(true)}
+        />
+      ) : (
+        <StockCardView items={items} loading={loading} isDemo={true} />
+      )}
 
       {/* ── Dialogs ── */}
       <AddEditInventoryDialog

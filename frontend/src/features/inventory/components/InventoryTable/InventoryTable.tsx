@@ -9,6 +9,7 @@ import {
   Inventory2 as InventoryIcon,
   Search as SearchIcon,
   Tune as AdjustIcon,
+  Assignment as StockCardIcon,
 } from '@mui/icons-material';
 import { DataTable, TablePaginator } from '../../../../components/data-display';
 import type { ColumnDef } from '../../../../components/data-display';
@@ -39,6 +40,7 @@ interface InventoryTableProps {
   onAdjust: (item: InventoryItem) => void;
   onHistory: (item: InventoryItem) => void;
   onDelete: (item: InventoryItem) => void;
+  onViewStockCard?: (item: InventoryItem) => void;
   onAddFirst: () => void;
 }
 
@@ -70,7 +72,7 @@ export default function InventoryTable({
   onSearchChange, onStatusFilterChange, onBatchFilterChange,
   onExpiryFromChange, onExpiryToChange,
   onPageChange, onRowsPerPageChange,
-  onEdit, onAdjust, onHistory, onDelete, onAddFirst,
+  onEdit, onAdjust, onHistory, onDelete, onViewStockCard, onAddFirst,
 }: InventoryTableProps) {
 
   const isLowStock = (q: number) => q > 0 && q <= 10;
@@ -161,6 +163,14 @@ export default function InventoryTable({
       key: 'actions', header: 'Actions', align: 'right',
       render: item => (
         <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
+          {onViewStockCard && (
+            <Tooltip title="View Official Stock Card">
+              <IconButton size="small" onClick={() => onViewStockCard(item)}
+                sx={{ color: '#059669', width: 32, height: 32, '&:hover': { bgcolor: '#ecfdf5', color: '#047857' } }}>
+                <StockCardIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Adjust Stock">
             <IconButton size="small" onClick={() => onAdjust(item)}
               sx={{ color: '#6b7280', width: 32, height: 32, '&:hover': { bgcolor: '#f3f4f6', color: '#059669' } }}>

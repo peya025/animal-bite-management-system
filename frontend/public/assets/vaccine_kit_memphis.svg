@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="100%" height="100%">
+  <rect width="600" height="600" fill="#064e3b" />
+  <circle cx="300" cy="300" r="200" fill="#34d399" opacity="0.25" />
+  
+  <!-- Vaccine Vial (Corporate Memphis Style) -->
+  <g transform="translate(180, 140)">
+    <rect x="60" y="80" width="120" height="260" rx="20" fill="#ffffff" stroke="#cbd5e1" stroke-width="6" />
+    <rect x="80" y="40" width="80" height="40" rx="8" fill="#0f2f63" />
+    <rect x="70" y="160" width="100" height="120" rx="12" fill="#10b981" />
+    <path d="M90,190 L150,190 M90,210 L150,210 M90,230 L130,230" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
+    <g transform="translate(130, 40) rotate(35)">
+      <rect x="40" y="80" width="30" height="160" rx="6" fill="#ffffff" opacity="0.9" stroke="#0f2f63" stroke-width="4" />
+      <line x1="55" y1="240" x2="55" y2="300" stroke="#0f2f63" stroke-width="4" />
+      <rect x="30" y="40" width="50" height="40" rx="4" fill="#34d399" />
+    </g>
+  </g>
+</svg>

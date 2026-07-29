@@ -1,7 +1,7 @@
 // Application Constants
 
 export const APP_NAME = 'Tagoloan Animal Bite Treatment Application';
-export const APP_SHORT_NAME = 'TABTA';
+export const APP_SHORT_NAME = 'ABTC';
 
 export const ROLES = {
   ADMIN: 'admin',

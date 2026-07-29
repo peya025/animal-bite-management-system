@@ -222,7 +222,7 @@ function PrintPreviewModal({ html, clinicName, printedBy, printDate, dateFrom, d
 }
 
 // ─── Main Component ───────────────────────────────────────────
-export default function ReportsDashboardPage(): JSX.Element {
+export default function ReportsDashboardPage() {
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
   const todayStr = today.toISOString().split('T')[0];

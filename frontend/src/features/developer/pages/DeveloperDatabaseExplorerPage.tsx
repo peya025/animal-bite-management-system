@@ -36,6 +36,7 @@ export default function DeveloperDatabaseExplorerPage() {
 
   const [loadingTables, setLoadingTables] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [authError, setAuthError] = useState(false);
 
   // Fetch all tables
   useEffect(() => {
@@ -46,7 +47,13 @@ export default function DeveloperDatabaseExplorerPage() {
         'Accept': 'application/json'
       }
     })
-      .then(res => res.json())
+      .then(res => {
+        if (res.status === 401 || res.status === 403) {
+          setAuthError(true);
+          return null;
+        }
+        return res.json();
+      })
       .then(data => {
         if (data && data.tables) {
           setTables(data.tables);
@@ -56,7 +63,9 @@ export default function DeveloperDatabaseExplorerPage() {
           }
         }
       })
-      .catch(err => console.error('Failed to fetch tables:', err))
+      .catch(err => {
+        console.error('Failed to fetch tables:', err);
+      })
       .finally(() => setLoadingTables(false));
   }, []);
 
@@ -108,6 +117,24 @@ export default function DeveloperDatabaseExplorerPage() {
           ← Back to Dashboard
         </button>
       </div>
+
+      {authError && (
+        <div style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '0.5rem', padding: '0.9rem 1.1rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>
+            <strong>Session Expired / Unauthorized (401):</strong> Your login token is invalid or expired. Please re-login with Lead Developer credentials (developer@clinic.com).
+          </div>
+          <button 
+            type="button" 
+            onClick={() => {
+              localStorage.removeItem('authToken');
+              window.location.href = '/login';
+            }} 
+            style={{ background: '#991b1b', color: '#ffffff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '0.375rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+          >
+            Re-login Now
+          </button>
+        </div>
+      )}
 
       {/* Main Split Panel */}
       <div className="db-explorer-split">

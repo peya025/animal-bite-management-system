@@ -59,7 +59,7 @@ class MobilePatientWorkflowTest extends TestCase
         $this->postJson('/api/mobile/patients', $this->patientPayload($clinic))
             ->assertCreated()
             ->assertJsonPath('pivot.relationship', 'self')
-            ->assertJsonPath('pivot.is_primary', 1);
+            ->assertJsonPath('pivot.is_primary', true);
 
         $this->postJson('/api/mobile/patients', $this->patientPayload($clinic))
             ->assertUnprocessable()

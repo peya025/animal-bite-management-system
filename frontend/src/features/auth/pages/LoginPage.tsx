@@ -39,7 +39,8 @@ export default function Login() {
 
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userData', JSON.stringify(data.user));
-      localStorage.setItem('clinicData', JSON.stringify(data.user.clinic));
+      // clinic is nested inside user in the backend response
+      localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
       window.location.replace('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');

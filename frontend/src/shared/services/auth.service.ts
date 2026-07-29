@@ -7,16 +7,27 @@ import type { LoginCredentials, LoginResponse, User } from '../types';
 
 class AuthService {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    const response = await api.post<LoginResponse>('/login', {
+    const response = await api.post<any>('/login', {
       email: credentials.email,
       password: credentials.password,
     });
-    if (response.data.token) {
-      localStorage.setItem('authToken',  response.data.token);
-      localStorage.setItem('userData',   JSON.stringify(response.data.user));
-      localStorage.setItem('clinicData', JSON.stringify(response.data.clinic));
+
+    const data = response.data;
+    // Backend returns { user: { ...clinic }, token } — clinic is nested inside user
+    const clinic = data.user?.clinic ?? data.clinic ?? null;
+
+    if (data.token) {
+      localStorage.setItem('authToken',  data.token);
+      localStorage.setItem('userData',   JSON.stringify(data.user));
+      localStorage.setItem('clinicData', JSON.stringify(clinic));
     }
-    return response.data;
+
+    // Normalise to the shape AuthContext expects: { token, user, clinic }
+    return {
+      token:  data.token,
+      user:   data.user,
+      clinic: clinic,
+    };
   }
 
   async logout(): Promise<void> {
@@ -32,8 +43,9 @@ class AuthService {
   }
 
   async getCurrentUser(): Promise<User> {
-    const response = await api.get<{ user: User }>('/me');
-    return response.data.user;
+    const response = await api.get<any>('/me');
+    // Backend returns flat user object (no wrapping { user: ... } key)
+    return response.data.user ?? response.data;
   }
 
   async register(data: {
@@ -42,13 +54,17 @@ class AuthService {
     password: string;
     password_confirmation: string;
   }): Promise<LoginResponse> {
-    const response = await api.post<LoginResponse>('/register', data);
-    if (response.data.token) {
-      localStorage.setItem('authToken',  response.data.token);
-      localStorage.setItem('userData',   JSON.stringify(response.data.user));
-      localStorage.setItem('clinicData', JSON.stringify(response.data.clinic));
+    const response = await api.post<any>('/register', data);
+    const res = response.data;
+    const clinic = res.user?.clinic ?? res.clinic ?? null;
+
+    if (res.token) {
+      localStorage.setItem('authToken',  res.token);
+      localStorage.setItem('userData',   JSON.stringify(res.user));
+      localStorage.setItem('clinicData', JSON.stringify(clinic));
     }
-    return response.data;
+
+    return { token: res.token, user: res.user, clinic };
   }
 
   isAuthenticated(): boolean {

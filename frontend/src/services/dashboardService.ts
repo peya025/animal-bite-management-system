@@ -17,16 +17,17 @@ class DashboardService {
     };
 
     const [patients, biteCases, vaccinations, queue] = await Promise.all([
-      safe(() => api.get('/patients',    { params: { per_page: 100 } })),
-      safe(() => api.get('/bite-cases',  { params: { per_page: 100 } })),
-      safe(() => api.get('/vaccinations',{ params: { per_page: 100 } })),
-      safe(() => api.get('/queue',       { params: { per_page: 100 } })),
+      safe(() => api.get('/patients',     { params: { per_page: 100 } })),
+      safe(() => api.get('/cases',        { params: { per_page: 100 } })),
+      safe(() => api.get('/vaccinations', { params: { per_page: 100 } })),
+      safe(() => api.get('/queue',        { params: { per_page: 100 } })),
     ]);
 
-    const patientsData     = patients?.data?.data     ?? patients?.data     ?? [];
-    const biteCasesData    = biteCases?.data?.data    ?? biteCases?.data    ?? [];
-    const vaccinationsData = vaccinations?.data?.data ?? vaccinations?.data ?? [];
-    const queueData        = queue?.data?.data        ?? queue?.data        ?? [];
+    const patientsData     = patients?.data?.data       ?? patients?.data       ?? [];
+    const biteCasesData    = biteCases?.data?.data      ?? biteCases?.data      ?? [];
+    const vaccinationsData = vaccinations?.data?.data   ?? vaccinations?.data   ?? [];
+    // queue returns { queue: [...] } from the backend
+    const queueData        = queue?.data?.queue ?? queue?.data?.data ?? queue?.data ?? [];
 
     return {
       total_patients:       patients?.data?.total       ?? (Array.isArray(patientsData)     ? patientsData.length     : 0),

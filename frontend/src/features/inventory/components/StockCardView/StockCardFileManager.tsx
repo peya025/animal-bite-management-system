@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, Box, Typography, Button, TextField, InputAdornment,
-  Grid, Paper, IconButton, Chip, Tooltip, Divider, Menu, MenuItem, Stack,
+  Grid, Paper, IconButton, Tooltip, Divider, Menu, MenuItem, Stack,
   LinearProgress, Snackbar, Alert, DialogActions, Select, FormControl, Table,
-  TableBody, TableCell, TableContainer, TableHead, TableRow, Badge,
+  TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
@@ -20,13 +20,10 @@ import {
   Add as AddIcon,
   DriveFileRenameOutline as RenameIcon,
   Delete as DeleteIcon,
-  LocalHospital as ClinicIcon,
   KeyboardArrowRight as ArrowRightIcon,
   KeyboardArrowDown as ArrowDownIcon,
   RemoveRedEye as EyeIcon,
   PictureAsPdf as PdfIcon,
-  CheckCircle as CheckIcon,
-  Verified as VerifiedIcon,
 } from '@mui/icons-material';
 import type { InventoryItem } from '../../types';
 import { DEMO_CLINICS } from '../../data/inventoryDemoData';
@@ -94,7 +91,7 @@ function generateMonthlyFiles(year: number, item: InventoryItem): StockCardFile[
 }
 
 // Generate 31-day sample transactions for a given month
-function generate31DaySampleData(monthIndex: number, year: number, item: InventoryItem) {
+function generate31DaySampleData(monthIndex: number, _year: number, _item: InventoryItem) {
   const rows = [];
   let runningBal = 0;
 
@@ -154,9 +151,9 @@ export default function StockCardFileManager({
   open,
   onClose,
   item,
-  selectedMonth,
+  selectedMonth: _selectedMonth,
   selectedYear,
-  onSelectMonthYear,
+  onSelectMonthYear: _onSelectMonthYear,
   onPrintMonth,
 }: StockCardFileManagerProps) {
   const [currentYear, setCurrentYear] = useState<number>(selectedYear || 2026);
@@ -510,14 +507,16 @@ export default function StockCardFileManager({
       onClose={onClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2.5,
-          height: 660,
-          maxHeight: '92vh',
-          bgcolor: '#ffffff',
-          overflow: 'hidden',
-          boxShadow: '0 25px 35px -5px rgba(5, 150, 105, 0.15), 0 15px 15px -5px rgba(0, 0, 0, 0.08)',
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2.5,
+            height: 660,
+            maxHeight: '92vh',
+            bgcolor: '#ffffff',
+            overflow: 'hidden',
+            boxShadow: '0 25px 35px -5px rgba(5, 150, 105, 0.15), 0 15px 15px -5px rgba(0, 0, 0, 0.08)',
+          },
         },
       }}
     >
@@ -665,14 +664,16 @@ export default function StockCardFileManager({
               anchorEl={addNewAnchor}
               open={Boolean(addNewAnchor)}
               onClose={() => setAddNewAnchor(null)}
-              PaperProps={{
-                elevation: 4,
-                sx: {
-                  width: 220,
-                  borderRadius: 2,
-                  py: 0.5,
-                  mt: 0.5,
-                  border: '1px solid #a7f3d0',
+              slotProps={{
+                paper: {
+                  elevation: 4,
+                  sx: {
+                    width: 220,
+                    borderRadius: 2,
+                    py: 0.5,
+                    mt: 0.5,
+                    border: '1px solid #a7f3d0',
+                  },
                 },
               }}
             >
@@ -1002,14 +1003,16 @@ export default function StockCardFileManager({
             ? { top: contextMenuPos.mouseY, left: contextMenuPos.mouseX }
             : undefined
         }
-        PaperProps={{
-          elevation: 4,
-          sx: {
-            width: 230,
-            borderRadius: 1.5,
-            py: 0.5,
-            border: '1px solid #cbd5e1',
-            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
+        slotProps={{
+          paper: {
+            elevation: 4,
+            sx: {
+              width: 230,
+              borderRadius: 1.5,
+              py: 0.5,
+              border: '1px solid #cbd5e1',
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
+            },
           },
         }}
       >
@@ -1094,7 +1097,7 @@ export default function StockCardFileManager({
           onClose={() => setViewerFile(null)}
           maxWidth="md"
           fullWidth
-          PaperProps={{ sx: { borderRadius: 2.5, height: 600 } }}
+          slotProps={{ paper: { sx: { borderRadius: 2.5, height: 600 } } }}
         >
           <DialogTitle
             sx={{

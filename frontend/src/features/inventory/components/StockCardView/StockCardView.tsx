@@ -446,7 +446,7 @@ function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; i
           />
         </Box>
 
-        <Stack direction="row" spacing={1.5} alignItems="center">
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
           {/* File Manager Button */}
           <Tooltip title="Open Stock Card File Manager">
             <Button
@@ -492,14 +492,16 @@ function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; i
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
             onClose={() => setAnchorEl(null)}
-            PaperProps={{
-              elevation: 4,
-              sx: {
-                maxHeight: 380,
-                width: 250,
-                borderRadius: 2,
-                mt: 1,
-                border: '1px solid #e2e8f0',
+            slotProps={{
+              paper: {
+                elevation: 4,
+                sx: {
+                  maxHeight: 380,
+                  width: 250,
+                  borderRadius: 2,
+                  mt: 1,
+                  border: '1px solid #e2e8f0',
+                },
               },
             }}
           >

@@ -13,6 +13,10 @@ export type IconName =
   | 'databaseExplorer'
   | 'clinicSetup'
   | 'logout'
+  | 'login'
+  | 'activity'
+  | 'security'
+  | 'warning'
   | 'chevronDown'
   | 'chevronRight'
   | 'chevronLeft'
@@ -119,6 +123,30 @@ export const GLOBAL_ICONS: Record<IconName, (props: { size: number; color: strin
       <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   ),
+  login: ({ size, color, strokeWidth }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+      <polyline points="10 17 15 12 10 7" />
+      <line x1="15" y1="12" x2="3" y2="12" />
+    </svg>
+  ),
+  activity: ({ size, color, strokeWidth }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+    </svg>
+  ),
+  security: ({ size, color, strokeWidth }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  ),
+  warning: ({ size, color, strokeWidth }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
   chevronDown: ({ size, color, strokeWidth }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
       <polyline points="6 9 12 15 18 9" />
@@ -219,4 +247,5 @@ export const GLOBAL_NAV_ICONS: Record<string, React.ReactNode> = {
   'Developer Settings': <Icon name="developerSettings" />,
   'Database Explorer': <Icon name="databaseExplorer" />,
   'Clinic Setup': <Icon name="clinicSetup" />,
+  'Staff Activity': <Icon name="activity" />,
 };

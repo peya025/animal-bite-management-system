@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Alert, Box, Grid, IconButton, Snackbar, Stack, Tooltip, Typography, Chip, FormControl, Select, MenuItem,
+  Alert, Box, Grid, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
 } from '@mui/material';
 import { Refresh as RefreshIcon, Science as DemoIcon, LocalHospital as ClinicIcon } from '@mui/icons-material';
 // Backend API imported but calls commented out below as requested to use local sample data
@@ -50,7 +50,7 @@ export default function VaccineInventory() {
   const [batchFilter, setBatchFilter]   = useState('');
   const [expiryFrom, setExpiryFrom]     = useState('');
   const [expiryTo, setExpiryTo]         = useState('');
-  const [selectedClinicId, setSelectedClinicId] = useState<number>(0); // 0 = All Clinics
+  const [selectedClinicId] = useState<number>(0); // 0 = All Clinics
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',

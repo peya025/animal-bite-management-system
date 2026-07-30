@@ -138,6 +138,81 @@ export interface StaffInvitation {
   updated_at: string;
 }
 
+// Clinic Module Configuration Types
+export type FieldRuleValue = 'required' | 'optional' | 'hidden';
+
+export interface FieldRules {
+  // PATIENT REGISTRATION FIELDS
+  blood_type: FieldRuleValue;
+  mother_maiden_name: FieldRuleValue;
+  civil_status: FieldRuleValue;
+  spouse_name: FieldRuleValue;
+  
+  // ADDRESS FIELDS
+  address_municipality: FieldRuleValue;
+  address_barangay: FieldRuleValue;
+  address_purok: FieldRuleValue;
+  province: FieldRuleValue;
+  
+  // SOCIOECONOMIC FIELDS
+  educational_attainment: FieldRuleValue;
+  employment_status: FieldRuleValue;
+  family_member: FieldRuleValue;
+  
+  // GOVERNMENT PROGRAMS
+  philhealth_member: FieldRuleValue;
+  philhealth_status: FieldRuleValue;
+  philhealth_no: FieldRuleValue;
+  philhealth_category: FieldRuleValue;
+  fourps_member: FieldRuleValue;
+  dswd_nhts: FieldRuleValue;
+  
+  // BITE INCIDENT INTAKE FIELDS
+  bite_date: FieldRuleValue;
+  bite_place: FieldRuleValue;
+  site_washed: FieldRuleValue;
+  exposure_type: FieldRuleValue;
+  animal_type: FieldRuleValue;
+  animal_status: FieldRuleValue;
+  animal_captured: FieldRuleValue;
+  wound_location: FieldRuleValue;
+  patient_description: FieldRuleValue;
+  
+  // TRIAGE/ASSESSMENT FIELDS
+  exposure_category: FieldRuleValue;
+  bite_site: FieldRuleValue;
+  animal_observation_status: FieldRuleValue;
+  treatment_given: FieldRuleValue;
+  
+  // TREATMENT FIELDS
+  protocol_type: FieldRuleValue;
+  route: FieldRuleValue;
+  injection_site: FieldRuleValue;
+  dosage_ml: FieldRuleValue;
+  vaccine_brand: FieldRuleValue;
+  vaccine_generic: FieldRuleValue;
+  batch_no: FieldRuleValue;
+  tt_status: FieldRuleValue;
+  medication_given: FieldRuleValue;
+  adverse_reaction: FieldRuleValue;
+  cost_recovery: FieldRuleValue;
+}
+
+export interface ClinicModuleConfig {
+  id: number;
+  clinic_id: number;
+  triage_module_enabled: boolean;
+  field_rules: FieldRules;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AssignedModule = 'all' | 'registration' | 'triage' | 'treatment' | 'inventory';
+
+export interface StaffUser extends User {
+  assigned_module: AssignedModule;
+}
+
 // API Response Types
 export interface ApiResponse<T> {
   data: T;

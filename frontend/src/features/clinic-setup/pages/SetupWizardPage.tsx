@@ -8,37 +8,101 @@ export default function SetupWizard() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [setupData, setSetupData] = useState({
-    // Step 1: Customize
+    // Step 1: Admin Account
+    clinicName: '',
+    adminName: '',
+    adminEmail: '',
+    adminPassword: '',
+    adminPasswordConfirm: '',
+    
+    // Step 2: Customize
     appName: 'Animal Bite Center',
     logo: null as File | null,
     primaryColor: '#10b981',
     
-    // Step 2: Clinic Profile
-    clinicName: '',
+    // Step 3: Clinic Profile
     address: '',
     phone: '',
     email: '',
-    
-    // Step 3: Confirm (review all data)
   });
 
   const steps = [
-    { number: 1, title: 'Customize', icon: '🎨' },
-    { number: 2, title: 'Clinic Profile', icon: '🏥' },
-    { number: 3, title: 'Confirm', icon: '✓' },
-    { number: 4, title: 'Done', icon: '🎉' },
+    { number: 1, title: 'Admin Account', icon: '👤' },
+    { number: 2, title: 'Customize', icon: '🎨' },
+    { number: 3, title: 'Clinic Profile', icon: '🏥' },
+    { number: 4, title: 'Confirm', icon: '✓' },
+    { number: 5, title: 'Done', icon: '🎉' },
   ];
 
-  const handleNext = () => {
-    // Validate Step 2 (Clinic Profile) before proceeding
-    if (currentStep === 2) {
-      if (!setupData.clinicName || !setupData.address || !setupData.phone || !setupData.email) {
-        alert('Please fill in all required fields (Clinic Name, Address, Phone, Email)');
+  const handleNext = async () => {
+    // Step 1: Admin Account Creation (PUBLIC - no auth required)
+    if (currentStep === 1) {
+      if (!setupData.clinicName || !setupData.adminName || !setupData.adminEmail || 
+          !setupData.adminPassword || !setupData.adminPasswordConfirm) {
+        alert('Please fill in all required fields');
+        return;
+      }
+      
+      if (setupData.adminPassword !== setupData.adminPasswordConfirm) {
+        alert('Passwords do not match');
+        return;
+      }
+      
+      if (setupData.adminPassword.length < 8) {
+        alert('Password must be at least 8 characters');
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:8000/api/setup/initialize', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            clinic_name: setupData.clinicName,
+            admin_name: setupData.adminName,
+            admin_email: setupData.adminEmail,
+            admin_password: setupData.adminPassword,
+            admin_password_confirmation: setupData.adminPasswordConfirm,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          const msg = error.message || (error.errors ? Object.values(error.errors).flat().join(', ') : 'Failed to create admin account');
+          alert(msg);
+          return;
+        }
+
+        const data = await response.json();
+        
+        // Store authentication token
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('userData', JSON.stringify(data.user));
+        localStorage.setItem('clinicData', JSON.stringify(data.clinic));
+
+        // Proceed to next step (now authenticated!)
+        setCurrentStep(2);
+        return;
+
+      } catch (error) {
+        console.error('Setup initialization error:', error);
+        alert('Failed to create admin account. Please try again.');
         return;
       }
     }
 
+    // Validate Step 3 (Clinic Profile) before proceeding
     if (currentStep === 3) {
+      if (!setupData.address || !setupData.phone || !setupData.email) {
+        alert('Please fill in all required fields (Address, Phone, Email)');
+        return;
+      }
+    }
+
+    if (currentStep === 4) {
       // Show confirmation modal before completing setup
       setShowConfirmModal(true);
     } else if (currentStep < steps.length - 1) {
@@ -47,7 +111,7 @@ export default function SetupWizard() {
   };
 
   const handleBack = () => {
-    if (currentStep > 0) {
+    if (currentStep > 1) { // Don't allow going back from Step 1 (admin creation)
       setCurrentStep(currentStep - 1);
     }
   };
@@ -178,28 +242,31 @@ export default function SetupWizard() {
 
             <div className="setup-content">
               {currentStep === 1 && (
-                <CustomizeStep data={setupData} setData={setSetupData} />
+                <AdminAccountStep data={setupData} setData={setSetupData} />
               )}
               {currentStep === 2 && (
-                <ClinicProfileStep data={setupData} setData={setSetupData} />
+                <CustomizeStep data={setupData} setData={setSetupData} />
               )}
               {currentStep === 3 && (
-                <ConfirmStep data={setupData} />
+                <ClinicProfileStep data={setupData} setData={setSetupData} />
               )}
               {currentStep === 4 && (
+                <ConfirmStep data={setupData} />
+              )}
+              {currentStep === 5 && (
                 <DoneStep />
               )}
             </div>
 
             <div className="setup-actions">
-              {currentStep > 1 && currentStep < 4 && (
+              {currentStep > 1 && currentStep < 5 && (
                 <button className="btn-back" onClick={handleBack}>
                   Back
                 </button>
               )}
-              {currentStep < 4 && (
+              {currentStep < 5 && (
                 <button className="btn-next" onClick={handleNext}>
-                  {currentStep === 3 ? 'Complete Setup' : 'Next'}
+                  {currentStep === 4 ? 'Complete Setup' : 'Next'}
                 </button>
               )}
             </div>
@@ -273,6 +340,94 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
   );
 }
 
+function AdminAccountStep({ data, setData }: any) {
+  const [passwordsMatch, setPasswordsMatch] = useState(true);
+
+  return (
+    <div className="step-content">
+      <h2>Create Admin Account</h2>
+      <p className="step-description">
+        Set up the clinic and create your administrator account
+      </p>
+
+      <div className="form-group">
+        <label>Clinic Name *</label>
+        <input
+          type="text"
+          value={data.clinicName}
+          onChange={(e) => setData({ ...data, clinicName: e.target.value })}
+          placeholder="Tagoloan Rural Health Unit"
+          required
+        />
+      </div>
+
+      <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '2px solid #e5e7eb' }}>
+        <h3 style={{ fontSize: '18px', marginBottom: '20px', color: '#6b7280', fontWeight: 600 }}>
+          Administrator Details
+        </h3>
+
+        <div className="form-group">
+          <label>Your Full Name *</label>
+          <input
+            type="text"
+            value={data.adminName}
+            onChange={(e) => setData({ ...data, adminName: e.target.value })}
+            placeholder="Dr. Juan Dela Cruz"
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Email Address *</label>
+          <input
+            type="email"
+            value={data.adminEmail}
+            onChange={(e) => setData({ ...data, adminEmail: e.target.value })}
+            placeholder="admin@clinic.com"
+            required
+          />
+          <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+            You'll use this email to log in
+          </p>
+        </div>
+
+        <div className="form-group">
+          <label>Password *</label>
+          <input
+            type="password"
+            value={data.adminPassword}
+            onChange={(e) => setData({ ...data, adminPassword: e.target.value })}
+            placeholder="Minimum 8 characters"
+            required
+          />
+          <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+            Must contain uppercase, lowercase, and a number
+          </p>
+        </div>
+
+        <div className="form-group">
+          <label>Confirm Password *</label>
+          <input
+            type="password"
+            value={data.adminPasswordConfirm}
+            onChange={(e) => {
+              setData({ ...data, adminPasswordConfirm: e.target.value });
+              setPasswordsMatch(e.target.value === data.adminPassword || e.target.value === '');
+            }}
+            placeholder="Re-enter password"
+            required
+          />
+          {data.adminPasswordConfirm && !passwordsMatch && (
+            <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '6px' }}>
+              ⚠️ Passwords do not match
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CustomizeStep({ data, setData }: any) {
   return (
     <div className="step-content">
@@ -320,18 +475,7 @@ function ClinicProfileStep({ data, setData }: any) {
   return (
     <div className="step-content">
       <h2>Clinic Profile</h2>
-      <p className="step-description">Enter your clinic information</p>
-
-      <div className="form-group">
-        <label>Clinic Name *</label>
-        <input
-          type="text"
-          value={data.clinicName}
-          onChange={(e) => setData({ ...data, clinicName: e.target.value })}
-          placeholder="Animal Bite Treatment Center"
-          required
-        />
-      </div>
+      <p className="step-description">Enter additional clinic information</p>
 
       <div className="form-group">
         <label>Address *</label>
@@ -376,6 +520,22 @@ function ConfirmStep({ data }: any) {
     <div className="step-content">
       <h2>Confirm Your Setup</h2>
       <p className="step-description">Please review your information before completing</p>
+
+      <div className="confirm-section">
+        <h3>Admin Account</h3>
+        <div className="confirm-item">
+          <span className="confirm-label">Admin Name:</span>
+          <span className="confirm-value">{data.adminName}</span>
+        </div>
+        <div className="confirm-item">
+          <span className="confirm-label">Admin Email:</span>
+          <span className="confirm-value">{data.adminEmail}</span>
+        </div>
+        <div className="confirm-item">
+          <span className="confirm-label">Password:</span>
+          <span className="confirm-value">••••••••</span>
+        </div>
+      </div>
 
       <div className="confirm-section">
         <h3>Customization</h3>

@@ -51,7 +51,31 @@ export default function LandingPage() {
       .catch(() => console.log('Using default landing page settings'));
   }, []);
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
+    // Check if setup is needed BEFORE redirecting to login
+    try {
+      const response = await fetch('http://localhost:8000/api/setup/check-needed', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // If setup is needed, redirect to setup wizard
+        if (data.needs_setup === true) {
+          window.location.href = ROUTES.SETUP;
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Setup check failed:', error);
+      // Continue to login on error
+    }
+    
+    // Setup is complete or check failed, go to login
     window.location.href = ROUTES.LOGIN;
   };
 

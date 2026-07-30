@@ -14,9 +14,17 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
+        // Check if user is admin
+        if (!$request->user()->isAdmin()) {
+            return response()->json([
+                'message' => 'Unauthorized. Admin access required.',
+            ], 403);
+        }
+        
         $clinicId = $request->user()->clinic_id;
         
         $users = User::where('clinic_id', $clinicId)
+            ->select('id', 'name', 'email', 'role', 'assigned_module', 'is_active', 'created_at')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -113,6 +121,34 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'User deleted successfully',
+        ]);
+    }
+
+    /**
+     * Update staff member's assigned module
+     * Access: Admin only
+     */
+    public function updateAssignedModule(Request $request, $id)
+    {
+        // Check if user is admin
+        if (!$request->user()->isAdmin()) {
+            return response()->json([
+                'message' => 'Unauthorized. Admin access required.',
+            ], 403);
+        }
+        
+        $validated = $request->validate([
+            'assigned_module' => 'required|in:all,registration,triage,treatment,inventory',
+        ]);
+        
+        $user = User::where('clinic_id', $request->user()->clinic_id)
+            ->findOrFail($id);
+        
+        $user->update($validated);
+        
+        return response()->json([
+            'message' => 'Staff module assignment updated successfully',
+            'user' => $user,
         ]);
     }
 }

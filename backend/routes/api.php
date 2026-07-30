@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BiteCaseController;
 use App\Http\Controllers\BiteIncidentIntakeController;
+use App\Http\Controllers\ClinicModuleConfigController;
 use App\Http\Controllers\ClinicSetupController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
 use App\Http\Controllers\Mobile\MobileNotificationController;
@@ -102,6 +103,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/audit-logs/summary', [AuditLogController::class, 'summary']);
         Route::get('/audit-logs/user/{userId}', [AuditLogController::class, 'userActivity']);
     });
+
+    // Clinic Module Configuration (all authenticated users can view, admin can update)
+    Route::get('/setup/module-config', [ClinicModuleConfigController::class, 'show']);
+    Route::put('/setup/module-config', [ClinicModuleConfigController::class, 'update']);
+    
+    // Staff Module Assignment (admin only)
+    Route::put('/users/{id}/assigned-module', [UserController::class, 'updateAssignedModule']);
 
     // Clinic Setup (admin only)
     Route::prefix('setup')->middleware('role:admin')->group(function () {

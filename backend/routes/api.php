@@ -78,9 +78,9 @@ Route::prefix('mobile')->group(function () {
 });
 
 // Invitation acceptance (public, token-based)
-Route::prefix('invitations')->group(function () {
-    Route::get('/{token}/validate', [StaffInvitationController::class, 'validateToken']);
-    Route::post('/{token}/accept', [StaffInvitationController::class, 'accept']);
+Route::prefix('staff-invitations')->group(function () {
+    Route::get('/validate/{token}', [StaffInvitationController::class, 'validateToken']);
+    Route::post('/accept/{token}', [StaffInvitationController::class, 'accept']);
 });
 
 // Protected routes
@@ -89,6 +89,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me', [AuthController::class, 'updateProfile']);
+
+    // Staff Invitations (admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::post('/staff-invitations', [StaffInvitationController::class, 'invite']);
+        Route::get('/staff-invitations', [StaffInvitationController::class, 'index']);
+        Route::delete('/staff-invitations/{id}', [StaffInvitationController::class, 'cancel']);
+    });
 
     // Clinic Setup (admin only)
     Route::prefix('setup')->middleware('role:admin')->group(function () {

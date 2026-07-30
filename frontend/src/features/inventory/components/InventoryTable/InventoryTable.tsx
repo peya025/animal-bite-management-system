@@ -1,6 +1,6 @@
 import {
   Box, Button, FormControl, Grid, IconButton, InputAdornment, InputLabel,
-  MenuItem, Paper, Select, Stack, TextField, Tooltip, Typography,
+  MenuItem, Paper, Select, Stack, TextField, Tooltip, Typography, Chip,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -15,6 +15,7 @@ import { DataTable, TablePaginator } from '../../../../components/data-display';
 import type { ColumnDef } from '../../../../components/data-display';
 import type { InventoryItem } from '../../types';
 import { formatDate, daysUntil } from '../../../../shared/utils';
+import { DEMO_CLINICS } from '../../data/inventoryDemoData';
 
 // ─── Props ────────────────────────────────────────────────────
 
@@ -91,6 +92,26 @@ export default function InventoryTable({
           </Typography>
         </Box>
       ),
+    },
+    {
+      key: 'clinic_id', header: 'Facility Clinic',
+      render: item => {
+        const c = DEMO_CLINICS.find(cl => cl.clinic_id === item.clinic_id) || DEMO_CLINICS[0];
+        return (
+          <Chip
+            label={c.name}
+            size="small"
+            sx={{
+              fontWeight: 600,
+              fontSize: 11,
+              bgcolor: '#f1f5f9',
+              color: '#334155',
+              borderLeft: `4px solid ${c.color}`,
+              borderRadius: 1,
+            }}
+          />
+        );
+      },
     },
     {
       key: 'batch_number', header: 'Batch Number',

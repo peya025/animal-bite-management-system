@@ -10,6 +10,9 @@ import {
   Grid,
   IconButton,
   InputAdornment,
+  MenuItem,
+  FormControl,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -21,12 +24,15 @@ import {
   Cancel as CancelIcon,
   Info as InfoIcon,
   Vaccines as VaccineIcon,
+  LocalHospital as ClinicIcon,
 } from '@mui/icons-material';
 import api from '../../../../services/api';
 import ConfirmationDialog from '../../../../components/feedback/ConfirmationDialog';
+import { DEMO_CLINICS } from '../../data/inventoryDemoData';
 
 interface InventoryItem {
   inventory_id: number;
+  clinic_id?: number;
   vaccine_type: string;
   batch_number: string;
   current_quantity: number;
@@ -59,6 +65,7 @@ export default function AddEditInventoryDialog({
   const theme = useTheme();
 
   const [form, setForm] = useState({
+    clinic_id: 1,
     vaccine_type: '',
     batch_number: '',
     quantity: '',
@@ -72,6 +79,7 @@ export default function AddEditInventoryDialog({
   useEffect(() => {
     if (editItem) {
       setForm({
+        clinic_id: editItem.clinic_id || 1,
         vaccine_type: editItem.vaccine_type,
         batch_number: editItem.batch_number,
         quantity: String(editItem.current_quantity),
@@ -80,6 +88,7 @@ export default function AddEditInventoryDialog({
       });
     } else {
       setForm({
+        clinic_id: 1,
         vaccine_type: '',
         batch_number: '',
         quantity: '',
@@ -242,6 +251,32 @@ export default function AddEditInventoryDialog({
               Vaccine Information
             </Typography>
             <Stack spacing={2}>
+              {/* Facility Clinic dropdown */}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                  Facility Clinic Context{' '}
+                  <Box component="span" sx={{ color: 'error.main' }}>
+                    *
+                  </Box>
+                </Typography>
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={form.clinic_id}
+                    onChange={(e) => setForm(f => ({ ...f, clinic_id: Number(e.target.value) }))}
+                    sx={{ borderRadius: 2, bgcolor: '#f9fafb' }}
+                  >
+                    {DEMO_CLINICS.map(c => (
+                      <MenuItem key={c.clinic_id} value={c.clinic_id} sx={{ fontSize: 13 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <ClinicIcon sx={{ fontSize: 18, color: c.color }} />
+                          <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{c.name}</Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+
               {/* Visual pill selector */}
               <Box>
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>

@@ -1,34 +1,47 @@
 <?php
 
-namespace App\Http\Controllers;
-
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use App\Models\ClinicModuleConfig;
-use Illuminate\Http\Request;
 
-class ClinicModuleConfigController extends Controller
+return new class extends Migration
 {
     /**
-     * Get current clinic's module configuration
-     * Access: All authenticated users
+     * Run the migrations.
      */
-    public function show(Request $request)
+    public function up(): void
     {
-        $clinicId = $request->user()->clinic_id;
+        // Update existing configs with comprehensive field rules
+        $configs = ClinicModuleConfig::all();
         
-        $config = ClinicModuleConfig::firstOrCreate(
-            ['clinic_id' => $clinicId],
-            [
-                'triage_module_enabled' => true,
-                'field_rules' => $this->getDefaultFieldRules(),
-            ]
-        );
-        
-        return response()->json($config);
+        foreach ($configs as $config) {
+            $config->field_rules = $this->getDefaultFieldRules();
+            $config->save();
+        }
     }
 
     /**
-     * Get default field rules for all configurable fields
+     * Reverse the migrations.
      */
+    public function down(): void
+    {
+        // Revert to basic field rules
+        $configs = ClinicModuleConfig::all();
+        
+        foreach ($configs as $config) {
+            $config->field_rules = [
+                'bite_location' => 'required',
+                'exposure_category' => 'required',
+                'animal_status' => 'optional',
+                'philhealth_info' => 'optional',
+                'fourps_info' => 'optional',
+                'wound_washing' => 'optional',
+            ];
+            $config->save();
+        }
+    }
+
     private function getDefaultFieldRules(): array
     {
         return [
@@ -68,7 +81,7 @@ class ClinicModuleConfigController extends Controller
             'wound_location' => 'required',
             'patient_description' => 'optional',
             
-            // TRIAGE/ASSESSMENT FIELDS
+            // TRIAGE/ASSESSMENT FIELDS (for future bite_incidents table)
             'exposure_category' => 'required',
             'bite_site' => 'required',
             'animal_observation_status' => 'optional',
@@ -88,44 +101,4 @@ class ClinicModuleConfigController extends Controller
             'cost_recovery' => 'optional',
         ];
     }
-
-    /**
-     * Update clinic module configuration
-     * Access: Admin only
-     */
-    public function update(Request $request)
-    {
-        // Check if user is admin
-        if (!$request->user()->isAdmin()) {
-            return response()->json([
-                'message' => 'Unauthorized. Admin access required.',
-            ], 403);
-        }
-        
-        // Build dynamic validation rules
-        $validationRules = [
-            'triage_module_enabled' => 'required|boolean',
-            'field_rules' => 'required|array',
-        ];
-        
-        // Add validation for each field in field_rules
-        $defaultFieldRules = $this->getDefaultFieldRules();
-        foreach (array_keys($defaultFieldRules) as $fieldKey) {
-            $validationRules["field_rules.{$fieldKey}"] = 'required|in:required,optional,hidden';
-        }
-        
-        $validated = $request->validate($validationRules);
-        
-        $clinicId = $request->user()->clinic_id;
-        
-        $config = ClinicModuleConfig::updateOrCreate(
-            ['clinic_id' => $clinicId],
-            $validated
-        );
-        
-        return response()->json([
-            'message' => 'Module configuration updated successfully',
-            'config' => $config,
-        ]);
-    }
-}
+};

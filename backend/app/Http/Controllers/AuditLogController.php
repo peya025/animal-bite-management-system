@@ -48,56 +48,42 @@ class AuditLogController extends Controller
     }
 
     /**
-     * Get activity summary
+     * Get activity summary (Optimized single-query aggregation)
      */
     public function summary(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
-        
-        // Today's activity count
-        $todayCount = AuditLog::where('clinic_id', $clinicId)
-            ->whereDate('created_at', today())
+        $today = today()->toDateString();
+        $startOfWeek = now()->startOfWeek()->toDateTimeString();
+        $endOfWeek = now()->endOfWeek()->toDateTimeString();
+
+        // 1. Single SQL query to compute all counter metrics in parallel
+        $metrics = AuditLog::where('clinic_id', $clinicId)
             ->whereNotNull('user_id')
-            ->count();
+            ->selectRaw("
+                COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as today_actions,
+                COUNT(CASE WHEN created_at BETWEEN ? AND ? THEN 1 END) as week_actions,
+                COUNT(CASE WHEN DATE(created_at) = ? AND action = 'login' THEN 1 END) as today_logins,
+                COUNT(CASE WHEN DATE(created_at) = ? AND (TIME(created_at) < '08:00:00' OR TIME(created_at) > '17:00:00') THEN 1 END) as suspicious_after_hours
+            ", [$today, $startOfWeek, $endOfWeek, $today, $today])
+            ->first();
 
-        // This week's activity count
-        $weekCount = AuditLog::where('clinic_id', $clinicId)
-            ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
-            ->whereNotNull('user_id')
-            ->count();
-
-        // Login count today
-        $loginCount = AuditLog::where('clinic_id', $clinicId)
-            ->where('action', 'login')
-            ->whereDate('created_at', today())
-            ->count();
-
-        // Most active user today
+        // 2. Fetch top active user for today
         $mostActive = AuditLog::where('clinic_id', $clinicId)
-            ->whereDate('created_at', today())
+            ->whereDate('created_at', $today)
             ->whereNotNull('user_id')
             ->selectRaw('user_id, count(*) as action_count')
             ->groupBy('user_id')
             ->orderBy('action_count', 'desc')
-            ->with('user')
+            ->with('user:id,name,email,role')
             ->first();
 
-        // Suspicious activity (after hours)
-        $suspiciousCount = AuditLog::where('clinic_id', $clinicId)
-            ->whereDate('created_at', today())
-            ->whereNotNull('user_id')
-            ->where(function($query) {
-                $query->whereTime('created_at', '<', '08:00:00')
-                      ->orWhereTime('created_at', '>', '17:00:00');
-            })
-            ->count();
-
         return response()->json([
-            'today_actions' => $todayCount,
-            'week_actions' => $weekCount,
-            'today_logins' => $loginCount,
+            'today_actions' => (int) ($metrics->today_actions ?? 0),
+            'week_actions' => (int) ($metrics->week_actions ?? 0),
+            'today_logins' => (int) ($metrics->today_logins ?? 0),
             'most_active_user' => $mostActive,
-            'suspicious_after_hours' => $suspiciousCount,
+            'suspicious_after_hours' => (int) ($metrics->suspicious_after_hours ?? 0),
         ]);
     }
 

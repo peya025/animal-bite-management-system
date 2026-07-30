@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -83,6 +84,9 @@ class AuthController extends Controller
         // Update last login timestamp
         $user->updateLastLogin();
 
+        // Log successful login
+        AuditLog::logLogin($user);
+
         // Create token
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -109,6 +113,9 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
+        // Log logout before revoking token
+        AuditLog::logLogout();
+        
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([

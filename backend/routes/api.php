@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BiteCaseController;
 use App\Http\Controllers\BiteIncidentIntakeController;
 use App\Http\Controllers\ClinicSetupController;
@@ -95,6 +96,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/staff-invitations', [StaffInvitationController::class, 'invite']);
         Route::get('/staff-invitations', [StaffInvitationController::class, 'index']);
         Route::delete('/staff-invitations/{id}', [StaffInvitationController::class, 'cancel']);
+        
+        // Audit Logs (staff activity monitoring)
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+        Route::get('/audit-logs/summary', [AuditLogController::class, 'summary']);
+        Route::get('/audit-logs/user/{userId}', [AuditLogController::class, 'userActivity']);
     });
 
     // Clinic Setup (admin only)

@@ -88,4 +88,12 @@ class Clinic extends Model
     {
         return $this->hasMany(VaccineInventory::class);
     }
+
+    /**
+     * Get clinic module configuration
+     */
+    public function moduleConfig()
+    {
+        return $this->hasOne(ClinicModuleConfig::class, 'clinic_id', 'id');
+    }
 }

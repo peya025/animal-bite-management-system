@@ -25,6 +25,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'assigned_module',
         'is_active',
         'phone',
         'last_login_at',

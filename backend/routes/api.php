@@ -34,6 +34,15 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
 
+// Public setup endpoints (no authentication required)
+Route::post('/setup/initialize', [ClinicSetupController::class, 'initialize'])
+    ->middleware('throttle:5,60'); // 5 attempts per 60 minutes
+Route::get('/setup/check-needed', function () {
+    return response()->json([
+        'needs_setup' => \App\Models\Clinic::count() === 0,
+    ]);
+});
+
 use App\Http\Controllers\DeveloperDatabaseExplorerController;
 
 Route::middleware(['auth:sanctum', 'role:developer,admin'])->group(function () {

@@ -1,5 +1,59 @@
 import type { InventoryItem } from '../types';
 
+export interface ClinicInfo {
+  clinic_id: number;
+  name: string;
+  province: string;
+  municipality: string;
+  office_name: string;
+  phone: string;
+  address: string;
+  color: string;
+}
+
+export const DEMO_CLINICS: ClinicInfo[] = [
+  {
+    clinic_id: 1,
+    name: 'Tagoloan Municipal Health Office',
+    province: 'PROVINCE OF MISAMIS ORIENTAL',
+    municipality: 'Municipality of Tagoloan',
+    office_name: 'MUNICIPAL HEALTH OFFICE',
+    phone: '(088) 590-4775',
+    address: 'Poblacion, Tagoloan, Misamis Oriental',
+    color: '#10b981',
+  },
+  {
+    clinic_id: 2,
+    name: 'Cagayan de Oro City Health Office',
+    province: 'PROVINCE OF MISAMIS ORIENTAL',
+    municipality: 'City of Cagayan de Oro',
+    office_name: 'CITY HEALTH OFFICE - ANIMAL BITE CENTER',
+    phone: '(088) 857-2244',
+    address: 'Hayes St., Cagayan de Oro City',
+    color: '#3b82f6',
+  },
+  {
+    clinic_id: 3,
+    name: 'El Salvador Animal Bite Treatment Center',
+    province: 'PROVINCE OF MISAMIS ORIENTAL',
+    municipality: 'City of El Salvador',
+    office_name: 'CITY HEALTH OFFICE - ABTC UNIT',
+    phone: '(088) 555-1234',
+    address: 'Poblacion, El Salvador City',
+    color: '#8b5cf6',
+  },
+  {
+    clinic_id: 4,
+    name: 'Gingoog District Health Office',
+    province: 'PROVINCE OF MISAMIS ORIENTAL',
+    municipality: 'City of Gingoog',
+    office_name: 'GINGOOG DISTRICT HEALTH OFFICE',
+    phone: '(088) 861-0987',
+    address: 'National Highway, Gingoog City',
+    color: '#f59e0b',
+  },
+];
+
 export interface DemoTransaction {
   transaction_id: number;
   inventory_id: number;
@@ -16,6 +70,7 @@ export interface DemoInventoryData {
 }
 
 export const DEMO_INVENTORY_ITEMS: InventoryItem[] = [
+  // ── Clinic 1: Tagoloan Municipal Health Office ──
   {
     inventory_id: 101,
     clinic_id: 1,
@@ -59,15 +114,81 @@ export const DEMO_INVENTORY_ITEMS: InventoryItem[] = [
     batch_number: 'RP-2025-004X',
     current_quantity: 0,
     expiration_date: '2026-06-30',
-    status: 'depleted',
+    status: 'expired',
     created_at: '2026-06-01T08:00:00Z',
     updated_at: '2026-07-01T09:00:00Z',
     transactions_count: 4,
   },
+
+  // ── Clinic 2: Cagayan de Oro City Health Office ──
+  {
+    inventory_id: 201,
+    clinic_id: 2,
+    vaccine_type: 'Verorab (Purified Rabies Vaccine 0.5ml)',
+    batch_number: 'VR-2026-CDO1',
+    current_quantity: 120,
+    expiration_date: '2027-11-15',
+    status: 'active',
+    created_at: '2026-07-02T08:00:00Z',
+    updated_at: '2026-07-29T16:00:00Z',
+    transactions_count: 10,
+  },
+  {
+    inventory_id: 202,
+    clinic_id: 2,
+    vaccine_type: 'Equirab (Equine Rabies Immunoglobulin 1000IU)',
+    batch_number: 'EQ-2026-CDO2',
+    current_quantity: 35,
+    expiration_date: '2027-08-20',
+    status: 'active',
+    created_at: '2026-07-03T09:00:00Z',
+    updated_at: '2026-07-27T11:00:00Z',
+    transactions_count: 4,
+  },
+
+  // ── Clinic 3: El Salvador Animal Bite Treatment Center ──
+  {
+    inventory_id: 301,
+    clinic_id: 3,
+    vaccine_type: 'Speeda (Purified Vero Cell Rabies Vaccine 0.5ml)',
+    batch_number: 'SP-2026-ELS1',
+    current_quantity: 50,
+    expiration_date: '2027-10-10',
+    status: 'active',
+    created_at: '2026-07-04T08:00:00Z',
+    updated_at: '2026-07-28T09:30:00Z',
+    transactions_count: 6,
+  },
+  {
+    inventory_id: 302,
+    clinic_id: 3,
+    vaccine_type: 'ERIG Rabies Immunoglobulin 1000IU',
+    batch_number: 'EG-2026-ELS2',
+    current_quantity: 15,
+    expiration_date: '2027-04-30',
+    status: 'active',
+    created_at: '2026-07-04T08:00:00Z',
+    updated_at: '2026-07-26T14:20:00Z',
+    transactions_count: 3,
+  },
+
+  // ── Clinic 4: Gingoog District Health Office ──
+  {
+    inventory_id: 401,
+    clinic_id: 4,
+    vaccine_type: 'Verorab (Purified Rabies Vaccine 0.5ml)',
+    batch_number: 'VR-2026-GNG1',
+    current_quantity: 90,
+    expiration_date: '2028-02-28',
+    status: 'active',
+    created_at: '2026-07-06T08:00:00Z',
+    updated_at: '2026-07-29T08:45:00Z',
+    transactions_count: 7,
+  },
 ];
 
 export const DEMO_TRANSACTIONS_MAP: Record<number, DemoTransaction[]> = {
-  // ── Verorab Transactions for July 2026 ──
+  // ── Verorab Transactions for July 2026 (Tagoloan) ──
   101: [
     {
       transaction_id: 1,
@@ -205,7 +326,7 @@ export const DEMO_TRANSACTIONS_MAP: Record<number, DemoTransaction[]> = {
     },
   ],
 
-  // ── Rabipur Transactions (Depleted) ──
+  // ── Rabipur Transactions ──
   104: [
     {
       transaction_id: 30,
@@ -226,4 +347,71 @@ export const DEMO_TRANSACTIONS_MAP: Record<number, DemoTransaction[]> = {
       staff: { name: 'Nurse Clara Reyes' },
     },
   ],
+
+  // ── Cagayan de Oro Transactions ──
+  201: [
+    {
+      transaction_id: 2011,
+      inventory_id: 201,
+      transaction_type: 'received',
+      quantity: 150,
+      transaction_date: '2026-07-02',
+      remarks: 'CDO City Health Central Stock',
+      staff: { name: 'Dr. Roberto Cruz' },
+    },
+    {
+      transaction_id: 2012,
+      inventory_id: 201,
+      transaction_type: 'used',
+      quantity: 30,
+      transaction_date: '2026-07-15',
+      remarks: 'Citywide OPD Rabies Exposure Doses',
+      staff: { name: 'Nurse Angela Lopez' },
+    },
+  ],
+
+  // ── El Salvador Transactions ──
+  301: [
+    {
+      transaction_id: 3011,
+      inventory_id: 301,
+      transaction_type: 'received',
+      quantity: 70,
+      transaction_date: '2026-07-04',
+      remarks: 'LGU El Salvador Direct Allocation',
+      staff: { name: 'Dr. Elena Vance' },
+    },
+    {
+      transaction_id: 3012,
+      inventory_id: 301,
+      transaction_type: 'used',
+      quantity: 20,
+      transaction_date: '2026-07-18',
+      remarks: 'ABTC Patient Vaccinations',
+      staff: { name: 'Nurse Mark Torres' },
+    },
+  ],
+
+  // ── Gingoog Transactions ──
+  401: [
+    {
+      transaction_id: 4011,
+      inventory_id: 401,
+      transaction_type: 'received',
+      quantity: 110,
+      transaction_date: '2026-07-06',
+      remarks: 'Provincial Health Office Allocation Gingoog',
+      staff: { name: 'Dr. Samuel Tan' },
+    },
+    {
+      transaction_id: 4012,
+      inventory_id: 401,
+      transaction_type: 'used',
+      quantity: 20,
+      transaction_date: '2026-07-20',
+      remarks: 'District Clinic Patient Doses',
+      staff: { name: 'Nurse Grace Lim' },
+    },
+  ],
 };
+

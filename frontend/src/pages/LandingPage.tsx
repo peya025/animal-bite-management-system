@@ -1,33 +1,81 @@
 import { useState, useEffect, useRef } from 'react';
-import { APP_NAME, APP_SHORT_NAME } from '../constants';
+import { APP_SHORT_NAME } from '../constants';
 import GlobalStyles from '@mui/material/GlobalStyles';
 import { landingPageStyles } from '../styles/LandingPage.styles';
 import antiviralVaccineImg from '../assets/image.png';
 import rorOrModified from '../assets/roror-modified.png';
 import { ROUTES } from '../shared/config/routes';
 
-
-
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [clinicName, setClinicName] = useState('Animal Bite Treatment Center');
   const carouselRef = useRef<HTMLDivElement>(null);
 
+  const [dynSettings, setDynSettings] = useState({
+    app_short_name: APP_SHORT_NAME || 'TABTA',
+    app_full_name: 'TAGOLOAN ANIMAL BITE TREATMENT CENTER',
+    abtc_brand_title: 'ABTC',
+    abtc_description: 'Animal Bite Management & Monitoring System',
+    developed_for_text: 'Developed for Animal Bite Treatment Center',
+    quick_links: [
+      { label: 'About System', url: '#about' },
+      { label: 'Help Center', url: '#help' },
+      { label: 'Staff Login', url: '#login' },
+    ],
+    support_links: [
+      { label: 'Contact Support', url: '#contact' },
+      { label: 'User Guides', url: '#help' },
+      { label: 'FAQs', url: '#help' },
+    ],
+    system_info_links: [
+      { label: 'Features', url: '#about' },
+      { label: 'Security', url: '#about' },
+      { label: 'Report Issue', url: '#contact' },
+    ],
+    operating_schedule: 'SCHEDULE: MONDAYS & THURSDAYS',
+    operating_hours: '8:00 AM – 5:00 PM',
+    registration_window: '8:00 AM – 10:00 AM (Come Early!)',
+    requirement_notice: 'Please bring updated PhilHealth MDR',
+  });
+
   useEffect(() => {
-    const clinicData = localStorage.getItem('clinicData');
-    if (clinicData) {
-      try {
-        const clinic = JSON.parse(clinicData);
-        if (clinic.name) {
-          setClinicName(clinic.name);
+    fetch('/api/landing-page-settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.app_short_name) {
+          setDynSettings(prev => ({
+            ...prev,
+            ...data,
+          }));
         }
-      } catch (e) {
-        console.error('Failed to parse clinic data:', e);
-      }
-    }
+      })
+      .catch(() => console.log('Using default landing page settings'));
   }, []);
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
+    // Check if setup is needed BEFORE redirecting to login
+    try {
+      const response = await fetch('http://localhost:8000/api/setup/check-needed', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // If setup is needed, redirect to setup wizard
+        if (data.needs_setup === true) {
+          window.location.href = ROUTES.SETUP;
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Setup check failed:', error);
+      // Continue to login on error
+    }
+    
+    // Setup is complete or check failed, go to login
     window.location.href = ROUTES.LOGIN;
   };
 
@@ -47,57 +95,329 @@ export default function LandingPage() {
 
   return (
     <div className="landing-page">
-      <GlobalStyles styles={landingPageStyles} />
-      <nav className="navbar">
-        <div className="nav-container">
-          <div className="nav-logo">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-            <span>{APP_SHORT_NAME}</span>
-          </div>
-          
-          <button 
-            className="menu-toggle"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
+      <GlobalStyles styles={`
+        .gov-header {
+          background: #ffffff;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+        }
+        .gov-header-top {
+          padding: 0.75rem 1.5rem;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        .gov-header-container {
+          max-width: 1400px;
+          margin: 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .gov-brand-block {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+        .gov-brand-block .nav-logo {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          text-decoration: none;
+          color: #059669;
+        }
+        .brand-text-col {
+          display: flex;
+          flex-direction: column;
+        }
+        .brand-abbr {
+          font-size: 1.25rem;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          color: #059669;
+          line-height: 1.1;
+        }
+        .brand-fullname {
+          font-size: 0.625rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          color: #064e3b;
+          text-transform: uppercase;
+        }
+        .gov-header-right {
+          display: flex;
+          align-items: center;
+          gap: 1.25rem;
+        }
+        .nav-org-seals {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+        @media (max-width: 1024px) {
+          .nav-org-seals { display: none; }
+        }
+        .nav-org-seals .seal-emblem {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.58rem;
+          font-weight: 600;
+          letter-spacing: 0.03em;
+          color: #064e3b;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .nav-org-seals .seal-badge-icon {
+          width: 1.85rem;
+          height: 1.85rem;
+          flex-shrink: 0;
+          border-radius: 9999px;
+          background: #ffffff;
+          border: 1.5px solid #10b981;
+          object-fit: cover;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .header-signin-btn {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: #ffffff;
+          border: none;
+          border-radius: 9999px;
+          padding: 0.5rem 1.25rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 200ms ease, box-shadow 200ms ease;
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+          white-space: nowrap;
+        }
+        .header-signin-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+        }
 
-          <ul className={`nav-links ${isMenuOpen ? 'active' : ''}`}>
-            <li><a href="#about">About</a></li>
-            <li><a href="#help">Help Center</a></li>
-            <li><a href="#contact">Contact Support</a></li>
-            <li><button onClick={handleSignIn} className="nav-btn signin-btn">Staff Sign In</button></li>
-          </ul>
+        /* Full Feature Hero Section Styles */
+        .hero-sec {
+          background: #059669;
+          color: #ffffff;
+          position: relative;
+          isolation: isolate;
+          overflow: hidden;
+          border-radius: 0;
+          width: 100%;
+          min-height: 42rem;
+          display: flex;
+          flex-direction: column;
+        }
+        .hero-parallax-wrapper {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: -16%;
+          height: 132%;
+          width: 100%;
+          z-index: -10;
+        }
+        .hero-parallax-wrapper img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .hero-gradient-mask {
+          position: absolute;
+          inset: 0;
+          z-index: -5;
+          background: linear-gradient(180deg, rgba(6, 78, 59, 0.65) 0%, rgba(6, 78, 59, 0.12) 45%, rgba(6, 78, 59, 0.8) 100%);
+        }
+        .hero-headline-block {
+          padding: 2rem 2.5rem 0;
+          margin-top: 1rem;
+        }
+        .hero-headline-block h1 {
+          font-size: 5vw;
+          font-weight: 700;
+          text-transform: uppercase;
+          line-height: 0.95;
+          letter-spacing: -0.02em;
+          margin: 0;
+          text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+          color: #ffffff;
+        }
+        .hero-bottom-grid {
+          margin-top: auto;
+          padding: 2rem 2.5rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+        }
+        .hero-sub-tagline p {
+          font-size: 1.6rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          line-height: 1.1;
+          color: rgba(255, 255, 255, 0.95);
+          margin: 0;
+          text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+        }
+        .hero-cards-cluster {
+          display: flex;
+          align-items: flex-end;
+          gap: 1rem;
+        }
+        .hero-membership-glass-card {
+          width: 15rem;
+          border-radius: 1.5rem;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.15);
+          padding: 0.75rem;
+          box-shadow: 0 10px 30px rgba(6, 78, 59, 0.3);
+          backdrop-filter: blur(12px);
+          display: flex;
+          gap: 0.75rem;
+          align-items: center;
+        }
+        .membership-big-val {
+          font-size: 1.875rem;
+          font-weight: 700;
+          line-height: 1;
+        }
+        .membership-sub-lbl {
+          font-size: 0.7rem;
+          color: rgba(255, 255, 255, 0.9);
+        }
+        .membership-doctor-thumb {
+          width: 4rem;
+          height: 4rem;
+          border-radius: 9999px;
+          object-fit: cover;
+          border: 2px solid #ffffff;
+        }
+
+        /* Row 2 Secondary Subnav Bar */
+        .gov-subnav-bar {
+          background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
+          padding: 0.5rem 1.5rem;
+        }
+        .subnav-links {
+          display: flex;
+          align-items: center;
+          gap: 2rem;
+          list-style: none;
+          margin: 0;
+          padding: 0;
+        }
+        .subnav-links a {
+          color: #334155;
+          text-decoration: none;
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          transition: color 200ms ease;
+          padding: 0.25rem 0;
+        }
+        .subnav-links a:hover, .subnav-links a.active {
+          color: #059669;
+          border-bottom: 2px solid #059669;
+        }
+      `} />
+      <GlobalStyles styles={landingPageStyles} />
+
+      {/* Two-Row Government Portal Header */}
+      <header className="gov-header">
+        {/* Row 1: Brand & Official Seals */}
+        <div className="gov-header-top">
+          <div className="gov-header-container">
+            <div className="gov-brand-block">
+              <div className="nav-logo">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <div className="brand-text-col">
+                  <span className="brand-abbr">{dynSettings.app_short_name}</span>
+                  <span className="brand-fullname">{dynSettings.app_full_name}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="gov-header-right">
+              {/* 3 Org Seals */}
+              <div className="nav-org-seals">
+                <div className="seal-emblem">
+                  <img src="/assets/logo_doh.jpg" alt="Department of Health DOH Seal" className="seal-badge-icon" />
+                  <span>Department of Health</span>
+                </div>
+                <div className="seal-emblem">
+                  <img src="/assets/logo_mho_tagoloan.jpg" alt="Municipal Health Office Tagoloan Misamis Oriental Seal" className="seal-badge-icon" />
+                  <span>Tagoloan, Misamis Oriental</span>
+                </div>
+                <div className="seal-emblem">
+                  <img src="/assets/logo_rhu.jpg" alt="Rural Health Unit RHU Seal" className="seal-badge-icon" />
+                  <span>Rural Health Unit</span>
+                </div>
+              </div>
+
+              <button onClick={handleSignIn} className="header-signin-btn">
+                Staff Sign In →
+              </button>
+
+              <button 
+                className="menu-toggle"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label="Toggle menu"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
-      </nav>
+
+        {/* Row 2: Secondary Navigation Bar (Like CHED Portal Image 2) */}
+        <nav className="gov-subnav-bar">
+          <div className="gov-header-container">
+            <ul className={`subnav-links ${isMenuOpen ? 'active' : ''}`}>
+              <li><a href="#" className="active">HOME</a></li>
+              <li><a href="#about">ABOUT US</a></li>
+              <li><a href="#help">HELP CENTER</a></li>
+              <li><a href="#contact">CONTACT SUPPORT</a></li>
+            </ul>
+          </div>
+        </nav>
+      </header>
 
       <main>
-        <section className="hero-landing">
-          <div className="hero-badge">Welcome to Your Healthcare Portal</div>
+        {/* Full Feature Hero Section (Copied from LandingPageTest) */}
+        <section className="hero-sec" id="hero">
+          <div className="hero-parallax-wrapper">
+            <img src="/assets/rhu_tagoloan_hero.jpg" alt="RHU Tagoloan Animal Bite Treatment Center" />
+          </div>
+          <div className="hero-gradient-mask"></div>
 
-          <div className="hero-main">
-            <h1>{clinicName}</h1>
-            <p className="hero-sub">
-              Animal Bite Treatment Center Management System. 
-              Providing efficient, WHO-compliant care for animal bite incidents 
-              with streamlined patient management and vaccination tracking.
-            </p>
+          <div className="hero-headline-block">
+            <h1>ANIMAL BITE<br />TREATMENT CENTER</h1>
+          </div>
 
-            <div className="hero-cta">
-              <button onClick={handleSignIn} className="btn btn-pill btn-pill-primary">
-                Staff Login →
-              </button>
-              <a href="#help" className="btn btn-pill btn-pill-light">Need Help?</a>
+          <div className="hero-bottom-grid">
+            <div className="hero-sub-tagline">
+              <p>PROMPT PEP CARE.<br />SAVING LIVES IN POBLACION TAGOLOAN, MISAMIS ORIENTAL.</p>
             </div>
-          </div>   
+
+            <div className="hero-cards-cluster">
+              <div className="hero-membership-glass-card">
+                <div className="membership-left-col">
+                  <div className="membership-big-val">12K+</div>
+                  <div className="membership-sub-lbl">Tagoloan Residents Protected</div>
+                </div>
+                <img src="/assets/doctor_cat_memphis.png" alt="Cat Doctor Specialist" className="membership-doctor-thumb" />
+              </div>
+            </div>
+          </div>
         </section>
 
         <section id="about" className="services-section">
@@ -342,43 +662,49 @@ export default function LandingPage() {
       <footer className="footer">
         <div className="footer-content">
           <div className="footer-section">
-            <h4>{APP_SHORT_NAME}</h4>
-            <p>Animal Bite Management & Monitoring System</p>
+            <h4>{dynSettings.abtc_brand_title || dynSettings.app_short_name}</h4>
+            <p>{dynSettings.abtc_description}</p>
             <p style={{ fontSize: '0.85rem', color: '#9ca3af', marginTop: '0.5rem' }}>
-              Developed for {clinicName}
+              {dynSettings.developed_for_text}
             </p>
           </div>
 
           <div className="footer-section">
             <h5>Quick Links</h5>
             <ul>
-              <li><a href="#about">About System</a></li>
-              <li><a href="#help">Help Center</a></li>
-              <li><button onClick={handleSignIn}>Staff Login</button></li>
+              {dynSettings.quick_links && dynSettings.quick_links.map((link: any, idx: number) => (
+                <li key={idx}>
+                  {link.url === '#login' ? (
+                    <button onClick={handleSignIn}>{link.label}</button>
+                  ) : (
+                    <a href={link.url}>{link.label}</a>
+                  )}
+                </li>
+              ))}
             </ul>
           </div>
 
           <div className="footer-section">
             <h5>Support</h5>
             <ul>
-              <li><a href="#contact">Contact Support</a></li>
-              <li><a href="#help">User Guides</a></li>
-              <li><a href="#help">FAQs</a></li>
+              {dynSettings.support_links && dynSettings.support_links.map((link: any, idx: number) => (
+                <li key={idx}><a href={link.url}>{link.label}</a></li>
+              ))}
             </ul>
           </div>
 
           <div className="footer-section">
             <h5>System Info</h5>
             <ul>
-              <li><a href="#about">Features</a></li>
-              <li><a href="#about">Security</a></li>
-              <li><a href="#contact">Report Issue</a></li>
+              {dynSettings.system_info_links && dynSettings.system_info_links.map((link: any, idx: number) => (
+                <li key={idx}><a href={link.url}>{link.label}</a></li>
+              ))}
             </ul>
           </div>
         </div>
 
         <div className="footer-bottom">
-          <p>&copy; 2026 {APP_NAME}. Powered by ABMMS. All rights reserved.</p>
+          <p>&copy; 2026 {dynSettings.app_full_name}. Powered by {dynSettings.app_short_name}. All rights reserved.</p>
         </div>
       </footer>
     </div>

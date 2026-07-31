@@ -25,6 +25,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'assigned_module',
         'is_active',
         'phone',
         'last_login_at',
@@ -64,11 +65,19 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is developer
+     */
+    public function isDeveloper(): bool
+    {
+        return $this->role === 'developer';
+    }
+
+    /**
      * Check if user is admin
      */
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->role === 'admin' || $this->role === 'developer';
     }
 
     /**

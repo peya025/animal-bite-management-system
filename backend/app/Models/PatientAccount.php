@@ -44,7 +44,8 @@ class PatientAccount extends Authenticatable
             'patient_account_patient',
             'patient_account_id',
             'patient_id',
-        )->withPivot(['relationship', 'is_primary', 'status', 'verified_by', 'verified_at'])
+        )->using(PatientAccountPatient::class)
+            ->withPivot(['relationship', 'is_primary', 'status', 'verified_by', 'verified_at'])
             ->withTimestamps();
     }
 

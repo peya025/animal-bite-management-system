@@ -50,15 +50,22 @@ class StaffInvitationController extends Controller
             'role' => $request->role,
         ]);
 
-        // TODO: Send email (Phase 2 enhancement)
-        // For now, just return the invitation with token
-        // In production, you would send this via email
+        // Send invitation email
+        try {
+            \Mail::to($invitation->email)->send(new \App\Mail\StaffInvitationMail($invitation));
+            $emailSent = true;
+        } catch (\Exception $e) {
+            \Log::error('Failed to send invitation email: ' . $e->getMessage());
+            $emailSent = false;
+        }
 
         return response()->json([
-            'message' => 'Invitation created successfully',
+            'message' => $emailSent 
+                ? 'Invitation sent successfully' 
+                : 'Invitation created but email failed to send',
             'invitation' => $invitation,
-            'invitation_link' => url("/accept-invitation/{$invitation->token}"),
-            'note' => 'Share this link with the staff member (email sending to be implemented)',
+            'email_sent' => $emailSent,
+            'invitation_link' => config('app.frontend_url') . '/accept-invitation/' . $invitation->token,
         ], 201);
     }
 

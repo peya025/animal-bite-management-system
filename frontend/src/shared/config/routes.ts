@@ -50,13 +50,21 @@ export const ROUTES = {
     INVITE: '/users/invite',
   },
 
+  AUDIT: {
+    ACTIVITY: '/staff-activity',
+  },
+
   SETUP: '/setup',
   CLINIC_SETUP: {
-    INFO:      '/setup/clinic-info',
-    TEMPLATES: '/setup/templates',
-    VAX_SCHED: '/setup/vaccination-schedules',
+    INFO:              '/setup/clinic-info',
+    MODULES:           '/setup/modules',
+    STAFF_ASSIGNMENTS: '/setup/staff-assignments',
+    TEMPLATES:         '/setup/templates',
+    VAX_SCHED:         '/setup/vaccination-schedules',
   },
   PROFILE: '/profile',
+  DEVELOPER_SETTINGS: '/developer/landing-settings',
+  DATABASE_EXPLORER: '/developer/database-explorer',
 } as const;
 
 /** Helper: build a concrete path by replacing :params */

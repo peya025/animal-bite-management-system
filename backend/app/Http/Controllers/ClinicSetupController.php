@@ -4,9 +4,97 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use App\Models\Clinic;
+use App\Models\User;
+use App\Models\ClinicModuleConfig;
 
 class ClinicSetupController extends Controller
 {
+    /**
+     * Initialize clinic with admin account
+     * PUBLIC endpoint - no authentication required
+     * Only works if NO clinics exist in database
+     */
+    public function initialize(Request $request)
+    {
+        // Security: Only allow if database is empty
+        if (Clinic::count() > 0) {
+            return response()->json([
+                'message' => 'Setup has already been completed',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'clinic_name' => 'required|string|max:255',
+            'admin_name' => 'required|string|max:255',
+            'admin_email' => 'required|email|unique:users,email',
+            'admin_password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/',
+            ],
+        ], [
+            'admin_password.regex' => 'Password must contain at least one lowercase letter, one uppercase letter, and one number',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // 1. Create clinic
+            $clinic = Clinic::create([
+                'name' => $validated['clinic_name'],
+                'is_setup_complete' => false, // Will be completed later
+            ]);
+
+            // 2. Create admin user
+            $admin = User::create([
+                'clinic_id' => $clinic->id,
+                'name' => $validated['admin_name'],
+                'email' => $validated['admin_email'],
+                'password' => Hash::make($validated['admin_password']),
+                'role' => 'admin',
+                'assigned_module' => 'all',
+            ]);
+
+            // 3. Create default module config
+            ClinicModuleConfig::create([
+                'clinic_id' => $clinic->id,
+                'triage_module_enabled' => true,
+                'field_rules' => [
+                    'bite_location' => 'required',
+                    'exposure_category' => 'required',
+                    'animal_status' => 'optional',
+                    'philhealth_info' => 'optional',
+                    'fourps_info' => 'optional',
+                    'wound_washing' => 'optional',
+                ],
+            ]);
+
+            // 4. Create authentication token
+            $token = $admin->createToken('setup-token')->plainTextToken;
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Clinic and admin account created successfully',
+                'token' => $token,
+                'user' => $admin->load('clinic'),
+                'clinic' => $clinic,
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to initialize setup',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     /**
      * Check setup status
      */

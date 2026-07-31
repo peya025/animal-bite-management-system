@@ -1,21 +1,30 @@
-﻿import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './features/auth/pages/LoginPage';
 import SetupWizard from './features/clinic-setup/pages/SetupWizardPage';
+import AcceptInvitationPage from './features/auth/pages/AcceptInvitationPage';
 import PatientList from './features/patients/pages/PatientListPage';
 import VaccineInventory from './features/inventory/pages/VaccineInventoryPage';
 import QueueDashboard from './features/queue/pages/QueueDashboardPage';
 import BiteCaseRiskDashboard from './features/bite-cases/pages/BiteCaseRiskDashboard';
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
+import ModuleConfigPage from './features/clinic-setup/pages/ModuleConfigPage';
+import StaffAssignmentPage from './features/clinic-setup/pages/StaffAssignmentPage';
 import VaccinationSchedulePage from './features/vaccinations/pages/VaccinationSchedulePage';
 import UserListPage from './features/users/pages/UserListPage';
 import UserCreatePage from './features/users/pages/UserCreatePage';
 import UserProfilePage from './features/users/pages/UserProfilePage';
-import ReportsDashboardPage from './features/reports/pages/ReportsDashboardPage';
+
+// Lazy-loaded secondary & heavy pages for optimal initial load speed
+const StaffActivityPage = lazy(() => import('./features/audit/pages/StaffActivityPage'));
+const ReportsDashboardPage = lazy(() => import('./features/reports/pages/ReportsDashboardPage'));
+const DeveloperLandingSettingsPage = lazy(() => import('./features/developer/pages/DeveloperLandingSettingsPage'));
+const DeveloperDatabaseExplorerPage = lazy(() => import('./features/developer/pages/DeveloperDatabaseExplorerPage'));
 import ConfirmationDialog from './components/feedback/ConfirmationDialog';
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
 import { ROUTES } from './shared/config/routes';
+import { Icon, GLOBAL_NAV_ICONS } from './shared/components/ui/Icon';
 
 // ΓöÇΓöÇΓöÇ Auth Check Helper ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function isAuthenticated(): boolean {
@@ -47,7 +56,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard',    path: ROUTES.DASHBOARD,         roles: ['admin','registration','triage','treatment'] },
+  { label: 'Dashboard',    path: ROUTES.DASHBOARD,         roles: ['developer','admin','registration','triage','treatment'] },
   { label: 'Patients',     path: ROUTES.PATIENTS.LIST,     roles: ['registration','triage','treatment'] },
   { label: 'Queue',        path: ROUTES.QUEUE.DASHBOARD,   roles: ['registration','triage'] },
   { label: 'Bite Cases',   path: ROUTES.BITE_CASES.LIST,   roles: ['admin','triage','treatment'] },
@@ -55,82 +64,24 @@ const NAV: NavItem[] = [
   { label: 'Inventory',    path: ROUTES.INVENTORY.LIST,    roles: ['admin'] },
   { label: 'Reports',      path: ROUTES.REPORTS.LIST,      roles: ['admin', 'triage'] },
   { label: 'Users',        path: ROUTES.USERS.LIST,        roles: ['admin'] },
+  { label: 'Staff Activity', path: ROUTES.AUDIT.ACTIVITY,  roles: ['admin'] },
+  { label: 'Developer Settings', path: ROUTES.DEVELOPER_SETTINGS, roles: ['developer','admin'] },
+  { label: 'Database Explorer', path: ROUTES.DATABASE_EXPLORER, roles: ['developer'] },
   { 
     label: 'Clinic Setup',
     roles: ['admin'],
     submenu: [
-      { label: 'Clinic Information',    path: ROUTES.CLINIC_SETUP.INFO      },
-      { label: 'Predefined Templates',  path: ROUTES.CLINIC_SETUP.TEMPLATES },
-      { label: 'Vaccination Schedules', path: ROUTES.CLINIC_SETUP.VAX_SCHED },
+      { label: 'Clinic Information',      path: ROUTES.CLINIC_SETUP.INFO              },
+      { label: 'Module Configuration',    path: ROUTES.CLINIC_SETUP.MODULES           },
+      { label: 'Staff Assignments',       path: ROUTES.CLINIC_SETUP.STAFF_ASSIGNMENTS },
+      { label: 'Predefined Templates',    path: ROUTES.CLINIC_SETUP.TEMPLATES         },
+      { label: 'Vaccination Schedules',   path: ROUTES.CLINIC_SETUP.VAX_SCHED         },
     ],
   },
 ];
 
-const NAV_ICONS: Record<string, React.ReactNode> = {
-  Dashboard: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-      <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-    </svg>
-  ),
-  Patients: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-    </svg>
-  ),
-  Queue: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-      <line x1="8" y1="18" x2="21" y2="18"/>
-      <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
-      <line x1="3" y1="18" x2="3.01" y2="18"/>
-    </svg>
-  ),
-  'Bite Cases': (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-    </svg>
-  ),
-  Vaccinations: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-      <circle cx="12" cy="12" r="9"/>
-    </svg>
-  ),
-  Reports: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="16" y1="13" x2="8" y2="13"/>
-      <line x1="16" y1="17" x2="8" y2="17"/>
-      <polyline points="10 9 9 9 8 9"/>
-    </svg>
-  ),
-  Users: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-      <circle cx="12" cy="7" r="4"/>
-    </svg>
-  ),
-  'Clinic Setup': (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-    </svg>
-  ),
-  Inventory: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
-      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-      <line x1="12" y1="12" x2="12" y2="16"/>
-      <line x1="10" y1="14" x2="14" y2="14"/>
-    </svg>
-  ),
-};
-
 const ROLE_LABELS: Record<string, string> = {
+  developer:    'Developer',
   admin:        'Administrator',
   registration: 'Registration Staff',
   triage:       'Triage / Doctor',
@@ -139,14 +90,50 @@ const ROLE_LABELS: Record<string, string> = {
 
 // ΓöÇΓöÇΓöÇ SimpleDashboard ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function SimpleDashboard() {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [clinic, setClinic] = useState<any>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [setupCheckDone, setSetupCheckDone] = useState(false);
+
+  // ΓöÇΓöÇΓöÇ PUBLIC SETUP CHECK (runs BEFORE auth) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  useEffect(() => {
+    const checkSetupNeeded = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/setup/check-needed', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          // If setup is needed, redirect to setup wizard WITHOUT requiring auth
+          if (data.needs_setup === true) {
+            window.location.href = ROUTES.SETUP;
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Setup check failed:', error);
+        // Continue to normal auth flow on error
+      }
+      
+      setSetupCheckDone(true);
+    };
+
+    checkSetupNeeded();
+  }, []);
 
   useEffect(() => {
+    // Wait for setup check before loading user data
+    if (!setupCheckDone) return;
+
     const loadUserData = async () => {
       if (!isAuthenticated()) {
         window.location.href = ROUTES.LOGIN;
@@ -187,9 +174,9 @@ function SimpleDashboard() {
       }
     };
     loadUserData();
-  }, []);
+  }, [setupCheckDone]);
 
-  if (isLoading) {
+  if (!setupCheckDone || isLoading) {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -277,12 +264,12 @@ function SimpleDashboard() {
                   if (item.submenu) {
                     toggleSubmenu(item.label);
                   } else if (item.path) {
-                    window.location.href = item.path;
+                    navigate(item.path);
                   }
                 }}
                 title={collapsed ? item.label : undefined}
               >
-                <span className="sd-nav-icon">{NAV_ICONS[item.label]}</span>
+                <span className="sd-nav-icon">{GLOBAL_NAV_ICONS[item.label] || <Icon name="dashboard" />}</span>
                 {!collapsed && (
                   <>
                     <span className="sd-nav-label">{item.label}</span>
@@ -309,7 +296,7 @@ function SimpleDashboard() {
                   {item.submenu.map(subItem => (
                     <button
                       key={subItem.path}
-                      onClick={() => { window.location.href = subItem.path; }}
+                      onClick={() => { navigate(subItem.path); }}
                       className={`sd-submenu-item ${isActive(subItem.path) ? 'sd-submenu-item--active' : ''}`}
                     >
                       <span className="sd-submenu-dot"></span>
@@ -528,14 +515,14 @@ function SimpleDashboard() {
                 </div>
 
                 <div style={{ marginTop: 'auto', display: 'flex', gap: '8px' }}>
-                  <button className="sd-filter-link" onClick={() => { window.location.href = '/patients'; }} style={{ padding: '6px 12px', fontSize: '12px', flex: 1 }}>
+                  <button className="sd-filter-link" onClick={() => { navigate('/patients'); }} style={{ padding: '6px 12px', fontSize: '12px', flex: 1 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                       <circle cx="9" cy="7" r="4"/>
                     </svg>
                     Patients
                   </button>
-                  <button className="sd-filter-link" onClick={() => { window.location.href = '/bite-cases'; }} style={{ padding: '6px 12px', fontSize: '12px', flex: 1 }}>
+                  <button className="sd-filter-link" onClick={() => { navigate('/bite-cases'); }} style={{ padding: '6px 12px', fontSize: '12px', flex: 1 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
                     </svg>
@@ -703,6 +690,7 @@ function SdDonutChart({ data }: { data: { label: string; pct: number; color: str
 
 // ΓöÇΓöÇΓöÇ Shared layout wrapper for inner pages ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function AppLayout({ children, title }: { children: React.ReactNode; title: string }) {
+  const navigate = useNavigate();
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
   const user   = userData   ? JSON.parse(userData)   : null;
@@ -765,12 +753,12 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
                   if (item.submenu) {
                     toggleSubmenu(item.label);
                   } else if (item.path) {
-                    window.location.href = item.path;
+                    navigate(item.path);
                   }
                 }}
                 title={collapsed ? item.label : undefined}
               >
-                <span className="sd-nav-icon">{NAV_ICONS[item.label]}</span>
+                <span className="sd-nav-icon">{GLOBAL_NAV_ICONS[item.label] || <Icon name="dashboard" />}</span>
                 {!collapsed && (
                   <>
                     <span className="sd-nav-label">{item.label}</span>
@@ -797,7 +785,7 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
                   {item.submenu.map(subItem => (
                     <button
                       key={subItem.path}
-                      onClick={() => { window.location.href = subItem.path; }}
+                      onClick={() => { navigate(subItem.path); }}
                       className={`sd-submenu-item ${isActive(subItem.path) ? 'sd-submenu-item--active' : ''}`}
                     >
                       <span className="sd-submenu-dot"></span>
@@ -867,23 +855,35 @@ function App() {
   return (
     <AppStyleScope>
       <Router>
-        <Routes>
-          <Route path="/"          element={<LandingPage />} />
-          <Route path="/login"     element={<Login />} />
-          <Route path="/setup"     element={<ProtectedRoute><SetupWizard /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
-          <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
-          <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
-          <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
-          <Route path="/bite-cases" element={<ProtectedRoute><AppLayout title="Bite Cases"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
-          <Route path="/vaccinations" element={<ProtectedRoute><AppLayout title="Vaccinations"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
-          <Route path="/vaccinations/record" element={<ProtectedRoute><AppLayout title="Record Vaccination"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
-          <Route path="/users" element={<ProtectedRoute><AppLayout title="User Management"><UserListPage /></AppLayout></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute><AppLayout title="Reports &amp; Analytics"><ReportsDashboardPage /></AppLayout></ProtectedRoute>} />
-          <Route path="/users/create" element={<ProtectedRoute><AppLayout title="Add User"><UserCreatePage /></AppLayout></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><AppLayout title="My Profile"><UserProfilePage /></AppLayout></ProtectedRoute>} />
-          <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
-        </Routes>
+        <Suspense fallback={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#10b981' }}>
+            <span>Loading page...</span>
+          </div>
+        }>
+          <Routes>
+            <Route path="/"          element={<LandingPage />} />
+            <Route path="/login"     element={<Login />} />
+            <Route path="/setup"     element={<SetupWizard />} />
+            <Route path="/accept-invitation/:token" element={<AcceptInvitationPage />} />
+            <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
+            <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
+            <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
+            <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
+            <Route path="/bite-cases" element={<ProtectedRoute><AppLayout title="Bite Cases"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
+            <Route path="/vaccinations" element={<ProtectedRoute><AppLayout title="Vaccinations"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
+            <Route path="/vaccinations/record" element={<ProtectedRoute><AppLayout title="Record Vaccination"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute><AppLayout title="User Management"><UserListPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/staff-activity" element={<ProtectedRoute><AppLayout title="Staff Activity Monitor"><StaffActivityPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><AppLayout title="Reports &amp; Analytics"><ReportsDashboardPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/users/create" element={<ProtectedRoute><AppLayout title="Add User"><UserCreatePage /></AppLayout></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><AppLayout title="My Profile"><UserProfilePage /></AppLayout></ProtectedRoute>} />
+            <Route path="/developer/landing-settings" element={<ProtectedRoute><AppLayout title="Developer Landing Settings"><DeveloperLandingSettingsPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/developer/database-explorer" element={<ProtectedRoute><AppLayout title="Database Explorer (XAMPP)"><DeveloperDatabaseExplorerPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
+            <Route path="/setup/modules" element={<ProtectedRoute><AppLayout title="Module Configuration"><ModuleConfigPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/setup/staff-assignments" element={<ProtectedRoute><AppLayout title="Staff Module Assignments"><StaffAssignmentPage /></AppLayout></ProtectedRoute>} />
+          </Routes>
+        </Suspense>
       </Router>
     </AppStyleScope>
   );

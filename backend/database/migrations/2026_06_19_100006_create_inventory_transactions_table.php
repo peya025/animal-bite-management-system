@@ -18,6 +18,12 @@ return new class extends Migration
             
             $table->enum('transaction_type', ['received', 'used', 'adjusted', 'expired', 'disposed']); 
             $table->integer('quantity');
+            $table->integer('quantity_received')->default(0);
+            $table->string('received_from')->nullable();
+            $table->integer('dispensed')->default(0);
+            $table->integer('transferred')->default(0);
+            $table->integer('expired')->default(0);
+            $table->integer('balanced')->default(0);
             $table->dateTime('transaction_date');
             $table->string('reference_id')->nullable(); // treatment_id or purchase order
             $table->text('remarks')->nullable();

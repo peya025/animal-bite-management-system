@@ -1,12 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  Box, Button, CircularProgress, Paper, Typography,
+  Box, Button, CircularProgress, Paper, Typography, Menu, MenuItem, Stack, Chip, Tooltip,
 } from '@mui/material';
-import { Print as PrintIcon } from '@mui/icons-material';
-import api from '../../../../services/api';
+import {
+  Print as PrintIcon,
+  InsertDriveFile as FileIcon,
+  CalendarMonth as CalendarIcon,
+  KeyboardArrowDown as ArrowDownIcon,
+  FolderOpen as FolderOpenIcon,
+  LocalHospital as ClinicIcon,
+} from '@mui/icons-material';
 import type { InventoryItem } from '../../types';
 import { formatDate } from '../../../../shared/utils';
-import { DEMO_TRANSACTIONS_MAP, type DemoTransaction } from '../../data/inventoryDemoData';
+import { DEMO_TRANSACTIONS_MAP, DEMO_CLINICS } from '../../data/inventoryDemoData';
+import StockCardFileManager from './StockCardFileManager';
+
+// ─── Constants ────────────────────────────────────────────────
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -35,26 +49,69 @@ function mapTx(tx: Transaction) {
 function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; isDemo?: boolean }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<number>(6); // Default to July (index 6)
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [fileManagerOpen, setFileManagerOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  const clinic = DEMO_CLINICS.find(c => c.clinic_id === item.clinic_id) || DEMO_CLINICS[0];
+
   useEffect(() => {
-    /* 
-     * BACKEND TRANSACTIONS API CALL COMMENTED OUT TO USE SAMPLE DATA DIRECTLY
-     *
-    api.get(`/inventory/${item.inventory_id}/transactions`)
-      .then(r => setTransactions(r.data.transactions ?? []))
-      .catch(() => setTransactions(DEMO_TRANSACTIONS_MAP[item.inventory_id] ?? []));
-    */
     setLoading(true);
     setTransactions(DEMO_TRANSACTIONS_MAP[item.inventory_id] ?? []);
     setLoading(false);
   }, [item.inventory_id]);
 
-  const createdDate = item.created_at ? new Date(item.created_at) : new Date();
-  const monthYear = createdDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const monthName = MONTH_NAMES[selectedMonth];
+  const monthYear = `${monthName} ${selectedYear}`;
+  const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
 
-  // Build 1..31 day rows with running balance
-  const daysInMonth = 31;
+  // Filter or generate transactions for the selected month
+  const activeTxList = (transactions.length > 0 ? transactions : DEMO_TRANSACTIONS_MAP[item.inventory_id] ?? []);
+
+  let monthlyTx = activeTxList.filter(tx => {
+    const d = new Date(tx.transaction_date);
+    return d.getMonth() === selectedMonth;
+  });
+
+  if (isDemo && monthlyTx.length === 0) {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const mStr = pad(selectedMonth + 1);
+    monthlyTx = [
+      {
+        transaction_id: item.inventory_id * 1000 + selectedMonth * 10 + 1,
+        transaction_type: 'received',
+        quantity: 50 + ((selectedMonth * 7) % 30),
+        transaction_date: `${selectedYear}-${mStr}-02T08:30:00Z`,
+        remarks: 'Central Supply Delivery',
+        staff: { name: 'Admin Staff' },
+      },
+      {
+        transaction_id: item.inventory_id * 1000 + selectedMonth * 10 + 2,
+        transaction_type: 'used',
+        quantity: 5 + (selectedMonth % 4),
+        transaction_date: `${selectedYear}-${mStr}-09T10:15:00Z`,
+        remarks: 'Routine Vaccination',
+      },
+      {
+        transaction_id: item.inventory_id * 1000 + selectedMonth * 10 + 3,
+        transaction_type: 'used',
+        quantity: 8 + (selectedMonth % 3),
+        transaction_date: `${selectedYear}-${mStr}-17T14:00:00Z`,
+        remarks: 'Outbreak Response',
+      },
+      {
+        transaction_id: item.inventory_id * 1000 + selectedMonth * 10 + 4,
+        transaction_type: 'used',
+        quantity: 6,
+        transaction_date: `${selectedYear}-${mStr}-24T11:45:00Z`,
+        remarks: 'Clinic Dispensation',
+      },
+    ];
+  }
+
+  // Build day rows for daysInMonth with running balance
   const dayRows: Array<{
     dayNum: number;
     qtyReceived: number;
@@ -65,7 +122,7 @@ function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; i
     balance: number | null;
   }> = [];
 
-  const sortedTx = [...transactions].sort(
+  const sortedTx = [...monthlyTx].sort(
     (a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime()
   );
 
@@ -123,32 +180,212 @@ function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; i
   }
 
   const handlePrint = () => {
-    const content = cardRef.current?.innerHTML;
-    if (!content) return;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const now = new Date();
+    const printDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const printTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const trackingCode = `ABTC-SC-${clinic.clinic_id}-${item.batch_number.replace(/[^a-zA-Z0-9]/g, '')}-${selectedYear}${pad(selectedMonth + 1)}`;
 
-    const printWin = window.open('', '_blank', 'width=950,height=800');
+    const printWin = window.open('', '_blank', 'width=1000,height=850');
     if (!printWin) return;
 
     printWin.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>STOCK CARD - ${item.vaccine_type} (${item.batch_number})</title>
+          <title>OFFICIAL STOCK CARD - ${item.vaccine_type} (${item.batch_number}) - ${monthYear}</title>
           <style>
-            @page { size: A4 portrait; margin: 12mm; }
-            body { font-family: Arial, sans-serif; color: #000; margin: 0; padding: 0; font-size: 11pt; }
-            .no-print { display: none !important; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { border: 1px solid #000; padding: 4px 6px; font-size: 9pt; text-align: center; }
-            th { font-weight: bold; background-color: #f2f2f2; text-transform: uppercase; }
-            .header-title { text-align: center; margin-bottom: 12px; }
-            .header-title h4 { margin: 0; font-size: 9.5pt; font-weight: normal; text-transform: uppercase; }
-            .header-title h3 { margin: 2px 0; font-size: 11pt; font-weight: bold; }
-            .header-title h2 { margin: 10px 0 6px; font-size: 16pt; font-weight: bold; letter-spacing: 2px; text-decoration: underline; }
+            /* Universal Multi-Paper Size & Orientation Responsive Print Styles */
+            @page {
+              size: auto; /* Automatically adapts to Letter, A4, Legal, Executive, A5, Folio, Portrait & Landscape */
+              margin: 6mm 8mm;
+            }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            html, body {
+              width: 100%;
+              height: 100%;
+              font-family: Arial, Helvetica, sans-serif;
+              color: #000;
+              background: #fff;
+              font-size: 8.5pt;
+              line-height: 1.25;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .print-page-wrapper {
+              width: 100%;
+              max-width: 100%;
+              margin: 0 auto;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+            }
+            .header-title { text-align: center; margin-bottom: 8px; }
+            .header-title .republic { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; color: #222; }
+            .header-title .office { font-size: 12pt; font-weight: 800; text-transform: uppercase; margin: 2px 0; color: #000; }
+            .header-title .contact { font-size: 8pt; color: #333; }
+            .header-title .doc-name {
+              font-size: 15pt;
+              font-weight: 800;
+              letter-spacing: 1.5px;
+              text-transform: uppercase;
+              color: #000;
+              margin-top: 4px;
+              text-decoration: underline;
+            }
+            .meta-box {
+              border: 1.2px solid #000;
+              padding: 6px 10px;
+              margin-bottom: 8px;
+              background: #fafafa !important;
+            }
+            .meta-row { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 3px; }
+            .meta-row:last-child { margin-bottom: 0; }
+            .meta-cell { font-size: 8.5pt; flex: 1; min-width: 45%; }
+            .meta-label { font-weight: bold; color: #111; }
+            .meta-val { font-weight: bold; color: #000; }
+            
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 2px;
+              page-break-inside: auto;
+            }
+            thead { display: table-header-group; }
+            tr { page-break-inside: avoid; }
+            th, td {
+              border: 1px solid #000;
+              padding: 2px 4px;
+              font-size: 8pt;
+              text-align: center;
+            }
+            th {
+              font-weight: bold;
+              background-color: #f1f5f9 !important;
+              text-transform: uppercase;
+              font-size: 7.5pt;
+            }
+            tr.activity-row { background-color: #f0fdf4 !important; }
+            tr.activity-row td { font-weight: 600; }
+            
+            .sig-container {
+              margin-top: 14px;
+              display: flex;
+              justify-content: space-between;
+              font-size: 8.5pt;
+              page-break-inside: avoid;
+            }
+            .sig-box { width: 42%; text-align: center; }
+            .sig-line { border-top: 1px solid #000; margin-top: 24px; padding-top: 3px; font-weight: bold; }
+            
+            .footer-info {
+              margin-top: 10px;
+              padding-top: 4px;
+              border-top: 1px solid #555;
+              display: flex;
+              justify-content: space-between;
+              font-size: 7pt;
+              color: #333;
+              page-break-inside: avoid;
+            }
+
+            /* Responsive Scaling for Small Paper Sizes (e.g. A5, Half-Letter) */
+            @media print and (max-height: 210mm) {
+              th, td { padding: 1px 3px; font-size: 7.5pt; }
+              .header-title .office { font-size: 10.5pt; }
+              .header-title .doc-name { font-size: 13pt; margin-top: 2px; }
+              .sig-line { margin-top: 16px; }
+              .meta-box { padding: 4px 8px; margin-bottom: 6px; }
+            }
           </style>
         </head>
         <body>
-          ${content}
+          <div class="print-page-wrapper">
+            <div>
+              <!-- Official Letterhead -->
+              <div class="header-title">
+                <div class="republic">Republic of the Philippines &bull; ${clinic.province} &bull; ${clinic.municipality}</div>
+                <div class="office">${clinic.office_name}</div>
+                <div class="contact">Tel. No. : ${clinic.phone} &bull; ${clinic.address}</div>
+                <div class="doc-name">STOCK CARD</div>
+              </div>
+
+              <!-- Formal Metadata Block -->
+              <div class="meta-box">
+                <div class="meta-row">
+                  <div class="meta-cell"><span class="meta-label">Name of vaccine/medicine:</span> <span class="meta-val" style="color: #059669">${item.vaccine_type}</span></div>
+                  <div class="meta-cell"><span class="meta-label">Month & Year:</span> <span class="meta-val">${monthYear}</span></div>
+                </div>
+                <div class="meta-row">
+                  <div class="meta-cell"><span class="meta-label">Lot / Batch Number:</span> <span class="meta-val" style="font-family: monospace">${item.batch_number}</span></div>
+                  <div class="meta-cell"><span class="meta-label">Expiry Date:</span> <span class="meta-val">${formatDate(item.expiration_date)}</span></div>
+                </div>
+                <div class="meta-row">
+                  <div class="meta-cell"><span class="meta-label">Facility Clinic:</span> <span class="meta-val">${clinic.name}</span></div>
+                  <div class="meta-cell"><span class="meta-label">Storage Spec:</span> <span class="meta-val">2°C to 8°C Cold Chain</span></div>
+                </div>
+              </div>
+
+              <!-- 31-Day Stock Card Table -->
+              <table>
+                <thead>
+                  <tr>
+                    <th rowSpan="2" style="width: 45px">DATE</th>
+                    <th colSpan="2" style="border-left: 2px solid #000">DELIVERY</th>
+                    <th colSpan="3" style="border-left: 2px solid #000">OUT FROM FACILITY</th>
+                    <th rowSpan="2" style="border-left: 2px solid #000; width: 75px">BALANCE</th>
+                  </tr>
+                  <tr>
+                    <th style="border-left: 2px solid #000; width: 100px">Qty Received</th>
+                    <th>Received From</th>
+                    <th style="border-left: 2px solid #000; width: 75px">Dispensed</th>
+                    <th style="width: 75px">Transferred</th>
+                    <th style="width: 75px">Expired</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${dayRows.map(r => `
+                    <tr class="${r.qtyReceived || r.dispensed || r.transferred || r.expired ? 'activity-row' : ''}">
+                      <td style="font-weight: bold">${r.dayNum}</td>
+                      <td style="border-left: 2px solid #000; color: ${r.qtyReceived ? '#047857' : 'inherit'}">${r.qtyReceived || ''}</td>
+                      <td style="text-align: left; font-size: 8pt">${r.receivedFrom}</td>
+                      <td style="border-left: 2px solid #000; color: ${r.dispensed ? '#b91c1c' : 'inherit'}">${r.dispensed || ''}</td>
+                      <td style="color: ${r.transferred ? '#d97706' : 'inherit'}">${r.transferred || ''}</td>
+                      <td style="color: ${r.expired ? '#dc2626' : 'inherit'}">${r.expired || ''}</td>
+                      <td style="border-left: 2px solid #000; font-weight: bold; color: ${r.balance !== null && r.balance <= 10 ? '#d97706' : '#047857'}">
+                        ${r.balance !== null ? r.balance : ''}
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+
+              <div style="margin-top: 6px; font-size: 8.5pt; font-weight: bold; text-align: right; color: #047857">
+                Current Ending Balance: ${item.current_quantity} vials (≈ ${item.current_quantity * 3} coverable doses)
+              </div>
+            </div>
+
+            <div>
+              <!-- Official Signatures -->
+              <div class="sig-container">
+                <div class="sig-box">
+                  <div class="sig-line">Prepared & Issued By:</div>
+                  <div style="font-size: 7.5pt; color: #555; margin-top: 2px">Inventory Nurse / Pharmacist In-Charge</div>
+                </div>
+                <div class="sig-box">
+                  <div class="sig-line">Approved & Verified By:</div>
+                  <div style="font-size: 7.5pt; color: #555; margin-top: 2px">Municipal Health Officer / MHO Head</div>
+                </div>
+              </div>
+
+              <!-- Footer Verification -->
+              <div class="footer-info">
+                <span>Official Form MHO-SC-2026 &bull; ${clinic.name}</span>
+                <span>Tracking Code: ${trackingCode}</span>
+                <span>Printed on: ${printDate} ${printTime}</span>
+              </div>
+            </div>
+          </div>
         </body>
       </html>
     `);
@@ -158,7 +395,7 @@ function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; i
     setTimeout(() => {
       printWin.print();
       printWin.close();
-    }, 300);
+    }, 350);
   };
 
   const borderCol = '#cbd5e1';
@@ -191,35 +428,169 @@ function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; i
         bgcolor: '#ffffff',
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }} className="no-print">
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<PrintIcon />}
-          onClick={handlePrint}
-          sx={{
-            borderColor: '#10b981',
-            color: '#059669',
-            fontWeight: 600,
-            textTransform: 'none',
-            '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
-          }}
-        >
-          Print Stock Card
-        </Button>
+      {/* ── Top Toolbar with File Manager, Month Menu & Print Button ── */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }} className="no-print">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Chip
+            icon={<CalendarIcon sx={{ fontSize: 16 }} />}
+            label={`Month: ${monthYear}`}
+            variant="outlined"
+            size="small"
+            sx={{ fontWeight: 700, borderColor: '#10b981', color: '#047857', bgcolor: '#f0fdf4' }}
+          />
+          <Chip
+            icon={<ClinicIcon sx={{ fontSize: 14 }} />}
+            label={clinic.name}
+            size="small"
+            sx={{ fontWeight: 600, bgcolor: '#f1f5f9', color: '#334155' }}
+          />
+        </Box>
+
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+          {/* File Manager Button */}
+          <Tooltip title="Open Stock Card File Manager">
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<FolderOpenIcon />}
+              onClick={() => setFileManagerOpen(true)}
+              sx={{
+                bgcolor: '#059669',
+                color: '#ffffff',
+                fontWeight: 600,
+                textTransform: 'none',
+                boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)',
+                '&:hover': { bgcolor: '#047857' },
+              }}
+            >
+              File Manager
+            </Button>
+          </Tooltip>
+
+          {/* Quick Month Dropdown Button */}
+          <Tooltip title="Select month of the year">
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<FileIcon sx={{ color: '#059669' }} />}
+              endIcon={<ArrowDownIcon sx={{ fontSize: 18 }} />}
+              onClick={(e) => setAnchorEl(e.currentTarget)}
+              sx={{
+                borderColor: '#10b981',
+                color: '#059669',
+                fontWeight: 600,
+                textTransform: 'none',
+                bgcolor: '#ecfdf5',
+                '&:hover': { borderColor: '#059669', bgcolor: '#d1fae5' },
+              }}
+            >
+              Monthly Files
+            </Button>
+          </Tooltip>
+
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={() => setAnchorEl(null)}
+            slotProps={{
+              paper: {
+                elevation: 4,
+                sx: {
+                  maxHeight: 380,
+                  width: 250,
+                  borderRadius: 2,
+                  mt: 1,
+                  border: '1px solid #e2e8f0',
+                },
+              },
+            }}
+          >
+            <Box sx={{ px: 2, py: 1.25, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#475569', letterSpacing: '0.5px' }}>
+                Stock Card Files ({selectedYear})
+              </Typography>
+            </Box>
+            {MONTH_NAMES.map((mName, idx) => {
+              const isSelected = selectedMonth === idx;
+              return (
+                <MenuItem
+                  key={mName}
+                  selected={isSelected}
+                  onClick={() => {
+                    setSelectedMonth(idx);
+                    setAnchorEl(null);
+                  }}
+                  sx={{
+                    py: 0.85,
+                    px: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    bgcolor: isSelected ? '#ecfdf5 !important' : 'transparent',
+                    '&:hover': { bgcolor: isSelected ? '#d1fae5 !important' : '#f8fafc' },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                    <FileIcon sx={{ fontSize: 18, color: isSelected ? '#059669' : '#94a3b8' }} />
+                    <Typography sx={{ fontSize: 13, fontWeight: isSelected ? 700 : 500, color: isSelected ? '#047857' : '#334155' }}>
+                      {mName} {selectedYear}
+                    </Typography>
+                  </Box>
+                  {isSelected && (
+                    <Chip label="Active" size="small" sx={{ height: 18, fontSize: 9, bgcolor: '#10b981', color: '#fff', fontWeight: 700 }} />
+                  )}
+                </MenuItem>
+              );
+            })}
+          </Menu>
+
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<PrintIcon />}
+            onClick={handlePrint}
+            sx={{
+              borderColor: '#10b981',
+              color: '#059669',
+              fontWeight: 600,
+              textTransform: 'none',
+              '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
+            }}
+          >
+            Print Stock Card
+          </Button>
+        </Stack>
       </Box>
 
+      {/* Stock Card File Manager Dialog */}
+      <StockCardFileManager
+        open={fileManagerOpen}
+        onClose={() => setFileManagerOpen(false)}
+        item={item}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        onSelectMonthYear={(mIndex, y) => {
+          setSelectedMonth(mIndex);
+          setSelectedYear(y);
+        }}
+        onPrintMonth={(mIndex, y) => {
+          setSelectedMonth(mIndex);
+          setSelectedYear(y);
+          setTimeout(() => handlePrint(), 200);
+        }}
+      />
+
       <div ref={cardRef}>
-        {/* Header Title */}
+        {/* Dynamic Clinic Header Title */}
         <Box sx={{ textAlign: 'center', mb: 2.5 }}>
           <Typography sx={{ fontSize: '11px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
-            Republic of the Philippines &bull; PROVINCE OF MISAMIS ORIENTAL &bull; Municipality of Tagoloan
+            Republic of the Philippines &bull; {clinic.province} &bull; {clinic.municipality}
           </Typography>
           <Typography sx={{ fontSize: '15px', fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', mt: 0.5 }}>
-            MUNICIPAL HEALTH OFFICE
+            {clinic.office_name}
           </Typography>
           <Typography sx={{ fontSize: '11px', color: '#64748b', mb: 1 }}>
-            Tel. No. : (088) 590-4775
+            Tel. No. : {clinic.phone} &bull; {clinic.address}
           </Typography>
           <Typography
             sx={{
@@ -363,7 +734,7 @@ function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; i
 
         <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography sx={{ fontSize: '12px', color: '#64748b' }}>
-            Municipal Health Office &bull; Tagoloan, Misamis Oriental
+            {clinic.office_name} &bull; {clinic.address}
           </Typography>
           <Typography sx={{ fontSize: '13px', fontWeight: 700, color: item.current_quantity <= 10 ? '#d97706' : '#047857' }}>
             Current Balance: {item.current_quantity} vials
@@ -394,7 +765,7 @@ export default function StockCardView({ items, loading, isDemo = false }: StockC
   if (items.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', py: 10, color: '#9ca3af', fontSize: 14 }}>
-        No inventory records found. Click "Add Stock" or enable "Demo Mode" to view stock card table data.
+        No inventory records found for the selected clinic. Select another clinic or click "Add Stock" to add inventory.
       </Box>
     );
   }
@@ -407,3 +778,5 @@ export default function StockCardView({ items, loading, isDemo = false }: StockC
     </Box>
   );
 }
+
+

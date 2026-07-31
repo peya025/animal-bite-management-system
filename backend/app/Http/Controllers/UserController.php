@@ -14,9 +14,17 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
+        // Check if user is admin
+        if (!$request->user()->isAdmin()) {
+            return response()->json([
+                'message' => 'Unauthorized. Admin access required.',
+            ], 403);
+        }
+        
         $clinicId = $request->user()->clinic_id;
         
         $users = User::where('clinic_id', $clinicId)
+            ->select('id', 'name', 'email', 'role', 'assigned_module', 'is_active', 'created_at')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -32,7 +40,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users',
             'password' => 'required|string|min:8',
-            'role' => ['required', Rule::in(['admin', 'registration', 'triage', 'treatment'])],
+            'role' => ['required', Rule::in(['developer', 'admin', 'registration', 'triage', 'treatment'])],
             'phone' => 'nullable|string|max:50',
         ]);
 
@@ -75,7 +83,7 @@ class UserController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => 'sometimes|nullable|string|min:8',
-            'role' => ['sometimes', 'required', Rule::in(['admin', 'registration', 'triage', 'treatment'])],
+            'role' => ['sometimes', 'required', Rule::in(['developer', 'admin', 'registration', 'triage', 'treatment'])],
             'phone' => 'nullable|string|max:50',
             'is_active' => 'sometimes|boolean',
         ]);
@@ -113,6 +121,34 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'User deleted successfully',
+        ]);
+    }
+
+    /**
+     * Update staff member's assigned module
+     * Access: Admin only
+     */
+    public function updateAssignedModule(Request $request, $id)
+    {
+        // Check if user is admin
+        if (!$request->user()->isAdmin()) {
+            return response()->json([
+                'message' => 'Unauthorized. Admin access required.',
+            ], 403);
+        }
+        
+        $validated = $request->validate([
+            'assigned_module' => 'required|in:all,registration,triage,treatment,inventory',
+        ]);
+        
+        $user = User::where('clinic_id', $request->user()->clinic_id)
+            ->findOrFail($id);
+        
+        $user->update($validated);
+        
+        return response()->json([
+            'message' => 'Staff module assignment updated successfully',
+            'user' => $user,
         ]);
     }
 }

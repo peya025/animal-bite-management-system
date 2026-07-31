@@ -25,6 +25,7 @@ return new class extends Migration
 
             $table->unique(['patient_account_id', 'patient_id']);
             $table->index(['patient_id', 'status']);
+            $table->index(['patient_account_id', 'status']);
         });
     }
 

@@ -64,6 +64,15 @@ export default function UserListPage() {
   });
   const [creating, setCreating] = useState(false);
 
+  // Invite state
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteData, setInviteData] = useState({
+    email: '',
+    role: 'registration' as Role,
+  });
+  const [inviting, setInviting] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
+
   // Toggle (activate/deactivate) state
   const [toggleTarget, setToggleTarget] = useState<User | null>(null);
 
@@ -128,6 +137,25 @@ export default function UserListPage() {
       setNotice('Unable to create user.');
     } finally {
       setCreating(false);
+    }
+  };
+
+  // Send invitation
+  const sendInvitation = async () => {
+    if (!inviteData.email) {
+      setNotice('Email is required.');
+      return;
+    }
+    setInviting(true);
+    try {
+      const response = await api.post('/staff-invitations', inviteData);
+      setInviteLink(response.data.invitation_link);
+      setNotice('Invitation sent successfully!');
+      load();
+    } catch (error: any) {
+      setNotice(error.response?.data?.message || 'Unable to send invitation.');
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -231,12 +259,21 @@ export default function UserListPage() {
             <span style={{ color: '#6b7280' }}>Users</span>
           </Box>
         </Box>
-        <AppButton
-          startIcon={<Add fontSize="small" />}
-          onClick={() => setCreateModalOpen(true)}
-        >
-          Add user
-        </AppButton>
+        <Stack direction="row" spacing={2}>
+          <AppButton
+            variant="secondary"
+            startIcon={<Email fontSize="small" />}
+            onClick={() => setInviteModalOpen(true)}
+          >
+            Invite Staff
+          </AppButton>
+          <AppButton
+            startIcon={<Add fontSize="small" />}
+            onClick={() => setCreateModalOpen(true)}
+          >
+            Add user
+          </AppButton>
+        </Stack>
       </Box>
 
       {/* Filter and Table */}
@@ -565,6 +602,117 @@ export default function UserListPage() {
           onCancel={() => setToggleTarget(null)}
         />
       )}
+
+      {/* ========== INVITE STAFF MODAL ========== */}
+      <Dialog
+        open={inviteModalOpen}
+        onClose={() => {
+          setInviteModalOpen(false);
+          setInviteLink('');
+          setInviteData({ email: '', role: 'registration' });
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Email color="primary" />
+          Invite Staff via Email
+        </DialogTitle>
+        <DialogContent dividers>
+          {!inviteLink ? (
+            <Stack spacing={3} sx={{ pt: 1 }}>
+              <Alert severity="info" sx={{ fontSize: '13px' }}>
+                An invitation email will be sent with a secure link. The staff member can create their own account and set their password.
+              </Alert>
+              <TextField
+                fullWidth
+                required
+                label="Email Address"
+                type="email"
+                value={inviteData.email}
+                onChange={(e) => setInviteData((d) => ({ ...d, email: e.target.value }))}
+                placeholder="staff@example.com"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Email color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <FormControl fullWidth>
+                <InputLabel>Role</InputLabel>
+                <Select
+                  label="Role"
+                  value={inviteData.role}
+                  onChange={(e) => setInviteData((d) => ({ ...d, role: e.target.value as Role }))}
+                  startAdornment={
+                    <InputAdornment position="start">
+                      <Shield color="action" />
+                    </InputAdornment>
+                  }
+                >
+                  <MenuItem value="registration">Registration Staff</MenuItem>
+                  <MenuItem value="triage">Triage / Doctor</MenuItem>
+                  <MenuItem value="treatment">Treatment Staff</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+          ) : (
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Alert severity="success">
+                Invitation sent successfully! The staff member will receive an email with a secure link.
+              </Alert>
+              <Box sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: 1, border: '1px solid #e5e7eb' }}>
+                <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
+                  Invitation Link (for reference):
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    wordBreak: 'break-all', 
+                    fontSize: '11px',
+                    fontFamily: 'monospace',
+                    color: '#059669'
+                  }}
+                >
+                  {inviteLink}
+                </Typography>
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          {!inviteLink ? (
+            <>
+              <AppButton
+                variant="secondary"
+                onClick={() => setInviteModalOpen(false)}
+                disabled={inviting}
+              >
+                Cancel
+              </AppButton>
+              <AppButton
+                onClick={sendInvitation}
+                disabled={!inviteData.email || inviting}
+                startIcon={<Email fontSize="small" />}
+              >
+                {inviting ? 'Sending…' : 'Send Invitation'}
+              </AppButton>
+            </>
+          ) : (
+            <AppButton
+              onClick={() => {
+                setInviteModalOpen(false);
+                setInviteLink('');
+                setInviteData({ email: '', role: 'registration' });
+              }}
+            >
+              Close
+            </AppButton>
+          )}
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

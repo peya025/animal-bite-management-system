@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Alert, Box, Button, Grid, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
+  Alert, Box, Grid, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
 } from '@mui/material';
-import { Refresh as RefreshIcon, Science as DemoIcon } from '@mui/icons-material';
+import { Refresh as RefreshIcon, Science as DemoIcon, LocalHospital as ClinicIcon } from '@mui/icons-material';
 // Backend API imported but calls commented out below as requested to use local sample data
 // import api from '../../../services/api';
 import StatCard from '../../../components/common/StatCard';
@@ -12,7 +12,7 @@ import TransactionHistoryDialog from '../components/TransactionHistoryDialog/Tra
 import DeleteDialog from '../components/DeleteDialog/DeleteDialog';
 import InventoryTable from '../components/InventoryTable/InventoryTable';
 import StockCardView from '../components/StockCardView/StockCardView';
-import { DEMO_INVENTORY_ITEMS } from '../data/inventoryDemoData';
+import { DEMO_INVENTORY_ITEMS, DEMO_CLINICS } from '../data/inventoryDemoData';
 
 // ─── Types ────────────────────────────────────────────────────
 interface InventoryItem {
@@ -50,7 +50,7 @@ export default function VaccineInventory() {
   const [batchFilter, setBatchFilter]   = useState('');
   const [expiryFrom, setExpiryFrom]     = useState('');
   const [expiryTo, setExpiryTo]         = useState('');
-  const [isDemoMode, setIsDemoMode]     = useState(true);
+  const [selectedClinicId] = useState<number>(0); // 0 = All Clinics
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -62,33 +62,13 @@ export default function VaccineInventory() {
   const [deleteItem,  setDeleteItem]  = useState<InventoryItem | null>(null);
   const [view, setView]               = useState<'table' | 'stockcard'>('table');
 
-  /* 
-   * BACKEND API CALLS COMMENTED OUT TO USE SAMPLE DATA DIRECTLY
-   * 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params: Record<string, string | number> = { page: page + 1, per_page: rowsPerPage };
-      if (search)       params.vaccine_type = search;
-      if (statusFilter) params.status       = statusFilter;
-      if (batchFilter)  params.batch_number = batchFilter;
-      if (expiryFrom)   params.expiry_from  = expiryFrom;
-      if (expiryTo)     params.expiry_to    = expiryTo;
-      const res = await api.get('/inventory', { params });
-      setItems(res.data.data);
-      setTotal(res.data.total);
-    } catch {
-      setSnackbar({ open: true, message: 'Failed to load inventory data', severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rowsPerPage, search, statusFilter, batchFilter, expiryFrom, expiryTo]);
-  */
-
   const loadData = useCallback(() => {
     setLoading(true);
-    // Filter sample data locally
     let filtered = [...DEMO_INVENTORY_ITEMS];
+
+    if (selectedClinicId > 0) {
+      filtered = filtered.filter(i => i.clinic_id === selectedClinicId);
+    }
     if (search) {
       filtered = filtered.filter(i => i.vaccine_type.toLowerCase().includes(search.toLowerCase()));
     }
@@ -101,29 +81,23 @@ export default function VaccineInventory() {
     setItems(filtered);
     setTotal(filtered.length);
     setLoading(false);
-  }, [search, statusFilter, batchFilter]);
-
-  /* 
-   * BACKEND STATS API COMMENTED OUT TO USE SAMPLE DATA
-   *
-  const loadStats = useCallback(() => {
-    api.get('/inventory/statistics')
-      .then(r => setStats(r.data))
-      .catch(() => loadSampleStats());
-  }, []);
-  */
+  }, [search, statusFilter, batchFilter, selectedClinicId]);
 
   const loadStats = useCallback(() => {
+    const activePool = selectedClinicId > 0
+      ? DEMO_INVENTORY_ITEMS.filter(i => i.clinic_id === selectedClinicId)
+      : DEMO_INVENTORY_ITEMS;
+
     setStats({
-      total_batches: DEMO_INVENTORY_ITEMS.length,
-      active_batches: DEMO_INVENTORY_ITEMS.filter(i => i.status === 'active').length,
-      depleted_batches: DEMO_INVENTORY_ITEMS.filter(i => i.status === 'depleted').length,
-      expired_batches: 0,
-      total_stock: DEMO_INVENTORY_ITEMS.reduce((sum, i) => sum + i.current_quantity, 0),
+      total_batches: activePool.length,
+      active_batches: activePool.filter(i => i.status === 'active').length,
+      depleted_batches: activePool.filter(i => i.current_quantity === 0).length,
+      expired_batches: activePool.filter(i => i.status === 'expired').length,
+      total_stock: activePool.reduce((sum, i) => sum + i.current_quantity, 0),
       expiring_soon: 0,
       low_stock: 0,
     });
-  }, []);
+  }, [selectedClinicId]);
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { loadStats(); }, [loadStats]);
@@ -136,7 +110,7 @@ export default function VaccineInventory() {
   return (
     <Box sx={{ px: 3 }}>
       {/* ── Header ── */}
-      <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+      <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: '#173d29', margin: '0 0 4px 0' }}>
@@ -144,7 +118,7 @@ export default function VaccineInventory() {
             </Typography>
             <Chip
               icon={<DemoIcon style={{ fontSize: 16 }} />}
-              label="Sample Data Active"
+              label="Standardized ABTC System"
               color="success"
               variant="outlined"
               size="small"
@@ -152,18 +126,16 @@ export default function VaccineInventory() {
             />
           </Box>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
-            Manage stock levels, official Stock Cards, and track transactions (Sample Data Mode)
+            Standardized Vaccine Inventory &amp; Official Stock Card Management System
           </Typography>
-          {/* Breadcrumb */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button
-              onClick={() => { window.location.href = '/dashboard'; }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
-            >
-              Dashboard
-            </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Vaccine Inventory</span>
+
+          {/* Independent Clinic Facility Badge */}
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.25, mt: 1.25, px: 1.5, py: 0.65, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 2 }}>
+            <ClinicIcon sx={{ color: '#059669', fontSize: 18 }} />
+            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#166534' }}>
+              Facility: {selectedClinicId === 0 ? DEMO_CLINICS[0].name : (DEMO_CLINICS.find(c => c.clinic_id === selectedClinicId)?.name || DEMO_CLINICS[0].name)}
+            </Typography>
+            <Chip label="Independent ABTC Facility" size="small" sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#dcfce7', color: '#15803d' }} />
           </Box>
         </Box>
 

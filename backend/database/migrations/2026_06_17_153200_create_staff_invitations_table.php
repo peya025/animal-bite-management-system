@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('clinic_id')->constrained()->cascadeOnDelete();
             $table->foreignId('invited_by')->constrained('users')->cascadeOnDelete();
             $table->string('email');
-            $table->enum('role', ['registration', 'triage', 'treatment']);
+            $table->enum('role', ['developer', 'admin', 'registration', 'triage', 'treatment']);
             $table->string('token', 64)->unique();
             $table->enum('status', ['pending', 'accepted', 'expired'])->default('pending');
             $table->timestamp('expires_at');

@@ -23,9 +23,7 @@ import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
   TrendingDown as LowIcon,
-  TrendingUp as HighIcon,
   Warning as MedIcon,
-  BarChart as StatsIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { DataTable, TablePager } from '../../../components/data-display';
@@ -379,12 +377,12 @@ export default function BiteCaseRiskDashboard() {
       {/* ── Stats ── */}
       <Grid container spacing={2} sx={{ mb: 3, alignItems: 'stretch' }}>
         {[
-          { label: 'Total Cases',    value: stats?.total_cases     ?? '-',    color: 'primary'  as const },
-          { label: 'Active Cases',   value: stats?.active_cases    ?? '-',    color: 'error'    as const },
-          { label: 'Completed',      value: stats?.completed_cases ?? '-',   color: 'success'  as const },
-          { label: 'High Risk Zones',value: loading ? '-' : highRisk,      color: 'error'    as const },
-          { label: 'Medium Risk',    value: loading ? '-' : mediumRisk,    color: 'warning'  as const },
-          { label: 'Low Risk',       value: loading ? '-' : lowRisk,       color: 'success'  as const },
+          { label: 'Total Cases',    value: stats?.total_cases     ?? '-',    color: 'primary'  as const, icon: <AnimalIcon /> },
+          { label: 'Active Cases',   value: stats?.active_cases    ?? '-',    color: 'error'    as const, icon: <HighRiskIcon /> },
+          { label: 'Completed',      value: stats?.completed_cases ?? '-',   color: 'success'  as const, icon: <LowIcon /> },
+          { label: 'High Risk Zones',value: loading ? '-' : highRisk,      color: 'error'    as const, icon: <HighRiskIcon /> },
+          { label: 'Medium Risk',    value: loading ? '-' : mediumRisk,    color: 'warning'  as const, icon: <MedIcon /> },
+          { label: 'Low Risk',       value: loading ? '-' : lowRisk,       color: 'success'  as const, icon: <LowIcon /> },
         ].map(s => (
           <Grid key={s.label} size={{ xs: 6, sm: 4, md: 2 }}>
             <StatCard label={s.label} value={s.value} icon={s.icon} color={s.color} loading={loading} />

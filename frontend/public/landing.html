@@ -1,0 +1,2185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VACCIGUARD — Animal Bite Treatment Center & Academy</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Lenis CDN via Importmap -->
+  <script type="importmap">
+  {
+    "imports": {
+      "lenis": "https://cdn.jsdelivr.net/npm/lenis@1.1.18/+esm"
+    }
+  }
+  </script>
+
+  <style>
+    /* CSS Reset & Variable Design System */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --background: #ffffff;
+      --foreground: #0a0a0a;
+      --brand: #2563c9;
+      --brand-deep: #0f2f63;
+      --brand-light: #5790e6;
+      --accent-teal: #0b6e97;
+      --surface: #f4f4f4;
+      --surface-card: #ffffff;
+      --ink: #0a0a0a;
+      --ink-soft: #717784;
+      --ghost: #d7dae1;
+      --hairline: #e6e8ec;
+      --on-brand: #ffffff;
+
+      --radius-card: 1.5rem;
+      --radius-card-lg: 2rem;
+      --radius-pill: 62.5rem;
+    }
+
+    html {
+      font-size: 16px;
+      scroll-behavior: auto;
+    }
+
+    /* Adaptive Rem Grid Scaling */
+    @media (max-width: 1920px) { html { font-size: 0.833333vw; } }
+    @media (max-width: 1440px) { html { font-size: 1.111111vw; } }
+    @media (max-width: 1024px) { html { font-size: 1.5625vw; } }
+    @media (max-width: 640px)  { html { font-size: 4.444444vw; } }
+
+    body {
+      min-height: 100vh;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: "Onest", system-ui, -apple-system, sans-serif;
+      overflow-x: clip;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--brand-light);
+      outline-offset: 2px;
+    }
+
+    /* Page Shell Inset */
+    main {
+      width: 100%;
+      padding: 0.5rem;
+      overflow-x: clip;
+    }
+    @media (min-width: 640px) {
+      main {
+        padding: 0.75rem;
+      }
+    }
+
+    /* Loader Curtain */
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: var(--brand-deep);
+      color: var(--on-brand);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      transition: transform 850ms cubic-bezier(0.65, 0, 0.35, 1);
+    }
+    #loader.hidden-curtain {
+      transform: translateY(-105%);
+      pointer-events: none;
+    }
+    .loader-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 600ms ease, transform 600ms ease;
+    }
+    .loader-brand.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .loader-progress-track {
+      width: 10rem;
+      height: 2px;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.2);
+      overflow: hidden;
+      position: relative;
+    }
+    .loader-progress-fill {
+      position: absolute;
+      inset: 0;
+      background: #ffffff;
+      transform-origin: left;
+      transform: scaleX(0);
+      transition: transform 1280ms cubic-bezier(0.65, 0, 0.35, 1);
+    }
+
+    /* Shared UI Components */
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+    }
+    .eyebrow-dot {
+      width: 0.375rem;
+      height: 0.375rem;
+      border-radius: var(--radius-pill);
+    }
+    .eyebrow.tone-dark {
+      color: var(--ink-soft);
+    }
+    .eyebrow.tone-dark .eyebrow-dot {
+      background: var(--brand);
+    }
+    .eyebrow.tone-light {
+      color: rgba(255, 255, 255, 0.7);
+    }
+    .eyebrow.tone-light .eyebrow-dot {
+      background: var(--brand-light);
+    }
+
+    .btn-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-radius: var(--radius-pill);
+      padding: 0.875rem 1.75rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      transition: background 300ms ease, color 300ms ease, border-color 300ms ease, transform 200ms ease;
+    }
+    .btn-pill .arrow-icon {
+      width: 1rem;
+      height: 1rem;
+      transition: transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .btn-pill:hover .arrow-icon {
+      transform: translateX(5px);
+    }
+    .btn-pill-light {
+      background: #ffffff;
+      color: var(--brand-deep);
+    }
+    .btn-pill-light:hover {
+      background: var(--brand-light);
+      color: #ffffff;
+    }
+    .btn-pill-solid {
+      background: var(--ink);
+      color: #ffffff;
+    }
+    .btn-pill-solid:hover {
+      background: var(--brand-deep);
+    }
+    .btn-pill-outline {
+      border: 1px solid currentColor;
+      color: var(--ink);
+    }
+    .btn-pill-outline:hover {
+      background: var(--ink);
+      color: #ffffff;
+    }
+
+    .btn-arrow {
+      width: 3rem;
+      height: 3rem;
+      border-radius: var(--radius-pill);
+      display: grid;
+      place-items: center;
+      transition: all 250ms ease;
+    }
+    @media (min-width: 640px) {
+      .btn-arrow { width: 3.5rem; height: 3.5rem; }
+    }
+    .btn-arrow.outline {
+      border: 1px solid var(--hairline);
+      color: var(--ink);
+    }
+    .btn-arrow.outline:hover {
+      border-color: var(--ink);
+    }
+    .btn-arrow.solid {
+      background: var(--ink);
+      border: 1px solid var(--ink);
+      color: #ffffff;
+    }
+    .btn-arrow.solid:hover {
+      background: var(--brand-deep);
+    }
+    .btn-arrow svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      transition: transform 250ms ease;
+    }
+    .btn-arrow:hover svg {
+      transform: scale(1.15);
+    }
+
+    .dots-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .dot-btn {
+      padding: 0.375rem;
+    }
+    .dot-pill {
+      height: 0.375rem;
+      border-radius: var(--radius-pill);
+      transition: width 300ms ease, background 300ms ease;
+    }
+    .dots-nav.dark .dot-pill { background: var(--ghost); width: 0.375rem; }
+    .dots-nav.dark .dot-btn.active .dot-pill { background: var(--ink); width: 1.25rem; }
+    .dots-nav.light .dot-pill { background: rgba(255, 255, 255, 0.4); width: 0.375rem; }
+    .dots-nav.light .dot-btn.active .dot-pill { background: #ffffff; width: 1.25rem; }
+
+    /* Clip Mask Text Engine */
+    .clip-box {
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: top;
+      padding-bottom: 0.14em;
+    }
+    .clip-word {
+      display: inline-block;
+      transform: translateY(115%);
+      opacity: 0;
+      will-change: transform, opacity;
+      transition: transform 1100ms cubic-bezier(0.16, 1, 0.3, 1), opacity 1100ms ease;
+    }
+    .clip-word.revealed {
+      transform: translateY(0%);
+      opacity: 1;
+    }
+
+    /* 1. Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem 1.5rem 0;
+      font-size: 0.75rem;
+      color: #ffffff;
+      position: relative;
+      z-index: 20;
+    }
+    @media (min-width: 640px) {
+      header { padding: 2rem 2.5rem 0; }
+    }
+    .header-left {
+      display: none;
+      flex: 1;
+      gap: 2rem;
+    }
+    @media (min-width: 1024px) {
+      .header-left { display: flex; }
+    }
+    .header-left a {
+      color: rgba(255, 255, 255, 0.9);
+      transition: color 200ms ease;
+    }
+    .header-left a:hover {
+      color: #ffffff;
+    }
+    .header-brand {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+    }
+    @media (min-width: 1024px) {
+      .header-brand { justify-content: center; }
+    }
+    .header-brand svg {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+    .header-right {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 1rem;
+    }
+    .header-book-btn {
+      display: none;
+      color: #ffffff;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    @media (min-width: 640px) {
+      .header-book-btn { display: inline-block; }
+    }
+    .header-book-btn:hover {
+      text-decoration: underline;
+    }
+    .burger-btn {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: background 200ms ease;
+    }
+    .burger-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    .burger-bar {
+      width: 1rem;
+      height: 1px;
+      background: #ffffff;
+    }
+
+    /* 2. Hero Section */
+    .hero-section {
+      background: var(--brand-deep);
+      color: #ffffff;
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      border-radius: var(--radius-card-lg);
+      height: calc(100vh - 1rem);
+      min-height: 36rem;
+      display: flex;
+      flex-direction: column;
+    }
+    @media (min-width: 640px) {
+      .hero-section { height: calc(100vh - 1.5rem); }
+    }
+    .hero-parallax-bg {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -16%;
+      height: 132%;
+      width: 100%;
+      z-index: -10;
+      will-change: transform;
+    }
+    .hero-parallax-bg img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .hero-gradient-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: -5;
+      background: linear-gradient(to bottom, rgba(15, 47, 99, 0.75), rgba(15, 47, 99, 0.45), rgba(15, 47, 99, 0.85));
+    }
+    .hero-title-block {
+      padding: 1rem 1.5rem 0;
+      margin-top: 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .hero-title-block { padding: 1.5rem 2.5rem 0; }
+    }
+    .hero-title-block h1 {
+      font-size: 10.5vw;
+      font-weight: 500;
+      text-transform: uppercase;
+      line-height: 0.85;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+
+    .hero-bottom-row {
+      margin-top: auto;
+      padding: 0 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .hero-bottom-row {
+        padding: 0 2.5rem 2.5rem;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-end;
+      }
+    }
+    .hero-tagline p {
+      font-size: 2.4rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .hero-right-cluster {
+      display: flex;
+      align-items: flex-end;
+      gap: 1rem;
+    }
+
+    /* Hero Slider Card */
+    .hero-slider-card {
+      display: none;
+      width: 16rem;
+      flex-direction: column;
+      gap: 0.75rem;
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 700ms ease, transform 700ms ease;
+    }
+    @media (min-width: 768px) {
+      .hero-slider-card { display: flex; }
+    }
+    .slider-glass-box {
+      border-radius: var(--radius-card);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.75rem;
+      box-shadow: 0 10px 30px rgba(15, 47, 99, 0.2);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: opacity 300ms ease, transform 300ms ease;
+    }
+    .slider-img {
+      width: 3.5rem;
+      height: 3.5rem;
+      border-radius: 0.75rem;
+      object-fit: cover;
+    }
+    .slider-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .slider-brand {
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .slider-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .slider-cta {
+      font-size: 0.65rem;
+      text-decoration: underline;
+      color: #ffffff;
+      margin-top: 0.25rem;
+    }
+
+    /* Membership Card */
+    .hero-membership-card {
+      width: 100%;
+      max-width: 20rem;
+      border-radius: var(--radius-card);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.75rem;
+      box-shadow: 0 10px 30px rgba(15, 47, 99, 0.2);
+      backdrop-filter: blur(12px);
+      display: flex;
+      gap: 0.75rem;
+      align-items: stretch;
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 700ms ease 120ms, transform 700ms ease 120ms;
+    }
+    @media (min-width: 640px) {
+      .hero-membership-card { width: 15rem; }
+    }
+    .membership-left {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .membership-val {
+      font-size: 1.875rem;
+      font-weight: 500;
+      line-height: 1;
+    }
+    .membership-avatars {
+      display: flex;
+      align-items: center;
+      margin-left: 0.5rem;
+    }
+    .avatar-circle {
+      width: 1.25rem;
+      height: 1.25rem;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(15, 47, 99, 0.4);
+      margin-left: -0.5rem;
+    }
+    .membership-caption {
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .membership-thumb {
+      width: 4rem;
+      aspect-ratio: 3/4;
+      border-radius: 0.75rem;
+      object-fit: cover;
+    }
+
+    /* 3. Trust Section */
+    .trust-section {
+      background: var(--background);
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      padding: 4rem 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .trust-section { padding: 5rem 2.5rem; }
+    }
+
+    .trust-badges-row {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .trust-badges-row {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+    }
+    .percent-badge {
+      width: 7rem;
+      height: 7rem;
+      border-radius: var(--radius-pill);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0.5rem;
+      opacity: 0;
+      transform: scale(0.9);
+      transition: opacity 600ms ease, transform 600ms ease;
+    }
+    @media (min-width: 640px) {
+      .percent-badge { width: 8rem; height: 8rem; }
+    }
+    .percent-badge .num {
+      font-size: 1.5rem;
+      font-weight: 500;
+    }
+    .percent-badge .desc {
+      font-size: 0.6rem;
+      color: var(--ink-soft);
+      max-width: 7em;
+    }
+
+    .badge-card {
+      max-width: 28rem;
+      border-radius: var(--radius-card);
+      background: var(--surface);
+      padding: 1.25rem;
+      display: flex;
+      gap: 1rem;
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 600ms ease 120ms, transform 600ms ease 120ms;
+    }
+    @media (min-width: 640px) {
+      .badge-card { padding: 1.5rem; gap: 1.25rem; }
+    }
+    .badge-chip {
+      border-radius: 0.75rem;
+      background: var(--background);
+      padding: 0.5rem 1rem;
+      font-size: 1.25rem;
+      font-weight: 500;
+      height: fit-content;
+    }
+    .badge-content h3 {
+      font-size: 1.125rem;
+      font-weight: 500;
+      margin-bottom: 0.35rem;
+    }
+    .badge-content p {
+      font-size: 0.75rem;
+      color: var(--ink-soft);
+      line-height: 1.5;
+    }
+
+    /* Oversized Ghost Heading */
+    .ghost-heading {
+      pointer-events: none;
+      position: relative;
+      z-index: 0;
+      user-select: none;
+      max-width: 88rem;
+      margin: 3rem auto 0;
+      text-align: center;
+      font-size: 8.2vw;
+      font-weight: 500;
+      text-transform: uppercase;
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+    }
+    .ghost-row {
+      display: flex;
+      justify-content: space-between;
+    }
+    .ghost-word {
+      display: inline-block;
+      color: var(--ghost);
+      will-change: transform;
+    }
+    .ghost-word.ink {
+      color: var(--ink);
+    }
+
+    /* Center Coach Card */
+    .coach-card-container {
+      position: relative;
+      z-index: 10;
+      margin: 2rem auto;
+      width: 13rem;
+    }
+    @media (min-width: 640px) {
+      .coach-card-container {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        margin: 0;
+        width: 16rem;
+      }
+    }
+    .coach-card {
+      transform: rotate(6deg);
+      aspect-ratio: 3/4;
+      border-radius: var(--radius-card);
+      background: var(--brand);
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+      opacity: 0;
+      transform: rotate(6deg) translateY(60px) scale(0.92);
+      transition: opacity 700ms ease, transform 700ms ease;
+    }
+    .coach-card.revealed {
+      opacity: 1;
+      transform: rotate(6deg) translateY(0) scale(1);
+    }
+    .coach-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: opacity 300ms ease;
+    }
+    .coach-glass-caption {
+      position: absolute;
+      inset-x: 0.75rem;
+      bottom: 0.75rem;
+      border-radius: 0.75rem;
+      background: rgba(15, 47, 99, 0.4);
+      color: #ffffff;
+      backdrop-filter: blur(8px);
+      padding: 0.5rem 0.75rem;
+    }
+    .coach-name { font-size: 0.875rem; font-weight: 500; }
+    .coach-role { font-size: 0.65rem; opacity: 0.8; }
+
+    .trust-controls-row {
+      position: relative;
+      z-index: 20;
+      margin-top: 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    @media (min-width: 640px) {
+      .trust-controls-row { margin-top: 6rem; }
+    }
+
+    /* 4. Programs Section */
+    .programs-section {
+      background: var(--surface);
+      padding: 6rem 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .programs-section { padding: 6rem 2.5rem; }
+    }
+    .programs-title {
+      font-size: 3rem;
+      font-weight: 500;
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+      margin-top: 1rem;
+    }
+
+    .programs-list {
+      margin-top: 3.5rem;
+      list-style: none;
+    }
+    .program-row {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 1.75rem 0;
+      border-top: 1px solid var(--hairline);
+      text-decoration: none;
+      color: var(--foreground);
+      opacity: 0;
+      transform: translateY(26px);
+      transition: opacity 600ms ease, transform 600ms ease, background 200ms ease;
+    }
+    .program-row:last-child {
+      border-bottom: 1px solid var(--hairline);
+    }
+    .program-row:hover {
+      background: var(--background);
+    }
+    .program-idx {
+      width: 2.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--ink-soft);
+    }
+    .program-info {
+      flex: 1;
+    }
+    .program-name {
+      font-size: 1.5rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+    @media (min-width: 640px) {
+      .program-name { font-size: 1.875rem; }
+    }
+    .program-desc {
+      font-size: 0.875rem;
+      color: var(--ink-soft);
+      margin-top: 0.25rem;
+    }
+    .program-arrow {
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--hairline);
+      display: grid;
+      place-items: center;
+    }
+    .program-arrow svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      opacity: 0.55;
+      transition: transform 250ms ease, opacity 250ms ease;
+    }
+    .program-row:hover .program-arrow svg {
+      transform: translateX(8px);
+      opacity: 1;
+    }
+
+    /* 5. Facilities Section */
+    .facilities-section {
+      background: var(--background);
+      border-radius: var(--radius-card-lg);
+      margin-top: -2.5rem;
+      padding: 4rem 1.5rem 5rem;
+      position: relative;
+      z-index: 10;
+    }
+    @media (min-width: 640px) {
+      .facilities-section { padding: 4rem 2.5rem 5rem; }
+    }
+
+    .facilities-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+      align-items: end;
+    }
+    @media (min-width: 768px) {
+      .facilities-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .facilities-intro {
+      max-width: 24rem;
+    }
+    .facilities-icon-img {
+      width: 4rem;
+      height: 4rem;
+      border-radius: var(--radius-card);
+      object-fit: cover;
+      opacity: 0;
+      transform: scale(0.85);
+      transition: opacity 600ms ease, transform 600ms ease;
+    }
+    .facilities-title {
+      font-size: 3rem;
+      font-weight: 500;
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+      margin-top: 1.5rem;
+    }
+    .facilities-body {
+      font-size: 0.875rem;
+      color: var(--ink-soft);
+      max-width: 20rem;
+      margin-top: 1.5rem;
+      line-height: 1.5;
+    }
+
+    .facilities-cards {
+      display: flex;
+      align-items: flex-end;
+      gap: 1.25rem;
+    }
+    .court-card {
+      flex: 1;
+      aspect-ratio: 3/4;
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      background: var(--surface);
+      position: relative;
+      opacity: 0;
+      transform: translateY(48px);
+      transition: opacity 600ms ease, transform 600ms ease, transform 300ms ease;
+    }
+    .court-card.stagger-down {
+      margin-bottom: 2rem;
+    }
+    .court-card:hover {
+      transform: scale(1.03);
+    }
+    .court-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .court-glass-caption {
+      position: absolute;
+      inset-x: 0.75rem;
+      bottom: 0.75rem;
+      border-radius: 0.75rem;
+      backdrop-filter: blur(8px);
+      color: #ffffff;
+      padding: 0.75rem 1rem;
+    }
+    .court-glass-caption.tone-blue { background: rgba(11, 110, 151, 0.55); }
+    .court-glass-caption.tone-clay { background: rgba(15, 47, 99, 0.4); }
+    .court-name { font-size: 0.875rem; font-weight: 500; }
+    .court-desc { font-size: 0.65rem; opacity: 0.85; margin-top: 0.15rem; }
+
+    /* 6. Stats Section */
+    .stats-section {
+      background: var(--brand-deep);
+      color: #ffffff;
+      border-radius: var(--radius-card-lg);
+      margin-top: 0.75rem;
+      padding: 5rem 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .stats-section { padding: 5rem 2.5rem; }
+    }
+    .stats-title {
+      font-size: 3rem;
+      font-weight: 500;
+      margin-top: 1rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem 3rem;
+      margin-top: 4rem;
+    }
+    @media (min-width: 1024px) {
+      .stats-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .stat-cell {
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      padding-top: 1.25rem;
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 600ms ease, transform 600ms ease;
+    }
+    .stat-val {
+      font-size: 3.75rem;
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    @media (min-width: 640px) {
+      .stat-val { font-size: 4.5rem; }
+    }
+    .stat-lbl {
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.65);
+      margin-top: 0.75rem;
+    }
+
+    /* 7. Testimonials Section */
+    .testimonials-section {
+      background: var(--background);
+      padding: 5rem 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .testimonials-section { padding: 6rem 2.5rem; }
+    }
+    .testimonials-title {
+      font-size: 3rem;
+      font-weight: 500;
+      margin-top: 1rem;
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+      margin-top: 3.5rem;
+      list-style: none;
+    }
+    @media (min-width: 768px) {
+      .testimonials-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .testimonial-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      border-radius: var(--radius-card);
+      background: var(--surface);
+      padding: 1.75rem;
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 600ms ease, transform 600ms ease, transform 300ms ease;
+    }
+    .testimonial-card:hover {
+      transform: translateY(-8px);
+    }
+    .quote-glyph {
+      font-size: 2.25rem;
+      color: var(--brand);
+      line-height: 1;
+    }
+    .testimonial-body {
+      font-size: 1.125rem;
+      line-height: 1.5;
+      color: var(--ink);
+      margin-top: 1rem;
+    }
+    .testimonial-author {
+      border-top: 1px solid var(--hairline);
+      padding-top: 1rem;
+      margin-top: 1.5rem;
+    }
+    .author-name { font-weight: 500; }
+    .author-role { font-size: 0.875rem; color: var(--ink-soft); }
+
+    /* 8. Footer */
+    footer {
+      background: var(--brand-deep);
+      color: #ffffff;
+      border-radius: var(--radius-card-lg);
+      margin-top: 0.75rem;
+      padding: 3.5rem 1.5rem;
+    }
+    @media (min-width: 640px) {
+      footer { padding: 4rem 2.5rem; }
+    }
+
+    .footer-cta-band {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      padding-bottom: 3.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .footer-cta-band {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-end;
+      }
+    }
+    .footer-cta-title {
+      font-size: 3.75rem;
+      font-weight: 500;
+      line-height: 0.92;
+      letter-spacing: -0.02em;
+      margin-top: 1rem;
+    }
+
+    .footer-cols-grid {
+      padding: 3.5rem 0;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+    @media (min-width: 768px) {
+      .footer-cols-grid { grid-template-columns: 1.4fr 1fr 1fr 1fr; }
+    }
+
+    .footer-brand-col {
+      max-width: 20rem;
+    }
+    .footer-brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.125rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+    }
+    .footer-brand-logo svg {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+    .footer-blurb {
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.65);
+      margin-top: 1rem;
+      line-height: 1.5;
+    }
+    .footer-address {
+      font-style: normal;
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .footer-address a:hover { text-decoration: underline; }
+
+    .footer-nav-col h4 {
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 1rem;
+    }
+    .footer-nav-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .footer-nav-col a:hover { color: #ffffff; }
+
+    .footer-bottom-bar {
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 2rem;
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    @media (min-width: 640px) {
+      .footer-bottom-bar {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+    }
+    .footer-links-group {
+      display: flex;
+      gap: 1.5rem;
+    }
+    .footer-links-group a:hover { color: #ffffff; }
+
+    /* Modals & Fullscreen Menu Overlay */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      background: rgba(15, 47, 99, 0.4);
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 300ms ease;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0.75rem;
+    }
+    @media (min-width: 640px) {
+      .modal-backdrop {
+        align-items: center;
+        padding: 1.5rem;
+      }
+    }
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-panel {
+      width: 100%;
+      max-width: 32rem;
+      max-height: 92vh;
+      overflow-y: auto;
+      border-radius: var(--radius-card-lg);
+      background: var(--surface-card);
+      padding: 1.5rem;
+      color: var(--ink);
+      box-shadow: 0 25px 50px rgba(15, 47, 99, 0.3);
+      transform: translateY(28px) scale(0.96);
+      transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @media (min-width: 640px) {
+      .modal-panel { padding: 2rem; }
+    }
+    .modal-backdrop.open .modal-panel {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .modal-close-btn {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: var(--radius-pill);
+      background: var(--surface);
+      display: grid;
+      place-items: center;
+      transition: background 200ms ease;
+    }
+    .modal-close-btn:hover { background: var(--hairline); }
+    .modal-close-btn svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      transition: transform 250ms ease;
+    }
+    .modal-close-btn:hover svg {
+      transform: rotate(90deg);
+    }
+
+    .modal-form {
+      margin-top: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .field-group label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--ink-soft);
+    }
+    .field-group input, .field-group textarea {
+      width: 100%;
+      border-radius: 0.75rem;
+      border: 1px solid var(--hairline);
+      background: var(--background);
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      font-family: inherit;
+      color: var(--ink);
+    }
+    .field-group input:focus, .field-group textarea:focus {
+      outline: 2px solid var(--brand-light);
+      outline-offset: 2px;
+    }
+
+    .success-panel {
+      margin-top: 2rem;
+      border-radius: var(--radius-card);
+      background: var(--surface);
+      padding: 1.5rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .success-icon {
+      width: 3rem;
+      height: 3rem;
+      border-radius: var(--radius-pill);
+      background: var(--brand);
+      color: #ffffff;
+      display: grid;
+      place-items: center;
+    }
+
+    /* Menu Overlay */
+    #menu-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      background: var(--brand-deep);
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 300ms ease;
+      padding: 0.5rem;
+    }
+    @media (min-width: 640px) {
+      #menu-overlay { padding: 0.75rem; }
+    }
+    #menu-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .menu-inner {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .menu-inner { padding: 2.5rem; }
+    }
+    .menu-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .menu-center-links {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .menu-link {
+      font-size: 3rem;
+      font-weight: 500;
+      line-height: 1;
+      transition: color 200ms ease;
+    }
+    @media (min-width: 640px) {
+      .menu-link { font-size: 4.5rem; }
+    }
+    .menu-link:hover { color: var(--brand-light); }
+
+    .menu-bottom-row {
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .menu-bottom-row {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- Opening Loader Curtain -->
+  <div id="loader">
+    <div class="loader-brand" id="loader-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/>
+        <path d="M12 8v8M8 12h8"/>
+      </svg>
+      <span>VACCIGUARD</span>
+    </div>
+    <div class="loader-progress-track">
+      <div class="loader-progress-fill" id="loader-fill"></div>
+    </div>
+  </div>
+
+  <main>
+    <!-- 1. Hero Section -->
+    <section class="hero-section" id="hero">
+      <div class="hero-parallax-bg" id="hero-bg">
+        <img src="/assets/hero_medical_center.jpg" alt="Modern animal bite treatment center interior" />
+      </div>
+      <div class="hero-gradient-overlay"></div>
+
+      <!-- Site Header -->
+      <header>
+        <nav class="header-left">
+          <a href="#programs">Care Programs</a>
+          <a href="#facilities">Triage Suites</a>
+        </nav>
+        <div class="header-brand">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/>
+            <path d="M12 8v8M8 12h8"/>
+          </svg>
+          <span>VACCIGUARD</span>
+        </div>
+        <div class="header-right">
+          <button class="header-book-btn open-modal-trigger">Book a Visit</button>
+          <button class="burger-btn" id="burger-trigger" aria-label="Open menu">
+            <div class="burger-bar"></div>
+            <div class="burger-bar"></div>
+          </button>
+        </div>
+      </header>
+
+      <!-- Giant Title Block -->
+      <div class="hero-title-block">
+        <h1 id="hero-title">
+          <span class="clip-box"><span class="clip-word">ACT</span></span>
+          <span class="clip-box"><span class="clip-word">FAST.</span></span>
+          <span class="clip-box"><span class="clip-word">STAY</span></span>
+          <span class="clip-box"><span class="clip-word">SAFE.</span></span>
+        </h1>
+      </div>
+
+      <!-- Bottom Row -->
+      <div class="hero-bottom-row">
+        <div class="hero-tagline">
+          <p id="hero-tagline">
+            <span class="clip-box"><span class="clip-word">WHO</span></span>
+            <span class="clip-box"><span class="clip-word">PEP</span></span>
+            <span class="clip-box"><span class="clip-word">CARE,</span></span>
+            <br />
+            <span class="clip-box"><span class="clip-word">24/7</span></span>
+            <span class="clip-box"><span class="clip-word">PROTECTION</span></span>
+          </p>
+        </div>
+
+        <div class="hero-right-cluster">
+          <!-- Collection Slider -->
+          <div class="hero-slider-card" id="slider-card">
+            <div class="slider-glass-box">
+              <img src="/assets/vaccine_pep_kit.jpg" alt="Vaccine kit" class="slider-img" id="slider-img" />
+              <div class="slider-info">
+                <span class="slider-brand" id="slider-brand">WHO Protocol</span>
+                <span class="slider-title" id="slider-title">PEP Vaccination</span>
+                <a href="#programs" class="slider-cta" id="slider-cta">View Schedule →</a>
+              </div>
+            </div>
+            <div class="dots-nav light" id="slider-dots">
+              <button class="dot-btn active"><div class="dot-pill"></div></button>
+              <button class="dot-btn"><div class="dot-pill"></div></button>
+              <button class="dot-btn"><div class="dot-pill"></div></button>
+            </div>
+          </div>
+
+          <!-- Membership Card -->
+          <div class="hero-membership-card" id="membership-card">
+            <div class="membership-left">
+              <div>
+                <div class="membership-val">12K+</div>
+                <div class="membership-avatars">
+                  <div class="avatar-circle" style="background: #5790e6;"></div>
+                  <div class="avatar-circle" style="background: #c2e029;"></div>
+                  <div class="avatar-circle" style="background: #0b6e97;"></div>
+                  <div class="avatar-circle" style="background: #ffffff;"></div>
+                </div>
+              </div>
+              <div class="membership-caption">Patients Protected</div>
+            </div>
+            <img src="/assets/head_doctor_portrait.jpg" alt="Lead physician" class="membership-thumb" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Trust Section -->
+    <section class="trust-section" id="trust">
+      <div class="trust-badges-row">
+        <div class="percent-badge inview" id="percent-badge">
+          <span class="num">100%</span>
+          <span class="desc">WHO & DOH Rabies Protocol</span>
+        </div>
+
+        <div class="badge-card inview" id="badge-card">
+          <div class="badge-chip">#01</div>
+          <div class="badge-content">
+            <h3>Trusted by 12,000+ Patients</h3>
+            <p>From immediate wound washing to full post-exposure vaccination schedules, our specialists ensure life-saving clinical care.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ghost Heading Carousel -->
+      <h2 class="ghost-heading" id="trust-ghost">
+        <div class="ghost-row">
+          <span class="ghost-word clip-word" id="gw1">EXPERT</span>
+          <span class="ghost-word clip-word" id="gw2">URGENT</span>
+        </div>
+        <div class="ghost-row">
+          <span class="ghost-word ink clip-word" id="gw3">RABIES</span>
+          <span class="ghost-word clip-word" id="gw4">CARE</span>
+        </div>
+      </h2>
+
+      <!-- Center Coach / Doctor Card -->
+      <div class="coach-card-container">
+        <div class="coach-card" id="coach-card">
+          <img src="/assets/head_doctor_portrait.jpg" alt="Dr. Marco Vidal" class="coach-img" id="coach-img" />
+          <div class="coach-glass-caption">
+            <div class="coach-name" id="coach-name">Dr. Marco Vidal</div>
+            <div class="coach-role" id="coach-role">Head Epidemiologist</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls Row -->
+      <div class="trust-controls-row">
+        <button class="btn-arrow outline" id="trust-prev" aria-label="Previous slide">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="transform: scaleX(-1);">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+        </button>
+
+        <div class="dots-nav dark" id="trust-dots">
+          <button class="dot-btn active"><div class="dot-pill"></div></button>
+          <button class="dot-btn"><div class="dot-pill"></div></button>
+          <button class="dot-btn"><div class="dot-pill"></div></button>
+        </div>
+
+        <button class="btn-arrow solid" id="trust-next" aria-label="Next slide">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- 4. Programs Section -->
+    <section class="programs-section" id="programs">
+      <div class="eyebrow tone-dark">
+        <div class="eyebrow-dot"></div>
+        <span>Care & Treatment Programs</span>
+      </div>
+
+      <h2 class="programs-title">
+        Built for<br />Every Emergency
+      </h2>
+
+      <ul class="programs-list">
+        <li>
+          <a href="#contact" class="program-row inview open-modal-trigger">
+            <span class="program-idx">01</span>
+            <div class="program-info">
+              <div class="program-name">Post-Exposure Prophylaxis (PEP)</div>
+              <div class="program-desc">Full 4-dose WHO Rabies vaccine protocol with Rabies Immunoglobulin (RIG).</div>
+            </div>
+            <div class="program-arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M5 12h14M13 6l6 6-6 6"/>
+              </svg>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a href="#contact" class="program-row inview open-modal-trigger">
+            <span class="program-idx">02</span>
+            <div class="program-info">
+              <div class="program-name">Emergency Wound Triage</div>
+              <div class="program-desc">Immediate 15-minute soap-water washing, debridement, and tetanus immunization.</div>
+            </div>
+            <div class="program-arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M5 12h14M13 6l6 6-6 6"/>
+              </svg>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a href="#contact" class="program-row inview open-modal-trigger">
+            <span class="program-idx">03</span>
+            <div class="program-info">
+              <div class="program-name">Animal Rabies Observation</div>
+              <div class="program-desc">14-day domestic pet surveillance tracking & veterinary cross-reporting.</div>
+            </div>
+            <div class="program-arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M5 12h14M13 6l6 6-6 6"/>
+              </svg>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a href="#contact" class="program-row inview open-modal-trigger">
+            <span class="program-idx">04</span>
+            <div class="program-info">
+              <div class="program-name">Pre-Exposure Immunization</div>
+              <div class="program-desc">Prophylactic vaccination for high-risk animal handlers, vets, and field staff.</div>
+            </div>
+            <div class="program-arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M5 12h14M13 6l6 6-6 6"/>
+              </svg>
+            </div>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 5. Facilities Section -->
+    <section class="facilities-section" id="facilities">
+      <div class="facilities-grid">
+        <div class="facilities-intro">
+          <img src="/assets/triage_facility.jpg" alt="Triage facility" class="facilities-icon-img inview" />
+          <h2 class="facilities-title">
+            Tour Our<br />World-Class<br />Center
+          </h2>
+          <p class="facilities-body">
+            Equipped with 24/7 cold-chain vaccine storage, sterile wound treatment bays, and immediate digital queue check-ins.
+          </p>
+        </div>
+
+        <div class="facilities-cards">
+          <figure class="court-card inview">
+            <img src="/assets/triage_facility.jpg" alt="Triage Suite 1" class="court-img" />
+            <figcaption class="court-glass-caption tone-clay">
+              <div class="court-name">Triage Suite 1</div>
+              <div class="court-desc">Sterile wound washing and rapid risk assessment bay.</div>
+            </figcaption>
+          </figure>
+
+          <figure class="court-card stagger-down inview">
+            <img src="/assets/doctor_consultation.jpg" alt="PEP Vaccine Clinic" class="court-img" />
+            <figcaption class="court-glass-caption tone-blue">
+              <div class="court-name">PEP Vaccine Clinic</div>
+              <div class="court-desc">Climate-controlled cold chain administration suite.</div>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Stats Section -->
+    <section class="stats-section" id="stats">
+      <div class="eyebrow tone-light">
+        <div class="eyebrow-dot"></div>
+        <span>By the numbers</span>
+      </div>
+
+      <h2 class="stats-title">
+        A center that<br />saves lives
+      </h2>
+
+      <dl class="stats-grid">
+        <div class="stat-cell inview">
+          <dt class="sr-only">24/7 Emergency Service</dt>
+          <dd>
+            <div class="stat-val">24/7</div>
+            <div class="stat-lbl">Emergency Triage</div>
+          </dd>
+        </div>
+        <div class="stat-cell inview">
+          <dt class="sr-only">100% WHO Cold-Chain</dt>
+          <dd>
+            <div class="stat-val">100%</div>
+            <div class="stat-lbl">WHO Cold-Chain Standard</div>
+          </dd>
+        </div>
+        <div class="stat-cell inview">
+          <dt class="sr-only">12K+ Patients Protected</dt>
+          <dd>
+            <div class="stat-val">12K+</div>
+            <div class="stat-lbl">Patients Protected</div>
+          </dd>
+        </div>
+        <div class="stat-cell inview">
+          <dt class="sr-only">15 Years Dedicated Care</dt>
+          <dd>
+            <div class="stat-val">15</div>
+            <div class="stat-lbl">Years Clinical Care</div>
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <!-- 7. Testimonials Section -->
+    <section class="testimonials-section" id="testimonials">
+      <div class="eyebrow tone-dark">
+        <div class="eyebrow-dot"></div>
+        <span>What patients say</span>
+      </div>
+
+      <h2 class="testimonials-title">
+        Loved by<br />Our Community
+      </h2>
+
+      <ul class="testimonials-grid">
+        <li class="testimonial-card inview">
+          <div class="quote-glyph">“</div>
+          <blockquote class="testimonial-body">
+            The medical team acted immediately when my son got bitten. Day 0 to Day 28 vaccinations were seamless and stress-free.
+          </blockquote>
+          <figcaption class="testimonial-author">
+            <div class="author-name">Priya Anand</div>
+            <div class="author-role">Parent & Patient</div>
+          </figcaption>
+        </li>
+        <li class="testimonial-card inview">
+          <div class="quote-glyph">“</div>
+          <blockquote class="testimonial-body">
+            Cleanest clinic, zero wait time in emergency triage, and extremely compassionate doctors who explained everything clearly.
+          </blockquote>
+          <figcaption class="testimonial-author">
+            <div class="author-name">Lukas Brenner</div>
+            <div class="author-role">Emergency Patient</div>
+          </figcaption>
+        </li>
+        <li class="testimonial-card inview">
+          <div class="quote-glyph">“</div>
+          <blockquote class="testimonial-body">
+            Their 24/7 rabies hotline and cold-chain vaccine tracking gave our whole family complete peace of mind.
+          </blockquote>
+          <figcaption class="testimonial-author">
+            <div class="author-name">Dana Okafor</div>
+            <div class="author-role">Community Member</div>
+          </figcaption>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 8. Footer -->
+    <footer id="contact">
+      <div class="footer-cta-band">
+        <div>
+          <div class="eyebrow tone-light">
+            <div class="eyebrow-dot"></div>
+            <span>Get Immediate Care</span>
+          </div>
+          <h2 class="footer-cta-title">
+            Ready to<br />book a visit?
+          </h2>
+        </div>
+        <button class="btn-pill btn-pill-light open-modal-trigger">
+          <span>Book a Visit</span>
+          <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="footer-cols-grid">
+        <div class="footer-brand-col">
+          <div class="footer-brand-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/>
+              <path d="M12 8v8M8 12h8"/>
+            </svg>
+            <span>VACCIGUARD</span>
+          </div>
+          <p class="footer-blurb">
+            A specialized animal bite management center providing WHO-standard rabies post-exposure prophylaxis and clinical care.
+          </p>
+          <address class="footer-address">
+            <a href="mailto:care@vacciguard.health">care@vacciguard.health</a>
+            <a href="tel:+12125550148">+1 (212) 555-0148</a>
+            <span>120 Medical Drive, New York</span>
+          </address>
+        </div>
+
+        <div class="footer-nav-col">
+          <h4>Programs</h4>
+          <ul>
+            <li><a href="#programs">PEP Protocol</a></li>
+            <li><a href="#programs">Emergency Triage</a></li>
+            <li><a href="#programs">Animal Observation</a></li>
+            <li><a href="#programs">Pre-Exposure Care</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-nav-col">
+          <h4>Center</h4>
+          <ul>
+            <li><a href="#facilities">Triage Suites</a></li>
+            <li><a href="#facilities">Vaccine Inventory</a></li>
+            <li><a href="#trust">Doctors & Staff</a></li>
+            <li><a href="#testimonials">Reviews</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-nav-col">
+          <h4>Portal</h4>
+          <ul>
+            <li><a href="/login">Staff Sign In</a></li>
+            <li><a href="#contact">Emergency Contact</a></li>
+            <li><a href="#contact">Schedule Visit</a></li>
+            <li><a href="#contact">Support</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom-bar">
+        <div>© 2026 VACCIGUARD Animal Bite Management Center. All rights reserved.</div>
+        <div class="footer-links-group">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Care</a>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <!-- Contact Modal -->
+  <div class="modal-backdrop" id="contact-modal" aria-hidden="true">
+    <div class="modal-panel" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div>
+          <div class="eyebrow tone-dark">
+            <div class="eyebrow-dot"></div>
+            <span>Book a Visit</span>
+          </div>
+          <h2 style="font-size: 2.25rem; font-weight: 500; margin-top: 0.5rem; line-height: 1.1;">
+            Immediate<br />Clinical Care
+          </h2>
+        </div>
+        <button class="modal-close-btn" id="modal-close" aria-label="Close modal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 6l12 12M18 6L6 18"/>
+          </svg>
+        </button>
+      </div>
+
+      <form class="modal-form" id="visit-form">
+        <div class="field-group">
+          <label for="fname">Full Name</label>
+          <input type="text" id="fname" required placeholder="Alex Rivera" />
+        </div>
+        <div class="field-group">
+          <label for="femail">Email Address</label>
+          <input type="email" id="femail" required placeholder="you@email.com" />
+        </div>
+        <div class="field-group">
+          <label for="fdesc">Reason for Visit / Bite Incident Details</label>
+          <textarea id="fdesc" rows="3" placeholder="Dog bite on right hand, site washed with soap, requesting PEP consultation..."></textarea>
+        </div>
+        <button type="submit" class="btn-pill btn-pill-solid" style="margin-top: 0.5rem;" id="modal-submit-btn">
+          <span>Request a Visit</span>
+        </button>
+      </form>
+
+      <div class="success-panel" id="modal-success" style="display: none;">
+        <div class="success-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <h3>Request Received</h3>
+        <p style="font-size: 0.875rem; color: var(--ink-soft);">
+          Thanks <span id="user-name-disp"></span> — our medical triage team will contact you immediately to lock in your visit.
+        </p>
+        <button class="btn-pill btn-pill-solid" id="success-done-btn" style="margin-top: 0.5rem;">
+          <span>Done</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Menu Overlay -->
+  <div id="menu-overlay">
+    <div class="menu-inner">
+      <div class="menu-top-row">
+        <div class="footer-brand-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/>
+            <path d="M12 8v8M8 12h8"/>
+          </svg>
+          <span>VACCIGUARD</span>
+        </div>
+        <button class="modal-close-btn" id="menu-close" aria-label="Close menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 6l12 12M18 6L6 18"/>
+          </svg>
+        </button>
+      </div>
+
+      <nav class="menu-center-links">
+        <a href="#programs" class="menu-link menu-nav-item">Programs</a>
+        <a href="#facilities" class="menu-link menu-nav-item">Facilities</a>
+        <a href="#testimonials" class="menu-link menu-nav-item">Reviews</a>
+        <a href="#contact" class="menu-link menu-nav-item">Contact</a>
+      </nav>
+
+      <div class="menu-bottom-row">
+        <button class="btn-pill btn-pill-light open-modal-trigger">
+          <span>Book a Visit</span>
+        </button>
+        <div style="font-size: 0.875rem; color: rgba(255,255,255,0.7);">
+          Emergency 24/7 Hotline: +1 (212) 555-0148
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript Engine -->
+  <script type="module">
+    import Lenis from 'lenis';
+
+    // 1. Lenis Smooth Scroll Setup
+    let lenis = null;
+    try {
+      lenis = new Lenis({ smoothWheel: true });
+      function raf(t) {
+        lenis.raf(t);
+        requestAnimationFrame(raf);
+      }
+      requestAnimationFrame(raf);
+    } catch (e) {
+      console.warn("Lenis fallback mode", e);
+    }
+
+    function lockScroll() {
+      if (lenis) lenis.stop();
+      document.documentElement.style.position = "relative";
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.height = "100%";
+    }
+    function unlockScroll() {
+      if (lenis) lenis.start();
+      document.documentElement.style.removeProperty("position");
+      document.documentElement.style.removeProperty("overflow");
+      document.documentElement.style.removeProperty("height");
+    }
+
+    window.scrollTo(0, 0);
+
+    // 2. Adaptive Rem Grid Scale-up for >1920px Viewports
+    function updateAdaptiveRem() {
+      const html = document.documentElement;
+      const FONT_BASE = 16, BASE_W = 1920, COEF = 0.6666;
+      const reduction = ((BASE_W - window.innerWidth) / BASE_W) * 100 * COEF;
+      const size = FONT_BASE - (FONT_BASE * reduction) / 100;
+      if (size > FONT_BASE) {
+        html.style.fontSize = size + "px";
+      } else {
+        html.style.removeProperty("font-size");
+      }
+    }
+    window.addEventListener("resize", updateAdaptiveRem);
+    updateAdaptiveRem();
+
+    // 3. Loader & Reveal Logic
+    const loader = document.getElementById("loader");
+    const loaderBrand = document.getElementById("loader-brand");
+    const loaderFill = document.getElementById("loader-fill");
+    
+    lockScroll();
+
+    setTimeout(() => {
+      loaderBrand.classList.add("visible");
+      loaderFill.style.transform = "scaleX(1)";
+    }, 120);
+
+    const MIN_VISIBLE_MS = 1400;
+    setTimeout(() => {
+      loader.classList.add("hidden-curtain");
+      unlockScroll();
+      triggerHeroReveals();
+    }, MIN_VISIBLE_MS);
+
+    function triggerHeroReveals() {
+      const words = document.querySelectorAll("#hero-title .clip-word, #hero-tagline .clip-word");
+      words.forEach((w, i) => {
+        setTimeout(() => {
+          w.classList.add("revealed");
+        }, i * 110);
+      });
+
+      const sliderCard = document.getElementById("slider-card");
+      const membershipCard = document.getElementById("membership-card");
+      if (sliderCard) {
+        sliderCard.style.opacity = "1";
+        sliderCard.style.transform = "translateY(0)";
+      }
+      if (membershipCard) {
+        membershipCard.style.opacity = "1";
+        membershipCard.style.transform = "translateY(0)";
+      }
+    }
+
+    // 4. Hero Background Parallax
+    const heroBg = document.getElementById("hero-bg");
+    window.addEventListener("scroll", () => {
+      if (!heroBg) return;
+      const scrollY = window.scrollY;
+      const progress = Math.min(scrollY / window.innerHeight, 1);
+      heroBg.style.transform = `translateY(${progress * 12}%)`;
+    });
+
+    // 5. Hero Collection Slider Data
+    const slidesData = [
+      { img: "/assets/vaccine_pep_kit.jpg", brand: "WHO Protocol", title: "PEP Vaccination", cta: "View Schedule →" },
+      { img: "/assets/triage_facility.jpg", brand: "Rapid Triage", title: "Emergency Care", cta: "Explore Triage →" },
+      { img: "/assets/doctor_consultation.jpg", brand: "Expert Doctors", title: "Wound Management", cta: "Book Consult →" }
+    ];
+    let currentSlideIdx = 0;
+    const sliderImg = document.getElementById("slider-img");
+    const sliderBrand = document.getElementById("slider-brand");
+    const sliderTitle = document.getElementById("slider-title");
+    const sliderCta = document.getElementById("slider-cta");
+    const sliderDotBtns = document.querySelectorAll("#slider-dots .dot-btn");
+
+    function updateHeroSlider(idx) {
+      currentSlideIdx = idx;
+      const data = slidesData[idx];
+      if (sliderImg) sliderImg.src = data.img;
+      if (sliderBrand) sliderBrand.textContent = data.brand;
+      if (sliderTitle) sliderTitle.textContent = data.title;
+      if (sliderCta) sliderCta.textContent = data.cta;
+
+      sliderDotBtns.forEach((btn, i) => {
+        btn.classList.toggle("active", i === idx);
+      });
+    }
+
+    setInterval(() => {
+      const nextIdx = (currentSlideIdx + 1) % slidesData.length;
+      updateHeroSlider(nextIdx);
+    }, 3800);
+
+    sliderDotBtns.forEach((btn, i) => {
+      btn.addEventListener("click", () => updateHeroSlider(i));
+    });
+
+    // 6. Trust Section Ghost Heading & Coach Carousel
+    const trustSlides = [
+      {
+        words: ["EXPERT", "RESULT-", "RABIES", "CARE"],
+        img: "/assets/head_doctor_portrait.jpg",
+        name: "Dr. Marco Vidal",
+        role: "Head Epidemiologist"
+      },
+      {
+        words: ["SHARPER", "FASTER", "URGENT", "PROTECTION"],
+        img: "/assets/doctor_consultation.jpg",
+        name: "Dr. Elena Sokolova",
+        role: "Emergency Rabies Specialist"
+      },
+      {
+        words: ["FUTURE", "HEALTH", "ZERO", "RABIES"],
+        img: "/assets/triage_facility.jpg",
+        name: "Dr. James Okoro",
+        role: "Triage & PEP Lead"
+      }
+    ];
+    let trustIdx = 0;
+    const gw1 = document.getElementById("gw1");
+    const gw2 = document.getElementById("gw2");
+    const gw3 = document.getElementById("gw3");
+    const gw4 = document.getElementById("gw4");
+    const coachImg = document.getElementById("coach-img");
+    const coachName = document.getElementById("coach-name");
+    const coachRole = document.getElementById("coach-role");
+    const coachCard = document.getElementById("coach-card");
+    const trustDotBtns = document.querySelectorAll("#trust-dots .dot-btn");
+
+    function setTrustSlide(idx) {
+      trustIdx = idx;
+      const s = trustSlides[idx];
+      [gw1, gw2, gw3, gw4].forEach((el, i) => {
+        if (el) {
+          el.classList.remove("revealed");
+          el.textContent = s.words[i];
+          setTimeout(() => el.classList.add("revealed"), 50 + i * 40);
+        }
+      });
+      if (coachImg) {
+        coachImg.style.opacity = "0";
+        setTimeout(() => {
+          coachImg.src = s.img;
+          coachName.textContent = s.name;
+          coachRole.textContent = s.role;
+          coachImg.style.opacity = "1";
+        }, 150);
+      }
+      trustDotBtns.forEach((b, i) => b.classList.toggle("active", i === idx));
+    }
+
+    document.getElementById("trust-prev")?.addEventListener("click", () => {
+      const prev = (trustIdx - 1 + trustSlides.length) % trustSlides.length;
+      setTrustSlide(prev);
+    });
+    document.getElementById("trust-next")?.addEventListener("click", () => {
+      const next = (trustIdx + 1) % trustSlides.length;
+      setTrustSlide(next);
+    });
+    trustDotBtns.forEach((b, i) => b.addEventListener("click", () => setTrustSlide(i)));
+
+    // 7. InView IntersectionObserver for Scroll Reveals
+    const inviewObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const el = entry.target;
+          el.style.opacity = "1";
+          el.style.transform = "translateY(0) scale(1)";
+          if (el.classList.contains("coach-card")) {
+            el.classList.add("revealed");
+          }
+          inviewObserver.unobserve(el);
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll(".inview, .coach-card, .percent-badge, .badge-card, .facilities-icon-img").forEach(el => {
+      inviewObserver.observe(el);
+    });
+
+    // Initial trigger for ghost words
+    setTimeout(() => {
+      [gw1, gw2, gw3, gw4].forEach(el => el?.classList.add("revealed"));
+    }, 800);
+
+    // 8. Contact Modal Logic
+    const contactModal = document.getElementById("contact-modal");
+    const modalClose = document.getElementById("modal-close");
+    const visitForm = document.getElementById("visit-form");
+    const modalSuccess = document.getElementById("modal-success");
+    const successDoneBtn = document.getElementById("success-done-btn");
+    const modalSubmitBtn = document.getElementById("modal-submit-btn");
+
+    function openModal() {
+      contactModal.classList.add("open");
+      contactModal.setAttribute("aria-hidden", "false");
+      lockScroll();
+      setTimeout(() => document.getElementById("fname")?.focus(), 120);
+    }
+    function closeModal() {
+      contactModal.classList.remove("open");
+      contactModal.setAttribute("aria-hidden", "true");
+      unlockScroll();
+      setTimeout(() => {
+        visitForm.style.display = "flex";
+        modalSuccess.style.display = "none";
+        visitForm.reset();
+      }, 350);
+    }
+
+    document.querySelectorAll(".open-modal-trigger").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        closeMenu();
+        openModal();
+      });
+    });
+
+    modalClose?.addEventListener("click", closeModal);
+    contactModal?.addEventListener("click", (e) => {
+      if (e.target === contactModal) closeModal();
+    });
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeModal();
+        closeMenu();
+      }
+    });
+
+    visitForm?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fnameVal = document.getElementById("fname").value || "Patient";
+      if (modalSubmitBtn) modalSubmitBtn.innerHTML = "<span>Sending…</span>";
+      setTimeout(() => {
+        visitForm.style.display = "none";
+        modalSuccess.style.display = "flex";
+        document.getElementById("user-name-disp").textContent = fnameVal;
+        if (modalSubmitBtn) modalSubmitBtn.innerHTML = "<span>Request a Visit</span>";
+      }, 600);
+    });
+    successDoneBtn?.addEventListener("click", closeModal);
+
+    // 9. Fullscreen Menu Overlay Logic
+    const menuOverlay = document.getElementById("menu-overlay");
+    const burgerTrigger = document.getElementById("burger-trigger");
+    const menuClose = document.getElementById("menu-close");
+
+    function openMenu() {
+      menuOverlay.classList.add("open");
+      lockScroll();
+    }
+    function closeMenu() {
+      menuOverlay.classList.remove("open");
+      unlockScroll();
+    }
+
+    burgerTrigger?.addEventListener("click", openMenu);
+    menuClose?.addEventListener("click", closeMenu);
+
+    document.querySelectorAll(".menu-nav-item").forEach(link => {
+      link.addEventListener("click", (e) => {
+        closeMenu();
+        const targetId = link.getAttribute("href");
+        if (targetId && targetId.startsWith("#")) {
+          const targetEl = document.querySelector(targetId);
+          if (targetEl && lenis) {
+            e.preventDefault();
+            lenis.scrollTo(targetEl);
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>

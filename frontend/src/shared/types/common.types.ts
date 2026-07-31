@@ -5,7 +5,7 @@
 
 // ─── Auth & User ─────────────────────────────────────────────
 
-export type UserRole = 'admin' | 'registration' | 'triage' | 'treatment';
+export type UserRole = 'developer' | 'admin' | 'registration' | 'triage' | 'treatment';
 
 export interface User {
   id: number;
@@ -26,7 +26,8 @@ export interface Clinic {
   address?: string;
   phone?: string;
   email?: string;
-  setup_completed: boolean;
+  setup_completed?: boolean;
+  is_setup_complete?: boolean;
   created_at: string;
   updated_at: string;
 }

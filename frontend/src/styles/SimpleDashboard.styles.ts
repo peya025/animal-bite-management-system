@@ -8,14 +8,14 @@ export const AppStyleScope = styled('div')`
     font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
   }
   .sd-layout {
-    display: flex; min-height: 100vh; background: #f5f8f6;
+    display: flex; height: 100vh; max-height: 100vh; overflow: hidden; background: #f5f8f6;
     font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
   }
   .sd-sidebar {
-    width: 248px; min-height: 100vh; background: #fbfdfb; display: flex;
-    flex-direction: column; padding: 0; position: sticky; top: 0; flex-shrink: 0;
+    width: 248px; height: 100vh; max-height: 100vh; background: #fbfdfb; display: flex;
+    flex-direction: column; padding: 0; flex-shrink: 0; position: relative;
     transition: width 0.2s ease; overflow: hidden;
-    border-right: 1px solid #e2ebe5;
+    border-right: 1px solid #e2ebe5; z-index: 10;
   }
   .sd-sidebar--collapsed { width: 64px; }
   .sd-brand {

@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BiteCaseController;
 use App\Http\Controllers\BiteIncidentIntakeController;
+use App\Http\Controllers\ClinicModuleConfigController;
 use App\Http\Controllers\ClinicSetupController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
 use App\Http\Controllers\Mobile\MobileNotificationController;
@@ -18,6 +20,8 @@ use App\Http\Controllers\VaccinationController;
 use App\Http\Controllers\VaccineInventoryController;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\LandingPageSettingsController;
+
 // Test route - check if API is working
 Route::get('/test', function () {
     return response()->json([
@@ -30,6 +34,27 @@ Route::get('/test', function () {
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
+
+// Public setup endpoints (no authentication required)
+Route::post('/setup/initialize', [ClinicSetupController::class, 'initialize'])
+    ->middleware('throttle:5,60'); // 5 attempts per 60 minutes
+Route::get('/setup/check-needed', function () {
+    return response()->json([
+        'needs_setup' => \App\Models\Clinic::count() === 0,
+    ]);
+});
+
+use App\Http\Controllers\DeveloperDatabaseExplorerController;
+
+Route::middleware(['auth:sanctum', 'role:developer,admin'])->group(function () {
+    Route::post('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
+    Route::put('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
+
+    // Developer Database Explorer Routes (XAMPP / phpMyAdmin Style)
+    Route::get('/developer/database/tables', [DeveloperDatabaseExplorerController::class, 'getTables']);
+    Route::get('/developer/database/tables/{tableName}', [DeveloperDatabaseExplorerController::class, 'getTableDetails']);
+});
 
 Route::prefix('mobile')->group(function () {
     Route::post('/register', [PatientAccountAuthController::class, 'register']);
@@ -55,9 +80,9 @@ Route::prefix('mobile')->group(function () {
 });
 
 // Invitation acceptance (public, token-based)
-Route::prefix('invitations')->group(function () {
-    Route::get('/{token}/validate', [StaffInvitationController::class, 'validateToken']);
-    Route::post('/{token}/accept', [StaffInvitationController::class, 'accept']);
+Route::prefix('staff-invitations')->group(function () {
+    Route::get('/validate/{token}', [StaffInvitationController::class, 'validateToken']);
+    Route::post('/accept/{token}', [StaffInvitationController::class, 'accept']);
 });
 
 // Protected routes
@@ -66,6 +91,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me', [AuthController::class, 'updateProfile']);
+
+    // Staff Invitations (admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::post('/staff-invitations', [StaffInvitationController::class, 'invite']);
+        Route::get('/staff-invitations', [StaffInvitationController::class, 'index']);
+        Route::delete('/staff-invitations/{id}', [StaffInvitationController::class, 'cancel']);
+        
+        // Audit Logs (staff activity monitoring)
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+        Route::get('/audit-logs/summary', [AuditLogController::class, 'summary']);
+        Route::get('/audit-logs/user/{userId}', [AuditLogController::class, 'userActivity']);
+    });
+
+    // Clinic Module Configuration (all authenticated users can view, admin can update)
+    Route::get('/setup/module-config', [ClinicModuleConfigController::class, 'show']);
+    Route::put('/setup/module-config', [ClinicModuleConfigController::class, 'update']);
+    
+    // Staff Module Assignment (admin only)
+    Route::put('/users/{id}/assigned-module', [UserController::class, 'updateAssignedModule']);
 
     // Clinic Setup (admin only)
     Route::prefix('setup')->middleware('role:admin')->group(function () {

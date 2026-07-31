@@ -46,9 +46,6 @@ class _LoginViewState extends State<LoginView> {
         password: _passwordController.text,
         remember: _rememberMe,
       );
-      final patients = await MobileApi.instance.patients();
-      if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Login successful.'),
@@ -56,7 +53,7 @@ class _LoginViewState extends State<LoginView> {
         ),
       );
       Navigator.of(context).pushNamedAndRemoveUntil(
-        patients.isEmpty ? AppRoutes.profileSetup : AppRoutes.menu,
+        AppRoutes.menu,
         (route) => false,
       );
     } catch (error) {

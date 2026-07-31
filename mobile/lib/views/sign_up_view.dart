@@ -60,13 +60,13 @@ class _SignUpViewState extends State<SignUpView> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Account created. Add your patient profile.'),
+          content: Text('Account created successfully.'),
           backgroundColor: AppColors.primary,
         ),
       );
       Navigator.of(
         context,
-      ).pushNamedAndRemoveUntil(AppRoutes.profileSetup, (route) => false);
+      ).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);
     } catch (error) {
       if (mounted) setState(() => _errorMessage = error.toString());
     } finally {
@@ -125,80 +125,93 @@ class _SignUpViewState extends State<SignUpView> {
                         validator: (value) {
                           final email = value?.trim() ?? '';
                           if (email.isEmpty) return 'Email is required';
-                          if (!email.contains('@')) return 'Enter a valid email';
+                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
+                            return 'Enter a valid email address';
+                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 18),
-                      AppTextField(
-                        label: 'FIRST NAME',
-                        controller: _firstNameController,
-                        enabled: !_isLoading,
-                        hintText: 'Enter your first name',
-                        prefixIcon: Icons.person_outline_rounded,
-                        textInputAction: TextInputAction.next,
-                        textCapitalization: TextCapitalization.words,
-                        autofillHints: const [AutofillHints.givenName],
-                        validator: (value) =>
-                            value == null || value.trim().isEmpty
-                            ? 'FIRST NAME is required'
-                            : null,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AppTextField(
+                              label: 'LAST NAME',
+                              controller: _lastNameController,
+                              enabled: !_isLoading,
+                              hintText: 'Doe',
+                              prefixIcon: Icons.person_outline_rounded,
+                              textInputAction: TextInputAction.next,
+                              autofillHints: const [AutofillHints.familyName],
+                              validator: (value) =>
+                                  value == null || value.trim().isEmpty
+                                      ? 'Last name is required'
+                                      : null,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: AppTextField(
+                              label: 'FIRST NAME',
+                              controller: _firstNameController,
+                              enabled: !_isLoading,
+                              hintText: 'Jane',
+                              textInputAction: TextInputAction.next,
+                              autofillHints: const [AutofillHints.givenName],
+                              validator: (value) =>
+                                  value == null || value.trim().isEmpty
+                                      ? 'First name is required'
+                                      : null,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 18),
                       AppTextField(
-                        label: 'LAST NAME',
-                        controller: _lastNameController,
-                        enabled: !_isLoading,
-                        hintText: 'Enter your last name',
-                        prefixIcon: Icons.badge_outlined,
-                        textInputAction: TextInputAction.next,
-                        textCapitalization: TextCapitalization.words,
-                        autofillHints: const [AutofillHints.familyName],
-                        validator: (value) =>
-                            value == null || value.trim().isEmpty
-                            ? 'LAST NAME is required'
-                            : null,
-                      ),
-                      const SizedBox(height: 18),
-                      AppTextField(
-                        label: 'PHONE',
+                        label: 'MOBILE NUMBER',
                         controller: _phoneController,
                         enabled: !_isLoading,
-                        hintText: '09XX XXX XXXX',
+                        hintText: '09171234567',
                         prefixIcon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.telephoneNumber],
+                        validator: (value) {
+                          final phone = value?.trim() ?? '';
+                          if (phone.isEmpty) return 'Mobile number is required';
+                          if (phone.length < 11) {
+                            return 'Enter a valid mobile number';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
                       AppTextField(
                         label: 'PASSWORD',
                         controller: _passwordController,
                         enabled: !_isLoading,
-                        hintText: 'At least 8 characters',
+                        hintText: '••••••••',
                         prefixIcon: Icons.lock_outline_rounded,
                         obscureText: _obscurePassword,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.newPassword],
                         suffixIcon: IconButton(
-                          tooltip: _obscurePassword
-                              ? 'Show password'
-                              : 'Hide password',
-                          onPressed: _isLoading
-                              ? null
-                              : () => setState(
-                                  () => _obscurePassword = !_obscurePassword,
-                                ),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                           icon: Icon(
                             _obscurePassword
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
+                            size: 20,
                             color: AppColors.gray500,
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.length < 8) {
-                            return 'Use at least 8 characters';
+                          final password = value ?? '';
+                          if (password.isEmpty) return 'Password is required';
+                          if (password.length < 8) {
+                            return 'Password must be at least 8 characters';
                           }
                           return null;
                         },
@@ -208,50 +221,42 @@ class _SignUpViewState extends State<SignUpView> {
                         label: 'CONFIRM PASSWORD',
                         controller: _passwordConfirmationController,
                         enabled: !_isLoading,
-                        hintText: 'Enter the password again',
-                        prefixIcon: Icons.lock_reset_rounded,
+                        hintText: '••••••••',
+                        prefixIcon: Icons.lock_outline_rounded,
                         obscureText: _obscurePasswordConfirmation,
                         textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.newPassword],
                         suffixIcon: IconButton(
-                          tooltip: _obscurePasswordConfirmation
-                              ? 'Show password confirmation'
-                              : 'Hide password confirmation',
-                          onPressed: _isLoading
-                              ? null
-                              : () => setState(
-                                  () => _obscurePasswordConfirmation =
-                                      !_obscurePasswordConfirmation,
-                                ),
+                          onPressed: () => setState(
+                            () => _obscurePasswordConfirmation =
+                                !_obscurePasswordConfirmation,
+                          ),
                           icon: Icon(
                             _obscurePasswordConfirmation
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
+                            size: 20,
                             color: AppColors.gray500,
                           ),
                         ),
-                        validator: (value) =>
-                            value != _passwordController.text
-                            ? 'Passwords do not match'
-                            : null,
-                        onFieldSubmitted: (_) {
-                          if (!_isLoading) _register();
+                        validator: (value) {
+                          if (value != _passwordController.text) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
                         },
                       ),
                       const SizedBox(height: 24),
                       PrimaryActionButton(
-                        label: 'REGISTER',
+                        label: 'CREATE ACCOUNT',
                         isLoading: _isLoading,
                         onPressed: _register,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       AccountLoginPrompt(
-                        enabled: !_isLoading,
                         onLogin: () => Navigator.of(
                           context,
                         ).pushReplacementNamed(AppRoutes.login),
                       ),
-                      const SizedBox(height: 28),
                     ],
                   ),
                 ),

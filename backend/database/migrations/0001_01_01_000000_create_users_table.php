@@ -27,12 +27,12 @@ return new class extends Migration
         // Create users table WITH clinic_id from the start
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('clinic_id')->constrained('clinics', 'id')->cascadeOnDelete();
+            $table->foreignId('clinic_id')->nullable()->constrained('clinics', 'id')->cascadeOnDelete();
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->enum('role', ['admin', 'registration', 'triage', 'treatment']);
+            $table->enum('role', ['developer', 'admin', 'registration', 'triage', 'treatment']);
             $table->boolean('is_active')->default(true);
             $table->string('phone', 50)->nullable();
             $table->rememberToken();

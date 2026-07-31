@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="100%" height="100%">
+  <rect width="600" height="600" fill="#0f2f63" />
+  <circle cx="300" cy="300" r="220" fill="#10b981" opacity="0.3" />
+  
+  <!-- Consultation Desk -->
+  <rect x="100" y="380" width="400" height="20" rx="10" fill="#ffffff" />
+  <rect x="150" y="320" width="80" height="100" rx="12" fill="#34d399" />
+  <path d="M170,350 L210,350 M170,370 L210,370 M170,390 L195,390" stroke="#064e3b" stroke-width="4" stroke-linecap="round" />
+  
+  <!-- Doctor & Patient Characters -->
+  <circle cx="200" cy="220" r="50" fill="#fcd34d" />
+  <path d="M140,320 C140,260 260,260 260,320 L270,380 L130,380 Z" fill="#ffffff" />
+  
+  <circle cx="400" cy="240" r="45" fill="#fdba74" />
+  <path d="M340,340 C340,280 460,280 460,340 L470,380 L330,380 Z" fill="#f43f5e" />
+  
+  <!-- Cat Companion -->
+  <g transform="translate(420, 310)">
+    <circle cx="30" cy="30" r="22" fill="#a855f7" />
+    <polygon points="12,18 20,2 26,20" fill="#a855f7" />
+    <polygon points="34,20 40,2 48,18" fill="#a855f7" />
+  </g>
+</svg>

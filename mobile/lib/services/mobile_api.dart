@@ -30,7 +30,7 @@ class MobileApi {
   );
   static const clinicId = int.fromEnvironment('CLINIC_ID', defaultValue: 1);
   static const _tokenKey = 'patient_account_token';
-  static const _requestTimeout = Duration(seconds: 12);
+  static const _requestTimeout = Duration(seconds: 20);
   static const _storage = FlutterSecureStorage();
 
   String? _token;
@@ -182,6 +182,20 @@ class MobileApi {
     await _send('PATCH', '/notifications/read-all');
   }
 
+  /// Returns true if the server is reachable.
+  Future<bool> checkConnectivity() async {
+    try {
+      final uri = Uri.parse('$_baseUrl/../test'); // hits /api/test
+      final res = await http.get(
+        uri,
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 6));
+      return res.statusCode < 500;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<dynamic> _send(
     String method,
     String path, {
@@ -211,12 +225,16 @@ class MobileApi {
     try {
       response = await request.timeout(_requestTimeout);
     } on TimeoutException {
-      throw const ApiException(
-        'The clinic server took too long to respond. Check your connection.',
+      throw ApiException(
+        'Server timed out. Make sure Laravel is running on $_baseUrl',
       );
     } on http.ClientException {
-      throw const ApiException(
-        'Could not reach the clinic server. Check that Laravel is running.',
+      throw ApiException(
+        'Could not reach the server at $_baseUrl\n'
+        'Check that:\n'
+        '• Laravel is running (php artisan serve --host=0.0.0.0)\n'
+        '• Your device is on the same Wi-Fi network\n'
+        '• Port 8000 is allowed through Windows Firewall',
       );
     }
 

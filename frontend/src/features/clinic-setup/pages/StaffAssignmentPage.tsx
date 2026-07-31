@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { staffApi } from '../../../services/staffApi';
+import { ROUTES } from '../../../shared/config/routes';
 import type { StaffUser, AssignedModule } from '../../../types';
 
 const MODULE_OPTIONS: { value: AssignedModule; label: string; color: string }[] = [
@@ -19,6 +21,7 @@ const MODULE_COLORS: Record<AssignedModule, string> = {
 };
 
 export default function StaffAssignmentPage() {
+  const navigate = useNavigate();
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<number | null>(null);
@@ -102,6 +105,17 @@ export default function StaffAssignmentPage() {
           <p style={styles.subtitle}>
             Assign staff members to specific modules to control their access and responsibilities
           </p>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 13, color: '#9ca3af' }}>
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+            >Dashboard</button>
+            <span>›</span>
+            <span style={{ color: '#6b7280' }}>Clinic Setup</span>
+            <span>›</span>
+            <span style={{ color: '#6b7280' }}>Staff Assignments</span>
+          </div>
         </div>
       </div>
 

@@ -110,6 +110,15 @@ export default function DeveloperDatabaseExplorerPage() {
         <div>
           <h1>Database Explorer</h1>
           <p>MySQL 8.0 / InnoDB · <code className="db-explorer-dbname">{databaseName}</code></p>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 13, color: '#9ca3af' }}>
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+            >Dashboard</button>
+            <span>›</span>
+            <span style={{ color: '#6b7280' }}>Database Explorer</span>
+          </div>
         </div>
         <button 
           type="button"

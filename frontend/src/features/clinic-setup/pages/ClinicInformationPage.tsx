@@ -1,4 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 import {
   Alert,
   Box,
@@ -91,6 +93,7 @@ interface ClinicData {
 }
 
 export default function ClinicInformation() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clinic, setClinic] = useState<ClinicData>({
@@ -248,6 +251,17 @@ export default function ClinicInformation() {
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d' }}>
             Manage your clinic details and operating hours
           </Typography>
+          {/* Breadcrumb */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', mt: 0.75, fontSize: 13, color: '#9ca3af' }}>
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+            >Dashboard</button>
+            <span>›</span>
+            <span style={{ color: '#6b7280' }}>Clinic Setup</span>
+            <span>›</span>
+            <span style={{ color: '#6b7280' }}>Clinic Information</span>
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           <IconButton

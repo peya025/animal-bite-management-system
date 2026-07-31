@@ -158,7 +158,16 @@ export default function DeveloperLandingSettingsPage() {
       <div className="sd-dash-header">
         <div>
           <h1>Developer Settings</h1>
-          <p>Landing Page & Footer Customizer</p>
+          <p>Landing Page &amp; Footer Customizer</p>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 13, color: '#9ca3af' }}>
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+            >Dashboard</button>
+            <span>›</span>
+            <span style={{ color: '#6b7280' }}>Developer Settings</span>
+          </div>
         </div>
         <button 
           type="button"

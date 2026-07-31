@@ -114,6 +114,15 @@ export default function StaffActivityPage() {
         <div>
           <h1>Staff Activity Monitor</h1>
           <p>Track staff actions, logins, and system audit logs</p>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 13, color: '#9ca3af' }}>
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+            >Dashboard</button>
+            <span>›</span>
+            <span style={{ color: '#6b7280' }}>Staff Activity</span>
+          </div>
         </div>
         <button
           type="button"

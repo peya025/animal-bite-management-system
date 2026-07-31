@@ -129,6 +129,18 @@ export default function VaccineInventory() {
             Standardized Vaccine Inventory &amp; Official Stock Card Management System
           </Typography>
 
+          {/* ── Breadcrumb ── */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', mt: 0.75, fontSize: 13, color: '#9ca3af' }}>
+            <button
+              onClick={() => { window.location.href = '/dashboard'; }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              Dashboard
+            </button>
+            <span>›</span>
+            <span style={{ color: '#6b7280' }}>Inventory</span>
+          </Box>
+
           {/* Independent Clinic Facility Badge */}
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.25, mt: 1.25, px: 1.5, py: 0.65, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 2 }}>
             <ClinicIcon sx={{ color: '#059669', fontSize: 18 }} />

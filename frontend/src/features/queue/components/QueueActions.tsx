@@ -1,4 +1,4 @@
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box, Button } from '@mui/material';
 import { Edit as EditIcon } from '@mui/icons-material';
 
 interface QueueActionsProps {
@@ -40,22 +40,26 @@ export default function QueueActions({ entry, userRole, onEditForm2, onEditForm3
   if (userRole === 'triage') {
     return (
       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-        <Tooltip title="Edit Form 2 (Individual Treatment)">
-          <IconButton
-            size="small"
-            onClick={() => onEditForm2(entry)}
-            sx={{
-              color: '#6b7280',
-              bgcolor: '#f0fdf4',
-              borderRadius: 1.5,
-              width: 32,
-              height: 32,
-              '&:hover': { bgcolor: '#dcfce7', color: '#15803d' },
-            }}
-          >
-            <EditIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={() => onEditForm2(entry)}
+          sx={{
+            bgcolor: '#10b981',
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 600,
+            px: 2,
+            py: 0.75,
+            textTransform: 'none',
+            borderRadius: 1.5,
+            minWidth: 'auto',
+            '&:hover': { bgcolor: '#059669' },
+          }}
+          startIcon={<EditIcon sx={{ fontSize: 16 }} />}
+        >
+          Form 2
+        </Button>
       </Box>
     );
   }
@@ -64,22 +68,26 @@ export default function QueueActions({ entry, userRole, onEditForm2, onEditForm3
   if (userRole === 'treatment') {
     return (
       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-        <Tooltip title="Edit Form 3 (Vaccination Record)">
-          <IconButton
-            size="small"
-            onClick={() => onEditForm3(entry)}
-            sx={{
-              color: '#6b7280',
-              bgcolor: '#eff6ff',
-              borderRadius: 1.5,
-              width: 32,
-              height: 32,
-              '&:hover': { bgcolor: '#dbeafe', color: '#1e40af' },
-            }}
-          >
-            <EditIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={() => onEditForm3(entry)}
+          sx={{
+            bgcolor: '#3b82f6',
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 600,
+            px: 2,
+            py: 0.75,
+            textTransform: 'none',
+            borderRadius: 1.5,
+            minWidth: 'auto',
+            '&:hover': { bgcolor: '#2563eb' },
+          }}
+          startIcon={<EditIcon sx={{ fontSize: 16 }} />}
+        >
+          Form 3
+        </Button>
       </Box>
     );
   }
@@ -88,38 +96,46 @@ export default function QueueActions({ entry, userRole, onEditForm2, onEditForm3
   if (userRole === 'admin') {
     return (
       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-        <Tooltip title="Edit Form 2 (Individual Treatment)">
-          <IconButton
-            size="small"
-            onClick={() => onEditForm2(entry)}
-            sx={{
-              color: '#6b7280',
-              bgcolor: '#f0fdf4',
-              borderRadius: 1.5,
-              width: 32,
-              height: 32,
-              '&:hover': { bgcolor: '#dcfce7', color: '#15803d' },
-            }}
-          >
-            <EditIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Edit Form 3 (Vaccination Record)">
-          <IconButton
-            size="small"
-            onClick={() => onEditForm3(entry)}
-            sx={{
-              color: '#6b7280',
-              bgcolor: '#eff6ff',
-              borderRadius: 1.5,
-              width: 32,
-              height: 32,
-              '&:hover': { bgcolor: '#dbeafe', color: '#1e40af' },
-            }}
-          >
-            <EditIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={() => onEditForm2(entry)}
+          sx={{
+            bgcolor: '#10b981',
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 600,
+            px: 2,
+            py: 0.75,
+            textTransform: 'none',
+            borderRadius: 1.5,
+            minWidth: 'auto',
+            '&:hover': { bgcolor: '#059669' },
+          }}
+          startIcon={<EditIcon sx={{ fontSize: 16 }} />}
+        >
+          Form 2
+        </Button>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={() => onEditForm3(entry)}
+          sx={{
+            bgcolor: '#3b82f6',
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 600,
+            px: 2,
+            py: 0.75,
+            textTransform: 'none',
+            borderRadius: 1.5,
+            minWidth: 'auto',
+            '&:hover': { bgcolor: '#2563eb' },
+          }}
+          startIcon={<EditIcon sx={{ fontSize: 16 }} />}
+        >
+          Form 3
+        </Button>
       </Box>
     );
   }

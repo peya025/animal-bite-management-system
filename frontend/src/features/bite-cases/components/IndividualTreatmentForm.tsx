@@ -71,8 +71,45 @@ export default function IndividualTreatmentForm({
       setFormData((prev) => ({
         ...prev,
         registry_no: entry.patient?.patient_number || '',
-        // Load existing treatment record if available
+        date: new Date().toISOString().split('T')[0],
+        date_treatment_started: new Date().toISOString().split('T')[0],
       }));
+
+      // Load existing treatment record if available
+      const loadExistingData = async () => {
+        try {
+          const token = localStorage.getItem('authToken');
+          const res = await fetch(
+            `http://localhost:8000/api/treatment-records/patient/${entry.patient?.patient_id}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+              },
+            }
+          );
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.latest_bite) {
+              // Pre-fill with existing bite incident data
+              setFormData((prev) => ({
+                ...prev,
+                exposure_category: data.latest_bite.exposure_category || '',
+                date_of_exposure: data.latest_bite.bite_date || '',
+                place_of_exposure: data.latest_bite.bite_place || '',
+                animal_type: data.latest_bite.animal_type?.toLowerCase() === 'dog' ? 'dog' : 'other',
+                animal_type_other: data.latest_bite.animal_type?.toLowerCase() !== 'dog' ? data.latest_bite.animal_type : '',
+                body_part_affected: data.latest_bite.body_part || '',
+              }));
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load existing treatment data:', error);
+        }
+      };
+
+      loadExistingData();
     }
   }, [open, entry]);
 
@@ -92,15 +129,37 @@ export default function IndividualTreatmentForm({
   const handleSave = async () => {
     setLoading(true);
     try {
-      // TODO: API call to save treatment record
-      // await api.post('/treatment-records', { ...formData, queue_id: entry.queue_id });
+      const token = localStorage.getItem('authToken');
       
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+      const payload = {
+        patient_id: entry.patient?.patient_id,
+        queue_id: entry.queue_id,
+        ...formData,
+      };
+
+      const res = await fetch('http://localhost:8000/api/treatment-records', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to save treatment record');
+      }
+
+      const data = await res.json();
+      console.log('Treatment record saved:', data);
       
       onSave();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save treatment record:', error);
+      alert('Error: ' + (error.message || 'Failed to save treatment record'));
     } finally {
       setLoading(false);
     }

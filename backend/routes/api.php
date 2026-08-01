@@ -18,6 +18,8 @@ use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VaccinationController;
 use App\Http\Controllers\TagoloanTreatmentCardController;
+use App\Http\Controllers\TreatmentRecordController;
+use App\Http\Controllers\VaccinationRecordController;
 use App\Http\Controllers\VaccineInventoryController;
 use Illuminate\Support\Facades\Route;
 
@@ -200,6 +202,14 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 
+    // Treatment Records (Form 2 - Individual Treatment)
+    Route::prefix('treatment-records')->middleware('role:admin,triage')->group(function () {
+        Route::get('/', [TreatmentRecordController::class, 'index']);
+        Route::get('/patient/{patientId}', [TreatmentRecordController::class, 'getByPatient']);
+        Route::post('/', [TreatmentRecordController::class, 'store']);
+        Route::get('/{id}', [TreatmentRecordController::class, 'show']);
+    });
+
     // Tagoloan RHU Official Treatment Cards
     Route::prefix('tagoloan-treatment-cards')->group(function () {
         Route::get('/', [TagoloanTreatmentCardController::class, 'index']);
@@ -242,6 +252,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::middleware('role:admin,triage')->group(function () {
             Route::post('/{id}/call', [QueueController::class, 'call']);
             Route::post('/{id}/complete', [QueueController::class, 'complete']);
+        });
+    });
+
+    // Vaccination Records (Form 3)
+    Route::prefix('vaccination-records')->group(function () {
+        // View vaccination records (admin, triage, treatment)
+        Route::middleware('role:admin,triage,treatment')->group(function () {
+            Route::get('/patient/{patientId}', [VaccinationRecordController::class, 'getByPatient']);
+            Route::get('/queue/{queueId}', [VaccinationRecordController::class, 'getByQueue']);
+            Route::get('/{id}', [VaccinationRecordController::class, 'show']);
+        });
+
+        // Create/Update vaccination records (admin, treatment/nurse only)
+        Route::middleware('role:admin,treatment')->group(function () {
+            Route::post('/', [VaccinationRecordController::class, 'store']);
+            Route::delete('/{id}', [VaccinationRecordController::class, 'destroy']);
         });
     });
 });

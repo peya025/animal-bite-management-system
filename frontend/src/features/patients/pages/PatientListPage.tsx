@@ -5,19 +5,7 @@ import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
 
 // ─── Types ───────────────────────────────────────────────────
-interface Patient {
-  id: number;
-  patient_number: string;
-  first_name: string;
-  middle_name?: string;
-  last_name: string;
-  date_of_birth: string;
-  gender: 'male' | 'female' | 'other';
-  address: string;
-  phone?: string;
-  created_at: string;
-  status?: 'active' | 'pending' | 'inactive';
-}
+import type { Patient } from '../types';
 
 const formatDate = (d: string) =>
   new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });

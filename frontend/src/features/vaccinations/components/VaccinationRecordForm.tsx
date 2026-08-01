@@ -25,6 +25,7 @@ import {
   Checkbox,
 } from '@mui/material';
 import { Save as SaveIcon, Close as CloseIcon } from '@mui/icons-material';
+import api from '../../../shared/services/api';
 
 interface VaccinationRecordFormProps {
   open: boolean;
@@ -73,9 +74,63 @@ export default function VaccinationRecordForm({
   useEffect(() => {
     if (open && entry) {
       // Load existing vaccination records if available
-      // TODO: Fetch from API
+      loadVaccinationRecords();
     }
   }, [open, entry]);
+
+  const loadVaccinationRecords = async () => {
+    if (!entry?.patient_id) return;
+
+    try {
+      const response = await api.get(`/vaccination-records/patient/${entry.patient_id}`);
+      const { vaccination_records, tagoloan_card } = response.data;
+
+      // Map period names to dose numbers for lookup
+      const periodToDoseNumber: Record<string, number> = {
+        'Day 0': 0,
+        'Day 3': 3,
+        'Day 7': 7,
+        'Day 28': 28,
+        'Booster 1': 90,
+        'Booster 2': 365,
+      };
+
+      // Update doses with existing data
+      if (vaccination_records && vaccination_records.length > 0) {
+        setDoses((prev) =>
+          prev.map((dose) => {
+            const doseNumber = periodToDoseNumber[dose.period];
+            const record = vaccination_records.find((r: any) => r.dose_number === doseNumber);
+            if (record) {
+              return {
+                ...dose,
+                route: record.route || '',
+                date: record.treatment_date ? record.treatment_date.split('T')[0] : '',
+                given_by: record.remarks?.replace('Given by: ', '') || '',
+                signature: record.signature || '',
+              };
+            }
+            return dose;
+          })
+        );
+      }
+
+      // Load ICD code
+      if (tagoloan_card?.icd10_code) {
+        setIcdCode(tagoloan_card.icd10_code);
+      }
+
+      // Load additional medications (check for records with medication_given field)
+      const meds = vaccination_records.filter((r: any) => r.medication_given);
+      setAdditionalMeds({
+        erig: meds.some((m: any) => m.medication_given === 'ERIG'),
+        tt: meds.some((m: any) => m.medication_given === 'TT'),
+        ats: meds.some((m: any) => m.medication_given === 'ATS'),
+      });
+    } catch (error) {
+      console.error('Failed to load vaccination records:', error);
+    }
+  };
 
   const handleDoseChange = (index: number, field: keyof VaccinationDose, value: any) => {
     setDoses((prev) =>
@@ -86,20 +141,26 @@ export default function VaccinationRecordForm({
   const handleSave = async () => {
     setLoading(true);
     try {
-      // TODO: API call to save vaccination record
-      // await api.post('/vaccination-records', {
-      //   queue_id: entry.queue_id,
-      //   doses: doses.filter(d => d.date), // Only save filled doses
-      //   additional_meds: additionalMeds,
-      //   icd_code: icdCode,
-      // });
-
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+      await api.post('/vaccination-records', {
+        patient_id: entry.patient_id,
+        bite_id: entry.bite_id || null,
+        queue_id: entry.queue_id || null,
+        doses: doses.map((dose) => ({
+          period: dose.period,
+          route: dose.route || null,
+          date: dose.date || null,
+          given_by: dose.given_by || null,
+          signature: dose.signature || null,
+        })),
+        additional_meds: additionalMeds,
+        icd_code: icdCode || null,
+      });
 
       onSave();
       onClose();
     } catch (error) {
       console.error('Failed to save vaccination record:', error);
+      alert('Failed to save vaccination record. Please try again.');
     } finally {
       setLoading(false);
     }

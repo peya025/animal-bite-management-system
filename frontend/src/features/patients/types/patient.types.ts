@@ -3,6 +3,20 @@ export interface PsgcItem {
   name: string;
 }
 
+export interface Patient {
+  id: number;
+  patient_number: string;
+  first_name: string;
+  middle_name?: string;
+  last_name: string;
+  date_of_birth: string;
+  gender: 'male' | 'female' | 'other';
+  address: string;
+  phone?: string;
+  created_at: string;
+  status?: 'active' | 'pending' | 'inactive';
+}
+
 export interface EnrolmentFormData {
   last_name: string;
   first_name: string;

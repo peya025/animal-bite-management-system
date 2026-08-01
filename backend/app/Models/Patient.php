@@ -43,6 +43,7 @@ class Patient extends Model
 
     protected $appends = [
         'name',
+        'age',
     ];
 
     /**
@@ -56,6 +57,17 @@ class Patient extends Model
             $this->last_name,
             $this->suffix,
         ])->filter()->implode(' ');
+    }
+
+    /**
+     * Calculate age from date of birth
+     */
+    public function getAgeAttribute(): int
+    {
+        if (!$this->date_of_birth) {
+            return $this->attributes['age'] ?? 0;
+        }
+        return $this->date_of_birth->age;
     }
 
     /**

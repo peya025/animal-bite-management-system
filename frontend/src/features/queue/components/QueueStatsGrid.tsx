@@ -1,0 +1,82 @@
+import { Box, Grid, LinearProgress, Paper, Typography } from '@mui/material';
+import {
+  AccessTime as WaitIcon,
+  Cancel as CancelIcon,
+  CheckCircle as DoneIcon,
+  PeopleAlt as TotalIcon,
+  LocalHospital as ConsultIcon,
+} from '@mui/icons-material';
+import StatCard from '../../../components/common/StatCard';
+import type { QueueStats } from '../types';
+import { VISIT_LABEL } from '../types';
+
+interface QueueStatsGridProps {
+  stats: QueueStats | null;
+}
+
+export function QueueStatsGrid({ stats }: QueueStatsGridProps) {
+  const statCardsData = [
+    { label: 'Total Today',     value: stats?.total           ?? '-', icon: <TotalIcon />,   color: 'primary' as const },
+    { label: 'Waiting',         value: stats?.waiting         ?? '-', icon: <WaitIcon />,    color: 'info' as const    },
+    { label: 'In Consultation', value: stats?.in_consultation ?? '-', icon: <ConsultIcon />, color: 'warning' as const },
+    { label: 'Completed',       value: stats?.completed       ?? '-', icon: <DoneIcon />,    color: 'success' as const },
+    { label: 'Cancelled',       value: stats?.cancelled       ?? '-', icon: <CancelIcon />,  color: 'error' as const   },
+  ] as const;
+
+  return (
+    <>
+      {/* Stat Cards Grid */}
+      <Grid container spacing={2} sx={{ mb: 3, alignItems: 'stretch' }}>
+        {statCardsData.map(s => (
+          <Grid key={s.label} size={{ xs: 6, sm: 4, md: 2 }}>
+            <StatCard label={s.label} value={s.value} icon={s.icon} color={s.color} loading={!stats} />
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Progress Bar */}
+      {stats && stats.total > 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            border: '1px solid',
+            borderColor: '#f3f4f6',
+            borderRadius: 3,
+            background: '#ffffff',
+            p: 3,
+            mb: 3,
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+            <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>Today's Progress</Typography>
+            <Typography sx={{ fontSize: 13, color: '#6b7280' }}>
+              {stats.completed} of {stats.total} done ({Math.round((stats.completed / stats.total) * 100)}%)
+            </Typography>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={Math.round((stats.completed / stats.total) * 100)}
+            sx={{
+              height: 8,
+              borderRadius: 4,
+              bgcolor: '#f3f4f6',
+              '& .MuiLinearProgress-bar': { bgcolor: '#10b981', borderRadius: 4 },
+            }}
+          />
+          {stats.by_visit_type && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2.5, mt: 1.5 }}>
+              {Object.entries(stats.by_visit_type).map(([type, count]) => (
+                <Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
+                  <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+                    {VISIT_LABEL[type] ?? type}: <strong>{String(count)}</strong>
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Paper>
+      )}
+    </>
+  );
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { PsgcItem } from './AddPatientModal.types';
+import type { PsgcItem } from '../types';
 
 const PSGC = 'https://psgc.gitlab.io/api';
 const MIS_OR = '104300000';
@@ -77,7 +77,7 @@ export function useAddressLocation() {
   useEffect(() => {
     setLoadingMun(true);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000); // 3s timeout
+    const timer = setTimeout(() => controller.abort(), 3000);
 
     fetch(`${PSGC}/provinces/${MIS_OR}/cities-municipalities/`, { signal: controller.signal })
       .then(r => {
@@ -92,7 +92,6 @@ export function useAddressLocation() {
       })
       .catch(() => {
         setApiError(true);
-        // Retain MISAMIS_ORIENTAL_MUNICIPALITIES fallback
         setMunicipalities(MISAMIS_ORIENTAL_MUNICIPALITIES);
       })
       .finally(() => {
@@ -109,23 +108,22 @@ export function useAddressLocation() {
     }
     setLoadingBrgy(true);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000); // 3s timeout
+    const timer = setTimeout(() => controller.abort(), 3000);
 
     fetch(`${PSGC}/cities-municipalities/${municipality}/barangays/`, { signal: controller.signal })
       .then(r => {
         if (!r.ok) throw new Error('API failed');
         return r.json();
       })
-      .then((d: PsgcItem[]) => { 
+      .then((d: PsgcItem[]) => {
         if (Array.isArray(d) && d.length > 0) {
-          setBarangays(d.sort((a, b) => a.name.localeCompare(b.name))); 
+          setBarangays(d.sort((a, b) => a.name.localeCompare(b.name)));
         } else {
           throw new Error('Empty barangay response');
         }
-        setBarangay(''); 
+        setBarangay('');
       })
       .catch(() => {
-        // Fallback to offline barangays if available
         const fallbacks = FALLBACK_BARANGAYS[municipality] || [];
         setBarangays(fallbacks);
         setBarangay('');
@@ -140,7 +138,7 @@ export function useAddressLocation() {
   const brgyName = useManual ? manualBrgy : (barangays.find(b => b.code === barangay)?.name || '');
   const full     = [purok, brgyName, munName, 'Misamis Oriental'].filter(Boolean).join(', ');
 
-  return { 
+  return {
     municipality, setMunicipality, barangay, setBarangay, purok, setPurok,
     municipalities, barangays, loadingMun, loadingBrgy, munName, brgyName, full,
     apiError, useManual, setUseManual, manualMun, setManualMun, manualBrgy, setManualBrgy

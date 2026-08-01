@@ -1,19 +1,22 @@
 import { useState } from 'react';
 import FormModal from '../../../../components/forms/FormModal';
-import { PatientFormContent } from './AddPatientModal.styles';
-import type { AddPatientModalProps, EnrolmentFormData } from './AddPatientModal.types';
-import { INITIAL_ENROLMENT_DATA } from './AddPatientModal.types';
-import { useAddressLocation } from './useAddressLocation';
-import { PatientInfoSection } from './PatientInfoSection';
-import { AddressSection } from './AddressSection';
-import { ContactSection } from './ContactSection';
-import { SocioeconomicSection } from './SocioeconomicSection';
-import { GovProgramsSection } from './GovProgramsSection';
+import { PatientFormContent } from '../../styles/AddPatientModal.styles';
+import type { AddPatientModalProps, EnrolmentFormData } from '../../types';
+import { INITIAL_ENROLMENT_DATA } from '../../types';
+import { useAddressLocation } from '../../hooks';
+import { createPatientRecord } from '../../services';
+import {
+  PatientInfoSection,
+  AddressSection,
+  ContactSection,
+  SocioeconomicSection,
+  GovProgramsSection,
+} from './sections';
 
 export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalProps) {
   const [enrolment, setEnrolment] = useState<EnrolmentFormData>(INITIAL_ENROLMENT_DATA);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [saving, setSaving]       = useState(false);
+  const [error, setError]         = useState('');
   const loc = useAddressLocation();
 
   const handleFieldChange = (key: keyof EnrolmentFormData) => (
@@ -23,13 +26,11 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
   };
 
   const handleSubmit = async () => {
-    // Validate required Patient Enrolment fields
     if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
       setError('Please fill in all required fields (Last Name, First Name, Date of Birth, Sex).');
       return;
     }
 
-    // Validate address based on entry mode
     if (loc.useManual) {
       if (!loc.manualMun || !loc.manualBrgy) {
         setError('Please enter Municipality and Barangay.');
@@ -46,38 +47,15 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
     setSaving(true);
 
     try {
-      const token = localStorage.getItem('authToken');
-
-      const payload = {
-        ...enrolment,
-        gender: enrolment.sex,
-        address: loc.full,
-        address_municipality: loc.munName,
-        address_barangay: loc.brgyName,
-        address_purok: loc.purok,
-        province: 'Misamis Oriental',
-        phone: enrolment.contact_number,
-        emergency_contact_phone: enrolment.emergency_contact_phone,
-      };
-
-      const res = await fetch('http://localhost:8000/api/patients', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(payload),
+      await createPatientRecord(enrolment, {
+        full: loc.full,
+        munName: loc.munName,
+        brgyName: loc.brgyName,
+        purok: loc.purok,
       });
-
-      if (!res.ok) {
-        const j = await res.json();
-        throw new Error(j.message || 'Failed to save patient.');
-      }
-
       onSuccess();
     } catch (e: any) {
-      setError(e.message || 'Failed to save patient.');
+      setError(e.message || 'Failed to save patient record.');
     } finally {
       setSaving(false);
     }

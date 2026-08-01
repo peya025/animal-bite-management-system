@@ -1,5 +1,5 @@
 import { FormField } from './FormField';
-import type { AddressLocationState } from './useAddressLocation';
+import type { AddressLocationState } from '../../../hooks/useAddressLocation';
 
 interface AddressSectionProps {
   loc: AddressLocationState;

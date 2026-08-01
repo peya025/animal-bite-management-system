@@ -1,6 +1,6 @@
 import React from 'react';
 import { FormField } from './FormField';
-import type { EnrolmentFormData } from './AddPatientModal.types';
+import type { EnrolmentFormData } from '../../../types';
 
 interface ContactSectionProps {
   data: EnrolmentFormData;

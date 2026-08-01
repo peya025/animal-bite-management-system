@@ -86,4 +86,26 @@ class Queue extends Model
     {
         return $this->belongsTo(User::class, 'handled_by', 'id');
     }
+
+    /**
+     * Relationship: Queue belongs to BiteIncident
+     */
+    public function biteIncidentRelation()
+    {
+        return $this->belongsTo(BiteIncident::class, 'bite_id', 'bite_id');
+    }
+
+    /**
+     * Get patient name attribute
+     */
+    public function getPatientNameAttribute()
+    {
+        if (!$this->patient) return 'Unknown';
+        $parts = array_filter([
+            $this->patient->first_name,
+            $this->patient->middle_name,
+            $this->patient->last_name,
+        ]);
+        return implode(' ', $parts);
+    }
 }

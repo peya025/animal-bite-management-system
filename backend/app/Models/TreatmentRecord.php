@@ -41,6 +41,26 @@ class TreatmentRecord extends Model
         'outcome',
         'status',
         'scheduled_by',
+        // General Consultation Fields
+        'mode_of_transaction',
+        'referred_from',
+        'referred_to',
+        'consultation_date',
+        'consultation_time',
+        'blood_pressure',
+        'temperature',
+        'height',
+        'weight',
+        'nature_of_visit',
+        'consultation_types',
+        'chief_complaints',
+        'diagnosis',
+        'medication_treatment',
+        'provider_name',
+        'laboratory_findings',
+        'performed_lab_test',
+        'attending_provider',
+        'referred_by',
     ];
 
     protected $casts = [
@@ -50,6 +70,8 @@ class TreatmentRecord extends Model
         'expiration_date' => 'date',
         'administered_at' => 'datetime',
         'dosage_ml' => 'decimal:2',
+        'consultation_date' => 'date',
+        'consultation_types' => 'array', // Cast JSON to array
     ];
 
     /**

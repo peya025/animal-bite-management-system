@@ -22,27 +22,29 @@ class TreatmentRecordController extends Controller
             ->where('clinic_id', $clinicId)
             ->findOrFail($patientId);
 
-        // Get latest bite incident
-        $latestBite = BiteIncident::where('clinic_id', $clinicId)
+        // Get latest treatment record (general consultation)
+        $latestTreatment = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
-            ->orderBy('bite_date', 'desc')
+            ->orderBy('consultation_date', 'desc')
+            ->orderBy('consultation_time', 'desc')
             ->first();
 
-        // Get existing treatment records
+        // Get all treatment records for history
         $treatments = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
-            ->orderBy('treatment_date', 'desc')
+            ->orderBy('consultation_date', 'desc')
+            ->orderBy('consultation_time', 'desc')
             ->get();
 
         return response()->json([
             'patient' => $patient,
-            'latest_bite' => $latestBite,
+            'latest_treatment' => $latestTreatment,
             'treatments' => $treatments,
         ]);
     }
 
     /**
-     * Store Form 2 data (Individual Treatment Record)
+     * Store Form 2 data (General Consultation / Individual Treatment Record)
      */
     public function store(Request $request)
     {
@@ -52,71 +54,75 @@ class TreatmentRecordController extends Controller
             'patient_id' => 'required|exists:patients,patient_id',
             'queue_id' => 'nullable|exists:queues,queue_id',
             
-            // Exposure Details (Form 2 Section 2)
-            'date' => 'nullable|date',
-            'registry_no' => 'nullable|string|max:100',
-            'hospital_no' => 'nullable|string|max:100',
+            // General Consultation Fields (NEW Form 2)
+            'consultation_date' => 'nullable|date',
+            'consultation_time' => 'nullable|string|max:10',
+            'mode_of_transaction' => 'nullable|in:walk-in,visited,referral',
+            'referred_from' => 'nullable|string|max:255',
+            'referred_to' => 'nullable|string|max:255',
             'referred_by' => 'nullable|string|max:255',
-            'philhealth_pin' => 'nullable|string|max:50',
-            'philhealth_type' => 'nullable|in:member,dependent',
             
-            'exposure_category' => 'nullable|in:I,II,III',
-            'date_of_exposure' => 'nullable|date',
-            'date_treatment_started' => 'nullable|date',
-            'place_of_exposure' => 'nullable|string|max:255',
+            // Vital Signs
+            'blood_pressure' => 'nullable|string|max:20',
+            'temperature' => 'nullable|string|max:10',
+            'height' => 'nullable|string|max:10',
+            'weight' => 'nullable|string|max:10',
             
-            // Exposure Details (Detailed) - Form 2 Section 3
-            'mode_of_exposure' => 'nullable|array',
-            'body_part_affected' => 'nullable|in:head_neck,other_parts,na_ingestion',
-            'animal_type' => 'nullable|in:dog,other',
-            'animal_type_other' => 'nullable|string|max:255',
-            'past_history_bite' => 'nullable|in:yes,no',
-            'past_pep_completed' => 'nullable|in:yes,no',
+            // Visit and Consultation Details
+            'nature_of_visit' => 'required|in:new_consultation,new_admission,follow_up',
+            'consultation_types' => 'required|array|min:1',
+            'consultation_types.*' => 'string',
+            
+            // Clinical Notes
+            'chief_complaints' => 'required|string',
+            'diagnosis' => 'nullable|string',
+            'medication_treatment' => 'nullable|string',
+            'laboratory_findings' => 'nullable|string',
+            'performed_lab_test' => 'nullable|string',
+            
+            // Provider Details
+            'provider_name' => 'nullable|string|max:255',
+            'attending_provider' => 'nullable|string|max:255',
         ]);
 
-        // Create or update bite incident
-        $biteData = [
-            'clinic_id' => $clinicId,
-            'patient_id' => $validated['patient_id'],
-            'bite_date' => $validated['date_of_exposure'] ?? Carbon::now()->toDateString(),
-            'bite_place' => $validated['place_of_exposure'] ?? null,
-            'animal_type' => $validated['animal_type'] === 'other' 
-                ? ($validated['animal_type_other'] ?? 'Unknown') 
-                : ($validated['animal_type'] ?? 'Dog'),
-            'exposure_category' => $validated['exposure_category'] ?? 'II',
-            'body_part' => $validated['body_part_affected'] ?? null,
-            'referred_from' => $validated['referred_by'] ?? null,
-            'status' => 'active',
-        ];
-
-        // Check if bite incident already exists for this patient
-        $biteIncident = BiteIncident::where('clinic_id', $clinicId)
-            ->where('patient_id', $validated['patient_id'])
-            ->where('bite_date', $biteData['bite_date'])
-            ->first();
-
-        if ($biteIncident) {
-            $biteIncident->update($biteData);
-        } else {
-            $biteIncident = BiteIncident::create($biteData);
-        }
-
-        // Create treatment record entry
+        // Create general consultation treatment record
         $treatmentRecord = TreatmentRecord::create([
             'clinic_id' => $clinicId,
             'patient_id' => $validated['patient_id'],
-            'bite_id' => $biteIncident->bite_id,
-            'treatment_date' => $validated['date_treatment_started'] ?? Carbon::now(),
-            'remarks' => json_encode([
-                'mode_of_exposure' => $validated['mode_of_exposure'] ?? [],
-                'past_history_bite' => $validated['past_history_bite'] ?? 'no',
-                'past_pep_completed' => $validated['past_pep_completed'] ?? 'no',
-                'registry_no' => $validated['registry_no'] ?? null,
-                'hospital_no' => $validated['hospital_no'] ?? null,
-                'philhealth_pin' => $validated['philhealth_pin'] ?? null,
-                'philhealth_type' => $validated['philhealth_type'] ?? null,
-            ]),
-            'status' => 'active',
+            'treatment_date' => $validated['consultation_date'] 
+                ? Carbon::parse($validated['consultation_date']) 
+                : Carbon::now(),
+            
+            // General consultation fields
+            'consultation_date' => $validated['consultation_date'] ?? Carbon::now()->toDateString(),
+            'consultation_time' => $validated['consultation_time'] ?? Carbon::now()->format('H:i'),
+            'mode_of_transaction' => $validated['mode_of_transaction'] ?? null,
+            'referred_from' => $validated['referred_from'] ?? null,
+            'referred_to' => $validated['referred_to'] ?? null,
+            'referred_by' => $validated['referred_by'] ?? null,
+            
+            // Vital signs
+            'blood_pressure' => $validated['blood_pressure'] ?? null,
+            'temperature' => $validated['temperature'] ?? null,
+            'height' => $validated['height'] ?? null,
+            'weight' => $validated['weight'] ?? null,
+            
+            // Visit details
+            'nature_of_visit' => $validated['nature_of_visit'],
+            'consultation_types' => $validated['consultation_types'], // Will be cast to JSON by model
+            
+            // Clinical notes
+            'chief_complaints' => $validated['chief_complaints'],
+            'diagnosis' => $validated['diagnosis'] ?? null,
+            'medication_treatment' => $validated['medication_treatment'] ?? null,
+            'laboratory_findings' => $validated['laboratory_findings'] ?? null,
+            'performed_lab_test' => $validated['performed_lab_test'] ?? null,
+            
+            // Provider details
+            'provider_name' => $validated['provider_name'] ?? null,
+            'attending_provider' => $validated['attending_provider'] ?? null,
+            
+            'status' => 'completed', // General consultation is completed when Form 2 is saved
             'administered_by' => $request->user()->id,
         ]);
 
@@ -124,32 +130,13 @@ class TreatmentRecordController extends Controller
         if (!empty($validated['queue_id'])) {
             $queue = Queue::find($validated['queue_id']);
             if ($queue) {
-                $queue->update(['status' => 'completed']);
-            }
-        }
-
-        // Update patient details if hospital_no or philhealth_pin provided
-        $patient = Patient::find($validated['patient_id']);
-        if ($patient && $patient->details) {
-            $updateData = [];
-            if (!empty($validated['hospital_no'])) {
-                $updateData['hospital_no'] = $validated['hospital_no'];
-            }
-            if (!empty($validated['philhealth_pin'])) {
-                $updateData['philhealth_no'] = $validated['philhealth_pin'];
-            }
-            if (!empty($validated['philhealth_type'])) {
-                $updateData['philhealth_status'] = $validated['philhealth_type'];
-            }
-            if (!empty($updateData)) {
-                $patient->details->update($updateData);
+                $queue->update(['status' => 'in_consultation']);
             }
         }
 
         return response()->json([
             'message' => 'Treatment record saved successfully',
-            'bite_incident' => $biteIncident,
-            'treatment_record' => $treatmentRecord,
+            'treatment_record' => $treatmentRecord->load('patient'),
         ], 201);
     }
 
@@ -160,9 +147,10 @@ class TreatmentRecordController extends Controller
     {
         $clinicId = $request->user()->clinic_id;
 
-        $query = TreatmentRecord::with(['patient', 'biteIncident', 'administeredBy'])
+        $query = TreatmentRecord::with(['patient', 'administeredBy'])
             ->where('clinic_id', $clinicId)
-            ->orderBy('treatment_date', 'desc');
+            ->orderBy('consultation_date', 'desc')
+            ->orderBy('consultation_time', 'desc');
 
         if ($request->has('search')) {
             $search = $request->search;
@@ -185,7 +173,7 @@ class TreatmentRecordController extends Controller
     {
         $clinicId = $request->user()->clinic_id;
 
-        $record = TreatmentRecord::with(['patient', 'biteIncident', 'administeredBy'])
+        $record = TreatmentRecord::with(['patient', 'administeredBy'])
             ->where('clinic_id', $clinicId)
             ->findOrFail($id);
 

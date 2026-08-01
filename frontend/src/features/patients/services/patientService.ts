@@ -50,5 +50,32 @@ export async function createPatientRecord(
     throw new Error(json.message || 'Failed to save patient record.');
   }
 
-  return res.json();
+  const patientData = await res.json();
+  const patientId = patientData.patient?.patient_id || patientData.data?.patient_id || patientData.patient_id;
+
+  // Automatically add patient to queue (FIFO - first come first serve)
+  if (patientId) {
+    try {
+      await fetch(`${API_URL}/queue`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          patient_id: patientId,
+          visit_type: 'new_case',
+          priority: 'normal',
+          check_in_notes: 'Auto-added from registration',
+        }),
+      });
+      // Queue addition is best-effort, don't fail registration if it fails
+    } catch (queueError) {
+      console.error('Failed to add to queue:', queueError);
+      // Continue anyway - patient is registered
+    }
+  }
+
+  return patientData;
 }

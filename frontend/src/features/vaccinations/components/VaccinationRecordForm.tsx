@@ -1,37 +1,46 @@
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Box,
-  Typography,
-  Divider,
-  Grid,
-  Alert,
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Checkbox,
-} from '@mui/material';
-import { Save as SaveIcon, Close as CloseIcon } from '@mui/icons-material';
+import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
 
 interface VaccinationRecordFormProps {
   open: boolean;
-  entry: any; // Queue entry with patient data
+  entry: any;
   onClose: () => void;
   onSave: () => void;
+}
+
+interface TreatmentFormData {
+  date: string;
+  registry_no: string;
+  hospital_no: string;
+  referred_by: string;
+  philhealth_pin: string;
+  philhealth_type: 'member' | 'dependent' | '';
+  patient_name: string;
+  age: string;
+  date_of_birth: string;
+  address: string;
+  sex: 'male' | 'female' | '';
+  exposure_category: 'I' | 'II' | 'III' | '';
+  date_of_exposure: string;
+  date_treatment_started: string;
+  place_of_exposure: string;
+  mode_of_exposure: {
+    nibbling_uncovered: boolean;
+    nibbling_wounded: boolean;
+    scratch_abrasion: boolean;
+    transdermal_bite: boolean;
+    handling_ingestion: boolean;
+  };
+  body_part_affected: {
+    head_neck: boolean;
+    other_parts: boolean;
+    na_ingestion: boolean;
+  };
+  animal_type: 'dog' | 'other' | '';
+  animal_type_other: string;
+  past_history_bite: 'yes' | 'no' | '';
+  pep_completed: 'yes' | 'no' | '';
 }
 
 interface VaccinationDose {
@@ -42,115 +51,130 @@ interface VaccinationDose {
   signature: string;
 }
 
-/**
- * Form 3: Vaccination Record (Tagoloan Treatment Card - Part 2)
- * Used by: Nurse (treatment role)
- * Purpose: Record vaccination doses and schedule
- */
-export default function VaccinationRecordForm({
-  open,
-  entry,
-  onClose,
-  onSave,
-}: VaccinationRecordFormProps) {
-  const [loading, setLoading] = useState(false);
+interface AdditionalMeds {
+  erig: boolean;
+  tt: boolean;
+  ats: boolean;
+}
+
+const INITIAL_FORM_DATA: TreatmentFormData = {
+  date: new Date().toISOString().split('T')[0],
+  registry_no: '',
+  hospital_no: '',
+  referred_by: '',
+  philhealth_pin: '',
+  philhealth_type: '',
+  patient_name: '',
+  age: '',
+  date_of_birth: '',
+  address: '',
+  sex: '',
+  exposure_category: '',
+  date_of_exposure: '',
+  date_treatment_started: new Date().toISOString().split('T')[0],
+  place_of_exposure: '',
+  mode_of_exposure: {
+    nibbling_uncovered: false,
+    nibbling_wounded: false,
+    scratch_abrasion: false,
+    transdermal_bite: false,
+    handling_ingestion: false,
+  },
+  body_part_affected: {
+    head_neck: false,
+    other_parts: false,
+    na_ingestion: false,
+  },
+  animal_type: '',
+  animal_type_other: '',
+  past_history_bite: '',
+  pep_completed: '',
+};
+
+export default function VaccinationRecordForm({ open, entry, onClose, onSave }: VaccinationRecordFormProps) {
+  const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
   const [doses, setDoses] = useState<VaccinationDose[]>([
-    { period: 'Day 0', route: '', date: '', given_by: '', signature: '' },
-    { period: 'Day 3', route: '', date: '', given_by: '', signature: '' },
-    { period: 'Day 7', route: '', date: '', given_by: '', signature: '' },
+    { period: 'Day 0', route: 'IM', date: '', given_by: '', signature: '' },
+    { period: 'Day 3', route: 'IM', date: '', given_by: '', signature: '' },
+    { period: 'Day 7', route: 'IM', date: '', given_by: '', signature: '' },
     { period: 'Day 28', route: '', date: '', given_by: '', signature: '' },
     { period: 'Booster 1', route: '', date: '', given_by: '', signature: '' },
     { period: 'Booster 2', route: '', date: '', given_by: '', signature: '' },
   ]);
-
-  const [additionalMeds, setAdditionalMeds] = useState({
+  const [additionalMeds, setAdditionalMeds] = useState<AdditionalMeds>({
     erig: false,
     tt: false,
     ats: false,
   });
-
   const [icdCode, setIcdCode] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (open && entry) {
-      // Load existing vaccination records if available
-      loadVaccinationRecords();
+    if (open && entry?.patient) {
+      setFormData(prev => ({
+        ...prev,
+        patient_name: `${entry.patient.last_name}, ${entry.patient.first_name} ${entry.patient.middle_name || ''}`.trim(),
+        age: String(entry.patient.age || ''),
+        date_of_birth: entry.patient.date_of_birth || '',
+        address: entry.patient.address || '',
+        sex: entry.patient.gender === 'M' ? 'male' : entry.patient.gender === 'F' ? 'female' : '',
+      }));
     }
   }, [open, entry]);
 
-  const loadVaccinationRecords = async () => {
-    if (!entry?.patient_id) return;
+  const handleFieldChange = (key: keyof TreatmentFormData) => (
+    ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    setFormData(prev => ({ ...prev, [key]: ev.target.value }));
+  };
 
-    try {
-      const response = await api.get(`/vaccination-records/patient/${entry.patient_id}`);
-      const { vaccination_records, tagoloan_card } = response.data;
-
-      // Map period names to dose numbers for lookup
-      const periodToDoseNumber: Record<string, number> = {
-        'Day 0': 0,
-        'Day 3': 3,
-        'Day 7': 7,
-        'Day 28': 28,
-        'Booster 1': 90,
-        'Booster 2': 365,
-      };
-
-      // Update doses with existing data
-      if (vaccination_records && vaccination_records.length > 0) {
-        setDoses((prev) =>
-          prev.map((dose) => {
-            const doseNumber = periodToDoseNumber[dose.period];
-            const record = vaccination_records.find((r: any) => r.dose_number === doseNumber);
-            if (record) {
-              return {
-                ...dose,
-                route: record.route || '',
-                date: record.treatment_date ? record.treatment_date.split('T')[0] : '',
-                given_by: record.remarks?.replace('Given by: ', '') || '',
-                signature: record.signature || '',
-              };
-            }
-            return dose;
-          })
-        );
-      }
-
-      // Load ICD code
-      if (tagoloan_card?.icd10_code) {
-        setIcdCode(tagoloan_card.icd10_code);
-      }
-
-      // Load additional medications (check for records with medication_given field)
-      const meds = vaccination_records.filter((r: any) => r.medication_given);
-      setAdditionalMeds({
-        erig: meds.some((m: any) => m.medication_given === 'ERIG'),
-        tt: meds.some((m: any) => m.medication_given === 'TT'),
-        ats: meds.some((m: any) => m.medication_given === 'ATS'),
-      });
-    } catch (error) {
-      console.error('Failed to load vaccination records:', error);
-    }
+  const handleCheckboxChange = (section: 'mode_of_exposure' | 'body_part_affected', key: string) => (
+    ev: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [key]: ev.target.checked,
+      },
+    }));
   };
 
   const handleDoseChange = (index: number, field: keyof VaccinationDose, value: any) => {
-    setDoses((prev) =>
-      prev.map((dose, i) => (i === index ? { ...dose, [field]: value } : dose))
-    );
+    setDoses(prev => prev.map((dose, i) => (i === index ? { ...dose, [field]: value } : dose)));
   };
 
-  const handleSave = async () => {
-    setLoading(true);
+  const handleSubmit = async () => {
+    if (!formData.exposure_category) {
+      setError('Please select Exposure Category');
+      return;
+    }
+    if (!formData.date_of_exposure) {
+      setError('Please enter Date of Exposure');
+      return;
+    }
+
+    setError('');
+    setSaving(true);
+
     try {
       await api.post('/vaccination-records', {
-        patient_id: entry.patient_id,
-        bite_id: entry.bite_id || null,
-        queue_id: entry.queue_id || null,
-        doses: doses.map((dose) => ({
-          period: dose.period,
-          route: dose.route || null,
-          date: dose.date || null,
-          given_by: dose.given_by || null,
-          signature: dose.signature || null,
+        patient_id: entry.patient.patient_id,
+        queue_id: entry.queue_id,
+        ...formData,
+        mode_of_exposure: Object.keys(formData.mode_of_exposure).filter(
+          key => formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]
+        ),
+        body_part_affected: Object.keys(formData.body_part_affected).filter(
+          key => formData.body_part_affected[key as keyof typeof formData.body_part_affected]
+        ),
+        doses: doses.filter(d => d.date).map(d => ({
+          period: d.period,
+          route: d.route || null,
+          date: d.date,
+          given_by: d.given_by || null,
+          signature: d.signature || null,
         })),
         additional_meds: additionalMeds,
         icd_code: icdCode || null,
@@ -158,214 +182,346 @@ export default function VaccinationRecordForm({
 
       onSave();
       onClose();
-    } catch (error) {
-      console.error('Failed to save vaccination record:', error);
-      alert('Failed to save vaccination record. Please try again.');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save treatment record');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   if (!entry) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700, bgcolor: '#eff6ff', color: '#1e40af' }}>
-        Form 3: Vaccination Record
-      </DialogTitle>
-      <Divider />
+    <FormModal
+      title="New Treatment Record"
+      subtitle="TAGOLOAN ANIMAL BITE TREATMENT CENTER — Official Form"
+      onClose={onClose}
+      maxWidth={1000}
+      footer={
+        <>
+          {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
+          <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
+            {saving ? 'Saving…' : '✓ Save Record'}
+          </button>
+        </>
+      }
+    >
+      <div style={{ padding: '24px 32px' }}>
+        {/* SECTION 1: PATIENT & REGISTRATION INFORMATION */}
+        <div style={{ marginBottom: 32 }}>
+          <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            PATIENT & REGISTRATION INFORMATION
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date</label>
+              <input type="date" value={formData.date} onChange={handleFieldChange('date')} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Registry No.</label>
+              <input type="text" value={formData.registry_no} onChange={handleFieldChange('registry_no')} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Hospital No.</label>
+              <input type="text" value={formData.hospital_no} onChange={handleFieldChange('hospital_no')} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Referred by</label>
+              <input type="text" value={formData.referred_by} onChange={handleFieldChange('referred_by')} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }} />
+            </div>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>PhilHealth Identification Number (PIN)</label>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <input type="text" value={formData.philhealth_pin} onChange={handleFieldChange('philhealth_pin')} placeholder="XX-XXXXXXXXX-X" style={{ flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }} />
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginRight: 16 }}>
+                <input type="radio" name="philhealth_type" value="member" checked={formData.philhealth_type === 'member'} onChange={handleFieldChange('philhealth_type')} style={{ marginRight: 6 }} />
+                <span style={{ fontSize: 13, color: '#374151' }}>Member</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input type="radio" name="philhealth_type" value="dependent" checked={formData.philhealth_type === 'dependent'} onChange={handleFieldChange('philhealth_type')} style={{ marginRight: 6 }} />
+                <span style={{ fontSize: 13, color: '#374151' }}>Dependent</span>
+              </label>
+            </div>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Patient Name <span style={{ color: '#ef4444' }}>*</span></label>
+            <input type="text" value={formData.patient_name} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: '#f9fafb', color: '#6b7280' }} placeholder="Last, First Middle" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Age</label>
+              <input type="text" value={formData.age} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: '#f9fafb', color: '#6b7280' }} placeholder="e.g. 25" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date of Birth</label>
+              <input type="date" value={formData.date_of_birth} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: '#f9fafb', color: '#6b7280' }} />
+            </div>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Address</label>
+            <input type="text" value={formData.address} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: '#f9fafb', color: '#6b7280' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Sex</label>
+              <div style={{ display: 'flex', gap: 24 }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="radio" name="sex" value="male" checked={formData.sex === 'male'} readOnly style={{ marginRight: 6 }} />
+                  <span style={{ fontSize: 13, color: '#6b7280' }}>Male</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="radio" name="sex" value="female" checked={formData.sex === 'female'} readOnly style={{ marginRight: 6 }} />
+                  <span style={{ fontSize: 13, color: '#6b7280' }}>Female</span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Exposure Category <span style={{ color: '#ef4444' }}>*</span></label>
+              <div style={{ display: 'flex', gap: 16 }}>
+                {(['I', 'II', 'III'] as const).map((cat) => (
+                  <label key={cat} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input type="radio" name="exposure_category" value={cat} checked={formData.exposure_category === cat} onChange={handleFieldChange('exposure_category')} style={{ marginRight: 6 }} />
+                    <span style={{ fontSize: 13, color: '#374151' }}>{cat}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date of Exposure <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="date" value={formData.date_of_exposure} onChange={handleFieldChange('date_of_exposure')} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date Treatment Started</label>
+              <input type="date" value={formData.date_treatment_started} onChange={handleFieldChange('date_treatment_started')} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }} />
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Place of Exposure</label>
+            <input type="text" value={formData.place_of_exposure} onChange={handleFieldChange('place_of_exposure')} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }} />
+          </div>
+        </div>
 
-      <DialogContent sx={{ pt: 3 }}>
-        {/* Patient Info Alert */}
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <strong>Patient:</strong> {entry.patient?.name} · Queue #{entry.queue_number}
-        </Alert>
+        {/* SECTION 2: EXPOSURE DETAILS */}
+        <div style={{ marginBottom: 32 }}>
+          <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            EXPOSURE DETAILS
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>1. Mode of Animal Exposure</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'start', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={formData.mode_of_exposure.nibbling_uncovered} onChange={handleCheckboxChange('mode_of_exposure', 'nibbling_uncovered')} style={{ marginRight: 8, marginTop: 2 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Nibbling/Licking of uncovered skin</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'start', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={formData.mode_of_exposure.nibbling_wounded} onChange={handleCheckboxChange('mode_of_exposure', 'nibbling_wounded')} style={{ marginRight: 8, marginTop: 2 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Nibbling/Licking of wounded/broken skin</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'start', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={formData.mode_of_exposure.scratch_abrasion} onChange={handleCheckboxChange('mode_of_exposure', 'scratch_abrasion')} style={{ marginRight: 8, marginTop: 2 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Scratch / Abrasion</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'start', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={formData.mode_of_exposure.transdermal_bite} onChange={handleCheckboxChange('mode_of_exposure', 'transdermal_bite')} style={{ marginRight: 8, marginTop: 2 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Transdermal Bite</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'start', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={formData.mode_of_exposure.handling_ingestion} onChange={handleCheckboxChange('mode_of_exposure', 'handling_ingestion')} style={{ marginRight: 8, marginTop: 2 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Handling / Ingestion of raw infected meat</span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>2. Body Part Affected Exposed</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={formData.body_part_affected.head_neck} onChange={handleCheckboxChange('body_part_affected', 'head_neck')} style={{ marginRight: 8 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Head and/or neck</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={formData.body_part_affected.other_parts} onChange={handleCheckboxChange('body_part_affected', 'other_parts')} style={{ marginRight: 8 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Other parts of the body</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={formData.body_part_affected.na_ingestion} onChange={handleCheckboxChange('body_part_affected', 'na_ingestion')} style={{ marginRight: 8 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>N/A if Ingestion mode</span>
+                </label>
+              </div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>3. Type of Animal</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={formData.animal_type === 'dog'} onChange={(e) => setFormData(prev => ({ ...prev, animal_type: e.target.checked ? 'dog' : '' }))} style={{ marginRight: 6 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Dog</span>
+                </label>
+                <span style={{ fontSize: 13, color: '#6b7280' }}>Others:</span>
+                <input type="text" value={formData.animal_type_other} onChange={handleFieldChange('animal_type_other')} onFocus={() => setFormData(prev => ({ ...prev, animal_type: 'other' }))} style={{ flex: 1, padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 13 }} />
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 24 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>4. Past History of animal bite</p>
+              <div style={{ display: 'flex', gap: 24 }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="radio" name="past_history_bite" value="yes" checked={formData.past_history_bite === 'yes'} onChange={handleFieldChange('past_history_bite')} style={{ marginRight: 6 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Yes</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="radio" name="past_history_bite" value="no" checked={formData.past_history_bite === 'no'} onChange={handleFieldChange('past_history_bite')} style={{ marginRight: 6 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>No</span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Was PEP Immunization completed?</p>
+              <div style={{ display: 'flex', gap: 24 }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="radio" name="pep_completed" value="yes" checked={formData.pep_completed === 'yes'} onChange={handleFieldChange('pep_completed')} style={{ marginRight: 6 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Yes</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="radio" name="pep_completed" value="no" checked={formData.pep_completed === 'no'} onChange={handleFieldChange('pep_completed')} style={{ marginRight: 6 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>No</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        {/* ─── SECTION: Vaccination Record Table ─── */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: 15, mb: 2, color: '#1e40af' }}>
-            Vaccination Record
-          </Typography>
-
-          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#f9fafb' }}>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 13 }}>Period</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 13 }}>Route</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 13 }}>Date</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 13 }}>Given by</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 13 }}>Signature</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
+        {/* SECTION 3: VACCINATION RECORD */}
+        <div>
+          <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            PERIOD EXPOSURE VACCINATION RECORD
+          </h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f9fafb' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 700, border: '1px solid #e5e7eb' }}>Period</th>
+                  <th style={{ padding: '12px', textAlign: 'center', fontWeight: 700, border: '1px solid #e5e7eb' }}>Adm Route</th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 700, border: '1px solid #e5e7eb' }}>Date</th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 700, border: '1px solid #e5e7eb' }}>Given by</th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 700, border: '1px solid #e5e7eb' }}>Signature</th>
+                </tr>
+              </thead>
+              <tbody>
                 {doses.map((dose, index) => (
-                  <TableRow key={dose.period}>
-                    <TableCell sx={{ fontWeight: 600, fontSize: 13 }}>{dose.period}</TableCell>
-                    <TableCell>
-                      <RadioGroup
-                        row
-                        value={dose.route}
-                        onChange={(e) =>
-                          handleDoseChange(index, 'route', e.target.value as 'ID' | 'IM')
-                        }
-                      >
-                        <FormControlLabel
-                          value="ID"
-                          control={<Radio size="small" />}
-                          label="ID"
-                          sx={{ mr: 1 }}
-                        />
-                        <FormControlLabel
-                          value="IM"
-                          control={<Radio size="small" />}
-                          label="IM"
-                        />
-                      </RadioGroup>
-                    </TableCell>
-                    <TableCell>
-                      <TextField
+                  <tr key={dose.period}>
+                    <td style={{ padding: '10px 12px', fontWeight: 600, border: '1px solid #e5e7eb' }}>{dose.period}</td>
+                    <td style={{ padding: '10px 12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name={`route_${index}`}
+                            value="ID"
+                            checked={dose.route === 'ID'}
+                            onChange={() => handleDoseChange(index, 'route', 'ID')}
+                            style={{ marginRight: 6 }}
+                          />
+                          <span style={{ fontSize: 12 }}>ID</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name={`route_${index}`}
+                            value="IM"
+                            checked={dose.route === 'IM'}
+                            onChange={() => handleDoseChange(index, 'route', 'IM')}
+                            style={{ marginRight: 6 }}
+                          />
+                          <span style={{ fontSize: 12 }}>IM</span>
+                        </label>
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 12px', border: '1px solid #e5e7eb' }}>
+                      <input
                         type="date"
-                        size="small"
                         value={dose.date}
                         onChange={(e) => handleDoseChange(index, 'date', e.target.value)}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                        sx={{ width: 150 }}
+                        style={{ width: '100%', padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 12 }}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
+                    </td>
+                    <td style={{ padding: '10px 12px', border: '1px solid #e5e7eb' }}>
+                      <input
+                        type="text"
                         value={dose.given_by}
                         onChange={(e) => handleDoseChange(index, 'given_by', e.target.value)}
-                        placeholder="Name"
-                        sx={{ width: 180 }}
+                        style={{ width: '100%', padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 12 }}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
+                    </td>
+                    <td style={{ padding: '10px 12px', border: '1px solid #e5e7eb' }}>
+                      <input
+                        type="text"
                         value={dose.signature}
                         onChange={(e) => handleDoseChange(index, 'signature', e.target.value)}
-                        placeholder="Signature"
-                        sx={{ width: 150 }}
+                        style={{ width: '100%', padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 12 }}
                       />
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-          <Alert severity="info" icon={false} sx={{ mt: 2, fontSize: 12 }}>
-            <strong>Route:</strong> ID = Intradermal, IM = Intramuscular
-            <br />
-            <strong>Note:</strong> Fill only the doses that have been administered. Leave future doses
-            blank.
-          </Alert>
-        </Box>
-
-        {/* ─── SECTION: Additional Medications ─── */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: 15, mb: 2, color: '#1e40af' }}>
-            Additional Medications
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={additionalMeds.erig}
-                    onChange={(e) =>
-                      setAdditionalMeds((prev) => ({ ...prev, erig: e.target.checked }))
-                    }
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography sx={{ fontWeight: 600, fontSize: 13 }}>ERIG</Typography>
-                    <Typography sx={{ fontSize: 11, color: '#6b7280' }}>
-                      Equine Rabies Immunoglobulin
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={additionalMeds.tt}
-                    onChange={(e) =>
-                      setAdditionalMeds((prev) => ({ ...prev, tt: e.target.checked }))
-                    }
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography sx={{ fontWeight: 600, fontSize: 13 }}>TT</Typography>
-                    <Typography sx={{ fontSize: 11, color: '#6b7280' }}>
-                      Tetanus Toxoid
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={additionalMeds.ats}
-                    onChange={(e) =>
-                      setAdditionalMeds((prev) => ({ ...prev, ats: e.target.checked }))
-                    }
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography sx={{ fontWeight: 600, fontSize: 13 }}>ATS</Typography>
-                    <Typography sx={{ fontSize: 11, color: '#6b7280' }}>
-                      Anti-Tetanus Serum
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-          </Grid>
-        </Box>
-
-        {/* ─── SECTION: Diagnosis ─── */}
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: 15, mb: 2, color: '#1e40af' }}>
-            Diagnosis
-          </Typography>
-          <TextField
-            fullWidth
-            size="small"
-            label="ICD 10 Code"
-            value={icdCode}
-            onChange={(e) => setIcdCode(e.target.value)}
-            placeholder="e.g., W54.0"
-            helperText="International Classification of Diseases code for the diagnosis"
-          />
-        </Box>
-      </DialogContent>
-
-      <Divider />
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} disabled={loading} startIcon={<CloseIcon />}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={16} /> : <SaveIcon />}
-          sx={{ bgcolor: '#1e40af', '&:hover': { bgcolor: '#1e3a8a' } }}
-        >
-          Save Form 3
-        </Button>
-      </DialogActions>
-    </Dialog>
+        {/* SECTION 4: ADDITIONAL MEDICATIONS & ICD CODE */}
+        <div style={{ marginTop: 32, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+          <div>
+            <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>
+              Additional Medications
+            </h3>
+            <div style={{ display: 'flex', gap: 24 }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={additionalMeds.erig}
+                  onChange={(e) => setAdditionalMeds(prev => ({ ...prev, erig: e.target.checked }))}
+                  style={{ marginRight: 8 }}
+                />
+                <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>ERIG</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={additionalMeds.tt}
+                  onChange={(e) => setAdditionalMeds(prev => ({ ...prev, tt: e.target.checked }))}
+                  style={{ marginRight: 8 }}
+                />
+                <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>TT</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={additionalMeds.ats}
+                  onChange={(e) => setAdditionalMeds(prev => ({ ...prev, ats: e.target.checked }))}
+                  style={{ marginRight: 8 }}
+                />
+                <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>ATS</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+              ICD 10 Code
+            </label>
+            <input
+              type="text"
+              value={icdCode}
+              onChange={(e) => setIcdCode(e.target.value)}
+              placeholder="e.g., W54.0"
+              style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }}
+            />
+          </div>
+        </div>
+      </div>
+    </FormModal>
   );
 }

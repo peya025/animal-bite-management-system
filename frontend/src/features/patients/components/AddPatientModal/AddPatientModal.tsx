@@ -2,45 +2,152 @@ import { useState, useEffect } from 'react';
 import FormModal from '../../../../components/forms/FormModal';
 import { PatientFormContent } from './AddPatientModal.styles';
 
-// ── PSGC ─────────────────────────────────────────────────────
+// ── PSGC Address Data & Guaranteed Misamis Oriental Fallbacks ──
 const PSGC = 'https://psgc.gitlab.io/api';
 interface PsgcItem { code: string; name: string; }
-const MIS_OR = '124900000';
+const MIS_OR = '104300000';
+
+const MISAMIS_ORIENTAL_MUNICIPALITIES: PsgcItem[] = [
+  { code: '104301000', name: 'Alubijid' },
+  { code: '104302000', name: 'Balingasag' },
+  { code: '104303000', name: 'Balingoan' },
+  { code: '104304000', name: 'Binuangan' },
+  { code: '104305000', name: 'City of Cagayan De Oro' },
+  { code: '104306000', name: 'Claveria' },
+  { code: '104307000', name: 'City of El Salvador' },
+  { code: '104308000', name: 'City of Gingoog' },
+  { code: '104309000', name: 'Gitagum' },
+  { code: '104310000', name: 'Initao' },
+  { code: '104311000', name: 'Jasaan' },
+  { code: '104312000', name: 'Kinoguitan' },
+  { code: '104313000', name: 'Lagonglong' },
+  { code: '104314000', name: 'Laguindingan' },
+  { code: '104315000', name: 'Libertad' },
+  { code: '104316000', name: 'Lugait' },
+  { code: '104317000', name: 'Magsaysay' },
+  { code: '104318000', name: 'Manticao' },
+  { code: '104319000', name: 'Medina' },
+  { code: '104320000', name: 'Naawan' },
+  { code: '104321000', name: 'Opol' },
+  { code: '104322000', name: 'Salay' },
+  { code: '104323000', name: 'Sugbongcogon' },
+  { code: '104324000', name: 'Tagoloan' },
+  { code: '104325000', name: 'Talisayan' },
+  { code: '104326000', name: 'Villanueva' },
+];
+
+const FALLBACK_BARANGAYS: Record<string, PsgcItem[]> = {
+  '104324000': [ // Tagoloan
+    { code: '104324001', name: 'Baluarte' },
+    { code: '104324002', name: 'Casinglot' },
+    { code: '104324003', name: 'Gracia' },
+    { code: '104324004', name: 'Mohon' },
+    { code: '104324005', name: 'Natumolan' },
+    { code: '104324006', name: 'Poblacion' },
+    { code: '104324007', name: 'Rosario' },
+    { code: '104324008', name: 'Santa Ana' },
+    { code: '104324009', name: 'Santa Cruz' },
+    { code: '104324010', name: 'Sugbongcogon' },
+  ],
+  '104326000': [ // Villanueva
+    { code: '104326001', name: 'Balacanas' },
+    { code: '104326003', name: 'Dayawan' },
+    { code: '104326004', name: 'Katipunan' },
+    { code: '104326005', name: 'Kimaya' },
+    { code: '104326007', name: 'Poblacion 1' },
+    { code: '104326008', name: 'San Martin' },
+    { code: '104326009', name: 'Tambobong' },
+    { code: '104326010', name: 'Imelda' },
+    { code: '104326011', name: 'Looc' },
+    { code: '104326012', name: 'Poblacion 2' },
+    { code: '104326013', name: 'Poblacion 3' },
+  ],
+};
 
 function useAddressLocation() {
   const [municipality, setMunicipality] = useState('');
   const [barangay, setBarangay]         = useState('');
   const [purok, setPurok]               = useState('');
-  const [municipalities, setMunicipalities] = useState<PsgcItem[]>([]);
+  const [municipalities, setMunicipalities] = useState<PsgcItem[]>(MISAMIS_ORIENTAL_MUNICIPALITIES);
   const [barangays, setBarangays]           = useState<PsgcItem[]>([]);
   const [loadingMun, setLoadingMun]   = useState(false);
   const [loadingBrgy, setLoadingBrgy] = useState(false);
+  const [apiError, setApiError]       = useState(false);
+  const [useManual, setUseManual]     = useState(false);
+  const [manualMun, setManualMun]     = useState('');
+  const [manualBrgy, setManualBrgy]   = useState('');
 
   useEffect(() => {
     setLoadingMun(true);
-    fetch(`${PSGC}/provinces/${MIS_OR}/cities-municipalities/`)
-      .then(r => r.json())
-      .then((d: PsgcItem[]) => setMunicipalities(d.sort((a, b) => a.name.localeCompare(b.name))))
-      .catch(() => setMunicipalities([]))
-      .finally(() => setLoadingMun(false));
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000); // 3s timeout
+
+    fetch(`${PSGC}/provinces/${MIS_OR}/cities-municipalities/`, { signal: controller.signal })
+      .then(r => {
+        if (!r.ok) throw new Error('API failed');
+        return r.json();
+      })
+      .then((d: PsgcItem[]) => {
+        if (Array.isArray(d) && d.length > 0) {
+          setMunicipalities(d.sort((a, b) => a.name.localeCompare(b.name)));
+          setApiError(false);
+        }
+      })
+      .catch(() => {
+        setApiError(true);
+        // Retain MISAMIS_ORIENTAL_MUNICIPALITIES fallback
+        setMunicipalities(MISAMIS_ORIENTAL_MUNICIPALITIES);
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        setLoadingMun(false);
+      });
   }, []);
 
   useEffect(() => {
-    if (!municipality) { setBarangays([]); setBarangay(''); return; }
+    if (!municipality || useManual) {
+      setBarangays([]);
+      setBarangay('');
+      return;
+    }
     setLoadingBrgy(true);
-    fetch(`${PSGC}/cities-municipalities/${municipality}/barangays/`)
-      .then(r => r.json())
-      .then((d: PsgcItem[]) => { setBarangays(d.sort((a, b) => a.name.localeCompare(b.name))); setBarangay(''); })
-      .catch(() => setBarangays([]))
-      .finally(() => setLoadingBrgy(false));
-  }, [municipality]);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000); // 3s timeout
 
-  const munName  = municipalities.find(m => m.code === municipality)?.name || '';
-  const brgyName = barangays.find(b => b.code === barangay)?.name || '';
+    fetch(`${PSGC}/cities-municipalities/${municipality}/barangays/`, { signal: controller.signal })
+      .then(r => {
+        if (!r.ok) throw new Error('API failed');
+        return r.json();
+      })
+      .then((d: PsgcItem[]) => { 
+        if (Array.isArray(d) && d.length > 0) {
+          setBarangays(d.sort((a, b) => a.name.localeCompare(b.name))); 
+        } else {
+          throw new Error('Empty barangay response');
+        }
+        setBarangay(''); 
+      })
+      .catch(() => {
+        // Fallback to offline barangays if available
+        const fallbacks = FALLBACK_BARANGAYS[municipality] || [];
+        setBarangays(fallbacks);
+        setBarangay('');
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        setLoadingBrgy(false);
+      });
+  }, [municipality, useManual]);
+
+  const munName  = useManual ? manualMun : (municipalities.find(m => m.code === municipality)?.name || '');
+  const brgyName = useManual ? manualBrgy : (barangays.find(b => b.code === barangay)?.name || '');
   const full     = [purok, brgyName, munName, 'Misamis Oriental'].filter(Boolean).join(', ');
 
-  return { municipality, setMunicipality, barangay, setBarangay, purok, setPurok,
-           municipalities, barangays, loadingMun, loadingBrgy, munName, brgyName, full };
+  return { 
+    municipality, setMunicipality, barangay, setBarangay, purok, setPurok,
+    municipalities, barangays, loadingMun, loadingBrgy, munName, brgyName, full,
+    apiError, useManual, setUseManual, manualMun, setManualMun, manualBrgy, setManualBrgy
+  };
 }
 
 // ── Field helper ─────────────────────────────────────────────
@@ -86,14 +193,11 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
   // Read role from localStorage directly as the authoritative source
   const _userData = localStorage.getItem('userData');
   const localRole = _userData ? (JSON.parse(_userData)?.role ?? '') : '';
-  const role = roleProp || localRole;
+  const activeRole = roleProp || localRole;
 
-  const defaultTab: 'enrolment' | 'treatment' | 'card' =
-    role === 'triage' ? 'treatment' :
-    role === 'treatment' ? 'card' :
-    'enrolment';
-
-  const [tab, setTab]             = useState<'enrolment'|'treatment'|'card'>(defaultTab);
+  const [tab, setTab]             = useState<'enrolment'|'treatment'|'card'>(
+    activeRole === 'triage' ? 'treatment' : activeRole === 'treatment' ? 'card' : 'enrolment'
+  );
   const [enrolment, setEnrolment] = useState(E0);
   const [treatment, setTreatment] = useState(T0);
   const [cardState, setCardState] = useState({
@@ -128,32 +232,57 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
     }));
 
   const handleSubmit = async () => {
-    if (tab === 'enrolment') {
-      if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
-        setError('Please fill in all required fields (name, DOB, sex).');
+    // Only validate Form 1 fields (Patient Enrolment)
+    if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
+      setError('Please fill in all required fields (Last Name, First Name, Date of Birth, Sex).');
+      return;
+    }
+    
+    // Validate address based on entry mode
+    if (loc.useManual) {
+      if (!loc.manualMun || !loc.manualBrgy) {
+        setError('Please enter Municipality and Barangay.');
+        return;
+      }
+    } else {
+      if (!loc.municipality || !loc.barangay) {
+        setError('Please select Municipality and Barangay.');
         return;
       }
     }
+
     setError(''); setSaving(true);
     try {
       const token = localStorage.getItem('authToken');
+      
+      // Only send Form 1 data (Patient Enrolment)
+      const payload = {
+        ...enrolment,
+        gender: enrolment.sex,
+        address: loc.full,
+        address_municipality: loc.munName,
+        address_barangay: loc.brgyName,
+        address_purok: loc.purok,
+        province: 'Misamis Oriental',
+        phone: enrolment.contact_number,
+        emergency_contact_phone: enrolment.emergency_contact_phone,
+      };
+
       const res = await fetch('http://localhost:8000/api/patients', {
         method: 'POST',
-        headers: { Authorization:`Bearer ${token}`, 'Content-Type':'application/json', Accept:'application/json' },
-        body: JSON.stringify({
-          ...enrolment,
-          gender: enrolment.sex,
-          address: loc.full,
-          address_municipality: loc.munName,
-          address_barangay: loc.brgyName,
-          address_purok: loc.purok,
-          province: 'Misamis Oriental',
-          phone: enrolment.contact_number,
-          treatment_record: treatment,
-          tagoloan_card: cardState,
-        }),
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          'Content-Type': 'application/json', 
+          Accept: 'application/json' 
+        },
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) { const j = await res.json(); throw new Error(j.message || 'Failed to save.'); }
+      
+      if (!res.ok) { 
+        const j = await res.json(); 
+        throw new Error(j.message || 'Failed to save patient.'); 
+      }
+      
       onSuccess();
     } catch (e: any) {
       setError(e.message || 'Failed to save patient.');
@@ -164,12 +293,8 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
 
   return (
     <FormModal
-      title="Patient Record"
-      subtitle={
-        tab === 'enrolment' ? 'Form 1 — Patient Enrolment' :
-        tab === 'treatment' ? 'Form 2 — Individual Treatment Record' :
-        'Form 3 — Period Exposure Vaccination Record Card (Tagoloan RHU)'
-      }
+      title="Patient Registration"
+      subtitle="Form 1 — Patient Enrolment"
       onClose={onClose}
       maxWidth={850}
       footer={
@@ -183,22 +308,36 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
       }
     >
       <PatientFormContent>
-      {/* 3-Form Tabs Bar — Accessible to Registration, Triage Doctor, Treatment Nurse, and Admin */}
-      <div className="apm-tabs" style={{ display: 'flex', gap: '0.25rem', borderBottom: '2px solid #e2e8f0', marginBottom: '1.25rem' }}>
-        <button className={`apm-tab ${tab==='enrolment'?'apm-tab--active':''}`} onClick={()=>setTab('enrolment')} style={{ flex: 1, padding: '0.6rem 0.5rem', fontWeight: 600, fontSize: '0.85rem' }}>
-          Form 1 — Patient Enrolment
-        </button>
-        <button className={`apm-tab ${tab==='treatment'?'apm-tab--active':''}`} onClick={()=>setTab('treatment')} style={{ flex: 1, padding: '0.6rem 0.5rem', fontWeight: 600, fontSize: '0.85rem' }}>
-          Form 2 — Individual Treatment
-        </button>
-        <button className={`apm-tab ${tab==='card'?'apm-tab--active':''}`} onClick={()=>setTab('card')} style={{ flex: 1, padding: '0.6rem 0.5rem', fontWeight: 600, fontSize: '0.85rem' }}>
-          Form 3 — Period Exposure Card
-        </button>
-      </div>
+        {/* ════ FORM TAB SWITCHER ════ */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px' }}>
+          {[
+            { id: 'enrolment', label: 'Form 1 — Patient Enrolment' },
+            { id: 'treatment', label: 'Form 2 — Individual Treatment' },
+            { id: 'card',      label: 'Form 3 — Period Exposure Card' },
+          ].map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id as any)}
+              style={{
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 600,
+                borderRadius: '6px',
+                border: 'none',
+                background: tab === t.id ? '#17653a' : '#f1f5f9',
+                color: tab === t.id ? '#ffffff' : '#475569',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-      {/* ════ FORM 1 ════ */}
-      {tab === 'enrolment' && (
-        <>
+        {tab === 'enrolment' && (
+          <>
           <div className="fm-section">
             <p className="fm-section-title">I. Patient Information</p>
 
@@ -263,24 +402,87 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
 
           {/* Address — Misamis Oriental */}
           <div className="fm-section">
-            <p className="fm-section-title">Residential Address — Misamis Oriental (Tirahan)</p>
-            <div className="fm-grid fm-grid--3" style={{marginBottom:12}}>
-              <Field label="City / Municipality" required>
-                <select className="fm-select" value={loc.municipality} onChange={e=>loc.setMunicipality(e.target.value)} disabled={loc.loadingMun}>
-                  <option value="">{loc.loadingMun ? 'Loading…' : '— Select —'}</option>
-                  {loc.municipalities.map(m=><option key={m.code} value={m.code}>{m.name}</option>)}
-                </select>
-              </Field>
-              <Field label="Barangay" required>
-                <select className="fm-select" value={loc.barangay} onChange={e=>loc.setBarangay(e.target.value)} disabled={!loc.municipality||loc.loadingBrgy}>
-                  <option value="">{loc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
-                  {loc.barangays.map(b=><option key={b.code} value={b.code}>{b.name}</option>)}
-                </select>
-              </Field>
-              <Field label="Purok / Zone / Street">
-                <input className="fm-input" value={loc.purok} onChange={e=>loc.setPurok(e.target.value)} placeholder="e.g. Purok 3, Zone 1" disabled={!loc.barangay} />
-              </Field>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <p className="fm-section-title" style={{ margin: 0 }}>Residential Address — Misamis Oriental (Tirahan)</p>
+              <button 
+                type="button"
+                onClick={() => loc.setUseManual(!loc.useManual)}
+                style={{
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  background: loc.useManual ? '#17653a' : '#f1f5f9',
+                  color: loc.useManual ? '#fff' : '#334155',
+                  border: loc.useManual ? 'none' : '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                {loc.useManual ? '✓ Switch to Dropdown' : '✏️ Switch to Manual Typing'}
+              </button>
             </div>
+
+            {loc.apiError && !loc.useManual && (
+              <div style={{
+                padding: '10px 14px',
+                background: '#fef3c7',
+                border: '1px solid #f59e0b',
+                borderRadius: '8px',
+                marginBottom: '12px',
+                fontSize: '13px',
+                color: '#92400e'
+              }}>
+                <strong>⚠️ Address API unavailable.</strong> Click "Use Manual Entry" to type addresses manually.
+              </div>
+            )}
+
+            {!loc.useManual ? (
+              <div className="fm-grid fm-grid--3" style={{marginBottom:12}}>
+                <Field label="City / Municipality" required>
+                  <select className="fm-select" value={loc.municipality} onChange={e=>loc.setMunicipality(e.target.value)} disabled={loc.loadingMun}>
+                    <option value="">{loc.loadingMun ? 'Loading…' : '— Select —'}</option>
+                    {loc.municipalities.map(m=><option key={m.code} value={m.code}>{m.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Barangay" required>
+                  <select className="fm-select" value={loc.barangay} onChange={e=>loc.setBarangay(e.target.value)} disabled={!loc.municipality||loc.loadingBrgy}>
+                    <option value="">{loc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
+                    {loc.barangays.map(b=><option key={b.code} value={b.code}>{b.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Purok / Zone / Street">
+                  <input className="fm-input" value={loc.purok} onChange={e=>loc.setPurok(e.target.value)} placeholder="e.g. Purok 3, Zone 1" disabled={!loc.barangay} />
+                </Field>
+              </div>
+            ) : (
+              <div className="fm-grid fm-grid--3" style={{marginBottom:12}}>
+                <Field label="City / Municipality" required>
+                  <input 
+                    className="fm-input" 
+                    value={loc.manualMun} 
+                    onChange={e=>loc.setManualMun(e.target.value)} 
+                    placeholder="e.g. Tagoloan" 
+                  />
+                </Field>
+                <Field label="Barangay" required>
+                  <input 
+                    className="fm-input" 
+                    value={loc.manualBrgy} 
+                    onChange={e=>loc.setManualBrgy(e.target.value)} 
+                    placeholder="e.g. Poblacion" 
+                  />
+                </Field>
+                <Field label="Purok / Zone / Street">
+                  <input 
+                    className="fm-input" 
+                    value={loc.purok} 
+                    onChange={e=>loc.setPurok(e.target.value)} 
+                    placeholder="e.g. Purok 3, Zone 1" 
+                  />
+                </Field>
+              </div>
+            )}
+
             {loc.full && (
               <div className="apm-address-preview">
                 <strong>Full address:</strong> {loc.full}
@@ -561,8 +763,7 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
         </>
       )}
 
-      {/* ════ FORM 3 ════ */}
-      {tab === 'card' && (
+      {false && tab === 'card' && (
         <>
           <div className="fm-section">
             <p className="fm-section-title">TAGOLOAN ANIMAL BITE TREATMENT CENTER — Period Exposure Record</p>

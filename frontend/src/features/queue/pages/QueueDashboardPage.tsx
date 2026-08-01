@@ -24,6 +24,9 @@ import StatCard from '../../../components/common/StatCard';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
+import QueueActions from '../components/QueueActions';
+import IndividualTreatmentForm from '../../bite-cases/components/IndividualTreatmentForm';
+import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 
 // ─── Types ────────────────────────────────────────────────────
 interface QueueEntry {
@@ -170,6 +173,13 @@ export default function QueueDashboard() {
   const [cancelTarget,   setCancelTarget]   = useState<QueueEntry | null>(null);
   const [completeTarget, setCompleteTarget] = useState<QueueEntry | null>(null);
 
+  // Form modals
+  const [form2Target, setForm2Target] = useState<QueueEntry | null>(null);
+  const [form3Target, setForm3Target] = useState<QueueEntry | null>(null);
+
+  // Get current user role
+  const [userRole, setUserRole] = useState<string>('');
+
   const [snackbar, setSnackbar] = useState<{
     open: boolean; message: string; severity: 'success' | 'error';
   }>({ open: false, message: '', severity: 'success' });
@@ -201,6 +211,15 @@ export default function QueueDashboard() {
     return () => clearInterval(id);
   }, [loadData]);
 
+  // Load user role on mount
+  useEffect(() => {
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      const user = JSON.parse(userData);
+      setUserRole(user.role || '');
+    }
+  }, []);
+
   const handleCall = async (entry: QueueEntry) => {
     try {
       await api.post(`/queue/${entry.queue_id}/call`);
@@ -215,6 +234,16 @@ export default function QueueDashboard() {
       toast(`Cancelled #${entry.queue_number}`);
       loadData();
     } catch { toast('Failed to cancel queue entry', 'error'); }
+  };
+
+  const handleForm2Save = () => {
+    toast('Treatment record saved successfully');
+    loadData();
+  };
+
+  const handleForm3Save = () => {
+    toast('Vaccination record saved successfully');
+    loadData();
   };
 
   // client-side filter + pagination
@@ -315,7 +344,18 @@ export default function QueueDashboard() {
       },
     },
     {
-      key: 'actions', header: 'ACTIONS', align: 'right',
+      key: 'clinical_actions', header: 'CLINICAL FORMS', align: 'right',
+      render: entry => (
+        <QueueActions
+          entry={entry}
+          userRole={userRole}
+          onEditForm2={(e) => setForm2Target(e)}
+          onEditForm3={(e) => setForm3Target(e)}
+        />
+      ),
+    },
+    {
+      key: 'queue_actions', header: 'QUEUE ACTIONS', align: 'right',
       render: entry => {
         const isWaiting = entry.status === 'waiting';
         const isConsult = entry.status === 'in_consultation';
@@ -606,6 +646,21 @@ export default function QueueDashboard() {
         entry={completeTarget}
         onClose={() => setCompleteTarget(null)}
         onDone={() => { loadData(); toast('Consultation completed'); }}
+      />
+
+      {/* ── Form Modals ── */}
+      <IndividualTreatmentForm
+        open={!!form2Target}
+        entry={form2Target}
+        onClose={() => setForm2Target(null)}
+        onSave={handleForm2Save}
+      />
+
+      <VaccinationRecordForm
+        open={!!form3Target}
+        entry={form3Target}
+        onClose={() => setForm3Target(null)}
+        onSave={handleForm3Save}
       />
 
       {/* ── Snackbar ── */}

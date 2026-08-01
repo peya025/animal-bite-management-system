@@ -59,11 +59,11 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { label: 'Dashboard',                            path: ROUTES.DASHBOARD,                roles: ['developer', 'admin', 'registration', 'triage', 'treatment'] },
-  { label: 'Patient Registration (Form 1)',         path: ROUTES.PATIENTS.LIST,            roles: ['registration', 'admin'] },
+  { label: 'Patient Registration (Form 1)',        path: ROUTES.PATIENTS.LIST,            roles: ['registration', 'admin'] },
   { label: 'Patient Queue',                        path: ROUTES.QUEUE.DASHBOARD,          roles: ['registration', 'triage', 'treatment', 'admin'] },
-  { label: 'Bite Incident Intake',                 path: ROUTES.BITE_CASES.LIST,          roles: ['triage', 'admin'] },
-  { label: 'Individual Treatment (Form 2)',        path: ROUTES.TREATMENT_RECORDS.LIST,   roles: ['treatment', 'triage', 'admin'] },
-  { label: 'Vaccination Schedule (Form 3)',        path: ROUTES.VACCINATIONS.LIST,        roles: ['treatment', 'admin'] },
+  { label: 'Bite Cases (Summary)',                 path: ROUTES.BITE_CASES.LIST,          roles: ['registration', 'triage', 'treatment', 'admin'] },
+  { label: 'Individual Treatment (Form 2)',        path: ROUTES.TREATMENT_RECORDS.LIST,   roles: ['triage', 'admin'] },
+  { label: 'Vaccination Record (Form 3)',          path: ROUTES.VACCINATIONS.LIST,        roles: ['treatment', 'admin'] },
   { label: 'Vaccine Inventory',                    path: ROUTES.INVENTORY.LIST,           roles: ['treatment', 'admin'] },
   { label: 'Reports & Analytics',                  path: ROUTES.REPORTS.LIST,             roles: ['registration', 'triage', 'treatment', 'admin'] },
   { label: 'User Management',                      path: ROUTES.USERS.LIST,               roles: ['admin'] },

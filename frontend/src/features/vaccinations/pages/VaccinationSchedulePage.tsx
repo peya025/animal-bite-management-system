@@ -35,6 +35,7 @@ import type { Column } from '../../../components/ui/DataTable';
 import TablePager from '../../../components/data-display/TablePager';
 import AppButton from '../../../components/button';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import TagoloanTreatmentCardModal from '../components/TagoloanTreatmentCardModal';
 
 type Status = 'scheduled' | 'completed' | 'missed' | 'rescheduled' | 'cancelled';
 interface Vaccination {
@@ -83,6 +84,10 @@ export default function VaccinationSchedulePage() {
 
   // Missed modal
   const [missTarget, setMissTarget] = useState<Vaccination | null>(null);
+
+  // Tagoloan Card modal
+  const [cardPatientId, setCardPatientId] = useState<number | null>(null);
+  const [cardModalOpen, setCardModalOpen] = useState(false);
 
   // Record new vaccination modal
   const [recordModalOpen, setRecordModalOpen] = useState(false);
@@ -237,28 +242,45 @@ export default function VaccinationSchedulePage() {
       key: 'actions',
       label: 'Actions',
       align: 'right',
-      render: (r) =>
-        r.status === 'scheduled' && canAdminister ? (
-          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-            <AppButton
-              style={{ minHeight: 30, padding: '5px 10px' }}
-              onClick={() => setSelected(r)}
-            >
-              Administer
-            </AppButton>
-            <AppButton
-              variant="danger"
-              style={{ minHeight: 30, padding: '5px 10px' }}
-              onClick={() => setMissTarget(r)}
-            >
-              Missed
-            </AppButton>
-          </Stack>
-        ) : (
-          <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
-            {r.vaccine_brand || '—'}
-          </Typography>
-        ),
+      render: (r) => (
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+          <button
+            style={{
+              background: '#e8f5ed',
+              color: '#17653a',
+              border: '1px solid #d7ebdf',
+              borderRadius: '6px',
+              padding: '4px 8px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            onClick={() => {
+              setCardPatientId(r.patient?.patient_id || r.patient_id);
+              setCardModalOpen(true);
+            }}
+          >
+            📋 Tagoloan Card
+          </button>
+          {r.status === 'scheduled' && canAdminister && (
+            <>
+              <AppButton
+                style={{ minHeight: 30, padding: '5px 10px' }}
+                onClick={() => setSelected(r)}
+              >
+                Administer
+              </AppButton>
+              <AppButton
+                variant="danger"
+                style={{ minHeight: 30, padding: '5px 10px' }}
+                onClick={() => setMissTarget(r)}
+              >
+                Missed
+              </AppButton>
+            </>
+          )}
+        </Stack>
+      ),
     },
   ];
 
@@ -568,6 +590,12 @@ export default function VaccinationSchedulePage() {
           {notice}
         </Alert>
       </Snackbar>
+      {/* Tagoloan Official Treatment Card Modal */}
+      <TagoloanTreatmentCardModal
+        open={cardModalOpen}
+        onClose={() => setCardModalOpen(false)}
+        patientId={cardPatientId}
+      />
     </Box>
   );
 }

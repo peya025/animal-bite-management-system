@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './features/auth/pages/LoginPage';
@@ -8,6 +8,7 @@ import PatientList from './features/patients/pages/PatientListPage';
 import VaccineInventory from './features/inventory/pages/VaccineInventoryPage';
 import QueueDashboard from './features/queue/pages/QueueDashboardPage';
 import BiteCaseRiskDashboard from './features/bite-cases/pages/BiteCaseRiskDashboard';
+import BiteCaseListPage from './features/bite-cases/pages/BiteCaseListPage';
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
 import ModuleConfigPage from './features/clinic-setup/pages/ModuleConfigPage';
 import StaffAssignmentPage from './features/clinic-setup/pages/StaffAssignmentPage';
@@ -57,18 +58,18 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard',    path: ROUTES.DASHBOARD,         roles: ['developer','admin','registration','triage','treatment'] },
-  { label: 'Patients',     path: ROUTES.PATIENTS.LIST,     roles: ['registration','triage','treatment'] },
-  { label: 'Queue',        path: ROUTES.QUEUE.DASHBOARD,   roles: ['registration','triage'] },
-  { label: 'Bite Cases',   path: ROUTES.BITE_CASES.LIST,   roles: ['admin','triage','treatment'] },
-  { label: 'Vaccinations', path: ROUTES.VACCINATIONS.LIST, roles: ['admin','triage','treatment'] },
-  { label: 'Inventory',    path: ROUTES.INVENTORY.LIST,    roles: ['admin'] },
-  { label: 'Reports',      path: ROUTES.REPORTS.LIST,      roles: ['admin', 'triage'] },
-  { label: 'Treatment Records', path: ROUTES.TREATMENT_RECORDS.LIST, roles: ['treatment', 'triage'] },
-  { label: 'Users',        path: ROUTES.USERS.LIST,        roles: ['admin'] },
-  { label: 'Staff Activity', path: ROUTES.AUDIT.ACTIVITY,  roles: ['admin'] },
-  { label: 'Developer Settings', path: ROUTES.DEVELOPER_SETTINGS, roles: ['developer','admin'] },
-  { label: 'Database Explorer', path: ROUTES.DATABASE_EXPLORER, roles: ['developer'] },
+  { label: 'Dashboard',                            path: ROUTES.DASHBOARD,                roles: ['developer', 'admin', 'registration', 'triage', 'treatment'] },
+  { label: 'Patient Registration (Form 1)',         path: ROUTES.PATIENTS.LIST,            roles: ['registration', 'admin'] },
+  { label: 'Patient Queue',                        path: ROUTES.QUEUE.DASHBOARD,          roles: ['registration', 'triage', 'treatment', 'admin'] },
+  { label: 'Bite Incident Intake',                 path: ROUTES.BITE_CASES.LIST,          roles: ['triage', 'admin'] },
+  { label: 'Individual Treatment (Form 2)',        path: ROUTES.TREATMENT_RECORDS.LIST,   roles: ['treatment', 'triage', 'admin'] },
+  { label: 'Vaccination Schedule (Form 3)',        path: ROUTES.VACCINATIONS.LIST,        roles: ['treatment', 'admin'] },
+  { label: 'Vaccine Inventory',                    path: ROUTES.INVENTORY.LIST,           roles: ['treatment', 'admin'] },
+  { label: 'Reports & Analytics',                  path: ROUTES.REPORTS.LIST,             roles: ['registration', 'triage', 'treatment', 'admin'] },
+  { label: 'User Management',                      path: ROUTES.USERS.LIST,               roles: ['admin'] },
+  { label: 'Staff Activity Monitor',               path: ROUTES.AUDIT.ACTIVITY,           roles: ['admin'] },
+  { label: 'Developer Settings',                   path: ROUTES.DEVELOPER_SETTINGS,        roles: ['developer', 'admin'] },
+  { label: 'Database Explorer',                    path: ROUTES.DATABASE_EXPLORER,        roles: ['developer'] },
   { 
     label: 'Clinic Setup',
     roles: ['admin'],
@@ -871,13 +872,14 @@ function App() {
             <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
             <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
             <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
-            <Route path="/bite-cases" element={<ProtectedRoute><AppLayout title="Bite Cases"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
-            <Route path="/vaccinations" element={<ProtectedRoute><AppLayout title="Vaccinations"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
+            <Route path="/bite-cases" element={<ProtectedRoute><AppLayout title="Bite Cases & Risk Surveillance"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
+            <Route path="/bite-intakes" element={<ProtectedRoute><AppLayout title="Bite Incident Intakes"><BiteCaseListPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/vaccinations" element={<ProtectedRoute><AppLayout title="Vaccination Schedule (Form 3)"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
             <Route path="/vaccinations/record" element={<ProtectedRoute><AppLayout title="Record Vaccination"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><AppLayout title="User Management"><UserListPage /></AppLayout></ProtectedRoute>} />
             <Route path="/staff-activity" element={<ProtectedRoute><AppLayout title="Staff Activity Monitor"><StaffActivityPage /></AppLayout></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><AppLayout title="Reports &amp; Analytics"><ReportsDashboardPage /></AppLayout></ProtectedRoute>} />
-            <Route path="/treatment-records" element={<ProtectedRoute><AppLayout title="Treatment Records"><TreatmentRecordsPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/treatment-records" element={<ProtectedRoute><AppLayout title="Individual Treatment Record (Form 2)"><TreatmentRecordsPage /></AppLayout></ProtectedRoute>} />
             <Route path="/users/create" element={<ProtectedRoute><AppLayout title="Add User"><UserCreatePage /></AppLayout></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><AppLayout title="My Profile"><UserProfilePage /></AppLayout></ProtectedRoute>} />
             <Route path="/developer/landing-settings" element={<ProtectedRoute><AppLayout title="Developer Landing Settings"><DeveloperLandingSettingsPage /></AppLayout></ProtectedRoute>} />

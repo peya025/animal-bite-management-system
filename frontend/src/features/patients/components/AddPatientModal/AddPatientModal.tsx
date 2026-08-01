@@ -88,17 +88,25 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
   const localRole = _userData ? (JSON.parse(_userData)?.role ?? '') : '';
   const role = roleProp || localRole;
 
-  // Determine which tabs this role can see
-  // registration → form 1 only | triage/treatment → form 2 only | admin/others → both
-  const canSeeForm1 = !role || role === 'registration' || role === 'admin';
-  const canSeeForm2 = role === 'triage' || role === 'treatment' || role === 'admin';
+  const defaultTab: 'enrolment' | 'treatment' | 'card' =
+    role === 'triage' ? 'treatment' :
+    role === 'treatment' ? 'card' :
+    'enrolment';
 
-  const defaultTab: 'enrolment' | 'treatment' =
-    (role === 'triage' || role === 'treatment') ? 'treatment' : 'enrolment';
-
-  const [tab, setTab]             = useState<'enrolment'|'treatment'>(defaultTab);
+  const [tab, setTab]             = useState<'enrolment'|'treatment'|'card'>(defaultTab);
   const [enrolment, setEnrolment] = useState(E0);
   const [treatment, setTreatment] = useState(T0);
+  const [cardState, setCardState] = useState({
+    exposureCategory: 'II',
+    modeOfExposure: 'transdermal_bite',
+    bodyPartExposed: 'other_parts',
+    animalType: 'Dog',
+    animalTypeOthers: '',
+    pastBiteHistory: false,
+    pastBiteDates: '',
+    pastPepCompleted: false,
+    icd10Code: 'Z20.3',
+  });
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
   const loc = useAddressLocation();
@@ -120,11 +128,9 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
     }));
 
   const handleSubmit = async () => {
-    // Only validate Form 1 required fields if the user can see Form 1
-    if (canSeeForm1) {
+    if (tab === 'enrolment') {
       if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
         setError('Please fill in all required fields (name, DOB, sex).');
-        setTab('enrolment');
         return;
       }
     }
@@ -144,6 +150,7 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
           province: 'Misamis Oriental',
           phone: enrolment.contact_number,
           treatment_record: treatment,
+          tagoloan_card: cardState,
         }),
       });
       if (!res.ok) { const j = await res.json(); throw new Error(j.message || 'Failed to save.'); }
@@ -159,37 +166,38 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
     <FormModal
       title="Patient Record"
       subtitle={
-        role === 'registration' ? 'Form 1 — Patient Enrolment' :
-        (role === 'triage' || role === 'treatment') ? 'Form 2 — Individual Treatment Record' :
-        'Integrated Clinic Information System (iCLINICSYS)'
+        tab === 'enrolment' ? 'Form 1 — Patient Enrolment' :
+        tab === 'treatment' ? 'Form 2 — Individual Treatment Record' :
+        'Form 3 — Period Exposure Vaccination Record Card (Tagoloan RHU)'
       }
       onClose={onClose}
-      maxWidth={800}
+      maxWidth={850}
       footer={
         <>
           {error && <p style={{flex:1,fontSize:13,color:'#ef4444',margin:0,alignSelf:'center'}}>{error}</p>}
           <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>Cancel</button>
           <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Patient'}
+            {saving ? 'Saving…' : 'Save Patient Record'}
           </button>
         </>
       }
     >
       <PatientFormContent>
-      {/* Tabs — only shown when both forms are available */}
-      {canSeeForm1 && canSeeForm2 && (
-        <div className="apm-tabs">
-          <button className={`apm-tab ${tab==='enrolment'?'apm-tab--active':''}`} onClick={()=>setTab('enrolment')}>
-            Form 1 — Patient Enrolment
-          </button>
-          <button className={`apm-tab ${tab==='treatment'?'apm-tab--active':''}`} onClick={()=>setTab('treatment')}>
-            Form 2 — Individual Treatment
-          </button>
-        </div>
-      )}
+      {/* 3-Form Tabs Bar — Accessible to Registration, Triage Doctor, Treatment Nurse, and Admin */}
+      <div className="apm-tabs" style={{ display: 'flex', gap: '0.25rem', borderBottom: '2px solid #e2e8f0', marginBottom: '1.25rem' }}>
+        <button className={`apm-tab ${tab==='enrolment'?'apm-tab--active':''}`} onClick={()=>setTab('enrolment')} style={{ flex: 1, padding: '0.6rem 0.5rem', fontWeight: 600, fontSize: '0.85rem' }}>
+          Form 1 — Patient Enrolment
+        </button>
+        <button className={`apm-tab ${tab==='treatment'?'apm-tab--active':''}`} onClick={()=>setTab('treatment')} style={{ flex: 1, padding: '0.6rem 0.5rem', fontWeight: 600, fontSize: '0.85rem' }}>
+          Form 2 — Individual Treatment
+        </button>
+        <button className={`apm-tab ${tab==='card'?'apm-tab--active':''}`} onClick={()=>setTab('card')} style={{ flex: 1, padding: '0.6rem 0.5rem', fontWeight: 600, fontSize: '0.85rem' }}>
+          Form 3 — Period Exposure Card
+        </button>
+      </div>
 
       {/* ════ FORM 1 ════ */}
-      {tab === 'enrolment' && canSeeForm1 && (
+      {tab === 'enrolment' && (
         <>
           <div className="fm-section">
             <p className="fm-section-title">I. Patient Information</p>
@@ -390,7 +398,7 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
       )}
 
       {/* ════ FORM 2 ════ */}
-      {tab === 'treatment' && canSeeForm2 && (
+      {tab === 'treatment' && (
         <>
           {/* ── Section I: Patient Information ── */}
           <div className="fm-section">
@@ -549,6 +557,139 @@ export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: 
 
           <p style={{textAlign:'right', fontSize:11, color:'#94a3b8', paddingTop:4}}>
             Clinic Information System | FORM 2 | Page 1
+          </p>
+        </>
+      )}
+
+      {/* ════ FORM 3 ════ */}
+      {tab === 'card' && (
+        <>
+          <div className="fm-section">
+            <p className="fm-section-title">TAGOLOAN ANIMAL BITE TREATMENT CENTER — Period Exposure Record</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem', fontSize: '0.85rem' }}>
+              <div>
+                <strong>Exposure Category:</strong>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '4px' }}>
+                  {(['I', 'II', 'III'] as const).map((cat) => (
+                    <label key={cat} style={{ cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="card_cat"
+                        checked={cardState.exposureCategory === cat}
+                        onChange={() => setCardState(s => ({ ...s, exposureCategory: cat }))}
+                      /> ({cat})
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <strong>Animal Type:</strong>
+                <input
+                  className="fm-input"
+                  value={cardState.animalType}
+                  onChange={(e) => setCardState(s => ({ ...s, animalType: e.target.value }))}
+                  style={{ marginTop: '4px' }}
+                />
+              </div>
+              <div>
+                <strong>ICD 10 Code:</strong>
+                <input
+                  className="fm-input"
+                  value={cardState.icd10Code}
+                  onChange={(e) => setCardState(s => ({ ...s, icd10Code: e.target.value }))}
+                  placeholder="e.g. Z20.3"
+                  style={{ marginTop: '4px' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem', fontSize: '0.8125rem' }}>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.75rem' }}>
+                <strong style={{ display: 'block', marginBottom: '0.35rem', color: '#17653a' }}>1. Mode of Animal Exposure</strong>
+                {[
+                  { key: 'nibbling_uncovered_skin', label: 'Nibbling/Licking of uncovered skin' },
+                  { key: 'nibbling_broken_skin', label: 'Nibbling/Licking of wounded/broken skin' },
+                  { key: 'scratch_abrasion', label: 'Scratch / Abrasion' },
+                  { key: 'transdermal_bite', label: 'Transdermal Bite' },
+                  { key: 'handling_ingestion_raw_meat', label: 'Handling / Ingestion of raw infected meat' },
+                ].map((opt) => (
+                  <label key={opt.key} style={{ display: 'block', marginBottom: '0.25rem', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="card_mode"
+                      checked={cardState.modeOfExposure === opt.key}
+                      onChange={() => setCardState(s => ({ ...s, modeOfExposure: opt.key }))}
+                    />{' '}
+                    ( ) {opt.label}
+                  </label>
+                ))}
+              </div>
+
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.75rem' }}>
+                <strong style={{ display: 'block', marginBottom: '0.35rem', color: '#17653a' }}>2. Body Part Affected Exposed</strong>
+                <label style={{ display: 'block', marginBottom: '0.25rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="card_body"
+                    checked={cardState.bodyPartExposed === 'head_neck'}
+                    onChange={() => setCardState(s => ({ ...s, bodyPartExposed: 'head_neck' }))}
+                  /> ( ) Head and/or neck
+                </label>
+                <label style={{ display: 'block', marginBottom: '0.25rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="card_body"
+                    checked={cardState.bodyPartExposed === 'other_parts'}
+                    onChange={() => setCardState(s => ({ ...s, bodyPartExposed: 'other_parts' }))}
+                  /> ( ) Other parts of the body
+                </label>
+                <label style={{ display: 'block', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="card_body"
+                    checked={cardState.bodyPartExposed === 'na_ingestion'}
+                    onChange={() => setCardState(s => ({ ...s, bodyPartExposed: 'na_ingestion' }))}
+                  /> ( ) N / A if Ingestion mode
+                </label>
+              </div>
+            </div>
+
+            {/* 9-Row Vaccination Grid Table */}
+            <div>
+              <strong style={{ display: 'block', marginBottom: '0.5rem', textAlign: 'center', fontSize: '0.9rem', color: '#173d29' }}>
+                Period Exposure Vaccination Record
+              </strong>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                    <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Period</th>
+                    <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}>Adm Route</th>
+                    <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}>Date</th>
+                    <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Given by</th>
+                    <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}>Signature</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    'Day 0', 'Day 3', 'Day 7', 'Day 28', 'Booster 1', 'Booster 2',
+                    'ERIG ________ ml', 'TT (Tetanus Toxoid)', 'ATS (Anti-Tetanus Serum)'
+                  ].map((p, i) => (
+                    <tr key={p} style={{ background: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                      <td style={{ padding: '6px', border: '1px solid #cbd5e1', fontWeight: 600 }}>{p}</td>
+                      <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}>( ) ID &nbsp;&nbsp; ( ) IM</td>
+                      <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}>—</td>
+                      <td style={{ padding: '6px', border: '1px solid #cbd5e1' }}>Nurse Staff</td>
+                      <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: '#64748b' }}>Scheduled</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p style={{textAlign:'right', fontSize:11, color:'#94a3b8', paddingTop:4}}>
+            Tagoloan RHU | FORM 3 | Period Exposure Vaccination Record Card
           </p>
         </>
       )}

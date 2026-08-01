@@ -14,6 +14,8 @@ class Clinic extends Model
         'email',
         'contact_number',
         'license_number',
+        'doh_accreditation_no',
+        'philhealth_accreditation_no',
         'opening_hours',
         'logo_path',
         'is_setup_complete',

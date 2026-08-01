@@ -238,11 +238,21 @@ export const Icon = ({
 export const GLOBAL_NAV_ICONS: Record<string, React.ReactNode> = {
   Dashboard: <Icon name="dashboard" />,
   Patients: <Icon name="patients" />,
+  'Patient Registration': <Icon name="patients" />,
+  'Patient Registration (Form 1)': <Icon name="patients" />,
   Queue: <Icon name="queue" />,
+  'Patient Queue': <Icon name="queue" />,
   'Bite Cases': <Icon name="biteCases" />,
+  'Bite Incident Intake': <Icon name="biteCases" />,
+  'Individual Treatment (Form 2)': (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+    </svg>
+  ),
   Vaccinations: <Icon name="vaccinations" />,
-  Inventory: <Icon name="inventory" />,
-  Reports: <Icon name="reports" />,
+  'Vaccination & Treatment': <Icon name="vaccinations" />,
+  'Vaccination Schedule (Form 3)': <Icon name="vaccinations" />,
+  'Vaccination Cards (Form 3)': <Icon name="vaccinations" />,
   'Treatment Records': (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
@@ -251,9 +261,24 @@ export const GLOBAL_NAV_ICONS: Record<string, React.ReactNode> = {
       <line x1="9" y1="16" x2="13" y2="16"/>
     </svg>
   ),
+  'Treatment Record Cards (Forms 2 & 3)': (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+      <rect x="9" y="3" width="6" height="4" rx="2"/>
+      <line x1="9" y1="12" x2="15" y2="12"/>
+      <line x1="9" y1="16" x2="13" y2="16"/>
+    </svg>
+  ),
+  Inventory: <Icon name="inventory" />,
+  'Vaccine Inventory': <Icon name="inventory" />,
+  Reports: <Icon name="reports" />,
+  'Reports & Surveillance': <Icon name="reports" />,
+  'Reports & Analytics': <Icon name="reports" />,
   Users: <Icon name="users" />,
+  'User Management': <Icon name="users" />,
   'Developer Settings': <Icon name="developerSettings" />,
   'Database Explorer': <Icon name="databaseExplorer" />,
   'Clinic Setup': <Icon name="clinicSetup" />,
   'Staff Activity': <Icon name="activity" />,
+  'Staff Activity Monitor': <Icon name="activity" />,
 };

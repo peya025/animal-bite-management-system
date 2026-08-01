@@ -29,6 +29,8 @@ import api from '../../../services/api';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import StatCard from '../../../components/common/StatCard/StatCard';
+import AddPatientModal from '../../patients/components/AddPatientModal/AddPatientModal';
+import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
 
 // ─── Types ────────────────────────────────────────────────────
 interface BiteCase {
@@ -102,6 +104,11 @@ export default function BiteCaseRiskDashboard() {
   const [severity, setSeverity] = useState('');
   const [status, setStatus]     = useState('');
   const [tab, setTab]           = useState<'map' | 'cases'>('map');
+
+  // Modal State
+  const [cardPatientId, setCardPatientId] = useState<number | null>(null);
+  const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [patientModalOpen, setPatientModalOpen] = useState(false);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -331,6 +338,32 @@ export default function BiteCaseRiskDashboard() {
         );
       },
     },
+    {
+      key: 'actions', header: 'Clinical Forms', align: 'center',
+      render: row => (
+        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => setPatientModalOpen(true)}
+            sx={{ fontSize: 11, py: 0.3, px: 1, textTransform: 'none', fontWeight: 600, borderColor: '#17653a', color: '#17653a' }}
+          >
+            🩺 Form 2 (Intake)
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => {
+              setCardPatientId(row.patient?.patient_id);
+              setCardModalOpen(true);
+            }}
+            sx={{ fontSize: 11, py: 0.3, px: 1, textTransform: 'none', fontWeight: 600, bgcolor: '#17653a', '&:hover': { bgcolor: '#12522e' } }}
+          >
+            📋 Form 3 (Card)
+          </Button>
+        </Box>
+      ),
+    },
   ];
 
   return (
@@ -512,6 +545,26 @@ export default function BiteCaseRiskDashboard() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* ── Patient Record Modal (Form 1, Form 2, Form 3 Tabs) ── */}
+      {patientModalOpen && (
+        <AddPatientModal
+          onClose={() => setPatientModalOpen(false)}
+          onSuccess={() => {
+            setPatientModalOpen(false);
+            loadData();
+          }}
+          role="triage"
+        />
+      )}
+
+      {/* ── Tagoloan Treatment Card Modal (Form 3) ── */}
+      <TagoloanTreatmentCardModal
+        open={cardModalOpen}
+        onClose={() => setCardModalOpen(false)}
+        patientId={cardPatientId}
+        onSaved={loadData}
+      />
     </Box>
   );
 }

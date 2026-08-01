@@ -17,6 +17,7 @@ use App\Http\Controllers\QueueController;
 use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VaccinationController;
+use App\Http\Controllers\TagoloanTreatmentCardController;
 use App\Http\Controllers\VaccineInventoryController;
 use Illuminate\Support\Facades\Route;
 
@@ -197,6 +198,14 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/{id}', [VaccinationController::class, 'update']);
             Route::post('/{id}/reschedule', [VaccinationController::class, 'reschedule']);
         });
+    });
+
+    // Tagoloan RHU Official Treatment Cards
+    Route::prefix('tagoloan-treatment-cards')->group(function () {
+        Route::get('/', [TagoloanTreatmentCardController::class, 'index']);
+        Route::get('/patient/{patientId}', [TagoloanTreatmentCardController::class, 'getPatientCardData']);
+        Route::get('/{id}', [TagoloanTreatmentCardController::class, 'show']);
+        Route::post('/', [TagoloanTreatmentCardController::class, 'store']);
     });
 
     // Vaccine Inventory (admin only)

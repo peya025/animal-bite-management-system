@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+﻿import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './features/auth/pages/LoginPage';
@@ -19,6 +19,7 @@ import UserProfilePage from './features/users/pages/UserProfilePage';
 // Lazy-loaded secondary & heavy pages for optimal initial load speed
 const StaffActivityPage = lazy(() => import('./features/audit/pages/StaffActivityPage'));
 const ReportsDashboardPage = lazy(() => import('./features/reports/pages/ReportsDashboardPage'));
+const TreatmentRecordsPage = lazy(() => import('./features/treatment-records/pages/TreatmentRecordsPage'));
 const DeveloperLandingSettingsPage = lazy(() => import('./features/developer/pages/DeveloperLandingSettingsPage'));
 const DeveloperDatabaseExplorerPage = lazy(() => import('./features/developer/pages/DeveloperDatabaseExplorerPage'));
 import ConfirmationDialog from './components/feedback/ConfirmationDialog';
@@ -63,6 +64,7 @@ const NAV: NavItem[] = [
   { label: 'Vaccinations', path: ROUTES.VACCINATIONS.LIST, roles: ['admin','triage','treatment'] },
   { label: 'Inventory',    path: ROUTES.INVENTORY.LIST,    roles: ['admin'] },
   { label: 'Reports',      path: ROUTES.REPORTS.LIST,      roles: ['admin', 'triage'] },
+  { label: 'Treatment Records', path: ROUTES.TREATMENT_RECORDS.LIST, roles: ['treatment', 'triage'] },
   { label: 'Users',        path: ROUTES.USERS.LIST,        roles: ['admin'] },
   { label: 'Staff Activity', path: ROUTES.AUDIT.ACTIVITY,  roles: ['admin'] },
   { label: 'Developer Settings', path: ROUTES.DEVELOPER_SETTINGS, roles: ['developer','admin'] },
@@ -875,6 +877,7 @@ function App() {
             <Route path="/users" element={<ProtectedRoute><AppLayout title="User Management"><UserListPage /></AppLayout></ProtectedRoute>} />
             <Route path="/staff-activity" element={<ProtectedRoute><AppLayout title="Staff Activity Monitor"><StaffActivityPage /></AppLayout></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><AppLayout title="Reports &amp; Analytics"><ReportsDashboardPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/treatment-records" element={<ProtectedRoute><AppLayout title="Treatment Records"><TreatmentRecordsPage /></AppLayout></ProtectedRoute>} />
             <Route path="/users/create" element={<ProtectedRoute><AppLayout title="Add User"><UserCreatePage /></AppLayout></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><AppLayout title="My Profile"><UserProfilePage /></AppLayout></ProtectedRoute>} />
             <Route path="/developer/landing-settings" element={<ProtectedRoute><AppLayout title="Developer Landing Settings"><DeveloperLandingSettingsPage /></AppLayout></ProtectedRoute>} />

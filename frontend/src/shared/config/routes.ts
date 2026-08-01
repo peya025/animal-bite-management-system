@@ -41,6 +41,11 @@ export const ROUTES = {
     LIST: '/inventory',
   },
 
+  TREATMENT_RECORDS: {
+    LIST: '/treatment-records',
+    NEW:  '/treatment-records/new',
+  },
+
   REPORTS: {
     LIST: '/reports',
   },

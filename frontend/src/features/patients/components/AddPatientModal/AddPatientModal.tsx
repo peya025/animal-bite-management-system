@@ -82,14 +82,19 @@ const CONSULT_TYPES = [
 // ── Component ────────────────────────────────────────────────
 interface Props { onClose: () => void; onSuccess: () => void; role?: string; }
 
-export default function AddPatientModal({ onClose, onSuccess, role }: Props) {
+export default function AddPatientModal({ onClose, onSuccess, role: roleProp }: Props) {
+  // Read role from localStorage directly as the authoritative source
+  const _userData = localStorage.getItem('userData');
+  const localRole = _userData ? (JSON.parse(_userData)?.role ?? '') : '';
+  const role = roleProp || localRole;
+
   // Determine which tabs this role can see
-  // registration → form 1 only | triage → form 2 only | admin/others → both
+  // registration → form 1 only | triage/treatment → form 2 only | admin/others → both
   const canSeeForm1 = !role || role === 'registration' || role === 'admin';
-  const canSeeForm2 = role === 'triage' || role === 'admin';
+  const canSeeForm2 = role === 'triage' || role === 'treatment' || role === 'admin';
 
   const defaultTab: 'enrolment' | 'treatment' =
-    role === 'triage' ? 'treatment' : 'enrolment';
+    (role === 'triage' || role === 'treatment') ? 'treatment' : 'enrolment';
 
   const [tab, setTab]             = useState<'enrolment'|'treatment'>(defaultTab);
   const [enrolment, setEnrolment] = useState(E0);
@@ -115,10 +120,13 @@ export default function AddPatientModal({ onClose, onSuccess, role }: Props) {
     }));
 
   const handleSubmit = async () => {
-    if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex || !loc.full) {
-      setError('Please fill in all required fields (name, DOB, sex, address).');
-      setTab('enrolment');
-      return;
+    // Only validate Form 1 required fields if the user can see Form 1
+    if (canSeeForm1) {
+      if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
+        setError('Please fill in all required fields (name, DOB, sex).');
+        setTab('enrolment');
+        return;
+      }
     }
     setError(''); setSaving(true);
     try {
@@ -152,7 +160,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: Props) {
       title="Patient Record"
       subtitle={
         role === 'registration' ? 'Form 1 — Patient Enrolment' :
-        role === 'triage'       ? 'Form 2 — Individual Treatment Record' :
+        (role === 'triage' || role === 'treatment') ? 'Form 2 — Individual Treatment Record' :
         'Integrated Clinic Information System (iCLINICSYS)'
       }
       onClose={onClose}
@@ -384,9 +392,10 @@ export default function AddPatientModal({ onClose, onSuccess, role }: Props) {
       {/* ════ FORM 2 ════ */}
       {tab === 'treatment' && canSeeForm2 && (
         <>
-          {/* Section I — Patient Info (auto-filled from Form 1) */}
+          {/* ── Section I: Patient Information ── */}
           <div className="fm-section">
             <p className="fm-section-title">I. Patient Information (Impormasyon ng Pasyente)</p>
+
             <div className="fm-grid fm-grid--4" style={{marginBottom:14}}>
               <Field label="Last Name (Apelyido)">
                 <input className="fm-input" value={enrolment.last_name} readOnly style={{background:'#f9fafb',color:'#374151'}} />
@@ -397,53 +406,64 @@ export default function AddPatientModal({ onClose, onSuccess, role }: Props) {
               <Field label="Middle Name (Gitnang Pangalan)">
                 <input className="fm-input" value={enrolment.middle_name} readOnly style={{background:'#f9fafb',color:'#374151'}} />
               </Field>
-              <div className="fm-grid fm-grid--2">
-                <Field label="Suffix">
-                  <input className="fm-input" value={enrolment.suffix} readOnly style={{background:'#f9fafb',color:'#374151'}} />
-                </Field>
-                <Field label="Age">
-                  <input
-                    className="fm-input"
-                    value={enrolment.date_of_birth
-                      ? String(Math.floor((Date.now() - new Date(enrolment.date_of_birth).getTime()) / (1000*60*60*24*365.25)))
-                      : ''}
-                    readOnly
-                    style={{background:'#f9fafb',color:'#374151'}}
-                  />
-                </Field>
-              </div>
+              <Field label="Suffix (e.g. Jr., Sr., II, III)">
+                <input className="fm-input" value={enrolment.suffix} readOnly style={{background:'#f9fafb',color:'#374151'}} />
+              </Field>
             </div>
-            <Field label="Residential Address (Tirahan)">
-              <input className="fm-input" value={loc.full} readOnly style={{background:'#f9fafb',color:'#374151'}} placeholder="Auto-filled from Form 1" />
-            </Field>
+
+            <div className="fm-grid fm-grid--3" style={{marginBottom:14}}>
+              <Field label="Age (Edad)">
+                <input className="fm-input"
+                  value={enrolment.date_of_birth ? String(Math.floor((Date.now() - new Date(enrolment.date_of_birth).getTime()) / (1000*60*60*24*365.25))) : ''}
+                  readOnly style={{background:'#f9fafb',color:'#374151'}} />
+              </Field>
+              <Field label="Residential Address (Tirahan)" required>
+                <input className="fm-input" value={loc.full} readOnly style={{background:'#f9fafb',color:'#374151'}} placeholder="Auto-filled from Form 1" />
+              </Field>
+            </div>
           </div>
+
+          {/* ── Section II: For CHU / RHU Personnel Only ── */}
           <div className="fm-section">
-            <p className="fm-section-title">II. For CHU / RHU Personnel Only</p>
+            <p className="fm-section-title">II. For CHU / RHU Personnel Only (Para sa Kinatawan ng CHU / RHU Lamang)</p>
 
             <div className="fm-grid fm-grid--2" style={{marginBottom:14}}>
               <Field label="Mode of Transaction">
-                <div className="fm-radio-group" style={{paddingTop:4}}>
-                  <label className="fm-radio"><input type="radio" name="mot" value="walk_in"  checked={treatment.mode_of_transaction==='walk_in'}  onChange={setT('mode_of_transaction')} /> Walk-in / Visited</label>
-                  <label className="fm-radio"><input type="radio" name="mot" value="referral" checked={treatment.mode_of_transaction==='referral'} onChange={setT('mode_of_transaction')} /> Referral</label>
+                <div className="fm-radio-group" style={{paddingTop:4, flexDirection:'column', gap:6}}>
+                  {[
+                    {value:'walk_in', label:'Walk-in'},
+                    {value:'visited', label:'Visited'},
+                    {value:'referral', label:'Referral'},
+                  ].map(opt => (
+                    <label key={opt.value} className="fm-radio">
+                      <input type="radio" name="mot" value={opt.value}
+                        checked={treatment.mode_of_transaction === opt.value}
+                        onChange={setT('mode_of_transaction')} />
+                      {opt.label}
+                    </label>
+                  ))}
                 </div>
               </Field>
-              {treatment.mode_of_transaction === 'referral' && (
-                <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                  <Field label="Referred From">
-                    <input className="fm-input" value={treatment.referral_from} onChange={setT('referral_from')} />
-                  </Field>
-                  <Field label="Referred To">
-                    <input className="fm-input" value={treatment.referral_to} onChange={setT('referral_to')} />
-                  </Field>
-                </div>
-              )}
+              <div style={{display:'flex', flexDirection:'column', gap:10}}>
+                <p style={{fontSize:11, fontWeight:600, color:'#6b7280', margin:'0 0 2px'}}>For REFERRAL Transaction only.</p>
+                <Field label="Referred From">
+                  <input className="fm-input" value={treatment.referral_from} onChange={setT('referral_from')}
+                    disabled={treatment.mode_of_transaction !== 'referral'}
+                    style={{background: treatment.mode_of_transaction !== 'referral' ? '#f9fafb' : '#fff'}} />
+                </Field>
+                <Field label="Referred To">
+                  <input className="fm-input" value={treatment.referral_to} onChange={setT('referral_to')}
+                    disabled={treatment.mode_of_transaction !== 'referral'}
+                    style={{background: treatment.mode_of_transaction !== 'referral' ? '#f9fafb' : '#fff'}} />
+                </Field>
+              </div>
             </div>
 
             <div className="fm-grid fm-grid--2" style={{marginBottom:14}}>
               <Field label="Date of Consultation">
                 <input className="fm-input" type="date" value={treatment.date_of_consultation} onChange={setT('date_of_consultation')} />
               </Field>
-              <Field label="Consultation Time">
+              <Field label="Consultation Time (AM/PM)">
                 <input className="fm-input" type="time" value={treatment.consultation_time} onChange={setT('consultation_time')} />
               </Field>
             </div>
@@ -464,25 +484,28 @@ export default function AddPatientModal({ onClose, onSuccess, role }: Props) {
             </div>
 
             <div className="fm-grid fm-grid--2" style={{marginBottom:14}}>
-              <Field label="Attending Provider">
+              <Field label="Name of Attending Provider">
                 <input className="fm-input" value={treatment.attending_provider} onChange={setT('attending_provider')} />
               </Field>
-              <Field label="Referred By">
+              <Field label="Referred by">
                 <input className="fm-input" value={treatment.referred_by} onChange={setT('referred_by')} />
               </Field>
             </div>
 
             <Field label="Nature of Visit">
               <div className="fm-radio-group" style={{paddingTop:4}}>
-                {['New Consultation/Case','New Admission','Follow-up Visit'].map(v => (
+                {['New Consultation/Case','New Admission','Follow-up visit'].map(v => (
                   <label key={v} className="fm-radio">
-                    <input type="radio" name="nature" value={v} checked={treatment.nature_of_visit===v} onChange={setT('nature_of_visit')} /> {v}
+                    <input type="radio" name="nature" value={v}
+                      checked={treatment.nature_of_visit === v} onChange={setT('nature_of_visit')} />
+                    {v}
                   </label>
                 ))}
               </div>
             </Field>
           </div>
 
+          {/* ── Type of Consultation ── */}
           <div className="fm-section">
             <p className="fm-section-title">Type of Consultation / Purpose of Visit</p>
             <div className="apm-check-grid">
@@ -495,9 +518,10 @@ export default function AddPatientModal({ onClose, onSuccess, role }: Props) {
             </div>
           </div>
 
+          {/* ── Clinical Notes ── */}
           <div className="fm-section">
             <p className="fm-section-title">Clinical Notes</p>
-            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div style={{display:'flex', flexDirection:'column', gap:14}}>
               <Field label="Chief Complaints">
                 <textarea className="fm-textarea" value={treatment.chief_complaints} onChange={setT('chief_complaints')} rows={3} />
               </Field>
@@ -522,6 +546,10 @@ export default function AddPatientModal({ onClose, onSuccess, role }: Props) {
               </div>
             </div>
           </div>
+
+          <p style={{textAlign:'right', fontSize:11, color:'#94a3b8', paddingTop:4}}>
+            Clinic Information System | FORM 2 | Page 1
+          </p>
         </>
       )}
       </PatientFormContent>

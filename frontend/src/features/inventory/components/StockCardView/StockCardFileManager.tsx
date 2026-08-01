@@ -23,7 +23,7 @@ import {
   KeyboardArrowRight as ArrowRightIcon,
   KeyboardArrowDown as ArrowDownIcon,
   RemoveRedEye as EyeIcon,
-  PictureAsPdf as PdfIcon,
+  LocalHospital as ClinicIcon,
 } from '@mui/icons-material';
 import type { InventoryItem } from '../../types';
 import { DEMO_CLINICS } from '../../data/inventoryDemoData';
@@ -47,13 +47,15 @@ export interface StockCardFile {
 }
 
 interface StockCardFileManagerProps {
-  open: boolean;
-  onClose: () => void;
+  open?: boolean;
+  onClose?: () => void;
   item: InventoryItem;
-  selectedMonth: number;
-  selectedYear: number;
-  onSelectMonthYear: (monthIndex: number, year: number) => void;
-  onPrintMonth: (monthIndex: number, year: number) => void;
+  items?: InventoryItem[];
+  selectedMonth?: number;
+  selectedYear?: number;
+  onSelectMonthYear?: (monthIndex: number, year: number) => void;
+  onPrintMonth?: (monthIndex: number, year: number) => void;
+  isModal?: boolean;
 }
 
 const MONTH_NAMES = [
@@ -148,14 +150,22 @@ function generate31DaySampleData(monthIndex: number, _year: number, _item: Inven
 }
 
 export default function StockCardFileManager({
-  open,
+  open = true,
   onClose,
   item,
+  items,
   selectedMonth: _selectedMonth,
   selectedYear,
   onSelectMonthYear: _onSelectMonthYear,
-  onPrintMonth,
+  onPrintMonth: _onPrintMonth,
+  isModal = true,
 }: StockCardFileManagerProps) {
+  const [activeItem, setActiveItem] = useState<InventoryItem>(item);
+
+  useEffect(() => {
+    if (item) setActiveItem(item);
+  }, [item]);
+
   const [currentYear, setCurrentYear] = useState<number>(selectedYear || 2026);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -214,12 +224,12 @@ export default function StockCardFileManager({
     };
   }, []);
 
-  // Sync files list when year changes
+  // Sync files list when year or activeItem changes
   useEffect(() => {
-    const list = generateMonthlyFiles(currentYear, item);
+    const list = generateMonthlyFiles(currentYear, activeItem);
     setFilesList(list);
     if (list.length > 0) setSelectedFile(list[0]);
-  }, [currentYear, item]);
+  }, [currentYear, activeItem]);
 
   const filteredFiles = useMemo(() => {
     return filesList.filter(file => {
@@ -246,17 +256,17 @@ export default function StockCardFileManager({
 
   // 1A. DOWNLOAD OFFICIAL CSV SPREADSHEET (OPENS PERFECTLY IN EXCEL / SHEETS)
   const handleDownloadCSV = (file: StockCardFile) => {
-    const sampleData = generate31DaySampleData(file.monthIndex, file.year, item);
+    const sampleData = generate31DaySampleData(file.monthIndex, file.year, activeItem);
 
     const csvLines = [
       `REPUBLIC OF THE PHILIPPINES`,
       `${activeClinic.name.toUpperCase()}`,
       `OFFICIAL VACCINE & MEDICINE STOCK CARD REPORT`,
       ``,
-      `Vaccine/Medicine,${item.vaccine_type}`,
-      `Lot / Batch Number,${item.batch_number}`,
+      `Vaccine/Medicine,${activeItem.vaccine_type}`,
+      `Lot / Batch Number,${activeItem.batch_number}`,
       `Month & Year,${file.monthName} ${file.year}`,
-      `Expiration Date,${item.expiration_date}`,
+      `Expiration Date,${activeItem.expiration_date}`,
       `Storage Spec,2°C to 8°C Cold Chain Required`,
       `Facility Clinic,${activeClinic.name}`,
       `File Identifier,${file.fileName}`,
@@ -291,28 +301,20 @@ export default function StockCardFileManager({
     setToast({ open: true, message: `Downloaded ${targetFileName} (Excel / CSV Spreadsheet)!`, severity: 'success' });
   };
 
-  // 1B. SAVE / PRINT AS PDF DOCUMENT (CLEAN UNCORRUPTED PDF DRIVER)
+  // 1B. DOWNLOAD STOCK CARD AS HTML DOCUMENT FILE
   const handleSaveAsPDF = (file: StockCardFile) => {
-    const sampleData = generate31DaySampleData(file.monthIndex, file.year, item);
-    const trackingCode = `ABTC-SC-${file.year}-${String(file.monthIndex + 1).padStart(2, '0')}-${item.batch_number}`;
+    const sampleData = generate31DaySampleData(file.monthIndex, file.year, activeItem);
+    const trackingCode = `ABTC-SC-${file.year}-${String(file.monthIndex + 1).padStart(2, '0')}-${activeItem.batch_number}`;
 
-    const pdfWin = window.open('', '_blank', 'width=1050,height=850');
-    if (!pdfWin) return;
-
-    pdfWin.document.write(`<!DOCTYPE html>
+    const htmlContent = `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8"/>
-    <title>PDF STOCK CARD - ${file.monthName} ${file.year} - ${item.vaccine_type}</title>
+    <title>Stock Card - ${file.monthName} ${file.year} - ${activeItem.vaccine_type}</title>
     <style>
-      @page { size: A4 portrait; margin: 8mm 10mm; }
+      @page { size: A4 portrait; margin: 6mm 8mm; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; font-size: 8.5pt; line-height: 1.3; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-      .header-title { text-align: center; margin-bottom: 10px; }
-      .header-title .republic { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; color: #333; }
-      .header-title .office { font-size: 13pt; font-weight: 800; text-transform: uppercase; margin: 2px 0; color: #059669; }
-      .header-title .contact { font-size: 8pt; color: #444; }
-      .header-title .doc-name { font-size: 15pt; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #000; margin-top: 4px; text-decoration: underline; }
+      body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; font-size: 8.5pt; line-height: 1.3; }
       .meta-box { border: 1.5px solid #000; padding: 8px 12px; margin-bottom: 8px; background: #fafafa; }
       .meta-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
       .meta-cell { font-size: 8.5pt; }
@@ -329,21 +331,30 @@ export default function StockCardFileManager({
     </style>
   </head>
   <body>
-    <div class="header-title">
-      <div class="republic">Republic of the Philippines &bull; Province of Misamis Oriental &bull; Municipality of Tagoloan</div>
-      <div class="office">${activeClinic.name}</div>
-      <div class="contact">Tel. No. : (088) 555-1234 &bull; Tagoloan Municipal Health Office Compound</div>
-      <div class="doc-name">OFFICIAL VACCINE STOCK CARD REPORT</div>
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px;">
+      <img src="${window.location.origin}/assets/Flag_of_Tagoloan,_Misamis_Oriental.png" style="height: 80px; width: 80px; object-fit: contain;" />
+      <div style="text-align: center; flex: 1; padding: 0 8px;">
+        <div style="font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; color: #333;">Republic of the Philippines</div>
+        <div style="font-size: 9.5pt; font-weight: bold; text-transform: uppercase; color: #000;">PROVINCE OF MISAMIS ORIENTAL</div>
+        <div style="font-size: 9pt; font-weight: bold; color: #333;">Municipality of Tagoloan</div>
+        <div style="font-size: 11pt; font-weight: 800; text-transform: uppercase; color: #059669; margin-top: 1px;">MUNICIPAL HEALTH OFFICE</div>
+        <div style="font-size: 8pt; color: #444;">Tel. No. : (088) 555-4778</div>
+      </div>
+      <img src="${window.location.origin}/assets/rhu-logo.png" style="height: 80px; width: 80px; object-fit: contain;" />
+    </div>
+
+    <div style="text-align: center; margin-bottom: 12px;">
+      <div style="font-size: 14pt; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #000; text-decoration: underline;">STOCK CARD</div>
     </div>
 
     <div class="meta-box">
       <div class="meta-row">
-        <div class="meta-cell"><span class="meta-label">Name of vaccine/medicine:</span> <span class="meta-val" style="color: #059669">${item.vaccine_type}</span></div>
+        <div class="meta-cell"><span class="meta-label">Name of vaccine/medicine:</span> <span class="meta-val" style="color: #059669">${activeItem.vaccine_type}</span></div>
         <div class="meta-cell"><span class="meta-label">Month & Year:</span> <span class="meta-val">${file.monthName} ${file.year}</span></div>
       </div>
       <div class="meta-row">
-        <div class="meta-cell"><span class="meta-label">Lot / Batch Number:</span> <span class="meta-val" style="font-family: monospace">${item.batch_number}</span></div>
-        <div class="meta-cell"><span class="meta-label">Expiry Date:</span> <span class="meta-val">${item.expiration_date}</span></div>
+        <div class="meta-cell"><span class="meta-label">Lot / Batch Number:</span> <span class="meta-val" style="font-family: monospace">${activeItem.batch_number}</span></div>
+        <div class="meta-cell"><span class="meta-label">Expiry Date:</span> <span class="meta-val">${activeItem.expiration_date}</span></div>
       </div>
       <div class="meta-row">
         <div class="meta-cell"><span class="meta-label">Facility Clinic:</span> <span class="meta-val">${activeClinic.name}</span></div>
@@ -379,6 +390,15 @@ export default function StockCardFileManager({
             <td style="border-left: 2px solid #000; font-weight: bold; color: ${r.balance <= 10 ? '#d97706' : '#047857'}">${r.balance}</td>
           </tr>
         `).join('')}
+        <tr style="background-color: #f1f5f9; border-top: 2px solid #000; font-weight: bold">
+          <td style="font-weight: 800">Ending Balance</td>
+          <td style="border-left: 2px solid #000; color: #047857">+${file.totalReceived}</td>
+          <td style="text-align: left; font-size: 7.5pt; font-style: italic">Monthly Stock Balance Summary</td>
+          <td style="border-left: 2px solid #000; color: #b91c1c">${file.totalDispensed}</td>
+          <td style="color: #d97706">0</td>
+          <td style="color: #dc2626">0</td>
+          <td style="border-left: 2px solid #000; font-weight: 900; color: #047857">${file.finalBalance}</td>
+        </tr>
       </tbody>
     </table>
 
@@ -403,17 +423,153 @@ export default function StockCardFileManager({
       <span>Generated on: ${new Date().toLocaleString()}</span>
     </div>
   </body>
-</html>`);
+</html>`;
 
-    pdfWin.document.close();
-    pdfWin.focus();
-    setTimeout(() => {
-      pdfWin.print();
-      pdfWin.close();
-    }, 300);
+    // Direct Blob download as .html file
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `StockCard_${activeItem.batch_number}_${file.monthName}_${file.year}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 
     handleCloseContextMenu();
-    setToast({ open: true, message: `Opened PDF print window for ${file.fileName}`, severity: 'info' });
+    setToast({ open: true, message: `Downloaded ${link.download} HTML file!`, severity: 'success' });
+  };
+
+  // 1C. PRINT STOCK CARD (DIRECT SINGLE A4 PAGE PRINTER DRIVER - NO DUPLICATE PAGES)
+  const handlePrintStockCard = (file: StockCardFile) => {
+    const sampleData = generate31DaySampleData(file.monthIndex, file.year, activeItem);
+    const trackingCode = `ABTC-SC-${file.year}-${String(file.monthIndex + 1).padStart(2, '0')}-${activeItem.batch_number}`;
+
+    const printWin = window.open('', '_blank', 'width=950,height=800');
+    if (!printWin) return;
+
+    printWin.document.write(`<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Print Stock Card - ${file.monthName} ${file.year}</title>
+    <style>
+      @page { size: A4 portrait; margin: 4mm 6mm; }
+      @media print {
+        html, body { height: 99%; overflow: hidden; page-break-after: avoid; page-break-before: avoid; }
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; font-size: 7.5pt; line-height: 1.15; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .meta-box { border: 1.2px solid #000; padding: 4px 8px; margin-bottom: 4px; }
+      .meta-row { display: flex; justify-content: space-between; margin-bottom: 1px; }
+      .meta-cell { font-size: 7.5pt; }
+      .meta-label { font-weight: bold; }
+      .meta-val { font-weight: bold; }
+      table { width: 100%; border-collapse: collapse; margin-top: 2px; }
+      th, td { border: 1px solid #000; padding: 1.5px 3px; font-size: 7pt; text-align: center; }
+      th { font-weight: bold; background-color: #f1f5f9 !important; text-transform: uppercase; font-size: 6.5pt; }
+      .sig-container { margin-top: 10px; display: flex; justify-content: space-between; font-size: 7.5pt; }
+      .sig-box { width: 42%; text-align: center; }
+      .sig-line { border-top: 1px solid #000; margin-top: 16px; padding-top: 1px; font-weight: bold; }
+      .footer-info { margin-top: 6px; padding-top: 2px; border-top: 1px solid #666; display: flex; justify-content: space-between; font-size: 6pt; color: #444; }
+    </style>
+  </head>
+  <body>
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin-bottom: 4px;">
+      <img src="${window.location.origin}/assets/Flag_of_Tagoloan,_Misamis_Oriental.png" style="height: 55px; width: 55px; object-fit: contain;" />
+      <div style="text-align: center; flex: 1; padding: 0 6px;">
+        <div style="font-size: 7pt; text-transform: uppercase; letter-spacing: 0.5px; color: #333;">Republic of the Philippines</div>
+        <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; color: #000;">PROVINCE OF MISAMIS ORIENTAL</div>
+        <div style="font-size: 8pt; font-weight: bold; color: #333;">Municipality of Tagoloan</div>
+        <div style="font-size: 9.5pt; font-weight: 800; text-transform: uppercase; color: #059669; margin-top: 1px;">MUNICIPAL HEALTH OFFICE</div>
+        <div style="font-size: 7pt; color: #444;">Tel. No. : (088) 555-4778</div>
+      </div>
+      <img src="${window.location.origin}/assets/rhu-logo.png" style="height: 55px; width: 55px; object-fit: contain;" />
+    </div>
+
+    <div style="text-align: center; margin-bottom: 4px;">
+      <div style="font-size: 12pt; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: #000; text-decoration: underline;">STOCK CARD</div>
+    </div>
+
+    <div class="meta-box">
+      <div class="meta-row">
+        <div class="meta-cell"><span class="meta-label">Name of vaccine/medicine:</span> <span class="meta-val" style="color: #059669">${activeItem.vaccine_type}</span></div>
+        <div class="meta-cell"><span class="meta-label">Month & Year:</span> <span class="meta-val">${file.monthName} ${file.year}</span></div>
+      </div>
+      <div class="meta-row">
+        <div class="meta-cell"><span class="meta-label">Lot / Batch Number:</span> <span class="meta-val" style="font-family: monospace">${activeItem.batch_number}</span></div>
+        <div class="meta-cell"><span class="meta-label">Expiry Date:</span> <span class="meta-val">${activeItem.expiration_date}</span></div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th rowSpan="2" style="width: 35px">DATE</th>
+          <th colSpan="2">DELIVERY</th>
+          <th colSpan="3">OUT FROM FACILITY</th>
+          <th rowSpan="2" style="width: 65px">BALANCE</th>
+        </tr>
+        <tr>
+          <th style="width: 85px">Qty Received</th>
+          <th>Received From</th>
+          <th style="width: 60px">Dispensed</th>
+          <th style="width: 60px">Transferred</th>
+          <th style="width: 60px">Expired</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sampleData.map(r => `
+          <tr>
+            <td style="font-weight: bold">${r.dayNum}</td>
+            <td style="color: ${r.qtyReceived ? '#047857' : 'inherit'}; font-weight: ${r.qtyReceived ? 'bold' : 'normal'}">${r.qtyReceived || ''}</td>
+            <td style="text-align: left; font-size: 6.5pt">${r.receivedFrom}</td>
+            <td style="color: ${r.dispensed ? '#b91c1c' : 'inherit'}">${r.dispensed || ''}</td>
+            <td style="color: ${r.transferred ? '#d97706' : 'inherit'}">${r.transferred || ''}</td>
+            <td style="color: ${r.expired ? '#dc2626' : 'inherit'}">${r.expired || ''}</td>
+            <td style="font-weight: bold; color: ${r.balance <= 10 ? '#d97706' : '#047857'}">${r.balance}</td>
+          </tr>
+        `).join('')}
+        <tr style="background-color: #f1f5f9; font-weight: bold">
+          <td style="font-weight: 800">Ending Balance</td>
+          <td style="color: #047857">+${file.totalReceived}</td>
+          <td style="text-align: left; font-size: 6.5pt; font-style: italic">Monthly Stock Balance Summary</td>
+          <td style="color: #b91c1c">${file.totalDispensed}</td>
+          <td style="color: #d97706">0</td>
+          <td style="color: #dc2626">0</td>
+          <td style="font-weight: 900; color: #047857">${file.finalBalance}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="sig-container">
+      <div class="sig-box">
+        <div class="sig-line">Prepared & Issued By:</div>
+        <div style="font-size: 6.5pt; color: #555">Inventory Nurse / Pharmacist In-Charge</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-line">Approved & Verified By:</div>
+        <div style="font-size: 6.5pt; color: #555">Municipal Health Officer / MHO Head</div>
+      </div>
+    </div>
+
+    <div class="footer-info">
+      <span>Official Form MHO-SC-2026 &bull; ${activeClinic.name}</span>
+      <span>Tracking Code: ${trackingCode}</span>
+      <span>Generated on: ${new Date().toLocaleString()}</span>
+    </div>
+  </body>
+</html>`);
+
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => {
+      printWin.print();
+      printWin.close();
+    }, 250);
+
+    handleCloseContextMenu();
+    setToast({ open: true, message: `Opened printer for ${file.fileName}`, severity: 'info' });
   };
 
   // 2. OPEN ACTION ("WHAT'S INSIDE" SAMPLE FILE VIEWER MODAL)
@@ -498,28 +654,11 @@ export default function StockCardFileManager({
   // Sample data for viewer modal
   const sampleViewerData = useMemo(() => {
     if (!viewerFile) return [];
-    return generate31DaySampleData(viewerFile.monthIndex, viewerFile.year, item);
-  }, [viewerFile, item]);
+    return generate31DaySampleData(viewerFile.monthIndex, viewerFile.year, activeItem);
+  }, [viewerFile, activeItem]);
 
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="lg"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: 2.5,
-            height: 660,
-            maxHeight: '92vh',
-            bgcolor: '#ffffff',
-            overflow: 'hidden',
-            boxShadow: '0 25px 35px -5px rgba(5, 150, 105, 0.15), 0 15px 15px -5px rgba(0, 0, 0, 0.08)',
-          },
-        },
-      }}
-    >
+  const managerContent = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#ffffff', overflow: 'hidden' }}>
       {/* ── Webix Style Emerald Header Bar ── */}
       <Box
         sx={{
@@ -534,7 +673,7 @@ export default function StockCardFileManager({
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 280 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 260 }}>
           <Box sx={{ bgcolor: 'rgba(255,255,255,0.2)', p: 0.75, borderRadius: 1.5, display: 'flex', alignItems: 'center' }}>
             <FolderOpenIcon sx={{ fontSize: 22, color: '#ffffff' }} />
           </Box>
@@ -543,13 +682,42 @@ export default function StockCardFileManager({
               Stock Card File Manager
             </Typography>
             <Typography sx={{ fontSize: 11, color: '#dcfce7', mt: 0.25 }}>
-              {activeClinic.name} • {item.vaccine_type}
+              {activeClinic.name} • {activeItem.vaccine_type} ({activeItem.batch_number})
             </Typography>
           </Box>
         </Box>
 
-        {/* Center Search Input */}
-        <Box sx={{ flex: 1, maxWidth: 420, mx: 'auto' }}>
+        {/* Center Search Input & Batch Selector */}
+        <Box sx={{ flex: 1, maxWidth: 520, mx: 'auto', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {items && items.length > 1 && (
+            <FormControl size="small" sx={{ minWidth: 170 }}>
+              <Select
+                value={activeItem.inventory_id}
+                onChange={(e) => {
+                  const found = items.find(i => i.inventory_id === Number(e.target.value));
+                  if (found) setActiveItem(found);
+                }}
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  color: '#ffffff',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  height: 36,
+                  borderRadius: 2,
+                  '& .MuiSelect-icon': { color: '#ffffff' },
+                  '& fieldset': { borderColor: 'transparent' },
+                  '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
+                }}
+              >
+                {items.map(inv => (
+                  <MenuItem key={inv.inventory_id} value={inv.inventory_id} sx={{ fontSize: 12 }}>
+                    {inv.vaccine_type} ({inv.batch_number})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
           <TextField
             fullWidth
             size="small"
@@ -611,10 +779,14 @@ export default function StockCardFileManager({
           >
             <Tooltip title="Grid Icons"><GridViewIcon sx={{ fontSize: 18 }} /></Tooltip>
           </IconButton>
-          <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 20, my: 'auto', borderColor: 'rgba(255,255,255,0.3)' }} />
-          <IconButton onClick={onClose} size="small" sx={{ color: '#ffffff', '&:hover': { bgcolor: 'rgba(239,68,68,0.8)' } }}>
-            <CloseIcon sx={{ fontSize: 20 }} />
-          </IconButton>
+          {onClose && (
+            <>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 20, my: 'auto', borderColor: 'rgba(255,255,255,0.3)' }} />
+              <IconButton onClick={onClose} size="small" sx={{ color: '#ffffff', '&:hover': { bgcolor: 'rgba(239,68,68,0.8)' } }}>
+                <CloseIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+            </>
+          )}
         </Box>
       </Box>
 
@@ -668,11 +840,12 @@ export default function StockCardFileManager({
                 paper: {
                   elevation: 4,
                   sx: {
-                    width: 220,
+                    width: 200,
                     borderRadius: 2,
                     py: 0.5,
                     mt: 0.5,
                     border: '1px solid #a7f3d0',
+                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.08)',
                   },
                 },
               }}
@@ -682,20 +855,20 @@ export default function StockCardFileManager({
                   setAddNewAnchor(null);
                   setIsAddModalOpen(true);
                 }}
-                sx={{ fontSize: 13, gap: 1.25, py: 1, color: '#166534', fontWeight: 600 }}
+                sx={{ fontSize: 12, gap: 1, py: 0.85, px: 1.5, color: '#166534', fontWeight: 600 }}
               >
-                <FileIcon sx={{ fontSize: 18, color: '#059669' }} />
-                <span>Create New Stock Card File</span>
+                <FileIcon sx={{ fontSize: 16, color: '#059669' }} />
+                <span>New Stock Card File</span>
               </MenuItem>
               <MenuItem
                 onClick={() => {
                   setAddNewAnchor(null);
                   setIsAddFolderModalOpen(true);
                 }}
-                sx={{ fontSize: 13, gap: 1.25, py: 1, color: '#166534', fontWeight: 600 }}
+                sx={{ fontSize: 12, gap: 1, py: 0.85, px: 1.5, color: '#166534', fontWeight: 600 }}
               >
-                <FolderIcon sx={{ fontSize: 18, color: '#eab308' }} />
-                <span>Create New Archive Folder</span>
+                <FolderIcon sx={{ fontSize: 16, color: '#eab308' }} />
+                <span>New Archive Folder</span>
               </MenuItem>
             </Menu>
 
@@ -785,6 +958,48 @@ export default function StockCardFileManager({
                 </Box>
               )}
             </Stack>
+
+            {/* Vaccine Batches Directory Node List */}
+            {items && items.length > 1 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#047857', mb: 1, px: 0.5, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                  Vaccine Batches ({items.length})
+                </Typography>
+                <Stack spacing={0.5}>
+                  {items.map(inv => {
+                    const isSelected = activeItem.inventory_id === inv.inventory_id;
+                    return (
+                      <Box
+                        key={inv.inventory_id}
+                        onClick={() => setActiveItem(inv)}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          py: 0.65,
+                          px: 1,
+                          borderRadius: 1.5,
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? '#dcfce7' : 'transparent',
+                          color: isSelected ? '#15803d' : '#475569',
+                          '&:hover': { bgcolor: '#ecfdf5' },
+                        }}
+                      >
+                        <ClinicIcon sx={{ fontSize: 15, color: isSelected ? '#059669' : '#94a3b8' }} />
+                        <Box sx={{ overflow: 'hidden' }}>
+                          <Typography noWrap sx={{ fontSize: 12, fontWeight: isSelected ? 700 : 500 }}>
+                            {inv.vaccine_type}
+                          </Typography>
+                          <Typography noWrap sx={{ fontSize: 10, color: isSelected ? '#166534' : '#94a3b8', fontFamily: 'monospace' }}>
+                            {inv.batch_number}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              </Box>
+            )}
           </Box>
 
           {/* Storage Progress Bar */}
@@ -814,7 +1029,7 @@ export default function StockCardFileManager({
           <Box sx={{ px: 2.5, py: 1.25, borderBottom: '1px solid #e2e8f0', bgcolor: '#fafafa', display: 'flex', alignItems: 'center', gap: 1 }}>
             <FolderOpenIcon sx={{ fontSize: 18, color: '#059669' }} />
             <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
-              My Files &nbsp;&rsaquo;&nbsp; {currentYear} Stock Cards &nbsp;&rsaquo;&nbsp; {item.vaccine_type} ({item.batch_number})
+              My Files &nbsp;&rsaquo;&nbsp; {currentYear} Stock Cards &nbsp;&rsaquo;&nbsp; {activeItem.vaccine_type} ({activeItem.batch_number})
             </Typography>
           </Box>
 
@@ -976,11 +1191,20 @@ export default function StockCardFileManager({
                 <Button
                   fullWidth
                   variant="outlined"
-                  startIcon={<PdfIcon sx={{ color: '#dc2626' }} />}
+                  startIcon={<DownloadIcon sx={{ color: '#059669' }} />}
                   onClick={() => handleSaveAsPDF(selectedFile)}
+                  sx={{ borderColor: '#059669', color: '#059669', '&:hover': { bgcolor: '#ecfdf5' }, textTransform: 'none', fontWeight: 700, fontSize: 13, py: 1, borderRadius: 1.5 }}
+                >
+                  Download Stock Card
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<PrintIcon sx={{ color: '#047857' }} />}
+                  onClick={() => handlePrintStockCard(selectedFile)}
                   sx={{ borderColor: '#cbd5e1', color: '#334155', '&:hover': { bgcolor: '#f8fafc' }, textTransform: 'none', fontWeight: 700, fontSize: 13, py: 1, borderRadius: 1.5 }}
                 >
-                  Save / Print as PDF
+                  Print Stock Card
                 </Button>
               </Stack>
             </Box>
@@ -1007,7 +1231,8 @@ export default function StockCardFileManager({
           paper: {
             elevation: 4,
             sx: {
-              width: 230,
+              minWidth: 250,
+              width: 'auto',
               borderRadius: 1.5,
               py: 0.5,
               border: '1px solid #cbd5e1',
@@ -1045,8 +1270,8 @@ export default function StockCardFileManager({
               sx={{ fontSize: 12.5, py: 0.85, display: 'flex', justifyContent: 'space-between' }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                <PdfIcon sx={{ fontSize: 16, color: '#dc2626' }} />
-                <span>Save / Print as PDF</span>
+                <DownloadIcon sx={{ fontSize: 16, color: '#059669' }} />
+                <span>Download Stock Card</span>
               </Box>
             </MenuItem>
 
@@ -1062,10 +1287,7 @@ export default function StockCardFileManager({
             </MenuItem>
 
             <MenuItem
-              onClick={() => {
-                onPrintMonth(contextMenuPos.file.monthIndex, contextMenuPos.file.year);
-                handleCloseContextMenu();
-              }}
+              onClick={() => handlePrintStockCard(contextMenuPos.file)}
               sx={{ fontSize: 12.5, py: 0.85, display: 'flex', justifyContent: 'space-between' }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
@@ -1126,59 +1348,175 @@ export default function StockCardFileManager({
             </IconButton>
           </DialogTitle>
 
-          <DialogContent sx={{ p: 2.5, bgcolor: '#f8fafc' }}>
-            {/* Header info */}
-            <Paper elevation={0} sx={{ p: 2, mb: 2, border: '1px solid #a7f3d0', bgcolor: '#ecfdf5', borderRadius: 2 }}>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Typography sx={{ fontSize: 11, color: '#047857', fontWeight: 700 }}>VACCINE TYPE</Typography>
-                  <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#065f46' }}>{item.vaccine_type}</Typography>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Typography sx={{ fontSize: 11, color: '#047857', fontWeight: 700 }}>BATCH NUMBER</Typography>
-                  <Typography sx={{ fontSize: 13, fontWeight: 800, fontFamily: 'monospace', color: '#065f46' }}>{item.batch_number}</Typography>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Typography sx={{ fontSize: 11, color: '#047857', fontWeight: 700 }}>TOTAL RECEIVED</Typography>
-                  <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#047857' }}>+{viewerFile.totalReceived} vials</Typography>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Typography sx={{ fontSize: 11, color: '#047857', fontWeight: 700 }}>ENDING BALANCE</Typography>
-                  <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#059669' }}>{viewerFile.finalBalance} vials</Typography>
-                </Grid>
-              </Grid>
-            </Paper>
+          <DialogContent sx={{ p: 4, pt: 3.5, pb: 4, bgcolor: '#f1f5f9' }}>
+            <Paper elevation={0} sx={{ p: 4, pt: 4, pb: 4, border: '1px solid #94a3b8', bgcolor: '#ffffff', borderRadius: 2, boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
+              {/* Header with Logos & Republic Info */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, pb: 2, borderBottom: '2px solid #0f172a' }}>
+                {/* Left Tagoloan Seal Flag Logo */}
+                <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <img src="/assets/Flag_of_Tagoloan,_Misamis_Oriental.png" alt="Tagoloan Municipal Flag Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+                </Box>
 
-            {/* 31-Day Sample Data Table */}
-            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #cbd5e1', borderRadius: 2, maxHeight: 340 }}>
-              <Table stickyHeader size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>Day</TableCell>
-                    <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', color: '#047857' }}>Received</TableCell>
-                    <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>Source Supplier</TableCell>
-                    <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', color: '#b91c1c' }}>Dispensed</TableCell>
-                    <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', color: '#d97706' }}>Transferred</TableCell>
-                    <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', color: '#059669' }}>Balance</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sampleViewerData.map(r => {
-                    const hasActivity = r.qtyReceived > 0 || r.dispensed > 0 || r.transferred > 0;
-                    return (
-                      <TableRow key={r.dayNum} sx={{ bgcolor: hasActivity ? '#f0fdf4' : '#ffffff' }}>
-                        <TableCell sx={{ fontWeight: 700 }}>{r.dayNum}</TableCell>
-                        <TableCell sx={{ color: r.qtyReceived ? '#047857' : 'inherit', fontWeight: r.qtyReceived ? 700 : 400 }}>{r.qtyReceived || ''}</TableCell>
-                        <TableCell sx={{ fontSize: '12px' }}>{r.receivedFrom}</TableCell>
-                        <TableCell sx={{ color: r.dispensed ? '#b91c1c' : 'inherit', fontWeight: r.dispensed ? 600 : 400 }}>{r.dispensed || ''}</TableCell>
-                        <TableCell sx={{ color: r.transferred ? '#d97706' : 'inherit', fontWeight: r.transferred ? 600 : 400 }}>{r.transferred || ''}</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: '#059669' }}>{r.balance}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                {/* Center Text */}
+                <Box sx={{ textAlign: 'center', px: 1 }}>
+                  <Typography sx={{ fontSize: 11, textTransform: 'uppercase', color: '#334155', letterSpacing: '0.5px' }}>
+                    Republic of the Philippines
+                  </Typography>
+                  <Typography sx={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', letterSpacing: '0.5px' }}>
+                    PROVINCE OF MISAMIS ORIENTAL
+                  </Typography>
+                  <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#334155' }}>
+                    Municipality of Tagoloan
+                  </Typography>
+                  <Typography sx={{ fontSize: 13.5, fontWeight: 800, textTransform: 'uppercase', color: '#059669', letterSpacing: '0.5px', mt: 0.25 }}>
+                    MUNICIPAL HEALTH OFFICE
+                  </Typography>
+                  <Typography sx={{ fontSize: 10.5, color: '#475569' }}>
+                    Tel. No. : (088) 555-4778
+                  </Typography>
+                </Box>
+
+                {/* Right RHU Health Office Logo */}
+                <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <img src="/assets/rhu-logo.png" alt="RHU Health Office Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+                </Box>
+              </Box>
+
+              {/* Title */}
+              <Box sx={{ textAlign: 'center', my: 2.5 }}>
+                <Typography sx={{ fontSize: 20, fontWeight: 900, letterSpacing: '2px', textTransform: 'uppercase', textDecoration: 'underline', color: '#0f172a' }}>
+                  STOCK CARD
+                </Typography>
+              </Box>
+
+              {/* Metadata Fields (matching picture underlines layout) */}
+              <Box sx={{ mb: 2.5, fontSize: 12.5, color: '#0f172a' }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.2fr 0.8fr' }, gap: 2, mb: 1.25 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: 12.5, mr: 1, whiteSpace: 'nowrap' }}>
+                      Name of vaccine/medicine:
+                    </Typography>
+                    <Box sx={{ flex: 1, borderBottom: '1px solid #000', pb: 0.25, px: 1 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#059669' }}>
+                        {activeItem.vaccine_type}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: 12.5, mr: 1, whiteSpace: 'nowrap' }}>
+                      Month &amp; Year:
+                    </Typography>
+                    <Box sx={{ flex: 1, borderBottom: '1px solid #000', pb: 0.25, px: 1 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 12.5 }}>
+                        {viewerFile.monthName} {viewerFile.year}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.2fr 0.8fr' }, gap: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: 12.5, mr: 1, whiteSpace: 'nowrap' }}>
+                      Lot number:
+                    </Typography>
+                    <Box sx={{ flex: 1, borderBottom: '1px solid #000', pb: 0.25, px: 1 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 12.5, fontFamily: 'monospace' }}>
+                        {activeItem.batch_number}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: 12.5, mr: 1, whiteSpace: 'nowrap' }}>
+                      Expiry Date:
+                    </Typography>
+                    <Box sx={{ flex: 1, borderBottom: '1px solid #000', pb: 0.25, px: 1 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 12.5 }}>
+                        {activeItem.expiration_date}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Data Table */}
+              <TableContainer component={Paper} elevation={0} sx={{ border: '1.5px solid #000', borderRadius: 0, maxHeight: 400 }}>
+                <Table stickyHeader size="small" sx={{ '& th, & td': { border: '1px solid #000', padding: '4px 6px', fontSize: '11.5px' } }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell rowSpan={2} sx={{ bgcolor: '#f8fafc', fontWeight: 800, textAlign: 'center', width: '55px' }}>
+                        DATE
+                      </TableCell>
+                      <TableCell colSpan={2} sx={{ bgcolor: '#f8fafc', fontWeight: 800, textAlign: 'center' }}>
+                        DELIVERY
+                      </TableCell>
+                      <TableCell colSpan={3} sx={{ bgcolor: '#f8fafc', fontWeight: 800, textAlign: 'center' }}>
+                        OUT FROM FACILITY
+                      </TableCell>
+                      <TableCell rowSpan={2} sx={{ bgcolor: '#f8fafc', fontWeight: 800, textAlign: 'center', width: '85px' }}>
+                        BALANCE
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ bgcolor: '#f8fafc', fontWeight: 700, textAlign: 'center', width: '110px' }}>
+                        Quantity received
+                      </TableCell>
+                      <TableCell sx={{ bgcolor: '#f8fafc', fontWeight: 700, textAlign: 'center' }}>
+                        Received from
+                      </TableCell>
+                      <TableCell sx={{ bgcolor: '#f8fafc', fontWeight: 700, textAlign: 'center', width: '75px' }}>
+                        Dispensed
+                      </TableCell>
+                      <TableCell sx={{ bgcolor: '#f8fafc', fontWeight: 700, textAlign: 'center', width: '75px' }}>
+                        Transferred
+                      </TableCell>
+                      <TableCell sx={{ bgcolor: '#f8fafc', fontWeight: 700, textAlign: 'center', width: '75px' }}>
+                        Expired
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {sampleViewerData.map(r => {
+                      const hasActivity = r.qtyReceived > 0 || r.dispensed > 0 || r.transferred > 0;
+                      return (
+                        <TableRow key={r.dayNum} sx={{ bgcolor: hasActivity ? '#f0fdf4' : '#ffffff' }}>
+                          <TableCell sx={{ fontWeight: 700, textAlign: 'center' }}>{r.dayNum}</TableCell>
+                          <TableCell sx={{ textAlign: 'center', color: r.qtyReceived ? '#047857' : 'inherit', fontWeight: r.qtyReceived ? 700 : 400 }}>{r.qtyReceived || ''}</TableCell>
+                          <TableCell sx={{ textAlign: 'left', fontSize: '11px' }}>{r.receivedFrom}</TableCell>
+                          <TableCell sx={{ textAlign: 'center', color: r.dispensed ? '#b91c1c' : 'inherit', fontWeight: r.dispensed ? 600 : 400 }}>{r.dispensed || ''}</TableCell>
+                          <TableCell sx={{ textAlign: 'center', color: r.transferred ? '#d97706' : 'inherit', fontWeight: r.transferred ? 600 : 400 }}>{r.transferred || ''}</TableCell>
+                          <TableCell sx={{ textAlign: 'center', color: r.expired ? '#dc2626' : 'inherit', fontWeight: r.expired ? 600 : 400 }}>{r.expired || ''}</TableCell>
+                          <TableCell sx={{ textAlign: 'center', fontWeight: 700, color: r.balance <= 10 ? '#d97706' : '#047857' }}>{r.balance}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {/* Ending Balance Row (Matching Picture) */}
+                    <TableRow sx={{ bgcolor: '#f1f5f9', borderTop: '2px solid #000' }}>
+                      <TableCell sx={{ fontWeight: 800, fontSize: '11px', textAlign: 'center', bgcolor: '#e2e8f0' }}>
+                        Ending Balance
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 800, textAlign: 'center', color: '#047857' }}>
+                        +{viewerFile.totalReceived}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '11px', fontStyle: 'italic', textAlign: 'left' }}>
+                        Monthly Stock Balance Summary
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 800, textAlign: 'center', color: '#b91c1c' }}>
+                        {viewerFile.totalDispensed}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 800, textAlign: 'center', color: '#d97706' }}>
+                        0
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 800, textAlign: 'center', color: '#dc2626' }}>
+                        0
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 900, textAlign: 'center', fontSize: '13px', color: '#059669', bgcolor: '#dcfce7' }}>
+                        {viewerFile.finalBalance}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
           </DialogContent>
 
           <DialogActions sx={{ p: 2, bgcolor: '#ffffff', borderTop: '1px solid #e2e8f0', gap: 1 }}>
@@ -1192,11 +1530,19 @@ export default function StockCardFileManager({
             </Button>
             <Button
               variant="outlined"
-              startIcon={<PdfIcon sx={{ color: '#dc2626' }} />}
+              startIcon={<DownloadIcon sx={{ color: '#059669' }} />}
               onClick={() => handleSaveAsPDF(viewerFile)}
+              sx={{ borderColor: '#059669', color: '#059669', '&:hover': { bgcolor: '#ecfdf5' }, textTransform: 'none', fontWeight: 700 }}
+            >
+              Download Stock Card
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<PrintIcon sx={{ color: '#047857' }} />}
+              onClick={() => handlePrintStockCard(viewerFile)}
               sx={{ borderColor: '#cbd5e1', color: '#334155', '&:hover': { bgcolor: '#f8fafc' }, textTransform: 'none', fontWeight: 700 }}
             >
-              Save / Print as PDF
+              Print Stock Card
             </Button>
             <Button onClick={() => setViewerFile(null)} sx={{ textTransform: 'none' }}>
               Close Viewer
@@ -1347,6 +1693,49 @@ export default function StockCardFileManager({
           {toast.message}
         </Alert>
       </Snackbar>
+    </Box>
+  );
+
+  if (!isModal) {
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          border: '1px solid #e2e8f0',
+          borderRadius: 2.5,
+          height: 'calc(100vh - 180px)',
+          minHeight: 650,
+          width: '100%',
+          bgcolor: '#ffffff',
+          overflow: 'hidden',
+          boxShadow: '0 10px 25px -5px rgba(5, 150, 105, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
+        }}
+      >
+        {managerContent}
+      </Paper>
+    );
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2.5,
+            height: 660,
+            maxHeight: '92vh',
+            bgcolor: '#ffffff',
+            overflow: 'hidden',
+            boxShadow: '0 25px 35px -5px rgba(5, 150, 105, 0.15), 0 15px 15px -5px rgba(0, 0, 0, 0.08)',
+          },
+        },
+      }}
+    >
+      {managerContent}
     </Dialog>
   );
 }

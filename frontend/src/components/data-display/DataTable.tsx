@@ -178,7 +178,8 @@ export default function DataTable<T>({
                   <TableCell
                     key={col.key}
                     align={col.align ?? 'left'}
-                    sx={{ py: 2.5, border: 'none', borderBottom: '1px solid #f9fafb' }}
+                    width={col.width}
+                    sx={{ py: 2.5, border: 'none', borderBottom: '1px solid #f9fafb', width: col.width }}
                   >
                     {col.render(row, idx)}
                   </TableCell>

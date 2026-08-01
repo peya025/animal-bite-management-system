@@ -46,7 +46,7 @@ function mapTx(tx: Transaction) {
 
 // ─── Single Stock Card Table Component ────────────────────────
 
-function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; isDemo?: boolean }) {
+export function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; isDemo?: boolean }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<number>(6); // Default to July (index 6)
@@ -581,21 +581,38 @@ function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; i
       />
 
       <div ref={cardRef}>
-        {/* Dynamic Clinic Header Title */}
-        <Box sx={{ textAlign: 'center', mb: 2.5 }}>
-          <Typography sx={{ fontSize: '11px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
-            Republic of the Philippines &bull; {clinic.province} &bull; {clinic.municipality}
-          </Typography>
-          <Typography sx={{ fontSize: '15px', fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', mt: 0.5 }}>
-            {clinic.office_name}
-          </Typography>
-          <Typography sx={{ fontSize: '11px', color: '#64748b', mb: 1 }}>
-            Tel. No. : {clinic.phone} &bull; {clinic.address}
-          </Typography>
+        {/* Dynamic Clinic Header Title with Official Logos */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, pb: 2, borderBottom: '2px solid #0f172a' }}>
+          {/* Left Tagoloan Seal Flag Logo */}
+          <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <img src="/assets/Flag_of_Tagoloan,_Misamis_Oriental.png" alt="Tagoloan Municipal Seal Flag" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+          </Box>
+
+          {/* Center Text */}
+          <Box sx={{ textAlign: 'center', px: 1 }}>
+            <Typography sx={{ fontSize: '11.5px', textTransform: 'uppercase', color: '#334155', letterSpacing: '0.5px' }}>
+              Republic of the Philippines &bull; {clinic.province} &bull; {clinic.municipality}
+            </Typography>
+            <Typography sx={{ fontSize: '14.5px', fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', mt: 0.25 }}>
+              {clinic.office_name}
+            </Typography>
+            <Typography sx={{ fontSize: '10.5px', color: '#64748b' }}>
+              Tel. No. : {clinic.phone} &bull; {clinic.address}
+            </Typography>
+          </Box>
+
+          {/* Right RHU Health Office Logo */}
+          <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <img src="/assets/rhu-logo.png" alt="RHU Health Office Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+          </Box>
+        </Box>
+
+        {/* Title */}
+        <Box sx={{ textAlign: 'center', mb: 2 }}>
           <Typography
             sx={{
-              fontWeight: 800,
-              fontSize: '20px',
+              fontWeight: 900,
+              fontSize: '19px',
               letterSpacing: '2px',
               textTransform: 'uppercase',
               color: '#0f172a',
@@ -727,6 +744,30 @@ function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; i
                     </tr>
                   );
                 })}
+                {/* Ending Balance Row matching official paper document */}
+                <tr style={{ background: '#f1f5f9', borderTop: `2px solid ${borderCol}` }}>
+                  <td style={{ ...tdStyle, fontWeight: 800, fontSize: '11px' }}>
+                    Ending Balance
+                  </td>
+                  <td style={{ ...tdStyle, borderLeft: `2px solid ${borderCol}`, fontWeight: 700, color: '#047857' }}>
+                    +{dayRows.reduce((sum, r) => sum + r.qtyReceived, 0)}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'left', fontSize: '11px', fontStyle: 'italic', color: '#64748b' }}>
+                    Monthly Ending Stock Balance Summary
+                  </td>
+                  <td style={{ ...tdStyle, borderLeft: `2px solid ${borderCol}`, fontWeight: 700, color: '#b91c1c' }}>
+                    {dayRows.reduce((sum, r) => sum + r.dispensed, 0)}
+                  </td>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: '#d97706' }}>
+                    {dayRows.reduce((sum, r) => sum + r.transferred, 0)}
+                  </td>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: '#dc2626' }}>
+                    {dayRows.reduce((sum, r) => sum + r.expired, 0)}
+                  </td>
+                  <td style={{ ...tdStyle, borderLeft: `2px solid ${borderCol}`, fontWeight: 800, color: '#047857', background: '#dcfce7' }}>
+                    {runningBalance}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </Box>
@@ -753,7 +794,7 @@ interface StockCardViewProps {
   isDemo?: boolean;
 }
 
-export default function StockCardView({ items, loading, isDemo = false }: StockCardViewProps) {
+export default function StockCardView({ items, loading, isDemo: _isDemo = false }: StockCardViewProps) {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
@@ -771,10 +812,14 @@ export default function StockCardView({ items, loading, isDemo = false }: StockC
   }
 
   return (
-    <Box>
-      {items.map(item => (
-        <SingleStockCardTable key={item.inventory_id} item={item} isDemo={isDemo} />
-      ))}
+    <Box sx={{ width: '100%' }}>
+      <StockCardFileManager
+        isModal={false}
+        item={items[0]}
+        items={items}
+        selectedMonth={6}
+        selectedYear={2026}
+      />
     </Box>
   );
 }

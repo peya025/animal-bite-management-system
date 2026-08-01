@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Alert, Box, Grid, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
+  Alert, Box, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
 } from '@mui/material';
 import { Refresh as RefreshIcon, Science as DemoIcon, LocalHospital as ClinicIcon } from '@mui/icons-material';
 // Backend API imported but calls commented out below as requested to use local sample data
@@ -217,20 +217,28 @@ export default function VaccineInventory() {
         </Stack>
       </Box>
 
-      {/* ── Stats Cards ── */}
-      <Grid container spacing={2} sx={{ mb: 3, alignItems: 'stretch' }}>
-        {([
-          { label: 'Active Batches',     value: stats?.active_batches,              color: 'success' as const },
-          { label: 'Total Vials',        value: stats ? `${stats.total_stock}` : '-', color: 'info' as const },
-          { label: 'Patients Coverable', value: stats ? `${stats.total_stock * 3}` : '-', color: 'success' as const },
-          { label: 'Expiring Soon',      value: stats?.expiring_soon,               color: 'warning' as const },
-          { label: 'Depleted',           value: stats?.depleted_batches,            color: 'error' as const },
-        ] as const).map(s => (
-          <Grid key={s.label} size={{ xs: 6, sm: 4, md: 2 }}>
-            <StatCard label={s.label} value={s.value ?? '-'} color={s.color} loading={!stats} />
-          </Grid>
-        ))}
-      </Grid>
+      {/* ── Stats Cards (Fills space evenly across both sides) ── */}
+      {view === 'table' && (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' },
+            gap: 2,
+            mb: 3,
+            width: '100%',
+          }}
+        >
+          {([
+            { label: 'Active Batches',     value: stats?.active_batches,              color: 'success' as const },
+            { label: 'Total Vials',        value: stats ? `${stats.total_stock}` : '-', color: 'info' as const },
+            { label: 'Patients Coverable', value: stats ? `${stats.total_stock * 3}` : '-', color: 'success' as const },
+            { label: 'Expiring Soon',      value: stats?.expiring_soon,               color: 'warning' as const },
+            { label: 'Depleted',           value: stats?.depleted_batches,            color: 'error' as const },
+          ] as const).map(s => (
+            <StatCard key={s.label} label={s.label} value={s.value ?? '-'} color={s.color} loading={!stats} />
+          ))}
+        </Box>
+      )}
 
       {/* ── Table or Official Stock Card View ── */}
       {view === 'table' ? (

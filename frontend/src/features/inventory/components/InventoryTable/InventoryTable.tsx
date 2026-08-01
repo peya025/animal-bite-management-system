@@ -181,9 +181,9 @@ export default function InventoryTable({
       },
     },
     {
-      key: 'actions', header: 'Actions', align: 'right',
+      key: 'actions', header: 'Actions', align: 'center', width: '220px',
       render: item => (
-        <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
+        <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end', pr: 1.5 }}>
           {onViewStockCard && (
             <Tooltip title="View Official Stock Card">
               <IconButton size="small" onClick={() => onViewStockCard(item)}

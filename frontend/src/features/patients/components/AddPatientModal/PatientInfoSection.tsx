@@ -1,0 +1,80 @@
+import React from 'react';
+import { FormField } from './FormField';
+import type { EnrolmentFormData } from './AddPatientModal.types';
+
+interface PatientInfoSectionProps {
+  data: EnrolmentFormData;
+  onChange: (key: keyof EnrolmentFormData) => (ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+}
+
+export function PatientInfoSection({ data, onChange }: PatientInfoSectionProps) {
+  return (
+    <div className="fm-section">
+      <p className="fm-section-title">I. Patient Information</p>
+
+      <div className="fm-grid fm-grid--4" style={{ marginBottom: 14 }}>
+        <FormField label="Last Name" required>
+          <input className="fm-input" value={data.last_name} onChange={onChange('last_name')} placeholder="Dela Cruz" />
+        </FormField>
+        <FormField label="First Name" required>
+          <input className="fm-input" value={data.first_name} onChange={onChange('first_name')} placeholder="Juan" />
+        </FormField>
+        <FormField label="Middle Name">
+          <input className="fm-input" value={data.middle_name} onChange={onChange('middle_name')} placeholder="Santos" />
+        </FormField>
+        <FormField label="Suffix">
+          <input className="fm-input" value={data.suffix} onChange={onChange('suffix')} placeholder="Jr." />
+        </FormField>
+      </div>
+
+      <div className="fm-grid fm-grid--3" style={{ marginBottom: 14 }}>
+        <FormField label="Sex (Kasarian)" required>
+          <div className="fm-radio-group" style={{ paddingTop: 4 }}>
+            <label className="fm-radio">
+              <input type="radio" name="sex" value="female" checked={data.sex === 'female'} onChange={onChange('sex')} /> Female
+            </label>
+            <label className="fm-radio">
+              <input type="radio" name="sex" value="male" checked={data.sex === 'male'} onChange={onChange('sex')} /> Male
+            </label>
+          </div>
+        </FormField>
+        <FormField label="Date of Birth" required>
+          <input className="fm-input" type="date" value={data.date_of_birth} onChange={onChange('date_of_birth')} />
+        </FormField>
+        <FormField label="Blood Type">
+          <select className="fm-select" value={data.blood_type} onChange={onChange('blood_type')}>
+            <option value="">— Select —</option>
+            {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(t => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
+        </FormField>
+      </div>
+
+      <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
+        <FormField label="Mother's Maiden Name">
+          <input className="fm-input" value={data.mother_maiden_name} onChange={onChange('mother_maiden_name')} placeholder="Last, First Middle" />
+        </FormField>
+        <FormField label="Civil Status">
+          <select className="fm-select" value={data.civil_status} onChange={onChange('civil_status')}>
+            <option value="">— Select —</option>
+            <option value="single">Single</option>
+            <option value="married">Married</option>
+            <option value="widowed">Widowed</option>
+            <option value="separated">Separated</option>
+            <option value="annulled">Annulled</option>
+            <option value="cohabitation">Co-Habitation</option>
+          </select>
+        </FormField>
+      </div>
+
+      {data.civil_status === 'married' && (
+        <div style={{ marginBottom: 14 }}>
+          <FormField label="Spouse's Name">
+            <input className="fm-input" value={data.spouse_name} onChange={onChange('spouse_name')} />
+          </FormField>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -62,7 +62,7 @@ const NAV: NavItem[] = [
   { label: 'Patient Registration (Form 1)',        path: ROUTES.PATIENTS.LIST,            roles: ['registration', 'admin'] },
   { label: 'Patient Queue',                        path: ROUTES.QUEUE.DASHBOARD,          roles: ['registration', 'triage', 'treatment', 'admin'] },
   { label: 'Bite Cases (Summary)',                 path: ROUTES.BITE_CASES.LIST,          roles: ['registration', 'triage', 'treatment', 'admin'] },
-  { label: 'Individual Treatment (Form 2)',        path: ROUTES.TREATMENT_RECORDS.LIST,   roles: ['triage', 'admin'] },
+  { label: 'Individual Treatment (Form 2)',        path: ROUTES.TREATMENT_RECORDS.LIST,   roles: ['treatment', 'admin'] },
   { label: 'Vaccination Record (Form 3)',          path: ROUTES.VACCINATIONS.LIST,        roles: ['treatment', 'admin'] },
   { label: 'Vaccine Inventory',                    path: ROUTES.INVENTORY.LIST,           roles: ['treatment', 'admin'] },
   { label: 'Reports & Analytics',                  path: ROUTES.REPORTS.LIST,             roles: ['registration', 'triage', 'treatment', 'admin'] },
@@ -94,29 +94,34 @@ const ROLE_LABELS: Record<string, string> = {
 // ΓöÇΓöÇΓöÇ SimpleDashboard ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function SimpleDashboard() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const [clinic, setClinic] = useState<any>(null);
+
+  // Instant synchronous state initialization from cached session
+  const [user, setUser] = useState<any>(() => {
+    const raw = localStorage.getItem('userData');
+    return raw ? JSON.parse(raw) : null;
+  });
+  const [clinic, setClinic] = useState<any>(() => {
+    const raw = localStorage.getItem('clinicData');
+    if (raw) return JSON.parse(raw);
+    const uRaw = localStorage.getItem('userData');
+    return uRaw ? (JSON.parse(uRaw)?.clinic ?? null) : null;
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => !localStorage.getItem('userData'));
+  const [setupCheckDone, setSetupCheckDone] = useState<boolean>(() => !!localStorage.getItem('userData'));
   const [collapsed, setCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [setupCheckDone, setSetupCheckDone] = useState(false);
 
-  // ΓöÇΓöÇΓöÇ PUBLIC SETUP CHECK (runs BEFORE auth) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // Background setup check (non-blocking if logged in)
   useEffect(() => {
     const checkSetupNeeded = async () => {
       try {
         const response = await fetch('http://localhost:8000/api/setup/check-needed', {
           method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-          },
+          headers: { 'Accept': 'application/json' },
         });
-
         if (response.ok) {
           const data = await response.json();
-          
-          // If setup is needed, redirect to setup wizard WITHOUT requiring auth
           if (data.needs_setup === true) {
             window.location.href = ROUTES.SETUP;
             return;
@@ -124,19 +129,15 @@ function SimpleDashboard() {
         }
       } catch (error) {
         console.error('Setup check failed:', error);
-        // Continue to normal auth flow on error
+      } finally {
+        setSetupCheckDone(true);
       }
-      
-      setSetupCheckDone(true);
     };
-
     checkSetupNeeded();
   }, []);
 
+  // Background user session refresh (non-blocking)
   useEffect(() => {
-    // Wait for setup check before loading user data
-    if (!setupCheckDone) return;
-
     const loadUserData = async () => {
       if (!isAuthenticated()) {
         window.location.href = ROUTES.LOGIN;
@@ -147,7 +148,6 @@ function SimpleDashboard() {
       const localUser = userData ? JSON.parse(userData) : null;
       const localClinic = clinicData ? JSON.parse(clinicData) : (localUser?.clinic || null);
 
-      // Render immediately from the authenticated session; refresh in the background.
       setUser(localUser);
       setClinic(localClinic);
       setIsLoading(false);
@@ -169,7 +169,6 @@ function SimpleDashboard() {
             }
             setUser(freshData);
             setClinic(freshData.clinic);
-            return;
           }
         } catch (error) {
           console.error('Failed to fetch fresh user data:', error);

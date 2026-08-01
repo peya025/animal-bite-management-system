@@ -9,7 +9,7 @@ use Carbon\Carbon;
 class QueueController extends Controller
 {
     /**
-     * Get today's queue
+     * Get today's queue with stats and next patient (OPTIMIZED - Single API call)
      * Access: admin, registration, triage, treatment
      */
     public function index(Request $request)
@@ -18,26 +18,76 @@ class QueueController extends Controller
             $clinicId = $request->user()->clinic_id;
             $date = $request->get('date', Carbon::today()->toDateString());
 
+            // Single optimized query with eager loading and selective fields
             $queue = Queue::where('clinic_id', $clinicId)
                 ->where('queue_date', $date)
-                ->with(['patient', 'biteIncident', 'checkedInBy', 'handledBy'])
+                ->with([
+                    'patient:patient_id,first_name,middle_name,last_name,suffix,date_of_birth,gender,contact_number',
+                    'biteIncident:bite_id,case_number,patient_id',
+                    'checkedInBy:id,name',
+                    'handledBy:id,name'
+                ])
+                ->select('queue_id', 'queue_number', 'patient_id', 'bite_id', 'visit_type', 'priority', 'status', 'checked_in_at', 'called_at', 'completed_at', 'checked_in_by', 'handled_by', 'check_in_notes', 'clinic_id', 'queue_date')
                 ->orderBy('queue_number')
-                ->get()
-                ->map(function ($entry) {
-                    // Ensure patient data is properly formatted for frontend
-                    if ($entry->patient) {
-                        $entry->patient->contact_number = $entry->patient->contact_number ?? $entry->patient->phone ?? '';
-                    }
-                    return $entry;
-                });
+                ->get();
+
+            // Calculate stats from the same query result (no additional DB query)
+            $waitingCount = 0;
+            $inConsultationCount = 0;
+            $completedCount = 0;
+            $cancelledCount = 0;
+            $nextPatient = null;
+            $visitTypeCounts = [];
+
+            foreach ($queue as $entry) {
+                // Count by status
+                switch ($entry->status) {
+                    case 'waiting':
+                        $waitingCount++;
+                        // Find next patient (first waiting one)
+                        if ($nextPatient === null) {
+                            $nextPatient = $entry;
+                        }
+                        break;
+                    case 'in_consultation':
+                        $inConsultationCount++;
+                        break;
+                    case 'completed':
+                        $completedCount++;
+                        break;
+                    case 'cancelled':
+                        $cancelledCount++;
+                        break;
+                }
+
+                // Count by visit type
+                $visitType = $entry->visit_type;
+                if (!isset($visitTypeCounts[$visitType])) {
+                    $visitTypeCounts[$visitType] = 0;
+                }
+                $visitTypeCounts[$visitType]++;
+            }
 
             return response()->json([
                 'date' => $date,
                 'total_count' => $queue->count(),
-                'waiting_count' => $queue->where('status', 'waiting')->count(),
-                'in_consultation_count' => $queue->where('status', 'in_consultation')->count(),
-                'completed_count' => $queue->where('status', 'completed')->count(),
+                'waiting_count' => $waitingCount,
+                'in_consultation_count' => $inConsultationCount,
+                'completed_count' => $completedCount,
+                'cancelled_count' => $cancelledCount,
                 'queue' => $queue,
+                // Include stats in same response
+                'stats' => [
+                    'date' => $date,
+                    'total' => $queue->count(),
+                    'waiting' => $waitingCount,
+                    'in_consultation' => $inConsultationCount,
+                    'completed' => $completedCount,
+                    'cancelled' => $cancelledCount,
+                    'by_visit_type' => $visitTypeCounts,
+                ],
+                // Include next patient in same response
+                'next_patient' => $nextPatient,
             ]);
         } catch (\Exception $e) {
             \Log::error('Queue index error: ' . $e->getMessage());
@@ -49,6 +99,16 @@ class QueueController extends Controller
                 'in_consultation_count' => 0,
                 'completed_count' => 0,
                 'queue' => [],
+                'stats' => [
+                    'date' => Carbon::today()->toDateString(),
+                    'total' => 0,
+                    'waiting' => 0,
+                    'in_consultation' => 0,
+                    'completed' => 0,
+                    'cancelled' => 0,
+                    'by_visit_type' => [],
+                ],
+                'next_patient' => null,
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -234,7 +294,8 @@ class QueueController extends Controller
     }
 
     /**
-     * Get next patient in queue
+     * Get next patient in queue (DEPRECATED - now included in index())
+     * Kept for backwards compatibility
      */
     public function next(Request $request)
     {
@@ -271,7 +332,8 @@ class QueueController extends Controller
     }
 
     /**
-     * Get queue statistics
+     * Get queue statistics (DEPRECATED - now included in index())
+     * Kept for backwards compatibility
      */
     public function statistics(Request $request)
     {

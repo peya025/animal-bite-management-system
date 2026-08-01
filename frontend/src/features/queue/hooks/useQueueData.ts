@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { QueueEntry, QueueStats } from '../types';
 import { fetchQueueData } from '../services';
 
@@ -8,25 +8,34 @@ export function useQueueData(onError?: (msg: string) => void) {
   const [loading, setLoading]     = useState(true);
   const [nextEntry, setNextEntry] = useState<QueueEntry | null>(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  // Ref keeps onError always current without destabilizing loadData
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
+  const loadData = useCallback(async (isSilent = false) => {
+    if (!isSilent) {
+      setLoading(true);
+    }
     try {
       const data = await fetchQueueData();
       setQueue(data.queue);
       setStats(data.stats);
       setNextEntry(data.nextEntry);
     } catch {
-      if (onError) onError('Failed to load queue data');
+      if (onErrorRef.current && !isSilent) onErrorRef.current('Failed to load queue data');
     } finally {
       setLoading(false);
     }
-  }, [onError]);
+  }, []);
 
   useEffect(() => {
-    loadData();
-    const id = setInterval(loadData, 30000);
+    loadData(false);
+    const id = setInterval(() => {
+      loadData(true);
+    }, 30000);
     return () => clearInterval(id);
   }, [loadData]);
 
-  return { queue, stats, loading, nextEntry, reload: loadData };
+  return { queue, stats, loading, nextEntry, reload: () => loadData(false) };
 }
+

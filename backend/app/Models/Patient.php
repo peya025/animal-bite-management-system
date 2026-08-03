@@ -216,4 +216,35 @@ class Patient extends Model
             ->whereIn('status', ['scheduled', 'missed'])
             ->orderBy('scheduled_date');
     }
+
+    /**
+     * Helper: Get latest treatment record (any dose)
+     */
+    public function latestTreatmentRecord()
+    {
+        return $this->hasOne(TreatmentRecord::class, 'patient_id', 'patient_id')
+            ->whereNotNull('dose_number')
+            ->latest('treatment_date');
+    }
+
+    /**
+     * Helper: Get latest consultation record (Form 2)
+     */
+    public function latestConsultationRecord()
+    {
+        return $this->hasOne(TreatmentRecord::class, 'patient_id', 'patient_id')
+            ->whereNull('dose_number')
+            ->latest('consultation_date');
+    }
+
+    /**
+     * Helper: Get upcoming appointment
+     */
+    public function upcomingAppointment()
+    {
+        return $this->hasOne(Appointment::class, 'patient_id', 'patient_id')
+            ->where('appointment_date', '>=', now()->toDateString())
+            ->where('status', 'scheduled')
+            ->orderBy('appointment_date');
+    }
 }

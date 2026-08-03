@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\BiteCaseController;
 use App\Http\Controllers\BiteIncidentIntakeController;
 use App\Http\Controllers\ClinicModuleConfigController;
@@ -232,8 +233,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Queue Management
     Route::prefix('queue')->group(function () {
-        // View queue (admin, registration, triage)
-        Route::middleware('role:admin,registration,triage')->group(function () {
+        // View queue (admin, registration, triage, treatment)
+        Route::middleware('role:admin,registration,triage,treatment')->group(function () {
             Route::get('/', [QueueController::class, 'index']);
             Route::get('/waiting', [QueueController::class, 'waiting']);
             Route::get('/next', [QueueController::class, 'next']);
@@ -248,8 +249,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/{id}/priority', [QueueController::class, 'updatePriority']);
         });
 
-        // Call & Complete (admin, triage only)
-        Route::middleware('role:admin,triage')->group(function () {
+        // Call & Complete (admin, triage, treatment)
+        Route::middleware('role:admin,triage,treatment')->group(function () {
             Route::post('/{id}/call', [QueueController::class, 'call']);
             Route::post('/{id}/complete', [QueueController::class, 'complete']);
         });
@@ -269,5 +270,24 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/', [VaccinationRecordController::class, 'store']);
             Route::delete('/{id}', [VaccinationRecordController::class, 'destroy']);
         });
+    });
+
+    // Appointments (auto-scheduled follow-ups)
+    Route::prefix('appointments')->group(function () {
+        // View appointments (admin, triage, treatment)
+        Route::middleware('role:admin,triage,treatment')->group(function () {
+            Route::get('/', [AppointmentController::class, 'index']);
+            Route::get('/today', [AppointmentController::class, 'today']);
+            Route::get('/upcoming', [AppointmentController::class, 'upcoming']);
+            Route::get('/overdue', [AppointmentController::class, 'overdue']);
+        });
+    });
+
+    // Role-Based Patient Lists
+    Route::middleware('role:admin,treatment')->group(function () {
+        Route::get('/nurse/patients', [AppointmentController::class, 'nursePatients']);
+    });
+    Route::middleware('role:admin,triage')->group(function () {
+        Route::get('/doctor/patients', [AppointmentController::class, 'doctorPatients']);
     });
 });

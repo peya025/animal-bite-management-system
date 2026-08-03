@@ -25,7 +25,6 @@ import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, waitTime } from '../types';
 import { useQueueData } from '../hooks';
 import { callQueuePatient, cancelQueueEntry } from '../services';
 import {
-  AddToQueueModal,
   CompleteDialog,
   NextPatientBanner,
   QueueActions,
@@ -54,7 +53,6 @@ export default function QueueDashboard() {
   // Form modals
   const [form2Target, setForm2Target]       = useState<QueueEntry | null>(null);
   const [form3Target, setForm3Target]       = useState<QueueEntry | null>(null);
-  const [addToQueueOpen, setAddToQueueOpen] = useState(false);
 
   // User role
   const [userRole, setUserRole] = useState<string>('');
@@ -269,16 +267,6 @@ export default function QueueDashboard() {
         </Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
-          <AppButton
-            onClick={() => setAddToQueueOpen(true)}
-            startIcon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            }
-          >
-            Add to Queue
-          </AppButton>
           <Tooltip title="Refresh">
             <IconButton onClick={reload} disabled={loading}>
               <RefreshIcon />
@@ -367,16 +355,6 @@ export default function QueueDashboard() {
         entry={form3Target}
         onClose={() => setForm3Target(null)}
         onSave={() => { toast('Vaccination record saved successfully'); reload(); }}
-      />
-
-      <AddToQueueModal
-        open={addToQueueOpen}
-        onClose={() => setAddToQueueOpen(false)}
-        onSuccess={() => {
-          setAddToQueueOpen(false);
-          toast('Patient added to queue successfully');
-          reload();
-        }}
       />
 
       <Snackbar

@@ -14,22 +14,41 @@ class Appointment extends Model
     protected $primaryKey = 'appointment_id';
 
     protected $fillable = [
+        'clinic_id',
         'patient_id',
+        'bite_id',
+        'appointment_date',
+        'appointment_time',
+        'appointment_type',
+        'dose_number',
+        'status',
+        'notes',
+        'created_by',
+        // Legacy fields for mobile compatibility
         'booked_by_account_id',
         'staff_id',
-        'appointment_type',
         'scheduled_date',
-        'status',
         'cancellation_reason',
         'cancelled_at',
         'queue_number',
     ];
 
     protected $casts = [
+        'appointment_date' => 'date',
         'scheduled_date' => 'datetime',
+        'appointment_time' => 'datetime:H:i',
         'queue_number' => 'integer',
+        'dose_number' => 'integer',
         'cancelled_at' => 'datetime',
     ];
+
+    /**
+     * Relationship: Appointment belongs to Clinic
+     */
+    public function clinic()
+    {
+        return $this->belongsTo(Clinic::class, 'clinic_id', 'id');
+    }
 
     /**
      * Relationship: Appointment belongs to Patient
@@ -37,6 +56,22 @@ class Appointment extends Model
     public function patient()
     {
         return $this->belongsTo(Patient::class, 'patient_id', 'patient_id');
+    }
+
+    /**
+     * Relationship: Appointment belongs to Bite Incident (optional)
+     */
+    public function biteIncident()
+    {
+        return $this->belongsTo(BiteIncident::class, 'bite_id', 'bite_id');
+    }
+
+    /**
+     * Relationship: Appointment created by User
+     */
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
     }
 
     /**

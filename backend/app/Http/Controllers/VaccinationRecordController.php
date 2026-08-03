@@ -211,6 +211,19 @@ class VaccinationRecordController extends Controller
                 }
             }
 
+            // Update queue status if queue_id provided
+            if (!empty($request->queue_id)) {
+                $queue = Queue::find($request->queue_id);
+                if ($queue) {
+                    $queue->update(['status' => 'completed']);
+                }
+            }
+
+            // ──────────────────────────────────────────────────────────────
+            // ✨ AUTO-CREATE FOLLOW-UP APPOINTMENTS (Day 3, 7, 28, etc.)
+            // ──────────────────────────────────────────────────────────────
+            $this->createFollowUpAppointments($request, $clinicId, $patientId, $biteId, $userId);
+
             DB::commit();
 
             return response()->json([
@@ -277,4 +290,81 @@ class VaccinationRecordController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * ✨ AUTO-CREATE FOLLOW-UP APPOINTMENTS
+     * Called after Day 0 vaccination is recorded
+     */
+    private function createFollowUpAppointments($request, $clinicId, $patientId, $biteId, $userId)
+    {
+        // Check if Day 0 was given
+        $hasDay0 = false;
+        foreach ($request->doses as $dose) {
+            if (!empty($dose['date']) && in_array($dose['period'], ['Day 0'])) {
+                $hasDay0 = true;
+                $day0Date = \Carbon\Carbon::parse($dose['date']);
+                break;
+            }
+        }
+
+        if (!$hasDay0) {
+            return; // No Day 0 recorded, skip appointment creation
+        }
+
+        // Define follow-up schedule (WHO Essen Regimen)
+        $schedule = [
+            ['period' => 'Day 3', 'days_after' => 3, 'dose_number' => 3],
+            ['period' => 'Day 7', 'days_after' => 7, 'dose_number' => 7],
+            ['period' => 'Day 28', 'days_after' => 28, 'dose_number' => 28],
+            ['period' => 'Booster 1', 'days_after' => 90, 'dose_number' => 90],
+            ['period' => 'Booster 2', 'days_after' => 365, 'dose_number' => 365],
+        ];
+
+        foreach ($schedule as $followUp) {
+            // Check if dose was already given in this submission
+            $alreadyGiven = false;
+            foreach ($request->doses as $dose) {
+                if (!empty($dose['date']) && $dose['period'] === $followUp['period']) {
+                    $alreadyGiven = true;
+                    break;
+                }
+            }
+
+            if ($alreadyGiven) {
+                continue; // Skip if dose already given
+            }
+
+            // Calculate appointment date
+            $appointmentDate = $day0Date->copy()->addDays($followUp['days_after']);
+
+            // Check if appointment already exists
+            $existing = \App\Models\Appointment::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('dose_number', $followUp['dose_number'])
+                ->where('appointment_date', $appointmentDate->toDateString())
+                ->where('status', '!=', 'cancelled')
+                ->first();
+
+            if ($existing) {
+                continue; // Skip if appointment already exists
+            }
+
+            // Create appointment
+            \App\Models\Appointment::create([
+                'clinic_id' => $clinicId,
+                'patient_id' => $patientId,
+                'bite_id' => $biteId,
+                'appointment_date' => $appointmentDate->toDateString(),
+                'appointment_time' => '08:00:00', // Clinic opening time
+                'appointment_type' => 'follow_up_vaccination',
+                'dose_number' => $followUp['dose_number'],
+                'status' => 'scheduled',
+                'notes' => "Auto-scheduled: {$followUp['period']} dose",
+                'created_by' => $userId,
+            ]);
+
+            \Log::info("Created follow-up appointment for Patient #{$patientId}: {$followUp['period']} on {$appointmentDate->toDateString()}");
+        }
+    }
 }
+

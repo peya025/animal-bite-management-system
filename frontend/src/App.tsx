@@ -60,17 +60,12 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { label: 'Dashboard',                            path: ROUTES.DASHBOARD,                roles: ['developer', 'admin', 'registration', 'triage', 'treatment'] },
-  { label: 'Patient Registration (Form 1)',        path: ROUTES.PATIENTS.LIST,            roles: ['registration', 'admin'] },
+  { label: 'Patient Registration',                 path: ROUTES.PATIENTS.LIST,            roles: ['registration', 'admin'] },
   { label: 'Patient Queue',                        path: ROUTES.QUEUE.DASHBOARD,          roles: ['registration', 'triage', 'treatment', 'admin'] },
-  { label: 'Bite Cases (Summary)',                 path: ROUTES.BITE_CASES.LIST,          roles: ['registration', 'triage', 'treatment', 'admin'] },
-  { label: 'Individual Treatment (Form 2)',        path: ROUTES.TREATMENT_RECORDS.LIST,   roles: ['treatment', 'admin'] },
-  { label: 'Vaccination Record (Form 3)',          path: ROUTES.VACCINATIONS.LIST,        roles: ['treatment', 'admin'] },
+  { label: 'Bite Cases Summary',                   path: ROUTES.BITE_CASES.LIST,          roles: ['triage', 'treatment', 'admin'] },
   { label: 'Vaccine Inventory',                    path: ROUTES.INVENTORY.LIST,           roles: ['treatment', 'admin'] },
   { label: 'Reports & Analytics',                  path: ROUTES.REPORTS.LIST,             roles: ['registration', 'triage', 'treatment', 'admin'] },
   { label: 'User Management',                      path: ROUTES.USERS.LIST,               roles: ['admin'] },
-  { label: 'Staff Activity Monitor',               path: ROUTES.AUDIT.ACTIVITY,           roles: ['admin'] },
-  { label: 'Developer Settings',                   path: ROUTES.DEVELOPER_SETTINGS,        roles: ['developer', 'admin'] },
-  { label: 'Database Explorer',                    path: ROUTES.DATABASE_EXPLORER,        roles: ['developer'] },
   { 
     label: 'Clinic Setup',
     roles: ['admin'],
@@ -78,10 +73,11 @@ const NAV: NavItem[] = [
       { label: 'Clinic Information',      path: ROUTES.CLINIC_SETUP.INFO              },
       { label: 'Module Configuration',    path: ROUTES.CLINIC_SETUP.MODULES           },
       { label: 'Staff Assignments',       path: ROUTES.CLINIC_SETUP.STAFF_ASSIGNMENTS },
-      { label: 'Predefined Templates',    path: ROUTES.CLINIC_SETUP.TEMPLATES         },
+      { label: 'Staff Activity Monitor',  path: ROUTES.AUDIT.ACTIVITY                 },
       { label: 'Vaccination Schedules',   path: ROUTES.CLINIC_SETUP.VAX_SCHED         },
     ],
   },
+  { label: 'Developer Tools',                      path: ROUTES.DEVELOPER_SETTINGS,        roles: ['developer'] },
 ];
 
 const ROLE_LABELS: Record<string, string> = {

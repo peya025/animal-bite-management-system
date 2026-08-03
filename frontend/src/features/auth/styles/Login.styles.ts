@@ -39,7 +39,7 @@ export const LoginRoot = styled('div')`
   height: 100vh;
   overflow: hidden;
   background: var(--white);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
   color: var(--gray-700);
 
   .info-panel {

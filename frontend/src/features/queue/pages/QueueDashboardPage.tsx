@@ -240,10 +240,20 @@ export default function QueueDashboard() {
       {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography component="h1" sx={{ fontWeight: 700, fontSize: '20px', color: '#111827', margin: '0 0 8px 0' }}>
+          <Typography
+            component="h1"
+            sx={{
+              fontWeight: 600,
+              fontSize: '25px',
+              lineHeight: 1.2,
+              letterSpacing: '-0.5px',
+              color: '#173d29',
+              margin: '0 0 7px 0',
+            }}
+          >
             Queue Dashboard
           </Typography>
-          <Typography sx={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
+          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
             {today} · Auto-refreshes every 30 seconds
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>

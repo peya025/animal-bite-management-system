@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
-  Button,
   Chip,
   Paper,
   Stack,
@@ -12,6 +11,7 @@ import {
 } from '@mui/material';
 import { Search as SearchIcon, Pets as AnimalIcon, LocationOn as LocationIcon } from '@mui/icons-material';
 import api from '../../../services/api';
+import AppButton from '../../../components/button';
 import DataTable from '../../../components/ui/DataTable';
 import TablePager from '../../../components/data-display/TablePager';
 import AddPatientModal from '../../patients/components/AddPatientModal/AddPatientModal';
@@ -153,23 +153,20 @@ export default function BiteCaseListPage() {
 
   return (
     <Box sx={{ px: 3 }}>
-      {/* Header Bar */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h5" sx={{ color: '#173d29', fontWeight: 700, mb: '4px' }}>
+          <Typography variant="h5" sx={{ color: '#173d29', fontWeight: 600, mb: '7px' }}>
             Bite Incident Intake Assessment List
           </Typography>
-          <Typography variant="body2" sx={{ color: '#64748b' }}>
+          <Typography variant="body2" sx={{ color: '#77877d' }}>
             List of registered patients with reported bite incidents ready for Doctor consultation (Form 2) & Treatment Card (Form 3).
           </Typography>
         </Box>
-        <Button
-          variant="contained"
+        <AppButton
           onClick={() => setPatientModalOpen(true)}
-          sx={{ bgcolor: '#17653a', fontWeight: 600, '&:hover': { bgcolor: '#12522e' } }}
         >
           + New Bite Incident Intake
-        </Button>
+        </AppButton>
       </Box>
 
       {/* Filter / Search Row */}

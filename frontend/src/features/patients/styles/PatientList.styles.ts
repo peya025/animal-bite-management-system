@@ -4,7 +4,7 @@ export const PatientListRoot = styled('div')`
   display: flex;
   flex-direction: column;
   gap: 16px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   .pm-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7280; }
   .pm-breadcrumb-link {
@@ -24,8 +24,8 @@ export const PatientListRoot = styled('div')`
     display: flex; align-items: flex-start; justify-content: space-between;
     flex-wrap: wrap; gap: 12px;
   }
-  .pm-title { font-size: 20px; font-weight: 700; color: #111827; margin: 0 0 4px; }
-  .pm-subtitle { font-size: 13px; color: #6b7280; margin: 0; }
+  .pm-title { font-size: 25px; font-weight: 600; color: #173d29; margin: 0 0 7px; letter-spacing: -0.5px; line-height: 1.2; }
+  .pm-subtitle { font-size: 13px; color: #77877d; margin: 0; }
   .pm-add-btn {
     display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px;
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);

@@ -394,7 +394,7 @@ export default function ReportsDashboardPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 25, fontWeight: 700, color: '#173d29', margin: '0 0 6px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
+          <h1 style={{ fontSize: 25, fontWeight: 600, color: '#173d29', margin: '0 0 7px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
           <p style={{ fontSize: 13, color: '#77877d', margin: 0 }}>Generate and print system reports for the clinic</p>
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>

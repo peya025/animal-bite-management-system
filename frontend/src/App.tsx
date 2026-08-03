@@ -25,6 +25,7 @@ const DeveloperLandingSettingsPage = lazy(() => import('./features/developer/pag
 const DeveloperDatabaseExplorerPage = lazy(() => import('./features/developer/pages/DeveloperDatabaseExplorerPage'));
 import ConfirmationDialog from './components/feedback/ConfirmationDialog';
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
+import api from './shared/services/api';
 import { ROUTES } from './shared/config/routes';
 import { Icon, GLOBAL_NAV_ICONS } from './shared/components/ui/Icon';
 
@@ -111,6 +112,57 @@ function SimpleDashboard() {
   const [collapsed, setCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'cases' | 'vaccinations'>('overview');
+  const [stats, setStats] = useState<any>({
+    totalPatients: 0,
+    activeCases: 0,
+    pendingVaccinations: 0,
+    todayQueue: 0,
+    completedCases: 0,
+    followupPatients: 0,
+    biteCases: 0,
+    newToday: 0,
+    casesList: [],
+    vaccinationsList: [],
+  });
+
+  // Fetch real statistics from database
+  useEffect(() => {
+    if (!setupCheckDone || isLoading) return;
+
+    const fetchStats = async () => {
+      try {
+        const [patientsRes, casesRes, vaccineRes, queueRes] = await Promise.all([
+          api.get('/patients?per_page=1'),
+          api.get('/cases/statistics'),
+          api.get('/vaccinations/statistics'),
+          api.get('/queue/statistics'),
+        ]);
+
+        const [recentCasesRes, recentVaccsRes] = await Promise.all([
+          api.get('/cases?per_page=5'),
+          api.get('/vaccinations?per_page=5')
+        ]);
+
+        setStats({
+          totalPatients: patientsRes.data?.total || 0,
+          activeCases: casesRes.data?.active_cases || 0,
+          pendingVaccinations: vaccineRes.data?.pending || 0,
+          todayQueue: queueRes.data?.waiting || 0,
+          completedCases: casesRes.data?.completed_cases || 0,
+          followupPatients: vaccineRes.data?.total_scheduled || 0,
+          biteCases: casesRes.data?.total_cases || 0,
+          newToday: queueRes.data?.total || 0,
+          casesList: recentCasesRes.data?.data || [],
+          vaccinationsList: recentVaccsRes.data?.data || [],
+        });
+      } catch (err) {
+        console.error('Failed to fetch dashboard stats:', err);
+      }
+    };
+
+    fetchStats();
+  }, [setupCheckDone, isLoading]);
 
   // Background setup check (non-blocking if logged in)
   useEffect(() => {
@@ -357,9 +409,24 @@ function SimpleDashboard() {
               <p>Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
             </div>
             <div className="sd-dash-tabs">
-              <button className="sd-dash-tab sd-dash-tab--active">Overview</button>
-              <button className="sd-dash-tab">Cases</button>
-              <button className="sd-dash-tab">Vaccinations</button>
+              <button
+                className={`sd-dash-tab ${activeTab === 'overview' ? 'sd-dash-tab--active' : ''}`}
+                onClick={() => setActiveTab('overview')}
+              >
+                Overview
+              </button>
+              <button
+                className={`sd-dash-tab ${activeTab === 'cases' ? 'sd-dash-tab--active' : ''}`}
+                onClick={() => setActiveTab('cases')}
+              >
+                Cases
+              </button>
+              <button
+                className={`sd-dash-tab ${activeTab === 'vaccinations' ? 'sd-dash-tab--active' : ''}`}
+                onClick={() => setActiveTab('vaccinations')}
+              >
+                Vaccinations
+              </button>
             </div>
           </div>
 
@@ -370,51 +437,51 @@ function SimpleDashboard() {
                 case 'admin':
                   return (
                     <>
-                      <SdCard color="purple"  label="Total Patients"      value="0" sub="Registered" />
-                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
-                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
-                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
-                      <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
-                      <SdCard color="cyan"    label="Follow-up Patients"   value="0" sub="This week" />
-                      <SdCard color="green"   label="Bite Cases"           value="0" sub="Total" />
-                      <SdCard color="emerald" label="New Today"            value="0" sub="Registered" />
+                      <SdCard color="purple"  label="Total Patients"      value={stats.totalPatients.toString()} sub="Registered" />
+                      <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
+                      <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                      <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
+                      <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
+                      <SdCard color="cyan"    label="Follow-up Patients"   value={stats.followupPatients.toString()} sub="This week" />
+                      <SdCard color="green"   label="Bite Cases"           value={stats.biteCases.toString()} sub="Total" />
+                      <SdCard color="emerald" label="New Today"            value={stats.newToday.toString()} sub="Registered" />
                     </>
                   );
                 case 'registration':
                   return (
                     <>
-                      <SdCard color="purple"  label="Total Patients" value="0" sub="Registered" />
-                      <SdCard color="teal"    label="Today's Queue"  value="0" sub="Waiting" />
-                      <SdCard color="emerald" label="New Today"       value="0" sub="Registered" />
+                      <SdCard color="purple"  label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" />
+                      <SdCard color="teal"    label="Today's Queue"  value={stats.todayQueue.toString()} sub="Waiting" />
+                      <SdCard color="emerald" label="New Today"       value={stats.newToday.toString()} sub="Registered" />
                     </>
                   );
                 case 'triage':
                   return (
                     <>
-                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
-                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
-                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
-                      <SdCard color="purple"  label="Total Patients"       value="0" sub="Registered" />
-                      <SdCard color="green"   label="Bite Cases"           value="0" sub="Total" />
-                      <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
+                      <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
+                      <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
+                      <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                      <SdCard color="purple"  label="Total Patients"       value={stats.totalPatients.toString()} sub="Registered" />
+                      <SdCard color="green"   label="Bite Cases"           value={stats.biteCases.toString()} sub="Total" />
+                      <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
                     </>
                   );
                 case 'treatment':
                   return (
                     <>
-                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
-                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
-                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
-                      <SdCard color="violet"  label="Completed Cases"      value="0" sub="This month" />
+                      <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                      <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
+                      <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
+                      <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
                     </>
                   );
                 default:
                   return (
                     <>
-                      <SdCard color="purple"  label="Total Patients"      value="0" sub="Registered" />
-                      <SdCard color="blue"    label="Active Cases"         value="0" sub="Ongoing" />
-                      <SdCard color="indigo"  label="Pending Vaccinations" value="0" sub="Scheduled" />
-                      <SdCard color="teal"    label="Today's Queue"        value="0" sub="Waiting" />
+                      <SdCard color="purple"  label="Total Patients"      value={stats.totalPatients.toString()} sub="Registered" />
+                      <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
+                      <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                      <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
                     </>
                   );
               }
@@ -422,7 +489,9 @@ function SimpleDashboard() {
           </div>
 
           {/* ΓöÇΓöÇΓöÇ Charts + Filters in one unified 3-column row ΓöÇΓöÇΓöÇ */}
-          <div className="sd-charts-row" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+          {activeTab === 'overview' && (
+            <>
+                        <div className="sd-charts-row" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
             {/* Cases Over Time */}
             <div
               className="sd-chart-card"
@@ -590,6 +659,117 @@ function SimpleDashboard() {
               </div>
             </div>
           </div>
+            </>
+          )}
+          {activeTab === 'cases' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="sd-cards-grid">
+                <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" />
+                <SdCard color="blue" label="Active Cases" value={stats.activeCases.toString()} sub="Ongoing treatment" />
+                <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
+              </div>
+
+              <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e0eae3', padding: '24px' }}>
+                <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: '#173d29' }}>Recent Bite Incident Cases</p>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #e2ebe5', textAlign: 'left' }}>
+                        <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Patient</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Bite Date</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Animal Type</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Category</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stats.casesList.length > 0 ? (
+                        stats.casesList.map((c: any) => (
+                          <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                            <td style={{ padding: '12px 16px', color: '#111827', fontWeight: 600 }}>{c.patient?.name || '—'}</td>
+                            <td style={{ padding: '12px 16px', color: '#374151' }}>{c.bite_date || '—'}</td>
+                            <td style={{ padding: '12px 16px', color: '#374151', textTransform: 'capitalize' }}>{c.animal_type || '—'}</td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{
+                                padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                                background: c.severity === 'Category III' ? '#fee2e2' : c.severity === 'Category II' ? '#fef3c7' : '#ecfdf5',
+                                color: c.severity === 'Category III' ? '#ef4444' : c.severity === 'Category II' ? '#d97706' : '#10b981'
+                              }}>
+                                {c.severity || 'Category II'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{
+                                padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                                background: c.status === 'completed' ? '#ecfdf5' : '#eff6ff',
+                                color: c.status === 'completed' ? '#10b981' : '#3b82f6'
+                              }}>
+                                {c.status || 'Active'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>No recent cases recorded.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+          {activeTab === 'vaccinations' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="sd-cards-grid">
+                <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                <SdCard color="purple" label="Total Scheduled" value={stats.followupPatients.toString()} sub="Doses tracked" />
+                <SdCard color="teal" label="Queue Count" value={stats.todayQueue.toString()} sub="Today waiting" />
+              </div>
+
+              <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e0eae3', padding: '24px' }}>
+                <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: '#173d29' }}>Recent Vaccinations & Scheduled Doses</p>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #e2ebe5', textAlign: 'left' }}>
+                        <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Patient</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Vaccine Brand</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Batch / Dose</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Date Administered</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stats.vaccinationsList.length > 0 ? (
+                        stats.vaccinationsList.map((v: any) => (
+                          <tr key={v.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                            <td style={{ padding: '12px 16px', color: '#111827', fontWeight: 600 }}>{v.patient?.name || '—'}</td>
+                            <td style={{ padding: '12px 16px', color: '#374151' }}>{v.vaccine_brand || '—'}</td>
+                            <td style={{ padding: '12px 16px', color: '#374151' }}>{v.dose_number || 'Dose 1'}</td>
+                            <td style={{ padding: '12px 16px', color: '#374151' }}>{v.administered_at ? new Date(v.administered_at).toLocaleDateString() : '—'}</td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{
+                                padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                                background: '#ecfdf5', color: '#10b981'
+                              }}>
+                                Done
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>No recent vaccinations found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 

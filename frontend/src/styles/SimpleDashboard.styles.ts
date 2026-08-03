@@ -12,7 +12,7 @@ export const AppStyleScope = styled('div')`
     font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
   }
   .sd-sidebar {
-    width: 248px; height: 100vh; max-height: 100vh; background: #fbfdfb; display: flex;
+    width: 272px; height: 100vh; max-height: 100vh; background: #fbfdfb; display: flex;
     flex-direction: column; padding: 0; flex-shrink: 0; position: relative;
     transition: width 0.2s ease; overflow: hidden;
     border-right: 1px solid #e2ebe5; z-index: 10;
@@ -91,14 +91,14 @@ export const AppStyleScope = styled('div')`
     transition: all 0.15s; flex-shrink: 0;
   }
   .sd-logout-btn:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
-  .sd-toggle {
-    position: absolute; bottom: 72px; right: -12px; width: 24px; height: 24px;
-    background: #fff; border: 1.5px solid #e5e7eb;
-    border-radius: 50%; color: #064e3b; display: flex;
-    align-items: center; justify-content: center; cursor: pointer;
-    transition: all 0.15s; z-index: 10;
+  .sd-toggle-brand {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; background: transparent; border: none;
+    border-radius: 6px; color: #064e3b; cursor: pointer;
+    transition: all 0.15s; flex-shrink: 0;
   }
-  .sd-toggle:hover { background: #10b981; border-color: #10b981; color: #fff; }
+  .sd-toggle-brand:hover { background: #e8f5ed; color: #10b981; }
+  .sd-sidebar--collapsed .sd-brand { justify-content: center; padding: 0; }
   .sd-main {
     flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
   }

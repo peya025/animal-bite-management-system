@@ -110,13 +110,25 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave }: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Helper function to format date to yyyy-MM-dd
+  const formatDateForInput = (dateString: string | null | undefined): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      return date.toISOString().split('T')[0];
+    } catch {
+      return '';
+    }
+  };
+
   useEffect(() => {
     if (open && entry?.patient) {
       setFormData(prev => ({
         ...prev,
         patient_name: `${entry.patient.last_name}, ${entry.patient.first_name} ${entry.patient.middle_name || ''}`.trim(),
         age: String(entry.patient.age || ''),
-        date_of_birth: entry.patient.date_of_birth || '',
+        date_of_birth: formatDateForInput(entry.patient.date_of_birth),
         address: entry.patient.address || '',
         sex: entry.patient.gender === 'M' ? 'male' : entry.patient.gender === 'F' ? 'female' : '',
       }));

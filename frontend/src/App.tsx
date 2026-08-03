@@ -5,6 +5,8 @@ import Login from './features/auth/pages/LoginPage';
 import SetupWizard from './features/clinic-setup/pages/SetupWizardPage';
 import AcceptInvitationPage from './features/auth/pages/AcceptInvitationPage';
 import PatientList from './features/patients/pages/PatientListPage';
+import NursePatientList from './features/patients/pages/NursePatientListPage';
+import DoctorPatientList from './features/patients/pages/DoctorPatientListPage';
 import VaccineInventory from './features/inventory/pages/VaccineInventoryPage';
 import QueueDashboard from './features/queue/pages/QueueDashboardPage';
 import BiteCaseRiskDashboard from './features/bite-cases/pages/BiteCaseRiskDashboard';
@@ -62,6 +64,8 @@ const NAV: NavItem[] = [
   { label: 'Dashboard',                            path: ROUTES.DASHBOARD,                roles: ['developer', 'admin', 'registration', 'triage', 'treatment'] },
   { label: 'Patient Registration',                 path: ROUTES.PATIENTS.LIST,            roles: ['registration', 'admin'] },
   { label: 'Patient Queue',                        path: ROUTES.QUEUE.DASHBOARD,          roles: ['registration', 'triage', 'treatment', 'admin'] },
+  { label: 'My Patients',                          path: ROUTES.PATIENTS.NURSE_LIST,      roles: ['treatment'] },
+  { label: 'My Patients',                          path: ROUTES.PATIENTS.DOCTOR_LIST,     roles: ['triage'] },
   { label: 'Bite Cases Summary',                   path: ROUTES.BITE_CASES.LIST,          roles: ['triage', 'treatment', 'admin'] },
   { label: 'Vaccine Inventory',                    path: ROUTES.INVENTORY.LIST,           roles: ['treatment', 'admin'] },
   { label: 'Reports & Analytics',                  path: ROUTES.REPORTS.LIST,             roles: ['registration', 'triage', 'treatment', 'admin'] },
@@ -1052,6 +1056,8 @@ function App() {
             <Route path="/accept-invitation/:token" element={<AcceptInvitationPage />} />
             <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
             <Route path="/patients"  element={<ProtectedRoute><AppLayout title="Patients"><PatientList /></AppLayout></ProtectedRoute>} />
+            <Route path="/nurse/patients" element={<ProtectedRoute><AppLayout title="My Patients"><NursePatientList /></AppLayout></ProtectedRoute>} />
+            <Route path="/doctor/patients" element={<ProtectedRoute><AppLayout title="My Patients"><DoctorPatientList /></AppLayout></ProtectedRoute>} />
             <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
             <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
             <Route path="/bite-cases" element={<ProtectedRoute><AppLayout title="Bite Cases & Risk Surveillance"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />

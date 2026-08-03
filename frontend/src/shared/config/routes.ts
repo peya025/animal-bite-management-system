@@ -18,6 +18,8 @@ export const ROUTES = {
     CREATE:  '/patients/create',
     DETAILS: '/patients/:id',
     EDIT:    '/patients/:id/edit',
+    NURSE_LIST: '/nurse/patients',
+    DOCTOR_LIST: '/doctor/patients',
   },
 
   BITE_CASES: {

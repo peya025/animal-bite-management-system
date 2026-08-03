@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\TreatmentRecord;
 use App\Models\TagoloanTreatmentCard;
 use App\Models\Queue;
+use App\Models\Appointment;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;

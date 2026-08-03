@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Alert, Box, Button, CircularProgress, IconButton,
+  Alert, Box, CircularProgress, IconButton,
   Paper, Snackbar, Stack, Tooltip, Typography,
 } from '@mui/material';
 import {
@@ -17,6 +17,7 @@ import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
+import AppButton from '../../../components/button';
 
 // Clean queue module imports
 import type { QueueEntry } from '../types';
@@ -258,16 +259,8 @@ export default function QueueDashboard() {
         </Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
-          <Button
-            variant="contained"
+          <AppButton
             onClick={() => setAddToQueueOpen(true)}
-            sx={{
-              bgcolor: '#065f46',
-              '&:hover': { bgcolor: '#047857' },
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: 13,
-            }}
             startIcon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -275,7 +268,7 @@ export default function QueueDashboard() {
             }
           >
             Add to Queue
-          </Button>
+          </AppButton>
           <Tooltip title="Refresh">
             <IconButton onClick={reload} disabled={loading}>
               <RefreshIcon />

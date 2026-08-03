@@ -293,6 +293,7 @@ export default function VaccinationSchedulePage() {
         sx={{
           display: 'flex',
           justifyContent: 'space-between',
+          alignItems: 'flex-start',
           mb: 3,
           flexWrap: 'wrap',
           gap: 2,
@@ -413,11 +414,16 @@ export default function VaccinationSchedulePage() {
             />
           </Stack>
         </DialogContent>
-        <DialogActions>
-          <AppButton variant="secondary" onClick={() => setSelected(null)}>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <AppButton
+            variant="secondary"
+            style={{ minWidth: 120 }}
+            onClick={() => setSelected(null)}
+          >
             Cancel
           </AppButton>
           <AppButton
+            style={{ minWidth: 120 }}
             disabled={!brand || !batch || !site}
             onClick={() => setConfirmAdministration(true)}
           >
@@ -520,14 +526,16 @@ export default function VaccinationSchedulePage() {
                       doseNumber: parseInt(e.target.value, 10) || 0,
                     }))
                   }
-                  inputProps={{ min: 1 }}
                   helperText="e.g., 1, 2, 3…"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Schedule color="action" />
-                      </InputAdornment>
-                    ),
+                  slotProps={{
+                    htmlInput: { min: 1 },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Schedule color="action" />
+                        </InputAdornment>
+                      ),
+                    },
                   }}
                 />
               </Grid>
@@ -541,29 +549,33 @@ export default function VaccinationSchedulePage() {
                   onChange={(e) =>
                     setNewVaccine((prev) => ({ ...prev, scheduledDate: e.target.value }))
                   }
-                  InputLabelProps={{ shrink: true }}
                   helperText="Choose the date for this dose"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <CalendarToday color="action" />
-                      </InputAdornment>
-                    ),
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <CalendarToday color="action" />
+                        </InputAdornment>
+                      ),
+                    },
                   }}
                 />
               </Grid>
             </Grid>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
           <AppButton
             variant="secondary"
+            style={{ minWidth: 120 }}
             onClick={() => setRecordModalOpen(false)}
             disabled={submitting}
           >
             Cancel
           </AppButton>
           <AppButton
+            style={{ minWidth: 120 }}
             onClick={createVaccination}
             disabled={
               !newVaccine.patientId ||

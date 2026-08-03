@@ -4,7 +4,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
   Select,
   MenuItem,
@@ -19,6 +18,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Close as CloseIcon } from '@mui/icons-material';
 import api from '../../../shared/services/api';
+import AppButton from '../../../components/button';
 
 interface Patient {
   patient_id: number;
@@ -219,18 +219,21 @@ export default function AddToQueueModal({ open, onClose, onSuccess }: AddToQueue
 
       <Divider />
       <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} disabled={loading} startIcon={<CloseIcon />}>
+        <AppButton
+          variant="secondary"
+          onClick={onClose}
+          disabled={loading}
+          startIcon={<CloseIcon />}
+        >
           Cancel
-        </Button>
-        <Button
-          variant="contained"
+        </AppButton>
+        <AppButton
           onClick={handleSubmit}
           disabled={loading || !selectedPatient}
-          startIcon={loading ? <CircularProgress size={16} /> : <AddIcon />}
-          sx={{ bgcolor: '#065f46', '&:hover': { bgcolor: '#047857' } }}
+          startIcon={loading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <AddIcon />}
         >
           Add to Queue
-        </Button>
+        </AppButton>
       </DialogActions>
     </Dialog>
   );

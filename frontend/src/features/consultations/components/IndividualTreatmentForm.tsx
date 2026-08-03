@@ -4,7 +4,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
   FormControl,
   FormLabel,
@@ -22,6 +21,7 @@ import {
 } from '@mui/material';
 import { Save as SaveIcon, Close as CloseIcon } from '@mui/icons-material';
 import api from '../../../shared/services/api';
+import AppButton from '../../../components/button';
 
 interface IndividualTreatmentFormProps {
   open: boolean;
@@ -658,18 +658,21 @@ export default function IndividualTreatmentForm({
 
       <Divider />
       <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} disabled={loading} startIcon={<CloseIcon />}>
+        <AppButton
+          variant="secondary"
+          onClick={onClose}
+          disabled={loading}
+          startIcon={<CloseIcon />}
+        >
           Cancel
-        </Button>
-        <Button
-          variant="contained"
+        </AppButton>
+        <AppButton
           onClick={handleSave}
           disabled={loading}
-          startIcon={loading ? <CircularProgress size={16} /> : <SaveIcon />}
-          sx={{ bgcolor: '#065f46', '&:hover': { bgcolor: '#047857' } }}
+          startIcon={loading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SaveIcon />}
         >
           Save Patient Record
-        </Button>
+        </AppButton>
       </DialogActions>
     </Dialog>
   );

@@ -312,6 +312,11 @@ class VaccinationRecordController extends Controller
             return; // No Day 0 recorded, skip appointment creation
         }
 
+        // Get clinic schedule information
+        $clinic = \App\Models\Clinic::find($clinicId);
+        $workingDays = $clinic->working_days ?? [1, 2, 3, 4, 5]; // Default Mon-Fri
+        $holidays = $clinic->holiday_dates ?? [];
+
         // Define follow-up schedule (WHO Essen Regimen)
         $schedule = [
             ['period' => 'Day 3', 'days_after' => 3, 'dose_number' => 3],
@@ -335,14 +340,17 @@ class VaccinationRecordController extends Controller
                 continue; // Skip if dose already given
             }
 
-            // Calculate appointment date
-            $appointmentDate = $day0Date->copy()->addDays($followUp['days_after']);
+            // Calculate appointment date (skip weekends and holidays)
+            $appointmentDate = $this->calculateNextWorkingDay(
+                $day0Date->copy()->addDays($followUp['days_after']),
+                $workingDays,
+                $holidays
+            );
 
             // Check if appointment already exists
             $existing = \App\Models\Appointment::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->where('dose_number', $followUp['dose_number'])
-                ->where('appointment_date', $appointmentDate->toDateString())
                 ->where('status', '!=', 'cancelled')
                 ->first();
 
@@ -356,7 +364,7 @@ class VaccinationRecordController extends Controller
                 'patient_id' => $patientId,
                 'bite_id' => $biteId,
                 'appointment_date' => $appointmentDate->toDateString(),
-                'appointment_time' => '08:00:00', // Clinic opening time
+                'appointment_time' => $clinic->opening_time ?? '08:00:00',
                 'appointment_type' => 'follow_up_vaccination',
                 'dose_number' => $followUp['dose_number'],
                 'status' => 'scheduled',
@@ -366,6 +374,35 @@ class VaccinationRecordController extends Controller
 
             \Log::info("Created follow-up appointment for Patient #{$patientId}: {$followUp['period']} on {$appointmentDate->toDateString()}");
         }
+    }
+
+    /**
+     * Calculate next working day (skip weekends and holidays)
+     */
+    private function calculateNextWorkingDay($date, $workingDays, $holidays)
+    {
+        $maxIterations = 30; // Prevent infinite loop
+        $iterations = 0;
+
+        while ($iterations < $maxIterations) {
+            $dayOfWeek = $date->dayOfWeek; // 0=Sunday, 6=Saturday
+            $dateString = $date->toDateString();
+
+            // Check if it's a working day and not a holiday
+            $isWorkingDay = in_array($dayOfWeek, $workingDays);
+            $isHoliday = in_array($dateString, $holidays);
+
+            if ($isWorkingDay && !$isHoliday) {
+                return $date;
+            }
+
+            // Move to next day
+            $date->addDay();
+            $iterations++;
+        }
+
+        // If we can't find a working day in 30 days, just return the original date
+        return $date;
     }
 }
 

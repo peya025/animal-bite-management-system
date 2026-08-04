@@ -13,7 +13,9 @@ return new class extends Migration
             $table->foreignId('clinic_id')->constrained('clinics')->cascadeOnDelete();
             $table->foreignId('patient_id')->constrained('patients', 'patient_id')->cascadeOnDelete();
             $table->foreignId('patient_account_id')->constrained('patient_accounts')->cascadeOnDelete();
-            $table->foreignId('appointment_id')->unique()->constrained('appointments', 'appointment_id')->cascadeOnDelete();
+            
+            // appointment_id will be added later via separate migration
+            $table->unsignedBigInteger('appointment_id')->nullable()->unique();
 
             $table->date('bite_date');
             $table->string('bite_place')->nullable();

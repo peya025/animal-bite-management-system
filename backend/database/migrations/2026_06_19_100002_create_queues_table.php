@@ -17,7 +17,10 @@ return new class extends Migration
             // Foreign Keys
             $table->foreignId('clinic_id')->constrained('clinics', 'id')->cascadeOnDelete();
             $table->foreignId('patient_id')->constrained('patients', 'patient_id')->cascadeOnDelete();
-            $table->foreignId('appointment_id')->nullable()->constrained('appointments', 'appointment_id')->nullOnDelete();
+            
+            // appointment_id will be added later via separate migration
+            $table->unsignedBigInteger('appointment_id')->nullable();
+            
             $table->foreignId('bite_id')->nullable()->constrained('bite_incidents', 'bite_id')->nullOnDelete();
             
             // Queue Management (merged from patient_queue)

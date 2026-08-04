@@ -132,8 +132,49 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave }: 
         address: entry.patient.address || '',
         sex: entry.patient.gender === 'M' ? 'male' : entry.patient.gender === 'F' ? 'female' : '',
       }));
+
+      // Load appointments and pre-fill scheduled dates
+      loadPatientAppointments();
     }
   }, [open, entry]);
+
+  const loadPatientAppointments = async () => {
+    if (!entry?.patient?.patient_id) return;
+
+    try {
+      const response = await api.get(`/appointments?patient_id=${entry.patient.patient_id}&status=scheduled`);
+      const appointments = response.data.data || [];
+
+      // Pre-fill doses with scheduled appointment dates
+      setDoses(prevDoses => {
+        return prevDoses.map(dose => {
+          const doseNumberMap: Record<string, number> = {
+            'Day 0': 0,
+            'Day 3': 3,
+            'Day 7': 7,
+            'Day 28': 28,
+            'Booster 1': 90,
+            'Booster 2': 365,
+          };
+
+          const doseNumber = doseNumberMap[dose.period];
+          const appointment = appointments.find((a: any) => a.dose_number === doseNumber);
+
+          if (appointment && !dose.date) {
+            // Pre-fill with scheduled date (but keep it editable)
+            return {
+              ...dose,
+              date: formatDateForInput(appointment.appointment_date),
+            };
+          }
+
+          return dose;
+        });
+      });
+    } catch (error) {
+      console.error('Failed to load appointments:', error);
+    }
+  };
 
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>

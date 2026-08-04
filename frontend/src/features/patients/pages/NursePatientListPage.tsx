@@ -70,6 +70,18 @@ export default function NursePatientListPage() {
     loadPatients();
   }, [tab, page, rowsPerPage]);
 
+  // Auto-refresh when page becomes visible (user returns from queue)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadPatients();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [tab, page, rowsPerPage]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (page === 0) {
@@ -104,6 +116,32 @@ export default function NursePatientListPage() {
     if (!patient.appointments || patient.appointments.length === 0) return null;
     const upcoming = patient.appointments.find((a: any) => a.status === 'scheduled');
     return upcoming;
+  };
+
+  const getVaccinationStatus = (patient: Patient) => {
+    const record = patient.latest_treatment_record;
+    const appt = getNextAppointment(patient);
+
+    if (!record || !record.dose_number) {
+      return { label: 'Not Started', color: '#9ca3af', bg: '#f3f4f6' };
+    }
+
+    // Check if all doses completed (Day 28 or later)
+    if (record.dose_number >= 28 && !appt) {
+      return { label: 'Completed', color: '#065f46', bg: '#d1fae5' };
+    }
+
+    // Check if overdue
+    if (appt) {
+      const apptDate = new Date(appt.appointment_date);
+      const today = new Date();
+      if (apptDate < today) {
+        return { label: 'Overdue', color: '#dc2626', bg: '#fee2e2' };
+      }
+    }
+
+    // Active treatment
+    return { label: 'In Progress', color: '#2563eb', bg: '#eff6ff' };
   };
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -154,6 +192,14 @@ export default function NursePatientListPage() {
       },
     },
     {
+      key: 'status',
+      header: 'STATUS',
+      render: (patient) => {
+        const status = getVaccinationStatus(patient);
+        return <Chip label={status.label} size="small" sx={{ bgcolor: status.bg, color: status.color, fontSize: 11, fontWeight: 600 }} />;
+      },
+    },
+    {
       key: 'next_appointment',
       header: 'NEXT APPOINTMENT',
       render: (patient) => {
@@ -185,29 +231,6 @@ export default function NursePatientListPage() {
             </Typography>
           </Box>
         );
-      },
-    },
-    {
-      key: 'status',
-      header: 'STATUS',
-      render: (patient) => {
-        const appt = getNextAppointment(patient);
-        if (!appt) {
-          return <Chip label="Completed" size="small" sx={{ bgcolor: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 600 }} />;
-        }
-
-        const apptDate = new Date(appt.appointment_date);
-        const today = new Date();
-        const isToday = apptDate.toDateString() === today.toDateString();
-        const isPast = apptDate < today && !isToday;
-
-        if (isToday) {
-          return <Chip label="Due Today" size="small" sx={{ bgcolor: '#ecfdf5', color: '#059669', fontSize: 11, fontWeight: 600 }} />;
-        }
-        if (isPast) {
-          return <Chip label="Overdue" size="small" sx={{ bgcolor: '#fee2e2', color: '#dc2626', fontSize: 11, fontWeight: 600 }} />;
-        }
-        return <Chip label="Scheduled" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} />;
       },
     },
     {

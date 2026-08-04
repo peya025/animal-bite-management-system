@@ -20,11 +20,20 @@ class Clinic extends Model
         'logo_path',
         'is_setup_complete',
         'setup_completed_at',
+        'opening_time',
+        'closing_time',
+        'working_days',
+        'holiday_dates',
+        'schedule_notes',
     ];
 
     protected $casts = [
         'is_setup_complete' => 'boolean',
         'setup_completed_at' => 'datetime',
+        'opening_time' => 'datetime:H:i',
+        'closing_time' => 'datetime:H:i',
+        'working_days' => 'array',
+        'holiday_dates' => 'array',
     ];
 
     /**

@@ -15,7 +15,9 @@ return new class extends Migration
             $table->id('notification_id');
             $table->foreignId('patient_id')->constrained('patients', 'patient_id')->cascadeOnDelete();
             $table->foreignId('patient_account_id')->nullable()->constrained('patient_accounts')->cascadeOnDelete();
-            $table->foreignId('appointment_id')->nullable()->constrained('appointments', 'appointment_id')->nullOnDelete();
+            
+            // appointment_id will be added later via separate migration
+            $table->unsignedBigInteger('appointment_id')->nullable();
 
             $table->string('type'); // sms, email, push, etc.
             $table->text('message');

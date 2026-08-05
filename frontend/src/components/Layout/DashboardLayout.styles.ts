@@ -103,14 +103,12 @@ export const DashboardLayoutRoot = styled('div')`
   .sidebar-logout-btn:hover {
     background: #fef2f2; border-color: #fca5a5; color: #dc2626;
   }
-  .sidebar-toggle {
-    position: absolute; right: -12px; top: 20px; width: 24px; height: 24px;
-    border-radius: 50%; background: #ffffff; border: 1px solid #e5e7eb;
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-    color: #9ca3af; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    transition: all 0.15s; z-index: 10;
+  .header-toggle {
+    width: 38px; height: 38px; border-radius: 8px; border: 1px solid #e5e7eb;
+    background: #ffffff; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s; color: #6b7280; flex-shrink: 0;
   }
-  .sidebar-toggle:hover { background: #f9fafb; color: #374151; }
+  .header-toggle:hover { background: #f3f4f6; border-color: #d1d5db; color: #111827; }
   .main-content {
     flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
   }
@@ -119,6 +117,7 @@ export const DashboardLayoutRoot = styled('div')`
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 28px; flex-shrink: 0;
   }
+  .header-left { display: flex; align-items: center; gap: 16px; }
   .header-left h1 { font-size: 18px; font-weight: 600; color: #111827; margin: 0; }
   .header-right { display: flex; align-items: center; gap: 20px; }
   .user-menu { display: flex; align-items: center; gap: 12px; }

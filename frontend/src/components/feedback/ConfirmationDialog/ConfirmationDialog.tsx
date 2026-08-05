@@ -14,6 +14,7 @@ import {
 
 interface ConfirmationDialogProps {
   variant?: ConfirmationVariant;
+  colorVariant?: ConfirmationVariant;
   title: string;
   message: React.ReactNode;
   confirmLabel?: string;
@@ -21,6 +22,7 @@ interface ConfirmationDialogProps {
   hideCancel?: boolean;
   onConfirm?: () => void;
   onCancel?: () => void;
+  shakeIcon?: boolean;
 }
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -50,10 +52,23 @@ const ICONS: Record<string, React.ReactNode> = {
       <line x1="9" y1="9" x2="15" y2="15"/>
     </svg>
   ),
+  logout: (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 18v-6a5 5 0 1 1 10 0v6" />
+      <path d="M10 18v-3a2 2 0 0 1 4 0v3" />
+      <path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z" />
+      <path d="M21 12h1" />
+      <path d="M18.5 7.5 20 6" />
+      <path d="M12 2v1" />
+      <path d="M5.5 7.5 4 6" />
+      <path d="M2 12h1" />
+    </svg>
+  ),
 };
 
 export default function ConfirmationDialog({
   variant = 'confirm',
+  colorVariant,
   title,
   message,
   confirmLabel = 'Confirm',
@@ -61,7 +76,10 @@ export default function ConfirmationDialog({
   hideCancel = false,
   onConfirm,
   onCancel,
+  shakeIcon = false,
 }: ConfirmationDialogProps) {
+  const activeColorVariant = colorVariant || variant;
+
   return (
     <Overlay
       onClick={hideCancel ? undefined : onCancel}
@@ -70,14 +88,14 @@ export default function ConfirmationDialog({
       aria-labelledby="cm-title"
     >
       <Modal onClick={(e) => e.stopPropagation()}>
-        <Icon variant={variant}>
+        <Icon variant={activeColorVariant} shouldShake={shakeIcon}>
           {ICONS[variant]}
         </Icon>
 
         <Title id="cm-title">{title}</Title>
         <Message>{message}</Message>
 
-        {variant === 'success' && (
+        {activeColorVariant === 'success' && (
           <LoaderWrap>
             <LoaderBar />
           </LoaderWrap>
@@ -88,7 +106,7 @@ export default function ConfirmationDialog({
             <CancelButton onClick={onCancel}>
               {cancelLabel}
             </CancelButton>
-            <ConfirmButton variant={variant} onClick={onConfirm}>
+            <ConfirmButton variant={activeColorVariant} onClick={onConfirm}>
               {confirmLabel}
             </ConfirmButton>
           </Actions>

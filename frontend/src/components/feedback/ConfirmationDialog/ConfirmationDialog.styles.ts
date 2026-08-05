@@ -1,6 +1,6 @@
 import { keyframes, styled } from '@mui/material/styles';
 
-export type ConfirmationVariant = 'confirm' | 'success' | 'warning' | 'danger';
+export type ConfirmationVariant = 'confirm' | 'success' | 'warning' | 'danger' | 'logout';
 
 const fadeIn = keyframes`
   from { opacity: 0; }
@@ -10,6 +10,26 @@ const fadeIn = keyframes`
 const scaleIn = keyframes`
   from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: scale(1); }
+`;
+
+const shake = keyframes`
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  15% { transform: rotate(-8deg) scale(1.05); }
+  30% { transform: rotate(6deg) scale(1.05); }
+  45% { transform: rotate(-6deg) scale(1.05); }
+  60% { transform: rotate(4deg) scale(1.05); }
+  75% { transform: rotate(-2deg) scale(1.02); }
+  90% { transform: rotate(1deg) scale(1); }
+`;
+
+const shakeHover = keyframes`
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  15% { transform: rotate(-6deg) scale(1.05); }
+  30% { transform: rotate(4deg) scale(1.05); }
+  45% { transform: rotate(-4deg) scale(1.05); }
+  60% { transform: rotate(2deg) scale(1.05); }
+  75% { transform: rotate(-1deg) scale(1.02); }
+  90% { transform: rotate(1deg) scale(1); }
 `;
 
 const loaderGrow = keyframes`
@@ -32,10 +52,11 @@ const iconColors: Record<ConfirmationVariant, { background: string; color: strin
   success: { background: '#d1fae5', color: '#065f46' },
   warning: { background: '#d1fae5', color: '#065f46' },
   danger:  { background: '#fee2e2', color: '#991b1b' },
+  logout:  { background: '#fee2e2', color: '#991b1b' },
 };
 
 const buttonColors: Record<
-  Exclude<ConfirmationVariant, 'confirm'> | 'confirm',
+  ConfirmationVariant,
   { background: string; shadow: string; hoverShadow: string }
 > = {
   confirm: {
@@ -54,6 +75,11 @@ const buttonColors: Record<
     hoverShadow: '0 6px 16px rgba(16, 185, 129, 0.45)',
   },
   danger: {
+    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+    shadow: '0 4px 12px rgba(239, 68, 68, 0.35)',
+    hoverShadow: '0 6px 16px rgba(239, 68, 68, 0.45)',
+  },
+  logout: {
     background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
     shadow: '0 4px 12px rgba(239, 68, 68, 0.35)',
     hoverShadow: '0 6px 16px rgba(239, 68, 68, 0.45)',
@@ -89,8 +115,8 @@ export const Modal = styled('div')({
 });
 
 export const Icon = styled('div', {
-  shouldForwardProp: (prop) => prop !== 'variant',
-})<{ variant: ConfirmationVariant }>(({ variant }) => ({
+  shouldForwardProp: (prop) => prop !== 'variant' && prop !== 'shouldShake',
+})<{ variant: ConfirmationVariant; shouldShake?: boolean }>(({ variant, shouldShake }) => ({
   width: 64,
   height: 64,
   borderRadius: '50%',
@@ -99,6 +125,12 @@ export const Icon = styled('div', {
   justifyContent: 'center',
   margin: '0 auto 20px',
   ...iconColors[variant],
+  ...(shouldShake && {
+    animation: `${shake} 0.6s ease-in-out`,
+    '&:hover': {
+      animation: `${shakeHover} 0.6s ease-in-out`,
+    },
+  }),
 }));
 
 export const Title = styled('h3')({

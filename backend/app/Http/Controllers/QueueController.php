@@ -341,19 +341,33 @@ class QueueController extends Controller
             $clinicId = $request->user()->clinic_id;
             $date = $request->get('date', Carbon::today()->toDateString());
 
+            // Run a single aggregated query for all status counts
+            $aggregates = \Illuminate\Support\Facades\DB::table('queues')
+                ->where('clinic_id', $clinicId)
+                ->where('queue_date', $date)
+                ->selectRaw('
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = "waiting" THEN 1 ELSE 0 END) as waiting,
+                    SUM(CASE WHEN status = "in_consultation" THEN 1 ELSE 0 END) as in_consultation,
+                    SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed,
+                    SUM(CASE WHEN status = "cancelled" THEN 1 ELSE 0 END) as cancelled
+                ')
+                ->first();
+
             $stats = [
                 'date' => $date,
-                'total' => Queue::where('clinic_id', $clinicId)->where('queue_date', $date)->count(),
-                'waiting' => Queue::where('clinic_id', $clinicId)->where('queue_date', $date)->where('status', 'waiting')->count(),
-                'in_consultation' => Queue::where('clinic_id', $clinicId)->where('queue_date', $date)->where('status', 'in_consultation')->count(),
-                'completed' => Queue::where('clinic_id', $clinicId)->where('queue_date', $date)->where('status', 'completed')->count(),
-                'cancelled' => Queue::where('clinic_id', $clinicId)->where('queue_date', $date)->where('status', 'cancelled')->count(),
+                'total' => (int) ($aggregates->total ?? 0),
+                'waiting' => (int) ($aggregates->waiting ?? 0),
+                'in_consultation' => (int) ($aggregates->in_consultation ?? 0),
+                'completed' => (int) ($aggregates->completed ?? 0),
+                'cancelled' => (int) ($aggregates->cancelled ?? 0),
             ];
 
             // Get visit type counts
-            $visitTypes = Queue::where('clinic_id', $clinicId)
+            $visitTypes = \Illuminate\Support\Facades\DB::table('queues')
+                ->where('clinic_id', $clinicId)
                 ->where('queue_date', $date)
-                ->select('visit_type', \DB::raw('count(*) as count'))
+                ->select('visit_type', \Illuminate\Support\Facades\DB::raw('count(*) as count'))
                 ->groupBy('visit_type')
                 ->get();
 

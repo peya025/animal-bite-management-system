@@ -2,6 +2,25 @@
 
 Flutter mobile application for managing animal bite cases and vaccination workflows on mobile devices.
 
+---
+
+## 🎯 **Quick Start for Android Studio Users**
+
+**Using Android Studio?** You're in the right place!
+
+### **📖 Complete Guide:**
+See **[ANDROID_STUDIO_GUIDE.md](ANDROID_STUDIO_GUIDE.md)** for step-by-step instructions!
+
+### **⚡ Quick Setup (3 Steps):**
+
+1. **Open Project:** File → Open → Select `mobile` folder
+2. **Connect Phone:** USB cable + Enable USB Debugging
+3. **Run:** Click ▶️ button or run `setup_android_studio.bat`
+
+**No WiFi needed! No IP configuration!** Uses USB debugging by default.
+
+---
+
 ## Architecture
 
 Application code under `lib/` uses a simple view, model, and repository-oriented structure:

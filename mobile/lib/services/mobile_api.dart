@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../models/booking_draft.dart';
 import '../models/bite_intake_draft.dart';
@@ -24,11 +25,10 @@ class MobileApi {
 
   static final instance = MobileApi._();
 
-  static const _baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://192.168.18.53:8000/api/mobile',
-  );
-  static const clinicId = int.fromEnvironment('CLINIC_ID', defaultValue: 1);
+  // Load from .env file - change .env when switching networks
+  static String get _baseUrl => dotenv.env['API_BASE_URL'] ?? 'http://192.168.18.53:8000/api/mobile';
+  static int get clinicId => int.parse(dotenv.env['CLINIC_ID'] ?? '1');
+  
   static const _tokenKey = 'patient_account_token';
   static const _requestTimeout = Duration(seconds: 20);
   static const _storage = FlutterSecureStorage();

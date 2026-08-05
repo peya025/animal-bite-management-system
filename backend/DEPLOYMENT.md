@@ -4,6 +4,20 @@
 
 For a clean installation where the Setup Wizard should appear:
 
+### Option 1: Using Environment Variable (Recommended)
+
+```bash
+cd backend
+
+# Edit .env file and set:
+SEED_DEFAULT_CLINIC=false
+
+# Then run:
+php artisan migrate:fresh --seed
+```
+
+### Option 2: Skip Seeding
+
 ```bash
 cd backend
 php artisan migrate:fresh
@@ -18,18 +32,50 @@ This will:
 
 ## Development Setup
 
-For local development with sample data:
+### Quick Toggle Between Modes
+
+Edit your `.env` file:
+
+```env
+# For testing with sample data (login with test accounts)
+SEED_DEFAULT_CLINIC=true
+
+# For testing setup wizard
+SEED_DEFAULT_CLINIC=false
+```
+
+Then run:
+```bash
+php artisan migrate:fresh --seed
+```
+
+### Development with Sample Data
 
 ```bash
 cd backend
 
-# Option 1: Temporarily enable seeders
-# Edit database/seeders/DatabaseSeeder.php
-# Uncomment the DefaultClinicSeeder lines
+# Ensure .env has:
+# SEED_DEFAULT_CLINIC=true
 
-# Then run:
 php artisan migrate:fresh --seed
 ```
+
+This creates sample clinic and test users (see credentials below).
+
+### Test Setup Wizard
+
+```bash
+cd backend
+
+# Option 1: Change .env
+# SEED_DEFAULT_CLINIC=false
+# Then: php artisan migrate:fresh --seed
+
+# Option 2: Don't seed
+php artisan migrate:fresh
+```
+
+Visit the site and you'll be redirected to Setup Wizard.
 
 ### Default Development Credentials
 

@@ -26,7 +26,7 @@ class MobileApi {
 
   static const _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.18.53:8000/api/mobile',
+    defaultValue: 'http://192.168.18.13:8000/api/mobile',
   );
   static const clinicId = int.fromEnvironment('CLINIC_ID', defaultValue: 1);
   static const _tokenKey = 'patient_account_token';

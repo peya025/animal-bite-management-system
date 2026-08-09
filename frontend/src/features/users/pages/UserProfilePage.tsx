@@ -6,10 +6,90 @@ import AppButton from '../../../components/button';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 
 export default function UserProfilePage() {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', current_password: '', password: '', password_confirmation: '' }); const [message, setMessage] = useState(''); const [saving, setSaving] = useState(false); const [confirmSave, setConfirmSave] = useState(false);
-  useEffect(() => { api.get('/me').then(({ data }) => setForm(f => ({ ...f, name: data.name || '', email: data.email || '', phone: data.phone || '' }))).catch(() => setMessage('Unable to load your profile.')); }, []);
-  const set = (key: keyof typeof form, value: string) => setForm(f => ({ ...f, [key]: value }));
-  const submit = (event: React.FormEvent) => { event.preventDefault(); setConfirmSave(true); };
-  const saveProfile = async () => { setSaving(true); try { const { name, phone, current_password, password, password_confirmation } = form; const { data } = await api.put('/me', { name, phone, ...(password ? { current_password, password, password_confirmation } : {}) }); localStorage.setItem('userData', JSON.stringify(data.user)); setForm(f => ({ ...f, current_password: '', password: '', password_confirmation: '' })); setMessage('Profile updated successfully.'); } catch { setMessage('Unable to update profile. Check your current password and try again.'); } finally { setSaving(false); } };
-  return <Box sx={{ px: 3, maxWidth: 720 }}><Typography variant="h5" sx={{ fontWeight: 700 }}>My profile</Typography><Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Update your contact details and password.</Typography><Paper component="form" onSubmit={submit} elevation={0} sx={{ p: 3, border: '1px solid #e5e7eb', borderRadius: 3 }}><Stack spacing={2}><TextField required label="Full name" value={form.name} onChange={e => set('name', e.target.value)} /><TextField disabled label="Email address" value={form.email} /><TextField label="Phone number" value={form.phone} onChange={e => set('phone', e.target.value)} /><Divider sx={{ my: 1 }}><Typography sx={{ fontSize: 12, color: '#6b7280' }}>CHANGE PASSWORD (OPTIONAL)</Typography></Divider><TextField type="password" label="Current password" value={form.current_password} onChange={e => set('current_password', e.target.value)} /><TextField type="password" label="New password" helperText="At least 8 characters" value={form.password} onChange={e => set('password', e.target.value)} /><TextField type="password" label="Confirm new password" value={form.password_confirmation} onChange={e => set('password_confirmation', e.target.value)} /><Box textAlign="right"><AppButton type="submit" disabled={saving}>Save profile</AppButton></Box></Stack></Paper>{confirmSave && <ConfirmationDialog variant="confirm" title="Save profile" message="Save the changes to your profile?" confirmLabel="Yes, save changes" cancelLabel="Go back" onConfirm={() => { setConfirmSave(false); saveProfile(); }} onCancel={() => setConfirmSave(false)} />}<Snackbar open={!!message} autoHideDuration={4000} onClose={() => setMessage('')}><Alert severity={message.includes('Unable') ? 'error' : 'success'}>{message}</Alert></Snackbar></Box>;
+  const [form, setForm] = useState({ name: '', email: '', phone: '', current_password: '', password: '', password_confirmation: '' });
+  const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [confirmSave, setConfirmSave] = useState(false);
+
+  useEffect(() => {
+    api.get('/me')
+      .then(({ data }) => setForm(f => ({ ...f, name: data.name || '', email: data.email || '', phone: data.phone || '' })))
+      .catch(() => setMessage('Unable to load your profile.'));
+  }, []);
+
+  const set = (key: keyof typeof form, value: string) => {
+    let cleanVal = value;
+    if (key === 'phone') {
+      cleanVal = value.replace(/\D/g, '').slice(0, 11);
+    }
+    setForm(f => ({ ...f, [key]: cleanVal }));
+  };
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (form.phone && form.phone.length !== 11) {
+      setMessage('Phone number must be exactly 11 digits.');
+      return;
+    }
+    setConfirmSave(true);
+  };
+
+  const saveProfile = async () => {
+    setSaving(true);
+    try {
+      const { name, phone, current_password, password, password_confirmation } = form;
+      const { data } = await api.put('/me', { name, phone, ...(password ? { current_password, password, password_confirmation } : {}) });
+      localStorage.setItem('userData', JSON.stringify(data.user));
+      setForm(f => ({ ...f, current_password: '', password: '', password_confirmation: '' }));
+      setMessage('Profile updated successfully.');
+    } catch {
+      setMessage('Unable to update profile. Check your current password and try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Box sx={{ px: 3, maxWidth: 720 }}>
+      <Typography variant="h5" sx={{ fontWeight: 700 }}>My profile</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Update your contact details and password.
+      </Typography>
+      <Paper component="form" onSubmit={submit} elevation={0} sx={{ p: 3, border: '1px solid #e5e7eb', borderRadius: 3 }}>
+        <Stack spacing={2}>
+          <TextField required label="Full name" value={form.name} onChange={e => set('name', e.target.value)} />
+          <TextField disabled label="Email address" value={form.email} />
+          <TextField
+            label="Phone number"
+            value={form.phone}
+            onChange={e => set('phone', e.target.value)}
+            inputProps={{ maxLength: 11, pattern: '[0-9]*' }}
+          />
+          <Divider sx={{ my: 1 }}>
+            <Typography sx={{ fontSize: 12, color: '#6b7280' }}>CHANGE PASSWORD (OPTIONAL)</Typography>
+          </Divider>
+          <TextField type="password" label="Current password" value={form.current_password} onChange={e => set('current_password', e.target.value)} />
+          <TextField type="password" label="New password" helperText="At least 8 characters" value={form.password} onChange={e => set('password', e.target.value)} />
+          <TextField type="password" label="Confirm new password" value={form.password_confirmation} onChange={e => set('password_confirmation', e.target.value)} />
+          <Box textAlign="right">
+            <AppButton type="submit" disabled={saving}>Save profile</AppButton>
+          </Box>
+        </Stack>
+      </Paper>
+      {confirmSave && (
+        <ConfirmationDialog
+          variant="confirm"
+          title="Save profile"
+          message="Save the changes to your profile?"
+          confirmLabel="Yes, save changes"
+          cancelLabel="Go back"
+          onConfirm={() => { setConfirmSave(false); saveProfile(); }}
+          onCancel={() => setConfirmSave(false)}
+        />
+      )}
+      <Snackbar open={!!message} autoHideDuration={4000} onClose={() => setMessage('')}>
+        <Alert severity={message.includes('Unable') || message.includes('must be') ? 'error' : 'success'}>{message}</Alert>
+      </Snackbar>
+    </Box>
+  );
 }

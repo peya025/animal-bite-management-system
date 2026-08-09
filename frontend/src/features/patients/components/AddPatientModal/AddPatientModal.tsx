@@ -22,12 +22,26 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
   const handleFieldChange = (key: keyof EnrolmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    setEnrolment(prev => ({ ...prev, [key]: ev.target.value }));
+    let value = ev.target.value;
+    if (key === 'contact_number' || key === 'emergency_contact_phone') {
+      value = value.replace(/\D/g, '').slice(0, 11);
+    }
+    setEnrolment(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSubmit = async () => {
     if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
       setError('Please fill in all required fields (Last Name, First Name, Date of Birth, Sex).');
+      return;
+    }
+
+    if (enrolment.contact_number && enrolment.contact_number.length !== 11) {
+      setError('Contact number must be exactly 11 digits.');
+      return;
+    }
+
+    if (enrolment.emergency_contact_phone && enrolment.emergency_contact_phone.length !== 11) {
+      setError('Emergency contact phone must be exactly 11 digits.');
       return;
     }
 

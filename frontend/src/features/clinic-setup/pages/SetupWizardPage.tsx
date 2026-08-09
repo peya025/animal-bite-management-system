@@ -100,6 +100,10 @@ export default function SetupWizard() {
         alert('Please fill in all required fields (Address, Phone, Email)');
         return;
       }
+      if (setupData.phone.length !== 11) {
+        alert('Phone number must be exactly 11 digits');
+        return;
+      }
     }
 
     if (currentStep === 4) {
@@ -494,7 +498,8 @@ function ClinicProfileStep({ data, setData }: any) {
           <input
             type="tel"
             value={data.phone}
-            onChange={(e) => setData({ ...data, phone: e.target.value })}
+            onChange={(e) => setData({ ...data, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+            maxLength={11}
             placeholder="09123456789"
             required
           />

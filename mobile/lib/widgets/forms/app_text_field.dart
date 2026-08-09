@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/app_theme.dart';
 
@@ -21,6 +22,7 @@ class AppTextField extends StatelessWidget {
     this.minLines,
     this.maxLines = 1,
     this.maxLength,
+    this.inputFormatters,
   });
 
   final String label;
@@ -39,6 +41,7 @@ class AppTextField extends StatelessWidget {
   final int? minLines;
   final int maxLines;
   final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +68,7 @@ class AppTextField extends StatelessWidget {
           minLines: minLines,
           maxLines: maxLines,
           maxLength: maxLength,
+          inputFormatters: inputFormatters,
           validator: validator,
           onFieldSubmitted: onFieldSubmitted,
           style: const TextStyle(

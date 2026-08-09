@@ -110,6 +110,10 @@ export default function UserListPage() {
   const save = async () => {
     if (!editing) return;
     const { id, name, email, phone, role, is_active } = editing;
+    if (phone && phone.length !== 11) {
+      setNotice('Phone number must be exactly 11 digits.');
+      return;
+    }
     try {
       await api.put(`/users/${id}`, { name, email, phone, role, is_active });
       setEditing(null);
@@ -124,6 +128,10 @@ export default function UserListPage() {
   const createUser = async () => {
     if (!newUser.name || !newUser.email) {
       setNotice('Name and email are required.');
+      return;
+    }
+    if (newUser.phone && newUser.phone.length !== 11) {
+      setNotice('Phone number must be exactly 11 digits.');
       return;
     }
     setCreating(true);
@@ -361,8 +369,9 @@ export default function UserListPage() {
                   label="Phone"
                   value={editing?.phone || ''}
                   onChange={(e) =>
-                    setEditing((u) => u && { ...u, phone: e.target.value })
+                    setEditing((u) => u && { ...u, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })
                   }
+                  inputProps={{ maxLength: 11, pattern: '[0-9]*' }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -506,8 +515,9 @@ export default function UserListPage() {
                   label="Phone"
                   value={newUser.phone}
                   onChange={(e) =>
-                    setNewUser((u) => ({ ...u, phone: e.target.value }))
+                    setNewUser((u) => ({ ...u, phone: e.target.value.replace(/\D/g, '').slice(0, 11) }))
                   }
+                  inputProps={{ maxLength: 11, pattern: '[0-9]*' }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">

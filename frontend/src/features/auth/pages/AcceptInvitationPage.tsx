@@ -62,6 +62,11 @@ export default function AcceptInvitationPage() {
       return;
     }
 
+    if (phone && phone.length !== 11) {
+      setError('Phone number must be exactly 11 digits');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -254,7 +259,8 @@ export default function AcceptInvitationPage() {
                 type="tel" 
                 placeholder="09123456789"
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
+                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                maxLength={11}
                 disabled={submitting}
               />
             </div>

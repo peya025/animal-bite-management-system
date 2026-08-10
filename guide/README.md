@@ -1,87 +1,601 @@
-# 📚 Animal Bite Management System — Documentation Sitemap & Index
 
-Welcome to the central documentation index for the **Web and Mobile-based Animal Bite Management and Monitoring System with Analytics** for the **Tagoloan Rural Health Unit (RHU) Animal Bite Treatment Center**.
+
+# Animal Bite Management System
+
+A clinic management system for managing animal bite cases, patient records, vaccination schedules, and treatment workflows.
+
+## Tech Stack
+
+* Backend: Laravel 12 (PHP 8.2+)
+* Frontend: React 19 + TypeScript + Vite
+* Database: SQLite (default) or MySQL
+* Mobile: Flutter 3.12.1+ (optional)
 
 ---
 
-## 📂 Documentation Directory Structure
+# Prerequisites
 
-All system guides, technical specifications, database schemas, and implementation logs are organized into the following 8 categories:
+Before setting up the project, install the following:
 
+### Required
+
+* PHP 8.2 or higher
+* Composer
+* Node.js 18 or higher
+* npm
+* Git
+* XAMPP (recommended)
+
+### Optional (Mobile Development)
+
+* Flutter SDK 3.12.1+
+* Android Studio
+* Android SDK
+
+### Verify Installation
+
+```bash
+php --version
+composer --version
+node --version
+npm --version
+flutter doctor
 ```
-guide/
-├── 01-architecture-and-overview/      <- System Architecture, System Map, MVP Overview, Scope Alignment & Status
-├── 02-setup-and-deployment/           <- Environment Setup, Deployment, Landing Fixes, Sanctum/CORS & Email Setup
-├── 03-clinic-templates-and-modules/   <- Setup Wizard Guides, Clinic Predefined Templates & Module Configs
-├── 04-mobile-app/                     <- Mobile App UI, Setup, Modern Redesign Plans & Workflow Briefs
-├── 05-feature-implementation-guides/ <- Feature Specifications (Bite Map, WHO Protocol, Dashboards)
-├── 06-database-and-api/               <- Database Schemas, Form1 Data Storage, Query Optimizations & API Ref
-├── 07-frontend-refactoring/           <- React Single-Page App Refactoring, UI Design System & Status
-└── 08-phase-logs-and-testing/        <- Historical Execution Logs, Completion Summaries & QA Test Guides
+
+Ensure all required tools are installed successfully before proceeding.
+
+---
+
+# Project Structure
+
+```text
+animal-bite-management-system/
+├── backend/      # Laravel API
+├── frontend/     # React + TypeScript application
+├── mobile/       # Flutter application
+└── README.md
 ```
 
 ---
 
-## 🗺️ Master Documentation Index
+# Backend Setup (Laravel)
 
-### 01. Architecture & System Overview (`/01-architecture-and-overview`)
-- 🏗️ **[System Architecture](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/01-architecture-and-overview/SYSTEM_ARCHITECTURE.md)**: Full-stack system architecture, data models, security, and component layers.
-- 🗺️ **[System Map](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/01-architecture-and-overview/SYSTEM_MAP.md)**: Complete sitemap of backend routes, controllers, frontend views, and mobile screens.
-- 🎯 **[Scope Alignment Analysis](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/01-architecture-and-overview/SCOPE_ALIGNMENT_ANALYSIS.md)**: Academic scope and limitation alignment baseline.
-- 📊 **[Complete System Status](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/01-architecture-and-overview/COMPLETE_SYSTEM_STATUS.md)**: Full system implementation status report.
-- 📐 **[MVP Architecture](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/01-architecture-and-overview/MVP_ARCHITECTURE.md)**: Minimum Viable Product architecture & core scope.
-- 🎨 **[Design System](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/01-architecture-and-overview/DESIGN_SYSTEM.md)**: Color palettes, UI tokens, typography, and SVG icon guidelines.
+## Quick Setup (Recommended for First-Time Setup)
 
----
+For first-time setup, you can use the automated setup script:
 
-### 02. Setup & Deployment (`/02-setup-and-deployment`)
-- 💻 **[Contributor Setup](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/02-setup-and-deployment/CONTRIBUTOR_SETUP.md)**: Local development setup guide (XAMPP, PHP, Node.js, Flutter).
-- 🚀 **[Production Deployment Setup](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/02-setup-and-deployment/PRODUCTION_DEPLOYMENT_SETUP.md)**: Server deployment instructions & production builds.
-- 🔒 **[Sanctum CORS Setup](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/02-setup-and-deployment/SANCTUM_CORS_SETUP.md)**: Configuring Laravel Sanctum authentication and API CORS headers.
-- 🗄️ **[Migration Guide](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/02-setup-and-deployment/MIGRATION_GUIDE.md)**: Database migrations and seeders (`php artisan migrate:fresh --seed`).
-- 🌐 **[Landing Page Guide](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/02-setup-and-deployment/LANDING_PAGE_GUIDE.md)** & **[Landing Fix Applied](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/02-setup-and-deployment/FIX_APPLIED_LANDING_PAGE.md)**: Public clinic portal setup and fixes.
-- 📧 **[Email Setup](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/02-setup-and-deployment/email-setup)**: Automated notifications and email configuration.
+**Windows CMD:**
+```bash
+cd backend
+quick-setup.bat
+```
 
----
+**PowerShell:**
+```bash
+cd backend
+.\quick-setup.ps1
+```
 
-### 03. Clinic Templates & Module Configurations (`/03-clinic-templates-and-modules`)
-- 📋 **[Clinic Template Implementation Phases](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/03-clinic-templates-and-modules/CLINIC_TEMPLATE_IMPLEMENTATION_PHASES.md)**: Roadmap for custom clinic templates, staff module assignments, and triage toggling.
-- ⚙️ **[Clinic Module Config Plan](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/03-clinic-templates-and-modules/CLINIC_TEMPLATE_MODULE_CONFIG_PLAN.md)**: Data schema and specification for enabling/disabling triage and custom field rules.
-- 📝 **[Comprehensive Field Config](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/03-clinic-templates-and-modules/COMPREHENSIVE_FIELD_CONFIG.md)**: Predefined field rules (Required, Optional, Disabled/Hidden).
-- 🧙 **[Setup Wizard Specs & Testing Guides](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/03-clinic-templates-and-modules)**: Setup flow diagrams, access fixes, testing steps, and completion docs.
+This script will:
+- Install dependencies
+- Create .env file
+- Generate app key
+- Create database
+- Run migrations
+- Seed default data
+- Verify setup
 
----
-
-### 04. Mobile App (`/04-mobile-app`)
-- 📲 **[Your Mobile Setup](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/04-mobile-app/YOUR_MOBILE_SETUP.md)**: Flutter environment setup and mobile installation instructions.
-- 📱 **[Mobile Modern UI Redesign Plan](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/04-mobile-app/MOBILE_MODERN_UI_REDESIGN_PLAN.md)**: Flutter UI overhaul and design system.
-- 🎯 **[Mobile UI First Plan](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/04-mobile-app/MOBILE_UI_FIRST_PLAN.md)**: Patient mobile application screens and navigation flows.
-- 📄 **[Mobile Workflow Brief](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/04-mobile-app/MOBILE_WORKFLOW_BRIEF_2026-07-19.md)**: Operational workflow summary for patient mobile bookings and vaccination history.
+**Or follow the manual steps below:**
 
 ---
 
-### 05. Feature Implementation Guides (`/05-feature-implementation-guides`)
-- 🗺️ **[Bite Map Implementation](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/05-feature-implementation-guides/BITE_MAP_IMPLEMENTATION.md)** & **[Bite Map Placement](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/05-feature-implementation-guides/BITE_MAP_PLACEMENT.md)**: Geographical bite incident mapping and risk analytics visualization.
-- 🩺 **[WHO Protocol Implementation](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/05-feature-implementation-guides/WHO_PROTOCOL_IMPLEMENTATION.md)**: World Health Organization PEP (Post-Exposure Prophylaxis) rabies guidelines integration.
-- 📊 **[Role Dashboard Plans](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/05-feature-implementation-guides/ROLE_DASHBOARD_PLANS.md)**: Tailored dashboards for Admin, Registration Staff, Triage Doctors, and Treatment Nurses.
+## Manual Setup
+
+## Step 1: Navigate to Backend Directory
+
+```bash
+cd backend
+```
+
+## Step 2: Install Dependencies
+
+```bash
+composer install
+```
+
+This installs all Laravel and PHP dependencies.
 
 ---
 
-### 06. Database & API (`/06-database-and-api`)
-- 📡 **[API Reference](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/06-database-and-api/API_REFERENCE.md)**: Complete RESTful API endpoint documentation.
-- 🚀 **[Performance & Query Optimizations](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/06-database-and-api/PERFORMANCE_AND_QUERY_OPTIMIZATIONS.md)**: Master guide for SQL query performance, Eager vs. Lazy Loading, and React code-splitting.
-- ⚡ **[Query Optimization Recommendations](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/06-database-and-api/database-optimizations/QUERY_OPTIMIZATION_RECOMMENDATIONS.md)**: In-depth technical breakdown of conditional aggregations and indexing strategies.
-- 📝 **[Form1 Data Storage Clarification & Backend Results](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/06-database-and-api)**: DOH Form 1 intake data storage specs.
+## Step 3: Create Environment File
+
+```bash
+copy .env.example .env
+```
 
 ---
 
-### 07. Frontend Refactoring (`/07-frontend-refactoring`)
-- ⚛️ **[Frontend Refactoring Plan](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/07-frontend-refactoring/FRONTEND_REFACTORING_PLAN.md)**: Architecture for UI design system, fixed layout, and SPA routing.
-- 📑 **[Refactoring Status](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/07-frontend-refactoring/REFACTORING_STATUS.md)**: Current completion status of frontend refactoring tasks.
-- 🔑 **[Login Pages Readme](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/07-frontend-refactoring/LOGIN_PAGES_README.md)**: Web and staff authentication login view documentation.
+## Step 4: Generate Application Key
+
+```bash
+php artisan key:generate
+```
 
 ---
 
-### 08. Phase Execution Logs & Testing (`/08-phase-logs-and-testing`)
-- 🧪 **[Phase Execution Logs & Summaries](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/08-phase-logs-and-testing)**: Complete repository of phase completion reports, continuation guides, and QA test procedures.
-- ⚡ **[Quick Reference](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/08-phase-logs-and-testing/QUICK_REFERENCE.md)**: Essential commands and developer cheatsheet.
+## Step 5: Configure Database
+
+### Option A: SQLite (Recommended for Development)
+
+Create the database file:
+
+```bash
+type nul > database\database.sqlite
+```
+
+Update `.env`:
+
+```env
+DB_CONNECTION=sqlite
+DB_DATABASE=database/database.sqlite
+```
+
+### Option B: MySQL
+
+Create a database named:
+
+```sql
+CREATE DATABASE animal_bite_db;
+```
+
+Update `.env`:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=animal_bite_db
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+---
+
+## Step 6: Run Database Migrations
+
+```bash
+php artisan migrate
+```
+
+This creates all required database tables.
+
+---
+
+## Step 7: Seed Initial Data
+
+```bash
+php artisan db:seed --class=DefaultClinicSeeder
+```
+
+This creates:
+
+* Default clinic
+* Admin account
+* Registration account
+* Triage account
+* Treatment account
+
+---
+
+## Step 8: Verify Setup (Optional but Recommended)
+
+Run the setup verification script to ensure everything is configured correctly:
+
+```bash
+php verify-setup.php
+```
+
+This will check:
+- PHP version and extensions
+- File permissions
+- .env configuration
+- Database connection
+- Migrations status
+- Seeded data
+
+If all checks pass, you're ready to start the server!
+
+---
+
+## Step 9: Start Laravel Server
+
+```bash
+php artisan serve
+```
+
+Backend API will be available at:
+
+```text
+http://localhost:8000
+```
+
+---
+
+# Frontend Setup (React + TypeScript)
+
+Open a new terminal.
+
+## Step 1: Navigate to Frontend Directory
+
+```bash
+cd frontend
+```
+
+---
+
+## Step 2: Install Dependencies
+
+```bash
+npm install
+```
+
+---
+
+## Step 3: Configure API URL
+
+Create or edit:
+
+```text
+frontend/.env
+```
+
+Add:
+
+```env
+VITE_API_URL=http://localhost:8000
+```
+
+---
+
+## Step 4: Start Development Server
+
+```bash
+npm run dev
+```
+
+Frontend will be available at:
+
+```text
+http://localhost:5173
+```
+
+---
+
+# Mobile Setup (Optional)
+
+## Step 1: Navigate to Mobile Directory
+
+```bash
+cd mobile
+```
+
+---
+
+## Step 2: Install Dependencies
+
+```bash
+flutter pub get
+```
+
+---
+
+## Step 3: Configure API Endpoint
+
+Create or edit:
+
+```text
+lib/config/api_config.dart
+```
+
+For Android Emulator:
+
+```dart
+class ApiConfig {
+  static const String baseUrl = 'http://10.0.2.2:8000/api';
+}
+```
+
+For Physical Device:
+
+```dart
+class ApiConfig {
+  static const String baseUrl = 'http://YOUR_IP_ADDRESS:8000/api';
+}
+```
+
+Replace `YOUR_IP_ADDRESS` with your computer's local IP address.
+
+---
+
+## Step 4: Check Available Devices
+
+```bash
+flutter devices
+```
+
+---
+
+## Step 5: Run Application
+
+```bash
+flutter run
+```
+
+---
+
+# Default Login Credentials
+
+After seeding the database, use the following account:
+
+### Administrator
+
+```text
+Email: admin@clinic.com
+Password: password123
+```
+You can check out the seeders file for the credentials.
+---
+
+# Running the Project
+
+For daily development, run both backend and frontend.
+
+### Terminal 1 - Backend
+
+```bash
+cd backend
+php artisan serve
+```
+
+### Terminal 2 - Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+### Terminal 3 - Mobile (Optional)
+
+```bash
+cd mobile
+flutter run
+```
+
+---
+
+# Database Reset
+
+To reset the database and recreate all tables:
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+Warning:
+
+* Deletes all existing data
+* Re-runs migrations
+* Recreates default accounts
+
+---
+
+# Common Commands
+
+### Backend
+
+```bash
+composer install
+php artisan serve
+php artisan migrate
+php artisan migrate:fresh --seed
+php artisan db:seed --class=DefaultClinicSeeder
+php artisan route:list
+```
+
+### Frontend
+
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+### Mobile
+
+```bash
+flutter pub get
+flutter run
+flutter devices
+flutter doctor
+```
+
+---
+
+# Troubleshooting
+
+⚠️ **Having setup issues?** See [SETUP_TROUBLESHOOTING.md](SETUP_TROUBLESHOOTING.md) for detailed solutions to common problems.
+
+### Quick Fixes
+
+**Backend Not Starting:**
+```bash
+cd backend
+composer install
+copy .env.example .env
+php artisan key:generate
+php artisan migrate:fresh --seed
+php artisan serve
+```
+
+**Frontend Cannot Connect:**
+```bash
+# Check backend/.env has:
+FRONTEND_URL=http://localhost:5173
+
+# Check frontend/.env has:
+VITE_API_URL=http://localhost:8000
+
+# Clear backend cache:
+cd backend
+php artisan config:clear
+
+# Restart both servers
+```
+
+**Database Issues:**
+```bash
+cd backend
+# Delete and recreate database
+del database\database.sqlite
+type nul > database\database.sqlite
+php artisan migrate:fresh --seed
+```
+
+**Complete Reset:**
+```bash
+# Backend
+cd backend
+php artisan config:clear
+php artisan cache:clear
+del database\database.sqlite
+type nul > database\database.sqlite
+php artisan migrate:fresh --seed
+php artisan serve
+
+# Frontend (new terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+The application should now be accessible at:
+
+Frontend: `http://localhost:5173`  
+Backend API: `http://localhost:8000`
+
+📖 **For detailed troubleshooting**, migration issues, CORS problems, and more solutions, see [SETUP_TROUBLESHOOTING.md](SETUP_TROUBLESHOOTING.md)
+
+
+## 📖 Additional Documentation
+
+### ⭐ Getting Started (Read These First)
+- **[SETUP_TROUBLESHOOTING.md](SETUP_TROUBLESHOOTING.md)** - 🆘 Common setup issues and solutions
+- **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** - 🔄 Database migration order and dependencies
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference card for all features
+- **[FINAL_IMPLEMENTATION.md](FINAL_IMPLEMENTATION.md)** - Complete implementation guide
+- **[IMPLEMENTATION_CHECKLIST.md](IMPLEMENTATION_CHECKLIST.md)** - Step-by-step checklist
+
+### 🔐 Authentication & Security
+- **[SANCTUM_CORS_SETUP.md](SANCTUM_CORS_SETUP.md)** - API authentication setup
+- **[TEST_AUTH.md](TEST_AUTH.md)** - Authentication testing guide
+
+### 🏗️ Architecture & Design
+- **[SYSTEM_MAP.md](SYSTEM_MAP.md)** - Visual system architecture and data flows
+- **[MVP_ARCHITECTURE.md](MVP_ARCHITECTURE.md)** - Database design and workflows  
+- **[MVP_SUMMARY.md](MVP_SUMMARY.md)** - Quick overview and phased approach
+- **[SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)** - Full system design (future features)
+
+### 🧪 Testing & Development
+- **[PHASE4_TESTING.md](PHASE4_TESTING.md)** - Complete workflow testing guide
+- **[API_REFERENCE.md](API_REFERENCE.md)** - Full API documentation with examples
+- **[WHO_PROTOCOL_IMPLEMENTATION.md](WHO_PROTOCOL_IMPLEMENTATION.md)** - WHO compliance details
+- **[PHASE2_TESTING.md](PHASE2_TESTING.md)** - User management testing
+- **[PHASE3_COMPLETE.md](PHASE3_COMPLETE.md)** - Database schema documentation
+
+### 📱 Component-Specific
+- **[frontend/README.md](frontend/README.md)** - Frontend setup instructions
+- **[mobile/README.md](mobile/README.md)** - Mobile app setup instructions
+
+---
+
+## 🤝 Contributing
+
+1. Create a feature branch from `main`
+2. Make your changes with clear commit messages
+3. Test thoroughly (manual + automated tests)
+4. Submit a pull request with description
+
+### Coding Standards
+
+- **Laravel**: Follow PSR-12 coding standards
+- **React**: Use TypeScript strict mode
+- **Flutter**: Follow Dart style guide
+- Write descriptive commit messages
+- Document new features and API endpoints
+
+---
+
+## � License
+
+[Your License Here]
+
+---
+
+## 💡 Tips for Development
+
+### Daily Development Workflow
+
+1. Start backend: `cd backend && php artisan serve`
+2. Start frontend: `cd frontend && npm run dev`
+3. Make changes
+4. Test in browser
+5. Commit changes
+
+### Database Changes
+
+When you modify database schema:
+```bash
+# Create new migration
+php artisan make:migration description_of_change
+
+# Edit the migration file
+# Then run:
+php artisan migrate
+```
+
+### Adding New Features
+
+1. **Backend**: Create controller, model, migration, routes
+2. **Frontend**: Create components, services, pages
+3. **Update API_REFERENCE.md** with new endpoints
+4. **Test thoroughly** with all user roles
+
+### Common Commands
+
+```bash
+# Clear all caches (when things break)
+cd backend
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+php artisan view:clear
+
+# Reset database (fresh start)
+php artisan migrate:fresh --seed
+
+# Check routes
+php artisan route:list
+
+# Interactive Laravel shell
+php artisan tinker
+```
+
+---
+
+## 📞 Support
+
+For issues, questions, or contributions:
+- Check documentation files first
+- Review PHASE4_TESTING.md for workflow guides
+- Check API_REFERENCE.md for endpoint details
+- See TROUBLESHOOTING section above for common issues

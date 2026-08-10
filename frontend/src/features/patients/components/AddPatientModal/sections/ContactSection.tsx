@@ -13,13 +13,13 @@ export function ContactSection({ data, onChange }: ContactSectionProps) {
       <p className="fm-section-title">Contact Information</p>
       <div className="fm-grid fm-grid--3" style={{ marginBottom: 14 }}>
         <FormField label="Contact Number">
-          <input className="fm-input" value={data.contact_number} onChange={onChange('contact_number')} placeholder="09XXXXXXXXX" />
+          <input className="fm-input" value={data.contact_number} onChange={onChange('contact_number')} placeholder="09XXXXXXXXX" maxLength={11} type="tel" />
         </FormField>
         <FormField label="Emergency Contact Name">
           <input className="fm-input" value={data.emergency_contact_name} onChange={onChange('emergency_contact_name')} />
         </FormField>
         <FormField label="Emergency Contact Phone">
-          <input className="fm-input" value={data.emergency_contact_phone} onChange={onChange('emergency_contact_phone')} placeholder="09XXXXXXXXX" />
+          <input className="fm-input" value={data.emergency_contact_phone} onChange={onChange('emergency_contact_phone')} placeholder="09XXXXXXXXX" maxLength={11} type="tel" />
         </FormField>
       </div>
     </div>

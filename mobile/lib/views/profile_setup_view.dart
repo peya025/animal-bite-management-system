@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
@@ -616,11 +617,22 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
             textCapitalization: phone
                 ? TextCapitalization.none
                 : TextCapitalization.words,
-            validator: required
-                ? (value) => value == null || value.trim().isEmpty
-                      ? '$label is required'
-                      : null
+            inputFormatters: phone
+                ? [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(11),
+                  ]
                 : null,
+            validator: (value) {
+              final trimmed = value?.trim() ?? '';
+              if (required && trimmed.isEmpty) {
+                return '$label is required';
+              }
+              if (phone && trimmed.isNotEmpty && trimmed.length != 11) {
+                return 'Phone number must be exactly 11 digits';
+              }
+              return null;
+            },
           ),
         ],
       ),

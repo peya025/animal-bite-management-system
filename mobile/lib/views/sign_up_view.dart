@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
@@ -176,11 +177,15 @@ class _SignUpViewState extends State<SignUpView> {
                         keyboardType: TextInputType.phone,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.telephoneNumber],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(11),
+                        ],
                         validator: (value) {
                           final phone = value?.trim() ?? '';
                           if (phone.isEmpty) return 'Mobile number is required';
-                          if (phone.length < 11) {
-                            return 'Enter a valid mobile number';
+                          if (phone.length != 11) {
+                            return 'Enter a valid 11-digit mobile number';
                           }
                           return null;
                         },

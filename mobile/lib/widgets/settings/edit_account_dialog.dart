@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/app_theme.dart';
 import '../../models/patient_account_profile.dart';
@@ -111,6 +112,17 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                   prefixIcon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.done,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(11),
+                  ],
+                  validator: (value) {
+                    final phone = value?.trim() ?? '';
+                    if (phone.isNotEmpty && phone.length != 11) {
+                      return 'Phone number must be exactly 11 digits';
+                    }
+                    return null;
+                  },
                   onFieldSubmitted: (_) {
                     if (!_saving) _submit();
                   },

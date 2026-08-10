@@ -265,6 +265,9 @@ export const SetupWizardRoot = styled('div')`
     -webkit-backdrop-filter: blur(16px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
   .setup-logo {
@@ -911,6 +914,318 @@ export const SetupWizardRoot = styled('div')`
     background: linear-gradient(135deg, #059669 0%, #047857 100%);
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
+  }
+
+  /* Theme Toggle Buttons styling */
+  .theme-toggle-btn, .theme-toggle-floating {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+
+  .theme-toggle-btn:hover, .theme-toggle-floating:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    transform: translateY(-2px) scale(1.05);
+  }
+
+  .theme-toggle-floating {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    z-index: 100;
+  }
+
+  /* Light Theme overrides */
+  &.theme-light {
+    background: linear-gradient(135deg, #f0fdf4 0%, #e6f9ed 50%, #f0fdf4 100%);
+    color: #1e293b;
+
+    .logo-text {
+      color: #0f172a;
+    }
+
+    .sparkle {
+      color: #059669;
+      filter: drop-shadow(0 0 6px rgba(5, 150, 105, 0.45));
+    }
+
+    .welcome-card, .setup-content {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      box-shadow: 
+        0 30px 60px rgba(16, 185, 129, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+
+    .welcome-subtitle {
+      color: #475569;
+    }
+
+    .welcome-illustration {
+      background: rgba(16, 185, 129, 0.04);
+      border: 1px solid rgba(16, 185, 129, 0.1);
+    }
+
+    .illustration-label {
+      color: #334155;
+    }
+
+    .welcome-text h2 {
+      color: #0f172a;
+    }
+
+    .welcome-text p {
+      color: #334155;
+    }
+
+    .setup-header {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(16, 185, 129, 0.18);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+    }
+
+    .step-indicator {
+      &.active {
+        .step-number {
+          background: rgba(16, 185, 129, 0.06);
+          border-color: #059669;
+          color: #059669;
+          box-shadow: 
+            0 10px 20px rgba(16, 185, 129, 0.12),
+            0 0 0 5px rgba(16, 185, 129, 0.1);
+        }
+        .step-title {
+          color: #0f172a;
+        }
+      }
+      &.completed {
+        .step-number {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          border-color: #10b981;
+          color: #ffffff;
+        }
+        .step-title {
+          color: #059669;
+        }
+      }
+      .step-number {
+        background: #ffffff;
+        border: 2px solid #cbd5e1;
+        color: #64748b;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.03);
+      }
+      .step-title {
+        color: #64748b;
+      }
+    }
+
+    .step-indicators::before {
+      background: #e2e8f0;
+    }
+
+    .step-content h2 {
+      color: #0f172a;
+    }
+
+    .step-description {
+      color: #475569;
+    }
+
+    .form-group label {
+      color: #475569;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="email"],
+    .form-group input[type="tel"],
+    .form-group input[type="password"],
+    .form-group textarea {
+      border-color: #cbd5e1;
+      color: #0f172a;
+      background: #ffffff;
+    }
+
+    .form-group input::placeholder,
+    .form-group textarea::placeholder {
+      color: #94a3b8;
+    }
+
+    .form-group input:hover,
+    .form-group textarea:hover {
+      border-color: #94a3b8;
+      background: #f8fafc;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      border-color: #10b981;
+      background: #ffffff;
+      box-shadow: 
+        0 0 0 4px rgba(16, 185, 129, 0.15),
+        0 10px 15px rgba(0, 0, 0, 0.05);
+    }
+
+    .form-group input:focus + .input-icon-wrapper,
+    .form-group input:focus ~ .input-icon-wrapper {
+      color: #059669;
+    }
+
+    .input-icon-wrapper {
+      color: #64748b;
+    }
+
+    .form-group input:-webkit-autofill,
+    .form-group input:-webkit-autofill:hover, 
+    .form-group input:-webkit-autofill:focus, 
+    .form-group input:-webkit-autofill:active {
+      -webkit-text-fill-color: #0f172a !important;
+      box-shadow: inset 0 0 20px 20px #ffffff !important;
+    }
+
+    .file-upload-card {
+      border-color: #cbd5e1;
+      background: #ffffff;
+    }
+
+    .file-upload-card:hover {
+      border-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    .file-upload-icon {
+      color: #64748b;
+    }
+
+    .file-upload-text {
+      color: #334155;
+    }
+
+    .file-upload-hint {
+      color: #64748b;
+    }
+
+    .file-uploaded-preview {
+      background: #ffffff;
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .file-preview-name {
+      color: #0f172a;
+    }
+
+    .file-preview-size {
+      color: #64748b;
+    }
+
+    .btn-remove-file {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    .btn-remove-file:hover {
+      background: #fca5a5;
+    }
+
+    .color-picker-wrapper {
+      background: #ffffff;
+      border-color: #cbd5e1;
+    }
+
+    .color-picker-input {
+      border-color: #cbd5e1;
+    }
+
+    .color-picker-label {
+      color: #64748b;
+    }
+
+    .color-picker-hex {
+      color: #0f172a;
+    }
+
+    .confirm-section {
+      background: #ffffff;
+      border-color: #cbd5e1;
+    }
+
+    .confirm-section h3 {
+      color: #0f172a;
+      border-bottom-color: #cbd5e1;
+    }
+
+    .confirm-item {
+      border-bottom-color: #f1f5f9;
+    }
+
+    .confirm-label {
+      color: #475569;
+    }
+
+    .confirm-value {
+      color: #0f172a;
+    }
+
+    .done-step p {
+      color: #475569;
+    }
+
+    .btn-back {
+      background: #ffffff;
+      color: #475569;
+      border-color: #cbd5e1;
+    }
+
+    .btn-back:hover {
+      border-color: #94a3b8;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+
+    .theme-toggle-btn, .theme-toggle-floating {
+      background: rgba(0, 0, 0, 0.03);
+      border-color: rgba(0, 0, 0, 0.08);
+      color: #475569;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .theme-toggle-btn:hover, .theme-toggle-floating:hover {
+      background: rgba(0, 0, 0, 0.06);
+      border-color: rgba(0, 0, 0, 0.15);
+      color: #0f172a;
+    }
+
+    .step-content > div[style*="borderTop"] {
+      border-top-color: #e2e8f0 !important;
+    }
+
+    .step-content h3[style*="color"] {
+      color: #475569 !important;
+    }
+  }
+
+  &.theme-dark {
+    .step-content > div[style*="borderTop"] {
+      border-top-color: rgba(255, 255, 255, 0.12) !important;
+    }
+
+    .step-content h3[style*="color"] {
+      color: rgba(255, 255, 255, 0.45) !important;
+    }
   }
 
   @media (max-width: 768px) {

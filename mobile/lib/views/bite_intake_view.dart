@@ -4,7 +4,7 @@ import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../models/bite_intake_draft.dart';
 import '../models/bite_intake_route_args.dart';
-import '../services/mobile_api.dart';
+import '../services/api.dart';
 import '../widgets/booking/date_selector.dart';
 import '../widgets/buttons/primary_action_button.dart';
 import '../widgets/common/app_page_header.dart';
@@ -90,7 +90,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       _error = null;
     });
     try {
-      await MobileApi.instance.book(
+      await api.book(
         patient: widget.args.patient,
         booking: widget.args.booking,
         intake: BiteIntakeDraft(

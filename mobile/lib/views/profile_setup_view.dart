@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
-import '../services/mobile_api.dart';
+import '../models/patient_profile.dart';
+import '../services/api.dart';
 import '../services/psgc_service.dart';
 import '../widgets/buttons/primary_action_button.dart';
 import '../widgets/common/app_page_header.dart';
@@ -167,7 +168,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         municipalityName: municipalityName.isNotEmpty ? municipalityName : null,
       );
       
-      final patient = await MobileApi.instance.createPatient({
+      final patient = await api.createPatient({
         'relationship': _relationship,
         'first_name': _firstName.text.trim(),
         'middle_name': _optional(_middleName),
@@ -197,7 +198,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         'philhealth_category': _philhealthCategory,
         'fourps_member': _fourpsMember,
         'dswd_nhts': _dswdNhts,
-      });
+      }) as PatientProfile;
       if (!mounted) return;
       if (widget.returnToBooking) {
         Navigator.of(context).pop(patient);

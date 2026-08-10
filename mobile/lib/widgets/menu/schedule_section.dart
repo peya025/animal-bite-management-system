@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
 import '../../models/appointment_summary.dart';
-import '../../services/mobile_api.dart';
+import '../../services/api.dart';
 import 'menu_surface.dart';
 import 'section_header.dart';
 
@@ -27,7 +27,7 @@ class _ScheduleSectionState extends State<ScheduleSection> {
 
   Future<void> _load() async {
     try {
-      final appointments = await MobileApi.instance.appointments();
+      final appointments = await api.appointments() as List<AppointmentSummary>;
       final scheduled =
           appointments
               .where((appointment) => appointment.status == 'scheduled')

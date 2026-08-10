@@ -4,7 +4,7 @@ import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
-import '../services/mobile_api.dart';
+import '../services/api.dart';
 import '../widgets/common/app_page_header.dart';
 import '../widgets/common/status_chip.dart';
 import '../widgets/menu/menu_navigation.dart';
@@ -39,7 +39,7 @@ class _SettingsViewState extends State<SettingsView> {
       _accountError = null;
     });
     try {
-      final account = await MobileApi.instance.account();
+      final account = await api.account() as PatientAccountProfile;
       if (mounted) setState(() => _account = account);
     } catch (error) {
       if (mounted) setState(() => _accountError = error.toString());
@@ -56,10 +56,10 @@ class _SettingsViewState extends State<SettingsView> {
       builder: (context) => EditAccountDialog(
         account: account,
         onSave: (name, phone) async {
-          final updated = await MobileApi.instance.updateAccount(
+          final updated = await api.updateAccount(
             name: name,
             phone: phone,
-          );
+          ) as PatientAccountProfile;
           if (mounted) setState(() => _account = updated);
         },
       ),
@@ -118,7 +118,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
 
     if (shouldLogout == true && mounted) {
-      await MobileApi.instance.logout();
+      await api.logout();
       if (!mounted) return;
       Navigator.of(
         context,

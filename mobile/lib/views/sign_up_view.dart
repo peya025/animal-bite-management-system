@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
-import '../services/mobile_api.dart';
+import '../services/api.dart';
 import '../widgets/auth_mode_selector.dart';
 import '../widgets/buttons/account_login_prompt.dart';
 import '../widgets/buttons/primary_action_button.dart';
@@ -48,7 +48,7 @@ class _SignUpViewState extends State<SignUpView> {
       _errorMessage = null;
     });
     try {
-      await MobileApi.instance.register(
+      await api.register(
         name:
             '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
         email: _emailController.text.trim(),

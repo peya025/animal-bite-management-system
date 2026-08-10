@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/app_theme.dart';
 import '../app/app_routes.dart';
-import '../services/mobile_api.dart';
+import '../services/api.dart';
 import '../widgets/auth_mode_selector.dart';
 import '../widgets/buttons/primary_action_button.dart';
 import '../widgets/buttons/social_auth_button.dart';
@@ -41,7 +41,7 @@ class _LoginViewState extends State<LoginView> {
     });
 
     try {
-      await MobileApi.instance.login(
+      await api.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         remember: _rememberMe,

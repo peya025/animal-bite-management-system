@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/app_theme.dart';
 import '../models/appointment_summary.dart';
-import '../services/mobile_api.dart';
+import '../services/api.dart';
 import '../widgets/appointments/appointment_card.dart';
 import '../widgets/appointments/appointment_filter.dart';
 import '../widgets/common/app_page_header.dart';
@@ -49,7 +49,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       _error = null;
     });
     try {
-      final appointments = await MobileApi.instance.appointments();
+      final appointments = await api.appointments() as List<AppointmentSummary>;
       if (mounted) setState(() => _appointments = appointments);
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -121,10 +121,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
     setState(() => _cancellingId = appointment.id);
     try {
-      final updated = await MobileApi.instance.cancelAppointment(
+      final updated = await api.cancelAppointment(
         appointmentId: appointment.id,
         reason: cancellationReason.isEmpty ? null : cancellationReason,
-      );
+      ) as AppointmentSummary;
       if (!mounted) return;
       setState(() {
         _appointments = _appointments

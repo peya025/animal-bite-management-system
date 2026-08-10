@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../models/app_notification.dart';
-import '../services/mobile_api.dart';
+import '../services/api.dart';
 import '../widgets/common/app_page_header.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/menu_surface.dart';
@@ -48,7 +48,7 @@ class _NotificationsViewState extends State<NotificationsView> {
       _error = null;
     });
     try {
-      final notifications = await MobileApi.instance.notifications();
+      final notifications = await api.notifications() as List<AppNotification>;
       if (mounted) setState(() => _notifications = notifications);
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -70,7 +70,7 @@ class _NotificationsViewState extends State<NotificationsView> {
           .toList();
     });
     try {
-      await MobileApi.instance.markNotificationRead(notification.id);
+      await api.markNotificationRead(notification.id);
     } catch (error) {
       if (!mounted) return;
       setState(() => _notifications = previous);
@@ -88,7 +88,7 @@ class _NotificationsViewState extends State<NotificationsView> {
           .toList();
     });
     try {
-      await MobileApi.instance.markAllNotificationsRead();
+      await api.markAllNotificationsRead();
     } catch (error) {
       if (mounted) {
         setState(() => _notifications = previous);

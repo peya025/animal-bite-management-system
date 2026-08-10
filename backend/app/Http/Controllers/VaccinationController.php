@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\VaccinationSchedule;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class VaccinationController extends Controller
@@ -49,19 +50,26 @@ class VaccinationController extends Controller
     {
         $clinicId = $request->user()->clinic_id;
         $today = Carbon::today()->toDateString();
+        
+        $cacheKey = "web:vaccinations:today:clinic:{$clinicId}:date:{$today}";
 
-        $schedules = VaccinationSchedule::where('clinic_id', $clinicId)
-            ->where('scheduled_date', $today)
-            ->whereIn('status', ['scheduled', 'missed'])
-            ->with(['patient', 'biteIncident'])
-            ->orderBy('dose_number')
-            ->get();
+        // Cache for 1 minute (today's schedule changes frequently)
+        return response()->json(
+            Cache::remember($cacheKey, 60, function () use ($clinicId, $today) {
+                $schedules = VaccinationSchedule::where('clinic_id', $clinicId)
+                    ->where('scheduled_date', $today)
+                    ->whereIn('status', ['scheduled', 'missed'])
+                    ->with(['patient', 'biteIncident'])
+                    ->orderBy('dose_number')
+                    ->get();
 
-        return response()->json([
-            'date' => $today,
-            'total_count' => $schedules->count(),
-            'schedules' => $schedules,
-        ]);
+                return [
+                    'date' => $today,
+                    'total_count' => $schedules->count(),
+                    'schedules' => $schedules,
+                ];
+            })
+        );
     }
 
     /**
@@ -70,17 +78,22 @@ class VaccinationController extends Controller
     public function upcoming(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
-        $days = $request->get('days', 7); // Next 7 days by default
+        $days = $request->get('days', 7);
+        
+        $cacheKey = "web:vaccinations:upcoming:clinic:{$clinicId}:days:{$days}";
 
-        $schedules = VaccinationSchedule::where('clinic_id', $clinicId)
-            ->where('scheduled_date', '>', Carbon::today())
-            ->where('scheduled_date', '<=', Carbon::today()->addDays($days))
-            ->where('status', 'scheduled')
-            ->with(['patient', 'biteIncident'])
-            ->orderBy('scheduled_date')
-            ->get();
-
-        return response()->json($schedules);
+        // Cache for 5 minutes
+        return response()->json(
+            Cache::remember($cacheKey, 300, function () use ($clinicId, $days) {
+                return VaccinationSchedule::where('clinic_id', $clinicId)
+                    ->where('scheduled_date', '>', Carbon::today())
+                    ->where('scheduled_date', '<=', Carbon::today()->addDays($days))
+                    ->where('status', 'scheduled')
+                    ->with(['patient', 'biteIncident'])
+                    ->orderBy('scheduled_date')
+                    ->get();
+            })
+        );
     }
 
     /**
@@ -89,18 +102,24 @@ class VaccinationController extends Controller
     public function overdue(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
+        $cacheKey = "web:vaccinations:overdue:clinic:{$clinicId}";
 
-        $schedules = VaccinationSchedule::where('clinic_id', $clinicId)
-            ->where('scheduled_date', '<', Carbon::today())
-            ->where('status', 'scheduled')
-            ->with(['patient', 'biteIncident'])
-            ->orderBy('scheduled_date')
-            ->get();
+        // Cache for 2 minutes
+        return response()->json(
+            Cache::remember($cacheKey, 120, function () use ($clinicId) {
+                $schedules = VaccinationSchedule::where('clinic_id', $clinicId)
+                    ->where('scheduled_date', '<', Carbon::today())
+                    ->where('status', 'scheduled')
+                    ->with(['patient', 'biteIncident'])
+                    ->orderBy('scheduled_date')
+                    ->get();
 
-        return response()->json([
-            'count' => $schedules->count(),
-            'schedules' => $schedules,
-        ]);
+                return [
+                    'count' => $schedules->count(),
+                    'schedules' => $schedules,
+                ];
+            })
+        );
     }
 
     /**
@@ -143,6 +162,9 @@ class VaccinationController extends Controller
 
         $schedule->markAsCompleted($request->user(), $request->all());
 
+        // Invalidate vaccination caches
+        $this->clearVaccinationCaches($request->user()->clinic_id);
+
         return response()->json([
             'message' => 'Vaccination recorded successfully',
             'schedule' => $schedule->fresh()->load(['patient', 'biteIncident']),
@@ -166,6 +188,9 @@ class VaccinationController extends Controller
 
         $schedule->update($request->all());
 
+        // Invalidate vaccination caches
+        $this->clearVaccinationCaches($request->user()->clinic_id);
+
         return response()->json([
             'message' => 'Vaccination schedule updated successfully',
             'schedule' => $schedule,
@@ -185,6 +210,9 @@ class VaccinationController extends Controller
             'status' => 'missed',
             'administration_notes' => $request->get('reason', 'Patient did not show up'),
         ]);
+
+        // Invalidate vaccination caches
+        $this->clearVaccinationCaches($request->user()->clinic_id);
 
         return response()->json([
             'message' => 'Vaccination marked as missed',
@@ -212,10 +240,35 @@ class VaccinationController extends Controller
             'administration_notes' => $request->reason,
         ]);
 
+        // Invalidate vaccination caches
+        $this->clearVaccinationCaches($request->user()->clinic_id);
+
         return response()->json([
             'message' => 'Vaccination rescheduled successfully',
             'schedule' => $schedule,
         ]);
+    }
+
+    /**
+     * Helper method to clear vaccination caches
+     */
+    private function clearVaccinationCaches($clinicId)
+    {
+        $today = Carbon::today()->toDateString();
+        
+        // Clear today's cache
+        Cache::forget("web:vaccinations:today:clinic:{$clinicId}:date:{$today}");
+        
+        // Clear upcoming cache (7, 14, 30 days)
+        foreach ([7, 14, 30] as $days) {
+            Cache::forget("web:vaccinations:upcoming:clinic:{$clinicId}:days:{$days}");
+        }
+        
+        // Clear overdue cache
+        Cache::forget("web:vaccinations:overdue:clinic:{$clinicId}");
+        
+        // Clear statistics
+        Cache::forget("web:vaccinations:stats:clinic:{$clinicId}");
     }
 
     /**
@@ -224,22 +277,26 @@ class VaccinationController extends Controller
     public function statistics(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
+        $cacheKey = "web:vaccinations:stats:clinic:{$clinicId}";
 
-        $stats = [
-            'total_scheduled' => VaccinationSchedule::where('clinic_id', $clinicId)->count(),
-            'completed' => VaccinationSchedule::where('clinic_id', $clinicId)->where('status', 'completed')->count(),
-            'pending' => VaccinationSchedule::where('clinic_id', $clinicId)->where('status', 'scheduled')->count(),
-            'missed' => VaccinationSchedule::where('clinic_id', $clinicId)->where('status', 'missed')->count(),
-            'today_count' => VaccinationSchedule::where('clinic_id', $clinicId)
-                ->where('scheduled_date', Carbon::today())
-                ->whereIn('status', ['scheduled', 'missed'])
-                ->count(),
-            'overdue_count' => VaccinationSchedule::where('clinic_id', $clinicId)
-                ->where('scheduled_date', '<', Carbon::today())
-                ->where('status', 'scheduled')
-                ->count(),
-        ];
-
-        return response()->json($stats);
+        // Cache for 3 minutes
+        return response()->json(
+            Cache::remember($cacheKey, 180, function () use ($clinicId) {
+                return [
+                    'total_scheduled' => VaccinationSchedule::where('clinic_id', $clinicId)->count(),
+                    'completed' => VaccinationSchedule::where('clinic_id', $clinicId)->where('status', 'completed')->count(),
+                    'pending' => VaccinationSchedule::where('clinic_id', $clinicId)->where('status', 'scheduled')->count(),
+                    'missed' => VaccinationSchedule::where('clinic_id', $clinicId)->where('status', 'missed')->count(),
+                    'today_count' => VaccinationSchedule::where('clinic_id', $clinicId)
+                        ->where('scheduled_date', Carbon::today())
+                        ->whereIn('status', ['scheduled', 'missed'])
+                        ->count(),
+                    'overdue_count' => VaccinationSchedule::where('clinic_id', $clinicId)
+                        ->where('scheduled_date', '<', Carbon::today())
+                        ->where('status', 'scheduled')
+                        ->count(),
+                ];
+            })
+        );
     }
 }

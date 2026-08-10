@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Patient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class PatientController extends Controller
 {
@@ -14,35 +15,51 @@ class PatientController extends Controller
     public function index(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
-        $query = Patient::where('clinic_id', $clinicId)->with('registeredBy');
+        
+        // Create cache key based on query parameters
+        $cacheKey = sprintf(
+            'web:patients:clinic:%s:search:%s:gender:%s:sort:%s:%s:page:%s:per_page:%s',
+            $clinicId,
+            $request->get('search', 'all'),
+            $request->get('gender', 'all'),
+            $request->get('sort_by', 'created_at'),
+            $request->get('sort_order', 'desc'),
+            $request->get('page', 1),
+            $request->get('per_page', 15)
+        );
 
-        // Search functionality
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('patient_number', 'like', "%{$search}%")
-                  ->orWhere('contact_number', 'like', "%{$search}%")
-                  ->orWhere(function ($nameQuery) use ($search) {
-                      $nameQuery->searchName($search);
-                  });
-            });
-        }
+        // Cache for 3 minutes (patient list changes moderately)
+        return response()->json(
+            Cache::remember($cacheKey, 180, function () use ($request, $clinicId) {
+                $query = Patient::where('clinic_id', $clinicId)->with('registeredBy');
 
-        // Filter by gender
-        if ($request->has('gender')) {
-            $query->where('gender', $request->gender);
-        }
+                // Search functionality
+                if ($request->has('search')) {
+                    $search = $request->search;
+                    $query->where(function($q) use ($search) {
+                        $q->where('patient_number', 'like', "%{$search}%")
+                          ->orWhere('contact_number', 'like', "%{$search}%")
+                          ->orWhere(function ($nameQuery) use ($search) {
+                              $nameQuery->searchName($search);
+                          });
+                    });
+                }
 
-        // Sort
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
+                // Filter by gender
+                if ($request->has('gender')) {
+                    $query->where('gender', $request->gender);
+                }
 
-        // Paginate
-        $perPage = $request->get('per_page', 15);
-        $patients = $query->paginate($perPage);
+                // Sort
+                $sortBy = $request->get('sort_by', 'created_at');
+                $sortOrder = $request->get('sort_order', 'desc');
+                $query->orderBy($sortBy, $sortOrder);
 
-        return response()->json($patients);
+                // Paginate
+                $perPage = $request->get('per_page', 15);
+                return $query->paginate($perPage);
+            })
+        );
     }
 
     /**
@@ -113,6 +130,9 @@ class PatientController extends Controller
             $patient->details()->create($detailsData);
         }
 
+        // Invalidate patient list cache for this clinic
+        $this->clearPatientListCache($request->user()->clinic_id);
+
         return response()->json([
             'message' => 'Patient registered successfully',
             'patient' => $patient->load(['registeredBy', 'details']),
@@ -125,20 +145,25 @@ class PatientController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $patient = Patient::where('clinic_id', $request->user()->clinic_id)
-            ->with([
-                'registeredBy',
-                'biteIncidents',
-                'vaccinationSchedules' => function($query) {
-                    $query->orderBy('scheduled_date');
-                },
-                'queueEntries' => function($query) {
-                    $query->latest()->limit(5);
-                }
-            ])
-            ->findOrFail($id);
+        $cacheKey = "web:patient:{$id}:clinic:{$request->user()->clinic_id}";
 
-        return response()->json($patient);
+        // Cache for 5 minutes
+        return response()->json(
+            Cache::remember($cacheKey, 300, function () use ($request, $id) {
+                return Patient::where('clinic_id', $request->user()->clinic_id)
+                    ->with([
+                        'registeredBy',
+                        'biteIncidents',
+                        'vaccinationSchedules' => function($query) {
+                            $query->orderBy('scheduled_date');
+                        },
+                        'queueEntries' => function($query) {
+                            $query->latest()->limit(5);
+                        }
+                    ])
+                    ->findOrFail($id);
+            })
+        );
     }
 
     /**
@@ -166,6 +191,11 @@ class PatientController extends Controller
 
         $patient->update($request->all());
 
+        // Invalidate patient list cache
+        $this->clearPatientListCache($request->user()->clinic_id);
+        // Invalidate specific patient cache
+        Cache::forget("web:patient:{$id}:clinic:{$request->user()->clinic_id}");
+
         return response()->json([
             'message' => 'Patient updated successfully',
             'patient' => $patient,
@@ -183,9 +213,44 @@ class PatientController extends Controller
 
         $patient->delete();
 
+        // Invalidate patient list cache
+        $this->clearPatientListCache($request->user()->clinic_id);
+        // Invalidate specific patient cache
+        Cache::forget("web:patient:{$id}:clinic:{$request->user()->clinic_id}");
+
         return response()->json([
             'message' => 'Patient deleted successfully',
         ]);
+    }
+
+    /**
+     * Helper method to clear patient list cache
+     */
+    private function clearPatientListCache($clinicId)
+    {
+        // Clear all possible patient list cache variations
+        // This is a simple approach - in production you might use cache tags
+        $searches = ['all', '']; // Common searches
+        $genders = ['all', 'male', 'female', ''];
+        $sorts = ['created_at', 'first_name', 'patient_number'];
+        $orders = ['asc', 'desc'];
+        
+        foreach ($searches as $search) {
+            foreach ($genders as $gender) {
+                foreach ($sorts as $sort) {
+                    foreach ($orders as $order) {
+                        // Clear first 5 pages
+                        for ($page = 1; $page <= 5; $page++) {
+                            $cacheKey = sprintf(
+                                'web:patients:clinic:%s:search:%s:gender:%s:sort:%s:%s:page:%s:per_page:15',
+                                $clinicId, $search, $gender, $sort, $order, $page
+                            );
+                            Cache::forget($cacheKey);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**

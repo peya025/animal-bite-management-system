@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Queue;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class QueueController extends Controller
@@ -17,78 +18,85 @@ class QueueController extends Controller
         try {
             $clinicId = $request->user()->clinic_id;
             $date = $request->get('date', Carbon::today()->toDateString());
+            
+            $cacheKey = "web:queue:clinic:{$clinicId}:date:{$date}";
 
-            // Single optimized query with eager loading and selective fields
-            $queue = Queue::where('clinic_id', $clinicId)
-                ->where('queue_date', $date)
-                ->with([
-                    'patient:patient_id,first_name,middle_name,last_name,suffix,date_of_birth,gender,contact_number',
-                    'biteIncident:bite_id,case_number,patient_id',
-                    'checkedInBy:id,name',
-                    'handledBy:id,name'
-                ])
-                ->select('queue_id', 'queue_number', 'patient_id', 'bite_id', 'visit_type', 'priority', 'status', 'checked_in_at', 'called_at', 'completed_at', 'checked_in_by', 'handled_by', 'check_in_notes', 'clinic_id', 'queue_date')
-                ->orderBy('queue_number')
-                ->get();
+            // Cache for 30 seconds (queue changes very frequently)
+            return response()->json(
+                Cache::remember($cacheKey, 30, function () use ($clinicId, $date) {
+                    // Single optimized query with eager loading and selective fields
+                    $queue = Queue::where('clinic_id', $clinicId)
+                        ->where('queue_date', $date)
+                        ->with([
+                            'patient:patient_id,first_name,middle_name,last_name,suffix,date_of_birth,gender,contact_number',
+                            'biteIncident:bite_id,case_number,patient_id',
+                            'checkedInBy:id,name',
+                            'handledBy:id,name'
+                        ])
+                        ->select('queue_id', 'queue_number', 'patient_id', 'bite_id', 'visit_type', 'priority', 'status', 'checked_in_at', 'called_at', 'completed_at', 'checked_in_by', 'handled_by', 'check_in_notes', 'clinic_id', 'queue_date')
+                        ->orderBy('queue_number')
+                        ->get();
 
-            // Calculate stats from the same query result (no additional DB query)
-            $waitingCount = 0;
-            $inConsultationCount = 0;
-            $completedCount = 0;
-            $cancelledCount = 0;
-            $nextPatient = null;
-            $visitTypeCounts = [];
+                    // Calculate stats from the same query result (no additional DB query)
+                    $waitingCount = 0;
+                    $inConsultationCount = 0;
+                    $completedCount = 0;
+                    $cancelledCount = 0;
+                    $nextPatient = null;
+                    $visitTypeCounts = [];
 
-            foreach ($queue as $entry) {
-                // Count by status
-                switch ($entry->status) {
-                    case 'waiting':
-                        $waitingCount++;
-                        // Find next patient (first waiting one)
-                        if ($nextPatient === null) {
-                            $nextPatient = $entry;
+                    foreach ($queue as $entry) {
+                        // Count by status
+                        switch ($entry->status) {
+                            case 'waiting':
+                                $waitingCount++;
+                                // Find next patient (first waiting one)
+                                if ($nextPatient === null) {
+                                    $nextPatient = $entry;
+                                }
+                                break;
+                            case 'in_consultation':
+                                $inConsultationCount++;
+                                break;
+                            case 'completed':
+                                $completedCount++;
+                                break;
+                            case 'cancelled':
+                                $cancelledCount++;
+                                break;
                         }
-                        break;
-                    case 'in_consultation':
-                        $inConsultationCount++;
-                        break;
-                    case 'completed':
-                        $completedCount++;
-                        break;
-                    case 'cancelled':
-                        $cancelledCount++;
-                        break;
-                }
 
-                // Count by visit type
-                $visitType = $entry->visit_type;
-                if (!isset($visitTypeCounts[$visitType])) {
-                    $visitTypeCounts[$visitType] = 0;
-                }
-                $visitTypeCounts[$visitType]++;
-            }
+                        // Count by visit type
+                        $visitType = $entry->visit_type;
+                        if (!isset($visitTypeCounts[$visitType])) {
+                            $visitTypeCounts[$visitType] = 0;
+                        }
+                        $visitTypeCounts[$visitType]++;
+                    }
 
-            return response()->json([
-                'date' => $date,
-                'total_count' => $queue->count(),
-                'waiting_count' => $waitingCount,
-                'in_consultation_count' => $inConsultationCount,
-                'completed_count' => $completedCount,
-                'cancelled_count' => $cancelledCount,
-                'queue' => $queue,
-                // Include stats in same response
-                'stats' => [
-                    'date' => $date,
-                    'total' => $queue->count(),
-                    'waiting' => $waitingCount,
-                    'in_consultation' => $inConsultationCount,
-                    'completed' => $completedCount,
-                    'cancelled' => $cancelledCount,
-                    'by_visit_type' => $visitTypeCounts,
-                ],
-                // Include next patient in same response
-                'next_patient' => $nextPatient,
-            ]);
+                    return [
+                        'date' => $date,
+                        'total_count' => $queue->count(),
+                        'waiting_count' => $waitingCount,
+                        'in_consultation_count' => $inConsultationCount,
+                        'completed_count' => $completedCount,
+                        'cancelled_count' => $cancelledCount,
+                        'queue' => $queue,
+                        // Include stats in same response
+                        'stats' => [
+                            'date' => $date,
+                            'total' => $queue->count(),
+                            'waiting' => $waitingCount,
+                            'in_consultation' => $inConsultationCount,
+                            'completed' => $completedCount,
+                            'cancelled' => $cancelledCount,
+                            'by_visit_type' => $visitTypeCounts,
+                        ],
+                        // Include next patient in same response
+                        'next_patient' => $nextPatient,
+                    ];
+                })
+            );
         } catch (\Exception $e) {
             \Log::error('Queue index error: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
@@ -170,6 +178,9 @@ class QueueController extends Controller
             'check_in_notes' => $request->check_in_notes,
         ]);
 
+        // Invalidate queue cache
+        Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
+
         return response()->json([
             'message' => 'Patient added to queue successfully',
             'queue' => $queue->load(['patient', 'biteIncident']),
@@ -210,6 +221,9 @@ class QueueController extends Controller
             'handled_by' => $request->user()->id,
         ]);
 
+        // Invalidate queue cache
+        Cache::forget("web:queue:clinic:{$request->user()->clinic_id}:date:{$queue->queue_date}");
+
         return response()->json([
             'message' => 'Patient called for consultation',
             'queue' => $queue->fresh()->load(['patient', 'biteIncident']),
@@ -241,6 +255,9 @@ class QueueController extends Controller
             'consultation_notes' => $request->consultation_notes,
         ]);
 
+        // Invalidate queue cache
+        Cache::forget("web:queue:clinic:{$request->user()->clinic_id}:date:{$queue->queue_date}");
+
         return response()->json([
             'message' => 'Consultation completed',
             'queue' => $queue->fresh(),
@@ -267,6 +284,9 @@ class QueueController extends Controller
             'completed_at' => now(),
         ]);
 
+        // Invalidate queue cache
+        Cache::forget("web:queue:clinic:{$request->user()->clinic_id}:date:{$queue->queue_date}");
+
         return response()->json([
             'message' => 'Queue entry cancelled',
         ]);
@@ -286,6 +306,9 @@ class QueueController extends Controller
         ]);
 
         $queue->update(['priority' => $request->priority]);
+
+        // Invalidate queue cache
+        Cache::forget("web:queue:clinic:{$request->user()->clinic_id}:date:{$queue->queue_date}");
 
         return response()->json([
             'message' => 'Priority updated successfully',

@@ -8,12 +8,12 @@ import {
   IconButton,
   InputAdornment,
   Paper,
-  Skeleton,
   Snackbar,
   TextField,
   Typography,
   Switch,
 } from '@mui/material';
+import Loader from '../../../components/Loader';
 import {
   Save as SaveIcon,
   Refresh as RefreshIcon,
@@ -229,13 +229,8 @@ export default function ClinicInformation() {
 
   if (loading) {
     return (
-      <Box sx={{ maxWidth: 1400, mx: 'auto', p: 4 }}>
-        <Skeleton variant="text" width={250} height={40} sx={{ mb: 1 }} />
-        <Skeleton variant="text" width={400} height={24} sx={{ mb: 4 }} />
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 3 }}>
-          <Skeleton variant="rounded" height={500} />
-          <Skeleton variant="rounded" height={500} />
-        </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Loader label="Loading Clinic Information..." />
       </Box>
     );
   }

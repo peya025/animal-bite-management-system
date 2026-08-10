@@ -1,8 +1,9 @@
 import {
-  Box, Button, Skeleton, Table, TableBody, TableCell,
+  Box, Button, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
 import type { ReactNode } from 'react';
+import Loader from '../Loader';
 
 // ─── Column Definition ────────────────────────────────────────
 
@@ -106,19 +107,11 @@ export default function DataTable<T>({
         {/* ── Body ── */}
         <TableBody>
           {loading ? (
-            /* Skeleton loading rows */
-            Array.from({ length: skeletonRows }).map((_, i) => (
-              <TableRow key={i}>
-                {columns.map(col => (
-                  <TableCell
-                    key={col.key}
-                    sx={{ py: 3, border: 'none', borderBottom: '1px solid #f9fafb' }}
-                  >
-                    <Skeleton height={20} />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+            <TableRow>
+              <TableCell colSpan={columns.length} align="center" sx={{ py: 8, border: 'none' }}>
+                <Loader />
+              </TableCell>
+            </TableRow>
           ) : rows.length === 0 ? (
             /* Empty state */
             <TableRow>

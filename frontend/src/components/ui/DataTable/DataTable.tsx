@@ -1,8 +1,9 @@
 import {
-  Box, Button, Paper, Skeleton, Table, TableBody,
+  Box, Button, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
 import type { DataTableProps } from './types';
+import Loader from '../../Loader';
 
 export default function DataTable<T>({
   columns,
@@ -38,15 +39,11 @@ export default function DataTable<T>({
           {/* ── Body ── */}
           <TableBody>
             {loading ? (
-              Array.from({ length: rowsPerPage }).map((_, i) => (
-                <TableRow key={i}>
-                  {columns.map((col) => (
-                    <TableCell key={col.key} sx={{ borderBottom: '1px solid #f3f4f6' }}>
-                      <Skeleton height={20} />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              <TableRow>
+                <TableCell colSpan={columns.length} align="center" sx={{ py: 8, borderBottom: 'none' }}>
+                  <Loader />
+                </TableCell>
+              </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} align="center" sx={{ py: 10, borderBottom: 'none' }}>

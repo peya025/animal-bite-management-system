@@ -143,9 +143,12 @@ const NAV_ITEMS: NavItem[] = [
     ),
     roles: ['admin'],
     submenu: [
-      { name: 'Clinic Information',    path: ROUTES.CLINIC_SETUP.INFO      },
-      { name: 'Predefined Templates',  path: ROUTES.CLINIC_SETUP.TEMPLATES },
-      { name: 'Vaccination Schedules', path: ROUTES.CLINIC_SETUP.VAX_SCHED },
+      { name: 'Clinic Information',     path: ROUTES.CLINIC_SETUP.INFO              },
+      { name: 'Module Configuration',   path: ROUTES.CLINIC_SETUP.MODULES           },
+      { name: 'Staff Assignments',      path: ROUTES.CLINIC_SETUP.STAFF_ASSIGNMENTS },
+      { name: 'Staff Activity Monitor', path: ROUTES.AUDIT.ACTIVITY                 },
+      { name: 'Predefined Templates',   path: ROUTES.CLINIC_SETUP.TEMPLATES         },
+      { name: 'Vaccination Schedules',  path: ROUTES.CLINIC_SETUP.VAX_SCHED         },
     ],
   },
 ];
@@ -155,8 +158,14 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(() => {
+    const activeItem = NAV_ITEMS.find(item => 
+      item.submenu?.some(sub => 
+        location.pathname === sub.path || location.pathname.startsWith(sub.path)
+      )
+    );
+    return activeItem ? activeItem.name : null;
+  });
 
   const filteredNav = NAV_ITEMS.filter(item =>
     user?.role ? item.roles.includes(user.role) : false

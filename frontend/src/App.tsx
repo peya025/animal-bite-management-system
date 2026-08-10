@@ -288,17 +288,18 @@ function SimpleDashboard() {
 
   return (
     <div className="sd-layout">
-      {/* ΓöÇΓöÇ Sidebar ΓöÇΓöÇ */}
+      {/* ── Sidebar ── */}
       <aside className={`sd-sidebar ${collapsed ? 'sd-sidebar--collapsed' : ''}`}>
         <div className="sd-brand">
-          <button className="sd-toggle-brand" title={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed(!collapsed)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-          {!collapsed && (
+          {collapsed ? (
+            <button className="sd-toggle-brand" title="Expand sidebar" onClick={() => setCollapsed(false)} style={{ margin: '0 auto' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          ) : (
             <>
               <div className="sd-brand-logo">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
@@ -393,7 +394,18 @@ function SimpleDashboard() {
       {/* ── Main ── */}
       <div className="sd-main">
         <header className="sd-topbar">
-          <span className="sd-topbar-title">Dashboard</span>
+          <div className="sd-topbar-left">
+            {!collapsed && (
+              <button className="sd-toggle-brand" title="Collapse sidebar" onClick={() => setCollapsed(true)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+            )}
+            <span className="sd-topbar-title">Dashboard</span>
+          </div>
           <div className="sd-topbar-right">
             <span className="sd-topbar-date">
               {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
@@ -775,13 +787,14 @@ function SimpleDashboard() {
 
       {showLogoutModal && (
         <ConfirmationDialog
-          variant="warning"
+          variant="logout"
           title="Confirm Logout"
           message="Are you sure you want to sign out? You'll need to log in again to access the system."
           confirmLabel="Yes, sign out"
           cancelLabel="Cancel"
           onConfirm={confirmLogout}
           onCancel={() => setShowLogoutModal(false)}
+          shakeIcon
         />
       )}
     </div>
@@ -912,14 +925,15 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
     <div className="sd-layout">
       <aside className={`sd-sidebar ${collapsed ? 'sd-sidebar--collapsed' : ''}`}>
         <div className="sd-brand">
-          <button className="sd-toggle-brand" title={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed(!collapsed)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-          {!collapsed && (
+          {collapsed ? (
+            <button className="sd-toggle-brand" title="Expand sidebar" onClick={() => setCollapsed(false)} style={{ margin: '0 auto' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          ) : (
             <>
               <div className="sd-brand-logo">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
@@ -1011,7 +1025,18 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
 
       <div className="sd-main">
         <header className="sd-topbar">
-          <span className="sd-topbar-title">{title}</span>
+          <div className="sd-topbar-left">
+            {!collapsed && (
+              <button className="sd-toggle-brand" title="Collapse sidebar" onClick={() => setCollapsed(true)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+            )}
+            <span className="sd-topbar-title">{title}</span>
+          </div>
           <div className="sd-topbar-right">
             <span className="sd-topbar-date">
               {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
@@ -1026,13 +1051,14 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
 
       {showLogoutModal && (
         <ConfirmationDialog
-          variant="warning"
+          variant="logout"
           title="Confirm Logout"
           message="Are you sure you want to sign out?"
           confirmLabel="Yes, sign out"
           cancelLabel="Cancel"
           onConfirm={confirmLogout}
           onCancel={() => setShowLogoutModal(false)}
+          shakeIcon
         />
       )}
     </div>

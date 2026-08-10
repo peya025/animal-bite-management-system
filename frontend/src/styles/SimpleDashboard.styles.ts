@@ -108,6 +108,7 @@ export const AppStyleScope = styled('div')`
     padding: 0 32px; flex-shrink: 0; position: sticky; top: 0; z-index: 5;
     backdrop-filter: blur(12px);
   }
+  .sd-topbar-left { display: flex; align-items: center; gap: 14px; }
   .sd-topbar-title { font-size: 15px; font-weight: 650; color: #173d29; }
   .sd-topbar-right { display: flex; align-items: center; gap: 14px; }
   .sd-topbar-date { font-size: 12px; color: #9ca3af; }

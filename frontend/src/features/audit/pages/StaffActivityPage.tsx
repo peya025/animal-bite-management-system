@@ -121,16 +121,14 @@ export default function StaffActivityPage() {
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
             >Dashboard</button>
             <span>›</span>
+            <button
+              onClick={() => navigate(ROUTES.CLINIC_SETUP.ROOT)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#6b7280', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+            >Clinic Setup</button>
+            <span>›</span>
             <span style={{ color: '#6b7280' }}>Staff Activity</span>
           </div>
         </div>
-        <button
-          type="button"
-          className="db-explorer-back-btn"
-          onClick={() => navigate(ROUTES.DASHBOARD)}
-        >
-          ← Back to Dashboard
-        </button>
       </div>
 
       {/* KPI Summary Cards */}

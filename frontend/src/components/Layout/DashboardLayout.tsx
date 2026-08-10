@@ -187,18 +187,28 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
 
         {/* Brand */}
-        <div className="sidebar-header">
-          <div className="clinic-logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-          </div>
-          {sidebarOpen && (
-            <div className="clinic-info">
-              <h2>{clinic?.name || 'Clinic'}</h2>
-              <p className="app-name">{APP_NAME}</p>
-            </div>
+        <div className="sidebar-header" style={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', padding: sidebarOpen ? '0 16px' : '0' }}>
+          {!sidebarOpen ? (
+            <button className="header-toggle" onClick={() => setSidebarOpen(true)} title="Expand Sidebar" style={{ border: 'none', background: 'transparent', boxShadow: 'none' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="12" x2="20" y2="12"></line>
+                <line x1="4" y1="6" x2="20" y2="6"></line>
+                <line x1="4" y1="18" x2="20" y2="18"></line>
+              </svg>
+            </button>
+          ) : (
+            <>
+              <div className="clinic-logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </div>
+              <div className="clinic-info">
+                <h2>{clinic?.name || 'Clinic'}</h2>
+                <p className="app-name">{APP_NAME}</p>
+              </div>
+            </>
           )}
         </div>
 
@@ -285,18 +295,21 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
           </div>
         )}
 
-        {/* Toggle */}
-        <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            {sidebarOpen ? <path d="M15 18l-6-6 6-6"/> : <path d="M9 18l6-6-6-6"/>}
-          </svg>
-        </button>
       </aside>
 
       {/* ── Main ── */}
       <div className="main-content">
         <header className="top-header">
           <div className="header-left">
+            {sidebarOpen && (
+              <button className="header-toggle" onClick={() => setSidebarOpen(false)} title="Collapse Sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="4" y1="12" x2="20" y2="12"></line>
+                  <line x1="4" y1="6" x2="20" y2="6"></line>
+                  <line x1="4" y1="18" x2="20" y2="18"></line>
+                </svg>
+              </button>
+            )}
             <h1>{pageTitle || 'Animal Bite Management System'}</h1>
           </div>
           <div className="header-right">
@@ -349,12 +362,13 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
       {/* Logout modal */}
       {showLogoutModal && (
         <ConfirmationDialog
-          variant="danger"
+          variant="logout"
           title="Sign out?"
           message="You'll be returned to the login page."
           confirmLabel="Yes, sign out"
           onConfirm={() => { setShowLogoutModal(false); logout(); }}
           onCancel={() => setShowLogoutModal(false)}
+          shakeIcon
         />
       )}
     </DashboardLayoutRoot>

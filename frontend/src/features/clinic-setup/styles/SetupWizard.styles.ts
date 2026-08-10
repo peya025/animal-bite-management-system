@@ -527,6 +527,28 @@ export const SetupWizardRoot = styled('div')`
     color: #10b981;
   }
 
+  /* Form validation error styling */
+  .form-group input.has-error,
+  .form-group textarea.has-error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15) !important;
+  }
+
+  .form-group input.has-error ~ .input-icon-wrapper,
+  .form-group textarea.has-error ~ .input-icon-wrapper {
+    color: #ef4444 !important;
+  }
+
+  .error-text {
+    font-size: 11px;
+    color: #ef4444;
+    margin-top: 6px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
   /* Prevent browser autofill from turning input background solid white */
   .form-group input:-webkit-autofill,
   .form-group input:-webkit-autofill:hover, 

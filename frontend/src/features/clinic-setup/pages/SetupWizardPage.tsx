@@ -6,6 +6,7 @@ import { ROUTES } from '../../../shared/config/routes';
 export default function SetupWizard() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [setupData, setSetupData] = useState({
@@ -84,19 +85,25 @@ export default function SetupWizard() {
   const handleNext = async () => {
     // Step 1: Admin Account Creation (PUBLIC - no auth required)
     if (currentStep === 1) {
-      if (!setupData.clinicName || !setupData.adminName || !setupData.adminEmail || 
-          !setupData.adminPassword || !setupData.adminPasswordConfirm) {
-        alert('Please fill in all required fields');
+      const step1Errors: Record<string, string> = {};
+      if (!setupData.clinicName) step1Errors.clinicName = 'Clinic Name is required';
+      if (!setupData.adminName) step1Errors.adminName = 'Your Full Name is required';
+      if (!setupData.adminEmail) step1Errors.adminEmail = 'Email Address is required';
+      if (!setupData.adminPassword) step1Errors.adminPassword = 'Password is required';
+      if (!setupData.adminPasswordConfirm) step1Errors.adminPasswordConfirm = 'Confirm Password is required';
+      
+      if (Object.keys(step1Errors).length > 0) {
+        setErrors(step1Errors);
         return;
       }
       
       if (setupData.adminPassword !== setupData.adminPasswordConfirm) {
-        alert('Passwords do not match');
+        setErrors({ adminPasswordConfirm: 'Passwords do not match' });
         return;
       }
       
       if (setupData.adminPassword.length < 8) {
-        alert('Password must be at least 8 characters');
+        setErrors({ adminPassword: 'Password must be at least 8 characters' });
         return;
       }
 
@@ -131,6 +138,7 @@ export default function SetupWizard() {
         localStorage.setItem('clinicData', JSON.stringify(data.clinic));
 
         // Proceed to next step (now authenticated!)
+        setErrors({});
         setCurrentStep(2);
         return;
 
@@ -143,12 +151,17 @@ export default function SetupWizard() {
 
     // Validate Step 3 (Clinic Profile) before proceeding
     if (currentStep === 3) {
-      if (!setupData.address || !setupData.phone || !setupData.email) {
-        alert('Please fill in all required fields (Address, Phone, Email)');
+      const step3Errors: Record<string, string> = {};
+      if (!setupData.address) step3Errors.address = 'Address is required';
+      if (!setupData.phone) step3Errors.phone = 'Phone number is required';
+      if (!setupData.email) step3Errors.email = 'Email Address is required';
+      
+      if (Object.keys(step3Errors).length > 0) {
+        setErrors(step3Errors);
         return;
       }
       if (setupData.phone.length !== 11) {
-        alert('Phone number must be exactly 11 digits');
+        setErrors({ phone: 'Phone number must be exactly 11 digits' });
         return;
       }
     }
@@ -157,12 +170,14 @@ export default function SetupWizard() {
       // Show confirmation modal before completing setup
       setShowConfirmModal(true);
     } else if (currentStep < steps.length - 1) {
+      setErrors({});
       setCurrentStep(currentStep + 1);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) { // Don't allow going back from Step 1 (admin creation)
+      setErrors({});
       setCurrentStep(currentStep - 1);
     }
   };
@@ -391,13 +406,13 @@ export default function SetupWizard() {
             {/* Stepper Card Content */}
             <div className="setup-content">
               {currentStep === 1 && (
-                <AdminAccountStep data={setupData} setData={setSetupData} />
+                <AdminAccountStep data={setupData} setData={setSetupData} errors={errors} setErrors={setErrors} />
               )}
               {currentStep === 2 && (
                 <CustomizeStep data={setupData} setData={setSetupData} />
               )}
               {currentStep === 3 && (
-                <ClinicProfileStep data={setupData} setData={setSetupData} />
+                <ClinicProfileStep data={setupData} setData={setSetupData} errors={errors} setErrors={setErrors} />
               )}
               {currentStep === 4 && (
                 <ConfirmStep data={setupData} />
@@ -504,7 +519,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
   );
 }
 
-function AdminAccountStep({ data, setData }: any) {
+function AdminAccountStep({ data, setData, errors, setErrors }: any) {
   const [passwordsMatch, setPasswordsMatch] = useState(true);
 
   return (
@@ -520,8 +535,18 @@ function AdminAccountStep({ data, setData }: any) {
           <input
             type="text"
             value={data.clinicName}
-            onChange={(e) => setData({ ...data, clinicName: e.target.value })}
+            onChange={(e) => {
+              setData({ ...data, clinicName: e.target.value });
+              if (errors?.clinicName) {
+                setErrors((prev: any) => {
+                  const next = { ...prev };
+                  delete next.clinicName;
+                  return next;
+                });
+              }
+            }}
             placeholder="Tagoloan Rural Health Unit"
+            className={errors?.clinicName ? 'has-error' : ''}
             required
           />
           <div className="input-icon-wrapper">
@@ -530,6 +555,11 @@ function AdminAccountStep({ data, setData }: any) {
             </svg>
           </div>
         </div>
+        {errors?.clinicName && (
+          <div className="error-text">
+            <span>⚠️ {errors.clinicName}</span>
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1.5px solid #cbd5e1' }}>
@@ -543,8 +573,18 @@ function AdminAccountStep({ data, setData }: any) {
             <input
               type="text"
               value={data.adminName}
-              onChange={(e) => setData({ ...data, adminName: e.target.value })}
+              onChange={(e) => {
+                setData({ ...data, adminName: e.target.value });
+                if (errors?.adminName) {
+                  setErrors((prev: any) => {
+                    const next = { ...prev };
+                    delete next.adminName;
+                    return next;
+                  });
+                }
+              }}
               placeholder="Dr. Juan Dela Cruz"
+              className={errors?.adminName ? 'has-error' : ''}
               required
             />
             <div className="input-icon-wrapper">
@@ -554,6 +594,11 @@ function AdminAccountStep({ data, setData }: any) {
               </svg>
             </div>
           </div>
+          {errors?.adminName && (
+            <div className="error-text">
+              <span>⚠️ {errors.adminName}</span>
+            </div>
+          )}
         </div>
 
         <div className="form-group">
@@ -562,8 +607,18 @@ function AdminAccountStep({ data, setData }: any) {
             <input
               type="email"
               value={data.adminEmail}
-              onChange={(e) => setData({ ...data, adminEmail: e.target.value })}
+              onChange={(e) => {
+                setData({ ...data, adminEmail: e.target.value });
+                if (errors?.adminEmail) {
+                  setErrors((prev: any) => {
+                    const next = { ...prev };
+                    delete next.adminEmail;
+                    return next;
+                  });
+                }
+              }}
               placeholder="admin@clinic.com"
+              className={errors?.adminEmail ? 'has-error' : ''}
               required
             />
             <div className="input-icon-wrapper">
@@ -573,9 +628,15 @@ function AdminAccountStep({ data, setData }: any) {
               </svg>
             </div>
           </div>
-          <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontWeight: 500 }}>
-            You'll use this email to log in
-          </p>
+          {errors?.adminEmail ? (
+            <div className="error-text">
+              <span>⚠️ {errors.adminEmail}</span>
+            </div>
+          ) : (
+            <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontWeight: 500 }}>
+              You'll use this email to log in
+            </p>
+          )}
         </div>
 
         <div className="form-group">
@@ -584,8 +645,18 @@ function AdminAccountStep({ data, setData }: any) {
             <input
               type="password"
               value={data.adminPassword}
-              onChange={(e) => setData({ ...data, adminPassword: e.target.value })}
+              onChange={(e) => {
+                setData({ ...data, adminPassword: e.target.value });
+                if (errors?.adminPassword) {
+                  setErrors((prev: any) => {
+                    const next = { ...prev };
+                    delete next.adminPassword;
+                    return next;
+                  });
+                }
+              }}
               placeholder="Minimum 8 characters"
+              className={errors?.adminPassword ? 'has-error' : ''}
               required
             />
             <div className="input-icon-wrapper">
@@ -595,9 +666,15 @@ function AdminAccountStep({ data, setData }: any) {
               </svg>
             </div>
           </div>
-          <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontWeight: 500 }}>
-            Must contain uppercase, lowercase, and a number
-          </p>
+          {errors?.adminPassword ? (
+            <div className="error-text">
+              <span>⚠️ {errors.adminPassword}</span>
+            </div>
+          ) : (
+            <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontWeight: 500 }}>
+              Must contain uppercase, lowercase, and a number
+            </p>
+          )}
         </div>
 
         <div className="form-group">
@@ -609,8 +686,16 @@ function AdminAccountStep({ data, setData }: any) {
               onChange={(e) => {
                 setData({ ...data, adminPasswordConfirm: e.target.value });
                 setPasswordsMatch(e.target.value === data.adminPassword || e.target.value === '');
+                if (errors?.adminPasswordConfirm) {
+                  setErrors((prev: any) => {
+                    const next = { ...prev };
+                    delete next.adminPasswordConfirm;
+                    return next;
+                  });
+                }
               }}
               placeholder="Re-enter password"
+              className={errors?.adminPasswordConfirm ? 'has-error' : ''}
               required
             />
             <div className="input-icon-wrapper">
@@ -620,10 +705,16 @@ function AdminAccountStep({ data, setData }: any) {
               </svg>
             </div>
           </div>
-          {data.adminPasswordConfirm && !passwordsMatch && (
-            <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '6px', fontWeight: 600 }}>
-              ⚠️ Passwords do not match
-            </p>
+          {errors?.adminPasswordConfirm ? (
+            <div className="error-text">
+              <span>⚠️ {errors.adminPasswordConfirm}</span>
+            </div>
+          ) : (
+            data.adminPasswordConfirm && !passwordsMatch && (
+              <div className="error-text">
+                <span>⚠️ Passwords do not match</span>
+              </div>
+            )
           )}
         </div>
       </div>
@@ -743,7 +834,7 @@ function CustomizeStep({ data, setData }: any) {
   );
 }
 
-function ClinicProfileStep({ data, setData }: any) {
+function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
   return (
     <div className="step-content">
       <h2>Clinic Profile</h2>
@@ -754,8 +845,18 @@ function ClinicProfileStep({ data, setData }: any) {
         <div className="input-with-icon">
           <textarea
             value={data.address}
-            onChange={(e) => setData({ ...data, address: e.target.value })}
+            onChange={(e) => {
+              setData({ ...data, address: e.target.value });
+              if (errors?.address) {
+                setErrors((prev: any) => {
+                  const next = { ...prev };
+                  delete next.address;
+                  return next;
+                });
+              }
+            }}
             placeholder="123 Main Street, City, Province"
+            className={errors?.address ? 'has-error' : ''}
             rows={3}
             required
             style={{ paddingLeft: '44px' }}
@@ -767,6 +868,11 @@ function ClinicProfileStep({ data, setData }: any) {
             </svg>
           </div>
         </div>
+        {errors?.address && (
+          <div className="error-text">
+            <span>⚠️ {errors.address}</span>
+          </div>
+        )}
       </div>
 
       <div className="form-row">
@@ -776,9 +882,19 @@ function ClinicProfileStep({ data, setData }: any) {
             <input
               type="tel"
               value={data.phone}
-              onChange={(e) => setData({ ...data, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+              onChange={(e) => {
+                setData({ ...data, phone: e.target.value.replace(/\D/g, '').slice(0, 11) });
+                if (errors?.phone) {
+                  setErrors((prev: any) => {
+                    const next = { ...prev };
+                    delete next.phone;
+                    return next;
+                  });
+                }
+              }}
               maxLength={11}
               placeholder="09123456789"
+              className={errors?.phone ? 'has-error' : ''}
               required
             />
             <div className="input-icon-wrapper">
@@ -787,6 +903,11 @@ function ClinicProfileStep({ data, setData }: any) {
               </svg>
             </div>
           </div>
+          {errors?.phone && (
+            <div className="error-text">
+              <span>⚠️ {errors.phone}</span>
+            </div>
+          )}
         </div>
 
         <div className="form-group">
@@ -795,8 +916,18 @@ function ClinicProfileStep({ data, setData }: any) {
             <input
               type="email"
               value={data.email}
-              onChange={(e) => setData({ ...data, email: e.target.value })}
+              onChange={(e) => {
+                setData({ ...data, email: e.target.value });
+                if (errors?.email) {
+                  setErrors((prev: any) => {
+                    const next = { ...prev };
+                    delete next.email;
+                    return next;
+                  });
+                }
+              }}
               placeholder="contact@clinic.com"
+              className={errors?.email ? 'has-error' : ''}
               required
             />
             <div className="input-icon-wrapper">
@@ -806,6 +937,11 @@ function ClinicProfileStep({ data, setData }: any) {
               </svg>
             </div>
           </div>
+          {errors?.email && (
+            <div className="error-text">
+              <span>⚠️ {errors.email}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

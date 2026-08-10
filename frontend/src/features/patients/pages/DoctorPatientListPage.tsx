@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
   Alert, Box, CircularProgress, Paper, Snackbar,
-  Tab, Tabs, Typography, Chip, IconButton, Tooltip,
+  Typography, Chip, IconButton, Tooltip, Select, MenuItem, FormControl, GlobalStyles,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   MedicalServices as ConsultationIcon,
-  Today as TodayIcon,
-  DateRange as WeekIcon,
-  List as AllIcon,
   Visibility as ViewIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
@@ -231,6 +228,10 @@ export default function DoctorPatientListPage() {
 
   return (
     <Box sx={{ px: 3 }}>
+      <GlobalStyles styles={{
+        '#doctor-filter-select, #doctor-filter-select ~ *': { fontFamily: "'Poppins', sans-serif !important" },
+        '.doctor-filter-menu .MuiMenuItem-root': { fontFamily: "'Poppins', sans-serif !important", fontSize: '14px !important' },
+      }} />
       {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
@@ -271,26 +272,17 @@ export default function DoctorPatientListPage() {
         </Box>
       </Box>
 
-      {/* Tabs */}
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: '#f3f4f6', borderRadius: 3, overflow: 'hidden', background: '#ffffff', mb: 3 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: '1px solid #f3f4f6', px: 2 }}>
-          <Tab label="Today's Consultations" value="today" icon={<TodayIcon />} iconPosition="start" />
-          <Tab label="This Week" value="this_week" icon={<WeekIcon />} iconPosition="start" />
-          <Tab label="All Patients" value="all" icon={<AllIcon />} iconPosition="start" />
-        </Tabs>
-      </Paper>
-
       {/* Patient List */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: '#f3f4f6', borderRadius: 3, overflow: 'hidden', background: '#ffffff', p: 3 }}>
-        {/* Search */}
-        <Box sx={{ mb: 3 }}>
+        {/* Search + Filter Row */}
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <input
             type="text"
             placeholder="Search by name or patient number..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
-              width: '100%',
+              flex: 1,
               padding: '10px 16px',
               border: '1px solid #d1d5db',
               borderRadius: '8px',
@@ -298,6 +290,30 @@ export default function DoctorPatientListPage() {
               fontFamily: 'inherit',
             }}
           />
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <Select
+              value={tab}
+              onChange={(e) => { setTab(e.target.value as 'today' | 'this_week' | 'all'); setPage(0); }}
+              inputProps={{ id: 'doctor-filter-select' }}
+              renderValue={(val) => (
+                <span style={{ fontFamily: "'Poppins', sans-serif", fontSize: '14px' }}>
+                  {val === 'today' ? "Today's Consultations" : val === 'this_week' ? 'This Week' : 'All Patients'}
+                </span>
+              )}
+              MenuProps={{
+                PaperProps: { className: 'doctor-filter-menu' },
+              }}
+              sx={{
+                borderRadius: '8px',
+                bgcolor: '#fff',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#d1d5db' },
+              }}
+            >
+              <MenuItem value="today" sx={{ fontFamily: "'Poppins', sans-serif", fontSize: '14px' }}>Today's Consultations</MenuItem>
+              <MenuItem value="this_week" sx={{ fontFamily: "'Poppins', sans-serif", fontSize: '14px' }}>This Week</MenuItem>
+              <MenuItem value="all" sx={{ fontFamily: "'Poppins', sans-serif", fontSize: '14px' }}>All Patients</MenuItem>
+            </Select>
+          </FormControl>
         </Box>
 
         <DataTable

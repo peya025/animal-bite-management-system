@@ -63,6 +63,7 @@ export const ROUTES = {
 
   SETUP: '/setup',
   CLINIC_SETUP: {
+    ROOT:              '/setup/clinic-info',
     INFO:              '/setup/clinic-info',
     MODULES:           '/setup/modules',
     STAFF_ASSIGNMENTS: '/setup/staff-assignments',

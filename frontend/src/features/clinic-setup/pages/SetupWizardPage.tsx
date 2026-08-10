@@ -5,6 +5,7 @@ import { ROUTES } from '../../../shared/config/routes';
 
 export default function SetupWizard() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [setupData, setSetupData] = useState({
@@ -255,7 +256,7 @@ export default function SetupWizard() {
   const progressWidth = `${((currentStep - 1) / (steps.length - 1)) * 100}%`;
 
   return (
-    <SetupWizardRoot>
+    <SetupWizardRoot className={isDarkMode ? 'theme-dark' : 'theme-light'}>
       {/* Background blobs for luxury ambient blur */}
       <div className="ambient-blobs">
         <div className="blob blob-1"></div>
@@ -292,6 +293,33 @@ export default function SetupWizard() {
         </div>
       </div>
 
+      {/* Floating Theme Toggle in Welcome Screen */}
+      {currentStep === 0 && (
+        <button
+          className="theme-toggle-floating"
+          onClick={() => setIsDarkMode(!isDarkMode)}
+          title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {isDarkMode ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="5" />
+              <line x1="12" y1="1" x2="12" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="23" />
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+              <line x1="1" y1="12" x2="3" y2="12" />
+              <line x1="21" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          )}
+        </button>
+      )}
+
       {currentStep === 0 && <WelcomeScreen onStart={() => setCurrentStep(1)} />}
       
       {currentStep > 0 && (
@@ -306,6 +334,31 @@ export default function SetupWizard() {
               </div>
               <span className="logo-text">ABC Setup Wizard</span>
             </div>
+
+            {/* Theme Toggle Button inside Header */}
+            <button
+              className="theme-toggle-btn"
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {isDarkMode ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5" />
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              )}
+            </button>
           </div>
 
           <div className="setup-container">

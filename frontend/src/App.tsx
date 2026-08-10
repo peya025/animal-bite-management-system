@@ -78,6 +78,7 @@ const NAV: NavItem[] = [
       { label: 'Module Configuration',    path: ROUTES.CLINIC_SETUP.MODULES           },
       { label: 'Staff Assignments',       path: ROUTES.CLINIC_SETUP.STAFF_ASSIGNMENTS },
       { label: 'Staff Activity Monitor',  path: ROUTES.AUDIT.ACTIVITY                 },
+      { label: 'Predefined Templates',    path: ROUTES.CLINIC_SETUP.TEMPLATES         },
       { label: 'Vaccination Schedules',   path: ROUTES.CLINIC_SETUP.VAX_SCHED         },
     ],
   },
@@ -896,7 +897,15 @@ function AppLayout({ children, title }: { children: React.ReactNode; title: stri
 
   const [collapsed, setCollapsed]       = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(() => {
+    const activeItem = NAV.find(item => 
+      item.submenu?.some(sub => 
+        window.location.pathname === sub.path || 
+        (sub.path !== '/dashboard' && window.location.pathname.startsWith(sub.path))
+      )
+    );
+    return activeItem ? activeItem.label : null;
+  });
 
   const visibleNav = NAV.filter(n => user?.role && n.roles.includes(user.role));
   const initials = user?.name

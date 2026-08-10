@@ -197,7 +197,7 @@ export default function ModuleConfigPage() {
       optional: { bg: '#e8f5ed', color: '#17653a', border: '#d7ebdf', text: 'Optional' },
       hidden: { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', text: 'Hidden' },
     };
-    const badge = badges[value];
+    const badge = badges[value] || badges.optional;
     return (
       <span
         style={{

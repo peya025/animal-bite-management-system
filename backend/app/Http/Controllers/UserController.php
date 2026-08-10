@@ -151,4 +151,48 @@ class UserController extends Controller
             'user' => $user,
         ]);
     }
+
+    /**
+     * List all patient accounts (admin only)
+     */
+    public function patientAccounts(Request $request)
+    {
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $accounts = \App\Models\PatientAccount::withCount('patients')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(fn($a) => [
+                'id'             => $a->id,
+                'name'           => $a->name,
+                'email'          => $a->email,
+                'phone'          => $a->phone,
+                'is_active'      => $a->is_active,
+                'patients_count' => $a->patients_count,
+                'last_login_at'  => $a->last_login_at,
+                'created_at'     => $a->created_at,
+            ]);
+
+        return response()->json($accounts);
+    }
+
+    /**
+     * Toggle patient account active status (admin only)
+     */
+    public function togglePatientAccount(Request $request, $id)
+    {
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $account = \App\Models\PatientAccount::findOrFail($id);
+        $account->update(['is_active' => !$account->is_active]);
+
+        return response()->json([
+            'message' => 'Patient account ' . ($account->is_active ? 'activated' : 'deactivated'),
+            'account' => $account,
+        ]);
+    }
 }

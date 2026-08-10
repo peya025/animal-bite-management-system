@@ -21,10 +21,11 @@ import {
   FormControlLabel,
   Grid,
 } from '@mui/material';
-import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle } from '@mui/icons-material';
+import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined } from '@mui/icons-material';
 import api from '../../../services/api';
 import DataTable from '../../../components/ui/DataTable';
 import type { Column } from '../../../components/ui/DataTable';
+import { TablePaginator } from '../../../components/data-display';
 import AppButton from '../../../components/button';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 
@@ -37,6 +38,16 @@ interface User {
   role: Role;
   is_active: boolean;
 }
+interface PatientAccount {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  is_active: boolean;
+  patients_count: number;
+  last_login_at: string | null;
+  created_at: string;
+}
 const roles: Record<Role, string> = {
   admin: 'Administrator',
   registration: 'Registration',
@@ -48,6 +59,22 @@ export default function UserListPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
+
+  // Tab: 'staff' | 'patients'
+  const [activeTab, setActiveTab] = useState<'staff' | 'patients'>('staff');
+
+  // Patient accounts
+  const [patientAccounts, setPatientAccounts] = useState<PatientAccount[]>([]);
+  const [patientAccountsLoading, setPatientAccountsLoading] = useState(false);
+  const [togglePatientTarget, setTogglePatientTarget] = useState<PatientAccount | null>(null);
+
+  // Pagination — staff tab
+  const [staffPage, setStaffPage] = useState(0);
+  const [staffRowsPerPage, setStaffRowsPerPage] = useState(10);
+
+  // Pagination — patient accounts tab
+  const [patientPage, setPatientPage] = useState(0);
+  const [patientRowsPerPage, setPatientRowsPerPage] = useState(10);
 
   // Edit state
   const [editing, setEditing] = useState<User | null>(null);
@@ -94,6 +121,21 @@ export default function UserListPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadPatientAccounts = useCallback(async () => {
+    setPatientAccountsLoading(true);
+    try {
+      setPatientAccounts((await api.get('/patient-accounts')).data);
+    } catch {
+      setNotice('Unable to load patient accounts.');
+    } finally {
+      setPatientAccountsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'patients') loadPatientAccounts();
+  }, [activeTab, loadPatientAccounts]);
 
   // Toggle active status
   const toggle = async (user: User) => {
@@ -236,6 +278,81 @@ export default function UserListPage() {
 
   const shown = users.filter((u) => !filter || u.role === filter);
 
+  // Toggle patient account active status
+  const togglePatientAccount = async (account: PatientAccount) => {
+    try {
+      await api.put(`/patient-accounts/${account.id}/toggle`, {});
+      setNotice(`Patient account ${account.is_active ? 'deactivated' : 'activated'}.`);
+      loadPatientAccounts();
+    } catch {
+      setNotice('Unable to update patient account.');
+    }
+  };
+
+  // Patient account columns
+  const patientColumns: Column<PatientAccount>[] = [
+    {
+      key: 'account',
+      label: 'Account',
+      render: (a) => (
+        <Box>
+          <Typography sx={{ fontWeight: 600, fontSize: 13 }}>{a.name}</Typography>
+          <Typography sx={{ color: '#6b7280', fontSize: 12 }}>{a.email}</Typography>
+        </Box>
+      ),
+    },
+    {
+      key: 'phone',
+      label: 'Phone',
+      render: (a) => <Typography sx={{ fontSize: 13 }}>{a.phone || '—'}</Typography>,
+    },
+    {
+      key: 'patients',
+      label: 'Linked Patients',
+      render: (a) => (
+        <Chip
+          size="small"
+          icon={<PersonOutlined fontSize="small" />}
+          label={`${a.patients_count} patient${a.patients_count !== 1 ? 's' : ''}`}
+          variant="outlined"
+          color={a.patients_count > 0 ? 'success' : 'default'}
+        />
+      ),
+    },
+    {
+      key: 'last_login',
+      label: 'Last Login',
+      render: (a) => (
+        <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+          {a.last_login_at
+            ? new Date(a.last_login_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : 'Never'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (a) => (
+        <Chip size="small" color={a.is_active ? 'success' : 'default'} label={a.is_active ? 'Active' : 'Inactive'} />
+      ),
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      align: 'right',
+      render: (a) => (
+        <AppButton
+          variant={a.is_active ? 'danger' : 'primary'}
+          style={{ minHeight: 30, padding: '5px 10px' }}
+          onClick={() => setTogglePatientTarget(a)}
+        >
+          {a.is_active ? 'Deactivate' : 'Activate'}
+        </AppButton>
+      ),
+    },
+  ];
+
   return (
     <Box sx={{ px: 3 }}>
       {/* Header */}
@@ -285,34 +402,96 @@ export default function UserListPage() {
         </Stack>
       </Box>
 
-      {/* Filter and Table */}
-      <Box>
-        <Box sx={{ mb: 2, maxWidth: 250 }}>
-          <FormControl size="small" fullWidth>
-            <InputLabel>Role</InputLabel>
-            <Select
-              label="Role"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            >
-              <MenuItem value="">All roles</MenuItem>
-              {Object.entries(roles).map(([key, label]) => (
-                <MenuItem key={key} value={key}>
-                  {label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-        <DataTable
-          columns={columns}
-          rows={shown}
-          loading={loading}
-          getRowKey={(u) => u.id}
-          emptyIcon={<People />}
-          emptyTitle="No users found"
-        />
+      {/* Tabs */}
+      <Box sx={{ display: 'flex', gap: 0, mb: 3, borderBottom: '2px solid #e5e7eb' }}>
+        {[
+          { key: 'staff',    label: 'Staff Users',      count: users.length },
+          { key: 'patients', label: 'Patient Accounts', count: patientAccounts.length },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as 'staff' | 'patients')}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: '10px 20px', fontSize: 14, fontWeight: 600,
+              fontFamily: 'inherit',
+              color: activeTab === tab.key ? '#10b981' : '#6b7280',
+              borderBottom: activeTab === tab.key ? '2px solid #10b981' : '2px solid transparent',
+              marginBottom: -2, transition: 'all 0.15s',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            {tab.label}
+            <span style={{
+              background: activeTab === tab.key ? '#ecfdf5' : '#f3f4f6',
+              color: activeTab === tab.key ? '#059669' : '#9ca3af',
+              borderRadius: 999, padding: '1px 8px', fontSize: 12, fontWeight: 700,
+            }}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
       </Box>
+
+      {/* Staff Users Tab */}
+      {activeTab === 'staff' && (
+        <Box>
+          <Box sx={{ mb: 2, maxWidth: 250 }}>
+            <FormControl size="small" fullWidth>
+              <InputLabel>Role</InputLabel>
+              <Select label="Role" value={filter} onChange={(e) => { setFilter(e.target.value); setStaffPage(0); }}>
+                <MenuItem value="">All roles</MenuItem>
+                {Object.entries(roles).map(([key, label]) => (
+                  <MenuItem key={key} value={key}>{label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
+            <DataTable
+              columns={columns}
+              rows={shown.slice(staffPage * staffRowsPerPage, staffPage * staffRowsPerPage + staffRowsPerPage)}
+              loading={loading}
+              getRowKey={(u) => u.id}
+              emptyIcon={<People />}
+              emptyTitle="No staff users found"
+            />
+            <TablePaginator
+              count={shown.length}
+              page={staffPage}
+              rowsPerPage={staffRowsPerPage}
+              onPageChange={setStaffPage}
+              onRowsPerPageChange={(n) => { setStaffRowsPerPage(n); setStaffPage(0); }}
+              rowsPerPageOptions={[5, 10, 25]}
+            />
+          </Box>
+        </Box>
+      )}
+
+      {/* Patient Accounts Tab */}
+      {activeTab === 'patients' && (
+        <Box>
+          <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
+            <DataTable
+              columns={patientColumns}
+              rows={patientAccounts.slice(patientPage * patientRowsPerPage, patientPage * patientRowsPerPage + patientRowsPerPage)}
+              loading={patientAccountsLoading}
+              getRowKey={(a) => a.id}
+              emptyIcon={<PersonOutlined />}
+              emptyTitle="No patient accounts found"
+              emptySubtitle="Patient accounts are created via the mobile app"
+            />
+            <TablePaginator
+              count={patientAccounts.length}
+              page={patientPage}
+              rowsPerPage={patientRowsPerPage}
+              onPageChange={setPatientPage}
+              onRowsPerPageChange={(n) => { setPatientRowsPerPage(n); setPatientPage(0); }}
+              rowsPerPageOptions={[5, 10, 25]}
+            />
+          </Box>
+        </Box>
+      )}
 
       {/* ========== EDIT USER MODAL ========== */}
       <Dialog
@@ -724,6 +903,27 @@ export default function UserListPage() {
           )}
         </DialogActions>
       </Dialog>
+
+      {/* Toggle patient account confirmation */}
+      {togglePatientTarget && (
+        <ConfirmationDialog
+          variant={togglePatientTarget.is_active ? 'danger' : 'success'}
+          title={`${togglePatientTarget.is_active ? 'Deactivate' : 'Activate'} patient account`}
+          message={
+            <>
+              Are you sure you want to {togglePatientTarget.is_active ? 'deactivate' : 'activate'}{' '}
+              <strong>{togglePatientTarget.name}</strong>'s patient account?
+            </>
+          }
+          confirmLabel={`Yes, ${togglePatientTarget.is_active ? 'deactivate' : 'activate'}`}
+          cancelLabel="Cancel"
+          onConfirm={() => {
+            togglePatientAccount(togglePatientTarget);
+            setTogglePatientTarget(null);
+          }}
+          onCancel={() => setTogglePatientTarget(null)}
+        />
+      )}
 
       {/* Snackbar */}
       <Snackbar

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Mobile;
 use App\Http\Controllers\Controller;
 use App\Models\PatientAccount;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -60,8 +61,14 @@ class PatientAccountAuthController extends Controller
 
     public function me(Request $request)
     {
+        $accountId = $request->user()->id;
+        $cacheKey = "mobile:account:me:{$accountId}";
+
+        // Cache for 5 minutes
         return response()->json(
-            $request->user()->load('patients'),
+            Cache::remember($cacheKey, 300, function () use ($request) {
+                return $request->user()->load('patients');
+            })
         );
     }
 
@@ -73,6 +80,10 @@ class PatientAccountAuthController extends Controller
         ]);
 
         $request->user()->update($validated);
+
+        // Invalidate cache after updating account
+        $accountId = $request->user()->id;
+        Cache::forget("mobile:account:me:{$accountId}");
 
         return response()->json(
             $request->user()->fresh()->load('patients'),

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Mobile;
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -12,8 +13,14 @@ class PatientProfileController extends Controller
 {
     public function index(Request $request)
     {
+        $accountId = $request->user()->id;
+        $cacheKey = "mobile:patients:account:{$accountId}";
+
+        // Cache for 10 minutes (patient profiles don't change often)
         return response()->json(
-            $request->user()->patients()->orderByPivot('is_primary', 'desc')->get(),
+            Cache::remember($cacheKey, 600, function () use ($request) {
+                return $request->user()->patients()->orderByPivot('is_primary', 'desc')->get();
+            })
         );
     }
 
@@ -87,6 +94,9 @@ class PatientProfileController extends Controller
 
             return $patient;
         });
+
+        // Invalidate cache after creating patient
+        Cache::forget("mobile:patients:account:{$account->id}");
 
         return response()->json(
             $account->patients()->with('details')->whereKey($patient->patient_id)->firstOrFail(),

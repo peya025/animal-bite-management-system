@@ -168,7 +168,7 @@ function SimpleDashboard() {
   useEffect(() => {
     const checkSetupNeeded = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/setup/check-needed', {
+        const response = await fetch('/api/setup/check-needed', {
           method: 'GET',
           headers: { 'Accept': 'application/json' },
         });

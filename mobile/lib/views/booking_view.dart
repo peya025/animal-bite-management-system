@@ -5,7 +5,7 @@ import '../app/app_theme.dart';
 import '../models/booking_draft.dart';
 import '../models/bite_intake_route_args.dart';
 import '../models/patient_profile.dart';
-import '../services/mobile_api.dart';
+import '../services/api.dart';
 import '../widgets/booking/booking_header.dart';
 import '../widgets/booking/booking_summary.dart';
 import '../widgets/booking/date_selector.dart';
@@ -39,7 +39,7 @@ class _BookingViewState extends State<BookingView> {
 
   Future<void> _loadPatients({int? selectPatientId}) async {
     try {
-      final patients = await MobileApi.instance.patients();
+      final patients = await api.patients() as List<PatientProfile>;
       if (!mounted) return;
       setState(() {
         _patients = patients;

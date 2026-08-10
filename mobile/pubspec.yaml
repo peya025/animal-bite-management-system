@@ -37,6 +37,7 @@ dependencies:
   http: ^1.6.0
   table_calendar: ^3.2.0
   flutter_secure_storage: ^10.3.1
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -63,6 +64,7 @@ flutter:
   assets:
     - assets/images/anti_rabies_health_worker.png
     - assets/images/onboarding/
+    - .env
 
   fonts:
     - family: Poppins

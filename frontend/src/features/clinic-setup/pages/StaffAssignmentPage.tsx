@@ -332,6 +332,7 @@ function StatCard({ label, value, color }: { label: string; value: number; color
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
+    fontFamily: "'Poppins', sans-serif",
     padding: '24px',
     maxWidth: '1400px',
     margin: '0 auto',
@@ -360,10 +361,13 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '24px',
   },
   title: {
-    fontSize: '24px',
-    fontWeight: 700,
-    color: '#111827',
-    margin: '0 0 8px 0',
+    fontSize: '25px',
+    fontWeight: 600,
+    color: '#173d29',
+    fontFamily: "'Poppins', sans-serif",
+    letterSpacing: '-0.5px',
+    lineHeight: 1.2,
+    margin: '0 0 7px 0',
   },
   subtitle: {
     fontSize: '14px',

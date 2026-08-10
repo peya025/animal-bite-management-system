@@ -233,14 +233,21 @@ export default function ModuleConfigPage() {
         <div>
           <h1>Module Configuration</h1>
           <p>Configure clinic modules and form field requirements across all modules</p>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 13, color: '#9ca3af' }}>
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+            >Dashboard</button>
+            <span>›</span>
+            <button
+              onClick={() => navigate(ROUTES.CLINIC_SETUP.ROOT)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#6b7280', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+            >Clinic Setup</button>
+            <span>›</span>
+            <span style={{ color: '#6b7280' }}>Module Configuration</span>
+          </div>
         </div>
-        <button
-          type="button"
-          className="db-explorer-back-btn"
-          onClick={() => navigate(ROUTES.DASHBOARD)}
-        >
-          ← Back to Dashboard
-        </button>
       </div>
 
       {error && (

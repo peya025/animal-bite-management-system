@@ -7,17 +7,24 @@ use App\Models\Appointment;
 use App\Models\BiteIncidentIntake;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class MobileAppointmentController extends Controller
 {
     public function index(Request $request)
     {
+        $accountId = $request->user()->id;
+        $cacheKey = "mobile:appointments:account:{$accountId}";
+
+        // Cache for 5 minutes
         return response()->json(
-            $request->user()->appointments()
-                ->with('patient')
-                ->latest('scheduled_date')
-                ->get(),
+            Cache::remember($cacheKey, 300, function () use ($request) {
+                return $request->user()->appointments()
+                    ->with('patient')
+                    ->latest('scheduled_date')
+                    ->get();
+            })
         );
     }
 
@@ -81,6 +88,13 @@ class MobileAppointmentController extends Controller
             return $appointment;
         });
 
+        // Invalidate cache after creating appointment
+        Cache::forget("mobile:appointments:account:{$account->id}");
+        // Clear notification cache (all pages)
+        for ($i = 1; $i <= 10; $i++) {
+            Cache::forget("mobile:notifications:account:{$account->id}:page:{$i}");
+        }
+
         return response()->json($appointment->load(['patient', 'biteIntake']), 201);
     }
 
@@ -112,6 +126,14 @@ class MobileAppointmentController extends Controller
             'status' => 'pending',
             'send_time' => now(),
         ]);
+
+        // Invalidate cache after cancelling appointment
+        $accountId = $request->user()->id;
+        Cache::forget("mobile:appointments:account:{$accountId}");
+        // Clear notification cache (all pages)
+        for ($i = 1; $i <= 10; $i++) {
+            Cache::forget("mobile:notifications:account:{$accountId}:page:{$i}");
+        }
 
         return response()->json($appointment->fresh()->load('patient'));
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import AddPatientModal from '../components/AddPatientModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
@@ -19,6 +19,7 @@ export default function PatientList() {
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState('');
   const [search,         setSearch]         = useState('');
+  const [searchTerm,     setSearchTerm]     = useState(''); // Debounced search term
   const [page,           setPage]           = useState(1);
   const [totalPages,     setTotalPages]     = useState(1);
   const [total,          setTotal]          = useState(0);
@@ -32,12 +33,22 @@ export default function PatientList() {
   const printedBy  = userData   ? (JSON.parse(userData)?.name  ?? 'Unknown') : 'Unknown';
   const clinicName = clinicData ? (JSON.parse(clinicData)?.name ?? 'Animal Bite Treatment Center') : 'Animal Bite Treatment Center';
 
+  // Debounce search input (wait 400ms after user stops typing)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setSearchTerm(search);
+      setPage(1); // Reset to page 1 on new search
+    }, 400);
+
+    return () => clearTimeout(timeoutId);
+  }, [search]);
+
   const fetchPatients = useCallback(async () => {
     setLoading(true); setError('');
     try {
       const token  = localStorage.getItem('authToken');
       const params = new URLSearchParams({
-        page: String(page), per_page: String(perPage), ...(search ? { search } : {}),
+        page: String(page), per_page: String(perPage), ...(searchTerm ? { search: searchTerm } : {}),
       });
       const res = await fetch(`http://localhost:8000/api/patients?${params}`, {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
@@ -54,14 +65,18 @@ export default function PatientList() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, perPage]);
+  }, [page, searchTerm, perPage]);
 
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
-  useEffect(() => { setPage(1); }, [search, perPage]);
+  useEffect(() => { setPage(1); }, [perPage]);
 
   const getStatus = (p: Patient): 'active' | 'pending' | 'inactive' => p.status ?? 'active';
-  const activeCount  = patients.filter(p => getStatus(p) === 'active').length;
-  const pendingCount = patients.filter(p => getStatus(p) === 'pending').length;
+  
+  // Memoize statistics to avoid recalculating on every render
+  const stats = useMemo(() => ({
+    activeCount: patients.filter(p => getStatus(p) === 'active').length,
+    pendingCount: patients.filter(p => getStatus(p) === 'pending').length,
+  }), [patients]);
 
   // Build the patient table HTML for the print window
   const buildPrintBody = () => {
@@ -214,7 +229,7 @@ export default function PatientList() {
                   {patients.map(p => {
                     const status = getStatus(p);
                     return (
-                      <tr key={p.id}>
+                      <tr key={`patient-${p.patient_id || p.id}`}>
                         <td><span className="pm-patient-no">{p.patient_number}</span></td>
                         <td><span className="pm-patient-name">{fullName(p)}</span></td>
                         <td>{formatDate(p.created_at)}</td>
@@ -254,12 +269,33 @@ export default function PatientList() {
               <span className="pm-page-info">Page {page} of {totalPages} ({total} total)</span>
               <div className="pm-page-btns">
                 <button className="pm-page-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>← Prev</button>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const pg = Math.max(1, Math.min(page - 2 + i, totalPages - 4 + i));
-                  return (
-                    <button key={pg} className={`pm-page-btn ${pg === page ? 'pm-page-btn--active' : ''}`} onClick={() => setPage(pg)}>{pg}</button>
-                  );
-                })}
+                {(() => {
+                  const pageButtons = [];
+                  const maxButtons = Math.min(5, totalPages);
+                  
+                  // Calculate start page to show centered around current page
+                  let startPage = Math.max(1, page - Math.floor(maxButtons / 2));
+                  const endPage = Math.min(totalPages, startPage + maxButtons - 1);
+                  
+                  // Adjust start if we're near the end
+                  if (endPage - startPage + 1 < maxButtons) {
+                    startPage = Math.max(1, endPage - maxButtons + 1);
+                  }
+                  
+                  for (let pg = startPage; pg <= endPage; pg++) {
+                    pageButtons.push(
+                      <button 
+                        key={`page-btn-${pg}`} 
+                        className={`pm-page-btn ${pg === page ? 'pm-page-btn--active' : ''}`} 
+                        onClick={() => setPage(pg)}
+                      >
+                        {pg}
+                      </button>
+                    );
+                  }
+                  
+                  return pageButtons;
+                })()}
                 <button className="pm-page-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next →</button>
               </div>
             </div>
@@ -289,7 +325,7 @@ export default function PatientList() {
             </div>
             <div className="pm-stat-body">
               <p className="pm-stat-label">Active Patients</p>
-              <p className="pm-stat-value">{activeCount}</p>
+              <p className="pm-stat-value">{stats.activeCount}</p>
               <p className="pm-stat-sub">Currently active</p>
             </div>
           </div>
@@ -301,7 +337,7 @@ export default function PatientList() {
             </div>
             <div className="pm-stat-body">
               <p className="pm-stat-label">Follow-up Patients</p>
-              <p className="pm-stat-value">{pendingCount}</p>
+              <p className="pm-stat-value">{stats.pendingCount}</p>
               <p className="pm-stat-sub">Pending follow-up</p>
             </div>
           </div>
@@ -338,7 +374,7 @@ export default function PatientList() {
                 {patients.length === 0
                   ? <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>No patients.</td></tr>
                   : patients.map((p, i) => (
-                    <tr key={p.id} style={i % 2 !== 0 ? { background: '#f9fafb' } : {}}>
+                    <tr key={`print-patient-${p.patient_id || p.id}`} style={i % 2 !== 0 ? { background: '#f9fafb' } : {}}>
                       <td style={td}>{i + 1}</td>
                       <td style={{ ...td, fontFamily: 'monospace', fontSize: 10 }}>{p.patient_number}</td>
                       <td style={{ ...td, fontWeight: 600 }}>{fullName(p)}</td>

@@ -6,6 +6,7 @@ use App\Models\BiteIncident;
 use App\Models\BiteIncidentIntake;
 use App\Models\VaccinationSchedule;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class BiteCaseController extends Controller
@@ -17,36 +18,51 @@ class BiteCaseController extends Controller
     public function index(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
-        $query = BiteIncident::where('clinic_id', $clinicId)
-            ->with(['patient', 'createdBy']);
+        
+        // Create cache key based on filters
+        $cacheKey = sprintf(
+            'web:bite-cases:clinic:%s:status:%s:from:%s:to:%s:search:%s:page:%s',
+            $clinicId,
+            $request->get('status', 'all'),
+            $request->get('from_date', 'all'),
+            $request->get('to_date', 'all'),
+            $request->get('search', 'none'),
+            $request->get('page', 1)
+        );
 
-        // Filter by status
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
-        }
+        // Cache for 2 minutes
+        return response()->json(
+            Cache::remember($cacheKey, 120, function () use ($request, $clinicId) {
+                $query = BiteIncident::where('clinic_id', $clinicId)
+                    ->with(['patient', 'createdBy']);
 
-        // Filter by date range
-        if ($request->has('from_date')) {
-            $query->where('bite_date', '>=', $request->from_date);
-        }
-        if ($request->has('to_date')) {
-            $query->where('bite_date', '<=', $request->to_date);
-        }
+                // Filter by status
+                if ($request->has('status')) {
+                    $query->where('status', $request->status);
+                }
 
-        // Search
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('case_number', 'like', "%{$search}%")
-                    ->orWhereHas('patient', function ($pq) use ($search) {
-                        $pq->searchName($search);
+                // Filter by date range
+                if ($request->has('from_date')) {
+                    $query->where('bite_date', '>=', $request->from_date);
+                }
+                if ($request->has('to_date')) {
+                    $query->where('bite_date', '<=', $request->to_date);
+                }
+
+                // Search
+                if ($request->has('search')) {
+                    $search = $request->search;
+                    $query->where(function ($q) use ($search) {
+                        $q->where('case_number', 'like', "%{$search}%")
+                            ->orWhereHas('patient', function ($pq) use ($search) {
+                                $pq->searchName($search);
+                            });
                     });
-            });
-        }
+                }
 
-        $cases = $query->orderBy('bite_date', 'desc')->paginate(15);
-
-        return response()->json($cases);
+                return $query->orderBy('bite_date', 'desc')->paginate(15);
+            })
+        );
     }
 
     /**
@@ -117,6 +133,9 @@ class BiteCaseController extends Controller
 
             DB::commit();
 
+            // Invalidate bite cases cache
+            $this->clearBiteCasesCache($request->user()->clinic_id);
+
             return response()->json([
                 'message' => 'Bite case created successfully',
                 'incident' => $incident->load(['patient', 'createdBy', 'vaccinationSchedules']),
@@ -179,6 +198,10 @@ class BiteCaseController extends Controller
 
         $incident->update($request->all());
 
+        // Invalidate caches
+        $this->clearBiteCasesCache($request->user()->clinic_id);
+        Cache::forget("web:bite-case:{$id}:clinic:{$request->user()->clinic_id}");
+
         return response()->json([
             'message' => 'Bite case updated successfully',
             'incident' => $incident,
@@ -196,9 +219,35 @@ class BiteCaseController extends Controller
 
         $incident->delete();
 
+        // Invalidate caches
+        $this->clearBiteCasesCache($request->user()->clinic_id);
+        Cache::forget("web:bite-case:{$id}:clinic:{$request->user()->clinic_id}");
+
         return response()->json([
             'message' => 'Bite case deleted successfully',
         ]);
+    }
+
+    /**
+     * Helper method to clear bite cases cache
+     */
+    private function clearBiteCasesCache($clinicId)
+    {
+        $statuses = ['all', 'active', 'completed', 'referred', 'abandoned'];
+        
+        // Clear first 5 pages of common cache variations
+        foreach ($statuses as $status) {
+            for ($page = 1; $page <= 5; $page++) {
+                $cacheKey = sprintf(
+                    'web:bite-cases:clinic:%s:status:%s:from:%s:to:%s:search:%s:page:%s',
+                    $clinicId, $status, 'all', 'all', 'none', $page
+                );
+                Cache::forget($cacheKey);
+            }
+        }
+        
+        // Clear statistics cache
+        Cache::forget("web:bite-cases:stats:clinic:{$clinicId}");
     }
 
     /**
@@ -223,21 +272,25 @@ class BiteCaseController extends Controller
     public function statistics(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
+        $cacheKey = "web:bite-cases:stats:clinic:{$clinicId}";
 
-        $stats = [
-            'total_cases' => BiteIncident::where('clinic_id', $clinicId)->count(),
-            'active_cases' => BiteIncident::where('clinic_id', $clinicId)->where('status', 'active')->count(),
-            'completed_cases' => BiteIncident::where('clinic_id', $clinicId)->where('status', 'completed')->count(),
-            'by_severity' => BiteIncident::where('clinic_id', $clinicId)
-                ->select('severity', DB::raw('count(*) as count'))
-                ->groupBy('severity')
-                ->pluck('count', 'severity'),
-            'by_animal_type' => BiteIncident::where('clinic_id', $clinicId)
-                ->select('animal_type', DB::raw('count(*) as count'))
-                ->groupBy('animal_type')
-                ->pluck('count', 'animal_type'),
-        ];
-
-        return response()->json($stats);
+        // Cache for 5 minutes
+        return response()->json(
+            Cache::remember($cacheKey, 300, function () use ($clinicId) {
+                return [
+                    'total_cases' => BiteIncident::where('clinic_id', $clinicId)->count(),
+                    'active_cases' => BiteIncident::where('clinic_id', $clinicId)->where('status', 'active')->count(),
+                    'completed_cases' => BiteIncident::where('clinic_id', $clinicId)->where('status', 'completed')->count(),
+                    'by_severity' => BiteIncident::where('clinic_id', $clinicId)
+                        ->select('severity', DB::raw('count(*) as count'))
+                        ->groupBy('severity')
+                        ->pluck('count', 'severity'),
+                    'by_animal_type' => BiteIncident::where('clinic_id', $clinicId)
+                        ->select('animal_type', DB::raw('count(*) as count'))
+                        ->groupBy('animal_type')
+                        ->pluck('count', 'animal_type'),
+                ];
+            })
+        );
     }
 }

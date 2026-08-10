@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Speed Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        .test { margin: 20px 0; padding: 15px; background: #252526; border-left: 3px solid #007acc; }
+        .success { border-color: #4ec9b0; }
+        .warning { border-color: #ce9178; }
+        .error { border-color: #f48771; }
+        button { padding: 10px 20px; background: #0e639c; color: white; border: none; cursor: pointer; font-size: 14px; }
+        button:hover { background: #1177bb; }
+        .time { font-size: 24px; font-weight: bold; color: #4ec9b0; }
+        .slow { color: #ce9178; }
+        .veryslow { color: #f48771; }
+    </style>
+</head>
+<body>
+    <h1>🔍 API Speed Diagnostic</h1>
+    <p>This tests the actual API response time from your browser.</p>
+    
+    <div>
+        <label>Auth Token: </label>
+        <input type="text" id="token" style="width: 400px; padding: 5px;" placeholder="Paste your token from browser localStorage">
+        <button onclick="getTokenFromStorage()">Get from Storage</button>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <button onclick="testPatients()">Test Patient API</button>
+        <button onclick="testQueue()">Test Queue API</button>
+        <button onclick="testBoth()">Test Both (Sequential)</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        function getTokenFromStorage() {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                document.getElementById('token').value = token;
+                addResult('✅ Token loaded from localStorage', 'success');
+            } else {
+                addResult('❌ No token found in localStorage. Login first!', 'error');
+            }
+        }
+
+        function addResult(message, type = '') {
+            const div = document.createElement('div');
+            div.className = 'test ' + type;
+            div.innerHTML = message;
+            document.getElementById('results').appendChild(div);
+        }
+
+        async function testPatients() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                addResult('❌ Please enter auth token first!', 'error');
+                return;
+            }
+
+            addResult('🔄 Testing Patient API...', '');
+            
+            const start = performance.now();
+            try {
+                const response = await fetch('http://localhost:8000/api/patients?per_page=10', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                const end = performance.now();
+                const time = (end - start).toFixed(2);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const count = data.data ? data.data.length : (Array.isArray(data) ? data.length : 0);
+                    
+                    let timeClass = '';
+                    let verdict = '';
+                    if (time < 100) {
+                        timeClass = 'time';
+                        verdict = '✅ Excellent!';
+                    } else if (time < 500) {
+                        timeClass = 'time';
+                        verdict = '✅ Good';
+                    } else if (time < 1000) {
+                        timeClass = 'time slow';
+                        verdict = '⚠️  Acceptable';
+                    } else {
+                        timeClass = 'time veryslow';
+                        verdict = '❌ Too Slow!';
+                    }
+                    
+                    addResult(`
+                        <strong>Patient API Response:</strong><br>
+                        Time: <span class="${timeClass}">${time}ms</span> ${verdict}<br>
+                        Patients returned: ${count}<br>
+                        Status: ${response.status}
+                    `, time < 1000 ? 'success' : 'warning');
+                    
+                    // Second request to test cache
+                    setTimeout(async () => {
+                        addResult('🔄 Testing cached response...', '');
+                        const start2 = performance.now();
+                        const response2 = await fetch('http://localhost:8000/api/patients?per_page=10', {
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Accept': 'application/json'
+                            }
+                        });
+                        const end2 = performance.now();
+                        const time2 = (end2 - start2).toFixed(2);
+                        
+                        const improvement = ((time - time2) / time * 100).toFixed(1);
+                        
+                        addResult(`
+                            <strong>Second Request (Should be cached):</strong><br>
+                            Time: <span class="time">${time2}ms</span><br>
+                            Improvement: <span class="time">${improvement}%</span> faster<br>
+                            ${improvement > 30 ? '✅ Cache is working!' : '⚠️  Cache might not be active'}
+                        `, improvement > 30 ? 'success' : 'warning');
+                    }, 500);
+                    
+                } else {
+                    addResult(`❌ API Error: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                const end = performance.now();
+                const time = (end - start).toFixed(2);
+                addResult(`❌ Request failed after ${time}ms<br>Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testQueue() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                addResult('❌ Please enter auth token first!', 'error');
+                return;
+            }
+
+            addResult('🔄 Testing Queue API...', '');
+            
+            const start = performance.now();
+            try {
+                const response = await fetch('http://localhost:8000/api/queue', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                const end = performance.now();
+                const time = (end - start).toFixed(2);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    let verdict = time < 100 ? '✅ Excellent!' : time < 500 ? '✅ Good' : time < 1000 ? '⚠️  Acceptable' : '❌ Too Slow!';
+                    
+                    addResult(`
+                        <strong>Queue API Response:</strong><br>
+                        Time: <span class="time">${time}ms</span> ${verdict}<br>
+                        Queue items: ${data.queue?.length || 0}<br>
+                        Status: ${response.status}
+                    `, time < 1000 ? 'success' : 'warning');
+                } else {
+                    addResult(`❌ API Error: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                const end = performance.now();
+                const time = (end - start).toFixed(2);
+                addResult(`❌ Request failed after ${time}ms<br>Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBoth() {
+            addResult('🔄 Testing both APIs sequentially (like page navigation)...', '');
+            
+            const start = performance.now();
+            await testQueue();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            await testPatients();
+            const end = performance.now();
+            const total = (end - start).toFixed(2);
+            
+            addResult(`
+                <strong>Total Time for Both APIs:</strong><br>
+                <span class="time${total > 2000 ? ' veryslow' : ''}">${total}ms</span><br>
+                ${total < 1000 ? '✅ Fast navigation!' : total < 2000 ? '⚠️  Could be faster' : '❌ Too slow for good UX'}
+            `, total < 2000 ? 'success' : 'warning');
+        }
+
+        // Try to load token on page load
+        window.onload = () => {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                document.getElementById('token').value = token;
+            }
+        };
+    </script>
+</body>
+</html>

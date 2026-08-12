@@ -518,7 +518,17 @@ export default function ClinicInformation() {
                   onClick={() => setUseManualAddress(!useManualAddress)}
                   sx={{ fontSize: '11px', textTransform: 'none', color: '#10b981', p: 0, minWidth: 0, fontWeight: 600 }}
                 >
-                  {useManualAddress ? '⚙️ Use Dropdown Selectors' : '✏️ Use Freeform Text'}
+                  {useManualAddress ? (
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                      <SettingsIcon sx={{ fontSize: 13 }} />
+                      <span>Use Dropdown Selectors</span>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                      <EditIcon sx={{ fontSize: 13 }} />
+                      <span>Use Freeform Text</span>
+                    </Box>
+                  )}
                 </Button>
               </Box>
 
@@ -584,9 +594,10 @@ export default function ClinicInformation() {
                       />
                     </Box>
                   </Box>
-                  <Typography sx={{ fontSize: 12, color: '#065f46', fontWeight: 500, bgcolor: '#ecfdf5', border: '1px solid #a7f3d0', p: 1.25, borderRadius: 1.5 }}>
-                    📍 Generated Full Address: <strong>{clinic.address || 'Select options above'}</strong>
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, fontSize: 12, color: '#065f46', fontWeight: 500, bgcolor: '#ecfdf5', border: '1px solid #a7f3d0', p: 1.25, borderRadius: 1.5 }}>
+                    <PlaceIcon sx={{ fontSize: 16, color: '#059669' }} />
+                    <span>Generated Full Address: <strong>{clinic.address || 'Select options above'}</strong></span>
+                  </Box>
                 </Box>
               ) : (
                 <TextField

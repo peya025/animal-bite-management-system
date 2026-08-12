@@ -311,7 +311,8 @@ class BiteCaseController extends Controller
             ->with(['patient.details'])
             ->whereNotNull('bite_place')
             ->where('bite_place', '!=', '')
-            ->whereIn('severity', ['minor', 'moderate', 'severe']);
+            ->whereIn('severity', ['minor', 'moderate', 'severe'])
+            ->whereIn('status', ['completed', 'finished']);
         
         // Filter by date range
         if ($request->has('date_from')) {

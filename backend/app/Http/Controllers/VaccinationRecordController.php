@@ -225,6 +225,34 @@ class VaccinationRecordController extends Controller
             // ──────────────────────────────────────────────────────────────
             $this->createFollowUpAppointments($request, $clinicId, $patientId, $biteId, $userId);
 
+            // Ensure BiteIncident exists for patient so vaccination shows on Bite Map
+            $incident = BiteIncident::where('patient_id', $patientId)->first();
+            if (!$incident) {
+                $patientObj = Patient::with('details')->find($patientId);
+                if ($patientObj) {
+                    $street = $patientObj->details->address_purok ?? $patientObj->address_purok ?? 'Zone 1';
+                    $brgy = $patientObj->details->address_barangay ?? $patientObj->address_barangay ?? 'Poblacion';
+                    $mun = $patientObj->details->address_municipality ?? $patientObj->address_municipality ?? 'Claveria';
+                    $bitePlace = "{$street}, {$brgy}, {$mun}";
+
+                    BiteIncident::create([
+                        'clinic_id' => $clinicId,
+                        'patient_id' => $patientId,
+                        'bite_date' => now()->toDateString(),
+                        'bite_place' => $bitePlace,
+                        'exposure_type' => 'bite',
+                        'severity' => 'moderate',
+                        'animal_type' => 'dog',
+                        'status' => 'completed',
+                        'created_by' => $userId,
+                    ]);
+                }
+            } else {
+                $incident->update(['status' => 'completed']);
+            }
+
+            Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
+
             DB::commit();
 
             return response()->json([

@@ -128,11 +128,51 @@ class TagoloanTreatmentCardController extends Controller
         );
 
         // Update hospital_no in patient_details if provided
-        if (!empty($validated['hospital_no'])) {
-            $patient = Patient::find($validated['patient_id']);
-            if ($patient && $patient->details) {
-                $patient->details->update(['hospital_no' => $validated['hospital_no']]);
+        $patient = Patient::with('details')->find($validated['patient_id']);
+        if (!empty($validated['hospital_no']) && $patient && $patient->details) {
+            $patient->details->update(['hospital_no' => $validated['hospital_no']]);
+        }
+
+        // Auto-create or update BiteIncident for this patient so classified exposure shows on Bite Map
+        if ($patient) {
+            $severityMap = [
+                'I' => 'minor',
+                'II' => 'moderate',
+                'III' => 'severe',
+            ];
+            $severity = $severityMap[$validated['exposure_category'] ?? ''] ?? 'moderate';
+
+            $street = $patient->details->address_purok ?? $patient->address_purok ?? 'Zone 1';
+            $brgy = $patient->details->address_barangay ?? $patient->address_barangay ?? 'Poblacion';
+            $mun = $patient->details->address_municipality ?? $patient->address_municipality ?? 'Claveria';
+            $bitePlace = "{$street}, {$brgy}, {$mun}";
+
+            $incident = BiteIncident::where('patient_id', $validated['patient_id'])->first();
+            if (!$incident) {
+                $incident = BiteIncident::create([
+                    'clinic_id' => $clinicId,
+                    'patient_id' => $validated['patient_id'],
+                    'bite_date' => $validated['card_date'] ?? date('Y-m-d'),
+                    'bite_place' => $bitePlace,
+                    'exposure_type' => 'bite',
+                    'severity' => $severity,
+                    'animal_type' => $validated['animal_type'] ?? 'dog',
+                    'status' => 'completed',
+                    'created_by' => $request->user()->id,
+                ]);
+            } else {
+                $incident->update([
+                    'severity' => $severity,
+                    'bite_place' => $incident->bite_place ?: $bitePlace,
+                    'status' => 'completed',
+                ]);
             }
+
+            // Link card to bite incident
+            $card->update(['bite_id' => $incident->bite_id]);
+
+            // Clear bite map cache
+            \Illuminate\Support\Facades\Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
         }
 
         return response()->json([

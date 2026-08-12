@@ -27,6 +27,7 @@ export const ROUTES = {
     NEW:    '/bite-cases/new',
     DETAIL: '/bite-cases/:id',
     EDIT:   '/bite-cases/:id/edit',
+    MAP:    '/bite-cases/map',
   },
 
   VACCINATIONS: {

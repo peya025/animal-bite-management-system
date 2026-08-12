@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -94,6 +95,10 @@ const filterSx = {
 
 // ─── Main Component ───────────────────────────────────────────
 export default function BiteCaseRiskDashboard() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isBiteMap = location.pathname.includes('/map');
+
   const [cases, setCases]       = useState<BiteCase[]>([]);
   const [stats, setStats]       = useState<Stats | null>(null);
   const [loading, setLoading]   = useState(true);
@@ -383,21 +388,25 @@ export default function BiteCaseRiskDashboard() {
               mb: '7px',
             }}
           >
-            Bite Case Risk Dashboard
+            {isBiteMap ? '📍 Bite Risk Map & Location Surveillance' : 'Bite Case Risk Dashboard'}
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d' }}>
-            Track high and low risk locations for animal bites
+            {isBiteMap
+              ? 'Geographical rabies risk mapping, hotspot analysis, and barangay incident tracking'
+              : 'Track high and low risk locations for animal bites'}
           </Typography>
           {/* Breadcrumb */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
             <button
-              onClick={() => { window.location.href = '/dashboard'; }}
+              onClick={() => navigate('/dashboard')}
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
             >
               Dashboard
             </button>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Bite Cases</span>
+            <span style={{ color: '#6b7280' }}>
+              {isBiteMap ? 'Bite Map' : 'Bite Cases & Risk'}
+            </span>
           </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

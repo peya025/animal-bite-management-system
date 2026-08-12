@@ -68,6 +68,7 @@ const NAV: NavItem[] = [
   { label: 'My Patients',                          path: ROUTES.PATIENTS.NURSE_LIST,      roles: ['treatment'] },
   { label: 'My Patients',                          path: ROUTES.PATIENTS.DOCTOR_LIST,     roles: ['triage'] },
   { label: 'Bite Cases Summary',                   path: ROUTES.BITE_CASES.LIST,          roles: ['triage', 'treatment', 'admin'] },
+  { label: 'Bite Map',                             path: ROUTES.BITE_CASES.MAP,           roles: ['developer', 'admin', 'registration', 'triage', 'treatment'] },
   { label: 'Vaccine Inventory',                    path: ROUTES.INVENTORY.LIST,           roles: ['treatment', 'admin'] },
   { label: 'Reports & Analytics',                  path: ROUTES.REPORTS.LIST,             roles: ['registration', 'triage', 'treatment', 'admin'] },
   { label: 'User Management',                      path: ROUTES.USERS.LIST,               roles: ['admin'] },
@@ -1098,6 +1099,7 @@ function App() {
             <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
             <Route path="/queue/:queueId/patient" element={<ProtectedRoute><AppLayout title="Patient Detail"><QueuePatientDetailPage /></AppLayout></ProtectedRoute>} />
             <Route path="/bite-cases" element={<ProtectedRoute><AppLayout title="Bite Cases & Risk Surveillance"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
+            <Route path="/bite-cases/map" element={<ProtectedRoute><AppLayout title="Bite Risk Map & Location Surveillance"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
             <Route path="/bite-intakes" element={<ProtectedRoute><AppLayout title="Bite Incident Intakes"><BiteCaseListPage /></AppLayout></ProtectedRoute>} />
             <Route path="/vaccinations" element={<ProtectedRoute><AppLayout title="Vaccination Schedule (Form 3)"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
             <Route path="/vaccinations/record" element={<ProtectedRoute><AppLayout title="Record Vaccination"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />

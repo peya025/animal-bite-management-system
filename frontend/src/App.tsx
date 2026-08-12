@@ -9,6 +9,7 @@ import NursePatientList from './features/patients/pages/NursePatientListPage';
 import DoctorPatientList from './features/patients/pages/DoctorPatientListPage';
 import VaccineInventory from './features/inventory/pages/VaccineInventoryPage';
 import QueueDashboard from './features/queue/pages/QueueDashboardPage';
+import QueuePatientDetailPage from './features/queue/pages/QueuePatientDetailPage';
 import BiteCaseRiskDashboard from './features/bite-cases/pages/BiteCaseRiskDashboard';
 import BiteCaseListPage from './features/bite-cases/pages/BiteCaseListPage';
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
@@ -1095,6 +1096,7 @@ function App() {
             <Route path="/doctor/patients" element={<ProtectedRoute><AppLayout title="My Patients"><DoctorPatientList /></AppLayout></ProtectedRoute>} />
             <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
             <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
+            <Route path="/queue/:queueId/patient" element={<ProtectedRoute><AppLayout title="Patient Detail"><QueuePatientDetailPage /></AppLayout></ProtectedRoute>} />
             <Route path="/bite-cases" element={<ProtectedRoute><AppLayout title="Bite Cases & Risk Surveillance"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
             <Route path="/bite-intakes" element={<ProtectedRoute><AppLayout title="Bite Incident Intakes"><BiteCaseListPage /></AppLayout></ProtectedRoute>} />
             <Route path="/vaccinations" element={<ProtectedRoute><AppLayout title="Vaccination Schedule (Form 3)"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert, Box, CircularProgress, IconButton,
   Paper, Snackbar, Stack, Tooltip, Typography,
@@ -11,13 +12,11 @@ import {
   Refresh as RefreshIcon,
   Warning as UrgentIcon,
   Error as EmergencyIcon,
+  OpenInNew as ViewIcon,
 } from '@mui/icons-material';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
-import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
-import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
-import AppButton from '../../../components/button';
 
 // Clean queue module imports
 import type { QueueEntry } from '../types';
@@ -27,12 +26,13 @@ import { callQueuePatient, cancelQueueEntry } from '../services';
 import {
   CompleteDialog,
   NextPatientBanner,
-  QueueActions,
   QueueFilterBar,
   QueueStatsGrid,
 } from '../components';
+import { buildRoute, ROUTES } from '../../../shared/config/routes';
 
 export default function QueueDashboard() {
+  const navigate = useNavigate();
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
@@ -50,20 +50,6 @@ export default function QueueDashboard() {
   const [cancelTarget, setCancelTarget]     = useState<QueueEntry | null>(null);
   const [completeTarget, setCompleteTarget] = useState<QueueEntry | null>(null);
 
-  // Form modals
-  const [form2Target, setForm2Target]       = useState<QueueEntry | null>(null);
-  const [form3Target, setForm3Target]       = useState<QueueEntry | null>(null);
-
-  // User role
-  const [userRole, setUserRole] = useState<string>('');
-
-  useEffect(() => {
-    const userData = localStorage.getItem('userData');
-    if (userData) {
-      const user = JSON.parse(userData);
-      setUserRole(user.role || '');
-    }
-  }, []);
 
   const handleCall = async (entry: QueueEntry) => {
     try {
@@ -183,14 +169,30 @@ export default function QueueDashboard() {
       },
     },
     {
-      key: 'clinical_actions', header: 'CLINICAL FORMS', align: 'right',
+      key: 'view', header: 'VIEW', align: 'right' as const, width: '90px',
       render: entry => (
-        <QueueActions
-          entry={entry}
-          userRole={userRole}
-          onEditForm2={e => setForm2Target(e)}
-          onEditForm3={e => setForm3Target(e)}
-        />
+        <Tooltip title="View Patient Detail">
+          <button
+            onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: entry.queue_id }))}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '5px 14px',
+              background: '#f0fdf4',
+              border: '1px solid #a7f3d0',
+              borderRadius: 8,
+              color: '#059669',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#d1fae5'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f0fdf4'; }}
+          >
+            View <ViewIcon sx={{ fontSize: 14 }} />
+          </button>
+        </Tooltip>
       ),
     },
     {
@@ -343,19 +345,7 @@ export default function QueueDashboard() {
         onDone={() => { reload(); toast('Consultation completed'); }}
       />
 
-      <GeneralTreatmentForm
-        open={!!form2Target}
-        entry={form2Target}
-        onClose={() => setForm2Target(null)}
-        onSave={() => { toast('Treatment record saved successfully'); reload(); }}
-      />
 
-      <VaccinationRecordForm
-        open={!!form3Target}
-        entry={form3Target}
-        onClose={() => setForm3Target(null)}
-        onSave={() => { toast('Vaccination record saved successfully'); reload(); }}
-      />
 
       <Snackbar
         open={snackbar.open}

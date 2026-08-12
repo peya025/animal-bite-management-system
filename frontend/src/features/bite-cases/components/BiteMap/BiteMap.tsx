@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { Icon, LatLngBounds, divIcon, point } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -22,6 +22,7 @@ interface Props {
   cases: BiteMapCase[];
   mapCenter?: { latitude: number; longitude: number } | null;
   mapZoom?: number;
+  viewMode?: 'pins' | 'heatmap';
   onMarkerClick?: (caseData: BiteMapCase) => void;
 }
 
@@ -97,14 +98,11 @@ function createCustomIcon(severity: string) {
 // Custom cluster icon
 const createClusterCustomIcon = (cluster: any) => {
   const count = cluster.getChildCount();
-  let size = 'small';
   let color = '#10b981'; // green
   
   if (count > 20) {
-    size = 'large';
     color = '#ef4444'; // red
   } else if (count > 10) {
-    size = 'medium';
     color = '#f59e0b'; // orange
   }
   
@@ -130,11 +128,10 @@ const createClusterCustomIcon = (cluster: any) => {
   });
 };
 
-export default function BiteMap({ cases, mapCenter, mapZoom, onMarkerClick }: Props) {
-  // Default center: Philippines (fallback if clinic center not provided)
+export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', onMarkerClick }: Props) {
   const defaultCenter: [number, number] = mapCenter 
     ? [mapCenter.latitude, mapCenter.longitude]
-    : [14.5995, 120.9842]; // Manila fallback
+    : [14.5995, 120.9842];
   const defaultZoomLevel = mapZoom || 12;
 
   return (
@@ -151,49 +148,106 @@ export default function BiteMap({ cases, mapCenter, mapZoom, onMarkerClick }: Pr
         
         <MapViewController cases={cases} mapCenter={mapCenter} mapZoom={mapZoom} />
 
-        {/* Marker Clustering */}
-        <MarkerClusterGroup
-          chunkedLoading
-          iconCreateFunction={createClusterCustomIcon}
-        >
-          {cases.map((caseData) => (
-            <Marker
-              key={caseData.bite_id}
-              position={[caseData.latitude, caseData.longitude]}
-              icon={createCustomIcon(caseData.severity)}
-              eventHandlers={{
-                click: () => onMarkerClick?.(caseData),
-              }}
-            >
-              <Popup>
-                <div style={{ minWidth: 200 }}>
-                  <h4 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600 }}>
-                    {caseData.case_number}
-                  </h4>
-                  <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    <p><strong>Patient:</strong> {caseData.patient_name}</p>
-                    <p><strong>Date:</strong> {new Date(caseData.bite_date).toLocaleDateString()}</p>
-                    <p><strong>Location:</strong> {caseData.barangay}, {caseData.municipality}</p>
-                    <p><strong>Animal:</strong> {caseData.animal_type}</p>
-                    <p>
-                      <strong>Category:</strong>{' '}
-                      <span style={{ 
-                        color: getSeverityColor(caseData.severity),
-                        fontWeight: 600,
-                        textTransform: 'capitalize'
-                      }}>
-                        {caseData.severity === 'severe' ? 'III (Severe)' : 
-                         caseData.severity === 'moderate' ? 'II (Moderate)' : 
-                         'I (Minor)'}
-                      </span>
-                    </p>
-                    <p><strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{caseData.status}</span></p>
+        {viewMode === 'heatmap' ? (
+          /* ── Heatmap Overlay Mode: Density Hotspots ── */
+          <>
+            {cases.map((c) => {
+              const color = getSeverityColor(c.severity);
+              return (
+                <g key={`heat-${c.bite_id}`}>
+                  {/* Outer density halo */}
+                  <CircleMarker
+                    center={[c.latitude, c.longitude]}
+                    radius={35}
+                    pathOptions={{
+                      color: 'transparent',
+                      fillColor: color,
+                      fillOpacity: 0.25,
+                    }}
+                  />
+                  {/* Mid density core */}
+                  <CircleMarker
+                    center={[c.latitude, c.longitude]}
+                    radius={20}
+                    pathOptions={{
+                      color: 'transparent',
+                      fillColor: color,
+                      fillOpacity: 0.45,
+                    }}
+                  />
+                  {/* High intensity hotspot center */}
+                  <CircleMarker
+                    center={[c.latitude, c.longitude]}
+                    radius={8}
+                    pathOptions={{
+                      color: '#ffffff',
+                      weight: 1.5,
+                      fillColor: color,
+                      fillOpacity: 0.9,
+                    }}
+                  >
+                    <Popup>
+                      <div style={{ minWidth: 180 }}>
+                        <h4 style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 600 }}>
+                          🔥 Density Hotspot: {c.barangay}
+                        </h4>
+                        <p style={{ margin: 0, fontSize: 12, color: '#4b5563' }}>
+                          <strong>Patient:</strong> {c.patient_name}<br />
+                          <strong>Severity:</strong> <span style={{ color, fontWeight: 600 }}>{c.severity.toUpperCase()}</span>
+                        </p>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                </g>
+              );
+            })}
+          </>
+        ) : (
+          /* ── Pins & Clusters Mode ── */
+          <MarkerClusterGroup
+            chunkedLoading
+            iconCreateFunction={createClusterCustomIcon}
+          >
+            {cases.map((caseData) => (
+              <Marker
+                key={caseData.bite_id}
+                position={[caseData.latitude, caseData.longitude]}
+                icon={createCustomIcon(caseData.severity)}
+                eventHandlers={{
+                  click: () => onMarkerClick?.(caseData),
+                }}
+              >
+                <Popup>
+                  <div style={{ minWidth: 200 }}>
+                    <h4 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600 }}>
+                      {caseData.case_number}
+                    </h4>
+                    <div style={{ fontSize: 12, color: '#6b7280' }}>
+                      <p><strong>Patient:</strong> {caseData.patient_name}</p>
+                      <p><strong>Date:</strong> {new Date(caseData.bite_date).toLocaleDateString()}</p>
+                      <p><strong>Location:</strong> {caseData.barangay}, {caseData.municipality}</p>
+                      <p><strong>Animal:</strong> {caseData.animal_type}</p>
+                      <p>
+                        <strong>Category:</strong>{' '}
+                        <span style={{ 
+                          color: getSeverityColor(caseData.severity),
+                          fontWeight: 600,
+                          textTransform: 'capitalize'
+                        }}>
+                          {caseData.severity === 'severe' ? 'III (Severe)' : 
+                           caseData.severity === 'moderate' ? 'II (Moderate)' : 
+                           caseData.severity === 'minor' ? 'I (Minor)' :
+                           'Pending Assessment'}
+                        </span>
+                      </p>
+                      <p><strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{caseData.status}</span></p>
+                    </div>
                   </div>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-        </MarkerClusterGroup>
+                </Popup>
+              </Marker>
+            ))}
+          </MarkerClusterGroup>
+        )}
       </MapContainer>
     </BiteMapRoot>
   );

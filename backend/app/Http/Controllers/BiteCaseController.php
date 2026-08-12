@@ -308,9 +308,10 @@ class BiteCaseController extends Controller
         $clinic = DB::table('clinics')->find($clinicId);
         
         $query = BiteIncident::where('clinic_id', $clinicId)
-            ->with(['patient'])
+            ->with(['patient.details'])
             ->whereNotNull('bite_place')
-            ->where('bite_place', '!=', '');
+            ->where('bite_place', '!=', '')
+            ->whereIn('severity', ['minor', 'moderate', 'severe']);
         
         // Filter by date range
         if ($request->has('date_from')) {
@@ -326,15 +327,32 @@ class BiteCaseController extends Controller
         }
         
         $cases = $query->get()->map(function ($case) use ($geocodingService) {
-            // Parse location data from bite_place
-            // Format expected: "address, barangay, municipality"
+            // Parse location data from bite_place or fallback to patient details
             $locationParts = array_map('trim', explode(',', $case->bite_place));
-            $address = $locationParts[0] ?? '';
-            $barangay = $locationParts[1] ?? 'Unknown';
-            $municipality = $locationParts[2] ?? 'Unknown';
+            $count = count($locationParts);
+
+            if ($count >= 3) {
+                $address = $locationParts[0];
+                $barangay = $locationParts[1];
+                $municipality = $locationParts[2];
+            } elseif ($count === 2) {
+                $address = '';
+                $barangay = $locationParts[0];
+                $municipality = $locationParts[1];
+            } else {
+                $address = $case->bite_place;
+                $barangay = $case->patient->details->address_barangay ?? $case->patient->address_barangay ?? 'Poblacion';
+                $municipality = $case->patient->details->address_municipality ?? $case->patient->address_municipality ?? 'Claveria';
+            }
+
+            if (empty($barangay) || $barangay === 'Unknown') {
+                $barangay = $case->patient->details->address_barangay ?? 'Poblacion';
+            }
+            if (empty($municipality) || $municipality === 'Unknown') {
+                $municipality = $case->patient->details->address_municipality ?? 'Claveria';
+            }
             
             // Get real coordinates using hybrid geocoding
-            // Uses lookup table first, then Nominatim API, then municipality center
             $coordinates = $geocodingService->getCoordinates($barangay, $municipality);
             
             return [
@@ -365,6 +383,7 @@ class BiteCaseController extends Controller
                 'minor' => $cases->where('severity', 'minor')->count(),
                 'moderate' => $cases->where('severity', 'moderate')->count(),
                 'severe' => $cases->where('severity', 'severe')->count(),
+                'unclassified' => $cases->whereIn('severity', ['unclassified', 'pending', null, ''])->count(),
             ],
             'by_animal' => $cases->groupBy('animal_type')->map->count(),
         ];

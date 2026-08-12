@@ -524,8 +524,8 @@ export default function ClinicInformation() {
 
               {!useManualAddress ? (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                    <Box>
                       <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Province</Typography>
                       <Select
                         fullWidth
@@ -539,8 +539,8 @@ export default function ClinicInformation() {
                           <MenuItem key={p} value={p}>{p}</MenuItem>
                         ))}
                       </Select>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
+                    </Box>
+                    <Box>
                       <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Municipality / City</Typography>
                       <Select
                         fullWidth
@@ -554,10 +554,10 @@ export default function ClinicInformation() {
                           <MenuItem key={m} value={m}>{m}</MenuItem>
                         ))}
                       </Select>
-                    </Grid>
-                  </Grid>
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                    <Box>
                       <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Barangay</Typography>
                       <Select
                         fullWidth
@@ -571,8 +571,8 @@ export default function ClinicInformation() {
                           <MenuItem key={b} value={b}>{b}</MenuItem>
                         ))}
                       </Select>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
+                    </Box>
+                    <Box>
                       <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Street / Zone / Landmark</Typography>
                       <TextField
                         fullWidth
@@ -582,8 +582,8 @@ export default function ClinicInformation() {
                         onChange={(e) => handleStreetDetailChange(e.target.value)}
                         sx={cleanFieldSx}
                       />
-                    </Grid>
-                  </Grid>
+                    </Box>
+                  </Box>
                   <Typography sx={{ fontSize: 12, color: '#065f46', fontWeight: 500, bgcolor: '#ecfdf5', border: '1px solid #a7f3d0', p: 1.25, borderRadius: 1.5 }}>
                     📍 Generated Full Address: <strong>{clinic.address || 'Select options above'}</strong>
                   </Typography>

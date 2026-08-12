@@ -134,12 +134,9 @@ class PatientController extends Controller
             'fourps_member', 'dswd_nhts',
         ]);
         
-        if (!empty(array_filter($detailsData))) {
-            $patient->details()->create($detailsData);
-        }
-
         // Invalidate patient list cache for this clinic
         $this->clearPatientListCache($request->user()->clinic_id);
+        Cache::forget("web:bite-cases:map-data:clinic:{$request->user()->clinic_id}");
 
         return response()->json([
             'message' => 'Patient registered successfully',

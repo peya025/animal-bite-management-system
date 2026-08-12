@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BiteIncident;
 use App\Models\BiteIncidentIntake;
 use App\Models\VaccinationSchedule;
+use App\Services\GeocodingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -301,6 +302,10 @@ class BiteCaseController extends Controller
     public function getMapData(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
+        $geocodingService = new GeocodingService();
+        
+        // Get clinic info for map center
+        $clinic = DB::table('clinics')->find($clinicId);
         
         $query = BiteIncident::where('clinic_id', $clinicId)
             ->with(['patient'])
@@ -320,27 +325,24 @@ class BiteCaseController extends Controller
             $query->where('severity', $request->severity);
         }
         
-        $cases = $query->get()->map(function ($case) {
+        $cases = $query->get()->map(function ($case) use ($geocodingService) {
             // Parse location data from bite_place
             // Format expected: "address, barangay, municipality"
             $locationParts = array_map('trim', explode(',', $case->bite_place));
             $address = $locationParts[0] ?? '';
-            $barangay = $locationParts[1] ?? '';
-            $municipality = $locationParts[2] ?? '';
+            $barangay = $locationParts[1] ?? 'Unknown';
+            $municipality = $locationParts[2] ?? 'Unknown';
             
-            // Generate random coordinates for demonstration
-            // TODO: Replace with actual geocoding or stored coordinates
-            $baseLatitude = 14.5995;  // Manila default
-            $baseLongitude = 120.9842;
-            $latitude = $baseLatitude + (mt_rand(-100, 100) / 1000);
-            $longitude = $baseLongitude + (mt_rand(-100, 100) / 1000);
+            // Get real coordinates using hybrid geocoding
+            // Uses lookup table first, then Nominatim API, then municipality center
+            $coordinates = $geocodingService->getCoordinates($barangay, $municipality);
             
             return [
                 'bite_id' => $case->bite_id,
                 'case_number' => $case->case_number,
                 'bite_date' => $case->bite_date,
-                'latitude' => $latitude,
-                'longitude' => $longitude,
+                'latitude' => $coordinates['latitude'],
+                'longitude' => $coordinates['longitude'],
                 'barangay' => $barangay,
                 'municipality' => $municipality,
                 'address' => $address,
@@ -350,6 +352,7 @@ class BiteCaseController extends Controller
                 'patient_name' => $case->patient ? 
                     "{$case->patient->first_name} {$case->patient->last_name}" : 'Unknown',
                 'status' => $case->status,
+                'coord_source' => $coordinates['source'], // For debugging
             ];
         });
         
@@ -366,9 +369,67 @@ class BiteCaseController extends Controller
             'by_animal' => $cases->groupBy('animal_type')->map->count(),
         ];
         
+        // Determine map center and zoom
+        $mapCenter = null;
+        $mapZoom = 12;
+        
+        if ($clinic) {
+            if ($clinic->latitude && $clinic->longitude) {
+                // Use clinic coordinates if available
+                $mapCenter = [
+                    'latitude' => (float) $clinic->latitude,
+                    'longitude' => (float) $clinic->longitude
+                ];
+                $mapZoom = $clinic->map_default_zoom ?? 13;
+            } else {
+                // Extract municipality from clinic record or parse from clinic address string
+                $mun = $clinic->municipality;
+                if (!$mun && $clinic->address) {
+                    $parts = array_map('trim', explode(',', $clinic->address));
+                    if (count($parts) >= 4) {
+                        $mun = $parts[2];
+                    } elseif (count($parts) >= 2) {
+                        $mun = $parts[count($parts) - 2];
+                    }
+                }
+                if ($mun) {
+                    $coords = $geocodingService->getCoordinates('', $mun);
+                    $mapCenter = [
+                        'latitude' => $coords['latitude'],
+                        'longitude' => $coords['longitude']
+                    ];
+                    $mapZoom = 13;
+
+                    // Update clinic record with geocoded coordinates for future instant loads
+                    DB::table('clinics')->where('id', $clinicId)->update([
+                        'municipality' => $mun,
+                        'latitude' => $coords['latitude'],
+                        'longitude' => $coords['longitude'],
+                        'map_default_zoom' => 13,
+                    ]);
+                }
+            }
+        }
+        
+        // Fallback: use first case location or default
+        if (!$mapCenter && $cases->count() > 0) {
+            $firstCase = $cases->first();
+            $mapCenter = [
+                'latitude' => $firstCase['latitude'],
+                'longitude' => $firstCase['longitude']
+            ];
+        }
+        
         return response()->json([
             'cases' => $cases->values(),
             'statistics' => $stats,
+            'map_center' => $mapCenter,
+            'map_zoom' => $mapZoom,
+            'clinic' => [
+                'name' => $clinic->name ?? '',
+                'municipality' => $clinic->municipality ?? '',
+                'province' => $clinic->province ?? 'Misamis Oriental',
+            ]
         ]);
     }
 }

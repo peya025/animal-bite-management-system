@@ -26,9 +26,23 @@ export interface MapStatistics {
   by_animal: Record<string, number>;
 }
 
+export interface MapCenter {
+  latitude: number;
+  longitude: number;
+}
+
+export interface ClinicInfo {
+  name: string;
+  municipality: string;
+  province: string;
+}
+
 export interface BiteMapData {
   cases: BiteMapCase[];
   statistics: MapStatistics;
+  map_center?: MapCenter | null;
+  map_zoom?: number;
+  clinic?: ClinicInfo;
 }
 
 export interface MapFilters {

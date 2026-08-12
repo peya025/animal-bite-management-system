@@ -89,8 +89,8 @@ export default function PatientList() {
   
   // Memoize statistics to avoid recalculating on every render
   const stats = useMemo(() => ({
-    activeCount: patients.filter(p => getStatus(p) === 'active').length,
-    pendingCount: patients.filter(p => getStatus(p) === 'pending').length,
+    activeCount: patients.filter(p => (p.status ?? 'active').toLowerCase() === 'active').length,
+    pendingCount: patients.filter(p => (p.status ?? 'active').toLowerCase() === 'pending').length,
   }), [patients]);
 
   // Build the patient table HTML for the print window

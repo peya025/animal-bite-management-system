@@ -54,7 +54,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// ΓöÇΓöÇΓöÇ Role-aware nav items ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
 interface NavItem {
   label: string;
   path?: string;
@@ -66,8 +66,8 @@ const NAV: NavItem[] = [
   { label: 'Dashboard',                            path: ROUTES.DASHBOARD,                roles: ['developer', 'admin', 'registration', 'triage', 'treatment'] },
   { label: 'Patient Registration',                 path: ROUTES.PATIENTS.LIST,            roles: ['registration', 'admin'] },
   { label: 'Patient Queue',                        path: ROUTES.QUEUE.DASHBOARD,          roles: ['registration', 'triage', 'treatment', 'admin'] },
-  { label: 'My Patients',                          path: ROUTES.PATIENTS.NURSE_LIST,      roles: ['treatment'] },
-  { label: 'My Patients',                          path: ROUTES.PATIENTS.DOCTOR_LIST,     roles: ['triage'] },
+  { label: 'Patients List',                        path: ROUTES.PATIENTS.NURSE_LIST,      roles: ['treatment'] },
+  { label: 'Patients List',                        path: ROUTES.PATIENTS.DOCTOR_LIST,     roles: ['triage'] },
   { label: 'Bite Cases Summary',                   path: ROUTES.BITE_CASES.LIST,          roles: ['triage', 'treatment', 'admin'] },
   { label: 'Bite Map',                             path: ROUTES.BITE_CASES.MAP,           roles: ['developer', 'admin', 'registration', 'triage', 'treatment'] },
   { label: 'Vaccine Inventory',                    path: ROUTES.INVENTORY.LIST,           roles: ['treatment', 'admin'] },

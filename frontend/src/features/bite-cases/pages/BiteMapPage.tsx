@@ -37,6 +37,7 @@ export default function BiteMapPage() {
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Geographical distribution of animal bite incidents by WHO category
+            {data?.clinic?.municipality && ` • ${data.clinic.municipality}, ${data.clinic.province}`}
           </Typography>
         </Box>
 
@@ -105,7 +106,11 @@ export default function BiteMapPage() {
           </Box>
         ) : data ? (
           <Box sx={{ position: 'relative' }}>
-            <BiteMap cases={data.cases} />
+            <BiteMap 
+              cases={data.cases} 
+              mapCenter={data.map_center}
+              mapZoom={data.map_zoom}
+            />
             <MapLegend />
           </Box>
         ) : (

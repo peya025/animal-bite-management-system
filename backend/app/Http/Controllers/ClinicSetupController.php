@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Clinic;
 use App\Models\User;
 use App\Models\ClinicModuleConfig;
@@ -153,12 +154,95 @@ class ClinicSetupController extends Controller
             $data['logo_path'] = $request->file('logo')->store('clinic-logos', 'public');
         }
 
+        // Auto-geocode if address changed
+        if ($request->filled('address') && $request->address !== $clinic->address) {
+            $this->geocodeClinicAddress($request->address, $data);
+        }
+
         $clinic->update($data);
+
+        // Clear map cache so new center is used
+        Cache::forget("web:bite-cases:map-data:clinic:{$clinic->id}");
 
         return response()->json([
             'message' => 'Clinic information updated successfully',
-            'clinic' => $clinic,
+            'clinic' => $clinic->fresh(),
         ]);
+    }
+
+    /**
+     * Geocode clinic address and extract location data
+     */
+    private function geocodeClinicAddress(string $address, array &$data)
+    {
+        // Parse address format: "Street, Barangay, Municipality, Province"
+        // or "Street, Municipality, Province"
+        $parts = array_map('trim', explode(',', $address));
+        
+        // Try to extract municipality (usually 2nd or 3rd part)
+        $municipality = null;
+        $province = 'Misamis Oriental'; // default
+        
+        if (count($parts) >= 3) {
+            // Format: Street, Barangay, Municipality, Province
+            if (count($parts) >= 4) {
+                $municipality = $parts[2];
+                $province = $parts[3];
+            } else {
+                // Format: Street, Municipality, Province
+                $municipality = $parts[1];
+                $province = $parts[2] ?? 'Misamis Oriental';
+            }
+        } elseif (count($parts) == 2) {
+            // Format: Municipality, Province
+            $municipality = $parts[0];
+            $province = $parts[1];
+        }
+
+        if ($municipality) {
+            try {
+                $geocodingService = new \App\Services\GeocodingService();
+                $coords = $geocodingService->getCoordinates('', $municipality);
+                
+                $data['municipality'] = $municipality;
+                $data['province'] = $province;
+                $data['latitude'] = $coords['latitude'];
+                $data['longitude'] = $coords['longitude'];
+                
+                // Set smart zoom based on area type
+                $data['map_default_zoom'] = $this->getSmartZoomLevel($municipality);
+                
+                \Log::info('Clinic address geocoded', [
+                    'municipality' => $municipality,
+                    'coords' => $coords,
+                    'source' => $coords['source']
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('Failed to geocode clinic address', [
+                    'address' => $address,
+                    'error' => $e->getMessage()
+                ]);
+                // Don't fail the update, just skip geocoding
+            }
+        }
+    }
+
+    /**
+     * Determine smart zoom level based on area type
+     */
+    private function getSmartZoomLevel(string $municipality): int
+    {
+        // Large cities need wider zoom
+        $largeCities = [
+            'Cagayan de Oro', 'Manila', 'Quezon City', 'Makati', 
+            'Pasig', 'Taguig', 'Cebu City', 'Davao City'
+        ];
+        
+        if (in_array($municipality, $largeCities)) {
+            return 12; // Wider for large cities
+        }
+        
+        return 13; // Standard for municipalities
     }
 
     /**
@@ -175,14 +259,21 @@ class ClinicSetupController extends Controller
             ], 422);
         }
 
-        $clinic->update([
+        $updateData = [
             'is_setup_complete' => true,
             'setup_completed_at' => now(),
-        ]);
+        ];
+
+        // Auto-geocode clinic address during setup completion
+        if ($clinic->address) {
+            $this->geocodeClinicAddress($clinic->address, $updateData);
+        }
+
+        $clinic->update($updateData);
 
         return response()->json([
             'message' => 'Setup completed successfully',
-            'clinic' => $clinic,
+            'clinic' => $clinic->fresh(),
         ]);
     }
 }

@@ -20,21 +20,27 @@ Icon.Default.mergeOptions({
 
 interface Props {
   cases: BiteMapCase[];
+  mapCenter?: { latitude: number; longitude: number } | null;
+  mapZoom?: number;
   onMarkerClick?: (caseData: BiteMapCase) => void;
 }
 
-// Component to fit map bounds to markers
-function FitBounds({ cases }: { cases: BiteMapCase[] }) {
+// Component to handle map center and zoom
+function MapViewController({ cases, mapCenter, mapZoom }: { cases: BiteMapCase[]; mapCenter?: { latitude: number; longitude: number} | null; mapZoom?: number }) {
   const map = useMap();
 
   useEffect(() => {
-    if (cases.length > 0) {
+    // If clinic center is provided, use it
+    if (mapCenter) {
+      map.setView([mapCenter.latitude, mapCenter.longitude], mapZoom || 13);
+    } else if (cases.length > 0) {
+      // Otherwise, fit bounds to show all cases
       const bounds = new LatLngBounds(
         cases.map(c => [c.latitude, c.longitude])
       );
       map.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [cases, map]);
+  }, [cases, mapCenter, mapZoom, map]);
 
   return null;
 }
@@ -124,16 +130,18 @@ const createClusterCustomIcon = (cluster: any) => {
   });
 };
 
-export default function BiteMap({ cases, onMarkerClick }: Props) {
-  // Default center: Philippines (will be replaced with clinic config)
-  const defaultCenter: [number, number] = [14.5995, 120.9842]; // Manila
-  const defaultZoom = 12;
+export default function BiteMap({ cases, mapCenter, mapZoom, onMarkerClick }: Props) {
+  // Default center: Philippines (fallback if clinic center not provided)
+  const defaultCenter: [number, number] = mapCenter 
+    ? [mapCenter.latitude, mapCenter.longitude]
+    : [14.5995, 120.9842]; // Manila fallback
+  const defaultZoomLevel = mapZoom || 12;
 
   return (
     <BiteMapRoot>
       <MapContainer
         center={defaultCenter}
-        zoom={defaultZoom}
+        zoom={defaultZoomLevel}
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayer
@@ -141,7 +149,7 @@ export default function BiteMap({ cases, onMarkerClick }: Props) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
         
-        <FitBounds cases={cases} />
+        <MapViewController cases={cases} mapCenter={mapCenter} mapZoom={mapZoom} />
 
         {/* Marker Clustering */}
         <MarkerClusterGroup

@@ -182,9 +182,19 @@ export default function DoctorPatientListPage() {
       key: 'status',
       header: 'STATUS',
       render: (patient) => {
+        const activeQueue = (patient as any).queues?.[0];
+        if (activeQueue) {
+          if (activeQueue.status === 'waiting') {
+            return <Chip label="In Queue (Waiting)" size="small" sx={{ bgcolor: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 600 }} />;
+          }
+          if (activeQueue.status === 'in_consultation') {
+            return <Chip label="In Consultation" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} />;
+          }
+        }
+
         const record = getLastConsultation(patient);
         if (!record) {
-          return <Chip label="No Records" size="small" sx={{ bgcolor: '#f3f4f6', color: '#6b7280', fontSize: 11, fontWeight: 600 }} />;
+          return <Chip label="Registered" size="small" sx={{ bgcolor: '#f3f4f6', color: '#6b7280', fontSize: 11, fontWeight: 600 }} />;
         }
 
         const status = record.status || 'completed';

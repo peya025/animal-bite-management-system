@@ -3,6 +3,7 @@ import AddPatientModal from '../components/AddPatientModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
+import api from '../../../shared/services/api';
 
 // ─── Types ───────────────────────────────────────────────────
 import type { Patient } from '../types';
@@ -46,22 +47,21 @@ export default function PatientList() {
   const fetchPatients = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const token  = localStorage.getItem('authToken');
-      const params = new URLSearchParams({
-        page: String(page), per_page: String(perPage), ...(searchTerm ? { search: searchTerm } : {}),
+      const response = await api.get('/patients', {
+        params: {
+          page,
+          per_page: perPage,
+          ...(searchTerm ? { search: searchTerm } : {}),
+        },
       });
-      const res = await fetch(`http://localhost:8000/api/patients?${params}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      });
-      if (!res.ok) throw new Error('Failed to load patients');
-      const json = await res.json();
+      const json = response.data;
       if (Array.isArray(json)) {
         setPatients(json); setTotal(json.length); setTotalPages(1);
       } else {
         setPatients(json.data ?? []); setTotal(json.total ?? 0); setTotalPages(json.last_page ?? 1);
       }
     } catch (e: any) {
-      setError(e.message || 'Failed to load patients');
+      setError(e.response?.data?.message || e.message || 'Failed to load patients');
     } finally {
       setLoading(false);
     }
@@ -70,7 +70,22 @@ export default function PatientList() {
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
   useEffect(() => { setPage(1); }, [perPage]);
 
-  const getStatus = (p: Patient): 'active' | 'pending' | 'inactive' => p.status ?? 'active';
+  const getLiveStatus = (p: Patient) => {
+    const activeQueue = (p as any).queues?.[0];
+    if (activeQueue) {
+      if (activeQueue.status === 'waiting') {
+        return { label: 'In Queue (Waiting)', bg: '#d1fae5', color: '#065f46' };
+      }
+      if (activeQueue.status === 'in_consultation') {
+        return { label: 'In Consultation', bg: '#eff6ff', color: '#2563eb' };
+      }
+    }
+    const record = (p as any).latest_treatment_record;
+    if (record?.dose_number !== undefined && record?.dose_number !== null) {
+      return { label: `Dose ${record.dose_number} Done`, bg: '#ecfdf5', color: '#059669' };
+    }
+    return { label: (p.status ?? 'Active').charAt(0).toUpperCase() + (p.status ?? 'Active').slice(1), bg: '#f3f4f6', color: '#374151' };
+  };
   
   // Memoize statistics to avoid recalculating on every render
   const stats = useMemo(() => ({
@@ -227,15 +242,23 @@ export default function PatientList() {
                 </thead>
                 <tbody>
                   {patients.map(p => {
-                    const status = getStatus(p);
+                    const statusInfo = getLiveStatus(p);
                     return (
                       <tr key={`patient-${p.patient_id || p.id}`}>
                         <td><span className="pm-patient-no">{p.patient_number}</span></td>
                         <td><span className="pm-patient-name">{fullName(p)}</span></td>
                         <td>{formatDate(p.created_at)}</td>
                         <td>
-                          <span className={`pm-status pm-status--${status}`}>
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            backgroundColor: statusInfo.bg,
+                            color: statusInfo.color,
+                            display: 'inline-block',
+                          }}>
+                            {statusInfo.label}
                           </span>
                         </td>
                         <td>

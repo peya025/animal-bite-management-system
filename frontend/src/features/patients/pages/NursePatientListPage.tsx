@@ -119,11 +119,21 @@ export default function NursePatientListPage() {
   };
 
   const getVaccinationStatus = (patient: Patient) => {
+    const activeQueue = (patient as any).queues?.[0];
+    if (activeQueue) {
+      if (activeQueue.status === 'waiting') {
+        return { label: 'In Queue (Waiting)', color: '#065f46', bg: '#d1fae5' };
+      }
+      if (activeQueue.status === 'in_consultation') {
+        return { label: 'In Consultation', color: '#2563eb', bg: '#eff6ff' };
+      }
+    }
+
     const record = patient.latest_treatment_record;
     const appt = getNextAppointment(patient);
 
     if (!record || !record.dose_number) {
-      return { label: 'Not Started', color: '#9ca3af', bg: '#f3f4f6' };
+      return { label: 'Registered', color: '#9ca3af', bg: '#f3f4f6' };
     }
 
     // Check if all doses completed (Day 28 or later)

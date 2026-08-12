@@ -106,15 +106,29 @@ export default function QueueDashboard() {
     },
     {
       key: 'patient', header: 'PATIENT',
-      render: entry => (
-        <Box>
-          <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#111827', lineHeight: 1.3 }}>{entry.patient.name}</Typography>
-          <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
-            {entry.patient.age}y · {entry.patient.gender}
-            {entry.biteIncident && ` · ${entry.biteIncident.case_number}`}
-          </Typography>
-        </Box>
-      ),
+      render: entry => {
+        const queueDateStr = (entry as any).queue_date ? new Date((entry as any).queue_date).toISOString().split('T')[0] : '';
+        const todayStr = new Date().toISOString().split('T')[0];
+        const isCarryOver = (entry as any).is_carry_over || (queueDateStr && queueDateStr < todayStr);
+        const isActive = entry.status === 'waiting' || entry.status === 'in_consultation';
+
+        return (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#111827', lineHeight: 1.3 }}>{entry.patient.name}</Typography>
+              {isCarryOver && isActive && (
+                <Box sx={{ px: 1, py: 0.2, bgcolor: '#fef3c7', color: '#92400e', borderRadius: 1, fontSize: 10, fontWeight: 700, letterSpacing: '0.2px' }}>
+                  Carried Over ({queueDateStr ? new Date(queueDateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Past Date'})
+                </Box>
+              )}
+            </Box>
+            <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
+              {entry.patient.age}y · {entry.patient.gender}
+              {entry.biteIncident && ` · ${entry.biteIncident.case_number}`}
+            </Typography>
+          </Box>
+        );
+      },
     },
     {
       key: 'appointment_id', header: 'APPT. ID', width: '100px',

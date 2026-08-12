@@ -31,7 +31,15 @@ class PatientController extends Controller
         // Cache for 3 minutes (patient list changes moderately)
         return response()->json(
             Cache::remember($cacheKey, 180, function () use ($request, $clinicId) {
-                $query = Patient::where('clinic_id', $clinicId)->with('registeredBy');
+                $query = Patient::where('clinic_id', $clinicId)
+                    ->with([
+                        'registeredBy',
+                        'latestTreatmentRecord',
+                        'upcomingAppointment',
+                        'queues' => function ($q) {
+                            $q->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                        }
+                    ]);
 
                 // Search functionality
                 if ($request->has('search')) {

@@ -169,17 +169,24 @@ class AppointmentController extends Controller
 
             switch ($tab) {
                 case 'due_today':
-                    // Patients with appointments today
-                    $query->whereHas('appointments', function ($q) {
-                        $q->whereDate('appointment_date', Carbon::today())
-                          ->where('appointment_type', 'follow_up_vaccination')
-                          ->where('status', 'scheduled');
+                    // Patients with appointments today OR currently waiting/in consultation in queue
+                    $query->where(function ($q) {
+                        $q->whereHas('appointments', function ($app) {
+                            $app->whereDate('appointment_date', Carbon::today())
+                              ->where('appointment_type', 'follow_up_vaccination')
+                              ->where('status', 'scheduled');
+                        })->orWhereHas('queues', function ($qu) {
+                            $qu->whereIn('status', ['waiting', 'in_consultation']);
+                        });
                     })->with([
-                        'appointments' => function ($q) {
-                            $q->whereDate('appointment_date', Carbon::today())
+                        'appointments' => function ($app) {
+                            $app->whereDate('appointment_date', Carbon::today())
                               ->where('status', 'scheduled');
                         },
-                        'latestTreatmentRecord'
+                        'latestTreatmentRecord',
+                        'queues' => function ($qu) {
+                            $qu->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                        }
                     ]);
                     break;
 
@@ -217,10 +224,10 @@ class AppointmentController extends Controller
 
                 case 'all':
                 default:
-                    // All patients with vaccination records
-                    $query->whereHas('treatmentRecords', function ($q) {
-                        $q->whereNotNull('dose_number');
-                    })->with(['latestTreatmentRecord', 'upcomingAppointment']);
+                    // All clinic patients with their latest treatment record and appointment info
+                    $query->with(['latestTreatmentRecord', 'upcomingAppointment', 'queues' => function ($qu) {
+                        $qu->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                    }]);
                     break;
             }
 
@@ -230,7 +237,8 @@ class AppointmentController extends Controller
                 $query->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
                       ->orWhere('last_name', 'like', "%{$search}%")
-                      ->orWhere('patient_id', 'like', "%{$search}%");
+                      ->orWhere('patient_id', 'like', "%{$search}%")
+                      ->orWhere('patient_number', 'like', "%{$search}%");
                 });
             }
 
@@ -261,15 +269,22 @@ class AppointmentController extends Controller
 
             switch ($tab) {
                 case 'today':
-                    // Patients seen today
-                    $query->whereHas('treatmentRecords', function ($q) {
-                        $q->whereDate('consultation_date', Carbon::today())
-                          ->whereNull('dose_number'); // Exclude vaccination records
+                    // Patients seen today OR currently waiting/in consultation in queue
+                    $query->where(function ($q) {
+                        $q->whereHas('treatmentRecords', function ($tr) {
+                            $tr->whereDate('consultation_date', Carbon::today())
+                               ->whereNull('dose_number');
+                        })->orWhereHas('queues', function ($qu) {
+                            $qu->whereIn('status', ['waiting', 'in_consultation']);
+                        });
                     })->with([
-                        'treatmentRecords' => function ($q) {
-                            $q->whereDate('consultation_date', Carbon::today())
-                              ->whereNull('dose_number')
-                              ->orderBy('created_at', 'desc');
+                        'treatmentRecords' => function ($tr) {
+                            $tr->whereDate('consultation_date', Carbon::today())
+                               ->whereNull('dose_number')
+                               ->orderBy('created_at', 'desc');
+                        },
+                        'queues' => function ($qu) {
+                            $qu->whereIn('status', ['waiting', 'in_consultation'])->latest();
                         }
                     ]);
                     break;
@@ -289,10 +304,10 @@ class AppointmentController extends Controller
 
                 case 'all':
                 default:
-                    // All patients with consultation records
-                    $query->whereHas('treatmentRecords', function ($q) {
-                        $q->whereNull('dose_number'); // Only consultations
-                    })->with(['latestConsultationRecord']);
+                    // All clinic patients with their latest consultation record
+                    $query->with(['latestConsultationRecord', 'queues' => function ($qu) {
+                        $qu->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                    }]);
                     break;
             }
 
@@ -302,7 +317,8 @@ class AppointmentController extends Controller
                 $query->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
                       ->orWhere('last_name', 'like', "%{$search}%")
-                      ->orWhere('patient_id', 'like', "%{$search}%");
+                      ->orWhere('patient_id', 'like', "%{$search}%")
+                      ->orWhere('patient_number', 'like', "%{$search}%");
                 });
             }
 

@@ -187,9 +187,15 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : '?';
 
-  const isActive = (path: string) =>
-    location.pathname === path ||
-    (path !== '/dashboard' && location.pathname.startsWith(path));
+  const isActive = (path: string) => {
+    if (!path) return false;
+    const currentPath = location.pathname;
+    if (currentPath === path) return true;
+    if (path === '/dashboard' || path === '/') return false;
+    const hasExactMatch = filteredNav.some(item => item.path === currentPath);
+    if (hasExactMatch) return false;
+    return currentPath.startsWith(path + '/');
+  };
 
   const isSubmenuActive = (submenu?: { name: string; path: string }[]) =>
     submenu?.some(sub => location.pathname === sub.path || location.pathname.startsWith(sub.path));

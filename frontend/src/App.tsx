@@ -271,9 +271,15 @@ function SimpleDashboard() {
 
   const now = new Date();
 
-  const isActive = (path: string) =>
-    window.location.pathname === path ||
-    (path !== '/dashboard' && window.location.pathname.startsWith(path));
+  const isActive = (path: string) => {
+    if (!path) return false;
+    const currentPath = window.location.pathname;
+    if (currentPath === path) return true;
+    if (path === '/dashboard' || path === '/') return false;
+    const hasExactMatch = visibleNav.some(n => n.path === currentPath);
+    if (hasExactMatch) return false;
+    return currentPath.startsWith(path + '/');
+  };
 
   const isSubmenuActive = (submenu?: { label: string; path: string }[]) =>
     submenu?.some(sub => isActive(sub.path));
@@ -1099,7 +1105,8 @@ function App() {
             <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
             <Route path="/queue/:queueId/patient" element={<ProtectedRoute><AppLayout title="Patient Detail"><QueuePatientDetailPage /></AppLayout></ProtectedRoute>} />
             <Route path="/bite-cases" element={<ProtectedRoute><AppLayout title="Bite Cases & Risk Surveillance"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
-            <Route path="/bite-cases/map" element={<ProtectedRoute><AppLayout title="Bite Risk Map & Location Surveillance"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
+            <Route path="/bite-map" element={<ProtectedRoute><AppLayout title="Bite Risk Map & Location Surveillance"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
+            <Route path="/bite-cases/map" element={<Navigate to="/bite-map" replace />} />
             <Route path="/bite-intakes" element={<ProtectedRoute><AppLayout title="Bite Incident Intakes"><BiteCaseListPage /></AppLayout></ProtectedRoute>} />
             <Route path="/vaccinations" element={<ProtectedRoute><AppLayout title="Vaccination Schedule (Form 3)"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
             <Route path="/vaccinations/record" element={<ProtectedRoute><AppLayout title="Record Vaccination"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />

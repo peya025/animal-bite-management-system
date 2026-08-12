@@ -1,0 +1,145 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.wrap{padding:4px 0;font-size:13px}
+.section{margin-bottom:18px}
+.section-title{font-size:11px;font-weight:500;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.card{background:var(--surface-1);border:0.5px solid var(--border);border-radius:10px;padding:12px}
+.card-icon{font-size:18px;color:var(--text-muted);margin-bottom:6px}
+.card-title{font-size:12px;font-weight:500;color:var(--text-primary);margin-bottom:3px}
+.card-sub{font-size:11px;color:var(--text-secondary);line-height:1.4}
+.badge{display:inline-block;font-size:10px;font-weight:500;padding:2px 7px;border-radius:20px;margin-top:5px}
+.badge-free{background:#E1F5EE;color:#085041}
+.badge-lib{background:#E6F1FB;color:#0C447C}
+.badge-warn{background:#FAEEDA;color:#633806}
+.flow{display:flex;flex-direction:column;gap:6px}
+.flow-row{display:flex;align-items:center;gap:8px}
+.flow-box{background:var(--surface-1);border:0.5px solid var(--border);border-radius:8px;padding:8px 12px;flex:1;font-size:12px;color:var(--text-primary)}
+.flow-box span{display:block;font-size:11px;color:var(--text-secondary);margin-top:1px}
+.flow-arrow{color:var(--text-muted);font-size:14px;flex-shrink:0}
+.feature-list{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.feature-item{display:flex;align-items:flex-start;gap:7px;background:var(--surface-1);border:0.5px solid var(--border);border-radius:8px;padding:8px 10px}
+.feature-item i{font-size:15px;color:#1D9E75;flex-shrink:0;margin-top:1px}
+.feature-text{font-size:12px;color:var(--text-primary);line-height:1.4}
+.feature-sub{font-size:11px;color:var(--text-secondary)}
+.code-block{background:var(--surface-0);border:0.5px solid var(--border);border-radius:8px;padding:10px 14px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);line-height:1.7}
+.code-block .kw{color:#1D9E75}
+.code-block .str{color:#378ADD}
+.divider{border:none;border-top:0.5px solid var(--border);margin:14px 0}
+</style>
+
+<div class="wrap">
+
+  <div class="section">
+    <div class="section-title">Stack</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon"><i class="ti ti-map" aria-hidden="true"></i></div>
+        <div class="card-title">Leaflet</div>
+        <div class="card-sub">Core map library. Handles rendering, zoom, markers, events</div>
+        <span class="badge badge-lib">42kb</span>
+      </div>
+      <div class="card">
+        <div class="card-icon"><i class="ti ti-brand-react" aria-hidden="true"></i></div>
+        <div class="card-title">react-leaflet</div>
+        <div class="card-sub">React wrapper for Leaflet. Declarative components</div>
+        <span class="badge badge-lib">React</span>
+      </div>
+      <div class="card">
+        <div class="card-icon"><i class="ti ti-circle-dot" aria-hidden="true"></i></div>
+        <div class="card-title">leaflet.markercluster</div>
+        <div class="card-sub">Groups nearby bite pins when zoomed out</div>
+        <span class="badge badge-lib">Plugin</span>
+      </div>
+      <div class="card">
+        <div class="card-icon"><i class="ti ti-world" aria-hidden="true"></i></div>
+        <div class="card-title">OpenStreetMap</div>
+        <div class="card-sub">Free tile provider. No API key needed for clinic-scale traffic</div>
+        <span class="badge badge-free">Free</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">How a bite pin gets on the map</div>
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-box">Staff logs bite case <span>Registers location during Form 1</span></div>
+        <div class="flow-arrow"><i class="ti ti-arrow-down" aria-hidden="true"></i></div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box">DB stores lat/lng + bite data <span>bite_cases table: lat, lng, category, date</span></div>
+        <div class="flow-arrow"><i class="ti ti-arrow-down" aria-hidden="true"></i></div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box">API returns bite records <span>GET /api/bite-cases?from=&to=&category=</span></div>
+        <div class="flow-arrow"><i class="ti ti-arrow-down" aria-hidden="true"></i></div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box">Leaflet renders markers <span>Each record → &lt;Marker&gt; on the map</span></div>
+        <div class="flow-arrow"><i class="ti ti-arrow-down" aria-hidden="true"></i></div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box">Click marker → popup <span>Patient name, bite category, date, status</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Features you can build</div>
+    <div class="feature-list">
+      <div class="feature-item">
+        <i class="ti ti-map-pin" aria-hidden="true"></i>
+        <div class="feature-text">Bite pins by category <div class="feature-sub">Cat I, II, III — different colors</div></div>
+      </div>
+      <div class="feature-item">
+        <i class="ti ti-circle-dot" aria-hidden="true"></i>
+        <div class="feature-text">Marker clustering <div class="feature-sub">Groups pins when zoomed out</div></div>
+      </div>
+      <div class="feature-item">
+        <i class="ti ti-calendar" aria-hidden="true"></i>
+        <div class="feature-text">Date range filter <div class="feature-sub">Filter pins by month/week</div></div>
+      </div>
+      <div class="feature-item">
+        <i class="ti ti-flame" aria-hidden="true"></i>
+        <div class="feature-text">Heatmap overlay <div class="feature-sub">Show density hotspots</div></div>
+      </div>
+      <div class="feature-item">
+        <i class="ti ti-settings" aria-hidden="true"></i>
+        <div class="feature-text">Configurable map center <div class="feature-sub">Set per clinic in setup wizard</div></div>
+      </div>
+      <div class="feature-item">
+        <i class="ti ti-device-mobile" aria-hidden="true"></i>
+        <div class="feature-text">Mobile responsive <div class="feature-sub">Works on tablet for field use</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Install</div>
+    <div class="code-block">
+      <span class="kw">npm</span> install leaflet react-leaflet<br>
+      <span class="kw">npm</span> install leaflet.markercluster<br>
+      <span class="kw">npm</span> install @types/leaflet <span style="color:var(--text-muted)">// if using TypeScript</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Clinic config (setup wizard)</div>
+    <div class="code-block">
+      <span style="color:var(--text-muted)">// stored in clinic settings table</span><br>
+      map_center_lat: <span class="str">8.4822</span>  <span style="color:var(--text-muted)">// set during setup</span><br>
+      map_center_lng: <span class="str">124.6472</span><br>
+      map_default_zoom: <span class="str">13</span>
+    </div>
+  </div>
+
+  <div class="section" style="margin-bottom:0">
+    <div class="section-title">OSM tile URL (no key needed)</div>
+    <div class="code-block">
+      <span class="str">https://&#123;s&#125;.tile.openstreetmap.org/&#123;z&#125;/&#123;x&#125;/&#123;y&#125;.png</span>
+    </div>
+  </div>
+
+</div>

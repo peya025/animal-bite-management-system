@@ -7,7 +7,8 @@ interface StatCardProps {
   color: 'success' | 'info' | 'warning' | 'error' | 'primary' |
          'blue' | 'green' | 'yellow' | 'red' | 'purple';
   loading?: boolean;
-  progress?: number; // 0–1, default 0.72
+  progress?: number; // 0–1 or 0-100%
+  total?: number; // Total count for dynamic percentage calculation
 }
 
 // Color mapping for backwards compatibility
@@ -33,15 +34,31 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 export default function StatCard({
   label,
   value,
-  icon,
   color,
   loading = false,
-  progress = 0.72,
+  progress,
+  total,
 }: StatCardProps) {
   const mappedColor = (COLOR_MAP[color] || color) as keyof typeof COLORS;
   const c = COLORS[mappedColor] ?? COLORS.info;
 
-  const clampedProgress = Math.min(Math.max(progress, 0), 1);
+  const numValue = typeof value === 'number' ? value : parseFloat(String(value)) || 0;
+
+  // Calculate dynamic ring percentage (0 to 1)
+  let rawProgress = 0;
+  if (progress !== undefined) {
+    rawProgress = progress > 1 ? progress / 100 : progress;
+  } else if (total && total > 0) {
+    rawProgress = numValue / total;
+  } else if (numValue > 0) {
+    // Default dynamic scaling up to 100 items cap
+    rawProgress = numValue >= 100 ? 1 : numValue / 100;
+    if (rawProgress < 0.12) rawProgress = 0.12; // Minimum visible arc dot for non-zero counts
+  } else {
+    rawProgress = 0; // 0 count shows empty ring track
+  }
+
+  const clampedProgress = Math.min(Math.max(rawProgress, 0), 1);
   const dashArray = `${CIRCUMFERENCE * clampedProgress} ${CIRCUMFERENCE * (1 - clampedProgress)}`;
 
   return (
@@ -107,25 +124,18 @@ export default function StatCard({
         </Box>
       </Box>
 
-      {/* Label + optional icon */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        {icon && (
-          <Box sx={{ display: 'flex', fontSize: 14, color: '#6b7280' }}>
-            {icon}
-          </Box>
-        )}
-        <Typography
-          sx={{
-            fontSize: 11,
-            color: '#6b7280',
-            textAlign: 'center',
-            lineHeight: 1.3,
-            fontWeight: 500,
-          }}
-        >
-          {label}
-        </Typography>
-      </Box>
+      {/* Label */}
+      <Typography
+        sx={{
+          fontSize: 11,
+          color: '#4b5563',
+          textAlign: 'center',
+          lineHeight: 1.3,
+          fontWeight: 500,
+        }}
+      >
+        {label}
+      </Typography>
     </Paper>
   );
 }

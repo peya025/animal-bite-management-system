@@ -25,14 +25,12 @@ export function QueueStatsGrid({ stats }: QueueStatsGridProps) {
 
   return (
     <>
-      {/* Stat Cards Grid */}
-      <Grid container spacing={2} sx={{ mb: 3, alignItems: 'stretch' }}>
-        {statCardsData.map(s => (
-          <Grid key={s.label} size={{ xs: 6, sm: 4, md: 2 }}>
-            <StatCard label={s.label} value={s.value} icon={s.icon} color={s.color} loading={!stats} />
-          </Grid>
+      {/* Stat Cards Grid (5-column layout matching Vaccine Inventory) */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
+        {statCardsData.map((s) => (
+          <StatCard key={s.label} label={s.label} value={s.value} color={s.color} total={stats?.total} loading={!stats} />
         ))}
-      </Grid>
+      </Box>
 
       {/* Progress Bar */}
       {stats && stats.total > 0 && (

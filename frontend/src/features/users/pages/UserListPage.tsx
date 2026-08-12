@@ -55,6 +55,80 @@ const roles: Record<Role, string> = {
   treatment: 'Treatment',
 };
 
+const ROLE_SOFT_STYLES: Record<Role, { bg: string; color: string; border: string }> = {
+  admin:        { bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe' }, // Soft Lavender Indigo
+  registration: { bg: '#f3e8ff', color: '#6b21a8', border: '#e9d5ff' }, // Soft Violet
+  triage:       { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' }, // Soft Sky Blue
+  treatment:    { bg: '#d1fae5', color: '#065f46', border: '#a7f3d0' }, // Soft Mint Green
+};
+
+function SoftRoleChip({ role }: { role: Role }) {
+  const style = ROLE_SOFT_STYLES[role] || { bg: '#f3f4f6', color: '#374151', border: '#e5e7eb' };
+  return (
+    <Chip
+      size="small"
+      label={roles[role] || role}
+      sx={{
+        bgcolor: style.bg,
+        color: style.color,
+        border: `1px solid ${style.border}`,
+        fontWeight: 600,
+        fontSize: '11.5px',
+        height: '24px',
+      }}
+    />
+  );
+}
+
+function SoftStatusChip({ active }: { active: boolean }) {
+  return (
+    <Chip
+      size="small"
+      label={active ? 'Active' : 'Inactive'}
+      sx={{
+        bgcolor: active ? '#ecfdf5' : '#f3f4f6',
+        color: active ? '#047857' : '#4b5563',
+        border: `1px solid ${active ? '#a7f3d0' : '#e5e7eb'}`,
+        fontWeight: 600,
+        fontSize: '11.5px',
+        height: '24px',
+      }}
+    />
+  );
+}
+
+function SoftActionButton({ label, variant, onClick }: { label: string; variant: 'edit' | 'activate' | 'deactivate'; onClick: () => void }) {
+  const styles = {
+    edit:       { bg: '#f0fdf4', color: '#166534', border: '#bbf7d0', hoverBg: '#dcfce7' },
+    activate:   { bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe', hoverBg: '#dbeafe' },
+    deactivate: { bg: '#fef2f2', color: '#991b1b', border: '#fecaca', hoverBg: '#fee2e2' },
+  }[variant];
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: styles.bg,
+        color: styles.color,
+        border: `1px solid ${styles.border}`,
+        borderRadius: '6px',
+        padding: '4px 12px',
+        fontSize: '12px',
+        fontWeight: 600,
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        transition: 'all 0.15s ease',
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = styles.hoverBg)}
+      onMouseLeave={(e) => (e.currentTarget.style.background = styles.bg)}
+    >
+      {label}
+    </button>
+  );
+}
+
 export default function UserListPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -224,29 +298,17 @@ export default function UserListPage() {
     {
       key: 'role',
       label: 'Role',
-      render: (u) => (
-        <Chip
-          size="small"
-          label={roles[u.role]}
-          color={u.role === 'admin' ? 'primary' : 'default'}
-        />
-      ),
+      render: (u) => <SoftRoleChip role={u.role} />,
     },
     {
       key: 'phone',
       label: 'Phone',
-      render: (u) => <Typography sx={{ fontSize: 13 }}>{u.phone || '—'}</Typography>,
+      render: (u) => <Typography sx={{ fontSize: 13, color: '#4b5563' }}>{u.phone || '—'}</Typography>,
     },
     {
       key: 'status',
       label: 'Status',
-      render: (u) => (
-        <Chip
-          size="small"
-          color={u.is_active ? 'success' : 'default'}
-          label={u.is_active ? 'Active' : 'Inactive'}
-        />
-      ),
+      render: (u) => <SoftStatusChip active={u.is_active} />,
     },
     {
       key: 'actions',
@@ -254,22 +316,13 @@ export default function UserListPage() {
       align: 'right',
       render: (u) => (
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-          <AppButton
-            variant="secondary"
-            style={{ minHeight: 30, padding: '5px 10px' }}
-            startIcon={<Edit fontSize="small" />}
-            onClick={() => setEditing({ ...u })}
-          >
-            Edit
-          </AppButton>
+          <SoftActionButton label="Edit" variant="edit" onClick={() => setEditing({ ...u })} />
           {u.id !== currentUserId && (
-            <AppButton
-              variant={u.is_active ? 'danger' : 'primary'}
-              style={{ minHeight: 30, padding: '5px 10px' }}
+            <SoftActionButton
+              label={u.is_active ? 'Deactivate' : 'Activate'}
+              variant={u.is_active ? 'deactivate' : 'activate'}
               onClick={() => setToggleTarget(u)}
-            >
-              {u.is_active ? 'Deactivate' : 'Activate'}
-            </AppButton>
+            />
           )}
         </Stack>
       ),
@@ -304,7 +357,7 @@ export default function UserListPage() {
     {
       key: 'phone',
       label: 'Phone',
-      render: (a) => <Typography sx={{ fontSize: 13 }}>{a.phone || '—'}</Typography>,
+      render: (a) => <Typography sx={{ fontSize: 13, color: '#4b5563' }}>{a.phone || '—'}</Typography>,
     },
     {
       key: 'patients',
@@ -312,10 +365,16 @@ export default function UserListPage() {
       render: (a) => (
         <Chip
           size="small"
-          icon={<PersonOutlined fontSize="small" />}
+          icon={<PersonOutlined fontSize="small" style={{ color: a.patients_count > 0 ? '#047857' : '#6b7280' }} />}
           label={`${a.patients_count} patient${a.patients_count !== 1 ? 's' : ''}`}
-          variant="outlined"
-          color={a.patients_count > 0 ? 'success' : 'default'}
+          sx={{
+            bgcolor: a.patients_count > 0 ? '#ecfdf5' : '#f3f4f6',
+            color: a.patients_count > 0 ? '#047857' : '#4b5563',
+            border: `1px solid ${a.patients_count > 0 ? '#a7f3d0' : '#e5e7eb'}`,
+            fontWeight: 600,
+            fontSize: '11.5px',
+            height: '24px',
+          }}
         />
       ),
     },
@@ -333,22 +392,18 @@ export default function UserListPage() {
     {
       key: 'status',
       label: 'Status',
-      render: (a) => (
-        <Chip size="small" color={a.is_active ? 'success' : 'default'} label={a.is_active ? 'Active' : 'Inactive'} />
-      ),
+      render: (a) => <SoftStatusChip active={a.is_active} />,
     },
     {
       key: 'actions',
       label: 'Actions',
       align: 'right',
       render: (a) => (
-        <AppButton
-          variant={a.is_active ? 'danger' : 'primary'}
-          style={{ minHeight: 30, padding: '5px 10px' }}
+        <SoftActionButton
+          label={a.is_active ? 'Deactivate' : 'Activate'}
+          variant={a.is_active ? 'deactivate' : 'activate'}
           onClick={() => setTogglePatientTarget(a)}
-        >
-          {a.is_active ? 'Deactivate' : 'Activate'}
-        </AppButton>
+        />
       ),
     },
   ];

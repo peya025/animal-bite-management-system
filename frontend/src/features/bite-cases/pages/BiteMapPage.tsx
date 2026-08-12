@@ -30,6 +30,8 @@ import BiteMap from '../components/BiteMap/BiteMap';
 import MapLegend from '../components/BiteMap/MapLegend';
 import biteCaseService from '../services/biteCaseService';
 import type { BiteMapData, MapFilters } from '../types/biteCase.types';
+import { Icon } from '../../../shared/components/ui/Icon';
+import '../../developer/styles/DeveloperDatabaseExplorer.css';
 
 export default function BiteMapPage() {
   const navigate = useNavigate();
@@ -266,62 +268,51 @@ export default function BiteMapPage() {
         </ButtonGroup>
       </Paper>
 
-      {/* ── Original Statistics Cards ── */}
+      {/* ── KPI Summary Cards (Matching Staff Activity Monitor Design) ── */}
       {data && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-          <Card elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: 2 }}>
-            <CardContent>
-              <Typography color="text.secondary" variant="body2" sx={{ mb: 0.5 }}>
-                Total Cases
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                {data.statistics.total_cases}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                All categories
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: 2 }}>
-            <CardContent>
-              <Typography color="text.secondary" variant="body2" sx={{ mb: 0.5 }}>
-                Category III
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ef4444' }}>
-                {data.statistics.by_severity.severe}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Severe bites
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: 2 }}>
-            <CardContent>
-              <Typography color="text.secondary" variant="body2" sx={{ mb: 0.5 }}>
-                Category II
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#f59e0b' }}>
-                {data.statistics.by_severity.moderate}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Moderate bites
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: 2 }}>
-            <CardContent>
-              <Typography color="text.secondary" variant="body2" sx={{ mb: 0.5 }}>
-                Category I
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#10b981' }}>
-                {data.statistics.by_severity.minor}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Minor bites
-              </Typography>
-            </CardContent>
-          </Card>
-        </Box>
+        <div className="db-kpi-grid" style={{ marginBottom: '1.25rem' }}>
+          <div className="db-kpi-card">
+            <div className="db-kpi-header">
+              <span className="db-kpi-label">TOTAL CASES</span>
+              <Icon name="activity" size={16} color="#17653a" />
+            </div>
+            <div className="db-kpi-value">{data.statistics.total_cases}</div>
+            <div className="db-kpi-sub">All Categories Logged</div>
+          </div>
+
+          <div className="db-kpi-card">
+            <div className="db-kpi-header">
+              <span className="db-kpi-label">CATEGORY III</span>
+              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#ef4444' }} />
+            </div>
+            <div className="db-kpi-value" style={{ color: '#ef4444' }}>
+              {data.statistics.by_severity.severe}
+            </div>
+            <div className="db-kpi-sub" style={{ color: '#ef4444' }}>Severe Bites</div>
+          </div>
+
+          <div className="db-kpi-card">
+            <div className="db-kpi-header">
+              <span className="db-kpi-label">CATEGORY II</span>
+              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#f59e0b' }} />
+            </div>
+            <div className="db-kpi-value" style={{ color: '#f59e0b' }}>
+              {data.statistics.by_severity.moderate}
+            </div>
+            <div className="db-kpi-sub" style={{ color: '#f59e0b' }}>Moderate Bites</div>
+          </div>
+
+          <div className="db-kpi-card">
+            <div className="db-kpi-header">
+              <span className="db-kpi-label">CATEGORY I</span>
+              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#10b981' }} />
+            </div>
+            <div className="db-kpi-value" style={{ color: '#10b981' }}>
+              {data.statistics.by_severity.minor}
+            </div>
+            <div className="db-kpi-sub" style={{ color: '#10b981' }}>Minor Bites</div>
+          </div>
+        </div>
       )}
 
       {/* ── Map Container Paper (System Standard) ── */}

@@ -26,6 +26,9 @@ import {
   Phone as PhoneIcon,
   Email as EmailIcon,
   AccessTime as AccessTimeIcon,
+  Settings as SettingsIcon,
+  Edit as EditIcon,
+  Place as PlaceIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { DAYS, DAY_LABELS } from '../components/WorkingHoursModal/WorkingHoursModal';

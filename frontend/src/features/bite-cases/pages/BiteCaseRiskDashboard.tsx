@@ -4,6 +4,11 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   Grid,
   IconButton,
@@ -13,6 +18,7 @@ import {
   Paper,
   Select,
   Snackbar,
+  Stack,
   TextField,
   Tooltip,
   Typography,
@@ -21,10 +27,13 @@ import {
   ErrorOutlined as HighRiskIcon,
   FmdBad as LocationIcon,
   Pets as AnimalIcon,
+  Pets as PetsIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
   TrendingDown as LowIcon,
   Warning as MedIcon,
+  Visibility as VisibilityIcon,
+  InfoOutlined as InfoIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { DataTable, TablePager } from '../../../components/data-display';
@@ -114,6 +123,7 @@ export default function BiteCaseRiskDashboard() {
   const [cardPatientId, setCardPatientId] = useState<number | null>(null);
   const [cardModalOpen, setCardModalOpen] = useState(false);
   const [patientModalOpen, setPatientModalOpen] = useState(false);
+  const [selectedBiteCase, setSelectedBiteCase] = useState<BiteCase | null>(null);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -344,29 +354,28 @@ export default function BiteCaseRiskDashboard() {
       },
     },
     {
-      key: 'actions', header: 'Clinical Forms', align: 'center',
+      key: 'actions', header: 'Action', align: 'center',
       render: row => (
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => setPatientModalOpen(true)}
-            sx={{ fontSize: 11, py: 0.3, px: 1, textTransform: 'none', fontWeight: 600, borderColor: '#17653a', color: '#17653a' }}
-          >
-            🩺 Form 2 (Intake)
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            onClick={() => {
-              setCardPatientId(row.patient?.patient_id);
-              setCardModalOpen(true);
-            }}
-            sx={{ fontSize: 11, py: 0.3, px: 1, textTransform: 'none', fontWeight: 600, bgcolor: '#17653a', '&:hover': { bgcolor: '#12522e' } }}
-          >
-            📋 Form 3 (Card)
-          </Button>
-        </Box>
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={() => setSelectedBiteCase(row)}
+          startIcon={<VisibilityIcon fontSize="small" />}
+          sx={{
+            fontSize: 12,
+            py: 0.3,
+            px: 1.5,
+            textTransform: 'none',
+            fontWeight: 600,
+            borderRadius: '6px',
+            borderColor: '#bbf7d0',
+            color: '#166534',
+            bgcolor: '#f0fdf4',
+            '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
+          }}
+        >
+          View Bite Info
+        </Button>
       ),
     },
   ];
@@ -416,21 +425,19 @@ export default function BiteCaseRiskDashboard() {
         </Box>
       </Box>
 
-      {/* ── Stats ── */}
-      <Grid container spacing={2} sx={{ mb: 3, alignItems: 'stretch' }}>
+      {/* ── Stat Cards Grid (6-column layout matching Vaccine Inventory Design) ── */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' }, gap: 2, mb: 3 }}>
         {[
-          { label: 'Total Cases',    value: stats?.total_cases     ?? '-',    color: 'primary'  as const, icon: <AnimalIcon /> },
-          { label: 'Active Cases',   value: stats?.active_cases    ?? '-',    color: 'error'    as const, icon: <HighRiskIcon /> },
-          { label: 'Completed',      value: stats?.completed_cases ?? '-',   color: 'success'  as const, icon: <LowIcon /> },
-          { label: 'High Risk Zones',value: loading ? '-' : highRisk,      color: 'error'    as const, icon: <HighRiskIcon /> },
-          { label: 'Medium Risk',    value: loading ? '-' : mediumRisk,    color: 'warning'  as const, icon: <MedIcon /> },
-          { label: 'Low Risk',       value: loading ? '-' : lowRisk,       color: 'success'  as const, icon: <LowIcon /> },
-        ].map(s => (
-          <Grid key={s.label} size={{ xs: 6, sm: 4, md: 2 }}>
-            <StatCard label={s.label} value={s.value} icon={s.icon} color={s.color} loading={loading} />
-          </Grid>
+          { label: 'Total Cases', value: stats?.total_cases ?? '-', color: 'primary' as const },
+          { label: 'Active Cases', value: stats?.active_cases ?? '-', color: 'error' as const },
+          { label: 'Completed', value: stats?.completed_cases ?? '-', color: 'success' as const },
+          { label: 'High Risk Zones', value: loading ? '-' : highRisk, color: 'error' as const },
+          { label: 'Medium Risk', value: loading ? '-' : mediumRisk, color: 'warning' as const },
+          { label: 'Low Risk', value: loading ? '-' : lowRisk, color: 'success' as const },
+        ].map((s) => (
+          <StatCard key={s.label} label={s.label} value={s.value} color={s.color} total={stats?.total_cases} loading={loading} />
         ))}
-      </Grid>
+      </Box>
 
       {/* ── Tab switcher ── */}
       <Box sx={{ display: 'flex', gap: 1, mb: 2.5 }}>
@@ -574,6 +581,146 @@ export default function BiteCaseRiskDashboard() {
         patientId={cardPatientId}
         onSaved={loadData}
       />
+
+      {/* ── Brief Bite Information Details Modal ── */}
+      <BiteDetailsModal
+        biteCase={selectedBiteCase}
+        onClose={() => setSelectedBiteCase(null)}
+      />
     </Box>
+  );
+}
+
+function BiteDetailsModal({
+  biteCase,
+  onClose,
+}: {
+  biteCase: BiteCase | null;
+  onClose: () => void;
+}) {
+  if (!biteCase) return null;
+
+  const sevCfg = SEV_CFG[biteCase.severity] ?? SEV_CFG.minor;
+  const sevLabel = biteCase.severity === 'severe' ? 'Category III (Severe)' : biteCase.severity === 'moderate' ? 'Category II (Moderate)' : 'Category I (Minor)';
+
+  return (
+    <Dialog open={!!biteCase} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, borderBottom: '1px solid #e5e7eb' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PetsIcon sx={{ color: '#17653a' }} />
+          <Typography variant="h6" sx={{ fontWeight: 700, color: '#173d29', fontSize: 16 }}>
+            Bite Incident Summary
+          </Typography>
+        </Box>
+        <Chip
+          label={`Case #${biteCase.case_number}`}
+          size="small"
+          sx={{ bgcolor: '#f3f4f6', color: '#374151', fontWeight: 600, fontFamily: 'monospace' }}
+        />
+      </DialogTitle>
+
+      <DialogContent sx={{ pt: 2.5, pb: 2 }}>
+        <Stack spacing={2.5}>
+          {/* Patient Details Card */}
+          <Box sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: 2, border: '1px solid #e5e7eb' }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}>
+              Patient Information
+            </Typography>
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Full Name</Typography>
+                <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+                  {biteCase.patient?.name || '—'}
+                </Typography>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Age / Gender</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                  {biteCase.patient?.age} yrs · {biteCase.patient?.gender}
+                </Typography>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Patient ID</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', fontFamily: 'monospace' }}>
+                  #{biteCase.patient?.patient_id}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
+
+          {/* Bite Details Grid */}
+          <Box sx={{ p: 2, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e5e7eb' }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1.5 }}>
+              Bite Exposure Details
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Date of Bite</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                  {new Date(biteCase.bite_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </Typography>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Incident Location</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                  📍 {biteCase.bite_place || 'Claveria, Misamis Oriental'}
+                </Typography>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography sx={{ fontSize: 12, color: '#6b7280', mb: 0.5 }}>WHO Severity Category</Typography>
+                <Chip
+                  size="small"
+                  label={sevLabel}
+                  sx={{ bgcolor: sevCfg.bg, color: sevCfg.color, fontWeight: 700, fontSize: 11.5 }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography sx={{ fontSize: 12, color: '#6b7280', mb: 0.5 }}>Treatment Status</Typography>
+                <Chip
+                  size="small"
+                  label={biteCase.status.toUpperCase()}
+                  sx={{
+                    bgcolor: biteCase.status === 'completed' ? '#ecfdf5' : '#eff6ff',
+                    color: biteCase.status === 'completed' ? '#047857' : '#1d4ed8',
+                    border: `1px solid ${biteCase.status === 'completed' ? '#a7f3d0' : '#bfdbfe'}`,
+                    fontWeight: 700, fontSize: 11,
+                  }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Animal Involved</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', textTransform: 'capitalize' }}>
+                  🐾 {biteCase.animal_type || 'Dog'}
+                </Typography>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Animal Status</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', textTransform: 'capitalize' }}>
+                  {biteCase.animal_status || 'Under 14-day Observation'}
+                </Typography>
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Exposure Description</Typography>
+                <Typography sx={{ fontSize: 12.5, color: '#4b5563', mt: 0.25, bgcolor: '#f9fafb', p: 1.25, borderRadius: 1.5, border: '1px solid #f3f4f6' }}>
+                  {biteCase.exposure_type || 'Transdermal bite wound on extremity with direct animal contact. Immediate wound washing and rabies PEP initiated.'}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
+        </Stack>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fafafa' }}>
+        <Button variant="contained" onClick={onClose} sx={{ bgcolor: '#17653a', '&:hover': { bgcolor: '#12522e' }, textTransform: 'none', fontWeight: 600 }}>
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }

@@ -293,4 +293,82 @@ class BiteCaseController extends Controller
             })
         );
     }
+
+    /**
+     * Get bite cases with location data for map visualization
+     * Access: admin
+     */
+    public function getMapData(Request $request)
+    {
+        $clinicId = $request->user()->clinic_id;
+        
+        $query = BiteIncident::where('clinic_id', $clinicId)
+            ->with(['patient'])
+            ->whereNotNull('bite_place')
+            ->where('bite_place', '!=', '');
+        
+        // Filter by date range
+        if ($request->has('date_from')) {
+            $query->where('bite_date', '>=', $request->date_from);
+        }
+        if ($request->has('date_to')) {
+            $query->where('bite_date', '<=', $request->date_to);
+        }
+        
+        // Filter by severity
+        if ($request->has('severity')) {
+            $query->where('severity', $request->severity);
+        }
+        
+        $cases = $query->get()->map(function ($case) {
+            // Parse location data from bite_place
+            // Format expected: "address, barangay, municipality"
+            $locationParts = array_map('trim', explode(',', $case->bite_place));
+            $address = $locationParts[0] ?? '';
+            $barangay = $locationParts[1] ?? '';
+            $municipality = $locationParts[2] ?? '';
+            
+            // Generate random coordinates for demonstration
+            // TODO: Replace with actual geocoding or stored coordinates
+            $baseLatitude = 14.5995;  // Manila default
+            $baseLongitude = 120.9842;
+            $latitude = $baseLatitude + (mt_rand(-100, 100) / 1000);
+            $longitude = $baseLongitude + (mt_rand(-100, 100) / 1000);
+            
+            return [
+                'bite_id' => $case->bite_id,
+                'case_number' => $case->case_number,
+                'bite_date' => $case->bite_date,
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+                'barangay' => $barangay,
+                'municipality' => $municipality,
+                'address' => $address,
+                'severity' => $case->severity,
+                'animal_type' => $case->animal_type ?? 'Unknown',
+                'exposure_type' => $case->exposure_type,
+                'patient_name' => $case->patient ? 
+                    "{$case->patient->first_name} {$case->patient->last_name}" : 'Unknown',
+                'status' => $case->status,
+            ];
+        });
+        
+        // Generate statistics
+        $stats = [
+            'total_cases' => $cases->count(),
+            'by_municipality' => $cases->groupBy('municipality')->map->count(),
+            'by_barangay' => $cases->groupBy('barangay')->map->count(),
+            'by_severity' => [
+                'minor' => $cases->where('severity', 'minor')->count(),
+                'moderate' => $cases->where('severity', 'moderate')->count(),
+                'severe' => $cases->where('severity', 'severe')->count(),
+            ],
+            'by_animal' => $cases->groupBy('animal_type')->map->count(),
+        ];
+        
+        return response()->json([
+            'cases' => $cases->values(),
+            'statistics' => $stats,
+        ]);
+    }
 }

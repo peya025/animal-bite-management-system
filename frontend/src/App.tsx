@@ -12,6 +12,7 @@ import QueueDashboard from './features/queue/pages/QueueDashboardPage';
 import QueuePatientDetailPage from './features/queue/pages/QueuePatientDetailPage';
 import BiteCaseRiskDashboard from './features/bite-cases/pages/BiteCaseRiskDashboard';
 import BiteCaseListPage from './features/bite-cases/pages/BiteCaseListPage';
+import BiteMapPage from './features/bite-cases/pages/BiteMapPage';
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
 import ModuleConfigPage from './features/clinic-setup/pages/ModuleConfigPage';
 import StaffAssignmentPage from './features/clinic-setup/pages/StaffAssignmentPage';
@@ -1105,7 +1106,7 @@ function App() {
             <Route path="/queue"     element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
             <Route path="/queue/:queueId/patient" element={<ProtectedRoute><AppLayout title="Patient Detail"><QueuePatientDetailPage /></AppLayout></ProtectedRoute>} />
             <Route path="/bite-cases" element={<ProtectedRoute><AppLayout title="Bite Cases & Risk Surveillance"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
-            <Route path="/bite-map" element={<ProtectedRoute><AppLayout title="Bite Risk Map & Location Surveillance"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
+            <Route path="/bite-map" element={<ProtectedRoute><AppLayout title="Bite Location Map"><BiteMapPage /></AppLayout></ProtectedRoute>} />
             <Route path="/bite-cases/map" element={<Navigate to="/bite-map" replace />} />
             <Route path="/bite-intakes" element={<ProtectedRoute><AppLayout title="Bite Incident Intakes"><BiteCaseListPage /></AppLayout></ProtectedRoute>} />
             <Route path="/vaccinations" element={<ProtectedRoute><AppLayout title="Vaccination Schedule (Form 3)"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />

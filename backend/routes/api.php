@@ -171,6 +171,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('cases')->group(function () {
         Route::get('/', [BiteCaseController::class, 'index']); // All roles
         Route::get('/statistics', [BiteCaseController::class, 'statistics']); // All roles
+        Route::get('/map-data', [BiteCaseController::class, 'getMapData']); // All roles - Map visualization
         Route::get('/{id}', [BiteCaseController::class, 'show']); // All roles
         Route::get('/{id}/vaccinations', [BiteCaseController::class, 'vaccinations']); // All roles
 

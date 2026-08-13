@@ -20,7 +20,7 @@ export function QueueFilterBar({
   onClear,
 }: QueueFilterBarProps) {
   return (
-    <Box sx={{ pb: 3, borderBottom: '1px solid #f3f4f6' }}>
+    <Box sx={{ pb: 3, borderBottom: '1px solid var(--table-row-border)' }}>
       <Grid container spacing={2} sx={{ alignItems: 'center' }}>
         <Grid size={{ xs: 12, sm: 6, md: 5 }}>
           <TextField
@@ -33,17 +33,18 @@ export function QueueFilterBar({
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon fontSize="small" sx={{ color: '#9ca3af' }} />
+                    <SearchIcon fontSize="small" sx={{ color: 'var(--text-secondary)' }} />
                   </InputAdornment>
                 ),
               },
             }}
             sx={{
               '& .MuiOutlinedInput-root': {
-                bgcolor: '#fafafa',
+                bgcolor: 'var(--input-bg)',
                 borderRadius: 2,
-                '& fieldset': { borderColor: '#f3f4f6' },
-                '&:hover fieldset': { borderColor: '#e5e7eb' },
+                color: 'var(--input-text)',
+                '& fieldset': { borderColor: 'var(--input-border)' },
+                '&:hover fieldset': { borderColor: 'var(--text-secondary)' },
                 '&.Mui-focused fieldset': { borderColor: '#10b981' },
               },
             }}
@@ -57,10 +58,11 @@ export function QueueFilterBar({
               value={statusFilter}
               onChange={e => onStatusChange(e.target.value)}
               sx={{
-                bgcolor: '#fafafa',
+                bgcolor: 'var(--input-bg)',
                 borderRadius: 2,
-                '& fieldset': { borderColor: '#f3f4f6' },
-                '&:hover fieldset': { borderColor: '#e5e7eb' },
+                color: 'var(--input-text)',
+                '& fieldset': { borderColor: 'var(--input-border)' },
+                '&:hover fieldset': { borderColor: 'var(--text-secondary)' },
                 '&.Mui-focused fieldset': { borderColor: '#10b981' },
               }}
             >
@@ -80,11 +82,11 @@ export function QueueFilterBar({
             onClick={onClear}
             sx={{
               borderRadius: 2,
-              borderColor: '#e5e7eb',
-              color: '#6b7280',
+              borderColor: 'var(--input-border)',
+              color: 'var(--text-secondary)',
               textTransform: 'none',
               fontWeight: 500,
-              '&:hover': { borderColor: '#d1d5db', bgcolor: '#fafafa' },
+              '&:hover': { borderColor: 'var(--text-secondary)', bgcolor: 'var(--bg-hover)' },
             }}
           >
             Clear

@@ -6,6 +6,7 @@ html {
   /* Light mode (default variables) */
   --text: #374151;
   --text-h: #111827;
+  --text-secondary: #6b7280;
   --bg: #f5f7fa;
   --card-bg: #ffffff;
   --card-border: #e0eae3;
@@ -48,7 +49,7 @@ html {
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
-  color-scheme: light dark;
+  color-scheme: light;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -64,83 +65,87 @@ html {
 /* Fallback to system preference dark mode if not explicitly overridden by data-theme */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --text: #374151;
-    --text-h: #173d29;
-    --bg: #0f172a; /* Page background is dark slate */
-    --card-bg: #ffffff; /* Card remains white */
-    --card-border: #e0eae3; /* Card border remains light green */
-    --sidebar-bg: #1e293b; /* Sidebar remains dark */
-    --sidebar-border: #334155;
-    --sidebar-header-border: #334155;
+    --text: #cbd5e1;
+    --text-h: #f8fafc;
+    --text-secondary: #94a3b8;
+    --bg: #0b1220;
+    --card-bg: #111827;
+    --card-border: #243244;
+    --sidebar-bg: #111827;
+    --sidebar-border: #243244;
+    --sidebar-header-border: #243244;
     --nav-item-color: #94a3b8;
-    --nav-item-hover-bg: #334155;
+    --nav-item-hover-bg: #1e293b;
     --nav-item-hover-color: #f8fafc;
-    --nav-item-active-bg: rgba(16, 185, 129, 0.15);
+    --nav-item-active-bg: rgba(16, 185, 129, 0.18);
     --nav-item-active-color: #34d399;
-    --topbar-bg: #1e293b; /* Topbar remains dark */
-    --topbar-border: #334155;
-    --bg-secondary: #f9fafb;
-    --bg-hover: #f3f4f6;
-    --table-header-bg: #f8fafc;
-    --table-border: #e5e7eb;
-    --table-row-border: #f3f4f6;
-    --input-bg: #ffffff; /* Inputs remain white */
-    --input-border: #d7e3da;
-    --input-text: #111827;
-    --btn-outlined-bg: #ffffff;
-    --btn-outlined-border: #e5e7eb;
-    --btn-outlined-color: #6b7280;
-    --btn-outlined-hover-bg: #f9fafb;
-    --btn-outlined-hover-border: #d1d5db;
-    --shadow: rgba(0, 0, 0, 0.05) 0 1px 3px 0, rgba(0, 0, 0, 0.05) 0 1px 2px -1px;
+    --topbar-bg: #111827;
+    --topbar-border: #243244;
+    --bg-secondary: #182437;
+    --bg-hover: #1e293b;
+    --table-header-bg: #182437;
+    --table-border: #243244;
+    --table-row-border: #1f2d3f;
+    --input-bg: #0f172a;
+    --input-border: #334155;
+    --input-text: #e2e8f0;
+    --btn-outlined-bg: #111827;
+    --btn-outlined-border: #334155;
+    --btn-outlined-color: #cbd5e1;
+    --btn-outlined-hover-bg: #1e293b;
+    --btn-outlined-hover-border: #475569;
+    --shadow: rgba(0, 0, 0, 0.35) 0 8px 24px -12px, rgba(0, 0, 0, 0.2) 0 4px 8px -6px;
 
-    --border: #e5e4e7;
-    --code-bg: #f4f3ec;
+    --border: #334155;
+    --code-bg: #0f172a;
     --accent: #10b981;
-    --accent-bg: rgba(16, 185, 129, 0.1);
-    --accent-border: rgba(16, 185, 129, 0.5);
-    --social-bg: rgba(244, 243, 236, 0.5);
+    --accent-bg: rgba(16, 185, 129, 0.18);
+    --accent-border: rgba(16, 185, 129, 0.45);
+    --social-bg: rgba(15, 23, 42, 0.75);
+    color-scheme: dark;
   }
 }
 
 /* Explicit dark mode override via data-theme */
 [data-theme='dark'] {
-  --text: #374151;
-  --text-h: #173d29;
-  --bg: #0f172a; /* Page background is dark slate */
-  --card-bg: #ffffff; /* Card remains white */
-  --card-border: #e0eae3; /* Card border remains light green */
-  --sidebar-bg: #1e293b; /* Sidebar remains dark */
-  --sidebar-border: #334155;
-  --sidebar-header-border: #334155;
+  --text: #dbe7f5;
+  --text-h: #f8fafc;
+  --text-secondary: #b2c2d6;
+  --bg: #0b1220;
+  --card-bg: #111827;
+  --card-border: #243244;
+  --sidebar-bg: #111827;
+  --sidebar-border: #243244;
+  --sidebar-header-border: #243244;
   --nav-item-color: #94a3b8;
-  --nav-item-hover-bg: #334155;
+  --nav-item-hover-bg: #1e293b;
   --nav-item-hover-color: #f8fafc;
-  --nav-item-active-bg: rgba(16, 185, 129, 0.15);
+  --nav-item-active-bg: rgba(16, 185, 129, 0.18);
   --nav-item-active-color: #34d399;
-  --topbar-bg: #1e293b; /* Topbar remains dark */
-  --topbar-border: #334155;
-  --bg-secondary: #f9fafb;
-  --bg-hover: #f3f4f6;
-  --table-header-bg: #f8fafc;
-  --table-border: #e5e7eb;
-  --table-row-border: #f3f4f6;
-  --input-bg: #ffffff; /* Inputs remain white */
-  --input-border: #d7e3da;
-  --input-text: #111827;
-  --btn-outlined-bg: #ffffff;
-  --btn-outlined-border: #e5e7eb;
-  --btn-outlined-color: #6b7280;
-  --btn-outlined-hover-bg: #f9fafb;
-  --btn-outlined-hover-border: #d1d5db;
-  --shadow: rgba(0, 0, 0, 0.05) 0 1px 3px 0, rgba(0, 0, 0, 0.05) 0 1px 2px -1px;
+  --topbar-bg: #111827;
+  --topbar-border: #243244;
+  --bg-secondary: #182437;
+  --bg-hover: #1e293b;
+  --table-header-bg: #182437;
+  --table-border: #243244;
+  --table-row-border: #1f2d3f;
+  --input-bg: #0f172a;
+  --input-border: #334155;
+  --input-text: #e2e8f0;
+  --btn-outlined-bg: #111827;
+  --btn-outlined-border: #334155;
+  --btn-outlined-color: #cbd5e1;
+  --btn-outlined-hover-bg: #1e293b;
+  --btn-outlined-hover-border: #475569;
+  --shadow: rgba(0, 0, 0, 0.35) 0 8px 24px -12px, rgba(0, 0, 0, 0.2) 0 4px 8px -6px;
 
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
+  --border: #334155;
+  --code-bg: #0f172a;
   --accent: #10b981;
-  --accent-bg: rgba(16, 185, 129, 0.1);
-  --accent-border: rgba(16, 185, 129, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
+  --accent-bg: rgba(16, 185, 129, 0.18);
+  --accent-border: rgba(16, 185, 129, 0.45);
+  --social-bg: rgba(15, 23, 42, 0.75);
+  color-scheme: dark;
 }
 
 #root {
@@ -155,6 +160,43 @@ body {
   margin: 0;
   font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Global dark-mode harmonization for remaining legacy MUI/HTML surfaces */
+[data-theme='dark'] .MuiPaper-root {
+  background-color: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+}
+
+[data-theme='dark'] .MuiTableHead-root .MuiTableCell-root {
+  background-color: var(--table-header-bg) !important;
+  color: var(--text-secondary) !important;
+  border-bottom-color: var(--table-border) !important;
+}
+
+[data-theme='dark'] .MuiTableBody-root .MuiTableCell-root,
+[data-theme='dark'] .MuiTableFooter-root .MuiTableCell-root {
+  color: var(--text) !important;
+  border-bottom-color: var(--table-row-border) !important;
+}
+
+[data-theme='dark'] .MuiOutlinedInput-root,
+[data-theme='dark'] .MuiInputBase-root,
+[data-theme='dark'] .MuiSelect-select {
+  background-color: var(--input-bg) !important;
+  color: var(--input-text) !important;
+}
+
+[data-theme='dark'] .MuiOutlinedInput-notchedOutline {
+  border-color: var(--input-border) !important;
+}
+
+[data-theme='dark'] input,
+[data-theme='dark'] select,
+[data-theme='dark'] textarea {
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  border-color: var(--input-border);
 }
 
 h1,

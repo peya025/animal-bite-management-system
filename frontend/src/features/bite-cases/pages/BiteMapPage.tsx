@@ -4,8 +4,6 @@ import {
   Box,
   Button,
   ButtonGroup,
-  Card,
-  CardContent,
   CircularProgress,
   IconButton,
   MenuItem,
@@ -107,7 +105,7 @@ export default function BiteMapPage() {
           >
             Bite Location Map
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
+          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
             {todayStr} · Geographical distribution of animal bite incidents by WHO category
             {data?.clinic?.municipality && ` • ${data.clinic.municipality}, ${data.clinic.province}`}
           </Typography>
@@ -148,18 +146,18 @@ export default function BiteMapPage() {
         sx={{
           p: 1.5,
           mb: 3,
-          border: '1px solid #e5e7eb',
+          border: '1px solid var(--card-border)',
           borderRadius: 2.5,
-          bgcolor: '#ffffff',
+          bgcolor: 'var(--card-bg)',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           gap: 2,
         }}
       >
         {/* Left Side: Filter Options */}
-        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: '#4b5563', fontSize: 13, fontWeight: 600 }}>
             <FilterIcon sx={{ fontSize: 18, color: '#10b981' }} /> Filter Map:
           </Box>
@@ -169,7 +167,7 @@ export default function BiteMapPage() {
             size="small"
             value={datePreset}
             onChange={(e) => setDatePreset(e.target.value)}
-            sx={{ fontSize: 13, height: 36, bgcolor: '#f9fafb', borderRadius: 1.5 }}
+            sx={{ fontSize: 13, height: 36, bgcolor: 'var(--input-bg)', color: 'var(--input-text)', borderRadius: 1.5 }}
             MenuProps={{ style: { maxHeight: 260 } }}
           >
             <MenuItem value="all">
@@ -203,7 +201,7 @@ export default function BiteMapPage() {
             size="small"
             value={selectedSeverity}
             onChange={(e) => setSelectedSeverity(e.target.value)}
-            sx={{ fontSize: 13, height: 36, bgcolor: '#f9fafb', borderRadius: 1.5 }}
+            sx={{ fontSize: 13, height: 36, bgcolor: 'var(--input-bg)', color: 'var(--input-text)', borderRadius: 1.5 }}
             MenuProps={{ style: { maxHeight: 260 } }}
           >
             <MenuItem value="all">
@@ -320,10 +318,10 @@ export default function BiteMapPage() {
         elevation={0}
         sx={{
           border: '1px solid',
-          borderColor: '#f3f4f6',
+          borderColor: 'var(--table-row-border)',
           borderRadius: 3,
           overflow: 'hidden',
-          background: '#ffffff',
+          background: 'var(--card-bg)',
           p: 2,
           position: 'relative',
         }}

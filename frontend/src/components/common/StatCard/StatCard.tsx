@@ -1,4 +1,5 @@
 import { Box, Paper, Skeleton, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 interface StatCardProps {
   label: string;
@@ -39,6 +40,9 @@ export default function StatCard({
   progress,
   total,
 }: StatCardProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   const mappedColor = (COLOR_MAP[color] || color) as keyof typeof COLORS;
   const c = COLORS[mappedColor] ?? COLORS.info;
 
@@ -65,25 +69,25 @@ export default function StatCard({
     <Paper
       elevation={0}
       sx={{
-        border: '0.5px solid #e5e7eb',
+        border: isDark ? '1px solid var(--card-border)' : '0.5px solid #e5e7eb',
         borderRadius: 3,
         p: '16px 12px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: 1.5,
-        bgcolor: c.bg, // ✅ Always shows the light colored background
+        bgcolor: isDark ? 'var(--card-bg)' : c.bg,
         transition: 'background-color 0.2s ease',
         cursor: 'default',
         '&:hover': {
-          bgcolor: c.bgHover, // Slightly deeper shade on hover
+          bgcolor: isDark ? 'var(--bg-hover)' : c.bgHover,
         },
       }}
     >
       {/* Donut chart */}
       <Box sx={{ position: 'relative', width: 64, height: 64 }}>
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-          <circle cx="32" cy="32" r={RADIUS} stroke={c.track} strokeWidth="6" />
+          <circle cx="32" cy="32" r={RADIUS} stroke={isDark ? 'rgba(148,163,184,0.25)' : c.track} strokeWidth="6" />
           {!loading && (
             <circle
               cx="32"
@@ -114,7 +118,7 @@ export default function StatCard({
               sx={{
                 fontSize: 14,
                 fontWeight: 600,
-                color: '#111827',
+                color: isDark ? 'var(--text-h)' : '#111827',
                 lineHeight: 1,
               }}
             >
@@ -128,7 +132,7 @@ export default function StatCard({
       <Typography
         sx={{
           fontSize: 11,
-          color: '#4b5563',
+          color: isDark ? 'var(--text-secondary)' : '#4b5563',
           textAlign: 'center',
           lineHeight: 1.3,
           fontWeight: 500,

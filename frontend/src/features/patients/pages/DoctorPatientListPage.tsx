@@ -95,7 +95,7 @@ export default function DoctorPatientListPage() {
       header: 'PATIENT #',
       width: '100px',
       render: (patient) => (
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: '#f3f4f6', borderRadius: 1, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: '#6b7280' }}>
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: 'var(--bg-secondary)', borderRadius: 1, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
           #{patient.patient_id}
         </Box>
       ),
@@ -105,10 +105,10 @@ export default function DoctorPatientListPage() {
       header: 'PATIENT NAME',
       render: (patient) => (
         <Box>
-          <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#111827', lineHeight: 1.3 }}>
+          <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)', lineHeight: 1.3 }}>
             {patient.last_name}, {patient.first_name} {patient.middle_name || ''}
           </Typography>
-          <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
+          <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mt: 0.25 }}>
             {patient.age}y · {patient.gender}
           </Typography>
         </Box>
@@ -120,13 +120,13 @@ export default function DoctorPatientListPage() {
       render: (patient) => {
         const record = getLastConsultation(patient);
         if (!record) {
-          return <Typography sx={{ fontSize: 12, color: '#d1d5db' }}>No consultations</Typography>;
+          return <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>No consultations</Typography>;
         }
 
         const date = record.consultation_date || record.treatment_date;
         return (
           <Box>
-            <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
               {date ? new Date(date).toLocaleDateString() : 'N/A'}
             </Typography>
             {record.nature_of_visit && (
@@ -146,14 +146,14 @@ export default function DoctorPatientListPage() {
       render: (patient) => {
         const record = getLastConsultation(patient);
         if (!record || !record.chief_complaints) {
-          return <Typography sx={{ fontSize: 12, color: '#d1d5db' }}>—</Typography>;
+          return <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography>;
         }
 
         const complaint = record.chief_complaints;
         const truncated = complaint.length > 50 ? complaint.substring(0, 50) + '...' : complaint;
         
         return (
-          <Typography sx={{ fontSize: 13, color: '#374151' }}>
+          <Typography sx={{ fontSize: 13, color: 'var(--text)' }}>
             {truncated}
           </Typography>
         );
@@ -165,14 +165,14 @@ export default function DoctorPatientListPage() {
       render: (patient) => {
         const record = getLastConsultation(patient);
         if (!record || !record.diagnosis) {
-          return <Typography sx={{ fontSize: 12, color: '#d1d5db' }}>—</Typography>;
+          return <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography>;
         }
 
         const diagnosis = record.diagnosis;
         const truncated = diagnosis.length > 50 ? diagnosis.substring(0, 50) + '...' : diagnosis;
         
         return (
-          <Typography sx={{ fontSize: 13, color: '#374151' }}>
+          <Typography sx={{ fontSize: 13, color: 'var(--text)' }}>
             {truncated}
           </Typography>
         );
@@ -194,7 +194,7 @@ export default function DoctorPatientListPage() {
 
         const record = getLastConsultation(patient);
         if (!record) {
-          return <Chip label="Registered" size="small" sx={{ bgcolor: '#f3f4f6', color: '#6b7280', fontSize: 11, fontWeight: 600 }} />;
+          return <Chip label="Registered" size="small" sx={{ bgcolor: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 600 }} />;
         }
 
         const status = record.status || 'completed';
@@ -215,7 +215,7 @@ export default function DoctorPatientListPage() {
       render: (patient) => (
         <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
           <Tooltip title="View Consultation History">
-            <IconButton size="small" sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#eff6ff', color: '#3b82f6' } }}>
+            <IconButton size="small" sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: 'var(--bg-hover)', color: '#3b82f6' } }}>
               <ViewIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
@@ -226,7 +226,7 @@ export default function DoctorPatientListPage() {
                 setSelectedPatient(patient);
                 setShowForm2(true);
               }}
-              sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ecfdf5', color: '#059669' } }}
+              sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ecfdf5', color: '#059669' } }}
             >
               <EditIcon sx={{ fontSize: 18 }} />
             </IconButton>
@@ -258,7 +258,7 @@ export default function DoctorPatientListPage() {
           >
             Doctor's Patient List
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
+          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
             {today} · Track consultations and patient history
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
@@ -268,8 +268,8 @@ export default function DoctorPatientListPage() {
             >
               Dashboard
             </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Doctor Patients</span>
+            <span style={{ color: 'var(--text-secondary)' }}>›</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Doctor Patients</span>
           </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -294,10 +294,12 @@ export default function DoctorPatientListPage() {
             style={{
               flex: 1,
               padding: '10px 16px',
-              border: '1px solid #d1d5db',
+              border: '1px solid var(--input-border)',
               borderRadius: '8px',
               fontSize: '14px',
               fontFamily: 'inherit',
+              background: 'var(--input-bg)',
+              color: 'var(--input-text)',
             }}
           />
           <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -310,13 +312,12 @@ export default function DoctorPatientListPage() {
                   {val === 'today' ? "Today's Consultations" : val === 'this_week' ? 'This Week' : 'All Patients'}
                 </span>
               )}
-              MenuProps={{
-                PaperProps: { className: 'doctor-filter-menu' },
-              }}
+
               sx={{
                 borderRadius: '8px',
-                bgcolor: '#fff',
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#d1d5db' },
+                bgcolor: 'var(--input-bg)',
+                color: 'var(--input-text)',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--input-border)' },
               }}
             >
               <MenuItem value="today" sx={{ fontFamily: "'Poppins', sans-serif", fontSize: '14px' }}>Today's Consultations</MenuItem>
@@ -332,7 +333,7 @@ export default function DoctorPatientListPage() {
           loading={loading}
           skeletonRows={rowsPerPage}
           rowKey={(p) => p.patient_id}
-          emptyIcon={<ConsultationIcon sx={{ fontSize: 36, color: '#d1d5db' }} />}
+          emptyIcon={<ConsultationIcon sx={{ fontSize: 36, color: 'var(--text-secondary)' }} />}
           emptyTitle="No patients found"
           emptySubtitle={tab === 'today' ? 'No consultations today' : 'Try adjusting your filters'}
         />

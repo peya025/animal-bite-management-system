@@ -10,9 +10,9 @@ interface AppButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const styles: Record<ButtonVariant, CSSProperties> = {
   primary: { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: 'transparent', color: '#fff', boxShadow: '0 2px 8px rgba(16,185,129,0.25)' },
-  secondary: { background: '#fff', borderColor: '#e5e7eb', color: '#6b7280' },
-  danger: { background: '#fff', borderColor: '#fecaca', color: '#dc2626' },
-  ghost: { background: 'transparent', borderColor: 'transparent', color: '#374151' },
+  secondary: { background: 'var(--btn-outlined-bg)', borderColor: 'var(--btn-outlined-border)', color: 'var(--btn-outlined-color)' },
+  danger: { background: 'var(--btn-outlined-bg)', borderColor: '#fecaca', color: '#dc2626' },
+  ghost: { background: 'transparent', borderColor: 'transparent', color: 'var(--text)' },
 };
 
 export default function AppButton({ children, variant = 'primary', startIcon, style, ...props }: AppButtonProps) {

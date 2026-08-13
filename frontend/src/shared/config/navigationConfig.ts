@@ -1,6 +1,6 @@
 import React from 'react';
 import { ROUTES } from './routes';
-import { Icon, GLOBAL_NAV_ICONS } from '../components/ui/Icon';
+import { GLOBAL_NAV_ICONS } from '../components/ui/Icon';
 
 export interface SubMenuItem {
   label: string;

@@ -175,7 +175,7 @@ export default function DeveloperDatabaseExplorerPage() {
             marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
-            justify: 'space-between',
+            justifyContent: 'space-between',
           }}
         >
           <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>
@@ -242,7 +242,8 @@ export default function DeveloperDatabaseExplorerPage() {
         </div>
       </div>
 
-      {/* Main Split Panel */}
+      {/* TAB 1: DATABASE TABLE OVERVIEW */}
+      {activeTab === 'overview' && (
       <div className="db-explorer-split">
         {/* Left Sidebar: Table Selector */}
         <div className="db-explorer-sidebar">
@@ -310,7 +311,7 @@ export default function DeveloperDatabaseExplorerPage() {
                         </button>
                       </td>
                       <td>
-                        <code style={{ fontSize: 12, bgcolor: '#f3f4f6', color: '#1f2937', padding: '2px 6px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <code style={{ fontSize: 12, backgroundColor: '#f3f4f6', color: '#1f2937', padding: '2px 6px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <Icon name="key" size={12} color="#059669" /> {t.primary_key || 'id'}
                         </code>
                       </td>
@@ -325,7 +326,7 @@ export default function DeveloperDatabaseExplorerPage() {
                             borderRadius: 12,
                             fontSize: 12,
                             fontWeight: 700,
-                            bgcolor: t.row_count > 0 ? '#dcfce7' : '#f3f4f6',
+                            backgroundColor: t.row_count > 0 ? '#dcfce7' : '#f3f4f6',
                             color: t.row_count > 0 ? '#15803d' : '#6b7280',
                           }}
                         >
@@ -348,7 +349,7 @@ export default function DeveloperDatabaseExplorerPage() {
                               fontSize: 11.5,
                               fontWeight: 600,
                               border: '1px solid #bbf7d0',
-                              bgcolor: '#f0fdf4',
+                              backgroundColor: '#f0fdf4',
                               color: '#166534',
                               cursor: 'pointer',
                               display: 'inline-flex',
@@ -365,7 +366,7 @@ export default function DeveloperDatabaseExplorerPage() {
                               borderRadius: 6,
                               fontSize: 11.5,
                               border: '1px solid #e5e7eb',
-                              bgcolor: '#ffffff',
+                              backgroundColor: '#ffffff',
                               color: '#374151',
                               cursor: 'pointer',
                               display: 'inline-flex',
@@ -519,6 +520,7 @@ export default function DeveloperDatabaseExplorerPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

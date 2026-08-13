@@ -9,7 +9,6 @@ export default function DataTable<T>({
   columns,
   rows,
   loading = false,
-  rowsPerPage = 10,
   getRowKey,
   emptyIcon,
   emptyTitle = 'No records found',
@@ -17,18 +16,18 @@ export default function DataTable<T>({
   emptyAction,
 }: DataTableProps<T>) {
   return (
-    <Paper elevation={0} sx={{ border: '1px solid #e0eae3', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff' }}>
+    <Paper elevation={0} sx={{ border: '1px solid var(--card-border)', borderRadius: 2, overflow: 'hidden', bgcolor: 'var(--card-bg)' }}>
       <TableContainer sx={{ '& .MuiTableCell-root': { p: 1 } }}>
         <Table sx={{ minWidth: 500 }}>
 
           {/* ── Head ── */}
           <TableHead>
-            <TableRow sx={{ bgcolor: '#f7faf8' }}>
+            <TableRow sx={{ bgcolor: 'var(--table-header-bg)' }}>
               {columns.map((col) => (
                 <TableCell
                   key={col.key}
                   align={col.align ?? 'left'}
-                  sx={{ fontWeight: 600, color: '#526158', fontSize: 12, borderBottom: '1px solid #e0eae3' }}
+                  sx={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 12, borderBottom: '1px solid var(--table-border)' }}
                 >
                   {col.label}
                 </TableCell>
@@ -52,11 +51,11 @@ export default function DataTable<T>({
                       {emptyIcon}
                     </Box>
                   )}
-                  <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#374151', mb: 0.5 }}>
+                  <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)', mb: 0.5 }}>
                     {emptyTitle}
                   </Typography>
                   {emptySubtitle && (
-                    <Typography sx={{ fontSize: 13, color: '#6b7280', mb: 1.5 }}>
+                    <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', mb: 1.5 }}>
                       {emptySubtitle}
                     </Typography>
                   )}
@@ -80,13 +79,13 @@ export default function DataTable<T>({
               rows.map((row) => (
                 <TableRow
                   key={getRowKey(row)}
-                  sx={{ '&:hover': { bgcolor: '#f9fafb' }, transition: 'background 0.15s' }}
+                  sx={{ '&:hover': { bgcolor: 'var(--bg-hover)' }, transition: 'background 0.15s' }}
                 >
                   {columns.map((col) => (
                     <TableCell
                       key={col.key}
                       align={col.align ?? 'left'}
-                      sx={{ borderBottom: '1px solid #f3f4f6' }}
+                      sx={{ borderBottom: '1px solid var(--table-row-border)' }}
                     >
                       {col.render(row)}
                     </TableCell>

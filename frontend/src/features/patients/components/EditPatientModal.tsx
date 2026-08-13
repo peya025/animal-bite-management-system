@@ -117,7 +117,7 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       last_name: enrolment.last_name.trim(),
       suffix: cleanField(enrolment.suffix),
       gender: enrolment.sex,
-      address: loc.full || enrolment.address || patient.address,
+      address: loc.full || patient.address,
       contact_number: cleanField(enrolment.contact_number),
       email: cleanField(enrolment.email),
       emergency_contact_name: cleanField(enrolment.emergency_contact_name),

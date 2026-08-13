@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Box, Chip, Paper, Tab, Tabs, Typography, CircularProgress,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  IconButton, Tooltip, Alert
+  IconButton, Tooltip
 } from '@mui/material';
 import {
   Schedule as ScheduleIcon,

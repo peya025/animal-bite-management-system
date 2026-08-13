@@ -1,4 +1,3 @@
-import React from 'react';
 import { Icon } from '../../../shared/components/ui/Icon';
 import {
   Dialog,
@@ -10,20 +9,12 @@ import {
   Typography,
   Grid,
   Chip,
-  IconButton,
   Stack,
   Paper,
-  Divider,
 } from '@mui/material';
 import {
-  Visibility as ViewIcon,
-  Close as CloseIcon,
   Edit as EditIcon,
-  Phone as PhoneIcon,
-  Email as EmailIcon,
-  Home as HomeIcon,
   Badge as BadgeIcon,
-  Event as CalendarIcon,
 } from '@mui/icons-material';
 import type { Patient } from '../types';
 
@@ -68,7 +59,7 @@ export default function PatientDetailsModal({
         sx={{
           display: 'flex',
           alignItems: 'center',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           pb: 1.5,
           borderBottom: '1px solid #e5e7eb',
           bgcolor: '#fafafa',

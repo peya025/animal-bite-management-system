@@ -432,7 +432,7 @@ export default function NursePatientListPage() {
         >
           <Tab
             label={
-              <Stack direction="row" alignItems="center" spacing={1}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <span>Due Today</span>
                 <Box sx={{ bgcolor: tab === 'due_today' ? '#eff6ff' : '#f3f4f6', color: tab === 'due_today' ? '#2563eb' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
                   {kpiStats.dueToday}
@@ -445,7 +445,7 @@ export default function NursePatientListPage() {
           />
           <Tab
             label={
-              <Stack direction="row" alignItems="center" spacing={1}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <span>Upcoming</span>
                 <Box sx={{ bgcolor: tab === 'upcoming' ? '#ecfdf5' : '#f3f4f6', color: tab === 'upcoming' ? '#047857' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
                   {kpiStats.upcoming}
@@ -458,7 +458,7 @@ export default function NursePatientListPage() {
           />
           <Tab
             label={
-              <Stack direction="row" alignItems="center" spacing={1}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <span>Overdue</span>
                 <Box sx={{ bgcolor: tab === 'overdue' ? '#fef2f2' : '#f3f4f6', color: tab === 'overdue' ? '#dc2626' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
                   {kpiStats.overdue}
@@ -471,7 +471,7 @@ export default function NursePatientListPage() {
           />
           <Tab
             label={
-              <Stack direction="row" alignItems="center" spacing={1}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <span>All Patients</span>
                 <Box sx={{ bgcolor: tab === 'all' ? '#e0e7ff' : '#f3f4f6', color: tab === 'all' ? '#3730a3' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
                   {totalCount}

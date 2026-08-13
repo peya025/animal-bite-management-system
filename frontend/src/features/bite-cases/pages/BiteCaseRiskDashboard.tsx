@@ -33,7 +33,6 @@ import {
   TrendingDown as LowIcon,
   Warning as MedIcon,
   Visibility as VisibilityIcon,
-  InfoOutlined as InfoIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { DataTable, TablePager } from '../../../components/data-display';
@@ -93,13 +92,13 @@ const SEV_CFG = {
 
 const filterSx = {
   '& .MuiOutlinedInput-root': {
-    bgcolor: '#f9fafb', borderRadius: 1.5,
-    '& fieldset': { borderColor: '#e5e7eb' },
-    '&:hover fieldset': { borderColor: '#9ca3af' },
+    bgcolor: 'var(--input-bg)', borderRadius: 1.5,
+    color: 'var(--input-text)',
+    '& fieldset': { borderColor: 'var(--input-border)' },
+    '&:hover fieldset': { borderColor: 'var(--text-secondary)' },
     '&.Mui-focused fieldset': { borderColor: '#ef4444', borderWidth: '1.5px' },
   },
-  '& .MuiOutlinedInput-input': { fontSize: 13 },
-  '& .MuiInputLabel-root': { fontSize: 13 },
+  '& .MuiInputBase-input': { fontSize: 13 },
 };
 
 // ─── Main Component ───────────────────────────────────────────
@@ -120,7 +119,7 @@ export default function BiteCaseRiskDashboard() {
   const [tab, setTab]           = useState<'map' | 'cases'>('map');
 
   // Modal State
-  const [cardPatientId, setCardPatientId] = useState<number | null>(null);
+  const [cardPatientId] = useState<number | null>(null);
   const [cardModalOpen, setCardModalOpen] = useState(false);
   const [patientModalOpen, setPatientModalOpen] = useState(false);
   const [selectedBiteCase, setSelectedBiteCase] = useState<BiteCase | null>(null);
@@ -189,7 +188,7 @@ export default function BiteCaseRiskDashboard() {
     {
       key: 'rank', header: '#', width: '48px', align: 'center',
       render: (_, idx) => (
-        <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#6b7280' }}>
+        <Typography sx={{ fontWeight: 700, fontSize: 13, color: 'var(--text-secondary)' }}>
           {idx + 1}
         </Typography>
       ),
@@ -205,7 +204,7 @@ export default function BiteCaseRiskDashboard() {
           }}>
             <LocationIcon sx={{ fontSize: 17, color: RISK_CFG[row.riskLevel].color }} />
           </Box>
-          <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#111827' }}>
+          <Typography sx={{ fontWeight: 600, fontSize: 13, color: 'var(--text-h)' }}>
             {row.place}
           </Typography>
         </Box>
@@ -234,7 +233,7 @@ export default function BiteCaseRiskDashboard() {
           <Typography sx={{ fontWeight: 700, fontSize: 15, color: RISK_CFG[row.riskLevel].color }}>
             {row.riskScore}%
           </Typography>
-          <Box sx={{ mt: 0.5, height: 4, borderRadius: 4, bgcolor: '#f3f4f6', width: 80, mx: 'auto', overflow: 'hidden' }}>
+          <Box sx={{ mt: 0.5, height: 4, borderRadius: 4, bgcolor: 'var(--table-row-border)', width: 80, mx: 'auto', overflow: 'hidden' }}>
             <Box sx={{
               height: '100%', borderRadius: 4,
               width: `${row.riskScore}%`,
@@ -248,7 +247,7 @@ export default function BiteCaseRiskDashboard() {
     {
       key: 'total', header: 'Total Cases', align: 'center',
       render: row => (
-        <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#111827' }}>{row.total}</Typography>
+        <Typography sx={{ fontWeight: 700, fontSize: 16, color: 'var(--text-h)' }}>{row.total}</Typography>
       ),
     },
     {
@@ -281,7 +280,7 @@ export default function BiteCaseRiskDashboard() {
     {
       key: 'case_number', header: 'Case #', align: 'center', width: '110px',
       render: row => (
-        <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, bgcolor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 1.5, fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: '#374151' }}>
+        <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, bgcolor: 'var(--bg-secondary)', border: '1px solid var(--table-border)', borderRadius: 1.5, fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
           {row.case_number}
         </Box>
       ),
@@ -290,8 +289,8 @@ export default function BiteCaseRiskDashboard() {
       key: 'patient', header: 'Patient',
       render: row => (
         <Box>
-          <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#111827' }}>{row.patient?.name ?? '—'}</Typography>
-          <Typography sx={{ fontSize: 11, color: '#9ca3af', mt: 0.25 }}>
+          <Typography sx={{ fontWeight: 600, fontSize: 13, color: 'var(--text-h)' }}>{row.patient?.name ?? '—'}</Typography>
+          <Typography sx={{ fontSize: 11, color: 'var(--text-secondary)', mt: 0.25 }}>
             {row.patient?.age}y · {row.patient?.gender}
           </Typography>
         </Box>
@@ -301,8 +300,8 @@ export default function BiteCaseRiskDashboard() {
       key: 'bite_place', header: 'Location', align: 'center',
       render: row => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, justifyContent: 'center' }}>
-          <LocationIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
-          <Typography sx={{ fontSize: 13, color: '#374151' }}>{row.bite_place || '—'}</Typography>
+          <LocationIcon sx={{ fontSize: 14, color: 'var(--text-secondary)' }} />
+          <Typography sx={{ fontSize: 13, color: 'var(--text)' }}>{row.bite_place || '—'}</Typography>
         </Box>
       ),
     },
@@ -321,8 +320,8 @@ export default function BiteCaseRiskDashboard() {
       key: 'animal_type', header: 'Animal', align: 'center',
       render: row => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, justifyContent: 'center' }}>
-          <AnimalIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
-          <Typography sx={{ fontSize: 13, color: '#374151', textTransform: 'capitalize' }}>
+          <AnimalIcon sx={{ fontSize: 14, color: 'var(--text-secondary)' }} />
+          <Typography sx={{ fontSize: 13, color: 'var(--text)', textTransform: 'capitalize' }}>
             {row.animal_type || '—'}
           </Typography>
         </Box>
@@ -331,7 +330,7 @@ export default function BiteCaseRiskDashboard() {
     {
       key: 'bite_date', header: 'Date', align: 'center',
       render: row => (
-        <Typography sx={{ fontSize: 13, color: '#374151' }}>
+        <Typography sx={{ fontSize: 13, color: 'var(--text)' }}>
           {new Date(row.bite_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </Typography>
       ),
@@ -399,7 +398,7 @@ export default function BiteCaseRiskDashboard() {
           >
             {isBiteMap ? '📍 Bite Risk Map & Location Surveillance' : 'Bite Case Risk Dashboard'}
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d' }}>
+          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
             {isBiteMap
               ? 'Geographical rabies risk mapping, hotspot analysis, and barangay incident tracking'
               : 'Track high and low risk locations for animal bites'}
@@ -412,8 +411,8 @@ export default function BiteCaseRiskDashboard() {
             >
               Dashboard
             </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>›</span>
+            <span style={{ color: 'var(--text-secondary)' }}>
               {isBiteMap ? 'Bite Map' : 'Bite Cases & Risk'}
             </span>
           </Box>
@@ -449,7 +448,7 @@ export default function BiteCaseRiskDashboard() {
               textTransform: 'none', fontWeight: 600, fontSize: 13, borderRadius: 1.5,
               ...(tab === t
                 ? { bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' } }
-                : { borderColor: '#e5e7eb', color: '#6b7280', bgcolor: '#f9fafb', '&:hover': { borderColor: '#9ca3af', bgcolor: '#f3f4f6' } }),
+                : { borderColor: 'var(--input-border)', color: 'var(--text-secondary)', bgcolor: 'var(--input-bg)', '&:hover': { borderColor: 'var(--text-secondary)', bgcolor: 'var(--bg-hover)' } }),
             }}>
             {t === 'map' ? '📍 Risk by Location' : '📋 All Cases'}
           </Button>
@@ -457,13 +456,13 @@ export default function BiteCaseRiskDashboard() {
       </Box>
 
       {/* ── Filters ── */}
-      <Paper elevation={0} sx={{ mb: 2.5, p: 2, border: '1px solid #e5e7eb', borderRadius: 2, bgcolor: '#fff' }}>
+      <Paper elevation={0} sx={{ mb: 2.5, p: 2, border: '1px solid var(--card-border)', borderRadius: 2, bgcolor: 'var(--card-bg)' }}>
         <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField fullWidth size="small" placeholder="Search case number or patient…"
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(0); }}
-              slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: '#9ca3af' }} /></InputAdornment> } }}
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'var(--text-secondary)' }} /></InputAdornment> } }}
               sx={filterSx}
             />
           </Grid>
@@ -471,7 +470,7 @@ export default function BiteCaseRiskDashboard() {
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: 13 }}>Severity</InputLabel>
               <Select label="Severity" value={severity} onChange={e => { setSeverity(e.target.value); setPage(0); }}
-                sx={{ bgcolor: '#f9fafb', fontSize: 13, borderRadius: 1.5, '& fieldset': { borderColor: '#e5e7eb' } }}>
+                sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', fontSize: 13, borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
                 <MenuItem value="">All</MenuItem>
                 <MenuItem value="severe">Severe</MenuItem>
                 <MenuItem value="moderate">Moderate</MenuItem>
@@ -483,7 +482,7 @@ export default function BiteCaseRiskDashboard() {
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: 13 }}>Status</InputLabel>
               <Select label="Status" value={status} onChange={e => { setStatus(e.target.value); setPage(0); }}
-                sx={{ bgcolor: '#f9fafb', fontSize: 13, borderRadius: 1.5, '& fieldset': { borderColor: '#e5e7eb' } }}>
+                sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', fontSize: 13, borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
                 <MenuItem value="">All</MenuItem>
                 <MenuItem value="active">Active</MenuItem>
                 <MenuItem value="completed">Completed</MenuItem>
@@ -495,7 +494,7 @@ export default function BiteCaseRiskDashboard() {
           <Grid size={{ xs: 12, sm: 4, md: 2 }}>
             <Button fullWidth variant="outlined" size="small"
               onClick={() => { setSearch(''); setSeverity(''); setStatus(''); setPage(0); }}
-              sx={{ borderRadius: 1.5, borderColor: '#e5e7eb', color: '#6b7280', textTransform: 'none', fontWeight: 500, fontSize: 13, py: '8px', bgcolor: '#f9fafb', '&:hover': { borderColor: '#9ca3af', bgcolor: '#f3f4f6' } }}>
+              sx={{ borderRadius: 1.5, borderColor: 'var(--input-border)', color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 500, fontSize: 13, py: '8px', bgcolor: 'var(--input-bg)', '&:hover': { borderColor: 'var(--text-secondary)', bgcolor: 'var(--bg-hover)' } }}>
               Clear
             </Button>
           </Grid>
@@ -503,16 +502,16 @@ export default function BiteCaseRiskDashboard() {
       </Paper>
 
       {/* ── Table ── */}
-      <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff' }}>
+      <Paper elevation={0} sx={{ border: '1px solid var(--card-border)', borderRadius: 2, overflow: 'hidden', bgcolor: 'var(--card-bg)' }}>
         {tab === 'map' ? (
           <>
             {/* Risk legend */}
-            <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid #f3f4f6', bgcolor: '#fafafa', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', mr: 1 }}>Risk Score Guide:</Typography>
+            <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid var(--table-row-border)', bgcolor: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', mr: 1 }}>Risk Score Guide:</Typography>
               {Object.entries(RISK_CFG).map(([key, cfg]) => (
                 <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                   <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cfg.dot }} />
-                  <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+                  <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     {cfg.label}: {key === 'high' ? '≥65%' : key === 'medium' ? '35–64%' : '<35%'}
                   </Typography>
                 </Box>
@@ -605,7 +604,7 @@ function BiteDetailsModal({
 
   return (
     <Dialog open={!!biteCase} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, borderBottom: '1px solid #e5e7eb' }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, borderBottom: '1px solid var(--table-border)' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <PetsIcon sx={{ color: 'var(--primary)' }} />
           <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--text-h)', fontSize: 16 }}>
@@ -615,33 +614,33 @@ function BiteDetailsModal({
         <Chip
           label={`Case #${biteCase.case_number}`}
           size="small"
-          sx={{ bgcolor: '#f3f4f6', color: '#374151', fontWeight: 600, fontFamily: 'monospace' }}
+          sx={{ bgcolor: 'var(--bg-secondary)', color: 'var(--text)', fontWeight: 600, fontFamily: 'monospace' }}
         />
       </DialogTitle>
 
       <DialogContent sx={{ pt: 2.5, pb: 2 }}>
         <Stack spacing={2.5}>
           {/* Patient Details Card */}
-          <Box sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: 2, border: '1px solid #e5e7eb' }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}>
+          <Box sx={{ p: 2, bgcolor: 'var(--bg-secondary)', borderRadius: 2, border: '1px solid var(--table-border)' }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}>
               Patient Information
             </Typography>
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Full Name</Typography>
-                <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Full Name</Typography>
+                <Typography sx={{ fontSize: 14, fontWeight: 600, color: 'var(--text-h)' }}>
                   {biteCase.patient?.name || '—'}
                 </Typography>
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Age / Gender</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Age / Gender</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
                   {biteCase.patient?.age} yrs · {biteCase.patient?.gender}
                 </Typography>
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Patient ID</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', fontFamily: 'monospace' }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Patient ID</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: 'monospace' }}>
                   #{biteCase.patient?.patient_id}
                 </Typography>
               </Grid>
@@ -649,27 +648,27 @@ function BiteDetailsModal({
           </Box>
 
           {/* Bite Details Grid */}
-          <Box sx={{ p: 2, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e5e7eb' }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1.5 }}>
+          <Box sx={{ p: 2, bgcolor: 'var(--card-bg)', borderRadius: 2, border: '1px solid var(--table-border)' }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1.5 }}>
               Bite Exposure Details
             </Typography>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Date of Bite</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Date of Bite</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h)' }}>
                   {new Date(biteCase.bite_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                 </Typography>
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Incident Location</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Incident Location</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h)' }}>
                   📍 {biteCase.bite_place || 'Claveria, Misamis Oriental'}
                 </Typography>
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280', mb: 0.5 }}>WHO Severity Category</Typography>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mb: 0.5 }}>WHO Severity Category</Typography>
                 <Chip
                   size="small"
                   label={sevLabel}
@@ -678,7 +677,7 @@ function BiteDetailsModal({
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280', mb: 0.5 }}>Treatment Status</Typography>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mb: 0.5 }}>Treatment Status</Typography>
                 <Chip
                   size="small"
                   label={biteCase.status.toUpperCase()}
@@ -692,22 +691,22 @@ function BiteDetailsModal({
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Animal Involved</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', textTransform: 'capitalize' }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Animal Involved</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', textTransform: 'capitalize' }}>
                   🐾 {biteCase.animal_type || 'Dog'}
                 </Typography>
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Animal Status</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', textTransform: 'capitalize' }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Animal Status</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', textTransform: 'capitalize' }}>
                   {biteCase.animal_status || 'Under 14-day Observation'}
                 </Typography>
               </Grid>
 
               <Grid size={{ xs: 12 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Exposure Description</Typography>
-                <Typography sx={{ fontSize: 12.5, color: '#4b5563', mt: 0.25, bgcolor: '#f9fafb', p: 1.25, borderRadius: 1.5, border: '1px solid #f3f4f6' }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Exposure Description</Typography>
+                <Typography sx={{ fontSize: 12.5, color: 'var(--text)', mt: 0.25, bgcolor: 'var(--bg-secondary)', p: 1.25, borderRadius: 1.5, border: '1px solid var(--table-row-border)' }}>
                   {biteCase.exposure_type || 'Transdermal bite wound on extremity with direct animal contact. Immediate wound washing and rabies PEP initiated.'}
                 </Typography>
               </Grid>
@@ -716,7 +715,7 @@ function BiteDetailsModal({
         </Stack>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fafafa' }}>
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--table-border)', bgcolor: 'var(--bg-secondary)' }}>
         <Button variant="contained" onClick={onClose} sx={{ bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' }, textTransform: 'none', fontWeight: 600 }}>
           Close
         </Button>

@@ -65,7 +65,6 @@ export default function DataTable<T>({
   columns,
   rows,
   loading = false,
-  skeletonRows = 5,
   rowKey,
   rowBg,
   onRowClick,
@@ -76,12 +75,12 @@ export default function DataTable<T>({
   minWidth = 600,
 }: DataTableProps<T>) {
   return (
-    <TableContainer>
+    <TableContainer sx={{ bgcolor: 'var(--card-bg)' }}>
       <Table sx={{ minWidth }}>
 
         {/* ── Header ── */}
         <TableHead>
-          <TableRow sx={{ bgcolor: '#ffffff', borderBottom: '1px solid #e5e7eb' }}>
+          <TableRow sx={{ bgcolor: 'var(--table-header-bg)', borderBottom: '1px solid var(--table-border)' }}>
             {columns.map(col => (
               <TableCell
                 key={col.key}
@@ -89,7 +88,7 @@ export default function DataTable<T>({
                 width={col.width}
                 sx={{
                   fontWeight: 600,
-                  color: '#6b7280',
+                  color: 'var(--text-secondary)',
                   fontSize: 12,
                   py: 2.5,
                   border: 'none',
@@ -118,18 +117,18 @@ export default function DataTable<T>({
               <TableCell colSpan={columns.length} align="center" sx={{ py: 12, border: 0 }}>
                 {emptyIcon && (
                   <Box sx={{
-                    width: 80, height: 80, borderRadius: 3, bgcolor: '#f9fafb',
+                    width: 80, height: 80, borderRadius: 3, bgcolor: 'var(--bg-secondary)',
                     mx: 'auto', mb: 2.5,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     {emptyIcon}
                   </Box>
                 )}
-                <Typography sx={{ fontWeight: 600, fontSize: 15, color: '#6b7280', mb: 0.5 }}>
+                <Typography sx={{ fontWeight: 600, fontSize: 15, color: 'var(--text-h)', mb: 0.5 }}>
                   {emptyTitle}
                 </Typography>
                 {emptySubtitle && (
-                  <Typography sx={{ fontSize: 13, color: '#9ca3af', mb: emptyAction ? 2 : 0 }}>
+                  <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', mb: emptyAction ? 2 : 0 }}>
                     {emptySubtitle}
                   </Typography>
                 )}
@@ -163,7 +162,7 @@ export default function DataTable<T>({
                 sx={{
                   bgcolor: rowBg ? (rowBg(row) ?? 'inherit') : 'inherit',
                   cursor: onRowClick ? 'pointer' : 'default',
-                  '&:hover': { bgcolor: '#fafafa' },
+                  '&:hover': { bgcolor: 'var(--bg-hover)' },
                   transition: 'background 0.15s',
                 }}
               >
@@ -172,7 +171,7 @@ export default function DataTable<T>({
                     key={col.key}
                     align={col.align ?? 'left'}
                     width={col.width}
-                    sx={{ py: 2.5, border: 'none', borderBottom: '1px solid #f9fafb', width: col.width }}
+                    sx={{ py: 2.5, border: 'none', borderBottom: '1px solid var(--table-row-border)', width: col.width }}
                   >
                     {col.render(row, idx)}
                   </TableCell>

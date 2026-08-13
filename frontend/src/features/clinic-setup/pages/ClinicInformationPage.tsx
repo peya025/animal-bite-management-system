@@ -5,7 +5,6 @@ import {
   Alert,
   Box,
   Button,
-  Grid,
   IconButton,
   InputAdornment,
   MenuItem,
@@ -32,7 +31,7 @@ import {
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { DAYS, DAY_LABELS } from '../components/WorkingHoursModal/WorkingHoursModal';
-import { MISAMIS_ORIENTAL_MUNICIPALITIES, FALLBACK_BARANGAYS } from '../../patients/hooks/useAddressLocation';
+
 
 // Clean, minimal field style matching the reference design
 const cleanFieldSx = {

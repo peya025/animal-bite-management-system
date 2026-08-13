@@ -202,7 +202,7 @@ export const AppStyleScope = styled('div')`
   .sd-card--green,
   .sd-card--emerald {
     background: var(--card-bg);
-    color: var(--nav-item-active-color);
+    color: var(--text-h);
     border-color: var(--card-border);
   }
 

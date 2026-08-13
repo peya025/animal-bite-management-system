@@ -7,7 +7,17 @@ const POPPINS = "'Poppins', 'Inter', 'Segoe UI', sans-serif";
  */
 export const getAppTheme = (mode: 'light' | 'dark') => {
   const isDark = mode === 'dark';
-  
+
+  const colors = {
+    bg: isDark ? '#0b1220' : '#f5f7fa',
+    surface: isDark ? '#111827' : '#ffffff',
+    surfaceAlt: isDark ? '#182437' : '#f9fafb',
+    border: isDark ? '#243244' : '#e5e7eb',
+    inputBorder: isDark ? '#334155' : '#d7e3da',
+    text: isDark ? '#f8fafc' : '#111827',
+    textSecondary: isDark ? '#94a3b8' : '#6b7280',
+  };
+
   return createTheme({
     palette: {
       mode,
@@ -17,14 +27,14 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
         light: '#d1fae5',
       },
       background: {
-        default: isDark ? '#0f172a' : '#f5f7fa',
-        paper: '#ffffff',
+        default: colors.bg,
+        paper: colors.surface,
       },
       text: {
-        primary: '#111827',
-        secondary: '#6b7280',
+        primary: colors.text,
+        secondary: colors.textSecondary,
       },
-      divider: '#e5e7eb',
+      divider: colors.border,
     },
     typography: {
       fontFamily: POPPINS,
@@ -48,18 +58,30 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
       MuiPaper: {
         styleOverrides: {
           root: {
-            backgroundColor: '#ffffff',
+            backgroundColor: colors.surface,
             backgroundImage: 'none',
+            borderColor: colors.border,
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            backgroundColor: colors.surface,
+            border: `1px solid ${colors.border}`,
+            boxShadow: 'none',
           },
         },
       },
       MuiDialog: {
         styleOverrides: {
           paper: {
-            border: '1px solid #e0eae3',
+            border: `1px solid ${colors.border}`,
             borderRadius: 14,
-            boxShadow: '0 18px 50px rgba(23, 61, 41, 0.12)',
-            backgroundColor: '#ffffff',
+            boxShadow: isDark
+              ? '0 18px 50px rgba(0, 0, 0, 0.45)'
+              : '0 18px 50px rgba(23, 61, 41, 0.12)',
+            backgroundColor: colors.surface,
           },
         },
       },
@@ -96,21 +118,21 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
             },
           },
           outlined: {
-            background: '#ffffff',
-            borderColor: '#e5e7eb',
-            color: '#6b7280',
+            background: colors.surface,
+            borderColor: colors.border,
+            color: colors.textSecondary,
             borderWidth: '1px',
             '&:hover': {
-              background: '#f9fafb',
-              borderColor: '#d1d5db',
-              color: '#111827',
+              background: colors.surfaceAlt,
+              borderColor: isDark ? '#475569' : '#d1d5db',
+              color: colors.text,
             },
           },
           text: {
-            color: '#6b7280',
+            color: colors.textSecondary,
             '&:hover': {
-              background: 'rgba(107, 114, 128, 0.08)',
-              color: '#111827',
+              background: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(107, 114, 128, 0.08)',
+              color: colors.text,
             },
           },
         },
@@ -119,10 +141,10 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
         styleOverrides: {
           root: {
             borderRadius: 10,
-            backgroundColor: '#ffffff',
-            color: '#111827',
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#d7e3da' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#9fc5ad' },
+            backgroundColor: colors.surface,
+            color: colors.text,
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.inputBorder },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? '#475569' : '#9fc5ad' },
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
               borderColor: '#10b981',
               borderWidth: '1.5px',
@@ -133,7 +155,7 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
       MuiInputLabel: {
         styleOverrides: {
           root: {
-            color: '#6b7280',
+            color: colors.textSecondary,
             '&.Mui-focused': {
               color: '#10b981',
             },
@@ -143,7 +165,7 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
       MuiSelect: {
         styleOverrides: {
           icon: {
-            color: '#6b7280',
+            color: colors.textSecondary,
           },
         },
       },
@@ -155,8 +177,8 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
           }
           body {
             font-family: ${POPPINS};
-            background-color: ${isDark ? '#0f172a' : '#f5f7fa'};
-            color: #374151;
+            background-color: ${colors.bg};
+            color: ${colors.textSecondary};
           }
         `,
       },

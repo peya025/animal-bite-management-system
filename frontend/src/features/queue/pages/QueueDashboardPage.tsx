@@ -91,7 +91,7 @@ export default function QueueDashboard() {
     {
       key: 'queue_id', header: 'QUEUE ID', width: '90px',
       render: entry => (
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: '#f3f4f6', borderRadius: 1, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: '#6b7280' }}>
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: 'var(--bg-secondary)', borderRadius: 1, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
           #{entry.queue_id}
         </Box>
       ),
@@ -115,14 +115,14 @@ export default function QueueDashboard() {
         return (
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#111827', lineHeight: 1.3 }}>{entry.patient.name}</Typography>
+              <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)', lineHeight: 1.3 }}>{entry.patient.name}</Typography>
               {isCarryOver && isActive && (
                 <Box sx={{ px: 1, py: 0.2, bgcolor: '#fef3c7', color: '#92400e', borderRadius: 1, fontSize: 10, fontWeight: 700, letterSpacing: '0.2px' }}>
                   Carried Over ({queueDateStr ? new Date(queueDateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Past Date'})
                 </Box>
               )}
             </Box>
-            <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
+            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mt: 0.25 }}>
               {entry.patient.age}y · {entry.patient.gender}
               {entry.biteIncident && ` · ${entry.biteIncident.case_number}`}
             </Typography>
@@ -136,12 +136,12 @@ export default function QueueDashboard() {
         <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, bgcolor: '#f0fdf4', borderRadius: 1.5, fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: '#15803d' }}>
           #{(entry as any).appointment_id}
         </Box>
-      ) : <Typography sx={{ fontSize: 12, color: '#d1d5db' }}>—</Typography>,
+      ) : <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography>,
     },
     {
       key: 'visit_type', header: 'VISIT TYPE',
       render: entry => (
-        <Box sx={{ display: 'inline-flex', px: 2, py: 0.5, bgcolor: '#f9fafb', borderRadius: 1.5, fontSize: 12, fontWeight: 600, color: '#374151' }}>
+        <Box sx={{ display: 'inline-flex', px: 2, py: 0.5, bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
           {VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
         </Box>
       ),
@@ -176,10 +176,10 @@ export default function QueueDashboard() {
         const active = entry.status === 'waiting' || entry.status === 'in_consultation';
         return active ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <WaitIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
-            <Typography sx={{ fontSize: 13, color: '#6b7280' }}>{waitTime(entry.checked_in_at)}</Typography>
+            <WaitIcon sx={{ fontSize: 14, color: 'var(--text-secondary)' }} />
+            <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>{waitTime(entry.checked_in_at)}</Typography>
           </Box>
-        ) : <Typography sx={{ fontSize: 13, color: '#d1d5db' }}>—</Typography>;
+        ) : <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>—</Typography>;
       },
     },
     {
@@ -219,7 +219,7 @@ export default function QueueDashboard() {
             {isWaiting && (
               <Tooltip title="Call Patient">
                 <IconButton size="small" onClick={() => setCallTarget(entry)}
-                  sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#eff6ff', color: '#3b82f6' } }}>
+                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: 'var(--bg-hover)', color: '#3b82f6' } }}>
                   <CallIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
@@ -227,7 +227,7 @@ export default function QueueDashboard() {
             {isConsult && (
               <Tooltip title="Complete Consultation">
                 <IconButton size="small" onClick={() => setCompleteTarget(entry)}
-                  sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ecfdf5', color: '#059669' } }}>
+                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ecfdf5', color: '#059669' } }}>
                   <CompleteIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
@@ -235,13 +235,13 @@ export default function QueueDashboard() {
             {(isWaiting || isConsult) && (
               <Tooltip title="Cancel">
                 <IconButton size="small" onClick={() => setCancelTarget(entry)}
-                  sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
+                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
                   <CancelIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
             )}
             {!isWaiting && !isConsult && (
-              <Typography sx={{ fontSize: 12, color: '#d1d5db', lineHeight: '32px' }}>—</Typography>
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: '32px' }}>—</Typography>
             )}
           </Box>
         );
@@ -267,7 +267,7 @@ export default function QueueDashboard() {
           >
             Queue Dashboard
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
+          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
             {today} · Auto-refreshes every 30 seconds
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
@@ -277,8 +277,8 @@ export default function QueueDashboard() {
             >
               Dashboard
             </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Queue</span>
+            <span style={{ color: 'var(--text-secondary)' }}>›</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Queue</span>
           </Box>
         </Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -313,7 +313,7 @@ export default function QueueDashboard() {
           loading={loading}
           skeletonRows={rowsPerPage}
           rowKey={e => e.queue_id}
-          emptyIcon={<WaitIcon sx={{ fontSize: 36, color: '#d1d5db' }} />}
+          emptyIcon={<WaitIcon sx={{ fontSize: 36, color: 'var(--text-secondary)' }} />}
           emptyTitle={statusFilter ? `No ${STATUS_CFG[statusFilter]?.label ?? statusFilter} patients` : 'Queue is empty'}
           emptySubtitle="Patients added by registration will appear here"
         />

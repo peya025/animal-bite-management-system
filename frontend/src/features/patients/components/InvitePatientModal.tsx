@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Component } from 'react';
+import { useState, useEffect, Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Icon } from '../../../shared/components/ui/Icon';
 import {
@@ -111,7 +111,6 @@ function InvitePatientModalContent({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
-  const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
@@ -129,7 +128,6 @@ function InvitePatientModalContent({
 
   const checkExistingInvitation = async () => {
     if (!patient?.patient_id) return;
-    setLoading(true);
     try {
       const response = await api.get(`/patients/${patient.patient_id}`);
       if (response.data?.invitations && Array.isArray(response.data.invitations) && response.data.invitations.length > 0) {
@@ -137,8 +135,6 @@ function InvitePatientModalContent({
       }
     } catch (e) {
       console.log('No existing invitation found', e);
-    } finally {
-      setLoading(false);
     }
   };
 

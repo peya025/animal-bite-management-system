@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AddPatientModal from '../components/AddPatientModal';
+import InvitePatientModal from '../components/InvitePatientModal';
+import EditPatientModal from '../components/EditPatientModal';
+import PatientDetailsModal from '../components/PatientDetailsModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
@@ -16,17 +19,25 @@ const fullName = (p: Patient) =>
 
 // ─── Main Component ───────────────────────────────────────────
 export default function PatientList() {
-  const [patients,       setPatients]       = useState<Patient[]>([]);
-  const [loading,        setLoading]        = useState(true);
-  const [error,          setError]          = useState('');
-  const [search,         setSearch]         = useState('');
-  const [searchTerm,     setSearchTerm]     = useState(''); // Debounced search term
-  const [page,           setPage]           = useState(1);
-  const [totalPages,     setTotalPages]     = useState(1);
-  const [total,          setTotal]          = useState(0);
-  const [perPage,        setPerPage]        = useState(10);
-  const [showAddModal,   setShowAddModal]   = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [patients,             setPatients]             = useState<Patient[]>([]);
+  const [loading,              setLoading]              = useState(true);
+  const [error,                setError]                = useState('');
+  const [search,               setSearch]               = useState('');
+  const [searchTerm,           setSearchTerm]           = useState(''); // Debounced search term
+  const [page,                 setPage]                 = useState(1);
+  const [totalPages,           setTotalPages]           = useState(1);
+  const [total,                setTotal]                = useState(0);
+  const [perPage,              setPerPage]              = useState(10);
+  const [showAddModal,         setShowAddModal]         = useState(false);
+  const [showPrintModal,       setShowPrintModal]       = useState(false);
+  const [selectedInvitePatient, setSelectedInvitePatient] = useState<Patient | null>(null);
+  const [showInviteModal,      setShowInviteModal]      = useState(false);
+
+  // Edit & View Modal states
+  const [selectedEditPatient,   setSelectedEditPatient]   = useState<Patient | null>(null);
+  const [showEditModal,        setShowEditModal]        = useState(false);
+  const [selectedViewPatient,   setSelectedViewPatient]   = useState<Patient | null>(null);
+  const [showViewModal,        setShowViewModal]        = useState(false);
 
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
@@ -263,13 +274,51 @@ export default function PatientList() {
                         </td>
                         <td>
                           <div className="pm-actions">
-                            <button className="pm-btn-view">
+                            <button
+                              className="pm-btn-invite"
+                              title="Invite Patient to Mobile Portal"
+                              onClick={() => {
+                                setSelectedInvitePatient(p);
+                                setShowInviteModal(true);
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '4px 9px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                border: '1px solid #bbf7d0',
+                                backgroundColor: '#f0fdf4',
+                                color: '#166534',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                              </svg>
+                              Portal Invite
+                            </button>
+                            <button
+                              className="pm-btn-view"
+                              onClick={() => {
+                                setSelectedViewPatient(p);
+                                setShowViewModal(true);
+                              }}
+                            >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                               </svg>
                               View
                             </button>
-                            <button className="pm-btn-edit">
+                            <button
+                              className="pm-btn-edit"
+                              onClick={() => {
+                                setSelectedEditPatient(p);
+                                setShowEditModal(true);
+                              }}
+                            >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -421,6 +470,46 @@ export default function PatientList() {
           </div>
         </PrintPreviewModal>
       )}
+
+      {/* ── Invite Patient to Mobile Portal Modal ── */}
+      <InvitePatientModal
+        open={showInviteModal}
+        patient={selectedInvitePatient}
+        onClose={() => {
+          setShowInviteModal(false);
+          setSelectedInvitePatient(null);
+        }}
+        onSuccess={() => {
+          fetchPatients();
+        }}
+      />
+
+      {/* ── Edit Patient Profile Modal ── */}
+      <EditPatientModal
+        open={showEditModal}
+        patient={selectedEditPatient}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedEditPatient(null);
+        }}
+        onSuccess={() => {
+          fetchPatients();
+        }}
+      />
+
+      {/* ── View Patient Profile Modal ── */}
+      <PatientDetailsModal
+        open={showViewModal}
+        patient={selectedViewPatient}
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedViewPatient(null);
+        }}
+        onEdit={(p) => {
+          setSelectedEditPatient(p);
+          setShowEditModal(true);
+        }}
+      />
     </PatientListRoot>
   );
 }

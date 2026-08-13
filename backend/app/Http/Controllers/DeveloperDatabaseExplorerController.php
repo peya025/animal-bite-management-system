@@ -30,9 +30,26 @@ class DeveloperDatabaseExplorerController extends Controller
                     $actualCount = 0;
                 }
 
+                $columnCount = 0;
+                $primaryKey = 'id';
+                try {
+                    $cols = DB::select("DESCRIBE `{$tableName}`");
+                    $columnCount = count($cols);
+                    foreach ($cols as $c) {
+                        if ($c->Key === 'PRI') {
+                            $primaryKey = $c->Field;
+                            break;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Fallback
+                }
+
                 $tables[] = [
                     'table_name' => $tableName,
                     'row_count' => $actualCount,
+                    'column_count' => $columnCount,
+                    'primary_key' => $primaryKey,
                     'engine' => 'InnoDB',
                 ];
             }

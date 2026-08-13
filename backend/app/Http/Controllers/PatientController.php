@@ -87,6 +87,7 @@ class PatientController extends Controller
             'date_of_birth' => 'nullable|date|before_or_equal:today',
             'address' => 'nullable|string',
             'contact_number' => 'nullable|string|max:50',
+            'email' => 'nullable|string|email|max:255',
             'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_number' => 'nullable|string|max:50',
             // Extended Form 1 fields

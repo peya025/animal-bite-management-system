@@ -33,6 +33,19 @@ class MockMobileApi {
     _isAuthenticated = true;
   }
 
+  Future<void> activateInvitation({
+    required String token,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    await Future.delayed(const Duration(seconds: 1));
+    if (token.isEmpty || token == 'expired') {
+      throw Exception('Invalid or expired code. Please contact the clinic for a new invite.');
+    }
+    _isAuthenticated = true;
+  }
+
   Future<void> login({
     required String email,
     required String password,

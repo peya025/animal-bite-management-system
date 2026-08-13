@@ -28,11 +28,13 @@ import {
   FmdBad as LocationIcon,
   Pets as AnimalIcon,
   Pets as PetsIcon,
+  Place as PlaceIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
   TrendingDown as LowIcon,
   Warning as MedIcon,
   Visibility as VisibilityIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { DataTable, TablePager } from '../../../components/data-display';
@@ -396,7 +398,7 @@ export default function BiteCaseRiskDashboard() {
               mb: '7px',
             }}
           >
-            {isBiteMap ? '📍 Bite Risk Map & Location Surveillance' : 'Bite Case Risk Dashboard'}
+            {isBiteMap ? 'Bite Risk Map & Location Surveillance' : 'Bite Case Risk Dashboard'}
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
             {isBiteMap
@@ -450,7 +452,10 @@ export default function BiteCaseRiskDashboard() {
                 ? { bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' } }
                 : { borderColor: 'var(--input-border)', color: 'var(--text-secondary)', bgcolor: 'var(--input-bg)', '&:hover': { borderColor: 'var(--text-secondary)', bgcolor: 'var(--bg-hover)' } }),
             }}>
-            {t === 'map' ? '📍 Risk by Location' : '📋 All Cases'}
+            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              {t === 'map' ? <PlaceIcon fontSize="inherit" /> : <DescriptionIcon fontSize="inherit" />}
+              <span>{t === 'map' ? 'Risk by Location' : 'All Cases'}</span>
+            </Box>
           </Button>
         ))}
       </Box>
@@ -661,8 +666,9 @@ function BiteDetailsModal({
 
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Incident Location</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h)' }}>
-                  📍 {biteCase.bite_place || 'Claveria, Misamis Oriental'}
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <PlaceIcon fontSize="inherit" />
+                  <span>{biteCase.bite_place || 'Claveria, Misamis Oriental'}</span>
                 </Typography>
               </Grid>
 
@@ -691,8 +697,9 @@ function BiteDetailsModal({
 
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Animal Involved</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', textTransform: 'capitalize' }}>
-                  🐾 {biteCase.animal_type || 'Dog'}
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <AnimalIcon fontSize="inherit" />
+                  <span>{biteCase.animal_type || 'Dog'}</span>
                 </Typography>
               </Grid>
 

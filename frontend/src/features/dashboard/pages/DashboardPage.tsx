@@ -107,10 +107,10 @@ function AdminDashboard({ stats }: { stats: DashboardStats | null }) {
           <div className="dashboard-card">
             <h3>Quick Actions</h3>
             <div className="quick-actions">
-              <button className="action-btn action-primary"   onClick={() => navigate(ROUTES.USERS.LIST)}>      <span>👥</span> Manage Users     </button>
-              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.SETUP)}>           <span>⚙️</span> Clinic Settings  </button>
-              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.BITE_CASES.LIST)}> <span>📊</span> View Cases       </button>
-              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}> <span>📋</span> View Queue       </button>
+              <button className="action-btn action-primary"   onClick={() => navigate(ROUTES.USERS.LIST)}>Manage Users</button>
+              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.SETUP)}>Clinic Settings</button>
+              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.BITE_CASES.LIST)}>View Cases</button>
+              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>View Queue</button>
             </div>
           </div>
         </div>
@@ -136,9 +136,9 @@ function RegistrationDashboard({ stats }: { stats: DashboardStats | null }) {
         <div className="dashboard-card">
           <h3>Quick Actions</h3>
           <div className="quick-actions">
-            <button className="action-btn action-primary"   onClick={() => navigate(ROUTES.PATIENTS.LIST)}> <span>➕</span> Register Patient </button>
-            <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>    <span>📋</span> Add to Queue     </button>
-            <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.PATIENTS.LIST)}> <span>🔍</span> Search Patients  </button>
+            <button className="action-btn action-primary" onClick={() => navigate(ROUTES.PATIENTS.LIST)}>Register Patient</button>
+            <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>Add to Queue</button>
+            <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.PATIENTS.LIST)}>Search Patients</button>
           </div>
         </div>
       </div>
@@ -162,7 +162,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
         {/* Header */}
         <div className="dashboard-header triage-header">
           <div>
-            <h1>{greeting}, {user?.name?.split(' ')[0]} 👋</h1>
+            <h1>{greeting}, {user?.name?.split(' ')[0]}</h1>
             <p>{dateLabel}</p>
           </div>
           <button className="triage-primary-btn" onClick={() => navigate(ROUTES.BITE_CASES.NEW)}>
@@ -329,9 +329,9 @@ function TreatmentDashboard({ stats }: { stats: DashboardStats | null }) {
           <div className="dashboard-card">
             <h3>Quick Actions</h3>
             <div className="quick-actions">
-              <button className="action-btn action-primary"   onClick={() => navigate(ROUTES.VACCINATIONS.LIST)}> <span>💉</span> Record Vaccination </button>
-              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.VACCINATIONS.LIST)}> <span>📅</span> View Schedule      </button>
-              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>   <span>✅</span> Complete Queue     </button>
+              <button className="action-btn action-primary" onClick={() => navigate(ROUTES.VACCINATIONS.LIST)}>Record Vaccination</button>
+              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.VACCINATIONS.LIST)}>View Schedule</button>
+              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>Complete Queue</button>
             </div>
           </div>
         </div>

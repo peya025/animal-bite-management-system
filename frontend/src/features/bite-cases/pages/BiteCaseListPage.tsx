@@ -9,7 +9,13 @@ import {
   Typography,
   InputAdornment,
 } from '@mui/material';
-import { Search as SearchIcon, Pets as AnimalIcon, LocationOn as LocationIcon } from '@mui/icons-material';
+import {
+  Search as SearchIcon,
+  Pets as AnimalIcon,
+  LocationOn as LocationIcon,
+  MedicalServices as MedicalServicesIcon,
+  Description as DescriptionIcon,
+} from '@mui/icons-material';
 import api from '../../../services/api';
 import AppButton from '../../../components/button';
 import DataTable from '../../../components/ui/DataTable';
@@ -131,9 +137,10 @@ export default function BiteCaseListPage() {
             size="small"
             variant="outlined"
             onClick={() => setPatientModalOpen(true)}
+            startIcon={<MedicalServicesIcon />}
             sx={{ fontSize: 11, py: 0.3, px: 1, textTransform: 'none', fontWeight: 600, borderColor: 'var(--primary)', color: 'var(--primary)' }}
           >
-            🩺 Form 2 (Doctor Treatment)
+            Form 2 (Doctor Treatment)
           </Button>
           <Button
             size="small"
@@ -142,9 +149,10 @@ export default function BiteCaseListPage() {
               setCardPatientId(r.patient?.patient_id || r.patient_id);
               setCardModalOpen(true);
             }}
+            startIcon={<DescriptionIcon />}
             sx={{ fontSize: 11, py: 0.3, px: 1, textTransform: 'none', fontWeight: 600, bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' } }}
           >
-            📋 Form 3 (Tagoloan Card)
+            Form 3 (Tagoloan Card)
           </Button>
         </Stack>
       ),

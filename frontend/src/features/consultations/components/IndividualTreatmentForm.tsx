@@ -224,7 +224,7 @@ export default function IndividualTreatmentForm({
 
       {readOnly && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          👁️ <strong>View-Only Mode</strong> — Only Doctor/Triage can edit consultation records.
+          <strong>View-Only Mode</strong> — Only Doctor/Triage can edit consultation records.
         </Alert>
       )}
 

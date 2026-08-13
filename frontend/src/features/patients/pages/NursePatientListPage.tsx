@@ -224,7 +224,7 @@ export default function NursePatientListPage() {
             {patient.last_name}, {patient.first_name} {patient.middle_name || ''}
           </Typography>
           <Typography sx={{ fontSize: 12, color: '#6b7280', mt: 0.25 }}>
-            {patient.age}y · {patient.gender} {patient.contact_number ? `· 📞 ${patient.contact_number}` : ''}
+            {patient.age}y · {patient.gender} {patient.contact_number ? `· ${patient.contact_number}` : ''}
           </Typography>
         </Box>
       ),
@@ -295,9 +295,9 @@ export default function NursePatientListPage() {
             </Typography>
             <Typography sx={{ fontSize: 11.5, fontWeight: isToday || isPast ? 700 : 400, color: isPast ? '#dc2626' : isToday ? '#059669' : '#6b7280' }}>
               {isToday
-                ? '🟢 Scheduled Today'
+                ? 'Scheduled Today'
                 : isPast
-                ? `🔴 ${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))} days overdue`
+                ? `${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))} days overdue`
                 : apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </Typography>
           </Box>

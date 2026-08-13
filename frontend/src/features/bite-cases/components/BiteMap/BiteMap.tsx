@@ -188,8 +188,9 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                   >
                     <Popup>
                       <div style={{ minWidth: 180 }}>
-                        <h4 style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 600 }}>
-                          🔥 Density Hotspot: {c.barangay}
+                        <h4 style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', display: 'inline-block', flexShrink: 0 }} />
+                          <span>Density Hotspot: {c.barangay}</span>
                         </h4>
                         <p style={{ margin: 0, fontSize: 12, color: '#4b5563' }}>
                           <strong>Patient:</strong> {c.patient_name}<br />

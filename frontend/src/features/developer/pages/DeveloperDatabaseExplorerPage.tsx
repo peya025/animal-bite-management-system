@@ -256,7 +256,7 @@ export default function DeveloperDatabaseExplorerPage() {
               type="text"
               className="db-explorer-input"
               style={{ width: 260 }}
-              placeholder="🔍 Search table name or key..."
+              placeholder="Search table name or key..."
               value={tableSearch}
               onChange={(e) => setTableSearch(e.target.value)}
             />

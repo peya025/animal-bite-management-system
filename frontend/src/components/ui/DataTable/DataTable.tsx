@@ -27,7 +27,7 @@ export default function DataTable<T>({
                 <TableCell
                   key={col.key}
                   align={col.align ?? 'left'}
-                  sx={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 12, borderBottom: '1px solid var(--table-border)' }}
+                  sx={{ fontWeight: 500, color: 'var(--text-h)', fontSize: 13, borderBottom: '1px solid var(--table-border)', py: 1.6 }}
                 >
                   {col.label}
                 </TableCell>
@@ -76,16 +76,16 @@ export default function DataTable<T>({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => (
+              rows.map((row, idx) => (
                 <TableRow
                   key={getRowKey(row)}
-                  sx={{ '&:hover': { bgcolor: 'var(--bg-hover)' }, transition: 'background 0.15s' }}
+                  sx={{ bgcolor: idx % 2 === 1 ? 'var(--bg-secondary)' : 'var(--card-bg)', '&:hover': { bgcolor: 'var(--bg-hover)' }, transition: 'background 0.15s' }}
                 >
                   {columns.map((col) => (
                     <TableCell
                       key={col.key}
                       align={col.align ?? 'left'}
-                      sx={{ borderBottom: '1px solid var(--table-row-border)' }}
+                      sx={{ borderBottom: '1px solid var(--table-row-border)', py: 1.45, color: 'var(--text)' }}
                     >
                       {col.render(row)}
                     </TableCell>

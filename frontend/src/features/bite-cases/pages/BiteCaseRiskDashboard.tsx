@@ -455,59 +455,58 @@ export default function BiteCaseRiskDashboard() {
         ))}
       </Box>
 
-      {/* ── Filters ── */}
-      <Paper elevation={0} sx={{ mb: 2.5, p: 2, border: '1px solid var(--card-border)', borderRadius: 2, bgcolor: 'var(--card-bg)' }}>
-        <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <TextField fullWidth size="small" placeholder="Search case number or patient…"
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(0); }}
-              slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'var(--text-secondary)' }} /></InputAdornment> } }}
-              sx={filterSx}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4, md: 2 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: 13 }}>Severity</InputLabel>
-              <Select label="Severity" value={severity} onChange={e => { setSeverity(e.target.value); setPage(0); }}
-                sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', fontSize: 13, borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="severe">Severe</MenuItem>
-                <MenuItem value="moderate">Moderate</MenuItem>
-                <MenuItem value="minor">Minor</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4, md: 2 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: 13 }}>Status</InputLabel>
-              <Select label="Status" value={status} onChange={e => { setStatus(e.target.value); setPage(0); }}
-                sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', fontSize: 13, borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
-                <MenuItem value="referred">Referred</MenuItem>
-                <MenuItem value="abandoned">Abandoned</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4, md: 2 }}>
-            <Button fullWidth variant="outlined" size="small"
-              onClick={() => { setSearch(''); setSeverity(''); setStatus(''); setPage(0); }}
-              sx={{ borderRadius: 1.5, borderColor: 'var(--input-border)', color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 500, fontSize: 13, py: '8px', bgcolor: 'var(--input-bg)', '&:hover': { borderColor: 'var(--text-secondary)', bgcolor: 'var(--bg-hover)' } }}>
-              Clear
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* ── Table ── */}
+      {/* ── Standard Table Container (Filter + Table Together) ── */}
       <Paper elevation={0} sx={{ border: '1px solid var(--card-border)', borderRadius: 2, overflow: 'hidden', bgcolor: 'var(--card-bg)' }}>
+        <Box sx={{ p: 2, borderBottom: '1px solid var(--table-row-border)', bgcolor: 'var(--card-bg)' }}>
+          <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <TextField fullWidth size="small" placeholder="Search case number or patient…"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(0); }}
+                slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'var(--text-secondary)' }} /></InputAdornment> } }}
+                sx={filterSx}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: 13 }}>Severity</InputLabel>
+                <Select label="Severity" value={severity} onChange={e => { setSeverity(e.target.value); setPage(0); }}
+                  sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', fontSize: 13, borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="severe">Severe</MenuItem>
+                  <MenuItem value="moderate">Moderate</MenuItem>
+                  <MenuItem value="minor">Minor</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: 13 }}>Status</InputLabel>
+                <Select label="Status" value={status} onChange={e => { setStatus(e.target.value); setPage(0); }}
+                  sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', fontSize: 13, borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="referred">Referred</MenuItem>
+                  <MenuItem value="abandoned">Abandoned</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+              <Button fullWidth variant="outlined" size="small"
+                onClick={() => { setSearch(''); setSeverity(''); setStatus(''); setPage(0); }}
+                sx={{ borderRadius: 1.5, borderColor: 'var(--input-border)', color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 500, fontSize: 13, py: '8px', bgcolor: 'var(--input-bg)', '&:hover': { borderColor: 'var(--text-secondary)', bgcolor: 'var(--bg-hover)' } }}>
+                Clear
+              </Button>
+            </Grid>
+          </Grid>
+        </Box>
+
         {tab === 'map' ? (
           <>
             {/* Risk legend */}
-            <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid var(--table-row-border)', bgcolor: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', mr: 1 }}>Risk Score Guide:</Typography>
+            <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid var(--table-row-border)', bgcolor: 'var(--table-header-bg)', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <Typography sx={{ fontSize: 13, fontWeight: 500, color: 'var(--text-h)', mr: 1 }}>Risk Score Guide:</Typography>
               {Object.entries(RISK_CFG).map(([key, cfg]) => (
                 <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                   <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cfg.dot }} />

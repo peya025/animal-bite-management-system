@@ -87,13 +87,11 @@ export default function DataTable<T>({
                 align={col.align ?? 'left'}
                 width={col.width}
                 sx={{
-                  fontWeight: 600,
-                  color: 'var(--text-secondary)',
-                  fontSize: 12,
-                  py: 2.5,
+                  fontWeight: 500,
+                  color: 'var(--text-h)',
+                  fontSize: 13,
+                  py: 1.6,
                   border: 'none',
-                  letterSpacing: 0.5,
-                  textTransform: 'uppercase',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -160,7 +158,9 @@ export default function DataTable<T>({
                 key={rowKey(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 sx={{
-                  bgcolor: rowBg ? (rowBg(row) ?? 'inherit') : 'inherit',
+                  bgcolor: rowBg
+                    ? (rowBg(row) ?? (idx % 2 === 1 ? 'var(--bg-secondary)' : 'var(--card-bg)'))
+                    : (idx % 2 === 1 ? 'var(--bg-secondary)' : 'var(--card-bg)'),
                   cursor: onRowClick ? 'pointer' : 'default',
                   '&:hover': { bgcolor: 'var(--bg-hover)' },
                   transition: 'background 0.15s',
@@ -171,7 +171,7 @@ export default function DataTable<T>({
                     key={col.key}
                     align={col.align ?? 'left'}
                     width={col.width}
-                    sx={{ py: 2.5, border: 'none', borderBottom: '1px solid var(--table-row-border)', width: col.width }}
+                    sx={{ py: 1.45, border: 'none', borderBottom: '1px solid var(--table-row-border)', width: col.width, color: 'var(--text)' }}
                   >
                     {col.render(row, idx)}
                   </TableCell>

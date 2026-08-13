@@ -27,7 +27,7 @@ export default function PatientList() {
   const [page,                 setPage]                 = useState(1);
   const [totalPages,           setTotalPages]           = useState(1);
   const [total,                setTotal]                = useState(0);
-  const [perPage,              setPerPage]              = useState(10);
+  const [perPage, setPerPage] = useState(15);
   const [showAddModal,         setShowAddModal]         = useState(false);
   const [showPrintModal,       setShowPrintModal]       = useState(false);
   const [selectedInvitePatient, setSelectedInvitePatient] = useState<Patient | null>(null);
@@ -191,7 +191,7 @@ export default function PatientList() {
             <div className="pm-show-entries">
               <span>Show</span>
               <select className="pm-entries-select" value={perPage} onChange={e => setPerPage(Number(e.target.value))}>
-                <option value={10}>10</option>
+                <option value={15}>15</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
               </select>
@@ -248,7 +248,7 @@ export default function PatientList() {
                 <thead>
                   <tr>
                     <th>Patient No.</th><th>Patient Name</th>
-                    <th>Date Registered</th><th>Status</th><th>Action</th>
+                    <th>Date Registered</th><th>Status</th><th style={{ textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -272,8 +272,8 @@ export default function PatientList() {
                             {statusInfo.label}
                           </span>
                         </td>
-                        <td>
-                          <div className="pm-actions">
+                        <td style={{ textAlign: 'center' }}>
+                          <div className="pm-actions" style={{ justifyContent: 'center' }}>
                             <button
                               className="pm-btn-invite"
                               title="Invite Patient to Mobile Portal"

@@ -16,7 +16,7 @@ export default function TablePaginator({
   rowsPerPage,
   onPageChange,
   onRowsPerPageChange,
-  rowsPerPageOptions = [5, 10, 25],
+  rowsPerPageOptions = [15, 25, 50],
 }: TablePaginatorProps) {
   const totalPages = Math.ceil(count / rowsPerPage);
   const from = count === 0 ? 0 : page * rowsPerPage + 1;

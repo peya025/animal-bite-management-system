@@ -43,7 +43,7 @@ export default function VaccineInventory() {
   const [stats, setStats]               = useState<InventoryStats | null>(null);
   const [loading, setLoading]           = useState(false);
   const [page, setPage]                 = useState(0);
-  const [rowsPerPage, setRowsPerPage]   = useState(10);
+  const [rowsPerPage, setRowsPerPage]   = useState(15);
   const [total, setTotal]               = useState(DEMO_INVENTORY_ITEMS.length);
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');

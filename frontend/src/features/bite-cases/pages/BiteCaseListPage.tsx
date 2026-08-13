@@ -39,7 +39,7 @@ export default function BiteCaseListPage() {
   const [intakes, setIntakes] = useState<BiteIntake[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(15);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
 

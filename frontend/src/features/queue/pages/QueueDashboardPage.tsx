@@ -44,7 +44,7 @@ export default function QueueDashboard() {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage]                 = useState(0);
-  const [rowsPerPage, setRowsPerPage]   = useState(10);
+  const [rowsPerPage, setRowsPerPage]   = useState(15);
 
   const [callTarget, setCallTarget]         = useState<QueueEntry | null>(null);
   const [cancelTarget, setCancelTarget]     = useState<QueueEntry | null>(null);

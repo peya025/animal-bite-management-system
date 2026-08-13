@@ -253,39 +253,60 @@ export default function ReportsDashboardPage() {
   const loadReports = async () => {
     setLoading(true); setError('');
     try {
-      const params = { date_from: dateFrom, date_to: dateTo };
+      // Backend uses /cases (not /bite-cases), from_date/to_date (not date_from/date_to)
+      const params = { from_date: dateFrom, to_date: dateTo };
       const [casesRes, patsRes] = await Promise.all([
-        api.get('/bite-cases', { params: { ...params, per_page: 100 } }),
-        api.get('/patients',   { params: { ...params, per_page: 100 } }),
+        api.get('/cases',    { params: { ...params, per_page: 100 } }),
+        api.get('/patients', { params: { per_page: 100 } }),
       ]);
-      const casesData = casesRes.data?.data ?? casesRes.data ?? [];
-      const patsData  = patsRes.data?.data  ?? patsRes.data  ?? [];
-      setBiteCases(Array.isArray(casesData) ? casesData : []);
-      setPatients(Array.isArray(patsData)   ? patsData  : []);
-      const cases: BiteCase[] = Array.isArray(casesData) ? casesData : [];
-      const pts:   Patient[]  = Array.isArray(patsData)  ? patsData  : [];
-      const catI      = cases.filter(c => String(c.category).includes('I') && !String(c.category).includes('II') && !String(c.category).includes('III')).length;
-      const catII     = cases.filter(c => String(c.category) === 'II' || String(c.category) === 'Category II').length;
-      const catIII    = cases.filter(c => String(c.category).includes('III')).length;
-      const completed = cases.filter(c => c.status === 'completed').length;
-      const ongoing   = cases.filter(c => c.status === 'ongoing' || c.status === 'active').length;
+      const casesRaw = casesRes.data?.data ?? casesRes.data ?? [];
+      const patsRaw  = patsRes.data?.data  ?? patsRes.data  ?? [];
+
+      const casesData: BiteCase[] = (Array.isArray(casesRaw) ? casesRaw : []).map((c: any) => ({
+        id:           c.id ?? c.bite_id,
+        // backend returns patient.first_name + last_name, not patient_name
+        patient_name: c.patient ? `${c.patient.first_name ?? ''} ${c.patient.last_name ?? ''}`.trim() : (c.patient_name ?? '—'),
+        // backend uses 'severity' (minor/moderate/severe) not 'category'
+        category:     c.severity
+          ? (c.severity === 'minor' ? 'Category I' : c.severity === 'moderate' ? 'Category II' : 'Category III')
+          : (c.category ?? '—'),
+        animal_type:  c.animal_type ?? '—',
+        status:       c.status ?? '—',
+        created_at:   c.created_at ?? c.bite_date ?? '',
+      }));
+
+      const patsData: Patient[] = Array.isArray(patsRaw) ? patsRaw : [];
+      setBiteCases(casesData);
+      setPatients(patsData);
+
+      const catI   = casesData.filter(c => c.category === 'Category I').length;
+      const catII  = casesData.filter(c => c.category === 'Category II').length;
+      const catIII = casesData.filter(c => c.category === 'Category III').length;
+      const completed = casesData.filter(c => c.status === 'completed').length;
+      const ongoing   = casesData.filter(c => c.status === 'ongoing' || c.status === 'active').length;
+
       const [gPats, gCases] = await Promise.allSettled([
-        api.get('/patients',   { params: { per_page: 1 } }),
-        api.get('/bite-cases', { params: { per_page: 1 } }),
+        api.get('/patients', { params: { per_page: 1 } }),
+        api.get('/cases',    { params: { per_page: 1 } }),
       ]);
-      const totalPats  = gPats.status  === 'fulfilled' ? (gPats.value.data?.total  ?? pts.length)   : pts.length;
-      const totalCases = gCases.status === 'fulfilled' ? (gCases.value.data?.total ?? cases.length) : cases.length;
+      const totalPats  = gPats.status  === 'fulfilled' ? (gPats.value.data?.total   ?? patsData.length)  : patsData.length;
+      const totalCases = gCases.status === 'fulfilled' ? (gCases.value.data?.total  ?? casesData.length) : casesData.length;
+
       setStats({
         total_patients: totalPats, total_bite_cases: totalCases,
         category_i: catI, category_ii: catII, category_iii: catIII,
         completed_treatments: completed, ongoing_treatments: ongoing,
         total_vaccinations: 0,
-        vaccination_completion_rate: cases.length > 0 ? Math.round((completed / cases.length) * 100) : 0,
+        vaccination_completion_rate: casesData.length > 0 ? Math.round((completed / casesData.length) * 100) : 0,
         avg_queue_wait_time: 0,
-        new_patients_period: pts.length, new_cases_period: cases.length,
+        new_patients_period: patsData.length,
+        new_cases_period:    casesData.length,
       });
-    } catch { setError('Failed to load report data. Please try again.'); }
-    finally   { setLoading(false); }
+    } catch (err) {
+      console.error('Report load error:', err);
+      setError('Failed to load report data. Please try again.');
+    }
+    finally { setLoading(false); }
   };
 
   const loadInventory = async () => {

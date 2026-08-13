@@ -144,11 +144,11 @@ export default function UserListPage() {
 
   // Pagination — staff tab
   const [staffPage, setStaffPage] = useState(0);
-  const [staffRowsPerPage, setStaffRowsPerPage] = useState(10);
+  const [staffRowsPerPage, setStaffRowsPerPage] = useState(15);
 
   // Pagination — patient accounts tab
   const [patientPage, setPatientPage] = useState(0);
-  const [patientRowsPerPage, setPatientRowsPerPage] = useState(10);
+  const [patientRowsPerPage, setPatientRowsPerPage] = useState(15);
 
   // Edit state
   const [editing, setEditing] = useState<User | null>(null);
@@ -517,7 +517,7 @@ export default function UserListPage() {
               rowsPerPage={staffRowsPerPage}
               onPageChange={setStaffPage}
               onRowsPerPageChange={(n) => { setStaffRowsPerPage(n); setStaffPage(0); }}
-              rowsPerPageOptions={[5, 10, 25]}
+              rowsPerPageOptions={[15, 25, 50]}
             />
           </Box>
         </Box>
@@ -542,7 +542,7 @@ export default function UserListPage() {
               rowsPerPage={patientRowsPerPage}
               onPageChange={setPatientPage}
               onRowsPerPageChange={(n) => { setPatientRowsPerPage(n); setPatientPage(0); }}
-              rowsPerPageOptions={[5, 10, 25]}
+              rowsPerPageOptions={[15, 25, 50]}
             />
           </Box>
         </Box>

@@ -19,7 +19,7 @@ export default function TablePager({
   rowsPerPage,
   onPageChange,
   onRowsPerPageChange,
-  rowsPerPageOptions = [5, 10, 25],
+  rowsPerPageOptions = [15, 25, 50],
 }: TablePagerProps) {
   return (
     <Box sx={{

@@ -113,7 +113,7 @@ export default function BiteCaseRiskDashboard() {
   const [stats, setStats]       = useState<Stats | null>(null);
   const [loading, setLoading]   = useState(true);
   const [page, setPage]         = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(15);
   const [total, setTotal]       = useState(0);
   const [search, setSearch]     = useState('');
   const [severity, setSeverity] = useState('');

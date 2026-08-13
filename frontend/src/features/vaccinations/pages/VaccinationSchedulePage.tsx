@@ -73,7 +73,7 @@ export default function VaccinationSchedulePage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState('');
-  const [rows, setRows] = useState(10);
+  const [rows, setRows] = useState(15);
 
   // Administer modal
   const [selected, setSelected] = useState<Vaccination | null>(null);

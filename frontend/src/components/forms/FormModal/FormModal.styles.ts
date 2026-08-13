@@ -26,7 +26,8 @@ export const Overlay = styled('div')({
 export const Modal = styled('div', {
   shouldForwardProp: (prop) => prop !== 'maxWidth',
 })<{ maxWidth: number }>(({ maxWidth }) => ({
-  background: '#ffffff',
+  background: 'var(--card-bg, #ffffff)',
+  border: '1px solid var(--card-border, rgba(0, 0, 0, 0.05))',
   borderRadius: 16,
   width: '100%',
   maxWidth,
@@ -44,7 +45,7 @@ export const Header = styled('div')({
   justifyContent: 'space-between',
   gap: 16,
   padding: '24px 28px 20px',
-  borderBottom: '1px solid #f3f4f6',
+  borderBottom: '1px solid var(--sidebar-header-border, #f3f4f6)',
   flexShrink: 0,
 
   '@media (max-width: 640px)': {
@@ -56,13 +57,13 @@ export const Header = styled('div')({
 export const Title = styled('h2')({
   fontSize: 18,
   fontWeight: 700,
-  color: '#111827',
+  color: 'var(--text-h, #111827)',
   margin: '0 0 4px',
 });
 
 export const Subtitle = styled('p')({
   fontSize: 13,
-  color: '#6b7280',
+  color: 'var(--text-secondary, #6b7280)',
   margin: 0,
 });
 
@@ -70,18 +71,18 @@ export const CloseButton = styled('button')({
   width: 32,
   height: 32,
   borderRadius: 8,
-  border: '1px solid #e5e7eb',
-  background: '#fff',
+  border: '1px solid var(--card-border, #e5e7eb)',
+  background: 'var(--card-bg, #fff)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   cursor: 'pointer',
-  color: '#6b7280',
+  color: 'var(--text-secondary, #6b7280)',
   flexShrink: 0,
   transition: 'all 0.15s',
 
   '&:hover': {
-    background: '#fef2f2',
+    background: 'var(--bg-hover, #fef2f2)',
     borderColor: '#fca5a5',
     color: '#dc2626',
   },
@@ -101,7 +102,7 @@ export const Body = styled('div')({
     letterSpacing: '0.6px',
     margin: '0 0 14px',
     paddingBottom: 8,
-    borderBottom: '1px solid #ecfdf5',
+    borderBottom: '1px solid var(--nav-item-active-bg, #ecfdf5)',
   },
   '.fm-grid': { display: 'grid', gap: 14 },
   '.fm-grid--1': { gridTemplateColumns: '1fr' },
@@ -116,7 +117,7 @@ export const Body = styled('div')({
   '.fm-label': {
     fontSize: 12,
     fontWeight: 600,
-    color: '#374151',
+    color: 'var(--text-h, #374151)',
   },
   '.fm-label span': {
     color: '#ef4444',
@@ -124,12 +125,12 @@ export const Body = styled('div')({
   },
   '.fm-input, .fm-select, .fm-textarea': {
     padding: '9px 12px',
-    border: '1px solid #e5e7eb',
+    border: '1px solid var(--input-border, #e5e7eb)',
     borderRadius: 8,
     fontSize: 14,
     fontFamily: 'inherit',
-    color: '#111827',
-    background: '#fff',
+    color: 'var(--input-text, #111827)',
+    background: 'var(--input-bg, #fff)',
     outline: 'none',
     transition: 'border-color 0.15s, box-shadow 0.15s',
     width: '100%',
@@ -140,7 +141,7 @@ export const Body = styled('div')({
     boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.1)',
   },
   '.fm-input::placeholder, .fm-textarea::placeholder': {
-    color: '#d1d5db',
+    color: 'var(--text-secondary, #d1d5db)',
   },
   '.fm-textarea': {
     resize: 'vertical',
@@ -156,7 +157,7 @@ export const Body = styled('div')({
     alignItems: 'center',
     gap: 6,
     fontSize: 14,
-    color: '#374151',
+    color: 'var(--text, #374151)',
     cursor: 'pointer',
   },
   '.fm-radio input[type="radio"]': {
@@ -178,12 +179,12 @@ export const Body = styled('div')({
 
 export const Footer = styled('div')({
   padding: '16px 28px',
-  borderTop: '1px solid #f3f4f6',
+  borderTop: '1px solid var(--sidebar-header-border, #f3f4f6)',
   display: 'flex',
   justifyContent: 'flex-end',
   gap: 12,
   flexShrink: 0,
-  background: '#fff',
+  background: 'var(--card-bg, #fff)',
 
   '.fm-btn': {
     padding: '10px 24px',
@@ -196,11 +197,11 @@ export const Footer = styled('div')({
     transition: 'all 0.15s',
   },
   '.fm-btn--cancel': {
-    background: '#f3f4f6',
-    color: '#4b5563',
+    background: 'var(--bg-hover, #f3f4f6)',
+    color: 'var(--text-secondary, #4b5563)',
   },
   '.fm-btn--cancel:hover': {
-    background: '#e5e7eb',
+    background: 'var(--bg-secondary, #e5e7eb)',
   },
   '.fm-btn--submit': {
     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',

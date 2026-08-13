@@ -90,7 +90,7 @@ export default function BiteCaseListPage() {
       label: 'Exposure & Animal',
       render: (r: BiteIntake) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <AnimalIcon sx={{ fontSize: 16, color: '#17653a' }} />
+          <AnimalIcon sx={{ fontSize: 16, color: 'var(--primary)' }} />
           <Typography sx={{ fontSize: 13, textTransform: 'capitalize', color: '#334155' }}>
             {r.animal_type || 'Dog'} ({r.exposure_type || 'Bite'})
           </Typography>
@@ -131,7 +131,7 @@ export default function BiteCaseListPage() {
             size="small"
             variant="outlined"
             onClick={() => setPatientModalOpen(true)}
-            sx={{ fontSize: 11, py: 0.3, px: 1, textTransform: 'none', fontWeight: 600, borderColor: '#17653a', color: '#17653a' }}
+            sx={{ fontSize: 11, py: 0.3, px: 1, textTransform: 'none', fontWeight: 600, borderColor: 'var(--primary)', color: 'var(--primary)' }}
           >
             🩺 Form 2 (Doctor Treatment)
           </Button>
@@ -142,7 +142,7 @@ export default function BiteCaseListPage() {
               setCardPatientId(r.patient?.patient_id || r.patient_id);
               setCardModalOpen(true);
             }}
-            sx={{ fontSize: 11, py: 0.3, px: 1, textTransform: 'none', fontWeight: 600, bgcolor: '#17653a', '&:hover': { bgcolor: '#12522e' } }}
+            sx={{ fontSize: 11, py: 0.3, px: 1, textTransform: 'none', fontWeight: 600, bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' } }}
           >
             📋 Form 3 (Tagoloan Card)
           </Button>
@@ -155,7 +155,7 @@ export default function BiteCaseListPage() {
     <Box sx={{ px: 3 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h5" sx={{ color: '#173d29', fontWeight: 600, mb: '7px' }}>
+          <Typography variant="h5" sx={{ color: 'var(--text-h)', fontWeight: 600, mb: '7px' }}>
             Bite Incident Intake Assessment List
           </Typography>
           <Typography variant="body2" sx={{ color: '#77877d' }}>

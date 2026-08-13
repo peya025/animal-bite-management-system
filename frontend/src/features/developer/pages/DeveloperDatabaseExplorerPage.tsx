@@ -152,7 +152,7 @@ export default function DeveloperDatabaseExplorerPage() {
         <div className="db-kpi-card">
           <div className="db-kpi-header">
             <span className="db-kpi-label">Database Tables</span>
-            <Icon name="databaseExplorer" size={16} color="#17653a" />
+            <Icon name="databaseExplorer" size={16} color="var(--primary)" />
           </div>
           <div className="db-kpi-value">{tables.length}</div>
           <div className="db-kpi-sub">InnoDB Storage Engine</div>
@@ -161,7 +161,7 @@ export default function DeveloperDatabaseExplorerPage() {
         <div className="db-kpi-card">
           <div className="db-kpi-header">
             <span className="db-kpi-label">Total System Records</span>
-            <Icon name="reports" size={16} color="#17653a" />
+            <Icon name="reports" size={16} color="var(--primary)" />
           </div>
           <div className="db-kpi-value">{totalSystemRows.toLocaleString()}</div>
           <div className="db-kpi-sub">Indexed Database Rows</div>
@@ -170,7 +170,7 @@ export default function DeveloperDatabaseExplorerPage() {
         <div className="db-kpi-card">
           <div className="db-kpi-header">
             <span className="db-kpi-label">Database Engine</span>
-            <Icon name="developerSettings" size={16} color="#17653a" />
+            <Icon name="developerSettings" size={16} color="var(--primary)" />
           </div>
           <div className="db-kpi-value">MySQL 8.0</div>
           <div className="db-kpi-sub">Transactional & Relational</div>
@@ -179,9 +179,9 @@ export default function DeveloperDatabaseExplorerPage() {
         <div className="db-kpi-card">
           <div className="db-kpi-header">
             <span className="db-kpi-label">Data Privacy Status</span>
-            <Icon name="check" size={16} color="#17653a" />
+            <Icon name="check" size={16} color="var(--primary)" />
           </div>
-          <div className="db-kpi-value" style={{ color: '#17653a' }}>Active</div>
+          <div className="db-kpi-value" style={{ color: 'var(--primary)' }}>Active</div>
           <div className="db-kpi-sub">Raw Patient Data Protected</div>
         </div>
       </div>
@@ -192,7 +192,7 @@ export default function DeveloperDatabaseExplorerPage() {
         <div className="db-explorer-sidebar">
           <div className="db-explorer-sidebar-header">
             <span>TABLES ({tables.length})</span>
-            <span style={{ fontSize: '0.75rem', color: '#17653a', background: '#e8f5ed', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', fontWeight: 500 }}>InnoDB</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--primary)', background: '#e8f5ed', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', fontWeight: 500 }}>InnoDB</span>
           </div>
 
           <div className="db-explorer-search-box">
@@ -221,7 +221,7 @@ export default function DeveloperDatabaseExplorerPage() {
                     }}
                   >
                     <span className="db-explorer-table-name" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <Icon name="inventory" size={14} color={isSelected ? '#17653a' : '#77877d'} />
+                      <Icon name="inventory" size={14} color={isSelected ? 'var(--primary)' : '#77877d'} />
                       {t.table_name}
                     </span>
                     <span className="db-explorer-badge-count">
@@ -239,10 +239,10 @@ export default function DeveloperDatabaseExplorerPage() {
           {selectedTable ? (
             <>
               {/* Privacy Notice Banner */}
-              <div style={{ background: '#f5f8f6', border: '1px solid #e0eae3', borderRadius: '0.5rem', padding: '0.65rem 0.9rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.65rem', color: '#173d29' }}>
-                <Icon name="info" size={18} color="#17653a" />
+              <div style={{ background: '#f5f8f6', border: '1px solid #e0eae3', borderRadius: '0.5rem', padding: '0.65rem 0.9rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.65rem', color: 'var(--text-h)' }}>
+                <Icon name="info" size={18} color="var(--primary)" />
                 <div style={{ fontSize: '0.8125rem', fontWeight: 400, color: '#475569' }}>
-                  <span style={{ fontWeight: 500, color: '#173d29' }}>Data Privacy Protection Active: </span>
+                  <span style={{ fontWeight: 500, color: 'var(--text-h)' }}>Data Privacy Protection Active: </span>
                   Raw patient and clinical record contents are hidden from UI preview for privacy compliance. Column structures and datatypes are inspectable below.
                 </div>
               </div>
@@ -251,7 +251,7 @@ export default function DeveloperDatabaseExplorerPage() {
               <div className="db-explorer-toolbar">
                 <div>
                   <h2 className="db-explorer-table-title">
-                    Table Schema: <span style={{ color: '#17653a', fontWeight: 500 }}>{selectedTable}</span>
+                    Table Schema: <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{selectedTable}</span>
                   </h2>
                   <span className="db-explorer-table-meta">
                     Total System Records: {totalRecords} | Table Columns: {columns.length}
@@ -272,7 +272,7 @@ export default function DeveloperDatabaseExplorerPage() {
 
               {/* Table Column Structure View */}
               {loadingDetails ? (
-                <p style={{ padding: '2rem', textAlign: 'center', color: '#17653a', fontWeight: 400 }}>Loading column structure...</p>
+                <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--primary)', fontWeight: 400 }}>Loading column structure...</p>
               ) : (
                 <div className="db-explorer-table-wrapper">
                   <table className="db-explorer-table">
@@ -292,12 +292,12 @@ export default function DeveloperDatabaseExplorerPage() {
                         <tr key={col.column_name}>
                           <td style={{ color: '#64748b', fontWeight: 400 }}>{idx + 1}</td>
                           <td style={{ fontWeight: 400, fontFamily: 'monospace', color: '#1e293b' }}>
-                            {col.column_key === 'PRI' && <Icon name="key" size={13} color="#17653a" style={{ marginRight: '0.25rem' }} />}
+                            {col.column_key === 'PRI' && <Icon name="key" size={13} color="var(--primary)" style={{ marginRight: '0.25rem' }} />}
                             {col.column_name}
                           </td>
-                          <td style={{ color: '#17653a', fontFamily: 'monospace', fontWeight: 400 }}>{col.column_type}</td>
+                          <td style={{ color: 'var(--primary)', fontFamily: 'monospace', fontWeight: 400 }}>{col.column_type}</td>
                           <td>
-                            <span style={{ background: col.is_nullable === 'YES' ? '#e8f5ed' : '#fee2e2', color: col.is_nullable === 'YES' ? '#17653a' : '#991b1b', padding: '0.12rem 0.4rem', borderRadius: '0.25rem', fontSize: '0.75rem', fontWeight: 400 }}>
+                            <span style={{ background: col.is_nullable === 'YES' ? '#e8f5ed' : '#fee2e2', color: col.is_nullable === 'YES' ? 'var(--primary)' : '#991b1b', padding: '0.12rem 0.4rem', borderRadius: '0.25rem', fontSize: '0.75rem', fontWeight: 400 }}>
                               {col.is_nullable}
                             </span>
                           </td>

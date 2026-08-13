@@ -394,7 +394,7 @@ export default function ClinicInformation() {
       {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, color: '#173d29', mb: '7px', letterSpacing: '-0.5px' }}>
+          <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, color: 'var(--text-h)', mb: '7px', letterSpacing: '-0.5px' }}>
             Clinic Information
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d' }}>

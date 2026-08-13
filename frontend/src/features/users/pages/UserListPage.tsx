@@ -422,7 +422,7 @@ export default function UserListPage() {
         }}
       >
         <Box>
-          <Typography variant="h5" sx={{ color: '#173d29', mb: '7px' }}>
+          <Typography variant="h5" sx={{ color: 'var(--text-h)', mb: '7px' }}>
             User management
           </Typography>
           <Typography variant="body2" sx={{ color: '#77877d' }}>

@@ -373,7 +373,7 @@ export default function NursePatientListPage() {
               fontSize: '25px',
               lineHeight: 1.2,
               letterSpacing: '-0.5px',
-              color: '#173d29',
+              color: 'var(--text-h)',
               margin: '0 0 4px 0',
             }}
           >
@@ -398,7 +398,7 @@ export default function NursePatientListPage() {
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
           <Tooltip title="Refresh Patients List">
             <IconButton onClick={loadPatients} disabled={loading} sx={{ bgcolor: '#ffffff', border: '1px solid #e0eae3', borderRadius: 2 }}>
-              <RefreshIcon sx={{ fontSize: 20, color: '#17653a' }} />
+              <RefreshIcon sx={{ fontSize: 20, color: 'var(--primary)' }} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -413,7 +413,7 @@ export default function NursePatientListPage() {
       </Box>
 
       {/* ── Tabs Bar with Soft Count Badges ── */}
-      <Paper elevation={0} sx={{ border: '1px solid #e0eae3', borderRadius: 3, overflow: 'hidden', background: '#ffffff', mb: 3 }}>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', mb: 3 }}>
         <Tabs
           value={tab}
           onChange={(_, v) => { setTab(v); setPage(0); }}
@@ -486,7 +486,7 @@ export default function NursePatientListPage() {
       </Paper>
 
       {/* ── Patient Table Container ── */}
-      <Paper elevation={0} sx={{ border: '1px solid #e0eae3', borderRadius: 3, overflow: 'hidden', background: '#ffffff', p: 3 }}>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
         {/* Search & Filter Bar */}
         <Grid container spacing={2} sx={{ mb: 3, alignItems: 'center' }}>
           <Grid size={{ xs: 12, sm: 8 }}>

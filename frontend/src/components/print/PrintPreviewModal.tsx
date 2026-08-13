@@ -68,7 +68,7 @@ export default function PrintPreviewModal({
               </svg>
             </div>
             <div>
-              <h2 id="ppm-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#173d29' }}>
+              <h2 id="ppm-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-h)' }}>
                 Print Preview — {title}
               </h2>
               <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Review before sending to printer</p>

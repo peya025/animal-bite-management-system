@@ -293,7 +293,7 @@ export default function InventoryTable({
       </Box>
 
       {/* ── Table ── */}
-      <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: 2, overflow: 'hidden', background: '#ffffff' }}>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', background: 'background.paper' }}>
         <DataTable<InventoryItem>
           columns={columns}
           rows={items}

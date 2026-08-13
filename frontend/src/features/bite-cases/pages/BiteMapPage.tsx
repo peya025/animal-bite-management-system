@@ -101,7 +101,7 @@ export default function BiteMapPage() {
               fontSize: '25px',
               lineHeight: 1.2,
               letterSpacing: '-0.5px',
-              color: '#173d29',
+              color: 'var(--text-h)',
               margin: '0 0 7px 0',
             }}
           >
@@ -274,7 +274,7 @@ export default function BiteMapPage() {
           <div className="db-kpi-card">
             <div className="db-kpi-header">
               <span className="db-kpi-label">TOTAL CASES</span>
-              <Icon name="activity" size={16} color="#17653a" />
+              <Icon name="activity" size={16} color="var(--primary)" />
             </div>
             <div className="db-kpi-value">{data.statistics.total_cases}</div>
             <div className="db-kpi-sub">All Categories Logged</div>

@@ -140,7 +140,7 @@ export default function PatientList() {
 
   // Preview table for the modal
   const th: React.CSSProperties = {
-    background: '#f0fdf4', color: '#173d29', fontWeight: 600,
+    background: '#f0fdf4', color: 'var(--text-h)', fontWeight: 600,
     padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #10b981',
     whiteSpace: 'nowrap', fontSize: 11,
   };
@@ -385,7 +385,7 @@ export default function PatientList() {
           onCancel={() => setShowPrintModal(false)}
         >
           {/* Preview table */}
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#173d29', borderLeft: '3px solid #10b981', paddingLeft: 10, marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-h)', borderLeft: '3px solid #10b981', paddingLeft: 10, marginBottom: 10 }}>
             Registered Patients ({patients.length} shown)
           </div>
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>

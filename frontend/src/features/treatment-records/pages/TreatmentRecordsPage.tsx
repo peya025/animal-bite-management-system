@@ -377,7 +377,7 @@ function TreatmentForm({ record: r, onChange }: FormProps) {
           <thead>
             <tr style={{ background:'#f0fdf4' }}>
               {['Period','Adm Route','Date','Given by','Signature'].map(h=>(
-                <th key={h} style={{ padding:'9px 10px', textAlign:'left', fontWeight:600, fontSize:11, color:'#173d29', borderBottom:'2px solid #10b981', whiteSpace:'nowrap' }}>{h}</th>
+                <th key={h} style={{ padding:'9px 10px', textAlign:'left', fontWeight:600, fontSize:11, color:'var(--text-h)', borderBottom:'2px solid #10b981', whiteSpace:'nowrap' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -489,7 +489,7 @@ export default function TreatmentRecordsPage() {
       {/* Header */}
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:6 }}>
         <div>
-          <h1 style={{ fontSize: 25, fontWeight: 600, color: '#173d29', margin: '0 0 7px', letterSpacing: -0.5 }}>Treatment Records</h1>
+          <h1 style={{ fontSize: 25, fontWeight: 600, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5 }}>Treatment Records</h1>
           <p style={{ fontSize:13, color:'#77877d', margin:0 }}>ABTC paper form and clinical management for animal bite treatments.</p>
           {/* Breadcrumb */}
           <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:6, fontSize:13 }}>

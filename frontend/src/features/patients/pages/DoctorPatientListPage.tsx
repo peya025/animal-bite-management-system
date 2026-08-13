@@ -252,7 +252,7 @@ export default function DoctorPatientListPage() {
               fontSize: '25px',
               lineHeight: 1.2,
               letterSpacing: '-0.5px',
-              color: '#173d29',
+              color: 'var(--text-h)',
               margin: '0 0 7px 0',
             }}
           >
@@ -283,7 +283,7 @@ export default function DoctorPatientListPage() {
       </Box>
 
       {/* Patient List */}
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: '#f3f4f6', borderRadius: 3, overflow: 'hidden', background: '#ffffff', p: 3 }}>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
         {/* Search + Filter Row */}
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <input

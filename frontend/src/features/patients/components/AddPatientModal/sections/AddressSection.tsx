@@ -17,7 +17,7 @@ export function AddressSection({ loc }: AddressSectionProps) {
             padding: '4px 12px',
             fontSize: '12px',
             fontWeight: 600,
-            background: loc.useManual ? '#17653a' : '#f1f5f9',
+            background: loc.useManual ? 'var(--primary)' : '#f1f5f9',
             color: loc.useManual ? '#fff' : '#334155',
             border: loc.useManual ? 'none' : '1px solid #cbd5e1',
             borderRadius: '6px',

@@ -167,7 +167,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         <div
           className="no-print"
           style={{
-            background: '#17653a',
+            background: 'var(--primary)',
             color: '#ffffff',
             padding: '1rem 1.5rem',
             display: 'flex',
@@ -186,7 +186,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
               onClick={handlePrint}
               style={{
                 background: '#ffffff',
-                color: '#17653a',
+                color: 'var(--primary)',
                 border: 'none',
                 padding: '0.4rem 0.85rem',
                 borderRadius: '6px',
@@ -227,7 +227,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
           }}
         >
           {loading ? (
-            <p style={{ textAlign: 'center', color: '#17653a', padding: '3rem' }}>
+            <p style={{ textAlign: 'center', color: 'var(--primary)', padding: '3rem' }}>
               Loading official Tagoloan treatment card...
             </p>
           ) : (
@@ -343,7 +343,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem', fontSize: '0.8125rem' }}>
                 {/* 1. Mode of Animal Exposure */}
                 <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                  <strong style={{ display: 'block', marginBottom: '0.35rem', color: '#17653a' }}>1. Mode of Animal Exposure</strong>
+                  <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>1. Mode of Animal Exposure</strong>
                   {[
                     { key: 'nibbling_uncovered_skin', label: 'Nibbling/Licking of uncovered skin' },
                     { key: 'nibbling_broken_skin', label: 'Nibbling/Licking of wounded/broken skin' },
@@ -367,7 +367,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {/* 2. Body Part Affected */}
                   <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: '#17653a' }}>2. Body Part Affected Exposed</strong>
+                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>2. Body Part Affected Exposed</strong>
                     <label style={{ display: 'block', marginBottom: '0.2rem' }}>
                       <input
                         type="radio"
@@ -396,7 +396,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
 
                   {/* 3. Type of Animal */}
                   <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: '#17653a' }}>3. Type of Animal</strong>
+                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>3. Type of Animal</strong>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       <label>
                         <input
@@ -426,7 +426,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
 
                   {/* 4. Past History */}
                   <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: '#17653a' }}>4. Past History of animal bite</strong>
+                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>4. Past History of animal bite</strong>
                     <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.35rem' }}>
                       <label>
                         <input
@@ -482,7 +482,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
 
               {/* Official Vaccination Grid Table */}
               <div style={{ marginBottom: '1.25rem' }}>
-                <strong style={{ display: 'block', marginBottom: '0.5rem', textAlign: 'center', fontSize: '0.95rem', color: '#173d29' }}>
+                <strong style={{ display: 'block', marginBottom: '0.5rem', textAlign: 'center', fontSize: '0.95rem', color: 'var(--text-h)' }}>
                   Period Exposure Vaccination Record
                 </strong>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
@@ -502,7 +502,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                         <tr key={item.period} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
                           <td style={{ padding: '6px', border: '1px solid #cbd5e1', fontWeight: 600 }}>
                             {item.period === 'ERIG' ? (
-                              <span>ERIG {rec?.dosage_ml ? <u style={{ color: '#17653a', fontWeight: 700 }}>{rec.dosage_ml}</u> : '_________________'} ml</span>
+                              <span>ERIG {rec?.dosage_ml ? <u style={{ color: 'var(--primary)', fontWeight: 700 }}>{rec.dosage_ml}</u> : '_________________'} ml</span>
                             ) : item.period === 'TT' ? (
                               <span>TT (Tetanus Toxoid)</span>
                             ) : item.period === 'ATS' ? (
@@ -520,7 +520,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                           <td style={{ padding: '6px', border: '1px solid #cbd5e1' }}>
                             {rec?.administered_by?.name || (rec?.status === 'completed' ? 'Nurse Staff' : '—')}
                           </td>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: rec?.status === 'completed' ? '#17653a' : '#64748b' }}>
+                          <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: rec?.status === 'completed' ? 'var(--primary)' : '#64748b' }}>
                             {rec?.status === 'completed' ? '✓ Signed' : rec?.status || 'Scheduled'}
                           </td>
                         </tr>
@@ -578,7 +578,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
               onClick={handleSave}
               disabled={saving}
               style={{
-                background: '#17653a',
+                background: 'var(--primary)',
                 color: '#ffffff',
                 border: 'none',
                 padding: '0.5rem 1.5rem',

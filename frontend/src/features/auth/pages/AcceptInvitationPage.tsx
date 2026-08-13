@@ -352,7 +352,7 @@ export default function AcceptInvitationPage() {
           background: '#ecfdf5',
           borderRadius: '12px',
           fontSize: '13px',
-          color: '#064e3b'
+          color: 'var(--primary-dark)'
         }}>
           <strong>Note:</strong> After creating your account, you'll be automatically logged in.
         </div>

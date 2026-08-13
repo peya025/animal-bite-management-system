@@ -3,16 +3,44 @@ html {
 }
 
 :root {
-  --text-h: #08060d;
-  --bg: #fff;
+  /* Light mode (default variables) */
+  --text: #374151;
+  --text-h: #111827;
+  --bg: #f5f7fa;
+  --card-bg: #ffffff;
+  --card-border: #e0eae3;
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e5e7eb;
+  --sidebar-header-border: #f3f4f6;
+  --nav-item-color: #6b7280;
+  --nav-item-hover-bg: #f9fafb;
+  --nav-item-hover-color: #111827;
+  --nav-item-active-bg: #ecfdf5;
+  --nav-item-active-color: #065f46;
+  --topbar-bg: #ffffff;
+  --topbar-border: #e5e7eb;
+  --bg-secondary: #f9fafb;
+  --bg-hover: #f3f4f6;
+  --table-header-bg: #f8fafc;
+  --table-border: #e5e7eb;
+  --table-row-border: #f3f4f6;
+  --input-bg: #ffffff;
+  --input-border: #d7e3da;
+  --input-text: #111827;
+  --btn-outlined-bg: #ffffff;
+  --btn-outlined-border: #e5e7eb;
+  --btn-outlined-color: #6b7280;
+  --btn-outlined-hover-bg: #f9fafb;
+  --btn-outlined-hover-border: #d1d5db;
+  --shadow: rgba(0, 0, 0, 0.05) 0 1px 3px 0, rgba(0, 0, 0, 0.05) 0 1px 2px -1px;
+
+  /* Legacy variables from original global.css, mapped to theme */
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
+  --accent: #10b981;
+  --accent-bg: rgba(16, 185, 129, 0.1);
+  --accent-border: rgba(16, 185, 129, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
   --sans: 'Poppins', system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: 'Poppins', system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -33,24 +61,86 @@ html {
   }
 }
 
+/* Fallback to system preference dark mode if not explicitly overridden by data-theme */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+  :root:not([data-theme='light']) {
+    --text: #374151;
+    --text-h: #173d29;
+    --bg: #0f172a; /* Page background is dark slate */
+    --card-bg: #ffffff; /* Card remains white */
+    --card-border: #e0eae3; /* Card border remains light green */
+    --sidebar-bg: #1e293b; /* Sidebar remains dark */
+    --sidebar-border: #334155;
+    --sidebar-header-border: #334155;
+    --nav-item-color: #94a3b8;
+    --nav-item-hover-bg: #334155;
+    --nav-item-hover-color: #f8fafc;
+    --nav-item-active-bg: rgba(16, 185, 129, 0.15);
+    --nav-item-active-color: #34d399;
+    --topbar-bg: #1e293b; /* Topbar remains dark */
+    --topbar-border: #334155;
+    --bg-secondary: #f9fafb;
+    --bg-hover: #f3f4f6;
+    --table-header-bg: #f8fafc;
+    --table-border: #e5e7eb;
+    --table-row-border: #f3f4f6;
+    --input-bg: #ffffff; /* Inputs remain white */
+    --input-border: #d7e3da;
+    --input-text: #111827;
+    --btn-outlined-bg: #ffffff;
+    --btn-outlined-border: #e5e7eb;
+    --btn-outlined-color: #6b7280;
+    --btn-outlined-hover-bg: #f9fafb;
+    --btn-outlined-hover-border: #d1d5db;
+    --shadow: rgba(0, 0, 0, 0.05) 0 1px 3px 0, rgba(0, 0, 0, 0.05) 0 1px 2px -1px;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+    --border: #e5e4e7;
+    --code-bg: #f4f3ec;
+    --accent: #10b981;
+    --accent-bg: rgba(16, 185, 129, 0.1);
+    --accent-border: rgba(16, 185, 129, 0.5);
+    --social-bg: rgba(244, 243, 236, 0.5);
   }
+}
+
+/* Explicit dark mode override via data-theme */
+[data-theme='dark'] {
+  --text: #374151;
+  --text-h: #173d29;
+  --bg: #0f172a; /* Page background is dark slate */
+  --card-bg: #ffffff; /* Card remains white */
+  --card-border: #e0eae3; /* Card border remains light green */
+  --sidebar-bg: #1e293b; /* Sidebar remains dark */
+  --sidebar-border: #334155;
+  --sidebar-header-border: #334155;
+  --nav-item-color: #94a3b8;
+  --nav-item-hover-bg: #334155;
+  --nav-item-hover-color: #f8fafc;
+  --nav-item-active-bg: rgba(16, 185, 129, 0.15);
+  --nav-item-active-color: #34d399;
+  --topbar-bg: #1e293b; /* Topbar remains dark */
+  --topbar-border: #334155;
+  --bg-secondary: #f9fafb;
+  --bg-hover: #f3f4f6;
+  --table-header-bg: #f8fafc;
+  --table-border: #e5e7eb;
+  --table-row-border: #f3f4f6;
+  --input-bg: #ffffff; /* Inputs remain white */
+  --input-border: #d7e3da;
+  --input-text: #111827;
+  --btn-outlined-bg: #ffffff;
+  --btn-outlined-border: #e5e7eb;
+  --btn-outlined-color: #6b7280;
+  --btn-outlined-hover-bg: #f9fafb;
+  --btn-outlined-hover-border: #d1d5db;
+  --shadow: rgba(0, 0, 0, 0.05) 0 1px 3px 0, rgba(0, 0, 0, 0.05) 0 1px 2px -1px;
+
+  --border: #e5e4e7;
+  --code-bg: #f4f3ec;
+  --accent: #10b981;
+  --accent-bg: rgba(16, 185, 129, 0.1);
+  --accent-border: rgba(16, 185, 129, 0.5);
+  --social-bg: rgba(244, 243, 236, 0.5);
 }
 
 #root {

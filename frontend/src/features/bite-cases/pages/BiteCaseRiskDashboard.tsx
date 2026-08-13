@@ -393,7 +393,7 @@ export default function BiteCaseRiskDashboard() {
               fontSize: '25px',
               lineHeight: 1.2,
               letterSpacing: '-0.5px',
-              color: '#173d29',
+              color: 'var(--text-h)',
               mb: '7px',
             }}
           >
@@ -607,8 +607,8 @@ function BiteDetailsModal({
     <Dialog open={!!biteCase} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, borderBottom: '1px solid #e5e7eb' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PetsIcon sx={{ color: '#17653a' }} />
-          <Typography variant="h6" sx={{ fontWeight: 700, color: '#173d29', fontSize: 16 }}>
+          <PetsIcon sx={{ color: 'var(--primary)' }} />
+          <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--text-h)', fontSize: 16 }}>
             Bite Incident Summary
           </Typography>
         </Box>
@@ -717,7 +717,7 @@ function BiteDetailsModal({
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fafafa' }}>
-        <Button variant="contained" onClick={onClose} sx={{ bgcolor: '#17653a', '&:hover': { bgcolor: '#12522e' }, textTransform: 'none', fontWeight: 600 }}>
+        <Button variant="contained" onClick={onClose} sx={{ bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' }, textTransform: 'none', fontWeight: 600 }}>
           Close
         </Button>
       </DialogActions>

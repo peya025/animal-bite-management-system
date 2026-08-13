@@ -5,6 +5,7 @@ import { landingPageStyles } from '../styles/LandingPage.styles';
 import antiviralVaccineImg from '../assets/image.png';
 import rorOrModified from '../assets/roror-modified.png';
 import { ROUTES } from '../shared/config/routes';
+import ThemeToggle from '../shared/components/ThemeToggle';
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -124,7 +125,7 @@ export default function LandingPage() {
     <div className="landing-page">
       <GlobalStyles styles={`
         .gov-header {
-          background: #ffffff;
+          background: var(--white);
           box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
           position: sticky;
           top: 0;
@@ -132,7 +133,7 @@ export default function LandingPage() {
         }
         .gov-header-top {
           padding: 0.75rem 1.5rem;
-          border-bottom: 1px solid #f1f5f9;
+          border-bottom: 1px solid var(--gray-200);
         }
         .gov-header-container {
           max-width: 1400px;
@@ -168,7 +169,7 @@ export default function LandingPage() {
           font-size: 0.625rem;
           font-weight: 700;
           letter-spacing: 0.08em;
-          color: #064e3b;
+          color: var(--brand-text-full);
           text-transform: uppercase;
         }
         .gov-header-right {
@@ -191,7 +192,7 @@ export default function LandingPage() {
           font-size: 0.58rem;
           font-weight: 600;
           letter-spacing: 0.03em;
-          color: #064e3b;
+          color: var(--brand-text-full);
           text-transform: uppercase;
           white-space: nowrap;
         }
@@ -200,7 +201,7 @@ export default function LandingPage() {
           height: 1.85rem;
           flex-shrink: 0;
           border-radius: 9999px;
-          background: #ffffff;
+          background: var(--white);
           border: 1.5px solid #10b981;
           object-fit: cover;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -225,7 +226,7 @@ export default function LandingPage() {
 
         /* Full Feature Hero Section Styles */
         .hero-sec {
-          background: #059669;
+          background: var(--hero-bg);
           color: #ffffff;
           position: relative;
           isolation: isolate;
@@ -322,8 +323,8 @@ export default function LandingPage() {
 
         /* Row 2 Secondary Subnav Bar */
         .gov-subnav-bar {
-          background: #f8fafc;
-          border-bottom: 1px solid #e2e8f0;
+          background: var(--gray-50);
+          border-bottom: 1px solid var(--gray-200);
           padding: 0.5rem 1.5rem;
         }
         .subnav-links {
@@ -335,7 +336,7 @@ export default function LandingPage() {
           padding: 0;
         }
         .subnav-links a {
-          color: #334155;
+          color: var(--gray-600);
           text-decoration: none;
           font-size: 0.75rem;
           font-weight: 700;
@@ -386,6 +387,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
+              <ThemeToggle />
               <button onClick={handleSignIn} className="header-signin-btn">
                 Staff Sign In →
               </button>

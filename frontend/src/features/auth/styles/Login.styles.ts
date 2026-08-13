@@ -27,6 +27,22 @@ export const LoginRoot = styled('div')`
   --error-dark: #b91c1c;
   --success: #10b981;
 
+  [data-theme='dark'] & {
+    --white: #1e293b;
+    --black: #ffffff;
+    --gray-50: #0f172a;
+    --gray-100: #1e293b;
+    --gray-200: #334155;
+    --gray-300: #475569;
+    --gray-400: #64748b;
+    --gray-500: #94a3b8;
+    --gray-600: #cbd5e1;
+    --gray-700: #cbd5e1;
+    --gray-900: #f3f4f6;
+    --glass-bg: rgba(30, 41, 59, 0.85);
+    --glass-border: rgba(71, 85, 105, 0.3);
+  }
+
   &, & * {
     margin: 0;
     padding: 0;
@@ -373,7 +389,7 @@ export const LoginRoot = styled('div')`
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
-    background: #ffffff;
+    background: var(--white);
     border: 1.5px solid var(--gray-200);
     border-radius: 12px;
     color: var(--gray-700);
@@ -386,8 +402,8 @@ export const LoginRoot = styled('div')`
   }
   .role-demo-btn:hover {
     border-color: var(--primary);
-    background: #ecfdf5;
-    color: #064e3b;
+    background: var(--primary-light);
+    color: var(--primary-dark);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
   }
@@ -397,7 +413,7 @@ export const LoginRoot = styled('div')`
     flex-shrink: 0;
   }
   .role-demo-btn:hover svg {
-    color: #059669;
+    color: var(--primary-dark);
   }
 
   @media (max-width: 1024px) {

@@ -272,10 +272,10 @@ export function SimpleDashboardPage() {
             <div
               className="sd-chart-card"
               style={{
-                background: '#ffffff',
+                background: 'var(--card-bg)',
                 borderRadius: '14px',
                 padding: '20px 24px',
-                border: '1px solid #e0eae3',
+                border: '1px solid var(--card-border)',
                 boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
                 transition: 'box-shadow 0.2s',
                 display: 'flex',
@@ -295,10 +295,10 @@ export function SimpleDashboardPage() {
             <div
               className="sd-chart-card"
               style={{
-                background: '#ffffff',
+                background: 'var(--card-bg)',
                 borderRadius: '14px',
                 padding: '20px 24px',
-                border: '1px solid #e0eae3',
+                border: '1px solid var(--card-border)',
                 boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
                 transition: 'box-shadow 0.2s',
                 display: 'flex',
@@ -324,10 +324,10 @@ export function SimpleDashboardPage() {
             <div
               className="sd-filter-card"
               style={{
-                background: '#ffffff',
+                background: 'var(--card-bg)',
                 borderRadius: '14px',
                 padding: '20px 24px',
-                border: '1px solid #e0eae3',
+                border: '1px solid var(--card-border)',
                 boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
                 transition: 'box-shadow 0.2s',
                 display: 'flex',
@@ -337,11 +337,11 @@ export function SimpleDashboardPage() {
               onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
               onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
             >
-              <p className="sd-filter-title" style={{ marginBottom: '12px', fontSize: '13px', fontWeight: 700, color: '#1e2a4a' }}>Filters</p>
+              <p className="sd-filter-title" style={{ marginBottom: '12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)' }}>Filters</p>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Role</span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Role</span>
                   <select className="sd-filter-select" style={{ padding: '6px 10px', fontSize: '12px', width: '100%' }}>
                     <option>All</option><option>Admin</option><option>Triage</option>
                     <option>Registration</option><option>Treatment</option>
@@ -349,7 +349,7 @@ export function SimpleDashboardPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
                   <select className="sd-filter-select" style={{ padding: '6px 10px', fontSize: '12px', width: '100%' }}>
                     <option>All</option><option>Ongoing</option>
                     <option>Completed</option><option>Abandoned</option>
@@ -357,7 +357,7 @@ export function SimpleDashboardPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Range</span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Range</span>
                   <select className="sd-filter-select" style={{ padding: '6px 10px', fontSize: '12px', width: '100%' }}>
                     <option>This Month</option><option>Last 3 Months</option>
                     <option>Last 6 Months</option><option>This Year</option>
@@ -388,10 +388,10 @@ export function SimpleDashboardPage() {
             <div
               className="sd-chart-card"
               style={{
-                background: '#ffffff',
+                background: 'var(--card-bg)',
                 borderRadius: '14px',
                 padding: '20px 24px',
-                border: '1px solid #e0eae3',
+                border: '1px solid var(--card-border)',
                 boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
                 transition: 'box-shadow 0.2s',
                 display: 'flex',
@@ -410,10 +410,10 @@ export function SimpleDashboardPage() {
             <div
               className="sd-chart-card"
               style={{
-                background: '#ffffff',
+                background: 'var(--card-bg)',
                 borderRadius: '14px',
                 padding: '20px 24px',
-                border: '1px solid #e0eae3',
+                border: '1px solid var(--card-border)',
                 boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
                 transition: 'box-shadow 0.2s',
                 display: 'flex',
@@ -446,26 +446,26 @@ export function SimpleDashboardPage() {
             <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
           </div>
 
-          <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e0eae3', padding: '24px' }}>
-            <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: '#173d29' }}>Recent Bite Incident Cases</p>
+          <div style={{ background: 'var(--card-bg)', borderRadius: '14px', border: '1px solid var(--card-border)', padding: '24px' }}>
+            <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: 'var(--text-h)' }}>Recent Bite Incident Cases</p>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #e2ebe5', textAlign: 'left' }}>
-                    <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Patient</th>
-                    <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Bite Date</th>
-                    <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Animal Type</th>
-                    <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Category</th>
-                    <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Status</th>
+                  <tr style={{ borderBottom: '1px solid var(--table-border)', textAlign: 'left' }}>
+                    <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>Patient</th>
+                    <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>Bite Date</th>
+                    <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>Animal Type</th>
+                    <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>Category</th>
+                    <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {stats.casesList.length > 0 ? (
                     stats.casesList.map((c: any) => (
-                      <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                        <td style={{ padding: '12px 16px', color: '#111827', fontWeight: 600 }}>{c.patient?.name || '—'}</td>
-                        <td style={{ padding: '12px 16px', color: '#374151' }}>{c.bite_date || '—'}</td>
-                        <td style={{ padding: '12px 16px', color: '#374151', textTransform: 'capitalize' }}>{c.animal_type || '—'}</td>
+                      <tr key={c.id} style={{ borderBottom: '1px solid var(--table-row-border)' }}>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-h)', fontWeight: 600 }}>{c.patient?.name || '—'}</td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text)' }}>{c.bite_date || '—'}</td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text)', textTransform: 'capitalize' }}>{c.animal_type || '—'}</td>
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{
                             padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
@@ -506,27 +506,27 @@ export function SimpleDashboardPage() {
             <SdCard color="teal" label="Queue Count" value={stats.todayQueue.toString()} sub="Today waiting" />
           </div>
 
-          <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e0eae3', padding: '24px' }}>
-            <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: '#173d29' }}>Recent Vaccinations & Scheduled Doses</p>
+          <div style={{ background: 'var(--card-bg)', borderRadius: '14px', border: '1px solid var(--card-border)', padding: '24px' }}>
+            <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: 'var(--text-h)' }}>Recent Vaccinations & Scheduled Doses</p>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #e2ebe5', textAlign: 'left' }}>
-                    <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Patient</th>
-                    <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Vaccine Brand</th>
-                    <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Batch / Dose</th>
-                    <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Date Administered</th>
-                    <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: 600 }}>Status</th>
+                  <tr style={{ borderBottom: '1px solid var(--table-border)', textAlign: 'left' }}>
+                    <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>Patient</th>
+                    <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>Vaccine Brand</th>
+                    <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>Batch / Dose</th>
+                    <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>Date Administered</th>
+                    <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {stats.vaccinationsList.length > 0 ? (
                     stats.vaccinationsList.map((v: any) => (
-                      <tr key={v.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                        <td style={{ padding: '12px 16px', color: '#111827', fontWeight: 600 }}>{v.patient?.name || '—'}</td>
-                        <td style={{ padding: '12px 16px', color: '#374151' }}>{v.vaccine_brand || '—'}</td>
-                        <td style={{ padding: '12px 16px', color: '#374151' }}>{v.dose_number || 'Dose 1'}</td>
-                        <td style={{ padding: '12px 16px', color: '#374151' }}>{v.administered_at ? new Date(v.administered_at).toLocaleDateString() : '—'}</td>
+                      <tr key={v.id} style={{ borderBottom: '1px solid var(--table-row-border)' }}>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-h)', fontWeight: 600 }}>{v.patient?.name || '—'}</td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text)' }}>{v.vaccine_brand || '—'}</td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text)' }}>{v.dose_number || 'Dose 1'}</td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text)' }}>{v.administered_at ? new Date(v.administered_at).toLocaleDateString() : '—'}</td>
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{
                             padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
@@ -617,7 +617,7 @@ function SdDonutChart({ data }: { data: { label: string; pct: number; color: str
             transform="rotate(-90, 75, 75)"
           />
         ))}
-        <text x={cx} y={cy + 5} textAnchor="middle" fontSize="15" fontWeight="700" fill="#1e2a4a">
+        <text x={cx} y={cy + 5} textAnchor="middle" fontSize="15" fontWeight="700" fill="var(--text-h)">
           {data.reduce((a, d) => a + d.pct, 0)}%
         </text>
       </svg>

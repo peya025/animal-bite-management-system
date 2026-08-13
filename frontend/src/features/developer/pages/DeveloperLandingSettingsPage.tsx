@@ -179,8 +179,8 @@ export default function DeveloperLandingSettingsPage() {
       </div>
 
       {successMsg && (
-        <div style={{ padding: '0.75rem 1rem', background: '#e8f5ed', color: '#17653a', border: '1px solid #d7ebdf', borderRadius: '0.5rem', marginBottom: '1.25rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-          <Icon name="check" size={16} color="#17653a" />
+        <div style={{ padding: '0.75rem 1rem', background: '#e8f5ed', color: 'var(--primary)', border: '1px solid #d7ebdf', borderRadius: '0.5rem', marginBottom: '1.25rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <Icon name="check" size={16} color="var(--primary)" />
           {successMsg}
         </div>
       )}
@@ -192,13 +192,13 @@ export default function DeveloperLandingSettingsPage() {
       )}
 
       {loading ? (
-        <p style={{ padding: '2rem', color: '#17653a', fontWeight: 400 }}>Loading developer settings...</p>
+        <p style={{ padding: '2rem', color: 'var(--primary)', fontWeight: 400 }}>Loading developer settings...</p>
       ) : (
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Section 1: App Identity */}
           <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '14px', border: '1px solid #e0eae3', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#173d29', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-              <Icon name="clinicSetup" size={16} color="#17653a" /> Application Identity & Header
+            <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+              <Icon name="clinicSetup" size={16} color="var(--primary)" /> Application Identity & Header
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
@@ -226,8 +226,8 @@ export default function DeveloperLandingSettingsPage() {
 
           {/* Section 2: Operating Schedule & Requirements */}
           <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '14px', border: '1px solid #e0eae3', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#173d29', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-              <Icon name="queue" size={16} color="#17653a" /> Schedule & Requirement Notices
+            <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+              <Icon name="queue" size={16} color="var(--primary)" /> Schedule & Requirement Notices
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
@@ -271,8 +271,8 @@ export default function DeveloperLandingSettingsPage() {
 
           {/* Section 3: Footer Brand Column */}
           <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '14px', border: '1px solid #e0eae3', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#173d29', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-              <Icon name="reports" size={16} color="#17653a" /> Footer Column 1: Brand & Bio
+            <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+              <Icon name="reports" size={16} color="var(--primary)" /> Footer Column 1: Brand & Bio
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
@@ -306,14 +306,14 @@ export default function DeveloperLandingSettingsPage() {
 
           {/* Section 4: Footer Columns (Quick Links, Support, System Info) */}
           <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '14px', border: '1px solid #e0eae3', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#173d29', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-              <Icon name="inventory" size={16} color="#17653a" /> Footer Link Columns (Quick Links, Support, System Info)
+            <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+              <Icon name="inventory" size={16} color="var(--primary)" /> Footer Link Columns (Quick Links, Support, System Info)
             </h2>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.25rem' }}>
               {/* Quick Links Column */}
               <div>
-                <h3 style={{ fontSize: '0.875rem', color: '#17653a', marginBottom: '0.5rem', fontWeight: 600 }}>Quick Links</h3>
+                <h3 style={{ fontSize: '0.875rem', color: 'var(--primary)', marginBottom: '0.5rem', fontWeight: 600 }}>Quick Links</h3>
                 {settings.quick_links.map((link, idx) => (
                   <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <input
@@ -328,14 +328,14 @@ export default function DeveloperLandingSettingsPage() {
                     </button>
                   </div>
                 ))}
-                <button type="button" onClick={() => addLink('quick_links')} style={{ background: '#e8f5ed', color: '#17653a', border: '1px solid #d7ebdf', padding: '0.35rem 0.75rem', borderRadius: '0.25rem', fontSize: '0.8rem', cursor: 'pointer', marginTop: '0.25rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
-                  <Icon name="plus" size={13} color="#17653a" /> Add Link
+                <button type="button" onClick={() => addLink('quick_links')} style={{ background: '#e8f5ed', color: 'var(--primary)', border: '1px solid #d7ebdf', padding: '0.35rem 0.75rem', borderRadius: '0.25rem', fontSize: '0.8rem', cursor: 'pointer', marginTop: '0.25rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
+                  <Icon name="plus" size={13} color="var(--primary)" /> Add Link
                 </button>
               </div>
 
               {/* Support Column */}
               <div>
-                <h3 style={{ fontSize: '0.875rem', color: '#17653a', marginBottom: '0.5rem', fontWeight: 600 }}>Support</h3>
+                <h3 style={{ fontSize: '0.875rem', color: 'var(--primary)', marginBottom: '0.5rem', fontWeight: 600 }}>Support</h3>
                 {settings.support_links.map((link, idx) => (
                   <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <input
@@ -350,14 +350,14 @@ export default function DeveloperLandingSettingsPage() {
                     </button>
                   </div>
                 ))}
-                <button type="button" onClick={() => addLink('support_links')} style={{ background: '#e8f5ed', color: '#17653a', border: '1px solid #d7ebdf', padding: '0.35rem 0.75rem', borderRadius: '0.25rem', fontSize: '0.8rem', cursor: 'pointer', marginTop: '0.25rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
-                  <Icon name="plus" size={13} color="#17653a" /> Add Link
+                <button type="button" onClick={() => addLink('support_links')} style={{ background: '#e8f5ed', color: 'var(--primary)', border: '1px solid #d7ebdf', padding: '0.35rem 0.75rem', borderRadius: '0.25rem', fontSize: '0.8rem', cursor: 'pointer', marginTop: '0.25rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
+                  <Icon name="plus" size={13} color="var(--primary)" /> Add Link
                 </button>
               </div>
 
               {/* System Info Column */}
               <div>
-                <h3 style={{ fontSize: '0.875rem', color: '#17653a', marginBottom: '0.5rem', fontWeight: 600 }}>System Info</h3>
+                <h3 style={{ fontSize: '0.875rem', color: 'var(--primary)', marginBottom: '0.5rem', fontWeight: 600 }}>System Info</h3>
                 {settings.system_info_links.map((link, idx) => (
                   <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <input
@@ -372,8 +372,8 @@ export default function DeveloperLandingSettingsPage() {
                     </button>
                   </div>
                 ))}
-                <button type="button" onClick={() => addLink('system_info_links')} style={{ background: '#e8f5ed', color: '#17653a', border: '1px solid #d7ebdf', padding: '0.35rem 0.75rem', borderRadius: '0.25rem', fontSize: '0.8rem', cursor: 'pointer', marginTop: '0.25rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
-                  <Icon name="plus" size={13} color="#17653a" /> Add Link
+                <button type="button" onClick={() => addLink('system_info_links')} style={{ background: '#e8f5ed', color: 'var(--primary)', border: '1px solid #d7ebdf', padding: '0.35rem 0.75rem', borderRadius: '0.25rem', fontSize: '0.8rem', cursor: 'pointer', marginTop: '0.25rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
+                  <Icon name="plus" size={13} color="var(--primary)" /> Add Link
                 </button>
               </div>
             </div>
@@ -384,7 +384,7 @@ export default function DeveloperLandingSettingsPage() {
               type="submit"
               disabled={saving}
               style={{
-                background: '#17653a',
+                background: 'var(--primary)',
                 color: '#ffffff',
                 border: 'none',
                 padding: '0.65rem 1.75rem',

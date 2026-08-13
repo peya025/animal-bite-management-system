@@ -4,7 +4,7 @@ export const PatientFormContent = styled('div')({
   '.apm-tabs': {
     display: 'flex',
     gap: 4,
-    borderBottom: '2px solid #f3f4f6',
+    borderBottom: '2px solid var(--sidebar-header-border)',
     marginBottom: 20,
   },
   '.apm-tab': {
@@ -13,7 +13,7 @@ export const PatientFormContent = styled('div')({
     background: 'none',
     fontSize: 13.5,
     fontWeight: 600,
-    color: '#6b7280',
+    color: 'var(--text-secondary)',
     cursor: 'pointer',
     borderBottom: '2px solid transparent',
     marginBottom: -2,
@@ -21,19 +21,19 @@ export const PatientFormContent = styled('div')({
     transition: 'color 0.15s, border-color 0.15s',
   },
   '.apm-tab:hover': {
-    color: '#111827',
+    color: 'var(--text-h)',
   },
   '.apm-tab--active': {
     color: '#10b981',
     borderBottomColor: '#10b981',
   },
   '.apm-address-preview': {
-    background: '#f0fdf4',
-    border: '1px solid #bbf7d0',
+    background: 'var(--nav-item-active-bg)',
+    border: '1px solid var(--card-border)',
     borderRadius: 8,
     padding: '10px 14px',
     fontSize: 13,
-    color: '#065f46',
+    color: 'var(--nav-item-active-color)',
     marginTop: 6,
   },
   '.apm-check-grid': {
@@ -46,7 +46,7 @@ export const PatientFormContent = styled('div')({
     alignItems: 'center',
     gap: 7,
     fontSize: 13,
-    color: '#374151',
+    color: 'var(--text)',
     cursor: 'pointer',
   },
   '.apm-check input[type="checkbox"]': {

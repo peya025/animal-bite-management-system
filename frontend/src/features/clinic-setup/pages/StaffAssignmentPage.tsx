@@ -363,7 +363,7 @@ const styles: Record<string, React.CSSProperties> = {
   title: {
     fontSize: '25px',
     fontWeight: 600,
-    color: '#173d29',
+    color: 'var(--text-h)',
     fontFamily: "'Poppins', sans-serif",
     letterSpacing: '-0.5px',
     lineHeight: 1.2,

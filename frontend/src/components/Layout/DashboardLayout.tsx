@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { APP_NAME } from '../../constants';
 import ConfirmationDialog from '../feedback/ConfirmationDialog';
 import { DashboardLayoutRoot } from './DashboardLayout.styles';
-import { ROUTES } from '../../shared/config/routes';
 import {
   getNavItemsForRole,
   isRouteActive,
@@ -12,13 +11,14 @@ import {
   findActiveParentSubmenu,
   ROLE_LABELS,
 } from '../../shared/config/navigationConfig';
+import ThemeToggle from '../../shared/components/ThemeToggle';
 
 interface DashboardLayoutProps {
   children: ReactNode;
   pageTitle?: string;
 }
 
-export default function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, pageTitle: _pageTitle }: DashboardLayoutProps) {
   const { user, clinic, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -184,6 +184,7 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
             </button>
           </div>
           <div className="header-right">
+            <ThemeToggle />
             <div className="user-menu">
               <div className="user-info">
                 <div className="user-avatar">{initials}</div>

@@ -43,6 +43,31 @@ export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Gree
   --spacing-2xl: 4rem;
   --spacing-3xl: 6rem;
   --spacing-4xl: 8rem;
+  --body-bg: linear-gradient(135deg, #f0fdf4 0%, #ffffff 50%, #f0fdf4 100%);
+  --brand-text-full: #064e3b;
+  --green-gradient-light: #f0fdf4;
+  --hero-bg: #059669;
+}
+
+[data-theme='dark'] {
+  --white: #1e293b;
+  --black: #ffffff;
+  --gray-50: #0f172a;
+  --gray-100: #1e293b;
+  --gray-200: #334155;
+  --gray-300: #475569;
+  --gray-400: #64748b;
+  --gray-500: #cbd5e1;
+  --gray-600: #cbd5e1;
+  --gray-700: #cbd5e1;
+  --gray-900: #f3f4f6;
+  --glass-bg: rgba(30, 41, 59, 0.85);
+  --glass-border: rgba(71, 85, 105, 0.3);
+  --primary-light: rgba(16, 185, 129, 0.15);
+  --body-bg: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  --brand-text-full: #cbd5e1;
+  --green-gradient-light: #0b2c24;
+  --hero-bg: #0a2e26;
 }
 
 * {
@@ -55,7 +80,7 @@ body {
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
   color: var(--gray-700);
   line-height: 1.6;
-  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 50%, #f0fdf4 100%);
+  background: var(--body-bg);
   background-attachment: fixed;
 }
 
@@ -843,7 +868,7 @@ a {
 /* ===== Services Section (About This System) ===== */
 .services-section {
   padding: 80px 0;
-  background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
+  background: linear-gradient(180deg, var(--gray-50) 0%, var(--white) 100%);
   overflow: hidden;
 }
 
@@ -1048,7 +1073,7 @@ a {
 /* ===== Help Center ===== */
 .help-center {
   padding: 80px 24px;
-  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+  background: linear-gradient(180deg, var(--white) 0%, var(--green-gradient-light) 100%);
 }
 
 .help-grid {

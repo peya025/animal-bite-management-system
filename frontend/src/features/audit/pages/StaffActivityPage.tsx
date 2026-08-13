@@ -30,7 +30,7 @@ interface Summary {
 }
 
 const actionBadges: Record<string, { bg: string; color: string; border: string; icon: IconName }> = {
-  login: { bg: '#e8f5ed', color: '#17653a', border: '#d7ebdf', icon: 'login' },
+  login: { bg: '#e8f5ed', color: 'var(--primary)', border: '#d7ebdf', icon: 'login' },
   logout: { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', icon: 'logout' },
   created: { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd', icon: 'plus' },
   updated: { bg: '#f0f9ff', color: '#0284c7', border: '#e0f2fe', icon: 'edit' },
@@ -136,7 +136,7 @@ export default function StaffActivityPage() {
         <div className="db-kpi-card">
           <div className="db-kpi-header">
             <span className="db-kpi-label">Actions Today</span>
-            <Icon name="activity" size={16} color="#17653a" />
+            <Icon name="activity" size={16} color="var(--primary)" />
           </div>
           <div className="db-kpi-value">{summary?.today_actions ?? 0}</div>
           <div className="db-kpi-sub">System Activities Logged</div>
@@ -156,7 +156,7 @@ export default function StaffActivityPage() {
             <span className="db-kpi-label">After Hours Actions</span>
             <Icon name="warning" size={16} color={summary?.suspicious_after_hours ? '#d97706' : '#64748b'} />
           </div>
-          <div className="db-kpi-value" style={{ color: summary?.suspicious_after_hours ? '#d97706' : '#173d29' }}>
+          <div className="db-kpi-value" style={{ color: summary?.suspicious_after_hours ? '#d97706' : 'var(--text-h)' }}>
             {summary?.suspicious_after_hours ?? 0}
           </div>
           <div className="db-kpi-sub">Outside 8 AM – 5 PM Window</div>
@@ -165,7 +165,7 @@ export default function StaffActivityPage() {
         <div className="db-kpi-card">
           <div className="db-kpi-header">
             <span className="db-kpi-label">Most Active Staff</span>
-            <Icon name="users" size={16} color="#17653a" />
+            <Icon name="users" size={16} color="var(--primary)" />
           </div>
           <div className="db-kpi-value" style={{ fontSize: '1.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {summary?.most_active_user?.user?.name || '—'}
@@ -302,8 +302,8 @@ export default function StaffActivityPage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f0f7f2' }}>
-          <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#173d29', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Icon name="activity" size={18} color="#17653a" />
+          <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Icon name="activity" size={18} color="var(--primary)" />
             Audit Activity Logs ({logs.length})
           </div>
           <span style={{ fontSize: '0.75rem', color: '#77877d', fontWeight: 400 }}>
@@ -312,7 +312,7 @@ export default function StaffActivityPage() {
         </div>
 
         {loading ? (
-          <p style={{ padding: '2rem', textAlign: 'center', color: '#17653a', fontWeight: 400, margin: 0 }}>
+          <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--primary)', fontWeight: 400, margin: 0 }}>
             Loading staff activity logs...
           </p>
         ) : logs.length === 0 ? (
@@ -372,7 +372,7 @@ export default function StaffActivityPage() {
 
                       {/* Staff Member */}
                       <td>
-                        <div style={{ fontWeight: 500, color: '#173d29' }}>{log.user?.name || 'Unknown Staff'}</div>
+                        <div style={{ fontWeight: 500, color: 'var(--text-h)' }}>{log.user?.name || 'Unknown Staff'}</div>
                         <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{log.user?.role || '—'}</div>
                       </td>
 

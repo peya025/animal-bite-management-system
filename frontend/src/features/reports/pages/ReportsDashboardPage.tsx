@@ -37,7 +37,7 @@ const fmtDate = (iso?: string) => {
 
 // ─── Styles ───────────────────────────────────────────────────
 const sectionTitleStyle: React.CSSProperties = {
-  fontSize: 14, fontWeight: 700, color: '#173d29',
+  fontSize: 14, fontWeight: 700, color: 'var(--text-h)',
   borderLeft: '3px solid #10b981', paddingLeft: 10, marginBottom: 12,
 };
 const filterBarStyle: React.CSSProperties = {
@@ -62,7 +62,7 @@ const tableWrapStyle: React.CSSProperties = {
 };
 const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
 const thStyle: React.CSSProperties = {
-  background: '#f0fdf4', color: '#173d29', fontWeight: 600,
+  background: '#f0fdf4', color: 'var(--text-h)', fontWeight: 600,
   padding: '10px 14px', textAlign: 'left', borderBottom: '2px solid #10b981', whiteSpace: 'nowrap',
 };
 const tdStyle: React.CSSProperties = { padding: '9px 14px', borderBottom: '1px solid #f0f0f0' };
@@ -101,7 +101,7 @@ function StatBox({ label, value, color, sub, loading }: { label: string; value: 
 function CatBox({ cat, count, color, desc, loading }: { cat: string; count?: number; color: string; desc: string; loading: boolean }) {
   return (
     <div style={{ background: '#fff', border: `2px solid ${color}`, borderRadius: 10, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#173d29', marginBottom: 6 }}>{cat}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-h)', marginBottom: 6 }}>{cat}</div>
       <div style={{ fontSize: 32, fontWeight: 800, color: loading ? '#d1d5db' : color, lineHeight: 1 }}>{loading ? '—' : (count ?? 0)}</div>
       <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>{desc}</div>
     </div>
@@ -155,7 +155,7 @@ function PrintPreviewModal({ html, clinicName, printedBy, printDate, dateFrom, d
               </svg>
             </div>
             <div>
-              <h2 id="print-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#173d29' }}>Print Preview</h2>
+              <h2 id="print-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-h)' }}>Print Preview</h2>
               <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Review before sending to printer</p>
             </div>
           </div>
@@ -394,7 +394,7 @@ export default function ReportsDashboardPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 25, fontWeight: 600, color: '#173d29', margin: '0 0 7px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
+          <h1 style={{ fontSize: 25, fontWeight: 600, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
           <p style={{ fontSize: 13, color: '#77877d', margin: 0 }}>Generate and print system reports for the clinic</p>
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
@@ -571,7 +571,7 @@ export default function ReportsDashboardPage() {
                       <td style={tdStyle}>{i+1}</td>
                       <td style={{ ...tdStyle, fontWeight:600 }}>{item.vaccine_type}</td>
                       <td style={tdStyle}>{item.batch_number}</td>
-                      <td style={{ ...tdStyle, fontWeight:700, color: item.current_quantity === 0 ? '#ef4444' : '#173d29' }}>{item.current_quantity}</td>
+                      <td style={{ ...tdStyle, fontWeight:700, color: item.current_quantity === 0 ? '#ef4444' : 'var(--text-h)' }}>{item.current_quantity}</td>
                       <td style={tdStyle}>{fmtDate(item.expiration_date)}</td>
                       <td style={tdStyle}><InvStatusBadge status={item.status} /></td>
                     </tr>

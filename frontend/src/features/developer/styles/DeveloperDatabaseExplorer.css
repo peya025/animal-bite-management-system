@@ -7,7 +7,7 @@
 }
 
 .db-explorer-dbname {
-  color: #17653a;
+  color: var(--primary);
   background: #e8f5ed;
   padding: 0.15rem 0.5rem;
   border-radius: 0.25rem;
@@ -18,7 +18,7 @@
 
 .db-explorer-back-btn {
   background: #ffffff;
-  color: #17653a;
+  color: var(--primary);
   border: 1px solid #d7ebdf;
   padding: 0.45rem 1rem;
   border-radius: 0.5rem;
@@ -31,7 +31,7 @@
 
 .db-explorer-back-btn:hover {
   background: #e8f5ed;
-  color: #173d29;
+  color: var(--text-h);
 }
 
 /* Database Explorer KPI Grid */
@@ -71,14 +71,14 @@
 .db-kpi-value {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #173d29;
+  color: var(--text-h);
   line-height: 1.2;
   margin-top: 0.25rem;
 }
 
 .db-kpi-sub {
   font-size: 0.75rem;
-  color: #17653a;
+  color: var(--primary);
   font-weight: 400;
   margin-top: 0.35rem;
 }
@@ -106,7 +106,7 @@
   border-bottom: 1px solid #e6eee8;
   font-weight: 600;
   font-size: 0.8125rem;
-  color: #173d29;
+  color: var(--text-h);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -160,14 +160,14 @@
 
 .db-explorer-table-item:hover {
   background: #f0f7f2;
-  color: #17653a;
+  color: var(--primary);
 }
 
 .db-explorer-table-item.active {
   background: #e8f5ed;
-  color: #17653a;
+  color: var(--primary);
   font-weight: 500;
-  border-left-color: #17653a;
+  border-left-color: var(--primary);
 }
 
 .db-explorer-table-name {
@@ -188,7 +188,7 @@
 }
 
 .db-explorer-table-item.active .db-explorer-badge-count {
-  background: #17653a;
+  background: var(--primary);
   color: #ffffff;
 }
 
@@ -213,7 +213,7 @@
 .db-explorer-table-title {
   margin: 0;
   font-size: 1.1rem;
-  color: #173d29;
+  color: var(--text-h);
   font-family: monospace;
   font-weight: 600;
 }
@@ -247,7 +247,7 @@
   padding: 0.6rem 0.75rem;
   text-align: left;
   font-weight: 400;
-  color: #173d29;
+  color: var(--text-h);
   background: #f5f8f6;
   border-bottom: 1px solid #e0eae3;
   white-space: nowrap;

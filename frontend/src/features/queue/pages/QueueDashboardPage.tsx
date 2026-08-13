@@ -261,7 +261,7 @@ export default function QueueDashboard() {
               fontSize: '25px',
               lineHeight: 1.2,
               letterSpacing: '-0.5px',
-              color: '#173d29',
+              color: 'var(--text-h)',
               margin: '0 0 7px 0',
             }}
           >
@@ -298,7 +298,7 @@ export default function QueueDashboard() {
       <QueueStatsGrid stats={stats} />
 
       {/* Queue Table */}
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: '#f3f4f6', borderRadius: 3, overflow: 'hidden', background: '#ffffff', p: 3 }}>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
         <QueueFilterBar
           search={search}
           onSearchChange={v => { setSearch(v); setPage(0); }}

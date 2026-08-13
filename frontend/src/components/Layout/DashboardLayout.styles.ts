@@ -9,11 +9,20 @@ export const DashboardLayoutRoot = styled('div')`
   color: var(--text);
 
   .sidebar {
-    width: 248px; background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border);
+    width: 270px; background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border);
     display: flex; flex-direction: column; transition: width 0.25s ease;
     position: relative; flex-shrink: 0;
   }
   .sidebar.closed { width: 64px; }
+  .sidebar-toggle-collapsed {
+    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 8px; border: none;
+    background: transparent; color: var(--nav-item-color); cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .sidebar-toggle-collapsed:hover {
+    background: var(--nav-item-hover-bg); color: var(--nav-item-hover-color);
+  }
   .sidebar-header {
     height: 64px; padding: 0 16px; display: flex; align-items: center; gap: 12px;
     border-bottom: 1px solid var(--sidebar-header-border); flex-shrink: 0; overflow: hidden;
@@ -28,13 +37,17 @@ export const DashboardLayoutRoot = styled('div')`
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .clinic-info .app-name {
-    font-size: 10px; color: var(--text-secondary); margin: 0; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; text-transform: uppercase;
-    letter-spacing: 0.4px;
+    font-size: 10px; color: var(--text-secondary); margin: 0; white-space: normal;
+    text-transform: uppercase; letter-spacing: 0.4px; line-height: 1.3;
   }
   .sidebar-nav {
     flex: 1; padding: 12px 8px; overflow-y: auto; display: flex;
     flex-direction: column; gap: 2px;
+  }
+  .sidebar-footer-actions {
+    padding: 10px 8px 12px;
+    border-top: 1px solid var(--sidebar-header-border);
+    flex-shrink: 0;
   }
   .nav-item {
     display: flex; align-items: center; gap: 10px; padding: 10px 12px;
@@ -55,6 +68,15 @@ export const DashboardLayoutRoot = styled('div')`
   }
   .nav-chevron.expanded { transform: rotate(180deg); }
   .sidebar.closed .nav-label, .sidebar.closed .nav-chevron { display: none; }
+  .sidebar.closed .nav-item {
+    justify-content: center;
+    padding: 10px 0;
+  }
+  .sidebar.closed .sidebar-footer-actions {
+    padding: 10px 0 12px;
+    display: flex;
+    justify-content: center;
+  }
   .submenu {
     margin-left: 8px; margin-top: 2px; margin-bottom: 4px;
     border-left: 1px solid var(--sidebar-border); padding-left: 8px;
@@ -75,34 +97,9 @@ export const DashboardLayoutRoot = styled('div')`
   .submenu-label {
     flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .sidebar-user {
-    padding: 12px 12px 16px; border-top: 1px solid var(--sidebar-header-border);
-    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
-  }
-  .sidebar-user-avatar {
-    width: 34px; height: 34px; border-radius: 50%;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: white; display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700; flex-shrink: 0;
-  }
-  .sidebar-user-info {
-    flex: 1; min-width: 0; display: flex; flex-direction: column;
-  }
-  .sidebar-user-name {
-    font-size: 13px; font-weight: 600; color: var(--text-h); white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis;
-  }
-  .sidebar-user-role {
-    font-size: 11px; color: var(--text-secondary); white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis;
-  }
-  .sidebar-logout-btn {
-    width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--card-border);
-    background: var(--card-bg); display: flex; align-items: center; justify-content: center;
-    cursor: pointer; color: var(--text-secondary); flex-shrink: 0; transition: all 0.15s;
-  }
-  .sidebar-logout-btn:hover {
-    background: #fef2f2; border-color: #fca5a5; color: #dc2626;
+  .nav-item-logout:hover {
+    background: #fef2f2;
+    color: #dc2626;
   }
   .header-toggle {
     width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--card-border);
@@ -149,7 +146,7 @@ export const DashboardLayoutRoot = styled('div')`
       transition: transform 0.25s ease, width 0.25s ease;
     }
     .sidebar.open { transform: translateX(0); }
-    .sidebar.closed { width: 248px; transform: translateX(-100%); }
+    .sidebar.closed { width: 270px; transform: translateX(-100%); }
     .user-details { display: none; }
     .page-content { padding: 20px 16px; }
   }

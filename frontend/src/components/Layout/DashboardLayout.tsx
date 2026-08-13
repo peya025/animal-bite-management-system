@@ -12,6 +12,7 @@ import {
   ROLE_LABELS,
 } from '../../shared/config/navigationConfig';
 import ThemeToggle from '../../shared/components/ThemeToggle';
+import NotificationButton from '../../shared/components/NotificationButton';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -56,15 +57,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
 
         {/* Brand */}
         <div className="sidebar-header" style={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', padding: sidebarOpen ? '0 16px' : '0' }}>
-          {!sidebarOpen ? (
-            <button className="header-toggle" onClick={() => setSidebarOpen(true)} title="Expand Sidebar" style={{ border: 'none', background: 'transparent', boxShadow: 'none' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="4" y1="12" x2="20" y2="12"></line>
-                <line x1="4" y1="6" x2="20" y2="6"></line>
-                <line x1="4" y1="18" x2="20" y2="18"></line>
-              </svg>
-            </button>
-          ) : (
+          {sidebarOpen ? (
             <>
               <div className="clinic-logo">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
@@ -77,6 +70,19 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                 <p className="app-name">{APP_NAME}</p>
               </div>
             </>
+          ) : (
+            <button
+              className="sidebar-toggle-collapsed"
+              onClick={() => setSidebarOpen(true)}
+              title="Expand Sidebar"
+              type="button"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="12" x2="20" y2="12"></line>
+                <line x1="4" y1="6" x2="20" y2="6"></line>
+                <line x1="4" y1="18" x2="20" y2="18"></line>
+              </svg>
+            </button>
           )}
         </div>
 
@@ -120,8 +126,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                     </>
                   )}
                 </button>
-                
-                {/* Submenu rendering */}
+
                 {hasSub && sidebarOpen && expandedMenu === item.label && (
                   <div className="submenu">
                     {item.submenu!.map((subItem) => (
@@ -141,29 +146,23 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
           })}
         </nav>
 
-        {/* User card */}
-        {sidebarOpen && (
-          <div className="sidebar-user">
-            <div className="sidebar-user-avatar">{initials}</div>
-            <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{user?.name}</span>
-              <span className="sidebar-user-role">
-                {user?.role ? ROLE_LABELS[user.role] : ''}
-              </span>
-            </div>
-            <button
-              className="sidebar-logout-btn"
-              onClick={() => setShowLogoutModal(true)}
-              title="Logout"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <div className="sidebar-footer-actions">
+          <button
+            className="nav-item nav-item-logout"
+            onClick={() => setShowLogoutModal(true)}
+            title={!sidebarOpen ? 'Logout' : undefined}
+            type="button"
+          >
+            <span className="nav-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                 <polyline points="16 17 21 12 16 7"/>
                 <line x1="21" y1="12" x2="9" y2="12"/>
               </svg>
-            </button>
-          </div>
-        )}
+            </span>
+            {sidebarOpen && <span className="nav-label">Logout</span>}
+          </button>
+        </div>
 
       </aside>
 
@@ -171,19 +170,23 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
       <div className="main-content">
         <header className="top-header">
           <div className="header-left">
-            <button
-              className="header-toggle"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              title={sidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="4" y1="12" x2="20" y2="12"></line>
-                <line x1="4" y1="6" x2="20" y2="6"></line>
-                <line x1="4" y1="18" x2="20" y2="18"></line>
-              </svg>
-            </button>
+            {sidebarOpen && (
+              <button
+                className="header-toggle"
+                onClick={() => setSidebarOpen(false)}
+                title="Collapse Sidebar"
+                type="button"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="4" y1="12" x2="20" y2="12"></line>
+                  <line x1="4" y1="6" x2="20" y2="6"></line>
+                  <line x1="4" y1="18" x2="20" y2="18"></line>
+                </svg>
+              </button>
+            )}
           </div>
           <div className="header-right">
+            <NotificationButton />
             <ThemeToggle />
             <div className="user-menu">
               <div className="user-info">
@@ -193,13 +196,6 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                   <p className="user-role">{user?.role ? ROLE_LABELS[user.role] : 'User'}</p>
                 </div>
               </div>
-              <button className="logout-button" onClick={() => setShowLogoutModal(true)} title="Logout">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                  <polyline points="16 17 21 12 16 7"/>
-                  <line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
-              </button>
             </div>
           </div>
         </header>

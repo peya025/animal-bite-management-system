@@ -178,6 +178,48 @@ export default function DeveloperLandingSettingsPage() {
         </button>
       </div>
 
+      {/* Developer Tools Navigation Switcher Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, borderBottom: '2px solid #e2e8f0', paddingBottom: 2 }}>
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.DEVELOPER_SETTINGS)}
+          style={{
+            background: 'none',
+            border: 'none',
+            borderBottom: '3px solid #10b981',
+            padding: '8px 16px',
+            fontSize: 14,
+            fontWeight: 700,
+            color: '#065f46',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <Icon name="developerSettings" size={16} color="#065f46" /> Landing & Footer Customizer
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.DATABASE_EXPLORER)}
+          style={{
+            background: 'none',
+            border: 'none',
+            borderBottom: '3px solid transparent',
+            padding: '8px 16px',
+            fontSize: 14,
+            fontWeight: 500,
+            color: '#64748b',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <Icon name="databaseExplorer" size={16} color="#64748b" /> Database Explorer (XAMPP Schema Inspector)
+        </button>
+      </div>
+
       {successMsg && (
         <div style={{ padding: '0.75rem 1rem', background: '#e8f5ed', color: 'var(--primary)', border: '1px solid #d7ebdf', borderRadius: '0.5rem', marginBottom: '1.25rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
           <Icon name="check" size={16} color="var(--primary)" />

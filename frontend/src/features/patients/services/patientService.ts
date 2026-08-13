@@ -28,6 +28,7 @@ export async function createPatientRecord(
     address_purok: addressDetails.purok,
     province: 'Misamis Oriental',
     contact_number: enrolment.contact_number,
+    email: cleanField(enrolment.email),
     emergency_contact_number: enrolment.emergency_contact_phone,
     
     // Clean fields that shouldn't send empty strings to strict enum rules

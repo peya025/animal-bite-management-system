@@ -71,6 +71,37 @@ class MobileApi {
     await _setToken(data['token'] as String, persist: true);
   }
 
+  Future<void> activateInvitation({
+    required String token,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final rootUrl = _baseUrl.replaceAll('/api/mobile', '/api');
+    final response = await http.post(
+      Uri.parse('$rootUrl/patient-invitations/activate'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode({
+        'token': token,
+        'email': email,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      }),
+    ).timeout(_requestTimeout);
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(data['message'] ?? 'Invalid or expired code. Please contact the clinic for a new invite.');
+    }
+
+    final authToken = data['token'] as String;
+    await _setToken(authToken, persist: true);
+  }
+
   Future<void> login({
     required String email,
     required String password,

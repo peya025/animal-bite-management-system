@@ -83,6 +83,11 @@ Route::prefix('mobile')->group(function () {
     });
 });
 
+use App\Http\Controllers\PatientInvitationController;
+
+// Mobile Patient Invitation Activation (public, token-based)
+Route::post('/patient-invitations/activate', [PatientInvitationController::class, 'activate']);
+
 // Invitation acceptance (public, token-based)
 Route::prefix('staff-invitations')->group(function () {
     Route::get('/validate/{token}', [StaffInvitationController::class, 'validateToken']);
@@ -159,6 +164,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Delete (admin only)
         Route::delete('/{id}', [PatientController::class, 'destroy'])->middleware('role:admin');
+    });
+
+    // Patient Portal Invitations & Account Linking (Staff endpoints)
+    Route::middleware('role:admin,registration,triage')->group(function () {
+        Route::post('/patient-invitations', [PatientInvitationController::class, 'store']);
+        Route::post('/patient-invitations/{id}/resend', [PatientInvitationController::class, 'resend']);
+        Route::post('/patients/{patient_id}/link-account', [PatientInvitationController::class, 'linkAccount']);
+        Route::patch('/patient-account-patient/{id}/verify', [PatientInvitationController::class, 'verifyLink']);
     });
 
     // Bite Case Management (admin, triage can manage; treatment can view)

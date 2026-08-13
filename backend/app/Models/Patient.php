@@ -25,6 +25,7 @@ class Patient extends Model
         'date_of_birth',
         'address',
         'contact_number',
+        'email',
         'emergency_contact_name',
         'emergency_contact_number',
         'registered_by',
@@ -246,5 +247,13 @@ class Patient extends Model
             ->where('appointment_date', '>=', now()->toDateString())
             ->where('status', 'scheduled')
             ->orderBy('appointment_date');
+    }
+
+    /**
+     * Patient invitations relationship
+     */
+    public function invitations()
+    {
+        return $this->hasMany(PatientInvitation::class, 'patient_id', 'patient_id');
     }
 }

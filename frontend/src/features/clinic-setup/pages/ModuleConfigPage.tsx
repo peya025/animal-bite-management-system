@@ -609,7 +609,7 @@ export default function ModuleConfigPage() {
                               onChange={(e) =>
                                 handleFieldRuleChange(field.key, e.target.value as FieldRuleValue)
                               }
-                              style={{ minWidth: '120px', fontSize: '0.8125rem' }}
+                              style={{ minWidth: '120px' }}
                             >
                               <option value="required">Required</option>
                               <option value="optional">Optional</option>

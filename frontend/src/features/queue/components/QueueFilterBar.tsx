@@ -57,6 +57,16 @@ export function QueueFilterBar({
               label="Status"
               value={statusFilter}
               onChange={e => onStatusChange(e.target.value)}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    mt: 0.5,
+                    borderRadius: 2,
+                    minWidth: 220,
+                    boxShadow: '0 8px 24px rgba(15, 23, 42, 0.14)',
+                  },
+                },
+              }}
               sx={{
                 bgcolor: 'var(--input-bg)',
                 borderRadius: 2,

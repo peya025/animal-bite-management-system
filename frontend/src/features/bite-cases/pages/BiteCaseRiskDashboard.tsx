@@ -469,9 +469,9 @@ export default function BiteCaseRiskDashboard() {
             </Grid>
             <Grid size={{ xs: 12, sm: 4, md: 2 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: 13 }}>Severity</InputLabel>
+                <InputLabel>Severity</InputLabel>
                 <Select label="Severity" value={severity} onChange={e => { setSeverity(e.target.value); setPage(0); }}
-                  sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', fontSize: 13, borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
+                  sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="severe">Severe</MenuItem>
                   <MenuItem value="moderate">Moderate</MenuItem>
@@ -481,9 +481,9 @@ export default function BiteCaseRiskDashboard() {
             </Grid>
             <Grid size={{ xs: 12, sm: 4, md: 2 }}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: 13 }}>Status</InputLabel>
+                <InputLabel>Status</InputLabel>
                 <Select label="Status" value={status} onChange={e => { setStatus(e.target.value); setPage(0); }}
-                  sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', fontSize: 13, borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
+                  sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="active">Active</MenuItem>
                   <MenuItem value="completed">Completed</MenuItem>

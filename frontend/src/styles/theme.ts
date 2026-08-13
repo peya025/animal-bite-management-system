@@ -143,6 +143,7 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
             borderRadius: 10,
             backgroundColor: colors.surface,
             color: colors.text,
+            minHeight: 40,
             '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.inputBorder },
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? '#475569' : '#9fc5ad' },
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
@@ -150,22 +151,51 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
               borderWidth: '1.5px',
             },
           },
+          input: {
+            fontSize: '14px',
+            lineHeight: 1.4,
+            padding: '10px 14px',
+          },
         },
       },
       MuiInputLabel: {
         styleOverrides: {
           root: {
             color: colors.textSecondary,
+            fontSize: '14px',
             '&.Mui-focused': {
               color: '#10b981',
             },
+          },
+          shrink: {
+            fontSize: '14px',
           },
         },
       },
       MuiSelect: {
         styleOverrides: {
+          select: {
+            fontSize: '14px',
+            lineHeight: 1.4,
+            padding: '10px 14px',
+            minHeight: 'unset',
+            display: 'flex',
+            alignItems: 'center',
+          },
           icon: {
             color: colors.textSecondary,
+          },
+        },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: {
+            minHeight: 46,
+            padding: '12px 16px',
+            fontSize: '14px',
+            lineHeight: 1.4,
+            borderRadius: 8,
+            margin: '2px 6px',
           },
         },
       },

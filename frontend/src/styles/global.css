@@ -158,8 +158,65 @@ html {
 
 body {
   margin: 0;
-  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
+  font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  select:not(.MuiNativeSelect-select) {
+  min-height: 38px;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
+  color: var(--input-text);
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 0.5rem;
+  box-sizing: border-box;
+}
+
+.MuiMenu-paper {
+  border-radius: 12px !important;
+  border: 1px solid var(--table-row-border) !important;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12) !important;
+  overflow: hidden !important;
+}
+
+.MuiMenu-paper .MuiMenu-list {
+  padding: 8px !important;
+}
+
+.MuiMenu-paper .MuiMenuItem-root {
+  min-height: 42px !important;
+  padding: 10px 14px !important;
+  line-height: 1.4 !important;
+  font-size: 14px !important;
+  border-radius: 10px !important;
+  margin: 0 !important;
+}
+
+.MuiMenu-paper .MuiMenuItem-root + .MuiMenuItem-root {
+  margin-top: 4px !important;
+}
+
+.MuiMenu-paper .MuiMenuItem-root.Mui-selected {
+  background: #effaf7 !important;
+}
+
+.MuiMenu-paper .MuiMenuItem-root.Mui-selected:hover {
+  background: #e7f7f2 !important;
+}
+
+.MuiMenu-paper .MuiMenuItem-root > * {
+  font-size: 14px !important;
+}
+
+.MuiMenu-paper .MuiMenuItem-root svg {
+  font-size: 16px !important;
 }
 
 /* Global dark-mode harmonization for remaining legacy MUI/HTML surfaces */

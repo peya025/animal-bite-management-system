@@ -342,7 +342,7 @@ export function SimpleDashboardPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Role</span>
-                  <select className="sd-filter-select" style={{ padding: '6px 10px', fontSize: '12px', width: '100%' }}>
+                  <select className="sd-filter-select" style={{ width: '100%' }}>
                     <option>All</option><option>Admin</option><option>Triage</option>
                     <option>Registration</option><option>Treatment</option>
                   </select>
@@ -350,7 +350,7 @@ export function SimpleDashboardPage() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
-                  <select className="sd-filter-select" style={{ padding: '6px 10px', fontSize: '12px', width: '100%' }}>
+                  <select className="sd-filter-select" style={{ width: '100%' }}>
                     <option>All</option><option>Ongoing</option>
                     <option>Completed</option><option>Abandoned</option>
                   </select>
@@ -358,7 +358,7 @@ export function SimpleDashboardPage() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Range</span>
-                  <select className="sd-filter-select" style={{ padding: '6px 10px', fontSize: '12px', width: '100%' }}>
+                  <select className="sd-filter-select" style={{ width: '100%' }}>
                     <option>This Month</option><option>Last 3 Months</option>
                     <option>Last 6 Months</option><option>This Year</option>
                   </select>

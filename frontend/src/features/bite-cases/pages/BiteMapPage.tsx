@@ -223,31 +223,108 @@ export default function BiteMapPage() {
               size="small"
               value={datePreset}
               onChange={(e) => setDatePreset(e.target.value)}
-              sx={{ fontSize: 13, height: 36, bgcolor: 'var(--input-bg)', color: 'var(--input-text)', borderRadius: 1.5 }}
-              MenuProps={{ style: { maxHeight: 260 } }}
+              renderValue={(value) => {
+                const dateOptionMap: Record<string, { label: string; icon: JSX.Element }> = {
+                  all: { label: 'All Time', icon: <CalendarTodayIcon sx={{ fontSize: 16, color: '#5f99f6' }} /> },
+                  week: { label: 'This Week', icon: <DateRangeIcon sx={{ fontSize: 16, color: '#32c48d' }} /> },
+                  month: { label: 'This Month', icon: <CalendarMonthIcon sx={{ fontSize: 16, color: '#8b5cf6' }} /> },
+                  last30: { label: 'Last 30 Days', icon: <HistoryIcon sx={{ fontSize: 16, color: '#f59e0b' }} /> },
+                };
+                const option = dateOptionMap[String(value)] ?? dateOptionMap.all;
+
+                return (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      minWidth: 0,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {option.icon}
+                    <Box
+                      component="span"
+                      sx={{
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {option.label}
+                    </Box>
+                  </Box>
+                );
+              }}
+              sx={{
+                width: 148,
+                bgcolor: '#ffffff',
+                color: '#6f879d',
+                borderRadius: 2.5,
+                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+                '& .MuiSelect-select': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  py: 1,
+                  pl: 1.5,
+                  pr: 4.5,
+                },
+                '& .MuiSelect-icon': {
+                  color: '#8aa0b3',
+                  fontSize: 18,
+                  right: 10,
+                  top: 'calc(50% - 9px)',
+                },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e9eef3' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee', borderWidth: '1px' },
+              }}
+              MenuProps={{
+                disableScrollLock: true,
+                slotProps: {
+                  paper: {
+                    sx: {
+                      width: 148,
+                      minWidth: 148,
+                      maxWidth: 148,
+                      mt: 0.5,
+                      borderRadius: 2.5,
+                      overflow: 'hidden',
+                    },
+                  },
+                  list: {
+                    sx: {
+                      p: 0.5,
+                    },
+                  },
+                },
+              }}
             >
-              <MenuItem value="all">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CalendarTodayIcon sx={{ fontSize: 16, color: '#3b82f6' }} />
-                  <span>All Time</span>
+              <MenuItem value="all" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4, bgcolor: '#effaf7' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
+                  <CalendarTodayIcon sx={{ fontSize: 17, color: '#5f99f6' }} />
+                  <span style={{ fontSize: '13px' }}>All Time</span>
                 </Box>
               </MenuItem>
-              <MenuItem value="week">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <DateRangeIcon sx={{ fontSize: 16, color: '#10b981' }} />
-                  <span>This Week</span>
+              <MenuItem value="week" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
+                  <DateRangeIcon sx={{ fontSize: 17, color: '#32c48d' }} />
+                  <span style={{ fontSize: '13px' }}>This Week</span>
                 </Box>
               </MenuItem>
-              <MenuItem value="month">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CalendarMonthIcon sx={{ fontSize: 16, color: '#8b5cf6' }} />
-                  <span>This Month</span>
+              <MenuItem value="month" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
+                  <CalendarMonthIcon sx={{ fontSize: 17, color: '#8b5cf6' }} />
+                  <span style={{ fontSize: '13px' }}>This Month</span>
                 </Box>
               </MenuItem>
-              <MenuItem value="last30">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <HistoryIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
-                  <span>Last 30 Days</span>
+              <MenuItem value="last30" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
+                  <HistoryIcon sx={{ fontSize: 17, color: '#f59e0b' }} />
+                  <span style={{ fontSize: '13px' }}>Last 30 Days</span>
                 </Box>
               </MenuItem>
             </Select>
@@ -256,31 +333,108 @@ export default function BiteMapPage() {
               size="small"
               value={selectedSeverity}
               onChange={(e) => setSelectedSeverity(e.target.value)}
-              sx={{ fontSize: 13, height: 36, bgcolor: 'var(--input-bg)', color: 'var(--input-text)', borderRadius: 1.5 }}
-              MenuProps={{ style: { maxHeight: 260 } }}
+              renderValue={(value) => {
+                const severityOptionMap: Record<string, { label: string; icon: JSX.Element }> = {
+                  all: { label: 'All Categories', icon: <CategoryIcon sx={{ fontSize: 16, color: '#7d93aa' }} /> },
+                  severe: { label: 'Category III (Severe)', icon: <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} /> },
+                  moderate: { label: 'Category II (Moderate)', icon: <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b', flexShrink: 0 }} /> },
+                  minor: { label: 'Category I (Minor)', icon: <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981', flexShrink: 0 }} /> },
+                };
+                const option = severityOptionMap[String(value)] ?? severityOptionMap.all;
+
+                return (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      minWidth: 0,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {option.icon}
+                    <Box
+                      component="span"
+                      sx={{
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {option.label}
+                    </Box>
+                  </Box>
+                );
+              }}
+              sx={{
+                width: 212,
+                bgcolor: '#ffffff',
+                color: '#6f879d',
+                borderRadius: 2.5,
+                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+                '& .MuiSelect-select': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  py: 1,
+                  pl: 1.5,
+                  pr: 4.5,
+                },
+                '& .MuiSelect-icon': {
+                  color: '#8aa0b3',
+                  fontSize: 18,
+                  right: 10,
+                  top: 'calc(50% - 9px)',
+                },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e9eef3' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee', borderWidth: '1px' },
+              }}
+              MenuProps={{
+                disableScrollLock: true,
+                slotProps: {
+                  paper: {
+                    sx: {
+                      width: 212,
+                      minWidth: 212,
+                      maxWidth: 212,
+                      mt: 0.5,
+                      borderRadius: 2.5,
+                      overflow: 'hidden',
+                    },
+                  },
+                  list: {
+                    sx: {
+                      p: 0.5,
+                    },
+                  },
+                },
+              }}
             >
-              <MenuItem value="all">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CategoryIcon sx={{ fontSize: 16, color: '#6b7280' }} />
-                  <span>All Categories</span>
+              <MenuItem value="all" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4, bgcolor: '#effaf7' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
+                  <CategoryIcon sx={{ fontSize: 17, color: '#7d93aa' }} />
+                  <span style={{ fontSize: '13px' }}>All Categories</span>
                 </Box>
               </MenuItem>
-              <MenuItem value="severe">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <MenuItem value="severe" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
                   <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ef4444' }} />
-                  <span>Category III (Severe)</span>
+                  <span style={{ fontSize: '13px' }}>Category III (Severe)</span>
                 </Box>
               </MenuItem>
-              <MenuItem value="moderate">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <MenuItem value="moderate" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
                   <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b' }} />
-                  <span>Category II (Moderate)</span>
+                  <span style={{ fontSize: '13px' }}>Category II (Moderate)</span>
                 </Box>
               </MenuItem>
-              <MenuItem value="minor">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <MenuItem value="minor" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
                   <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
-                  <span>Category I (Minor)</span>
+                  <span style={{ fontSize: '13px' }}>Category I (Minor)</span>
                 </Box>
               </MenuItem>
             </Select>

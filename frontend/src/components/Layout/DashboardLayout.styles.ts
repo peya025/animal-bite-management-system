@@ -97,6 +97,36 @@ export const DashboardLayoutRoot = styled('div')`
   .submenu-label {
     flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+  .sidebar-user {
+    padding: 12px 16px; border-top: 1px solid var(--sidebar-header-border);
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    overflow: hidden;
+  }
+  .sidebar-user-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; flex-shrink: 0;
+  }
+  .sidebar-user-info {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+  }
+  .sidebar-user-name {
+    font-size: 13px; font-weight: 600; color: var(--text-h); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .sidebar-user-role {
+    font-size: 11px; color: var(--text-secondary); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .sidebar-logout-btn {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--card-border);
+    background: var(--card-bg); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--text-secondary); flex-shrink: 0; transition: all 0.15s;
+  }
+  .sidebar-logout-btn:hover {
+    background: #fef2f2; border-color: #fca5a5; color: #dc2626;
+  }
   .nav-item-logout:hover {
     background: #fef2f2;
     color: #dc2626;

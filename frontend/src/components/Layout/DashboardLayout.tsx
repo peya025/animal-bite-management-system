@@ -146,23 +146,46 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
           })}
         </nav>
 
-        <div className="sidebar-footer-actions">
-          <button
-            className="nav-item nav-item-logout"
-            onClick={() => setShowLogoutModal(true)}
-            title={!sidebarOpen ? 'Logout' : undefined}
-            type="button"
-          >
-            <span className="nav-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {sidebarOpen ? (
+          <div className="sidebar-user">
+            <div className="sidebar-user-avatar">{initials}</div>
+            <div className="sidebar-user-info">
+              <span className="sidebar-user-name">{user?.name}</span>
+              <span className="sidebar-user-role">
+                {user?.role ? ROLE_LABELS[user.role] : ''}
+              </span>
+            </div>
+            <button
+              className="sidebar-logout-btn"
+              onClick={() => setShowLogoutModal(true)}
+              title="Logout"
+              type="button"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                 <polyline points="16 17 21 12 16 7"/>
                 <line x1="21" y1="12" x2="9" y2="12"/>
               </svg>
-            </span>
-            {sidebarOpen && <span className="nav-label">Logout</span>}
-          </button>
-        </div>
+            </button>
+          </div>
+        ) : (
+          <div className="sidebar-footer-actions">
+            <button
+              className="nav-item nav-item-logout"
+              onClick={() => setShowLogoutModal(true)}
+              title="Logout"
+              type="button"
+            >
+              <span className="nav-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </span>
+            </button>
+          </div>
+        )}
 
       </aside>
 

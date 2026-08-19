@@ -111,6 +111,7 @@ export default function PatientDetailsModal({
 
   const p = patient as any; // extended fields not in base type
   const d = p.details || {}; // patient_details relationship
+  const details = d;
 
   const handleDirectPrint = async () => {
     if (!patient || printing) return;

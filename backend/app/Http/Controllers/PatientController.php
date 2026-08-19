@@ -34,6 +34,7 @@ class PatientController extends Controller
                 $query = Patient::where('clinic_id', $clinicId)
                     ->with([
                         'registeredBy',
+                        'details',
                         'latestTreatmentRecord',
                         'upcomingAppointment',
                         'queues' => function ($q) {
@@ -134,6 +135,10 @@ class PatientController extends Controller
             'philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category',
             'fourps_member', 'dswd_nhts',
         ]);
+
+        if (!empty(array_filter($detailsData, fn($v) => !is_null($v) && $v !== ''))) {
+            $patient->details()->create($detailsData);
+        }
         
         // Invalidate patient list cache for this clinic
         $this->clearPatientListCache($request->user()->clinic_id);
@@ -159,6 +164,7 @@ class PatientController extends Controller
                 return Patient::where('clinic_id', $request->user()->clinic_id)
                     ->with([
                         'registeredBy',
+                        'details',
                         'biteIncidents',
                         'vaccinationSchedules' => function($query) {
                             $query->orderBy('scheduled_date');

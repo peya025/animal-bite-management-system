@@ -181,13 +181,16 @@ class PatientController extends Controller
                     ->with([
                         'registeredBy',
                         'details',
-                        'biteIncidents',
-                        'vaccinationSchedules' => function($query) {
-                            $query->orderBy('scheduled_date');
+                        // Form 2: Bite cases with their nested treatment records
+                        'biteIncidents' => function($query) {
+                            $query->with(['treatmentRecords' => function($q) {
+                                $q->orderBy('dose_number')->orderBy('scheduled_date');
+                            }])->latest('bite_date');
                         },
-                        'queueEntries' => function($query) {
-                            $query->latest()->limit(5);
-                        }
+                        // Form 3: All treatment records (vaccinations + consultations)
+                        'treatmentRecords' => function($query) {
+                            $query->orderBy('dose_number')->orderBy('scheduled_date');
+                        },
                     ])
                     ->findOrFail($id);
             })

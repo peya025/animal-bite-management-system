@@ -60,7 +60,7 @@
 .pm-title {
   font-size: 25px;
   font-weight: 600;
-  color: #173d29;
+  color: var(--text-h);
   margin: 0 0 7px;
   letter-spacing: -0.5px;
   line-height: 1.2;

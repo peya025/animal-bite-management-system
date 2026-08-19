@@ -363,7 +363,7 @@ const styles: Record<string, React.CSSProperties> = {
   title: {
     fontSize: '25px',
     fontWeight: 600,
-    color: '#173d29',
+    color: 'var(--text-h)',
     fontFamily: "'Poppins', sans-serif",
     letterSpacing: '-0.5px',
     lineHeight: 1.2,
@@ -523,8 +523,11 @@ const styles: Record<string, React.CSSProperties> = {
     textTransform: 'capitalize',
   },
   select: {
-    padding: '8px 32px 8px 12px',
-    fontSize: '13px',
+    minHeight: '38px',
+    padding: '10px 32px 10px 14px',
+    fontSize: '14px',
+    lineHeight: 1.4,
+    fontFamily: "'Poppins', sans-serif",
     border: '1px solid #e5e7eb',
     borderRadius: '8px',
     backgroundColor: '#ffffff',
@@ -533,6 +536,7 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none',
     transition: 'border-color 0.2s',
     minWidth: '160px',
+    boxSizing: 'border-box',
   },
   infoBox: {
     display: 'flex',

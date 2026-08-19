@@ -37,7 +37,7 @@ const fmtDate = (iso?: string) => {
 
 // ─── Styles ───────────────────────────────────────────────────
 const sectionTitleStyle: React.CSSProperties = {
-  fontSize: 14, fontWeight: 700, color: '#173d29',
+  fontSize: 14, fontWeight: 700, color: 'var(--text-h)',
   borderLeft: '3px solid #10b981', paddingLeft: 10, marginBottom: 12,
 };
 const filterBarStyle: React.CSSProperties = {
@@ -62,7 +62,7 @@ const tableWrapStyle: React.CSSProperties = {
 };
 const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
 const thStyle: React.CSSProperties = {
-  background: '#f0fdf4', color: '#173d29', fontWeight: 600,
+  background: '#f0fdf4', color: 'var(--text-h)', fontWeight: 600,
   padding: '10px 14px', textAlign: 'left', borderBottom: '2px solid #10b981', whiteSpace: 'nowrap',
 };
 const tdStyle: React.CSSProperties = { padding: '9px 14px', borderBottom: '1px solid #f0f0f0' };
@@ -101,7 +101,7 @@ function StatBox({ label, value, color, sub, loading }: { label: string; value: 
 function CatBox({ cat, count, color, desc, loading }: { cat: string; count?: number; color: string; desc: string; loading: boolean }) {
   return (
     <div style={{ background: '#fff', border: `2px solid ${color}`, borderRadius: 10, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#173d29', marginBottom: 6 }}>{cat}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-h)', marginBottom: 6 }}>{cat}</div>
       <div style={{ fontSize: 32, fontWeight: 800, color: loading ? '#d1d5db' : color, lineHeight: 1 }}>{loading ? '—' : (count ?? 0)}</div>
       <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>{desc}</div>
     </div>
@@ -155,7 +155,7 @@ function PrintPreviewModal({ html, clinicName, printedBy, printDate, dateFrom, d
               </svg>
             </div>
             <div>
-              <h2 id="print-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#173d29' }}>Print Preview</h2>
+              <h2 id="print-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-h)' }}>Print Preview</h2>
               <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Review before sending to printer</p>
             </div>
           </div>
@@ -253,39 +253,60 @@ export default function ReportsDashboardPage() {
   const loadReports = async () => {
     setLoading(true); setError('');
     try {
-      const params = { date_from: dateFrom, date_to: dateTo };
+      // Backend uses /cases (not /bite-cases), from_date/to_date (not date_from/date_to)
+      const params = { from_date: dateFrom, to_date: dateTo };
       const [casesRes, patsRes] = await Promise.all([
-        api.get('/bite-cases', { params: { ...params, per_page: 100 } }),
-        api.get('/patients',   { params: { ...params, per_page: 100 } }),
+        api.get('/cases',    { params: { ...params, per_page: 100 } }),
+        api.get('/patients', { params: { per_page: 100 } }),
       ]);
-      const casesData = casesRes.data?.data ?? casesRes.data ?? [];
-      const patsData  = patsRes.data?.data  ?? patsRes.data  ?? [];
-      setBiteCases(Array.isArray(casesData) ? casesData : []);
-      setPatients(Array.isArray(patsData)   ? patsData  : []);
-      const cases: BiteCase[] = Array.isArray(casesData) ? casesData : [];
-      const pts:   Patient[]  = Array.isArray(patsData)  ? patsData  : [];
-      const catI      = cases.filter(c => String(c.category).includes('I') && !String(c.category).includes('II') && !String(c.category).includes('III')).length;
-      const catII     = cases.filter(c => String(c.category) === 'II' || String(c.category) === 'Category II').length;
-      const catIII    = cases.filter(c => String(c.category).includes('III')).length;
-      const completed = cases.filter(c => c.status === 'completed').length;
-      const ongoing   = cases.filter(c => c.status === 'ongoing' || c.status === 'active').length;
+      const casesRaw = casesRes.data?.data ?? casesRes.data ?? [];
+      const patsRaw  = patsRes.data?.data  ?? patsRes.data  ?? [];
+
+      const casesData: BiteCase[] = (Array.isArray(casesRaw) ? casesRaw : []).map((c: any) => ({
+        id:           c.id ?? c.bite_id,
+        // backend returns patient.first_name + last_name, not patient_name
+        patient_name: c.patient ? `${c.patient.first_name ?? ''} ${c.patient.last_name ?? ''}`.trim() : (c.patient_name ?? '—'),
+        // backend uses 'severity' (minor/moderate/severe) not 'category'
+        category:     c.severity
+          ? (c.severity === 'minor' ? 'Category I' : c.severity === 'moderate' ? 'Category II' : 'Category III')
+          : (c.category ?? '—'),
+        animal_type:  c.animal_type ?? '—',
+        status:       c.status ?? '—',
+        created_at:   c.created_at ?? c.bite_date ?? '',
+      }));
+
+      const patsData: Patient[] = Array.isArray(patsRaw) ? patsRaw : [];
+      setBiteCases(casesData);
+      setPatients(patsData);
+
+      const catI   = casesData.filter(c => c.category === 'Category I').length;
+      const catII  = casesData.filter(c => c.category === 'Category II').length;
+      const catIII = casesData.filter(c => c.category === 'Category III').length;
+      const completed = casesData.filter(c => c.status === 'completed').length;
+      const ongoing   = casesData.filter(c => c.status === 'ongoing' || c.status === 'active').length;
+
       const [gPats, gCases] = await Promise.allSettled([
-        api.get('/patients',   { params: { per_page: 1 } }),
-        api.get('/bite-cases', { params: { per_page: 1 } }),
+        api.get('/patients', { params: { per_page: 1 } }),
+        api.get('/cases',    { params: { per_page: 1 } }),
       ]);
-      const totalPats  = gPats.status  === 'fulfilled' ? (gPats.value.data?.total  ?? pts.length)   : pts.length;
-      const totalCases = gCases.status === 'fulfilled' ? (gCases.value.data?.total ?? cases.length) : cases.length;
+      const totalPats  = gPats.status  === 'fulfilled' ? (gPats.value.data?.total   ?? patsData.length)  : patsData.length;
+      const totalCases = gCases.status === 'fulfilled' ? (gCases.value.data?.total  ?? casesData.length) : casesData.length;
+
       setStats({
         total_patients: totalPats, total_bite_cases: totalCases,
         category_i: catI, category_ii: catII, category_iii: catIII,
         completed_treatments: completed, ongoing_treatments: ongoing,
         total_vaccinations: 0,
-        vaccination_completion_rate: cases.length > 0 ? Math.round((completed / cases.length) * 100) : 0,
+        vaccination_completion_rate: casesData.length > 0 ? Math.round((completed / casesData.length) * 100) : 0,
         avg_queue_wait_time: 0,
-        new_patients_period: pts.length, new_cases_period: cases.length,
+        new_patients_period: patsData.length,
+        new_cases_period:    casesData.length,
       });
-    } catch { setError('Failed to load report data. Please try again.'); }
-    finally   { setLoading(false); }
+    } catch (err) {
+      console.error('Report load error:', err);
+      setError('Failed to load report data. Please try again.');
+    }
+    finally { setLoading(false); }
   };
 
   const loadInventory = async () => {
@@ -394,7 +415,7 @@ export default function ReportsDashboardPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 25, fontWeight: 600, color: '#173d29', margin: '0 0 7px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
+          <h1 style={{ fontSize: 25, fontWeight: 600, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
           <p style={{ fontSize: 13, color: '#77877d', margin: 0 }}>Generate and print system reports for the clinic</p>
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
@@ -571,7 +592,7 @@ export default function ReportsDashboardPage() {
                       <td style={tdStyle}>{i+1}</td>
                       <td style={{ ...tdStyle, fontWeight:600 }}>{item.vaccine_type}</td>
                       <td style={tdStyle}>{item.batch_number}</td>
-                      <td style={{ ...tdStyle, fontWeight:700, color: item.current_quantity === 0 ? '#ef4444' : '#173d29' }}>{item.current_quantity}</td>
+                      <td style={{ ...tdStyle, fontWeight:700, color: item.current_quantity === 0 ? '#ef4444' : 'var(--text-h)' }}>{item.current_quantity}</td>
                       <td style={tdStyle}>{fmtDate(item.expiration_date)}</td>
                       <td style={tdStyle}><InvStatusBadge status={item.status} /></td>
                     </tr>

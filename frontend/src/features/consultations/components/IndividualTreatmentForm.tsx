@@ -28,6 +28,8 @@ interface IndividualTreatmentFormProps {
   entry: any; // Queue entry with patient data
   onClose: () => void;
   onSave: () => void;
+  readOnly?: boolean;
+  inline?: boolean;
 }
 
 /**
@@ -40,6 +42,8 @@ export default function IndividualTreatmentForm({
   entry,
   onClose,
   onSave,
+  readOnly = false,
+  inline = false,
 }: IndividualTreatmentFormProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -154,6 +158,7 @@ export default function IndividualTreatmentForm({
   };
 
   const handleChange = (field: string) => (event: any) => {
+    if (readOnly) return;
     setFormData((prev) => ({
       ...prev,
       [field]: event.target.value,
@@ -161,6 +166,7 @@ export default function IndividualTreatmentForm({
   };
 
   const handleCheckboxChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (readOnly) return;
     setFormData((prev) => ({
       ...prev,
       consultation_types: {
@@ -209,18 +215,18 @@ export default function IndividualTreatmentForm({
 
   if (!entry) return null;
 
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f0fdf4', color: '#065f46' }}>
-        Form 2 — Individual Treatment
-      </DialogTitle>
-      <Divider />
+  const formContent = (
+    <Box sx={{ p: inline ? 0 : 3 }}>
+      {/* Patient Info Alert */}
+      <Alert severity="info" sx={{ mb: 3 }}>
+        <strong>Patient:</strong> {entry.patient?.name} · Queue #{entry.queue_number}
+      </Alert>
 
-      <DialogContent sx={{ pt: 3 }}>
-        {/* Patient Info Alert */}
+      {readOnly && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          <strong>Patient:</strong> {entry.patient?.name} · Queue #{entry.queue_number}
+          <strong>View-Only Mode</strong> — Only Doctor/Triage can edit consultation records.
         </Alert>
+      )}
 
         {/* ─── SECTION 1: PATIENT INFORMATION ─── */}
         <Box sx={{ mb: 3 }}>
@@ -654,8 +660,35 @@ export default function IndividualTreatmentForm({
             </Grid>
           </Grid>
         </Box>
-      </DialogContent>
 
+      {/* Save Button */}
+      {!readOnly && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+          <AppButton
+            onClick={handleSave}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SaveIcon />}
+          >
+            Save Patient Record
+          </AppButton>
+        </Box>
+      )}
+    </Box>
+  );
+
+  // Inline mode: return content directly without Dialog wrapper
+  if (inline) return formContent;
+
+  // Modal mode: wrap in Dialog
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f0fdf4', color: '#065f46' }}>
+        Form 2 — Individual Treatment
+      </DialogTitle>
+      <Divider />
+      <DialogContent sx={{ pt: 0 }}>
+        {formContent}
+      </DialogContent>
       <Divider />
       <DialogActions sx={{ px: 3, py: 2 }}>
         <AppButton

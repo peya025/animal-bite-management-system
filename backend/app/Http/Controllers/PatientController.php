@@ -31,7 +31,15 @@ class PatientController extends Controller
         // Cache for 3 minutes (patient list changes moderately)
         return response()->json(
             Cache::remember($cacheKey, 180, function () use ($request, $clinicId) {
-                $query = Patient::where('clinic_id', $clinicId)->with('registeredBy');
+                $query = Patient::where('clinic_id', $clinicId)
+                    ->with([
+                        'registeredBy',
+                        'latestTreatmentRecord',
+                        'upcomingAppointment',
+                        'queues' => function ($q) {
+                            $q->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                        }
+                    ]);
 
                 // Search functionality
                 if ($request->has('search')) {
@@ -79,6 +87,7 @@ class PatientController extends Controller
             'date_of_birth' => 'nullable|date|before_or_equal:today',
             'address' => 'nullable|string',
             'contact_number' => 'nullable|string|max:50',
+            'email' => 'nullable|string|email|max:255',
             'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_number' => 'nullable|string|max:50',
             // Extended Form 1 fields
@@ -126,12 +135,9 @@ class PatientController extends Controller
             'fourps_member', 'dswd_nhts',
         ]);
         
-        if (!empty(array_filter($detailsData))) {
-            $patient->details()->create($detailsData);
-        }
-
         // Invalidate patient list cache for this clinic
         $this->clearPatientListCache($request->user()->clinic_id);
+        Cache::forget("web:bite-cases:map-data:clinic:{$request->user()->clinic_id}");
 
         return response()->json([
             'message' => 'Patient registered successfully',

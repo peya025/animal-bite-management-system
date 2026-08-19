@@ -38,19 +38,19 @@ export default function EmptyState({
         <Box sx={{
           width: 72, height: 72,
           borderRadius: 3,
-          bgcolor: '#f9fafb',
-          border: '1px solid #f3f4f6',
+          bgcolor: 'var(--bg-secondary)',
+          border: '1px solid var(--table-row-border)',
           mx: 'auto', mb: 2,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           {icon}
         </Box>
       )}
-      <Typography sx={{ fontWeight: 600, fontSize: 15, color: '#374151', mb: 0.5 }}>
+      <Typography sx={{ fontWeight: 600, fontSize: 15, color: 'var(--text-h)', mb: 0.5 }}>
         {title}
       </Typography>
       {subtitle && (
-        <Typography sx={{ fontSize: 13, color: '#9ca3af', mb: actionLabel ? 2.5 : 0 }}>
+        <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', mb: actionLabel ? 2.5 : 0 }}>
           {subtitle}
         </Typography>
       )}

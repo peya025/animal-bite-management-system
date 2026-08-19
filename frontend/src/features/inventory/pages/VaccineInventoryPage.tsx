@@ -43,7 +43,7 @@ export default function VaccineInventory() {
   const [stats, setStats]               = useState<InventoryStats | null>(null);
   const [loading, setLoading]           = useState(false);
   const [page, setPage]                 = useState(0);
-  const [rowsPerPage, setRowsPerPage]   = useState(10);
+  const [rowsPerPage, setRowsPerPage]   = useState(15);
   const [total, setTotal]               = useState(DEMO_INVENTORY_ITEMS.length);
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -113,7 +113,7 @@ export default function VaccineInventory() {
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: '#173d29', margin: '0 0 4px 0' }}>
+            <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', margin: '0 0 4px 0' }}>
               Vaccine Inventory
             </Typography>
             <Chip

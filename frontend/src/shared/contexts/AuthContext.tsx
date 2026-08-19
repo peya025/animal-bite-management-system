@@ -46,11 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    authService.logout();
     setUser(null);
     setClinic(null);
     setToken(null);
-    navigate(ROUTES.LOGIN);
+    authService.logout();
+    navigate(ROUTES.LOGIN, { replace: true });
   };
 
   const value: AuthContextType = {

@@ -489,15 +489,34 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
         <div className="welcome-illustration">
           <div className="illustration-content">
             <div className="illustration-item">
-              <span className="illustration-icon">🛡️</span>
+              <span className="illustration-icon" aria-hidden="true">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3z" />
+                </svg>
+              </span>
               <span className="illustration-label">Secure</span>
             </div>
             <div className="illustration-item">
-              <span className="illustration-icon">💉</span>
+              <span className="illustration-icon" aria-hidden="true">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 2v6" />
+                  <path d="M15 2v6" />
+                  <path d="M12 8v14" />
+                  <path d="M8 12h8" />
+                  <path d="M10 2h4" />
+                </svg>
+              </span>
               <span className="illustration-label">Vaccines</span>
             </div>
             <div className="illustration-item">
-              <span className="illustration-icon">🏥</span>
+              <span className="illustration-icon" aria-hidden="true">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 21h18" />
+                  <path d="M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14" />
+                  <path d="M9 10h6" />
+                  <path d="M12 7v6" />
+                </svg>
+              </span>
               <span className="illustration-label">Clinics</span>
             </div>
           </div>
@@ -556,8 +575,13 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
           </div>
         </div>
         {errors?.clinicName && (
-          <div className="error-text">
-            <span>⚠️ {errors.clinicName}</span>
+          <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 9v4" />
+              <path d="M12 17h.01" />
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            </svg>
+            <span>{errors.clinicName}</span>
           </div>
         )}
       </div>
@@ -595,8 +619,13 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             </div>
           </div>
           {errors?.adminName && (
-            <div className="error-text">
-              <span>⚠️ {errors.adminName}</span>
+            <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              </svg>
+              <span>{errors.adminName}</span>
             </div>
           )}
         </div>
@@ -629,8 +658,13 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             </div>
           </div>
           {errors?.adminEmail ? (
-            <div className="error-text">
-              <span>⚠️ {errors.adminEmail}</span>
+            <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              </svg>
+              <span>{errors.adminEmail}</span>
             </div>
           ) : (
             <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontWeight: 500 }}>
@@ -667,8 +701,13 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             </div>
           </div>
           {errors?.adminPassword ? (
-            <div className="error-text">
-              <span>⚠️ {errors.adminPassword}</span>
+            <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              </svg>
+              <span>{errors.adminPassword}</span>
             </div>
           ) : (
             <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontWeight: 500 }}>
@@ -706,13 +745,23 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             </div>
           </div>
           {errors?.adminPasswordConfirm ? (
-            <div className="error-text">
-              <span>⚠️ {errors.adminPasswordConfirm}</span>
+            <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              </svg>
+              <span>{errors.adminPasswordConfirm}</span>
             </div>
           ) : (
             data.adminPasswordConfirm && !passwordsMatch && (
-              <div className="error-text">
-                <span>⚠️ Passwords do not match</span>
+              <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M12 9v4" />
+                  <path d="M12 17h.01" />
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                </svg>
+                <span>Passwords do not match</span>
               </div>
             )
           )}
@@ -869,8 +918,13 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
           </div>
         </div>
         {errors?.address && (
-          <div className="error-text">
-            <span>⚠️ {errors.address}</span>
+          <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 9v4" />
+              <path d="M12 17h.01" />
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            </svg>
+            <span>{errors.address}</span>
           </div>
         )}
       </div>
@@ -904,8 +958,13 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
             </div>
           </div>
           {errors?.phone && (
-            <div className="error-text">
-              <span>⚠️ {errors.phone}</span>
+            <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              </svg>
+              <span>{errors.phone}</span>
             </div>
           )}
         </div>
@@ -938,8 +997,13 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
             </div>
           </div>
           {errors?.email && (
-            <div className="error-text">
-              <span>⚠️ {errors.email}</span>
+            <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              </svg>
+              <span>{errors.email}</span>
             </div>
           )}
         </div>

@@ -19,14 +19,14 @@ export default function TablePager({
   rowsPerPage,
   onPageChange,
   onRowsPerPageChange,
-  rowsPerPageOptions = [5, 10, 25],
+  rowsPerPageOptions = [15, 25, 50],
 }: TablePagerProps) {
   return (
     <Box sx={{
       pt: 2, mt: 3,
       mx: -3, px: 3,               // full-bleed inside parent p: 3 Paper
-      borderTop: '1px solid #f3f4f6',
-      bgcolor: '#fafafa',
+      borderTop: '1px solid var(--table-row-border)',
+      bgcolor: 'var(--bg-secondary)',
     }}>
       <TablePagination
         component="div"
@@ -43,7 +43,7 @@ export default function TablePager({
         sx={{
           '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
             fontSize: 13,
-            color: '#6b7280',
+            color: 'var(--text-secondary)',
           },
           '& .MuiTablePagination-select': {
             fontSize: 13,

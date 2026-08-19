@@ -25,8 +25,15 @@ class QueueController extends Controller
             return response()->json(
                 Cache::remember($cacheKey, 30, function () use ($clinicId, $date) {
                     // Single optimized query with eager loading and selective fields
+                    // Includes entries for target date PLUS uncompleted/active entries from previous dates (carry-over)
                     $queue = Queue::where('clinic_id', $clinicId)
-                        ->where('queue_date', $date)
+                        ->where(function ($query) use ($date) {
+                            $query->where('queue_date', $date)
+                                  ->orWhere(function ($subQuery) use ($date) {
+                                      $subQuery->where('queue_date', '<', $date)
+                                               ->whereIn('status', ['waiting', 'in_consultation']);
+                                  });
+                        })
                         ->with([
                             'patient:patient_id,first_name,middle_name,last_name,suffix,date_of_birth,gender,contact_number',
                             'biteIncident:bite_id,case_number,patient_id',
@@ -34,8 +41,15 @@ class QueueController extends Controller
                             'handledBy:id,name'
                         ])
                         ->select('queue_id', 'queue_number', 'patient_id', 'bite_id', 'visit_type', 'priority', 'status', 'checked_in_at', 'called_at', 'completed_at', 'checked_in_by', 'handled_by', 'check_in_notes', 'clinic_id', 'queue_date')
-                        ->orderBy('queue_number')
+                        ->orderBy('queue_date', 'asc')
+                        ->orderBy('queue_number', 'asc')
                         ->get();
+
+                    // Append is_carry_over indicator
+                    foreach ($queue as $entry) {
+                        $entry->is_carry_over = ($entry->queue_date && $entry->queue_date->toDateString() < $date)
+                            && in_array($entry->status, ['waiting', 'in_consultation']);
+                    }
 
                     // Calculate stats from the same query result (no additional DB query)
                     $waitingCount = 0;
@@ -128,12 +142,20 @@ class QueueController extends Controller
     public function waiting(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
+        $today = Carbon::today()->toDateString();
 
         $queue = Queue::where('clinic_id', $clinicId)
-            ->where('queue_date', Carbon::today()->toDateString())
+            ->where(function ($query) use ($today) {
+                $query->where('queue_date', $today)
+                      ->orWhere(function ($subQuery) use ($today) {
+                          $subQuery->where('queue_date', '<', $today)
+                                   ->whereIn('status', ['waiting', 'in_consultation']);
+                      });
+            })
             ->where('status', 'waiting')
             ->with(['patient', 'biteIncident'])
-            ->orderBy('queue_number')
+            ->orderBy('queue_date', 'asc')
+            ->orderBy('queue_number', 'asc')
             ->get();
 
         return response()->json($queue);

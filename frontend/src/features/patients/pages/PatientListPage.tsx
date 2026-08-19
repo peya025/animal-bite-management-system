@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AddPatientModal from '../components/AddPatientModal';
+import InvitePatientModal from '../components/InvitePatientModal';
+import EditPatientModal from '../components/EditPatientModal';
+import PatientDetailsModal from '../components/PatientDetailsModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
+import api from '../../../shared/services/api';
 
 // ─── Types ───────────────────────────────────────────────────
 import type { Patient } from '../types';
@@ -15,17 +19,25 @@ const fullName = (p: Patient) =>
 
 // ─── Main Component ───────────────────────────────────────────
 export default function PatientList() {
-  const [patients,       setPatients]       = useState<Patient[]>([]);
-  const [loading,        setLoading]        = useState(true);
-  const [error,          setError]          = useState('');
-  const [search,         setSearch]         = useState('');
-  const [searchTerm,     setSearchTerm]     = useState(''); // Debounced search term
-  const [page,           setPage]           = useState(1);
-  const [totalPages,     setTotalPages]     = useState(1);
-  const [total,          setTotal]          = useState(0);
-  const [perPage,        setPerPage]        = useState(10);
-  const [showAddModal,   setShowAddModal]   = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [patients,             setPatients]             = useState<Patient[]>([]);
+  const [loading,              setLoading]              = useState(true);
+  const [error,                setError]                = useState('');
+  const [search,               setSearch]               = useState('');
+  const [searchTerm,           setSearchTerm]           = useState(''); // Debounced search term
+  const [page,                 setPage]                 = useState(1);
+  const [totalPages,           setTotalPages]           = useState(1);
+  const [total,                setTotal]                = useState(0);
+  const [perPage, setPerPage] = useState(15);
+  const [showAddModal,         setShowAddModal]         = useState(false);
+  const [showPrintModal,       setShowPrintModal]       = useState(false);
+  const [selectedInvitePatient, setSelectedInvitePatient] = useState<Patient | null>(null);
+  const [showInviteModal,      setShowInviteModal]      = useState(false);
+
+  // Edit & View Modal states
+  const [selectedEditPatient,   setSelectedEditPatient]   = useState<Patient | null>(null);
+  const [showEditModal,        setShowEditModal]        = useState(false);
+  const [selectedViewPatient,   setSelectedViewPatient]   = useState<Patient | null>(null);
+  const [showViewModal,        setShowViewModal]        = useState(false);
 
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
@@ -46,22 +58,21 @@ export default function PatientList() {
   const fetchPatients = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const token  = localStorage.getItem('authToken');
-      const params = new URLSearchParams({
-        page: String(page), per_page: String(perPage), ...(searchTerm ? { search: searchTerm } : {}),
+      const response = await api.get('/patients', {
+        params: {
+          page,
+          per_page: perPage,
+          ...(searchTerm ? { search: searchTerm } : {}),
+        },
       });
-      const res = await fetch(`http://localhost:8000/api/patients?${params}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      });
-      if (!res.ok) throw new Error('Failed to load patients');
-      const json = await res.json();
+      const json = response.data;
       if (Array.isArray(json)) {
         setPatients(json); setTotal(json.length); setTotalPages(1);
       } else {
         setPatients(json.data ?? []); setTotal(json.total ?? 0); setTotalPages(json.last_page ?? 1);
       }
     } catch (e: any) {
-      setError(e.message || 'Failed to load patients');
+      setError(e.response?.data?.message || e.message || 'Failed to load patients');
     } finally {
       setLoading(false);
     }
@@ -70,12 +81,27 @@ export default function PatientList() {
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
   useEffect(() => { setPage(1); }, [perPage]);
 
-  const getStatus = (p: Patient): 'active' | 'pending' | 'inactive' => p.status ?? 'active';
+  const getLiveStatus = (p: Patient) => {
+    const activeQueue = (p as any).queues?.[0];
+    if (activeQueue) {
+      if (activeQueue.status === 'waiting') {
+        return { label: 'In Queue (Waiting)', bg: '#d1fae5', color: '#065f46' };
+      }
+      if (activeQueue.status === 'in_consultation') {
+        return { label: 'In Consultation', bg: '#eff6ff', color: '#2563eb' };
+      }
+    }
+    const record = (p as any).latest_treatment_record;
+    if (record?.dose_number !== undefined && record?.dose_number !== null) {
+      return { label: `Dose ${record.dose_number} Done`, bg: '#ecfdf5', color: '#059669' };
+    }
+    return { label: (p.status ?? 'Active').charAt(0).toUpperCase() + (p.status ?? 'Active').slice(1), bg: '#f3f4f6', color: '#374151' };
+  };
   
   // Memoize statistics to avoid recalculating on every render
   const stats = useMemo(() => ({
-    activeCount: patients.filter(p => getStatus(p) === 'active').length,
-    pendingCount: patients.filter(p => getStatus(p) === 'pending').length,
+    activeCount: patients.filter(p => (p.status ?? 'active').toLowerCase() === 'active').length,
+    pendingCount: patients.filter(p => (p.status ?? 'active').toLowerCase() === 'pending').length,
   }), [patients]);
 
   // Build the patient table HTML for the print window
@@ -125,7 +151,7 @@ export default function PatientList() {
 
   // Preview table for the modal
   const th: React.CSSProperties = {
-    background: '#f0fdf4', color: '#173d29', fontWeight: 600,
+    background: '#f0fdf4', color: 'var(--text-h)', fontWeight: 600,
     padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #10b981',
     whiteSpace: 'nowrap', fontSize: 11,
   };
@@ -165,7 +191,7 @@ export default function PatientList() {
             <div className="pm-show-entries">
               <span>Show</span>
               <select className="pm-entries-select" value={perPage} onChange={e => setPerPage(Number(e.target.value))}>
-                <option value={10}>10</option>
+                <option value={15}>15</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
               </select>
@@ -222,31 +248,77 @@ export default function PatientList() {
                 <thead>
                   <tr>
                     <th>Patient No.</th><th>Patient Name</th>
-                    <th>Date Registered</th><th>Status</th><th>Action</th>
+                    <th>Date Registered</th><th>Status</th><th style={{ textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {patients.map(p => {
-                    const status = getStatus(p);
+                    const statusInfo = getLiveStatus(p);
                     return (
                       <tr key={`patient-${p.patient_id || p.id}`}>
                         <td><span className="pm-patient-no">{p.patient_number}</span></td>
                         <td><span className="pm-patient-name">{fullName(p)}</span></td>
                         <td>{formatDate(p.created_at)}</td>
                         <td>
-                          <span className={`pm-status pm-status--${status}`}>
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            backgroundColor: statusInfo.bg,
+                            color: statusInfo.color,
+                            display: 'inline-block',
+                          }}>
+                            {statusInfo.label}
                           </span>
                         </td>
-                        <td>
-                          <div className="pm-actions">
-                            <button className="pm-btn-view">
+                        <td style={{ textAlign: 'center' }}>
+                          <div className="pm-actions" style={{ justifyContent: 'center' }}>
+                            <button
+                              className="pm-btn-invite"
+                              title="Invite Patient to Mobile Portal"
+                              onClick={() => {
+                                setSelectedInvitePatient(p);
+                                setShowInviteModal(true);
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '4px 9px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                border: '1px solid #bbf7d0',
+                                backgroundColor: '#f0fdf4',
+                                color: '#166534',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                              </svg>
+                              Portal Invite
+                            </button>
+                            <button
+                              className="pm-btn-view"
+                              onClick={() => {
+                                setSelectedViewPatient(p);
+                                setShowViewModal(true);
+                              }}
+                            >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                               </svg>
                               View
                             </button>
-                            <button className="pm-btn-edit">
+                            <button
+                              className="pm-btn-edit"
+                              onClick={() => {
+                                setSelectedEditPatient(p);
+                                setShowEditModal(true);
+                              }}
+                            >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -362,7 +434,7 @@ export default function PatientList() {
           onCancel={() => setShowPrintModal(false)}
         >
           {/* Preview table */}
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#173d29', borderLeft: '3px solid #10b981', paddingLeft: 10, marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-h)', borderLeft: '3px solid #10b981', paddingLeft: 10, marginBottom: 10 }}>
             Registered Patients ({patients.length} shown)
           </div>
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
@@ -398,6 +470,46 @@ export default function PatientList() {
           </div>
         </PrintPreviewModal>
       )}
+
+      {/* ── Invite Patient to Mobile Portal Modal ── */}
+      <InvitePatientModal
+        open={showInviteModal}
+        patient={selectedInvitePatient}
+        onClose={() => {
+          setShowInviteModal(false);
+          setSelectedInvitePatient(null);
+        }}
+        onSuccess={() => {
+          fetchPatients();
+        }}
+      />
+
+      {/* ── Edit Patient Profile Modal ── */}
+      <EditPatientModal
+        open={showEditModal}
+        patient={selectedEditPatient}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedEditPatient(null);
+        }}
+        onSuccess={() => {
+          fetchPatients();
+        }}
+      />
+
+      {/* ── View Patient Profile Modal ── */}
+      <PatientDetailsModal
+        open={showViewModal}
+        patient={selectedViewPatient}
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedViewPatient(null);
+        }}
+        onEdit={(p) => {
+          setSelectedEditPatient(p);
+          setShowEditModal(true);
+        }}
+      />
     </PatientListRoot>
   );
 }

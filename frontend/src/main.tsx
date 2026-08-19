@@ -1,13 +1,18 @@
 import { createRoot } from 'react-dom/client'
-import { ThemeProvider } from '@mui/material/styles'
+import { BrowserRouter } from 'react-router-dom'
 import CssBaseline from '@mui/material/CssBaseline'
 import './styles/global.css'
 import App from './App.tsx'
-import { appTheme } from './styles/theme'
+import { AppThemeProvider } from './shared/contexts/ThemeContext'
+import { AuthProvider } from './shared/contexts/AuthContext'
 
 createRoot(document.getElementById('root')!).render(
-  <ThemeProvider theme={appTheme}>
+  <AppThemeProvider>
     <CssBaseline />
-    <App />
-  </ThemeProvider>,
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
+  </AppThemeProvider>,
 )

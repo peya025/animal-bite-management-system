@@ -16,7 +16,7 @@ export default function TablePaginator({
   rowsPerPage,
   onPageChange,
   onRowsPerPageChange,
-  rowsPerPageOptions = [5, 10, 25],
+  rowsPerPageOptions = [15, 25, 50],
 }: TablePaginatorProps) {
   const totalPages = Math.ceil(count / rowsPerPage);
   const from = count === 0 ? 0 : page * rowsPerPage + 1;
@@ -26,17 +26,17 @@ export default function TablePaginator({
     width: 28,
     height: 28,
     borderRadius: 1.5,
-    border: '0.5px solid #e5e7eb',
-    bgcolor: disabled ? 'transparent' : '#fff',
-    color: disabled ? '#d1d5db' : '#374151',
-    '&:hover': { bgcolor: disabled ? 'transparent' : '#f3f4f6' },
+    border: '0.5px solid var(--table-border)',
+    bgcolor: disabled ? 'transparent' : 'var(--card-bg)',
+    color: disabled ? 'var(--text-secondary)' : 'var(--text)',
+    '&:hover': { bgcolor: disabled ? 'transparent' : 'var(--bg-hover)' },
     transition: 'all 0.15s',
   });
 
   return (
     <Box sx={{
-      borderTop: '1px solid #e5e7eb',
-      bgcolor: '#f9fafb',
+      borderTop: '1px solid var(--table-border)',
+      bgcolor: 'var(--bg-secondary)',
       px: 2,
       py: 1.5,
       display: 'flex',
@@ -46,7 +46,7 @@ export default function TablePaginator({
 
       {/* Left — rows per page */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography sx={{ fontSize: 12, color: '#9ca3af' }}>Rows</Typography>
+        <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Rows</Typography>
         <Select
           value={rowsPerPage}
           onChange={(e) => { onRowsPerPageChange(Number(e.target.value)); onPageChange(0); }}
@@ -54,13 +54,13 @@ export default function TablePaginator({
           variant="outlined"
           sx={{
             fontSize: 12,
-            color: '#374151',
+            color: 'var(--text)',
             height: 28,
-            '.MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#9ca3af' },
+            '.MuiOutlinedInput-notchedOutline': { borderColor: 'var(--input-border)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--text-secondary)' },
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#10b981', borderWidth: '1px' },
             '.MuiSelect-select': { py: 0, px: 1 },
-            bgcolor: '#fff',
+            bgcolor: 'var(--input-bg)',
             borderRadius: 1.5,
           }}
         >
@@ -71,10 +71,10 @@ export default function TablePaginator({
       </Box>
 
       {/* Center — count */}
-      <Typography sx={{ fontSize: 12, color: '#9ca3af' }}>
-        <Box component="span" sx={{ color: '#374151', fontWeight: 500 }}>{from}–{to}</Box>
+      <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+        <Box component="span" sx={{ color: 'var(--text)', fontWeight: 500 }}>{from}–{to}</Box>
         {' of '}
-        <Box component="span" sx={{ color: '#374151', fontWeight: 500 }}>{count}</Box>
+        <Box component="span" sx={{ color: 'var(--text)', fontWeight: 500 }}>{count}</Box>
       </Typography>
 
       {/* Right — navigation */}
@@ -97,7 +97,7 @@ export default function TablePaginator({
             }, [])
             .map((item, idx) =>
               item === '...' ? (
-                <Typography key={`ellipsis-${idx}`} sx={{ fontSize: 12, color: '#9ca3af', px: 0.5, lineHeight: '28px' }}>…</Typography>
+                <Typography key={`ellipsis-${idx}`} sx={{ fontSize: 12, color: 'var(--text-secondary)', px: 0.5, lineHeight: '28px' }}>…</Typography>
               ) : (
                 <Box
                   key={item}
@@ -108,11 +108,11 @@ export default function TablePaginator({
                     borderRadius: 1.5,
                     fontSize: 12, fontWeight: page === item ? 600 : 400,
                     cursor: 'pointer',
-                    bgcolor: page === item ? '#10b981' : '#fff',
-                    color: page === item ? '#fff' : '#374151',
+                    bgcolor: page === item ? '#10b981' : 'var(--card-bg)',
+                    color: page === item ? '#fff' : 'var(--text)',
                     border: '0.5px solid',
-                    borderColor: page === item ? '#10b981' : '#e5e7eb',
-                    '&:hover': { bgcolor: page === item ? '#059669' : '#f3f4f6' },
+                    borderColor: page === item ? '#10b981' : 'var(--table-border)',
+                    '&:hover': { bgcolor: page === item ? '#059669' : 'var(--bg-hover)' },
                     transition: 'all 0.15s',
                   }}
                 >

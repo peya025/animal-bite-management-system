@@ -4,6 +4,7 @@ export interface PsgcItem {
 }
 
 export interface Patient {
+  patient_id?: number;
   id: number;
   patient_number: string;
   first_name: string;
@@ -12,7 +13,9 @@ export interface Patient {
   date_of_birth: string;
   gender: 'male' | 'female' | 'other';
   address: string;
+  contact_number?: string;
   phone?: string;
+  email?: string;
   created_at: string;
   status?: 'active' | 'pending' | 'inactive';
 }
@@ -29,6 +32,7 @@ export interface EnrolmentFormData {
   spouse_name: string;
   mother_maiden_name: string;
   contact_number: string;
+  email: string;
   family_member: string;
   educational_attainment: string;
   employment_status: string;
@@ -54,6 +58,7 @@ export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
   spouse_name: '',
   mother_maiden_name: '',
   contact_number: '',
+  email: '',
   family_member: '',
   educational_attainment: '',
   employment_status: '',

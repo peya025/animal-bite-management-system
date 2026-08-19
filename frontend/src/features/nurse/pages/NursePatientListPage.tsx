@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Box, Chip, Paper, Tab, Tabs, Typography, CircularProgress,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  IconButton, Tooltip, Alert
+  IconButton, Tooltip
 } from '@mui/material';
 import {
   Schedule as ScheduleIcon,
@@ -93,7 +93,7 @@ export default function NursePatientListPage() {
     <Box sx={{ px: 3, py: 2 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600, color: '#173d29', mb: 1 }}>
+        <Typography variant="h5" sx={{ fontWeight: 600, color: 'var(--text-h)', mb: 1 }}>
           Treatment Patient List
         </Typography>
         <Typography variant="body2" sx={{ color: '#77877d' }}>

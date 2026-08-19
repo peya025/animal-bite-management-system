@@ -179,10 +179,10 @@ export default function WorkingHoursModal({
                     <Select
                       value={hours.open}
                       onChange={(e) => onHoursChange(day, 'open', e.target.value)}
-                      sx={{ borderRadius: 2, fontSize: 14, bgcolor: isOpen ? '#fff' : '#f9fafb' }}
+                      sx={{ borderRadius: 2, bgcolor: isOpen ? '#fff' : '#f9fafb' }}
                     >
                       {TIME_OPTIONS.map(t => (
-                        <MenuItem key={t} value={t} sx={{ fontSize: 14 }}>
+                        <MenuItem key={t} value={t}>
                           {formatTimeLabel(t)}
                         </MenuItem>
                       ))}
@@ -199,10 +199,10 @@ export default function WorkingHoursModal({
                     <Select
                       value={hours.close}
                       onChange={(e) => onHoursChange(day, 'close', e.target.value)}
-                      sx={{ borderRadius: 2, fontSize: 14, bgcolor: isOpen ? '#fff' : '#f9fafb' }}
+                      sx={{ borderRadius: 2, bgcolor: isOpen ? '#fff' : '#f9fafb' }}
                     >
                       {TIME_OPTIONS.map(t => (
-                        <MenuItem key={t} value={t} sx={{ fontSize: 14 }}>
+                        <MenuItem key={t} value={t}>
                           {formatTimeLabel(t)}
                         </MenuItem>
                       ))}

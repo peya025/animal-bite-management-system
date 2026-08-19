@@ -194,7 +194,7 @@ export default function ModuleConfigPage() {
   const getFieldRuleBadge = (value: FieldRuleValue) => {
     const badges = {
       required: { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd', text: 'Required' },
-      optional: { bg: '#e8f5ed', color: '#17653a', border: '#d7ebdf', text: 'Optional' },
+      optional: { bg: '#e8f5ed', color: 'var(--primary)', border: '#d7ebdf', text: 'Optional' },
       hidden: { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', text: 'Hidden' },
     };
     const badge = badges[value] || badges.optional;
@@ -282,12 +282,12 @@ export default function ModuleConfigPage() {
             display: 'flex',
             alignItems: 'center',
             gap: '0.65rem',
-            color: '#17653a',
+            color: 'var(--primary)',
             fontSize: '0.8125rem',
             fontWeight: 400,
           }}
         >
-          <Icon name="check" size={18} color="#17653a" />
+          <Icon name="check" size={18} color="var(--primary)" />
           <span>{success}</span>
         </div>
       )}
@@ -343,14 +343,14 @@ export default function ModuleConfigPage() {
                   style={{
                     fontSize: '0.95rem',
                     fontWeight: 600,
-                    color: '#173d29',
+                    color: 'var(--text-h)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.5rem',
                     marginBottom: '0.25rem',
                   }}
                 >
-                  <Icon name="settings" size={18} color="#17653a" />
+                  <Icon name="settings" size={18} color="var(--primary)" />
                   Triage Module
                 </div>
                 <p
@@ -395,7 +395,7 @@ export default function ModuleConfigPage() {
                       width: '44px',
                       height: '24px',
                       appearance: 'none',
-                      background: triageEnabled ? '#17653a' : '#cbd5e1',
+                      background: triageEnabled ? 'var(--primary)' : '#cbd5e1',
                       borderRadius: '12px',
                       position: 'relative',
                       cursor: 'pointer',
@@ -468,14 +468,14 @@ export default function ModuleConfigPage() {
                   style={{
                     fontSize: '0.95rem',
                     fontWeight: 600,
-                    color: '#173d29',
+                    color: 'var(--text-h)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.5rem',
                     marginBottom: '0.25rem',
                   }}
                 >
-                  <Icon name="edit" size={18} color="#17653a" />
+                  <Icon name="edit" size={18} color="var(--primary)" />
                   Form Field Rules by Module
                 </div>
                 <p
@@ -522,7 +522,7 @@ export default function ModuleConfigPage() {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-                      <Icon name={section.icon as any} size={18} color="#17653a" />
+                      <Icon name={section.icon as any} size={18} color="var(--primary)" />
                       <div style={{ textAlign: 'left' }}>
                         <div
                           style={{
@@ -609,7 +609,7 @@ export default function ModuleConfigPage() {
                               onChange={(e) =>
                                 handleFieldRuleChange(field.key, e.target.value as FieldRuleValue)
                               }
-                              style={{ minWidth: '120px', fontSize: '0.8125rem' }}
+                              style={{ minWidth: '120px' }}
                             >
                               <option value="required">Required</option>
                               <option value="optional">Optional</option>
@@ -651,7 +651,7 @@ export default function ModuleConfigPage() {
               onClick={handleSave}
               disabled={saving || !hasChanges()}
               style={{
-                background: hasChanges() ? '#17653a' : '#cbd5e1',
+                background: hasChanges() ? 'var(--primary)' : '#cbd5e1',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '10px',

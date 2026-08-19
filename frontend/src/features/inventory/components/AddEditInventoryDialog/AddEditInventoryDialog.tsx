@@ -266,10 +266,10 @@ export default function AddEditInventoryDialog({
                     sx={{ borderRadius: 2, bgcolor: '#f9fafb' }}
                   >
                     {DEMO_CLINICS.map(c => (
-                      <MenuItem key={c.clinic_id} value={c.clinic_id} sx={{ fontSize: 13 }}>
+                      <MenuItem key={c.clinic_id} value={c.clinic_id}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <ClinicIcon sx={{ fontSize: 18, color: c.color }} />
-                          <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{c.name}</Typography>
+                          <Typography sx={{ fontWeight: 500 }}>{c.name}</Typography>
                         </Box>
                       </MenuItem>
                     ))}

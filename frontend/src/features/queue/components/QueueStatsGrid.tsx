@@ -1,4 +1,4 @@
-import { Box, Grid, LinearProgress, Paper, Typography } from '@mui/material';
+import { Box, LinearProgress, Paper, Typography } from '@mui/material';
 import {
   AccessTime as WaitIcon,
   Cancel as CancelIcon,
@@ -25,14 +25,12 @@ export function QueueStatsGrid({ stats }: QueueStatsGridProps) {
 
   return (
     <>
-      {/* Stat Cards Grid */}
-      <Grid container spacing={2} sx={{ mb: 3, alignItems: 'stretch' }}>
-        {statCardsData.map(s => (
-          <Grid key={s.label} size={{ xs: 6, sm: 4, md: 2 }}>
-            <StatCard label={s.label} value={s.value} icon={s.icon} color={s.color} loading={!stats} />
-          </Grid>
+      {/* Stat Cards Grid (5-column layout matching Vaccine Inventory) */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
+        {statCardsData.map((s) => (
+          <StatCard key={s.label} label={s.label} value={s.value} color={s.color} total={stats?.total} loading={!stats} />
         ))}
-      </Grid>
+      </Box>
 
       {/* Progress Bar */}
       {stats && stats.total > 0 && (
@@ -40,16 +38,16 @@ export function QueueStatsGrid({ stats }: QueueStatsGridProps) {
           elevation={0}
           sx={{
             border: '1px solid',
-            borderColor: '#f3f4f6',
+            borderColor: 'var(--table-row-border)',
             borderRadius: 3,
-            background: '#ffffff',
+            background: 'var(--card-bg)',
             p: 3,
             mb: 3,
           }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-            <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>Today's Progress</Typography>
-            <Typography sx={{ fontSize: 13, color: '#6b7280' }}>
+            <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)' }}>Today's Progress</Typography>
+            <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>
               {stats.completed} of {stats.total} done ({Math.round((stats.completed / stats.total) * 100)}%)
             </Typography>
           </Box>
@@ -59,7 +57,7 @@ export function QueueStatsGrid({ stats }: QueueStatsGridProps) {
             sx={{
               height: 8,
               borderRadius: 4,
-              bgcolor: '#f3f4f6',
+              bgcolor: 'var(--table-row-border)',
               '& .MuiLinearProgress-bar': { bgcolor: '#10b981', borderRadius: 4 },
             }}
           />
@@ -68,7 +66,7 @@ export function QueueStatsGrid({ stats }: QueueStatsGridProps) {
               {Object.entries(stats.by_visit_type).map(([type, count]) => (
                 <Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                   <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
-                  <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+                  <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     {VISIT_LABEL[type] ?? type}: <strong>{String(count)}</strong>
                   </Typography>
                 </Box>

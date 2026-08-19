@@ -73,7 +73,7 @@ export default function VaccinationSchedulePage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState('');
-  const [rows, setRows] = useState(10);
+  const [rows, setRows] = useState(15);
 
   // Administer modal
   const [selected, setSelected] = useState<Vaccination | null>(null);
@@ -247,7 +247,7 @@ export default function VaccinationSchedulePage() {
           <button
             style={{
               background: '#e8f5ed',
-              color: '#17653a',
+              color: 'var(--primary)',
               border: '1px solid #d7ebdf',
               borderRadius: '6px',
               padding: '4px 8px',
@@ -300,7 +300,7 @@ export default function VaccinationSchedulePage() {
         }}
       >
         <Box>
-          <Typography variant="h5" sx={{ color: '#173d29', mb: '7px' }}>
+          <Typography variant="h5" sx={{ color: 'var(--text-h)', mb: '7px' }}>
             Vaccinations
           </Typography>
           <Typography variant="body2" sx={{ color: '#77877d' }}>

@@ -31,14 +31,16 @@ class AuthService {
   }
 
   async logout(): Promise<void> {
+    // 1. Immediately purge local storage session synchronously to prevent UI flicker
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('clinicData');
+
+    // 2. Fire background logout request to backend
     try {
       await api.post('/logout');
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
-      localStorage.removeItem('clinicData');
     }
   }
 

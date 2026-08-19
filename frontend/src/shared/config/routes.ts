@@ -27,6 +27,7 @@ export const ROUTES = {
     NEW:    '/bite-cases/new',
     DETAIL: '/bite-cases/:id',
     EDIT:   '/bite-cases/:id/edit',
+    MAP:    '/bite-map',
   },
 
   VACCINATIONS: {
@@ -35,8 +36,9 @@ export const ROUTES = {
   },
 
   QUEUE: {
-    DASHBOARD:  '/queue',
-    MANAGEMENT: '/queue/management',
+    DASHBOARD:      '/queue',
+    MANAGEMENT:     '/queue/management',
+    PATIENT_DETAIL: '/queue/:queueId/patient',
   },
 
   INVENTORY: {

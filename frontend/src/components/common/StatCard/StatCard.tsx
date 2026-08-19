@@ -1,4 +1,5 @@
 import { Box, Paper, Skeleton, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 interface StatCardProps {
   label: string;
@@ -7,7 +8,8 @@ interface StatCardProps {
   color: 'success' | 'info' | 'warning' | 'error' | 'primary' |
          'blue' | 'green' | 'yellow' | 'red' | 'purple';
   loading?: boolean;
-  progress?: number; // 0–1, default 0.72
+  progress?: number; // 0–1 or 0-100%
+  total?: number; // Total count for dynamic percentage calculation
 }
 
 // Color mapping for backwards compatibility
@@ -33,40 +35,59 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 export default function StatCard({
   label,
   value,
-  icon,
   color,
   loading = false,
-  progress = 0.72,
+  progress,
+  total,
 }: StatCardProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   const mappedColor = (COLOR_MAP[color] || color) as keyof typeof COLORS;
   const c = COLORS[mappedColor] ?? COLORS.info;
 
-  const clampedProgress = Math.min(Math.max(progress, 0), 1);
+  const numValue = typeof value === 'number' ? value : parseFloat(String(value)) || 0;
+
+  // Calculate dynamic ring percentage (0 to 1)
+  let rawProgress = 0;
+  if (progress !== undefined) {
+    rawProgress = progress > 1 ? progress / 100 : progress;
+  } else if (total && total > 0) {
+    rawProgress = numValue / total;
+  } else if (numValue > 0) {
+    // Default dynamic scaling up to 100 items cap
+    rawProgress = numValue >= 100 ? 1 : numValue / 100;
+    if (rawProgress < 0.12) rawProgress = 0.12; // Minimum visible arc dot for non-zero counts
+  } else {
+    rawProgress = 0; // 0 count shows empty ring track
+  }
+
+  const clampedProgress = Math.min(Math.max(rawProgress, 0), 1);
   const dashArray = `${CIRCUMFERENCE * clampedProgress} ${CIRCUMFERENCE * (1 - clampedProgress)}`;
 
   return (
     <Paper
       elevation={0}
       sx={{
-        border: '0.5px solid #e5e7eb',
+        border: isDark ? '1px solid var(--card-border)' : '0.5px solid #e5e7eb',
         borderRadius: 3,
         p: '16px 12px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: 1.5,
-        bgcolor: c.bg, // ✅ Always shows the light colored background
+        bgcolor: isDark ? 'var(--card-bg)' : c.bg,
         transition: 'background-color 0.2s ease',
         cursor: 'default',
         '&:hover': {
-          bgcolor: c.bgHover, // Slightly deeper shade on hover
+          bgcolor: isDark ? 'var(--bg-hover)' : c.bgHover,
         },
       }}
     >
       {/* Donut chart */}
       <Box sx={{ position: 'relative', width: 64, height: 64 }}>
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-          <circle cx="32" cy="32" r={RADIUS} stroke={c.track} strokeWidth="6" />
+          <circle cx="32" cy="32" r={RADIUS} stroke={isDark ? 'rgba(148,163,184,0.25)' : c.track} strokeWidth="6" />
           {!loading && (
             <circle
               cx="32"
@@ -97,7 +118,7 @@ export default function StatCard({
               sx={{
                 fontSize: 14,
                 fontWeight: 600,
-                color: '#111827',
+                color: isDark ? 'var(--text-h)' : '#111827',
                 lineHeight: 1,
               }}
             >
@@ -107,25 +128,18 @@ export default function StatCard({
         </Box>
       </Box>
 
-      {/* Label + optional icon */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        {icon && (
-          <Box sx={{ display: 'flex', fontSize: 14, color: '#6b7280' }}>
-            {icon}
-          </Box>
-        )}
-        <Typography
-          sx={{
-            fontSize: 11,
-            color: '#6b7280',
-            textAlign: 'center',
-            lineHeight: 1.3,
-            fontWeight: 500,
-          }}
-        >
-          {label}
-        </Typography>
-      </Box>
+      {/* Label */}
+      <Typography
+        sx={{
+          fontSize: 11,
+          color: isDark ? 'var(--text-secondary)' : '#4b5563',
+          textAlign: 'center',
+          lineHeight: 1.3,
+          fontWeight: 500,
+        }}
+      >
+        {label}
+      </Typography>
     </Paper>
   );
 }

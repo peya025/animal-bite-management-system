@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert, Box, CircularProgress, IconButton,
   Paper, Snackbar, Stack, Tooltip, Typography,
@@ -11,13 +12,11 @@ import {
   Refresh as RefreshIcon,
   Warning as UrgentIcon,
   Error as EmergencyIcon,
+  OpenInNew as ViewIcon,
 } from '@mui/icons-material';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
-import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
-import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
-import AppButton from '../../../components/button';
 
 // Clean queue module imports
 import type { QueueEntry } from '../types';
@@ -27,12 +26,13 @@ import { callQueuePatient, cancelQueueEntry } from '../services';
 import {
   CompleteDialog,
   NextPatientBanner,
-  QueueActions,
   QueueFilterBar,
   QueueStatsGrid,
 } from '../components';
+import { buildRoute, ROUTES } from '../../../shared/config/routes';
 
 export default function QueueDashboard() {
+  const navigate = useNavigate();
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
@@ -44,26 +44,12 @@ export default function QueueDashboard() {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage]                 = useState(0);
-  const [rowsPerPage, setRowsPerPage]   = useState(10);
+  const [rowsPerPage, setRowsPerPage]   = useState(15);
 
   const [callTarget, setCallTarget]         = useState<QueueEntry | null>(null);
   const [cancelTarget, setCancelTarget]     = useState<QueueEntry | null>(null);
   const [completeTarget, setCompleteTarget] = useState<QueueEntry | null>(null);
 
-  // Form modals
-  const [form2Target, setForm2Target]       = useState<QueueEntry | null>(null);
-  const [form3Target, setForm3Target]       = useState<QueueEntry | null>(null);
-
-  // User role
-  const [userRole, setUserRole] = useState<string>('');
-
-  useEffect(() => {
-    const userData = localStorage.getItem('userData');
-    if (userData) {
-      const user = JSON.parse(userData);
-      setUserRole(user.role || '');
-    }
-  }, []);
 
   const handleCall = async (entry: QueueEntry) => {
     try {
@@ -105,7 +91,7 @@ export default function QueueDashboard() {
     {
       key: 'queue_id', header: 'QUEUE ID', width: '90px',
       render: entry => (
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: '#f3f4f6', borderRadius: 1, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: '#6b7280' }}>
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: 'var(--bg-secondary)', borderRadius: 1, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
           #{entry.queue_id}
         </Box>
       ),
@@ -120,15 +106,29 @@ export default function QueueDashboard() {
     },
     {
       key: 'patient', header: 'PATIENT',
-      render: entry => (
-        <Box>
-          <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#111827', lineHeight: 1.3 }}>{entry.patient.name}</Typography>
-          <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
-            {entry.patient.age}y · {entry.patient.gender}
-            {entry.biteIncident && ` · ${entry.biteIncident.case_number}`}
-          </Typography>
-        </Box>
-      ),
+      render: entry => {
+        const queueDateStr = (entry as any).queue_date ? new Date((entry as any).queue_date).toISOString().split('T')[0] : '';
+        const todayStr = new Date().toISOString().split('T')[0];
+        const isCarryOver = (entry as any).is_carry_over || (queueDateStr && queueDateStr < todayStr);
+        const isActive = entry.status === 'waiting' || entry.status === 'in_consultation';
+
+        return (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)', lineHeight: 1.3 }}>{entry.patient.name}</Typography>
+              {isCarryOver && isActive && (
+                <Box sx={{ px: 1, py: 0.2, bgcolor: '#fef3c7', color: '#92400e', borderRadius: 1, fontSize: 10, fontWeight: 700, letterSpacing: '0.2px' }}>
+                  Carried Over ({queueDateStr ? new Date(queueDateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Past Date'})
+                </Box>
+              )}
+            </Box>
+            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mt: 0.25 }}>
+              {entry.patient.age}y · {entry.patient.gender}
+              {entry.biteIncident && ` · ${entry.biteIncident.case_number}`}
+            </Typography>
+          </Box>
+        );
+      },
     },
     {
       key: 'appointment_id', header: 'APPT. ID', width: '100px',
@@ -136,12 +136,12 @@ export default function QueueDashboard() {
         <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, bgcolor: '#f0fdf4', borderRadius: 1.5, fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: '#15803d' }}>
           #{(entry as any).appointment_id}
         </Box>
-      ) : <Typography sx={{ fontSize: 12, color: '#d1d5db' }}>—</Typography>,
+      ) : <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography>,
     },
     {
       key: 'visit_type', header: 'VISIT TYPE',
       render: entry => (
-        <Box sx={{ display: 'inline-flex', px: 2, py: 0.5, bgcolor: '#f9fafb', borderRadius: 1.5, fontSize: 12, fontWeight: 600, color: '#374151' }}>
+        <Box sx={{ display: 'inline-flex', px: 2, py: 0.5, bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
           {VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
         </Box>
       ),
@@ -176,21 +176,37 @@ export default function QueueDashboard() {
         const active = entry.status === 'waiting' || entry.status === 'in_consultation';
         return active ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <WaitIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
-            <Typography sx={{ fontSize: 13, color: '#6b7280' }}>{waitTime(entry.checked_in_at)}</Typography>
+            <WaitIcon sx={{ fontSize: 14, color: 'var(--text-secondary)' }} />
+            <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>{waitTime(entry.checked_in_at)}</Typography>
           </Box>
-        ) : <Typography sx={{ fontSize: 13, color: '#d1d5db' }}>—</Typography>;
+        ) : <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>—</Typography>;
       },
     },
     {
-      key: 'clinical_actions', header: 'CLINICAL FORMS', align: 'right',
+      key: 'view', header: 'VIEW', align: 'right' as const, width: '90px',
       render: entry => (
-        <QueueActions
-          entry={entry}
-          userRole={userRole}
-          onEditForm2={e => setForm2Target(e)}
-          onEditForm3={e => setForm3Target(e)}
-        />
+        <Tooltip title="View Patient Detail">
+          <button
+            onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: entry.queue_id }))}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '5px 14px',
+              background: '#f0fdf4',
+              border: '1px solid #a7f3d0',
+              borderRadius: 8,
+              color: '#059669',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#d1fae5'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f0fdf4'; }}
+          >
+            View <ViewIcon sx={{ fontSize: 14 }} />
+          </button>
+        </Tooltip>
       ),
     },
     {
@@ -203,7 +219,7 @@ export default function QueueDashboard() {
             {isWaiting && (
               <Tooltip title="Call Patient">
                 <IconButton size="small" onClick={() => setCallTarget(entry)}
-                  sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#eff6ff', color: '#3b82f6' } }}>
+                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: 'var(--bg-hover)', color: '#3b82f6' } }}>
                   <CallIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
@@ -211,7 +227,7 @@ export default function QueueDashboard() {
             {isConsult && (
               <Tooltip title="Complete Consultation">
                 <IconButton size="small" onClick={() => setCompleteTarget(entry)}
-                  sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ecfdf5', color: '#059669' } }}>
+                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ecfdf5', color: '#059669' } }}>
                   <CompleteIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
@@ -219,13 +235,13 @@ export default function QueueDashboard() {
             {(isWaiting || isConsult) && (
               <Tooltip title="Cancel">
                 <IconButton size="small" onClick={() => setCancelTarget(entry)}
-                  sx={{ color: '#6b7280', bgcolor: '#f9fafb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
+                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
                   <CancelIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
             )}
             {!isWaiting && !isConsult && (
-              <Typography sx={{ fontSize: 12, color: '#d1d5db', lineHeight: '32px' }}>—</Typography>
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: '32px' }}>—</Typography>
             )}
           </Box>
         );
@@ -245,13 +261,13 @@ export default function QueueDashboard() {
               fontSize: '25px',
               lineHeight: 1.2,
               letterSpacing: '-0.5px',
-              color: '#173d29',
+              color: 'var(--text-h)',
               margin: '0 0 7px 0',
             }}
           >
             Queue Dashboard
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
+          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
             {today} · Auto-refreshes every 30 seconds
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
@@ -261,8 +277,8 @@ export default function QueueDashboard() {
             >
               Dashboard
             </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Queue</span>
+            <span style={{ color: 'var(--text-secondary)' }}>›</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Queue</span>
           </Box>
         </Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -282,7 +298,7 @@ export default function QueueDashboard() {
       <QueueStatsGrid stats={stats} />
 
       {/* Queue Table */}
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: '#f3f4f6', borderRadius: 3, overflow: 'hidden', background: '#ffffff', p: 3 }}>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
         <QueueFilterBar
           search={search}
           onSearchChange={v => { setSearch(v); setPage(0); }}
@@ -297,7 +313,7 @@ export default function QueueDashboard() {
           loading={loading}
           skeletonRows={rowsPerPage}
           rowKey={e => e.queue_id}
-          emptyIcon={<WaitIcon sx={{ fontSize: 36, color: '#d1d5db' }} />}
+          emptyIcon={<WaitIcon sx={{ fontSize: 36, color: 'var(--text-secondary)' }} />}
           emptyTitle={statusFilter ? `No ${STATUS_CFG[statusFilter]?.label ?? statusFilter} patients` : 'Queue is empty'}
           emptySubtitle="Patients added by registration will appear here"
         />
@@ -343,19 +359,7 @@ export default function QueueDashboard() {
         onDone={() => { reload(); toast('Consultation completed'); }}
       />
 
-      <GeneralTreatmentForm
-        open={!!form2Target}
-        entry={form2Target}
-        onClose={() => setForm2Target(null)}
-        onSave={() => { toast('Treatment record saved successfully'); reload(); }}
-      />
 
-      <VaccinationRecordForm
-        open={!!form3Target}
-        entry={form3Target}
-        onClose={() => setForm3Target(null)}
-        onSave={() => { toast('Vaccination record saved successfully'); reload(); }}
-      />
 
       <Snackbar
         open={snackbar.open}

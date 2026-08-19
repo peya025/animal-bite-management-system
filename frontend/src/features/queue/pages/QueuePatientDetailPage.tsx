@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -20,7 +20,7 @@ import {
 } from '@mui/icons-material';
 import { useQueueEntry } from '../hooks';
 import { ROUTES } from '../../../shared/config/routes';
-import { STATUS_CFG, PRIORITY_CFG, VISIT_LABEL, waitTime } from '../types';
+import { STATUS_CFG, PRIORITY_CFG, VISIT_LABEL, waitTime, type QueueEntry } from '../types';
 import { callQueuePatient, cancelQueueEntry } from '../services';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
@@ -55,7 +55,7 @@ function ReadOnlyBanner({ ownerLabel }: { ownerLabel: string }) {
 
 // ─── Patient Hero Card ──────────────────────────────────────────────────────
 function PatientHero({ entry, userRole, onMenuOpen }: {
-  entry: any;
+  entry: QueueEntry;
   userRole: string;
   onMenuOpen: (e: React.MouseEvent<HTMLElement>) => void;
 }) {
@@ -297,8 +297,8 @@ export default function QueuePatientDetailPage() {
         return (
           <Box sx={{ p: 3 }}>
             {!editable && <ReadOnlyBanner ownerLabel="Registration" />}
-            {/* Form 1 patient data - displayed inline, not as modal */}
-            <PatientInfoCard entry={entry} readOnly={!editable} />
+            {/* Form 1 rendered inline with full field sections */}
+            <Form1InlineView entry={entry} readOnly={!editable} />
           </Box>
         );
       }
@@ -433,43 +433,233 @@ export default function QueuePatientDetailPage() {
   );
 }
 
-// ─── Summary Cards (shown in tab without opening modal) ───────────────────
-function PatientInfoCard({ entry, readOnly }: { entry: any; readOnly: boolean }) {
-  const p = entry.patient;
-  const rows = [
-    { label: 'Full Name', value: p?.name },
-    { label: 'Age', value: p?.age ? `${p.age} years old` : '—' },
-    { label: 'Gender', value: p?.gender },
-    { label: 'Contact Number', value: p?.contact_number || '—' },
-    { label: 'Queue Date', value: entry.queue_date },
-    { label: 'Check-in Notes', value: entry.check_in_notes || '—' },
-  ];
+// ─── Form 1 Inline View (full patient registration fields) ─────────────────
+const CIVIL_STATUS_LABELS: Record<string, string> = {
+  single: 'Single',
+  married: 'Married',
+  widowed: 'Widowed',
+  separated: 'Separated',
+  annulled: 'Annulled',
+  cohabitation: 'Co-Habitation',
+};
+
+const EDUCATIONAL_ATTAINMENT_LABELS: Record<string, string> = {
+  no_formal: 'No Formal Education',
+  elementary: 'Elementary',
+  high_school: 'High School',
+  vocational: 'Vocational',
+  college: 'College',
+  post_graduate: 'Post Graduate',
+  student: 'Student',
+  unknown: 'Unknown',
+};
+
+const EMPLOYMENT_STATUS_LABELS: Record<string, string> = {
+  employed: 'Employed',
+  unemployed: 'None/Unemployed',
+  self_employed: 'Self-Employed',
+  retired: 'Retired',
+  student: 'Student',
+};
+
+const FAMILY_MEMBER_LABELS: Record<string, string> = {
+  father: 'Father (Ama)',
+  mother: 'Mother (Ina)',
+  son: 'Son (Anak na Lalaki)',
+  daughter: 'Daughter (Anak na Babae)',
+  others: 'Others',
+};
+
+const PHILHEALTH_STATUS_LABELS: Record<string, string> = {
+  member: 'Member',
+  dependent: 'Dependent',
+};
+
+const PHILHEALTH_CATEGORY_LABELS: Record<string, string> = {
+  fe_private: 'FE – Private',
+  fe_government: 'FE – Government',
+  ie: 'IE',
+  others: 'Others',
+};
+
+function toRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+function firstNonEmpty(...values: unknown[]): unknown {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === 'string' && value.trim() === '') continue;
+    return value;
+  }
+  return undefined;
+}
+
+function asDisplayValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || '—';
+  }
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+}
+
+function asDate(value: unknown): string {
+  if (!value) return '—';
+  const text = String(value).trim();
+  if (!text) return '—';
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return asDisplayValue(value);
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function asOption(value: unknown, labels: Record<string, string>): string {
+  const raw = asDisplayValue(value);
+  if (raw === '—') return raw;
+  const mapped = labels[raw];
+  if (mapped) return mapped;
+  return raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function asYesNo(value: unknown): string {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (!raw) return '—';
+  if (raw === 'yes') return 'Yes';
+  if (raw === 'no') return 'No';
+  return asDisplayValue(value);
+}
+
+function Form1Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Box sx={{ borderBottom: '1px solid #f3f4f6', p: 3, '&:last-of-type': { borderBottom: 'none' } }}>
+      <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.45px', mb: 2 }}>
+        {title}
+      </Typography>
+      {children}
+    </Box>
+  );
+}
+
+function Form1Field({ label, value, capitalize = false }: { label: string; value: string; capitalize?: boolean }) {
+  return (
+    <Box>
+      <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.45px', mb: 0.5 }}>
+        {label}
+      </Typography>
+      <Typography sx={{ fontSize: 14, color: '#111827', fontWeight: 500, textTransform: capitalize ? 'capitalize' : 'none', wordBreak: 'break-word' }}>
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
+type Form1Entry = QueueEntry & {
+  patient_details?: unknown;
+};
+
+function Form1InlineView({ entry, readOnly }: { entry: Form1Entry; readOnly: boolean }) {
+  const patient = toRecord(entry?.patient);
+  const details = toRecord(firstNonEmpty(patient.details, entry.patient_details));
+
+  const civilStatusRaw = firstNonEmpty(details.civil_status, patient.civil_status);
+  const spouseRaw = firstNonEmpty(details.spouse_name, patient.spouse_name);
+
   return (
     <Box sx={{ bgcolor: '#fff', borderRadius: 3, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
       <Box sx={{ px: 3, py: 2, bgcolor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
         <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Patient Information — Form 1
+          Patient Registration — Form 1
         </Typography>
         {readOnly && (
           <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
-            Managed by Registration staff
+            Read-only view of Form 1 data
           </Typography>
         )}
       </Box>
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 3 }}>
-          {rows.map(row => (
-            <Box key={row.label}>
-              <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
-                {row.label}
-              </Typography>
-              <Typography sx={{ fontSize: 14, color: '#111827', fontWeight: 500, textTransform: row.label === 'Gender' ? 'capitalize' : 'none' }}>
-                {row.value || '—'}
-              </Typography>
-            </Box>
-          ))}
+
+      <Form1Section title="I. Patient Information">
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 2.5, mb: 2.5 }}>
+          <Form1Field label="Last Name" value={asDisplayValue(firstNonEmpty(patient.last_name))} />
+          <Form1Field label="First Name" value={asDisplayValue(firstNonEmpty(patient.first_name))} />
+          <Form1Field label="Middle Name" value={asDisplayValue(firstNonEmpty(patient.middle_name))} />
+          <Form1Field label="Suffix" value={asDisplayValue(firstNonEmpty(patient.suffix))} />
         </Box>
-      </Box>
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 2.5, mb: 2.5 }}>
+          <Form1Field
+            label="Sex (Kasarian)"
+            value={asOption(firstNonEmpty(patient.sex, patient.gender), { male: 'Male', female: 'Female', other: 'Other' })}
+          />
+          <Form1Field label="Date of Birth" value={asDate(firstNonEmpty(patient.date_of_birth))} />
+          <Form1Field label="Blood Type" value={asDisplayValue(firstNonEmpty(details.blood_type, patient.blood_type))} />
+        </Box>
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2.5 }}>
+          <Form1Field
+            label="Mother's Maiden Name"
+            value={asDisplayValue(firstNonEmpty(details.mother_maiden_name, patient.mother_maiden_name))}
+          />
+          <Form1Field label="Civil Status" value={asOption(civilStatusRaw, CIVIL_STATUS_LABELS)} />
+          {(String(civilStatusRaw ?? '').toLowerCase() === 'married' || asDisplayValue(spouseRaw) !== '—') && (
+            <Form1Field label="Spouse's Name" value={asDisplayValue(spouseRaw)} />
+          )}
+        </Box>
+      </Form1Section>
+
+      <Form1Section title="Residential Address — Misamis Oriental (Tirahan)">
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 2.5 }}>
+          <Form1Field label="Province" value={asDisplayValue(firstNonEmpty(details.province))} />
+          <Form1Field label="City / Municipality" value={asDisplayValue(firstNonEmpty(details.address_municipality))} />
+          <Form1Field label="Barangay" value={asDisplayValue(firstNonEmpty(details.address_barangay))} />
+          <Form1Field label="Purok / Zone / Street" value={asDisplayValue(firstNonEmpty(details.address_purok))} />
+          <Form1Field label="Full Address" value={asDisplayValue(firstNonEmpty(patient.address))} />
+        </Box>
+      </Form1Section>
+
+      <Form1Section title="Contact Information">
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2.5 }}>
+          <Form1Field label="Contact Number (Mobile)" value={asDisplayValue(firstNonEmpty(patient.contact_number))} />
+          <Form1Field label="Email Address (Optional)" value={asDisplayValue(firstNonEmpty(patient.email))} />
+          <Form1Field
+            label="Emergency Contact Name"
+            value={asDisplayValue(firstNonEmpty(patient.emergency_contact_name, details.emergency_contact_name))}
+          />
+          <Form1Field
+            label="Emergency Contact Phone"
+            value={asDisplayValue(firstNonEmpty(patient.emergency_contact_number, patient.emergency_contact_phone, details.emergency_contact_phone))}
+          />
+        </Box>
+      </Form1Section>
+
+      <Form1Section title="Socioeconomic Information">
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 2.5 }}>
+          <Form1Field
+            label="Educational Attainment"
+            value={asOption(firstNonEmpty(details.educational_attainment, patient.educational_attainment), EDUCATIONAL_ATTAINMENT_LABELS)}
+          />
+          <Form1Field
+            label="Employment Status"
+            value={asOption(firstNonEmpty(details.employment_status, patient.employment_status), EMPLOYMENT_STATUS_LABELS)}
+          />
+          <Form1Field
+            label="Family Member Position"
+            value={asOption(firstNonEmpty(details.family_member, patient.family_member), FAMILY_MEMBER_LABELS)}
+          />
+        </Box>
+      </Form1Section>
+
+      <Form1Section title="II. Government Program Information">
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2.5 }}>
+          <Form1Field label="PhilHealth Member?" value={asYesNo(firstNonEmpty(details.philhealth_member, patient.philhealth_member))} />
+          <Form1Field label="Status Type" value={asOption(firstNonEmpty(details.philhealth_status, patient.philhealth_status), PHILHEALTH_STATUS_LABELS)} />
+          <Form1Field label="PhilHealth No." value={asDisplayValue(firstNonEmpty(details.philhealth_no, patient.philhealth_no))} />
+          <Form1Field label="Category" value={asOption(firstNonEmpty(details.philhealth_category, patient.philhealth_category), PHILHEALTH_CATEGORY_LABELS)} />
+          <Form1Field label="4Ps Member?" value={asYesNo(firstNonEmpty(details.fourps_member, patient.fourps_member))} />
+          <Form1Field label="DSWD NHTS?" value={asYesNo(firstNonEmpty(details.dswd_nhts, patient.dswd_nhts))} />
+        </Box>
+      </Form1Section>
     </Box>
   );
 }

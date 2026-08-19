@@ -1,4 +1,4 @@
-import { Icon } from '../../../shared/components/ui/Icon';
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -7,20 +7,10 @@ import {
   Button,
   Box,
   Typography,
-  Grid,
   Chip,
-  Stack,
-  Paper,
+  CircularProgress,
 } from '@mui/material';
-import {
-  Edit as EditIcon,
-  Badge as BadgeIcon,
-  Person as PersonIcon,
-  Phone as PhoneIcon,
-  Home as HomeIcon,
-  Work as WorkIcon,
-  CardMembership as CardMembershipIcon,
-} from '@mui/icons-material';
+import { Icon } from '../../../shared/components/ui/Icon';
 import type { Patient } from '../types';
 
 interface PatientDetailsModalProps {
@@ -30,38 +20,155 @@ interface PatientDetailsModalProps {
   onEdit: (patient: Patient) => void;
 }
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function fmt(val: string | undefined | null, fallback = '—') {
+  if (!val || val.trim() === '') return fallback;
+  return val;
+}
+
+function fmtDate(val: string | undefined | null) {
+  if (!val) return '—';
+  return new Date(val).toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
+  });
+}
+
+function fmtLabel(val: string | undefined | null): string {
+  if (!val) return '—';
+  return val
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ── read-only field ───────────────────────────────────────────────────────────
+
+function ROField({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {label}
+      </span>
+      <span style={{
+        fontSize: 13.5,
+        fontWeight: 500,
+        color: value && value !== '—' ? '#111827' : '#d1d5db',
+        fontFamily: 'inherit',
+      }}>
+        {fmt(value)}
+      </span>
+    </div>
+  );
+}
+
+// ── section wrapper ───────────────────────────────────────────────────────────
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <p style={{
+        margin: '0 0 10px 0',
+        fontSize: 11,
+        fontWeight: 700,
+        color: '#0d9488',
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+        borderBottom: '1px solid #ccfbf1',
+        paddingBottom: 6,
+      }}>
+        {title}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+// ── grid ─────────────────────────────────────────────────────────────────────
+
+function Grid({ cols, children }: { cols: number; children: React.ReactNode }) {
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${cols}, 1fr)`,
+      gap: '10px 14px',
+    }}>
+      {children}
+    </div>
+  );
+}
+
+// ── main component ────────────────────────────────────────────────────────────
+
 export default function PatientDetailsModal({
   open,
   patient,
   onClose,
   onEdit,
 }: PatientDetailsModalProps) {
+  const [printing, setPrinting] = useState(false);
+
   if (!patient) return null;
 
-  const details = (patient as any).details || {};
+  const p = patient as any; // extended fields not in base type
+  const d = p.details || {}; // patient_details relationship
 
-  const patientFullName = [
-    patient.first_name,
-    patient.middle_name,
-    patient.last_name,
-    (patient as any).suffix
-  ].filter(Boolean).join(' ');
+  const handleDirectPrint = async () => {
+    if (!patient || printing) return;
+    setPrinting(true);
 
-  const formattedDob = patient.date_of_birth
-    ? new Date(patient.date_of_birth).toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    : '—';
+    try {
+      const token = localStorage.getItem('authToken') || '';
+      const patientId = patient.patient_id || patient.id;
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+      const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment?token=${token}`;
 
-  const formattedReg = patient.created_at
-    ? new Date(patient.created_at).toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    : '—';
+      const res = await fetch(printUrl, {
+        headers: {
+          Accept: 'text/html',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Print failed (HTTP ${res.status})`);
+      }
+
+      const html = await res.text();
+
+      // Create a hidden offscreen iframe for direct printing without preview or leaving page
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0px';
+      iframe.style.height = '0px';
+      iframe.style.border = 'none';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+
+      document.body.appendChild(iframe);
+
+      iframe.srcdoc = html;
+
+      iframe.onload = () => {
+        setTimeout(() => {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          }
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+            setPrinting(false);
+          }, 1000);
+        }, 350);
+      };
+    } catch (err) {
+      console.error('Direct print error:', err);
+      setPrinting(false);
+    }
+  };
 
   // Helper to get government program details
   const getGovProgramInfo = () => {
@@ -125,20 +232,22 @@ export default function PatientDetailsModal({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          pb: 1.5,
-          borderBottom: '1px solid #e5e7eb',
-          bgcolor: '#fafafa',
-        }}
-      >
+      {/* ── Title ── */}
+      <DialogTitle sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justify: 'space-between',
+        pb: 1.5,
+        borderBottom: '1px solid #e5e7eb',
+        bgcolor: '#fafafa',
+      }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <BadgeIcon sx={{ color: '#10b981' }} />
-          <Typography variant="h6" sx={{ fontWeight: 700, color: '#173d29', fontSize: 16 }}>
-            Patient Profile Details
+          <Icon name="patients" size={20} color="#3b82f6" />
+          <Typography variant="h6" sx={{ fontWeight: 700, color: '#173d29', fontSize: 16, fontFamily: 'inherit' }}>
+            Patient Information
+          </Typography>
+          <Typography sx={{ fontSize: 12, color: '#9ca3af', fontFamily: 'inherit' }}>
+            — Form 1 · Patient Enrolment (Read-only)
           </Typography>
         </Box>
         <Chip
@@ -148,263 +257,141 @@ export default function PatientDetailsModal({
         />
       </DialogTitle>
 
-      <DialogContent sx={{ pt: 2.5, pb: 2 }}>
-        <Stack spacing={2.5}>
-          {/* Header Profile Info */}
-          <Paper elevation={0} sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 2, border: '1px solid #bbf7d0' }}>
-            <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#166534' }}>
-              {patientFullName}
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: '#15803d', mt: 0.5 }}>
-              Sex: <strong style={{ textTransform: 'capitalize' }}>{patient.gender}</strong> · Date of Birth: <strong>{formattedDob}</strong> · Age: <strong>{(patient as any).age} yrs old</strong>
-            </Typography>
-          </Paper>
+      {/* ── Content ── */}
+      <DialogContent sx={{ pt: 2.5, pb: 2, fontFamily: 'inherit' }}>
 
-          {/* Section 1: Personal Information */}
-          <Paper elevation={0} sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-              <PersonIcon sx={{ color: '#10b981', fontSize: 18 }} />
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#374151', textTransform: 'uppercase' }}>
-                Personal Information
-              </Typography>
-            </Box>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Blood Type</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827' }}>
-                  {details.blood_type || '—'}
-                </Typography>
+        {/* I. Patient Information */}
+        <Section title="I. Patient Information">
+          <Grid cols={4}>
+            <ROField label="Last Name"   value={patient.last_name} />
+            <ROField label="First Name"  value={patient.first_name} />
+            <ROField label="Middle Name" value={patient.middle_name} />
+            <ROField label="Suffix"      value={p.suffix} />
+          </Grid>
+          <div style={{ height: 10 }} />
+          <Grid cols={3}>
+            <ROField label="Sex (Kasarian)"  value={fmtLabel(patient.gender || p.sex)} />
+            <ROField label="Date of Birth"   value={fmtDate(patient.date_of_birth)} />
+            <ROField label="Blood Type"      value={d.blood_type} />
+          </Grid>
+          <div style={{ height: 10 }} />
+          <Grid cols={2}>
+            <ROField label="Mother's Maiden Name" value={d.mother_maiden_name} />
+            <ROField label="Civil Status"          value={fmtLabel(d.civil_status)} />
+          </Grid>
+          {d.civil_status === 'married' && (
+            <>
+              <div style={{ height: 10 }} />
+              <Grid cols={1}>
+                <ROField label="Spouse's Name" value={d.spouse_name} />
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Civil Status</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827', textTransform: 'capitalize' }}>
-                  {details.civil_status || '—'}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Spouse Name</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827' }}>
-                  {details.spouse_name || '—'}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Mother's Maiden Name</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827' }}>
-                  {details.mother_maiden_name || '—'}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Paper>
+            </>
+          )}
+        </Section>
 
-          {/* Section 2: Contact & Emergency Details */}
-          <Paper elevation={0} sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-              <PhoneIcon sx={{ color: '#10b981', fontSize: 18 }} />
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#374151', textTransform: 'uppercase' }}>
-                Contact & Emergency Details
-              </Typography>
-            </Box>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Mobile Phone</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  {patient.contact_number || patient.phone ? (
-                    <>
-                      <Icon name="phone" size={14} color="#059669" /> {patient.contact_number || patient.phone}
-                    </>
-                  ) : (
-                    '—'
-                  )}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Email Address</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  {patient.email ? (
-                    <>
-                      <Icon name="email" size={14} color="#2563eb" /> {patient.email}
-                    </>
-                  ) : (
-                    '—'
-                  )}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Emergency Contact Name</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#374151' }}>
-                  {(patient as any).emergency_contact_name || '—'}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Emergency Contact Phone</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#374151' }}>
-                  {(patient as any).emergency_contact_number || (patient as any).emergency_contact_phone || '—'}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Paper>
+        {/* II. Residential Address */}
+        <Section title="Residential Address — Misamis Oriental (Tirahan)">
+          <ROField label="Full Address" value={patient.address} />
+        </Section>
 
-          {/* Section 3: Residential Address */}
-          <Paper elevation={0} sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-              <HomeIcon sx={{ color: '#10b981', fontSize: 18 }} />
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#374151', textTransform: 'uppercase' }}>
-                Residential Address
-              </Typography>
-            </Box>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Residential Address</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  {patient.address ? (
-                    <>
-                      <Icon name="location" size={14} color="#7c3aed" /> {patient.address}
-                    </>
-                  ) : (
-                    '—'
-                  )}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Purok</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#374151' }}>
-                  {details.address_purok || '—'}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Barangay</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#374151' }}>
-                  {details.address_barangay || '—'}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Municipality / City</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#374151' }}>
-                  {details.address_municipality || '—'}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Province</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#374151' }}>
-                  {details.province || '—'}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Paper>
+        {/* III. Contact Information */}
+        <Section title="Contact Information">
+          <Grid cols={2}>
+            <ROField label="Contact Number (Mobile)"  value={patient.contact_number || p.phone} />
+            <ROField label="Email Address"             value={patient.email} />
+          </Grid>
+          <div style={{ height: 10 }} />
+          <Grid cols={2}>
+            <ROField label="Emergency Contact Name"  value={p.emergency_contact_name} />
+            <ROField label="Emergency Contact Phone" value={p.emergency_contact_number || p.emergency_contact_phone} />
+          </Grid>
+        </Section>
 
-          {/* Section 4: Socioeconomic Status */}
-          <Paper elevation={0} sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-              <WorkIcon sx={{ color: '#10b981', fontSize: 18 }} />
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#374151', textTransform: 'uppercase' }}>
-                Socioeconomic Information
-              </Typography>
-            </Box>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Family Member Status</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827', textTransform: 'capitalize' }}>
-                  {details.family_member || '—'}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Educational Attainment</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827' }}>
-                  {details.educational_attainment || '—'}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Employment Status</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827' }}>
-                  {details.employment_status || '—'}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Paper>
+        {/* IV. Socioeconomic Information */}
+        <Section title="Socioeconomic Information">
+          <Grid cols={3}>
+            <ROField label="Educational Attainment"  value={fmtLabel(d.educational_attainment)} />
+            <ROField label="Employment Status"        value={fmtLabel(d.employment_status)} />
+            <ROField label="Family Member Position"   value={fmtLabel(d.family_member)} />
+          </Grid>
+        </Section>
 
-          {/* Section 5: Government Program / Membership */}
-          <Paper elevation={0} sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-              <CardMembershipIcon sx={{ color: '#10b981', fontSize: 18 }} />
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#374151', textTransform: 'uppercase' }}>
-                Government Program / Membership
-              </Typography>
-            </Box>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Any Government Program / Other Membership?</Typography>
-                <Chip
-                  size="small"
-                  label={details.has_membership === 'yes' ? 'YES' : 'NO'}
-                  sx={{
-                    bgcolor: details.has_membership === 'yes' ? '#e8f5e9' : '#fafafa',
-                    color: details.has_membership === 'yes' ? '#2e7d32' : '#757575',
-                    fontWeight: 700,
-                    fontSize: 11,
-                    mt: 0.5,
-                  }}
-                />
-              </Grid>
-
-              {details.has_membership === 'yes' && govProgram && (
+        {/* V. Government Program Information */}
+        <Section title="II. Government Program Information">
+          <Grid cols={2}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <ROField label="PhilHealth Member?"   value={fmtLabel(d.philhealth_member)} />
+              {d.philhealth_member === 'yes' && (
                 <>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Program / Membership Name</Typography>
-                    <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827' }}>
-                      {govProgram.name}
-                    </Typography>
-                  </Grid>
-
-                  {govProgram.fields.map((f, i) => (
-                    <Grid key={`gov-field-${i}`} size={{ xs: 12, sm: 6 }}>
-                      <Typography sx={{ fontSize: 12, color: '#6b7280' }}>{f.label}</Typography>
-                      <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827' }}>
-                        {f.value || '—'}
-                      </Typography>
-                    </Grid>
-                  ))}
+                  <ROField label="Status Type"    value={fmtLabel(d.philhealth_status)} />
+                  <ROField label="PhilHealth No." value={d.philhealth_no} />
+                  <ROField label="Category"       value={fmtLabel(d.philhealth_category)} />
                 </>
               )}
-            </Grid>
-          </Paper>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <ROField label="4Ps Member?" value={fmtLabel(d.fourps_member)} />
+              <ROField label="DSWD NHTS?"  value={fmtLabel(d.dswd_nhts)} />
+            </div>
+          </Grid>
+        </Section>
 
-          {/* System Audit */}
-          <Paper elevation={0} sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: 2, border: '1px solid #e5e7eb' }}>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 11, color: '#9ca3af' }}>Registered On</Typography>
-                <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#6b7280' }}>
-                  {formattedReg}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 11, color: '#9ca3af' }}>System Status</Typography>
-                <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#6b7280', textTransform: 'capitalize' }}>
-                  {patient.status || 'Active'}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Paper>
-        </Stack>
+        {/* Registration meta */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '8px 12px',
+          background: '#f9fafb',
+          border: '1px solid #e5e7eb',
+          borderRadius: 8,
+          fontSize: 12,
+          color: '#6b7280',
+        }}>
+          <span>Registered On: <strong style={{ color: '#374151' }}>{fmtDate(patient.created_at)}</strong></span>
+          <span>·</span>
+          <span>Status:&nbsp;
+            <Chip
+              size="small"
+              label={(patient.status || 'Active').toUpperCase()}
+              sx={{ bgcolor: '#ecfdf5', color: '#047857', fontWeight: 700, fontSize: 10, height: 20 }}
+            />
+          </span>
+        </div>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fafafa' }}>
-        <Button onClick={onClose} sx={{ color: '#6b7280', textTransform: 'none', fontWeight: 600 }}>
+      {/* ── Footer ── */}
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fafafa', justifyContent: 'flex-end', gap: 1 }}>
+        <Button
+          variant="outlined"
+          onClick={handleDirectPrint}
+          disabled={printing}
+          startIcon={
+            printing ? (
+              <CircularProgress size={14} sx={{ color: '#059669' }} />
+            ) : (
+              <Icon name="print" size={16} color="#059669" />
+            )
+          }
+          sx={{
+            borderColor: '#059669',
+            color: '#059669',
+            fontWeight: 600,
+            fontSize: 13,
+            textTransform: 'none',
+            fontFamily: 'inherit',
+            '&:hover': { bgcolor: '#f0fdf4', borderColor: '#047857' },
+          }}
+        >
+          {printing ? 'Opening Printer…' : 'Print Form 1 (Enrolment)'}
+        </Button>
+        <Button onClick={onClose} sx={{ color: '#6b7280', textTransform: 'none', fontWeight: 600, fontFamily: 'inherit' }}>
           Close
         </Button>
         <Button
           variant="contained"
-          onClick={() => {
-            onClose();
-            onEdit(patient);
-          }}
-          startIcon={<EditIcon fontSize="small" />}
-          sx={{
-            bgcolor: '#10b981',
-            fontWeight: 600,
-            textTransform: 'none',
-            '&:hover': { bgcolor: '#059669' },
-          }}
+          onClick={() => { onClose(); onEdit(patient); }}
+          sx={{ bgcolor: '#10b981', fontWeight: 600, textTransform: 'none', fontFamily: 'inherit', '&:hover': { bgcolor: '#059669' } }}
         >
           Edit Profile
         </Button>

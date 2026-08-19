@@ -133,14 +133,27 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   referred_by: '',
 };
 
+function getCurrentUserName(): string {
+  try {
+    const raw = localStorage.getItem('userData');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.name === 'string' ? parsed.name.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
 export default function GeneralTreatmentForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: GeneralTreatmentFormProps) {
   const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [vaccineNames, setVaccineNames] = useState<string[]>([]);
+  const [currentUserName] = useState<string>(() => getCurrentUserName());
   // Track which checklist items are checked (separate from the editable text box)
   const [checkedDiagnoses, setCheckedDiagnoses] = useState<string[]>([]);
   const [checkedMeds, setCheckedMeds] = useState<string[]>([]);
+
 
   // Fetch available vaccine names from inventory
   useEffect(() => {
@@ -163,48 +176,58 @@ export default function GeneralTreatmentForm({ open, entry, onClose, onSave, rea
   }, []);
 
   useEffect(() => {
-    if (open && entry?.patient) {
-      setFormData((prev) => ({
-        ...prev,
-        last_name: entry.patient.last_name || '',
-        first_name: entry.patient.first_name || '',
-        middle_name: entry.patient.middle_name || '',
-        suffix: entry.patient.suffix || '',
-        age: String(entry.patient.age || ''),
-        address: entry.patient.address || 'Misamis Oriental',
-      }));
-      setCheckedDiagnoses([]);
-      setCheckedMeds([]);
-      loadExistingRecord();
-    }
-  }, [open, entry]);
+    if (!(open && entry?.patient)) return;
 
-  const loadExistingRecord = async () => {
-    if (!entry?.patient?.patient_id) return;
-    try {
-      const response = await api.get(`/treatment-records/patient/${entry.patient.patient_id}`);
-      if (response.data.latest_treatment) {
-        const record = response.data.latest_treatment;
-        // Normalize: may be JSON array or plain string
-        const asText = (val: any): string => {
-          if (!val) return '';
-          if (Array.isArray(val)) return val.join('\n');
-          try {
-            const parsed = JSON.parse(val);
-            return Array.isArray(parsed) ? parsed.join('\n') : String(val);
-          } catch { return String(val); }
-        };
-        setFormData((prev) => ({
-          ...prev,
-          chief_complaints: record.chief_complaints || '',
-          diagnosis: asText(record.diagnosis),
-          medication_treatment: asText(record.medication_treatment),
-        }));
+    setFormData((prev) => ({
+      ...prev,
+      last_name: entry.patient.last_name || '',
+      first_name: entry.patient.first_name || '',
+      middle_name: entry.patient.middle_name || '',
+      suffix: entry.patient.suffix || '',
+      age: String(entry.patient.age || ''),
+      address: entry.patient.address || 'Misamis Oriental',
+      name_of_provider: !readOnly ? (currentUserName || prev.name_of_provider) : prev.name_of_provider,
+    }));
+    setCheckedDiagnoses([]);
+    setCheckedMeds([]);
+
+    const asText = (val: unknown): string => {
+      if (!val) return '';
+      if (Array.isArray(val)) return val.join('\n');
+      if (typeof val === 'string') {
+        try {
+          const parsed: unknown = JSON.parse(val);
+          return Array.isArray(parsed) ? parsed.join('\n') : val;
+        } catch {
+          return val;
+        }
       }
-    } catch (err) {
-      console.error('Failed to load existing record:', err);
-    }
-  };
+      return String(val);
+    };
+
+    const loadExistingRecord = async () => {
+      if (!entry.patient.patient_id) return;
+      try {
+        const response = await api.get(`/treatment-records/patient/${entry.patient.patient_id}`);
+        if (response.data.latest_treatment) {
+          const record = response.data.latest_treatment;
+          setFormData((prev) => ({
+            ...prev,
+            chief_complaints: record.chief_complaints || '',
+            diagnosis: asText(record.diagnosis),
+            medication_treatment: asText(record.medication_treatment),
+            name_of_provider: !readOnly
+              ? (currentUserName || record.provider_name || '')
+              : (record.provider_name || prev.name_of_provider || ''),
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load existing record:', err);
+      }
+    };
+
+    void loadExistingRecord();
+  }, [open, entry, readOnly, currentUserName]);
 
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -307,7 +330,7 @@ export default function GeneralTreatmentForm({ open, entry, onClose, onSave, rea
         medication_treatment: formData.medication_treatment,
         laboratory_findings: formData.laboratory_findings,
         performed_lab_test: formData.performed_lab_test,
-        provider_name: formData.name_of_provider,
+        provider_name: formData.name_of_provider || currentUserName || null,
         attending_provider: formData.name_of_attending_provider,
         referred_by: formData.referred_by,
       });
@@ -784,8 +807,13 @@ export default function GeneralTreatmentForm({ open, entry, onClose, onSave, rea
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Name of Health Care Provider</label>
-              <input type="text" value={formData.name_of_provider} onChange={handleFieldChange('name_of_provider')} disabled={readOnly}
-                style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+              <input
+                type="text"
+                value={formData.name_of_provider}
+                readOnly
+                disabled
+                style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: '#f9fafb', color: '#6b7280', cursor: 'not-allowed' }}
+              />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Performed Laboratory Test</label>

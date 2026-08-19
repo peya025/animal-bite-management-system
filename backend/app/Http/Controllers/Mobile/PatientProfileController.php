@@ -7,6 +7,7 @@ use App\Models\Patient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class PatientProfileController extends Controller
@@ -57,10 +58,17 @@ class PatientProfileController extends Controller
             'family_member' => ['nullable', 'string', 'max:50'],
             'philhealth_member' => ['nullable', 'in:yes,no'],
             'philhealth_status' => ['nullable', 'in:member,dependent'],
-            'philhealth_no' => ['nullable', 'string', 'max:50'],
+            'philhealth_no' => ['nullable', 'string', 'max:50', Rule::unique('patient_details', 'philhealth_no')],
             'philhealth_category' => ['nullable', 'string', 'max:50'],
             'fourps_member' => ['nullable', 'in:yes,no'],
+            'fourps_category' => ['nullable', 'string', 'max:50'],
+            'fourps_relationship' => ['nullable', 'string', 'max:50'],
+            'registered_fourps_beneficiary' => ['nullable', 'string', 'max:50'],
             'dswd_nhts' => ['nullable', 'in:yes,no'],
+            'has_membership' => ['nullable', 'string', 'max:10'],
+            'other_membership' => ['nullable', 'string', 'max:50'],
+            'other_membership_name' => ['nullable', 'string', 'max:100'],
+            'other_membership_no' => ['nullable', 'string', 'max:100'],
         ]);
 
         $account = $request->user();

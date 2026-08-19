@@ -18,9 +18,11 @@ import {
   CircularProgress,
   Checkbox,
   FormGroup,
+  MenuItem,
 } from '@mui/material';
 import { Save as SaveIcon, Close as CloseIcon } from '@mui/icons-material';
 import AppButton from '../../../components/button';
+import { formatPhilHealthNumber } from '../../../shared/utils';
 
 interface IndividualTreatmentFormProps {
   open: boolean;
@@ -114,6 +116,9 @@ export default function IndividualTreatmentForm({
   }, [open, entry]);
 
   const handleChange = (field: string, value: any) => {
+    if (field === 'philhealth_pin') {
+      value = formatPhilHealthNumber(value);
+    }
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -127,6 +132,10 @@ export default function IndividualTreatmentForm({
   };
 
   const handleSave = async () => {
+    if (formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
+      alert('PhilHealth PIN must be exactly 12 digits.');
+      return;
+    }
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
@@ -215,7 +224,7 @@ export default function IndividualTreatmentForm({
                 onChange={(e) => handleChange('hospital_no', e.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -224,14 +233,29 @@ export default function IndividualTreatmentForm({
                 onChange={(e) => handleChange('referred_by', e.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
                 label="PhilHealth PIN (optional)"
                 value={formData.philhealth_pin}
                 onChange={(e) => handleChange('philhealth_pin', e.target.value)}
+                slotProps={{ htmlInput: { maxLength: 14 } }}
               />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="PhilHealth Type"
+                value={formData.philhealth_type}
+                onChange={(e) => handleChange('philhealth_type', e.target.value)}
+              >
+                <MenuItem value="">— Select —</MenuItem>
+                <MenuItem value="member">Member</MenuItem>
+                <MenuItem value="dependent">Dependent</MenuItem>
+              </TextField>
             </Grid>
           </Grid>
         </Box>

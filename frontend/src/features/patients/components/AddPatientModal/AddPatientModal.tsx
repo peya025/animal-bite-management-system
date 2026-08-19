@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import FormModal from '../../../../components/forms/FormModal';
+import { formatPhilHealthNumber, formatPWDNumber } from '../../../../shared/utils';
 import { PatientFormContent } from '../../styles/AddPatientModal.styles';
 import type { AddPatientModalProps, EnrolmentFormData } from '../../types';
 import { INITIAL_ENROLMENT_DATA } from '../../types';
@@ -25,6 +26,10 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
     let value = ev.target.value;
     if (key === 'contact_number' || key === 'emergency_contact_phone') {
       value = value.replace(/\D/g, '').slice(0, 11);
+    } else if (key === 'philhealth_no') {
+      value = formatPhilHealthNumber(value);
+    } else if (key === 'other_membership_no' && enrolment.other_membership === 'pwd') {
+      value = formatPWDNumber(value);
     }
     setEnrolment(prev => ({ ...prev, [key]: value }));
   };
@@ -43,6 +48,18 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
     if (enrolment.emergency_contact_phone && enrolment.emergency_contact_phone.length !== 11) {
       setError('Emergency contact phone must be exactly 11 digits.');
       return;
+    }
+
+    if (enrolment.philhealth_no && enrolment.philhealth_no.replace(/\D/g, '').length !== 12) {
+      setError('PhilHealth number must be exactly 12 digits.');
+      return;
+    }
+
+    if (enrolment.other_membership === 'pwd' && enrolment.other_membership_no) {
+      if (enrolment.other_membership_no.replace(/\D/g, '').length !== 16) {
+        setError('PWD ID number must be exactly 16 digits.');
+        return;
+      }
     }
 
     if (loc.useManual) {

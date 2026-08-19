@@ -36,7 +36,14 @@ export async function createPatientRecord(
     philhealth_member: cleanField(enrolment.philhealth_member),
     philhealth_status: cleanField(enrolment.philhealth_status),
     fourps_member: cleanField(enrolment.fourps_member),
+    fourps_category: cleanField(enrolment.fourps_category),
+    fourps_relationship: cleanField(enrolment.fourps_relationship),
+    registered_fourps_beneficiary: cleanField(enrolment.registered_fourps_beneficiary),
     dswd_nhts: cleanField(enrolment.dswd_nhts),
+    has_membership: cleanField(enrolment.has_membership),
+    other_membership: cleanField(enrolment.other_membership),
+    other_membership_name: cleanField(enrolment.other_membership_name),
+    other_membership_no: cleanField(enrolment.other_membership_no),
     blood_type: cleanField(enrolment.blood_type),
   };
 

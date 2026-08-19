@@ -24,7 +24,14 @@ class PatientDetails extends Model
         'philhealth_no',
         'philhealth_category',
         'fourps_member',
+        'fourps_category',
+        'fourps_relationship',
+        'registered_fourps_beneficiary',
         'dswd_nhts',
+        'has_membership',
+        'other_membership',
+        'other_membership_name',
+        'other_membership_no',
     ];
 
     protected $casts = [

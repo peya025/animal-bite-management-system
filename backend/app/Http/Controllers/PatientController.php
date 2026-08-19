@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Patient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\Rule;
 
 class PatientController extends Controller
 {
@@ -37,6 +38,7 @@ class PatientController extends Controller
                         'details',
                         'latestTreatmentRecord',
                         'upcomingAppointment',
+                        'details',
                         'queues' => function ($q) {
                             $q->whereIn('status', ['waiting', 'in_consultation'])->latest();
                         }
@@ -105,10 +107,22 @@ class PatientController extends Controller
             'family_member' => 'nullable|string|max:50',
             'philhealth_member' => 'nullable|in:yes,no',
             'philhealth_status' => 'nullable|in:member,dependent',
-            'philhealth_no' => 'nullable|string|max:50',
+            'philhealth_no' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('patient_details', 'philhealth_no'),
+            ],
             'philhealth_category' => 'nullable|string|max:50',
             'fourps_member' => 'nullable|in:yes,no',
+            'fourps_category' => 'nullable|string|max:50',
+            'fourps_relationship' => 'nullable|string|max:50',
+            'registered_fourps_beneficiary' => 'nullable|string|max:50',
             'dswd_nhts' => 'nullable|in:yes,no',
+            'has_membership' => 'nullable|string|max:10',
+            'other_membership' => 'nullable|string|max:50',
+            'other_membership_name' => 'nullable|string|max:100',
+            'other_membership_no' => 'nullable|string|max:100',
         ]);
 
         $patient = Patient::create([
@@ -122,9 +136,11 @@ class PatientController extends Controller
             'date_of_birth' => $request->date_of_birth,
             'address' => $request->address,
             'contact_number' => $request->contact_number,
+            'email' => $request->email,
             'emergency_contact_name' => $request->emergency_contact_name,
             'emergency_contact_number' => $request->emergency_contact_number,
             'registered_by' => $request->user()->id,
+            'registration_source' => 'staff',
         ]);
 
         // Create patient details if any extended data provided
@@ -133,7 +149,7 @@ class PatientController extends Controller
             'address_municipality', 'address_barangay', 'address_purok', 'province',
             'educational_attainment', 'employment_status', 'family_member',
             'philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category',
-            'fourps_member', 'dswd_nhts',
+            'fourps_member', 'fourps_category', 'fourps_relationship', 'registered_fourps_beneficiary', 'dswd_nhts', 'has_membership', 'other_membership', 'other_membership_name', 'other_membership_no'
         ]);
 
         if (!empty(array_filter($detailsData, fn($v) => !is_null($v) && $v !== ''))) {
@@ -197,11 +213,55 @@ class PatientController extends Controller
             'date_of_birth' => 'nullable|date|before_or_equal:today',
             'address' => 'nullable|string',
             'contact_number' => 'nullable|string|max:50',
+            'email' => 'nullable|string|email|max:255',
             'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_number' => 'nullable|string|max:50',
+            // Extended Form 1 fields
+            'blood_type' => 'nullable|string|max:10',
+            'mother_maiden_name' => 'nullable|string|max:255',
+            'civil_status' => 'nullable|in:single,married,widowed,separated,annulled,cohabitation',
+            'spouse_name' => 'nullable|string|max:255',
+            'educational_attainment' => 'nullable|string|max:50',
+            'employment_status' => 'nullable|string|max:50',
+            'family_member' => 'nullable|string|max:50',
+            'philhealth_member' => 'nullable|in:yes,no',
+            'philhealth_status' => 'nullable|in:member,dependent',
+            'philhealth_no' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('patient_details', 'philhealth_no')->ignore($patient->details?->id),
+            ],
+            'philhealth_category' => 'nullable|string|max:50',
+            'fourps_member' => 'nullable|in:yes,no',
+            'fourps_category' => 'nullable|string|max:50',
+            'fourps_relationship' => 'nullable|string|max:50',
+            'registered_fourps_beneficiary' => 'nullable|string|max:50',
+            'dswd_nhts' => 'nullable|in:yes,no',
+            'has_membership' => 'nullable|string|max:10',
+            'other_membership' => 'nullable|string|max:50',
+            'other_membership_name' => 'nullable|string|max:100',
+            'other_membership_no' => 'nullable|string|max:100',
         ]);
 
         $patient->update($request->all());
+
+        // Update details if any details fields are provided
+        $detailsFields = [
+            'blood_type', 'mother_maiden_name', 'civil_status', 'spouse_name',
+            'educational_attainment', 'employment_status', 'family_member',
+            'philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category',
+            'fourps_member', 'fourps_category', 'fourps_relationship', 'registered_fourps_beneficiary', 'dswd_nhts', 'has_membership', 'other_membership', 'other_membership_name', 'other_membership_no'
+        ];
+        
+        $detailsData = $request->only($detailsFields);
+        if (!empty($detailsData)) {
+            if ($patient->details) {
+                $patient->details->update($detailsData);
+            } else {
+                $patient->details()->create($detailsData);
+            }
+        }
 
         // Invalidate patient list cache
         $this->clearPatientListCache($request->user()->clinic_id);
@@ -210,7 +270,7 @@ class PatientController extends Controller
 
         return response()->json([
             'message' => 'Patient updated successfully',
-            'patient' => $patient,
+            'patient' => $patient->load('details'),
         ]);
     }
 

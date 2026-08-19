@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatPhilHealthNumber } from '../../../shared/utils';
 
 // ─── Types ────────────────────────────────────────────────────
 interface VaccinationRow {
@@ -290,9 +291,12 @@ function TreatmentForm({ record: r, onChange }: FormProps) {
         <div><label style={lbl}>Referred by</label><input style={inp} value={r.referredBy} onChange={e=>set('referredBy',e.target.value)} /></div>
         <div style={{gridColumn:'1/-1'}}><label style={lbl}>PhilHealth Identification Number (PIN)</label>
           <div style={{display:'flex',gap:10,alignItems:'center'}}>
-            <input style={{...inp,flex:1}} value={r.philhealthPin} onChange={e=>set('philhealthPin',e.target.value)} placeholder="XX-XXXXXXXXX-X"/>
-            <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,whiteSpace:'nowrap'}}><input type="radio" checked={r.philhealthType==='member'} onChange={()=>set('philhealthType','member')} /> Member</label>
-            <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,whiteSpace:'nowrap'}}><input type="radio" checked={r.philhealthType==='dependent'} onChange={()=>set('philhealthType','dependent')} /> Dependent</label>
+            <input style={{...inp,flex:1}} value={r.philhealthPin} onChange={e=>set('philhealthPin',formatPhilHealthNumber(e.target.value))} maxLength={14} placeholder="XX-XXXXXXXXX-X"/>
+            <select style={{...inp,width:'auto'}} value={r.philhealthType} onChange={e=>set('philhealthType',e.target.value)}>
+              <option value="">— Select —</option>
+              <option value="member">Member</option>
+              <option value="dependent">Dependent</option>
+            </select>
           </div>
         </div>
         <div style={{gridColumn:'1/-1'}}><label style={lbl}>Patient Name <span style={{color:'#ef4444'}}>*</span></label><input style={inp} value={r.patientName} onChange={e=>set('patientName',e.target.value)} placeholder="Last, First Middle" /></div>
@@ -451,6 +455,10 @@ export default function TreatmentRecordsPage() {
 
   const handleSave = () => {
     if (!formData.patientName.trim()) return;
+    if (formData.philhealthPin && formData.philhealthPin.replace(/\D/g, '').length !== 12) {
+      alert('PhilHealth PIN must be exactly 12 digits.');
+      return;
+    }
     if (editRecord) {
       saveRecords(records.map(r => r.id === editRecord.id ? { ...formData, id: editRecord.id, createdAt: editRecord.createdAt } : r));
     } else {

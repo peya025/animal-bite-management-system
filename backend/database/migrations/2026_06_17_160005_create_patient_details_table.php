@@ -32,10 +32,17 @@ return new class extends Migration
             // Government Programs
             $table->enum('philhealth_member', ['yes', 'no'])->nullable();
             $table->enum('philhealth_status', ['member', 'dependent'])->nullable();
-            $table->string('philhealth_no', 50)->nullable();
+            $table->string('philhealth_no', 50)->nullable()->unique();
             $table->string('philhealth_category', 50)->nullable();
             $table->enum('fourps_member', ['yes', 'no'])->nullable();
+            $table->string('fourps_category', 50)->nullable();
+            $table->string('fourps_relationship', 50)->nullable();
+            $table->string('registered_fourps_beneficiary', 50)->nullable();
             $table->enum('dswd_nhts', ['yes', 'no'])->nullable();
+            $table->string('has_membership', 10)->nullable();
+            $table->string('other_membership', 50)->nullable();
+            $table->string('other_membership_name', 100)->nullable();
+            $table->string('other_membership_no', 100)->nullable();
             
             $table->timestamps();
             

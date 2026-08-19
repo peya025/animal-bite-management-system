@@ -61,3 +61,22 @@ export function getInitials(name: string): string {
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
+
+/** Format a PhilHealth number to XX-XXXXXXXXX-X (12 digits, max 14 characters) */
+export function formatPhilHealthNumber(value: string | null | undefined): string {
+  if (!value) return '';
+  const clean = value.replace(/\D/g, '');
+  if (clean.length <= 2) return clean;
+  if (clean.length <= 11) return `${clean.slice(0, 2)}-${clean.slice(2)}`;
+  return `${clean.slice(0, 2)}-${clean.slice(2, 11)}-${clean.slice(11, 12)}`;
+}
+
+/** Format a PWD ID number to RR-PPMM-BBB-NNNNNNN (16 digits, max 19 characters) */
+export function formatPWDNumber(value: string | null | undefined): string {
+  if (!value) return '';
+  const clean = value.replace(/\D/g, '');
+  if (clean.length <= 2) return clean;
+  if (clean.length <= 6) return `${clean.slice(0, 2)}-${clean.slice(2)}`;
+  if (clean.length <= 9) return `${clean.slice(0, 2)}-${clean.slice(2, 6)}-${clean.slice(6)}`;
+  return `${clean.slice(0, 2)}-${clean.slice(2, 6)}-${clean.slice(6, 9)}-${clean.slice(9, 16)}`;
+}

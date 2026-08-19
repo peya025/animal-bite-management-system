@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -7,6 +8,7 @@ import {
   Box,
   Typography,
   Chip,
+  CircularProgress,
 } from '@mui/material';
 import { Icon } from '../../../shared/components/ui/Icon';
 import type { Patient } from '../types';
@@ -103,10 +105,131 @@ export default function PatientDetailsModal({
   onClose,
   onEdit,
 }: PatientDetailsModalProps) {
+  const [printing, setPrinting] = useState(false);
+
   if (!patient) return null;
 
   const p = patient as any; // extended fields not in base type
   const d = p.details || {}; // patient_details relationship
+  const details = d;
+
+  const handleDirectPrint = async () => {
+    if (!patient || printing) return;
+    setPrinting(true);
+
+    try {
+      const token = localStorage.getItem('authToken') || '';
+      const patientId = patient.patient_id || patient.id;
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+      const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment?token=${token}`;
+
+      const res = await fetch(printUrl, {
+        headers: {
+          Accept: 'text/html',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Print failed (HTTP ${res.status})`);
+      }
+
+      const html = await res.text();
+
+      // Create a hidden offscreen iframe for direct printing without preview or leaving page
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0px';
+      iframe.style.height = '0px';
+      iframe.style.border = 'none';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+
+      document.body.appendChild(iframe);
+
+      iframe.srcdoc = html;
+
+      iframe.onload = () => {
+        setTimeout(() => {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          }
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+            setPrinting(false);
+          }, 1000);
+        }, 350);
+      };
+    } catch (err) {
+      console.error('Direct print error:', err);
+      setPrinting(false);
+    }
+  };
+
+  // Helper to get government program details
+  const getGovProgramInfo = () => {
+    if (details.has_membership !== 'yes') return null;
+
+    if (details.philhealth_member === 'yes') {
+      return {
+        name: 'PhilHealth',
+        fields: [
+          { label: 'Status Type', value: details.philhealth_status },
+          { label: 'PhilHealth No.', value: details.philhealth_no },
+          { label: 'Category', value: details.philhealth_category },
+        ],
+      };
+    }
+    if (details.fourps_member === 'yes') {
+      const fields = [
+        { label: '4Ps Membership Category', value: details.fourps_category },
+      ];
+      if (details.fourps_category === 'Member of Beneficiary') {
+        fields.push({ label: 'Registered 4Ps Beneficiary', value: details.registered_fourps_beneficiary });
+        fields.push({ label: 'Relationship to Registered Beneficiary', value: details.fourps_relationship });
+      }
+      return { name: '4Ps (Pantawid Pamilyang Pilipino Program)', fields };
+    }
+    if (details.dswd_nhts === 'yes') {
+      return { name: 'DSWD NHTS', fields: [] };
+    }
+    
+    // Other memberships
+    const otherType = details.other_membership;
+    if (otherType && otherType !== 'none') {
+      let programName = '';
+      let idLabel = 'ID / Certificate No.';
+      
+      if (otherType === 'senior_citizen') {
+        programName = 'Senior Citizen';
+        idLabel = 'Senior Citizen ID No.';
+      } else if (otherType === 'pwd') {
+        programName = 'PWD (Person with Disability)';
+        idLabel = 'PWD ID No.';
+      } else if (otherType === 'indigenous_member') {
+        programName = 'Indigenous Member';
+        idLabel = 'Tribe / IP ID No.';
+      } else if (otherType === 'others') {
+        programName = details.other_membership_name || 'Others';
+      }
+
+      return {
+        name: programName,
+        fields: [
+          { label: idLabel, value: details.other_membership_no },
+        ],
+      };
+    }
+
+    return null;
+  };
+
+  const govProgram = getGovProgramInfo();
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -114,7 +237,7 @@ export default function PatientDetailsModal({
       <DialogTitle sx={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justify: 'space-between',
         pb: 1.5,
         borderBottom: '1px solid #e5e7eb',
         bgcolor: '#fafafa',
@@ -239,7 +362,30 @@ export default function PatientDetailsModal({
       </DialogContent>
 
       {/* ── Footer ── */}
-      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fafafa', justifyContent: 'flex-end' }}>
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fafafa', justifyContent: 'flex-end', gap: 1 }}>
+        <Button
+          variant="outlined"
+          onClick={handleDirectPrint}
+          disabled={printing}
+          startIcon={
+            printing ? (
+              <CircularProgress size={14} sx={{ color: '#059669' }} />
+            ) : (
+              <Icon name="print" size={16} color="#059669" />
+            )
+          }
+          sx={{
+            borderColor: '#059669',
+            color: '#059669',
+            fontWeight: 600,
+            fontSize: 13,
+            textTransform: 'none',
+            fontFamily: 'inherit',
+            '&:hover': { bgcolor: '#f0fdf4', borderColor: '#047857' },
+          }}
+        >
+          {printing ? 'Opening Printer…' : 'Print Form 1 (Enrolment)'}
+        </Button>
         <Button onClick={onClose} sx={{ color: '#6b7280', textTransform: 'none', fontWeight: 600, fontFamily: 'inherit' }}>
           Close
         </Button>

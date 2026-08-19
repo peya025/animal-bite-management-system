@@ -41,7 +41,14 @@ export interface EnrolmentFormData {
   philhealth_no: string;
   philhealth_category: string;
   fourps_member: string;
+  fourps_category: string;
+  fourps_relationship: string;
+  registered_fourps_beneficiary: string;
   dswd_nhts: string;
+  has_membership: string;
+  other_membership: string;
+  other_membership_name: string;
+  other_membership_no: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
 }
@@ -67,7 +74,14 @@ export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
   philhealth_no: '',
   philhealth_category: '',
   fourps_member: '',
+  fourps_category: '',
+  fourps_relationship: '',
+  registered_fourps_beneficiary: '',
   dswd_nhts: '',
+  has_membership: '',
+  other_membership: '',
+  other_membership_name: '',
+  other_membership_no: '',
   emergency_contact_name: '',
   emergency_contact_phone: '',
 };

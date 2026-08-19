@@ -22,9 +22,9 @@ use App\Http\Controllers\TagoloanTreatmentCardController;
 use App\Http\Controllers\TreatmentRecordController;
 use App\Http\Controllers\VaccinationRecordController;
 use App\Http\Controllers\VaccineInventoryController;
-use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\PrintController;
 use App\Http\Controllers\LandingPageSettingsController;
+use Illuminate\Support\Facades\Route;
 
 // Test route - check if API is working
 Route::get('/test', function () {
@@ -39,6 +39,9 @@ Route::get('/test', function () {
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
+
+// Form 1 Printout Route
+Route::get('/print/patient/{id}/enrolment', [PrintController::class, 'enrolment']);
 
 // Public setup endpoints (no authentication required)
 Route::post('/setup/initialize', [ClinicSetupController::class, 'initialize'])

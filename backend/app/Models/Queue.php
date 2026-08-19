@@ -29,14 +29,18 @@ class Queue extends Model
         'handled_by',
         'check_in_notes',
         'consultation_notes',
+        'no_response_at',
+        'deleted_at',
     ];
 
     protected $casts = [
-        'queue_number' => 'integer',
-        'queue_date' => 'date',
-        'checked_in_at' => 'datetime',
-        'called_at' => 'datetime',
-        'completed_at' => 'datetime',
+        'queue_number'   => 'integer',
+        'queue_date'     => 'date',
+        'checked_in_at'  => 'datetime',
+        'called_at'      => 'datetime',
+        'completed_at'   => 'datetime',
+        'no_response_at' => 'datetime',
+        'deleted_at'     => 'datetime',
     ];
 
     /**

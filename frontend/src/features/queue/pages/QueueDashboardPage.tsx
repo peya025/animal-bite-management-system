@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Alert, Box, CircularProgress, IconButton,
   Paper, Snackbar, Stack, Tooltip, Typography,
+  MenuItem, Select, FormControl,
 } from '@mui/material';
 import {
   AccessTime as WaitIcon,
@@ -13,21 +14,28 @@ import {
   Warning as UrgentIcon,
   Error as EmergencyIcon,
   OpenInNew as ViewIcon,
+  PersonOff as NoResponseIcon,
+  Replay as SecondChanceIcon,
+  Delete as TrashIcon,
+  Restore as TrashBinIcon,
 } from '@mui/icons-material';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 
-// Clean queue module imports
 import type { QueueEntry } from '../types';
 import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, waitTime } from '../types';
 import { useQueueData } from '../hooks';
-import { callQueuePatient, cancelQueueEntry } from '../services';
+import {
+  callQueuePatient, cancelQueueEntry, markNoResponse,
+  giveSecondChance, updateQueuePriority, trashQueueEntry,
+} from '../services';
 import {
   CompleteDialog,
   NextPatientBanner,
   QueueFilterBar,
   QueueStatsGrid,
+  TrashBinModal,
 } from '../components';
 import { buildRoute, ROUTES } from '../../../shared/config/routes';
 
@@ -46,10 +54,16 @@ export default function QueueDashboard() {
   const [page, setPage]                 = useState(0);
   const [rowsPerPage, setRowsPerPage]   = useState(15);
 
-  const [callTarget, setCallTarget]         = useState<QueueEntry | null>(null);
-  const [cancelTarget, setCancelTarget]     = useState<QueueEntry | null>(null);
-  const [completeTarget, setCompleteTarget] = useState<QueueEntry | null>(null);
+  // Action targets
+  const [callTarget, setCallTarget]             = useState<QueueEntry | null>(null);
+  const [cancelTarget, setCancelTarget]         = useState<QueueEntry | null>(null);
+  const [completeTarget, setCompleteTarget]     = useState<QueueEntry | null>(null);
+  const [noResponseTarget, setNoResponseTarget] = useState<QueueEntry | null>(null);
+  const [secondChanceTarget, setSecondChanceTarget] = useState<QueueEntry | null>(null);
+  const [trashTarget, setTrashTarget]           = useState<QueueEntry | null>(null);
+  const [showTrashBin, setShowTrashBin]         = useState(false);
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleCall = async (entry: QueueEntry) => {
     try {
@@ -71,7 +85,48 @@ export default function QueueDashboard() {
     }
   };
 
-  // Client-side filter + pagination
+  const handleNoResponse = async (entry: QueueEntry) => {
+    try {
+      await markNoResponse(entry.queue_id);
+      toast(`#${entry.queue_number} marked as No Response`);
+      reload();
+    } catch {
+      toast('Failed to mark no response', 'error');
+    }
+  };
+
+  const handleSecondChance = async (entry: QueueEntry) => {
+    try {
+      await giveSecondChance(entry.queue_id);
+      toast(`#${entry.queue_number} re-queued — Second Chance granted`);
+      reload();
+    } catch {
+      toast('Failed to give second chance', 'error');
+    }
+  };
+
+  const handlePriorityChange = async (entry: QueueEntry, priority: 'normal' | 'urgent' | 'emergency') => {
+    try {
+      await updateQueuePriority(entry.queue_id, priority);
+      toast(`Priority updated to ${priority} for #${entry.queue_number}`);
+      reload();
+    } catch {
+      toast('Failed to update priority', 'error');
+    }
+  };
+
+  const handleTrash = async (entry: QueueEntry) => {
+    try {
+      await trashQueueEntry(entry.queue_id);
+      toast(`#${entry.queue_number} moved to trash`);
+      reload();
+    } catch {
+      toast('Failed to trash queue entry', 'error');
+    }
+  };
+
+  // ── Filter + Pagination ───────────────────────────────────────────────────
+
   const filtered = queue.filter(q => {
     const matchSearch = !search ||
       q.patient.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -86,7 +141,8 @@ export default function QueueDashboard() {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
 
-  // Table column definitions
+  // ── Table Columns ─────────────────────────────────────────────────────────
+
   const columns: ColumnDef<QueueEntry>[] = [
     {
       key: 'queue_id', header: 'QUEUE ID', width: '90px',
@@ -107,17 +163,16 @@ export default function QueueDashboard() {
     {
       key: 'patient', header: 'PATIENT',
       render: entry => {
-        const queueDateStr = (entry as any).queue_date ? new Date((entry as any).queue_date).toISOString().split('T')[0] : '';
+        const queueDateStr = entry.queue_date ? new Date(entry.queue_date).toISOString().split('T')[0] : '';
         const todayStr = new Date().toISOString().split('T')[0];
-        const isCarryOver = (entry as any).is_carry_over || (queueDateStr && queueDateStr < todayStr);
+        const isCarryOver = entry.is_carry_over || (queueDateStr && queueDateStr < todayStr);
         const isActive = entry.status === 'waiting' || entry.status === 'in_consultation';
-
         return (
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
               <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)', lineHeight: 1.3 }}>{entry.patient.name}</Typography>
               {isCarryOver && isActive && (
-                <Box sx={{ px: 1, py: 0.2, bgcolor: '#fef3c7', color: '#92400e', borderRadius: 1, fontSize: 10, fontWeight: 700, letterSpacing: '0.2px' }}>
+                <Box sx={{ px: 1, py: 0.2, bgcolor: '#fef3c7', color: '#92400e', borderRadius: 1, fontSize: 10, fontWeight: 700 }}>
                   Carried Over ({queueDateStr ? new Date(queueDateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Past Date'})
                 </Box>
               )}
@@ -131,14 +186,6 @@ export default function QueueDashboard() {
       },
     },
     {
-      key: 'appointment_id', header: 'APPT. ID', width: '100px',
-      render: entry => (entry as any).appointment_id ? (
-        <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, bgcolor: '#f0fdf4', borderRadius: 1.5, fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: '#15803d' }}>
-          #{(entry as any).appointment_id}
-        </Box>
-      ) : <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography>,
-    },
-    {
       key: 'visit_type', header: 'VISIT TYPE',
       render: entry => (
         <Box sx={{ display: 'inline-flex', px: 2, py: 0.5, bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
@@ -147,15 +194,50 @@ export default function QueueDashboard() {
       ),
     },
     {
+      // ── SEGREGATE: inline priority dropdown ──
       key: 'priority', header: 'PRIORITY',
       render: entry => {
         const cfg = PRIORITY_CFG[entry.priority] ?? PRIORITY_CFG.normal;
+        const isActive = entry.status === 'waiting' || entry.status === 'in_consultation';
+        if (!isActive) {
+          return (
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 12, fontWeight: 600 }}>
+              {entry.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
+              {entry.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
+              {cfg.label}
+            </Box>
+          );
+        }
         return (
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 12, fontWeight: 600 }}>
-            {entry.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
-            {entry.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
-            {cfg.label}
-          </Box>
+          <FormControl size="small" variant="outlined">
+            <Select
+              value={entry.priority}
+              onChange={e => handlePriorityChange(entry, e.target.value as 'normal' | 'urgent' | 'emergency')}
+              renderValue={val => {
+                const c = PRIORITY_CFG[val] ?? PRIORITY_CFG.normal;
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: c.color, fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
+                    {val === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
+                    {val === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
+                    {c.label}
+                  </Box>
+                );
+              }}
+              sx={{
+                fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
+                bgcolor: cfg.bg, color: cfg.color,
+                borderRadius: 1.5, minWidth: 110,
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: cfg.color },
+                '& .MuiSelect-select': { py: 0.5, px: 1.5, fontFamily: 'inherit' },
+              }}
+              MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontFamily: 'inherit', fontSize: 13 } } } }}
+            >
+              <MenuItem value="normal">Normal</MenuItem>
+              <MenuItem value="urgent">Urgent</MenuItem>
+              <MenuItem value="emergency">Emergency</MenuItem>
+            </Select>
+          </FormControl>
         );
       },
     },
@@ -191,15 +273,9 @@ export default function QueueDashboard() {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '5px 14px',
-              background: '#f0fdf4',
-              border: '1px solid #a7f3d0',
-              borderRadius: 8,
-              color: '#059669',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              transition: 'all 0.15s',
+              background: '#f0fdf4', border: '1px solid #a7f3d0',
+              borderRadius: 8, color: '#059669', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#d1fae5'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f0fdf4'; }}
@@ -212,10 +288,14 @@ export default function QueueDashboard() {
     {
       key: 'queue_actions', header: 'QUEUE ACTIONS', align: 'right',
       render: entry => {
-        const isWaiting = entry.status === 'waiting';
-        const isConsult = entry.status === 'in_consultation';
+        const isWaiting    = entry.status === 'waiting';
+        const isConsult    = entry.status === 'in_consultation';
+        const isNoResponse = entry.status === 'no_response';
+        const isActive     = isWaiting || isConsult;
+
         return (
           <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+            {/* Call */}
             {isWaiting && (
               <Tooltip title="Call Patient">
                 <IconButton size="small" onClick={() => setCallTarget(entry)}
@@ -224,6 +304,7 @@ export default function QueueDashboard() {
                 </IconButton>
               </Tooltip>
             )}
+            {/* Complete */}
             {isConsult && (
               <Tooltip title="Complete Consultation">
                 <IconButton size="small" onClick={() => setCompleteTarget(entry)}
@@ -232,7 +313,26 @@ export default function QueueDashboard() {
                 </IconButton>
               </Tooltip>
             )}
-            {(isWaiting || isConsult) && (
+            {/* No Response */}
+            {isActive && (
+              <Tooltip title="Mark No Response">
+                <IconButton size="small" onClick={() => setNoResponseTarget(entry)}
+                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fdf4ff', color: '#9333ea' } }}>
+                  <NoResponseIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {/* Second Chance */}
+            {isNoResponse && (
+              <Tooltip title="Give Second Chance (re-queue)">
+                <IconButton size="small" onClick={() => setSecondChanceTarget(entry)}
+                  sx={{ color: '#9333ea', bgcolor: '#fdf4ff', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ede9fe', color: '#7c3aed' } }}>
+                  <SecondChanceIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {/* Cancel */}
+            {isActive && (
               <Tooltip title="Cancel">
                 <IconButton size="small" onClick={() => setCancelTarget(entry)}
                   sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
@@ -240,8 +340,18 @@ export default function QueueDashboard() {
                 </IconButton>
               </Tooltip>
             )}
-            {!isWaiting && !isConsult && (
-              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: '32px' }}>—</Typography>
+            {/* Trash */}
+            {!isConsult && (
+              <Tooltip title="Move to Trash">
+                <IconButton size="small" onClick={() => setTrashTarget(entry)}
+                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
+                  <TrashIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {/* Completed / cancelled — no actions */}
+            {entry.status === 'completed' && (
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: '32px', px: 0.5 }}>—</Typography>
             )}
           </Box>
         );
@@ -249,32 +359,22 @@ export default function QueueDashboard() {
     },
   ];
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <Box sx={{ px: 3 }}>
       {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography
-            component="h1"
-            sx={{
-              fontWeight: 600,
-              fontSize: '25px',
-              lineHeight: 1.2,
-              letterSpacing: '-0.5px',
-              color: 'var(--text-h)',
-              margin: '0 0 7px 0',
-            }}
-          >
+          <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', margin: '0 0 7px 0' }}>
             Queue Dashboard
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
             {today} · Auto-refreshes every 30 seconds
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button
-              onClick={() => { window.location.href = '/dashboard'; }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
-            >
+            <button onClick={() => { window.location.href = '/dashboard'; }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}>
               Dashboard
             </button>
             <span style={{ color: 'var(--text-secondary)' }}>›</span>
@@ -283,6 +383,12 @@ export default function QueueDashboard() {
         </Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
+          {/* Trash Bin button */}
+          <Tooltip title="Trash Bin — View removed entries">
+            <IconButton onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
+              <TrashBinIcon />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Refresh">
             <IconButton onClick={reload} disabled={loading}>
               <RefreshIcon />
@@ -294,7 +400,7 @@ export default function QueueDashboard() {
       {/* Next Patient Banner */}
       {nextEntry && <NextPatientBanner entry={nextEntry} onCall={handleCall} />}
 
-      {/* Stats Cards & Progress */}
+      {/* Stats */}
       <QueueStatsGrid stats={stats} />
 
       {/* Queue Table */}
@@ -306,7 +412,6 @@ export default function QueueDashboard() {
           onStatusChange={v => { setStatusFilter(v); setPage(0); }}
           onClear={() => { setSearch(''); setStatusFilter(''); setPage(0); }}
         />
-
         <DataTable
           columns={columns}
           rows={paginated}
@@ -317,7 +422,6 @@ export default function QueueDashboard() {
           emptyTitle={statusFilter ? `No ${STATUS_CFG[statusFilter]?.label ?? statusFilter} patients` : 'Queue is empty'}
           emptySubtitle="Patients added by registration will appear here"
         />
-
         <TablePager
           count={filtered.length}
           page={page}
@@ -327,7 +431,9 @@ export default function QueueDashboard() {
         />
       </Paper>
 
-      {/* Modals */}
+      {/* ── Confirmation Dialogs ── */}
+
+      {/* Call */}
       {callTarget && (
         <ConfirmationDialog
           variant="confirm"
@@ -340,6 +446,7 @@ export default function QueueDashboard() {
         />
       )}
 
+      {/* Cancel */}
       {cancelTarget && (
         <ConfirmationDialog
           variant="danger"
@@ -352,6 +459,46 @@ export default function QueueDashboard() {
         />
       )}
 
+      {/* No Response */}
+      {noResponseTarget && (
+        <ConfirmationDialog
+          variant="confirm"
+          title="Mark as No Response"
+          message={<><strong>#{noResponseTarget.queue_number} · {noResponseTarget.patient.name}</strong> did not respond when called. Mark as No Response?</>}
+          confirmLabel="Mark No Response"
+          cancelLabel="Go Back"
+          onConfirm={() => { handleNoResponse(noResponseTarget); setNoResponseTarget(null); }}
+          onCancel={() => setNoResponseTarget(null)}
+        />
+      )}
+
+      {/* Second Chance */}
+      {secondChanceTarget && (
+        <ConfirmationDialog
+          variant="confirm"
+          title="Give Second Chance"
+          message={<>Re-queue <strong>#{secondChanceTarget.queue_number} · {secondChanceTarget.patient.name}</strong> at the end of today's queue?</>}
+          confirmLabel="Yes, Re-queue"
+          cancelLabel="Go Back"
+          onConfirm={() => { handleSecondChance(secondChanceTarget); setSecondChanceTarget(null); }}
+          onCancel={() => setSecondChanceTarget(null)}
+        />
+      )}
+
+      {/* Trash */}
+      {trashTarget && (
+        <ConfirmationDialog
+          variant="danger"
+          title="Move to Trash"
+          message={<>Move <strong>#{trashTarget.queue_number} · {trashTarget.patient.name}</strong> to trash? You can restore it from the Trash Bin.</>}
+          confirmLabel="Move to Trash"
+          cancelLabel="Go Back"
+          onConfirm={() => { handleTrash(trashTarget); setTrashTarget(null); }}
+          onCancel={() => setTrashTarget(null)}
+        />
+      )}
+
+      {/* Complete */}
       <CompleteDialog
         open={!!completeTarget}
         entry={completeTarget}
@@ -359,7 +506,12 @@ export default function QueueDashboard() {
         onDone={() => { reload(); toast('Consultation completed'); }}
       />
 
-
+      {/* Trash Bin Modal */}
+      <TrashBinModal
+        open={showTrashBin}
+        onClose={() => setShowTrashBin(false)}
+        onRestored={() => { reload(); toast('Entry restored to queue'); }}
+      />
 
       <Snackbar
         open={snackbar.open}

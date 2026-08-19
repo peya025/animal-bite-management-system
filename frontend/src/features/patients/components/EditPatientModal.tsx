@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import FormModal from '../../../components/forms/FormModal';
+import { formatPhilHealthNumber, formatPWDNumber } from '../../../shared/utils';
 import { PatientFormContent } from '../styles/AddPatientModal.styles';
 import type { Patient, EnrolmentFormData } from '../types';
 import { INITIAL_ENROLMENT_DATA } from '../types';
@@ -28,25 +29,33 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
 
   useEffect(() => {
     if (open && patient) {
-      setError('');
-      
-      // Format date of birth to YYYY-MM-DD if valid
+      const dob = patient.date_of_birth;
       let formattedDob = '';
-      if (patient.date_of_birth) {
-        try {
-          const d = new Date(patient.date_of_birth);
-          if (!isNaN(d.getTime())) {
-            formattedDob = d.toISOString().split('T')[0];
-          }
-        } catch {
-          formattedDob = '';
+      if (dob) {
+        const d = new Date(dob);
+        if (!isNaN(d.getTime())) {
+          formattedDob = d.toISOString().split('T')[0];
+        }
+      }
+
+      const phMember = (patient as any).philhealth_member || '';
+      const fpsMember = (patient as any).fourps_member || '';
+      const dswdMember = (patient as any).dswd_nhts || '';
+      const otherMem = (patient as any).other_membership || '';
+      
+      let dbHasMembership = (patient as any).has_membership || '';
+      if (!dbHasMembership) {
+        if (phMember === 'yes' || fpsMember === 'yes' || dswdMember === 'yes' || (otherMem && otherMem !== 'none')) {
+          dbHasMembership = 'yes';
+        } else if (phMember === 'no' || fpsMember === 'no' || dswdMember === 'no' || otherMem === 'none') {
+          dbHasMembership = 'no';
         }
       }
 
       setEnrolment({
         last_name: patient.last_name || '',
         first_name: patient.first_name || '',
-        middle_name: patient.middle_name || '',
+        middle_name: (patient as any).middle_name || '',
         suffix: (patient as any).suffix || '',
         date_of_birth: formattedDob,
         sex: patient.gender || 'male',
@@ -59,12 +68,19 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
         family_member: (patient as any).family_member || '',
         educational_attainment: (patient as any).educational_attainment || '',
         employment_status: (patient as any).employment_status || '',
-        philhealth_member: (patient as any).philhealth_member || '',
+        philhealth_member: phMember,
         philhealth_status: (patient as any).philhealth_status || '',
         philhealth_no: (patient as any).philhealth_no || '',
         philhealth_category: (patient as any).philhealth_category || '',
-        fourps_member: (patient as any).fourps_member || '',
-        dswd_nhts: (patient as any).dswd_nhts || '',
+        fourps_member: fpsMember,
+        fourps_category: (patient as any).fourps_category || '',
+        fourps_relationship: (patient as any).fourps_relationship || '',
+        registered_fourps_beneficiary: (patient as any).registered_fourps_beneficiary || '',
+        dswd_nhts: dswdMember,
+        has_membership: dbHasMembership,
+        other_membership: otherMem,
+        other_membership_name: (patient as any).other_membership_name || '',
+        other_membership_no: (patient as any).other_membership_no || '',
         emergency_contact_name: (patient as any).emergency_contact_name || '',
         emergency_contact_phone: (patient as any).emergency_contact_number || (patient as any).emergency_contact_phone || '',
       });
@@ -84,6 +100,10 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     let value = ev.target.value;
     if (key === 'contact_number' || key === 'emergency_contact_phone') {
       value = value.replace(/\D/g, '').slice(0, 11);
+    } else if (key === 'philhealth_no') {
+      value = formatPhilHealthNumber(value);
+    } else if (key === 'other_membership_no' && enrolment.other_membership === 'pwd') {
+      value = formatPWDNumber(value);
     }
     setEnrolment(prev => ({ ...prev, [key]: value }));
   };
@@ -102,6 +122,18 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     if (enrolment.emergency_contact_phone && enrolment.emergency_contact_phone.length !== 11) {
       setError('Emergency contact phone must be exactly 11 digits.');
       return;
+    }
+
+    if (enrolment.philhealth_no && enrolment.philhealth_no.replace(/\D/g, '').length !== 12) {
+      setError('PhilHealth number must be exactly 12 digits.');
+      return;
+    }
+
+    if (enrolment.other_membership === 'pwd' && enrolment.other_membership_no) {
+      if (enrolment.other_membership_no.replace(/\D/g, '').length !== 16) {
+        setError('PWD ID number must be exactly 16 digits.');
+        return;
+      }
     }
 
     setError('');
@@ -129,7 +161,14 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       philhealth_member: cleanField(enrolment.philhealth_member),
       philhealth_status: cleanField(enrolment.philhealth_status),
       fourps_member: cleanField(enrolment.fourps_member),
+      fourps_category: cleanField(enrolment.fourps_category),
+      fourps_relationship: cleanField(enrolment.fourps_relationship),
+      registered_fourps_beneficiary: cleanField(enrolment.registered_fourps_beneficiary),
       dswd_nhts: cleanField(enrolment.dswd_nhts),
+      has_membership: cleanField(enrolment.has_membership),
+      other_membership: cleanField(enrolment.other_membership),
+      other_membership_name: cleanField(enrolment.other_membership_name),
+      other_membership_no: cleanField(enrolment.other_membership_no),
     };
 
     try {

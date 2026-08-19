@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
+import { formatPhilHealthNumber } from '../../../shared/utils';
 
 interface VaccinationRecordFormProps {
   open: boolean;
@@ -181,7 +182,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    setFormData(prev => ({ ...prev, [key]: ev.target.value }));
+    let value = ev.target.value;
+    if (key === 'philhealth_pin') {
+      value = formatPhilHealthNumber(value);
+    }
+    setFormData(prev => ({ ...prev, [key]: value }));
   };
 
   const handleCheckboxChange = (section: 'mode_of_exposure' | 'body_part_affected', key: string) => (
@@ -201,6 +206,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   const handleSubmit = async () => {
+    if (formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
+      setError('PhilHealth PIN must be exactly 12 digits.');
+      return;
+    }
     if (!formData.exposure_category) {
       setError('Please select Exposure Category');
       return;
@@ -276,15 +285,12 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>PhilHealth Identification Number (PIN)</label>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <input type="text" value={formData.philhealth_pin} onChange={handleFieldChange('philhealth_pin')} placeholder="XX-XXXXXXXXX-X" disabled={readOnly} style={{ flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
-            <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer', marginRight: 16 }}>
-              <input type="radio" name="philhealth_type" value="member" checked={formData.philhealth_type === 'member'} onChange={handleFieldChange('philhealth_type')} disabled={readOnly} style={{ marginRight: 6 }} />
-              <span style={{ fontSize: 13, color: '#374151' }}>Member</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-              <input type="radio" name="philhealth_type" value="dependent" checked={formData.philhealth_type === 'dependent'} onChange={handleFieldChange('philhealth_type')} disabled={readOnly} style={{ marginRight: 6 }} />
-              <span style={{ fontSize: 13, color: '#374151' }}>Dependent</span>
-            </label>
+            <input type="text" value={formData.philhealth_pin} onChange={handleFieldChange('philhealth_pin')} placeholder="XX-XXXXXXXXX-X" maxLength={14} disabled={readOnly} style={{ flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+            <select value={formData.philhealth_type} onChange={handleFieldChange('philhealth_type')} disabled={readOnly} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined, outline: 'none' }}>
+              <option value="">— Select —</option>
+              <option value="member">Member</option>
+              <option value="dependent">Dependent</option>
+            </select>
           </div>
         </div>
         <div style={{ marginBottom: 16 }}>

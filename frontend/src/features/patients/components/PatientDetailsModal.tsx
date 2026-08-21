@@ -21,10 +21,10 @@ interface PatientDetailsModalProps {
   open: boolean;
   patient: Patient | null;
   onClose: () => void;
-  onEdit: (patient: Patient) => void;
+  onEdit?: (patient: Patient) => void;
 }
 
-// ── Read-only Banner (same as QueuePatientDetailPage) ────────────────────────
+// ── Read-only Banner ─────────────────────────────────────────────────────────
 
 function ReadOnlyBanner() {
   return (
@@ -41,7 +41,7 @@ function ReadOnlyBanner() {
   );
 }
 
-// ── Tab Bar (same style as QueuePatientDetailPage) ───────────────────────────
+// ── Tab Bar ──────────────────────────────────────────────────────────────────
 
 const TABS = [
   { key: 'form1', label: 'Form 1', roleLabel: 'Registration', owner: 'registration' as const },
@@ -59,24 +59,33 @@ function TabBar({ active, onSelect }: { active: string; onSelect: (key: string) 
             key={tab.key}
             onClick={() => onSelect(tab.key)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 8,
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
               padding: '12px 18px',
-              background: 'none', border: 'none',
+              background: 'none',
+              border: 'none',
               borderBottom: isActive ? '2px solid #10b981' : '2px solid transparent',
               marginBottom: -2,
-              cursor: 'pointer', fontFamily: 'inherit',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
               transition: 'all 0.15s',
             }}
           >
             <span style={{
-              fontSize: 13.5, fontWeight: isActive ? 700 : 500,
+              fontSize: 13.5,
+              fontWeight: isActive ? 700 : 500,
               color: isActive ? '#10b981' : '#6b7280',
             }}>
               {tab.label}
             </span>
             <span style={{
-              fontSize: 11, fontWeight: 600,
-              padding: '2px 8px', borderRadius: 999,
+              fontSize: 11,
+              fontWeight: 600,
+              padding: '2px 8px',
+              borderRadius: 999,
               backgroundColor: isActive ? '#d1fae5' : '#f0fdf4',
               color: isActive ? '#065f46' : '#9ca3af',
               border: `1px solid ${isActive ? '#a7f3d0' : '#e5e7eb'}`,
@@ -90,7 +99,7 @@ function TabBar({ active, onSelect }: { active: string; onSelect: (key: string) 
   );
 }
 
-// ── Form 1 helpers (same as QueuePatientDetailPage) ──────────────────────────
+// ── Form 1 helpers ───────────────────────────────────────────────────────────
 
 const CIVIL_STATUS_LABELS: Record<string, string> = {
   single: 'Single', married: 'Married', widowed: 'Widowed',
@@ -152,7 +161,7 @@ function asYesNo(value: unknown): string {
   return asDisplayValue(value);
 }
 
-// ── Form 1 Section & Field (same style as QueuePatientDetailPage) ─────────────
+// ── Form 1 Section & Field ───────────────────────────────────────────────────
 
 function Form1Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -187,7 +196,7 @@ function Form1Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ── Form 1 Inline View (matches QueuePatientDetailPage exactly) ───────────────
+// ── Form 1 Inline View ────────────────────────────────────────────────────────
 
 function Form1InlineView({ patient: p }: { patient: any }) {
   const patient = toRecord(p);
@@ -275,14 +284,12 @@ export default function PatientDetailsModal({
   open,
   patient,
   onClose,
-  onEdit,
 }: PatientDetailsModalProps) {
   const [printing, setPrinting] = useState(false);
   const [activeTab, setActiveTab] = useState('form1');
   const [fullPatient, setFullPatient] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // Fetch full patient data when the modal opens
   useEffect(() => {
     if (!open || !patient) {
       setFullPatient(null);
@@ -301,7 +308,6 @@ export default function PatientDetailsModal({
 
   const p = (fullPatient || patient) as any;
 
-  // Build a fake "queue entry" shape that GeneralTreatmentForm / VaccinationRecordForm expect
   const fakeEntry = {
     patient: p,
     patient_id: p.patient_id || p.id,
@@ -309,7 +315,6 @@ export default function PatientDetailsModal({
     status: 'completed',
   };
 
-  // ── Print Form 1 ──────────────────────────────────────────────────────────
   const handleDirectPrint = async () => {
     if (!patient || printing) return;
     setPrinting(true);
@@ -317,32 +322,47 @@ export default function PatientDetailsModal({
       const token = localStorage.getItem('authToken') || '';
       const patientId = (patient as any).patient_id || (patient as any).id;
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-      const res = await fetch(`${API_BASE}/print/patient/${patientId}/enrolment?token=${token}`, {
-        headers: { Accept: 'text/html', Authorization: `Bearer ${token}` },
+      const printUrl = `${API_BASE.replace(/\/api$/, '')}/print/patient/${patientId}/enrolment?token=${encodeURIComponent(token)}`;
+
+      const response = await fetch(printUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'text/html',
+        },
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const html = await res.text();
+
+      if (!response.ok) throw new Error('Failed to fetch print template');
+      const html = await response.text();
+
       const iframe = document.createElement('iframe');
-      Object.assign(iframe.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: 'none', opacity: '0', pointerEvents: 'none' });
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
       document.body.appendChild(iframe);
+
       iframe.srcdoc = html;
       iframe.onload = () => {
         setTimeout(() => {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-          setTimeout(() => {
-            if (document.body.contains(iframe)) document.body.removeChild(iframe);
+          try {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+          } catch (e) {
+            console.error('Print trigger failed:', e);
+          } finally {
+            setTimeout(() => document.body.removeChild(iframe), 2000);
             setPrinting(false);
-          }, 1000);
-        }, 350);
+          }
+        }, 500);
       };
     } catch (err) {
-      console.error('Print error:', err);
+      console.error('Print failed:', err);
       setPrinting(false);
     }
   };
 
-  // ── Render Tab Content ────────────────────────────────────────────────────
   const renderTabContent = () => {
     if (loadingDetails) {
       return (
@@ -364,12 +384,13 @@ export default function PatientDetailsModal({
       case 'form2':
         return (
           <Box sx={{ p: 3 }}>
+            <ReadOnlyBanner />
             <GeneralTreatmentForm
               open={true}
               entry={fakeEntry as any}
               onClose={() => {}}
               onSave={() => {}}
-              readOnly={false}
+              readOnly={true}
               inline={true}
             />
           </Box>
@@ -401,13 +422,11 @@ export default function PatientDetailsModal({
       fullWidth
       slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}
     >
-      {/* ── Title ── */}
       <DialogTitle sx={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         pb: 1.5, borderBottom: '1px solid #f3f4f6', bgcolor: '#fff', px: 3, pt: 2.5,
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {/* Patient avatar */}
           <Box sx={{
             width: 40, height: 40, borderRadius: '50%', bgcolor: '#d1fae5',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -435,15 +454,12 @@ export default function PatientDetailsModal({
         <Icon name="patients" size={20} color="#d1d5db" />
       </DialogTitle>
 
-      {/* ── Tab Bar ── */}
       <TabBar active={activeTab} onSelect={setActiveTab} />
 
-      {/* ── Content ── */}
       <DialogContent sx={{ p: 0, fontFamily: 'inherit', minHeight: 380, bgcolor: '#f9fafb' }}>
         {renderTabContent()}
       </DialogContent>
 
-      {/* ── Footer ── */}
       <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fff', justifyContent: 'flex-end', gap: 1 }}>
         {activeTab === 'form1' && (
           <Button
@@ -465,13 +481,6 @@ export default function PatientDetailsModal({
           sx={{ color: '#6b7280', textTransform: 'none', fontWeight: 600, fontFamily: 'inherit' }}
         >
           Close
-        </Button>
-        <Button
-          variant="contained"
-          onClick={() => { onClose(); onEdit(patient); }}
-          sx={{ bgcolor: '#10b981', fontWeight: 600, textTransform: 'none', fontFamily: 'inherit', '&:hover': { bgcolor: '#059669' } }}
-        >
-          Edit Profile
         </Button>
       </DialogActions>
     </Dialog>

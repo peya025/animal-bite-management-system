@@ -410,10 +410,6 @@ export default function DoctorPatientListPage() {
             setShowViewModal(false);
             setSelectedPatient(null);
           }}
-          onEdit={() => {
-            setShowViewModal(false);
-            setShowForm2(true);
-          }}
         />
       )}
 

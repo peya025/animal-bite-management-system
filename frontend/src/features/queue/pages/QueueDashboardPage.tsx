@@ -10,14 +10,7 @@ import {
   Refresh as RefreshIcon,
   Warning as UrgentIcon,
   Error as EmergencyIcon,
-<<<<<<< HEAD
-  OpenInNew as ViewIcon,
-  PersonOff as NoResponseIcon,
-  Replay as SecondChanceIcon,
-  Delete as TrashIcon,
   Restore as TrashBinIcon,
-=======
->>>>>>> 71acf5e63ae21b71afb6346606d20cfa8e3dd2b8
 } from '@mui/icons-material';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -25,6 +18,9 @@ import {
   CheckmarkCircle02Icon,
   CancelCircleIcon,
   ArrowUpRight01Icon,
+  UserBlock01Icon,
+  RotateLeft01Icon,
+  Delete02Icon,
 } from '@hugeicons/core-free-icons';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { DataTable, TablePager } from '../../../components/data-display';
@@ -278,13 +274,6 @@ export default function QueueDashboard() {
           <button
             onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: entry.queue_id }))}
             style={{
-<<<<<<< HEAD
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '5px 14px',
-              background: '#f0fdf4', border: '1px solid #a7f3d0',
-              borderRadius: 8, color: '#059669', fontSize: 13, fontWeight: 600,
-              cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
-=======
               display: 'inline-flex',
               alignItems: 'center',
               gap: 5,
@@ -311,7 +300,6 @@ export default function QueueDashboard() {
               el.style.background = '#ecfdf5';
               el.style.borderColor = '#a7f3d0';
               el.style.color = '#059669';
->>>>>>> 71acf5e63ae21b71afb6346606d20cfa8e3dd2b8
             }}
           >
             View
@@ -329,12 +317,8 @@ export default function QueueDashboard() {
         const isActive     = isWaiting || isConsult;
 
         return (
-<<<<<<< HEAD
-          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+          <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'flex-end', alignItems: 'center' }}>
             {/* Call */}
-=======
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
->>>>>>> 71acf5e63ae21b71afb6346606d20cfa8e3dd2b8
             {isWaiting && (
               <Tooltip title="Call Patient to Station">
                 <IconButton
@@ -388,33 +372,62 @@ export default function QueueDashboard() {
                 </IconButton>
               </Tooltip>
             )}
-<<<<<<< HEAD
             {/* No Response */}
             {isActive && (
               <Tooltip title="Mark No Response">
-                <IconButton size="small" onClick={() => setNoResponseTarget(entry)}
-                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fdf4ff', color: '#9333ea' } }}>
-                  <NoResponseIcon sx={{ fontSize: 18 }} />
+                <IconButton
+                  size="small"
+                  onClick={() => setNoResponseTarget(entry)}
+                  sx={{
+                    color: '#9333ea',
+                    bgcolor: '#faf5ff',
+                    border: '1px solid #e9d5ff',
+                    borderRadius: '8px',
+                    width: 32,
+                    height: 32,
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: '#f3e8ff',
+                      borderColor: '#d8b4fe',
+                      color: '#7e22ce',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 2px 5px rgba(147, 51, 234, 0.15)',
+                    },
+                  }}
+                >
+                  <HugeiconsIcon icon={UserBlock01Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
             {/* Second Chance */}
             {isNoResponse && (
               <Tooltip title="Give Second Chance (re-queue)">
-                <IconButton size="small" onClick={() => setSecondChanceTarget(entry)}
-                  sx={{ color: '#9333ea', bgcolor: '#fdf4ff', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ede9fe', color: '#7c3aed' } }}>
-                  <SecondChanceIcon sx={{ fontSize: 18 }} />
+                <IconButton
+                  size="small"
+                  onClick={() => setSecondChanceTarget(entry)}
+                  sx={{
+                    color: '#7c3aed',
+                    bgcolor: '#f5f3ff',
+                    border: '1px solid #ddd6fe',
+                    borderRadius: '8px',
+                    width: 32,
+                    height: 32,
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: '#ede9fe',
+                      borderColor: '#c4b5fd',
+                      color: '#6d28d9',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 2px 5px rgba(124, 58, 237, 0.15)',
+                    },
+                  }}
+                >
+                  <HugeiconsIcon icon={RotateLeft01Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
             {/* Cancel */}
             {isActive && (
-              <Tooltip title="Cancel">
-                <IconButton size="small" onClick={() => setCancelTarget(entry)}
-                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
-                  <CancelIcon sx={{ fontSize: 18 }} />
-=======
-            {(isWaiting || isConsult) && (
               <Tooltip title="Cancel Queue Entry">
                 <IconButton
                   size="small"
@@ -437,16 +450,33 @@ export default function QueueDashboard() {
                   }}
                 >
                   <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={2} />
->>>>>>> 71acf5e63ae21b71afb6346606d20cfa8e3dd2b8
                 </IconButton>
               </Tooltip>
             )}
             {/* Trash */}
             {!isConsult && (
               <Tooltip title="Move to Trash">
-                <IconButton size="small" onClick={() => setTrashTarget(entry)}
-                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
-                  <TrashIcon sx={{ fontSize: 18 }} />
+                <IconButton
+                  size="small"
+                  onClick={() => setTrashTarget(entry)}
+                  sx={{
+                    color: '#64748b',
+                    bgcolor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    width: 32,
+                    height: 32,
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: '#fee2e2',
+                      borderColor: '#fca5a5',
+                      color: '#dc2626',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 2px 5px rgba(220, 38, 38, 0.15)',
+                    },
+                  }}
+                >
+                  <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}

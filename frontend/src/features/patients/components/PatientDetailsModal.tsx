@@ -401,7 +401,7 @@ export default function PatientDetailsModal({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
+      slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}
     >
       {/* ── Title ── */}
       <DialogTitle sx={{

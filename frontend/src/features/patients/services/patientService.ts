@@ -19,6 +19,27 @@ export async function createPatientRecord(
   // Map and clean payload to prevent 422 errors (empty strings failing enum validation)
   const cleanField = (val: string) => val.trim() === '' ? null : val;
 
+  // Serialize multi-membership data into the columns that the backend knows about:
+  // - other_membership: JSON array of additional program keys e.g. ["senior_citizen","pwd"]
+  // - other_membership_name: JSON object with per-program names/tribe
+  // - other_membership_no: JSON object with per-program ID numbers
+  const otherMemberships = enrolment.other_memberships ?? [];
+  const otherMembershipNames: Record<string, string> = {};
+  const otherMembershipNos: Record<string, string> = {};
+  if (otherMemberships.includes('senior_citizen') && enrolment.senior_citizen_id) {
+    otherMembershipNos['senior_citizen'] = enrolment.senior_citizen_id;
+  }
+  if (otherMemberships.includes('pwd') && enrolment.pwd_id) {
+    otherMembershipNos['pwd'] = enrolment.pwd_id;
+  }
+  if (otherMemberships.includes('indigenous_member') && enrolment.indigenous_tribe) {
+    otherMembershipNames['indigenous_member'] = enrolment.indigenous_tribe;
+  }
+  if (otherMemberships.includes('others')) {
+    if (enrolment.other_membership_custom_name) otherMembershipNames['others'] = enrolment.other_membership_custom_name;
+    if (enrolment.other_membership_custom_id) otherMembershipNos['others'] = enrolment.other_membership_custom_id;
+  }
+
   const payload = {
     ...enrolment,
     gender: enrolment.sex,
@@ -41,10 +62,26 @@ export async function createPatientRecord(
     registered_fourps_beneficiary: cleanField(enrolment.registered_fourps_beneficiary),
     dswd_nhts: cleanField(enrolment.dswd_nhts),
     has_membership: cleanField(enrolment.has_membership),
-    other_membership: cleanField(enrolment.other_membership),
-    other_membership_name: cleanField(enrolment.other_membership_name),
-    other_membership_no: cleanField(enrolment.other_membership_no),
     blood_type: cleanField(enrolment.blood_type),
+
+    // Multi-membership serialization
+    other_membership: otherMemberships.length > 0
+      ? JSON.stringify(otherMemberships)
+      : cleanField(enrolment.other_membership),
+    other_membership_name: Object.keys(otherMembershipNames).length > 0
+      ? JSON.stringify(otherMembershipNames)
+      : cleanField(enrolment.other_membership_name),
+    other_membership_no: Object.keys(otherMembershipNos).length > 0
+      ? JSON.stringify(otherMembershipNos)
+      : cleanField(enrolment.other_membership_no),
+
+    // Strip frontend-only fields not known to the backend
+    other_memberships: undefined,
+    senior_citizen_id: undefined,
+    pwd_id: undefined,
+    indigenous_tribe: undefined,
+    other_membership_custom_name: undefined,
+    other_membership_custom_id: undefined,
   };
 
   try {

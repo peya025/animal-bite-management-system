@@ -120,9 +120,9 @@ class PatientController extends Controller
             'registered_fourps_beneficiary' => 'nullable|string|max:50',
             'dswd_nhts' => 'nullable|in:yes,no',
             'has_membership' => 'nullable|string|max:10',
-            'other_membership' => 'nullable|string|max:50',
-            'other_membership_name' => 'nullable|string|max:100',
-            'other_membership_no' => 'nullable|string|max:100',
+            'other_membership' => 'nullable|string|max:500',
+            'other_membership_name' => 'nullable|string|max:500',
+            'other_membership_no' => 'nullable|string|max:500',
         ]);
 
         $patient = Patient::create([

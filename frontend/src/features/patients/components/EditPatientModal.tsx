@@ -83,6 +83,16 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
         other_membership_no: (patient as any).other_membership_no || '',
         emergency_contact_name: (patient as any).emergency_contact_name || '',
         emergency_contact_phone: (patient as any).emergency_contact_number || (patient as any).emergency_contact_phone || '',
+        // Multi-membership: parse existing JSON if present
+        other_memberships: (() => {
+          try { return otherMem && otherMem.startsWith('[') ? JSON.parse(otherMem) : []; }
+          catch { return []; }
+        })(),
+        senior_citizen_id: '',
+        pwd_id: '',
+        indigenous_tribe: '',
+        other_membership_custom_name: '',
+        other_membership_custom_id: '',
       });
 
       // Pre-fill address if available
@@ -105,6 +115,10 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     } else if (key === 'other_membership_no' && enrolment.other_membership === 'pwd') {
       value = formatPWDNumber(value);
     }
+    setEnrolment(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleDirectChange = (key: keyof EnrolmentFormData, value: any) => {
     setEnrolment(prev => ({ ...prev, [key]: value }));
   };
 
@@ -203,7 +217,7 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
         <AddressSection loc={loc} />
         <ContactSection data={enrolment} onChange={handleFieldChange} />
         <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
-        <GovProgramsSection data={enrolment} onChange={handleFieldChange} />
+        <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} />
       </PatientFormContent>
     </FormModal>
   );

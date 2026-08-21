@@ -127,8 +127,26 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
   };
 
+  const isPhilHealthMember = Boolean(
+    entry?.patient?.philhealth_member === 'yes' ||
+    entry?.patient?.details?.philhealth_member === 'yes' ||
+    entry?.patient?.philhealth_no ||
+    entry?.patient?.details?.philhealth_no
+  );
+
   useEffect(() => {
     if (open && entry?.patient) {
+      const pObj = entry.patient;
+      const dObj = entry.patient.details || {};
+      const isMember = Boolean(
+        pObj.philhealth_member === 'yes' ||
+        dObj.philhealth_member === 'yes' ||
+        pObj.philhealth_no ||
+        dObj.philhealth_no
+      );
+      const rawPin = isMember ? (pObj.philhealth_no || dObj.philhealth_no || '') : '';
+      const rawType = isMember ? (pObj.philhealth_status || dObj.philhealth_status || '') : '';
+
       setFormData(prev => ({
         ...prev,
         patient_name: `${entry.patient.last_name}, ${entry.patient.first_name} ${entry.patient.middle_name || ''}`.trim(),
@@ -136,6 +154,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         date_of_birth: formatDateForInput(entry.patient.date_of_birth),
         address: entry.patient.address || '',
         sex: entry.patient.gender === 'M' ? 'male' : entry.patient.gender === 'F' ? 'female' : '',
+        philhealth_pin: isMember ? formatPhilHealthNumber(rawPin) : '',
+        philhealth_type: (rawType === 'member' || rawType === 'dependent') ? rawType : '',
       }));
 
       // Load appointments and pre-fill scheduled dates
@@ -219,7 +239,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
 
-    if (formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
+    if (isPhilHealthMember && formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
       newFieldErrors.philhealth_pin = 'PhilHealth PIN must be exactly 12 digits.';
     }
     if (!formData.exposure_category) {
@@ -326,13 +346,59 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           borderRadius: '8px',
           backgroundColor: fieldErrors.philhealth_pin ? '#fef2f2' : 'transparent',
         }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.philhealth_pin ? '#dc2626' : '#374151', marginBottom: 6 }}>PhilHealth Identification Number (PIN)</label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.philhealth_pin ? '#dc2626' : '#374151' }}>
+              PhilHealth Identification Number (PIN)
+            </label>
+            {!isPhilHealthMember && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', padding: '2px 8px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <span>⚠</span> No PhilHealth Information Provided in Form 1
+              </span>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <input type="text" value={formData.philhealth_pin} onChange={handleFieldChange('philhealth_pin')} placeholder="XX-XXXXXXXXX-X" maxLength={14} disabled={readOnly} style={{ flex: 1, padding: '8px 12px', border: fieldErrors.philhealth_pin ? '2px solid #ef4444' : '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
-            <select value={formData.philhealth_type} onChange={handleFieldChange('philhealth_type')} disabled={readOnly} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined, outline: 'none' }}>
-              <option value="">— Select —</option>
-              <option value="member">Member</option>
-              <option value="dependent">Dependent</option>
+            <input
+              type="text"
+              value={isPhilHealthMember ? formData.philhealth_pin : 'No PhilHealth Information Provided in Form 1'}
+              onChange={handleFieldChange('philhealth_pin')}
+              placeholder={isPhilHealthMember ? "XX-XXXXXXXXX-X" : "No PhilHealth Information Provided in Form 1"}
+              maxLength={14}
+              disabled={readOnly || !isPhilHealthMember}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                border: fieldErrors.philhealth_pin ? '2px solid #ef4444' : !isPhilHealthMember ? '1px dashed #fca5a5' : '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 13,
+                backgroundColor: !isPhilHealthMember ? '#fef2f2' : readOnly ? '#f9fafb' : '#ffffff',
+                color: !isPhilHealthMember ? '#dc2626' : '#111827',
+                fontWeight: !isPhilHealthMember ? 500 : 400,
+                fontStyle: !isPhilHealthMember ? 'italic' : 'normal',
+                cursor: !isPhilHealthMember ? 'not-allowed' : undefined,
+              }}
+            />
+            <select
+              value={isPhilHealthMember ? formData.philhealth_type : ''}
+              onChange={handleFieldChange('philhealth_type')}
+              disabled={readOnly || !isPhilHealthMember}
+              style={{
+                padding: '8px 12px',
+                border: !isPhilHealthMember ? '1px dashed #fca5a5' : '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 13,
+                backgroundColor: !isPhilHealthMember ? '#fef2f2' : readOnly ? '#f9fafb' : '#ffffff',
+                color: !isPhilHealthMember ? '#dc2626' : '#111827',
+                outline: 'none',
+                cursor: !isPhilHealthMember ? 'not-allowed' : undefined,
+              }}
+            >
+              <option value="">{isPhilHealthMember ? '— Select —' : '— Not Provided —'}</option>
+              {isPhilHealthMember && (
+                <>
+                  <option value="member">Member</option>
+                  <option value="dependent">Dependent</option>
+                </>
+              )}
             </select>
           </div>
           {fieldErrors.philhealth_pin && (

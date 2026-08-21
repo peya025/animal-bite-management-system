@@ -3,6 +3,7 @@ import { Box, Button, Typography } from '@mui/material';
 import { LockOutlined as LockIcon } from '@mui/icons-material';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
+import { HEALTH_FACILITY_GROUPS, ALL_HEALTH_FACILITIES } from '../../../shared/constants/healthFacilities';
 
 // ── Animal-bite related diagnoses (multi-select) ──────────────────────────────
 const ANIMAL_BITE_DIAGNOSES = [
@@ -625,25 +626,69 @@ export default function GeneralTreatmentForm({
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
                   Referred From
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.referred_from}
                   onChange={handleFieldChange('referred_from')}
                   disabled={isFormDisabled}
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: isFormDisabled ? '#f9fafb' : undefined }}
-                />
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    backgroundColor: isFormDisabled ? '#f9fafb' : '#ffffff',
+                    outline: 'none',
+                    fontWeight: formData.referred_from ? 500 : 400,
+                  }}
+                >
+                  <option value="">— Select Health Center / Facility (Referred From) —</option>
+                  {HEALTH_FACILITY_GROUPS.map(group => (
+                    <optgroup key={group.location} label={`📍 ${group.location}`}>
+                      {group.facilities.map(facility => (
+                        <option key={facility} value={facility}>
+                          {facility}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  {formData.referred_from && !ALL_HEALTH_FACILITIES.includes(formData.referred_from) && (
+                    <option value={formData.referred_from}>{formData.referred_from}</option>
+                  )}
+                </select>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
                   Referred To
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.referred_to}
                   onChange={handleFieldChange('referred_to')}
                   disabled={isFormDisabled}
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: isFormDisabled ? '#f9fafb' : undefined }}
-                />
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    backgroundColor: isFormDisabled ? '#f9fafb' : '#ffffff',
+                    outline: 'none',
+                    fontWeight: formData.referred_to ? 500 : 400,
+                  }}
+                >
+                  <option value="">— Select Health Center / Facility (Referred To) —</option>
+                  {HEALTH_FACILITY_GROUPS.map(group => (
+                    <optgroup key={group.location} label={`📍 ${group.location}`}>
+                      {group.facilities.map(facility => (
+                        <option key={facility} value={facility}>
+                          {facility}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  {formData.referred_to && !ALL_HEALTH_FACILITIES.includes(formData.referred_to) && (
+                    <option value={formData.referred_to}>{formData.referred_to}</option>
+                  )}
+                </select>
               </div>
             </div>
           </div>
@@ -712,8 +757,35 @@ export default function GeneralTreatmentForm({
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Referred by</label>
-            <input type="text" value={formData.referred_by} onChange={handleFieldChange('referred_by')} disabled={isFormDisabled}
-              style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: isFormDisabled ? '#f9fafb' : undefined }} />
+            <select
+              value={formData.referred_by}
+              onChange={handleFieldChange('referred_by')}
+              disabled={isFormDisabled}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 13,
+                backgroundColor: isFormDisabled ? '#f9fafb' : '#ffffff',
+                outline: 'none',
+                fontWeight: formData.referred_by ? 500 : 400,
+              }}
+            >
+              <option value="">— Select Health Center / Facility (Referred by) —</option>
+              {HEALTH_FACILITY_GROUPS.map(group => (
+                <optgroup key={group.location} label={`📍 ${group.location}`}>
+                  {group.facilities.map(facility => (
+                    <option key={facility} value={facility}>
+                      {facility}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+              {formData.referred_by && !ALL_HEALTH_FACILITIES.includes(formData.referred_by) && (
+                <option value={formData.referred_by}>{formData.referred_by}</option>
+              )}
+            </select>
           </div>
         </div>
       </div>

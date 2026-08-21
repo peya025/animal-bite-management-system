@@ -23,6 +23,7 @@ import {
 import { Save as SaveIcon, Close as CloseIcon } from '@mui/icons-material';
 import AppButton from '../../../components/button';
 import { formatPhilHealthNumber } from '../../../shared/utils';
+import { HEALTH_FACILITY_GROUPS, ALL_HEALTH_FACILITIES } from '../../../shared/constants/healthFacilities';
 
 interface IndividualTreatmentFormProps {
   open: boolean;
@@ -226,12 +227,31 @@ export default function IndividualTreatmentForm({
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
+                select
                 fullWidth
                 size="small"
                 label="Referred by (optional)"
                 value={formData.referred_by}
                 onChange={(e) => handleChange('referred_by', e.target.value)}
-              />
+                slotProps={{
+                  select: { native: true },
+                  inputLabel: { shrink: true },
+                }}
+              >
+                <option value="">— Select Health Facility —</option>
+                {HEALTH_FACILITY_GROUPS.map(group => (
+                  <optgroup key={group.location} label={`📍 ${group.location}`}>
+                    {group.facilities.map(facility => (
+                      <option key={facility} value={facility}>
+                        {facility}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+                {formData.referred_by && !ALL_HEALTH_FACILITIES.includes(formData.referred_by) && (
+                  <option value={formData.referred_by}>{formData.referred_by}</option>
+                )}
+              </TextField>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <TextField

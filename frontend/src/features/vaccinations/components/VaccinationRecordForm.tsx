@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
 import { formatPhilHealthNumber } from '../../../shared/utils';
+import { HEALTH_FACILITY_GROUPS, ALL_HEALTH_FACILITIES } from '../../../shared/constants/healthFacilities';
 
 interface VaccinationRecordFormProps {
   open: boolean;
@@ -279,7 +280,35 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Referred by</label>
-            <input type="text" value={formData.referred_by} onChange={handleFieldChange('referred_by')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+            <select
+              value={formData.referred_by}
+              onChange={handleFieldChange('referred_by')}
+              disabled={readOnly}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 13,
+                backgroundColor: readOnly ? '#f9fafb' : '#ffffff',
+                outline: 'none',
+                fontWeight: formData.referred_by ? 500 : 400,
+              }}
+            >
+              <option value="">— Select Health Center / Facility (Referred by) —</option>
+              {HEALTH_FACILITY_GROUPS.map(group => (
+                <optgroup key={group.location} label={`📍 ${group.location}`}>
+                  {group.facilities.map(facility => (
+                    <option key={facility} value={facility}>
+                      {facility}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+              {formData.referred_by && !ALL_HEALTH_FACILITIES.includes(formData.referred_by) && (
+                <option value={formData.referred_by}>{formData.referred_by}</option>
+              )}
+            </select>
           </div>
         </div>
         <div style={{ marginBottom: 16 }}>

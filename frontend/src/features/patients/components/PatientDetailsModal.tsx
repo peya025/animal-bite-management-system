@@ -364,13 +364,12 @@ export default function PatientDetailsModal({
       case 'form2':
         return (
           <Box sx={{ p: 3 }}>
-            <ReadOnlyBanner />
             <GeneralTreatmentForm
               open={true}
               entry={fakeEntry as any}
               onClose={() => {}}
               onSave={() => {}}
-              readOnly={true}
+              readOnly={false}
               inline={true}
             />
           </Box>

@@ -6,9 +6,13 @@ use App\Models\TreatmentRecord;
 use App\Models\TagoloanTreatmentCard;
 use App\Models\Queue;
 use App\Models\Appointment;
+use App\Models\BiteIncident;
+use App\Models\Patient;
+use App\Models\Clinic;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class VaccinationRecordController extends Controller
 {

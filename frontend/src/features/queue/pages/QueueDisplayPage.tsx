@@ -360,8 +360,8 @@ export default function QueueDisplayPage() {
       {/* ── Instruction banner ── */}
       <div style={{
         textAlign: 'center', padding: '10px 40px',
-        background: 'rgba(16,185,129,0.08)', borderBottom: '1px solid rgba(16,185,129,0.15)',
-        fontSize: 14, color: '#6ee7b7', fontWeight: 600, letterSpacing: 1,
+        background: '#f0fdf4', borderBottom: '1px solid #bbf7d0',
+        fontSize: 14, color: '#065f46', fontWeight: 600, letterSpacing: 1,
       }}>
         🔔 Please listen for your number and proceed to the assigned station
       </div>
@@ -375,7 +375,8 @@ export default function QueueDisplayPage() {
         {/* Triage Station */}
         <div style={{
           padding: '28px 32px',
-          borderRight: '1px solid rgba(255,255,255,0.06)',
+          borderRight: '1px solid #e5e7eb',
+          background: '#fff',
           display: 'flex', flexDirection: 'column', gap: 16,
         }}>
           <StationPanel
@@ -411,6 +412,7 @@ export default function QueueDisplayPage() {
         {/* Treatment Station */}
         <div style={{
           padding: '28px 32px',
+          background: '#fff',
           display: 'flex', flexDirection: 'column', gap: 16,
         }}>
           <StationPanel
@@ -446,9 +448,10 @@ export default function QueueDisplayPage() {
 
       {/* ── Bottom ticker ── */}
       <div style={{
-        background: '#065f46', padding: '9px 40px',
+        background: '#10b981', padding: '9px 40px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        fontSize: 12, fontWeight: 600, borderTop: '1px solid rgba(255,255,255,0.08)',
+        fontSize: 12, fontWeight: 600, color: '#fff',
+        borderTop: '1px solid #059669',
       }}>
         <span>🔔 Auto-refreshes every 10 seconds</span>
         <span>

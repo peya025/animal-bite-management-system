@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import {
-  Alert, Box, CircularProgress, Paper, Snackbar,
+  Alert, Box, Button, CircularProgress, Paper, Snackbar,
   Typography, Chip, IconButton, Tooltip, Select, MenuItem, FormControl, GlobalStyles,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   MedicalServices as ConsultationIcon,
-  Visibility as ViewIcon,
-  Edit as EditIcon,
+  OpenInNew as LaunchIcon,
 } from '@mui/icons-material';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
+import PatientDetailsModal from '../components/PatientDetailsModal';
 import api from '../../../shared/services/api';
 
 interface Patient {
@@ -37,6 +37,7 @@ export default function DoctorPatientListPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showForm2, setShowForm2] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -213,24 +214,38 @@ export default function DoctorPatientListPage() {
       header: 'ACTIONS',
       align: 'right',
       render: (patient) => (
-        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-          <Tooltip title="View Consultation History">
-            <IconButton size="small" sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: 'var(--bg-hover)', color: '#3b82f6' } }}>
-              <ViewIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="New Consultation (Form 2)">
-            <IconButton
-              size="small"
-              onClick={() => {
-                setSelectedPatient(patient);
-                setShowForm2(true);
-              }}
-              sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ecfdf5', color: '#059669' } }}
-            >
-              <EditIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            size="small"
+            onClick={() => {
+              setSelectedPatient(patient);
+              setShowViewModal(true);
+            }}
+            endIcon={<LaunchIcon sx={{ fontSize: '13px !important' }} />}
+            sx={{
+              bgcolor: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              borderRadius: '8px',
+              color: '#059669',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              textTransform: 'none',
+              px: 1.5,
+              py: 0.4,
+              minWidth: 'auto',
+              fontFamily: 'inherit',
+              lineHeight: 1.5,
+              boxShadow: 'none',
+              '&:hover': {
+                bgcolor: '#d1fae5',
+                borderColor: '#6ee7b7',
+                color: '#047857',
+                boxShadow: 'none',
+              },
+            }}
+          >
+            View
+          </Button>
         </Box>
       ),
     },
@@ -373,6 +388,22 @@ export default function DoctorPatientListPage() {
             loadPatients();
             setShowForm2(false);
             setSelectedPatient(null);
+          }}
+        />
+      )}
+
+      {/* Patient Details / Forms 1-3 View Modal */}
+      {showViewModal && selectedPatient && (
+        <PatientDetailsModal
+          open={showViewModal}
+          patient={selectedPatient as any}
+          onClose={() => {
+            setShowViewModal(false);
+            setSelectedPatient(null);
+          }}
+          onEdit={() => {
+            setShowViewModal(false);
+            setShowForm2(true);
           }}
         />
       )}

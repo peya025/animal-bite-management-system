@@ -26,7 +26,7 @@ interface PatientDetailsModalProps {
 
 // ── Read-only Banner (same as QueuePatientDetailPage) ────────────────────────
 
-function ReadOnlyBanner({ ownerLabel }: { ownerLabel: string }) {
+function ReadOnlyBanner() {
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1.5,
@@ -36,7 +36,6 @@ function ReadOnlyBanner({ ownerLabel }: { ownerLabel: string }) {
       <LockIcon sx={{ fontSize: 16, color: '#d97706', flexShrink: 0 }} />
       <Typography sx={{ fontSize: 13, color: '#92400e' }}>
         You are viewing this form in <strong>read-only mode</strong>.
-        Only <strong>{ownerLabel}</strong> staff can edit this section.
       </Typography>
     </Box>
   );
@@ -358,14 +357,14 @@ export default function PatientDetailsModal({
       case 'form1':
         return (
           <Box sx={{ p: 3 }}>
-            <ReadOnlyBanner ownerLabel="Registration" />
+            <ReadOnlyBanner />
             <Form1InlineView patient={p} />
           </Box>
         );
       case 'form2':
         return (
           <Box sx={{ p: 3 }}>
-            <ReadOnlyBanner ownerLabel="Doctor" />
+            <ReadOnlyBanner />
             <GeneralTreatmentForm
               open={true}
               entry={fakeEntry as any}
@@ -379,7 +378,7 @@ export default function PatientDetailsModal({
       case 'form3':
         return (
           <Box sx={{ p: 3 }}>
-            <ReadOnlyBanner ownerLabel="Nurse" />
+            <ReadOnlyBanner />
             <VaccinationRecordForm
               open={true}
               entry={fakeEntry as any}

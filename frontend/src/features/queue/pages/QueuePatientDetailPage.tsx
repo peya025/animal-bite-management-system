@@ -34,7 +34,7 @@ function canEdit(userRole: string, formOwner: 'registration' | 'triage' | 'treat
 }
 
 // ─── Read-only Notice Banner ────────────────────────────────────────────────
-function ReadOnlyBanner({ ownerLabel }: { ownerLabel: string }) {
+function ReadOnlyBanner() {
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1.5,
@@ -47,7 +47,6 @@ function ReadOnlyBanner({ ownerLabel }: { ownerLabel: string }) {
       <LockIcon sx={{ fontSize: 16, color: '#d97706', flexShrink: 0 }} />
       <Typography sx={{ fontSize: 13, color: '#92400e' }}>
         You are viewing this form in <strong>read-only mode</strong>.
-        Only <strong>{ownerLabel}</strong> staff can edit this section.
       </Typography>
     </Box>
   );
@@ -296,7 +295,7 @@ export default function QueuePatientDetailPage() {
         const editable = canEdit(userRole, 'registration');
         return (
           <Box sx={{ p: 3 }}>
-            {!editable && <ReadOnlyBanner ownerLabel="Registration" />}
+            {!editable && <ReadOnlyBanner />}
             {/* Form 1 rendered inline with full field sections */}
             <Form1InlineView entry={entry} readOnly={!editable} />
           </Box>
@@ -306,7 +305,7 @@ export default function QueuePatientDetailPage() {
         const editable = canEdit(userRole, 'triage');
         return (
           <Box sx={{ p: 3 }}>
-            {!editable && <ReadOnlyBanner ownerLabel="Doctor" />}
+            {!editable && <ReadOnlyBanner />}
             {/* Form 2 rendered inline with read-only mode */}
             <GeneralTreatmentForm
               open={true}
@@ -323,7 +322,7 @@ export default function QueuePatientDetailPage() {
         const editable = canEdit(userRole, 'treatment');
         return (
           <Box sx={{ p: 3 }}>
-            {!editable && <ReadOnlyBanner ownerLabel="Nurse" />}
+            {!editable && <ReadOnlyBanner />}
             {/* Form 3 rendered inline with read-only mode */}
             <VaccinationRecordForm
               open={true}

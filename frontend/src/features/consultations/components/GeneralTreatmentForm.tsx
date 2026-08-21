@@ -4,6 +4,7 @@ import { LockOutlined as LockIcon } from '@mui/icons-material';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
 import { HEALTH_FACILITY_GROUPS, ALL_HEALTH_FACILITIES } from '../../../shared/constants/healthFacilities';
+import ReferralLocationSelector from './ReferralLocationSelector';
 
 // ── Animal-bite related diagnoses (multi-select) ──────────────────────────────
 const ANIMAL_BITE_DIAGNOSES = [
@@ -439,7 +440,7 @@ export default function GeneralTreatmentForm({
         consultation_time: formData.consultation_time,
         mode_of_transaction: formData.mode_of_transaction,
         referred_from: formData.referred_from || null,
-        referred_to: formData.referred_to || null,
+        referred_to: formData.mode_of_transaction === 'referral' ? (formData.referred_to || 'Tagoloan Rural Health Unit (RHU) / ABTC') : null,
         blood_pressure: formData.blood_pressure || null,
         temperature: formData.temperature || null,
         height: formData.height || null,
@@ -658,74 +659,37 @@ export default function GeneralTreatmentForm({
             <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 12 }}>
               For REFERRAL Transaction only.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-                  Referred From
-                </label>
-                <select
-                  value={formData.referred_from}
-                  onChange={handleFieldChange('referred_from')}
-                  disabled={isFormDisabled}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 6,
-                    fontSize: 13,
-                    backgroundColor: isFormDisabled ? '#f9fafb' : '#ffffff',
-                    outline: 'none',
-                    fontWeight: formData.referred_from ? 500 : 400,
-                  }}
-                >
-                  <option value="">— Select Health Center / Facility (Referred From) —</option>
-                  {HEALTH_FACILITY_GROUPS.map(group => (
-                    <optgroup key={group.location} label={`📍 ${group.location}`}>
-                      {group.facilities.map(facility => (
-                        <option key={facility} value={facility}>
-                          {facility}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                  {formData.referred_from && !ALL_HEALTH_FACILITIES.includes(formData.referred_from) && (
-                    <option value={formData.referred_from}>{formData.referred_from}</option>
-                  )}
-                </select>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+              <ReferralLocationSelector
+                label="Referred From"
+                value={formData.referred_from}
+                onChange={(val) => setFormData((prev) => ({ ...prev, referred_from: val }))}
+                disabled={isFormDisabled}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151' }}>
                   Referred To
                 </label>
-                <select
-                  value={formData.referred_to}
-                  onChange={handleFieldChange('referred_to')}
-                  disabled={isFormDisabled}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 6,
-                    fontSize: 13,
-                    backgroundColor: isFormDisabled ? '#f9fafb' : '#ffffff',
-                    outline: 'none',
-                    fontWeight: formData.referred_to ? 500 : 400,
-                  }}
-                >
-                  <option value="">— Select Health Center / Facility (Referred To) —</option>
-                  {HEALTH_FACILITY_GROUPS.map(group => (
-                    <optgroup key={group.location} label={`📍 ${group.location}`}>
-                      {group.facilities.map(facility => (
-                        <option key={facility} value={facility}>
-                          {facility}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                  {formData.referred_to && !ALL_HEALTH_FACILITIES.includes(formData.referred_to) && (
-                    <option value={formData.referred_to}>{formData.referred_to}</option>
-                  )}
-                </select>
+                <div style={{ marginTop: 22 }}>
+                  <input
+                    type="text"
+                    value="Tagoloan Rural Health Unit (RHU) / ABTC"
+                    readOnly
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      backgroundColor: '#f3f4f6',
+                      color: '#1f2937',
+                      fontWeight: 600,
+                    }}
+                  />
+                  <span style={{ display: 'block', fontSize: 11, color: '#6b7280', marginTop: 4 }}>
+                    📍 Primary Receiving Facility: Tagoloan RHU
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -793,36 +757,12 @@ export default function GeneralTreatmentForm({
               style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: isFormDisabled ? '#f9fafb' : undefined }} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Referred by</label>
-            <select
+            <ReferralLocationSelector
+              label="Referred by"
               value={formData.referred_by}
-              onChange={handleFieldChange('referred_by')}
+              onChange={(val) => setFormData((prev) => ({ ...prev, referred_by: val }))}
               disabled={isFormDisabled}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: isFormDisabled ? '#f9fafb' : '#ffffff',
-                outline: 'none',
-                fontWeight: formData.referred_by ? 500 : 400,
-              }}
-            >
-              <option value="">— Select Health Center / Facility (Referred by) —</option>
-              {HEALTH_FACILITY_GROUPS.map(group => (
-                <optgroup key={group.location} label={`📍 ${group.location}`}>
-                  {group.facilities.map(facility => (
-                    <option key={facility} value={facility}>
-                      {facility}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-              {formData.referred_by && !ALL_HEALTH_FACILITIES.includes(formData.referred_by) && (
-                <option value={formData.referred_by}>{formData.referred_by}</option>
-              )}
-            </select>
+            />
           </div>
         </div>
       </div>

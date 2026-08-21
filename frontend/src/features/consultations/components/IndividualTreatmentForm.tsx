@@ -22,6 +22,7 @@ import {
 import { Save as SaveIcon, Close as CloseIcon } from '@mui/icons-material';
 import api from '../../../shared/services/api';
 import AppButton from '../../../components/button';
+import ReferralLocationSelector from './ReferralLocationSelector';
 
 interface IndividualTreatmentFormProps {
   open: boolean;
@@ -322,25 +323,29 @@ export default function IndividualTreatmentForm({
             </Grid>
 
             {formData.mode_of_transaction === 'referral' && (
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 1, color: '#6b7280' }}>
+              <Grid size={{ xs: 12 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 1.5, color: '#6b7280' }}>
                   For REFERRAL Transaction only.
                 </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Referred From"
-                  value={formData.referred_from}
-                  onChange={handleChange('referred_from')}
-                  sx={{ mb: 2 }}
-                />
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Referred To"
-                  value={formData.referred_to}
-                  onChange={handleChange('referred_to')}
-                />
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <ReferralLocationSelector
+                      label="Referred From"
+                      value={formData.referred_from}
+                      onChange={(val) => setFormData((prev) => ({ ...prev, referred_from: val }))}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Referred To"
+                      value="Tagoloan Rural Health Unit (RHU) / ABTC"
+                      slotProps={{ input: { readOnly: true } }}
+                      helperText="📍 Primary Receiving Facility: Tagoloan RHU"
+                    />
+                  </Grid>
+                </Grid>
               </Grid>
             )}
 
@@ -419,12 +424,10 @@ export default function IndividualTreatmentForm({
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                size="small"
+              <ReferralLocationSelector
                 label="Referred by"
                 value={formData.referred_by}
-                onChange={handleChange('referred_by')}
+                onChange={(val) => setFormData((prev) => ({ ...prev, referred_by: val }))}
               />
             </Grid>
           </Grid>

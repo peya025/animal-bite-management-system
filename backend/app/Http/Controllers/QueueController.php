@@ -219,7 +219,7 @@ class QueueController extends Controller
     public function show(Request $request, $id)
     {
         $queue = Queue::where('clinic_id', $request->user()->clinic_id)
-            ->with(['patient', 'biteIncident', 'checkedInBy', 'handledBy'])
+            ->with(['patient.details', 'biteIncident', 'checkedInBy', 'handledBy'])
             ->findOrFail($id);
 
         return response()->json($queue);

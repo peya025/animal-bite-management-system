@@ -234,7 +234,7 @@ export default function QueueDashboard() {
                 '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: cfg.color },
                 '& .MuiSelect-select': { py: 0.5, px: 1.5, fontFamily: 'inherit' },
               }}
-              MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontFamily: 'inherit', fontSize: 13 } } } }}
+              MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontFamily: 'inherit', fontSize: 13 } } } } }}
             >
               <MenuItem value="normal">Normal</MenuItem>
               <MenuItem value="urgent">Urgent</MenuItem>
@@ -514,6 +514,29 @@ export default function QueueDashboard() {
         </Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
+
+          {/* Queue Display button */}
+          <Tooltip title="Open Queue Display (Full Screen)">
+            <button
+              onClick={() => window.open('/queue/display', '_blank', 'width=1280,height=720')}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 8,
+                background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                color: '#fff', border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+                boxShadow: '0 2px 8px rgba(13,148,136,0.3)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <path d="M8 21h8M12 17v4"/>
+              </svg>
+              Queue Display
+            </button>
+          </Tooltip>
+
           {/* Trash Bin button */}
           <Tooltip title="Trash Bin — View removed entries">
             <IconButton onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>

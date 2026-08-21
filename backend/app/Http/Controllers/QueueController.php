@@ -345,7 +345,7 @@ class QueueController extends Controller
     }
 
     /**
-     * Give patient a second chance — re-queue them at end of today's queue
+     * Give patient a second chance — move original entry to end of today's queue
      * Access: admin, triage, treatment
      */
     public function secondChance(Request $request, $id)
@@ -362,28 +362,24 @@ class QueueController extends Controller
 
         $todayDate = Carbon::today()->toDateString();
 
-        // Get next queue number
+        // Get the highest queue number for today (excluding this entry itself)
         $lastQueue = Queue::where('clinic_id', $clinicId)
             ->where('queue_date', $todayDate)
+            ->where('queue_id', '!=', $queue->queue_id)
             ->whereNull('deleted_at')
             ->orderBy('queue_number', 'desc')
             ->first();
 
         $nextQueueNumber = $lastQueue ? ($lastQueue->queue_number + 1) : 1;
 
-        // Create a new queue entry (second chance) for end of queue
-        $newEntry = Queue::create([
-            'clinic_id'      => $clinicId,
-            'patient_id'     => $queue->patient_id,
-            'bite_id'        => $queue->bite_id,
-            'appointment_id' => $queue->appointment_id,
+        // Update the SAME entry — move it to end of queue and reset to waiting
+        $queue->update([
             'queue_number'   => $nextQueueNumber,
             'queue_date'     => $todayDate,
-            'visit_type'     => $queue->visit_type,
-            'priority'       => $queue->priority,
             'status'         => 'waiting',
+            'no_response_at' => null,
+            'called_at'      => null,
             'checked_in_at'  => now(),
-            'checked_in_by'  => $request->user()->id,
             'check_in_notes' => '[Second Chance] ' . ($queue->check_in_notes ?? ''),
         ]);
 
@@ -391,10 +387,10 @@ class QueueController extends Controller
         Cache::forget("web:queue:clinic:{$clinicId}:date:{$queue->queue_date}");
 
         return response()->json([
-            'message'   => 'Patient re-queued with a second chance',
-            'queue'     => $newEntry->load(['patient', 'biteIncident']),
-            'queue_number' => $newEntry->queue_number,
-        ], 201);
+            'message'      => 'Patient given a second chance and moved to end of queue',
+            'queue'        => $queue->fresh()->load(['patient', 'biteIncident']),
+            'queue_number' => $queue->queue_number,
+        ]);
     }
 
     /**

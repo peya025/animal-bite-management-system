@@ -3,11 +3,29 @@ import type { AddressLocationState } from '../../../hooks/useAddressLocation';
 
 interface AddressSectionProps {
   loc: AddressLocationState;
+  errors?: Record<string, string>;
 }
 
-export function AddressSection({ loc }: AddressSectionProps) {
+export function AddressSection({ loc, errors = {} }: AddressSectionProps) {
   return (
-    <div className="fm-section">
+    <div
+      id="field-address"
+      className="fm-section"
+      style={errors.address ? {
+        padding: '12px',
+        border: '2px solid #ef4444',
+        borderRadius: '10px',
+        backgroundColor: '#fef2f2',
+        marginBottom: '16px',
+        boxShadow: '0 0 0 4px rgba(239, 68, 68, 0.12)',
+        transition: 'all 0.25s ease',
+      } : undefined}
+    >
+      {errors.address && (
+        <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span>⚠</span> {errors.address}
+        </div>
+      )}
       <div
         style={{
           display: 'flex',

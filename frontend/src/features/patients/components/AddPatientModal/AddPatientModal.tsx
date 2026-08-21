@@ -18,6 +18,7 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
   const [enrolment, setEnrolment] = useState<EnrolmentFormData>(INITIAL_ENROLMENT_DATA);
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const loc = useAddressLocation();
 
   const handleFieldChange = (key: keyof EnrolmentFormData) => (
@@ -32,6 +33,13 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
       value = formatPWDNumber(value);
     }
     setEnrolment(prev => ({ ...prev, [key]: value }));
+    if (fieldErrors[key]) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   };
 
   // Direct setter for array values or non-string fields (used by GovProgramsSection)
@@ -40,46 +48,74 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
   };
 
   const handleSubmit = async () => {
-    if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
-      setError('Please fill in all required fields (Last Name, First Name, Date of Birth, Sex).');
-      return;
+    const newFieldErrors: Record<string, string> = {};
+
+    if (!enrolment.last_name.trim()) {
+      newFieldErrors.last_name = 'Last Name is required';
+    }
+    if (!enrolment.first_name.trim()) {
+      newFieldErrors.first_name = 'First Name is required';
+    }
+    if (!enrolment.sex) {
+      newFieldErrors.sex = 'Sex is required';
+    }
+    if (!enrolment.date_of_birth) {
+      newFieldErrors.date_of_birth = 'Date of Birth is required';
     }
 
     if (enrolment.contact_number && enrolment.contact_number.length !== 11) {
-      setError('Contact number must be exactly 11 digits.');
-      return;
+      newFieldErrors.contact_number = 'Contact number must be exactly 11 digits.';
     }
 
     if (enrolment.emergency_contact_phone && enrolment.emergency_contact_phone.length !== 11) {
-      setError('Emergency contact phone must be exactly 11 digits.');
-      return;
+      newFieldErrors.emergency_contact_phone = 'Emergency contact phone must be exactly 11 digits.';
     }
 
     if (enrolment.philhealth_no && enrolment.philhealth_no.replace(/\D/g, '').length !== 12) {
-      setError('PhilHealth number must be exactly 12 digits.');
-      return;
+      newFieldErrors.philhealth_no = 'PhilHealth number must be exactly 12 digits.';
     }
 
     if (enrolment.other_membership === 'pwd' && enrolment.other_membership_no) {
       if (enrolment.other_membership_no.replace(/\D/g, '').length !== 16) {
-        setError('PWD ID number must be exactly 16 digits.');
-        return;
+        newFieldErrors.other_membership_no = 'PWD ID number must be exactly 16 digits.';
       }
     }
 
     if (loc.useManual) {
       if (!loc.manualMun || !loc.manualBrgy) {
-        setError('Please enter Municipality and Barangay.');
-        return;
+        newFieldErrors.address = 'Please enter Municipality and Barangay.';
       }
     } else {
       if (!loc.municipality || !loc.barangay) {
-        setError('Please select Municipality and Barangay.');
-        return;
+        newFieldErrors.address = 'Please select Municipality and Barangay.';
       }
     }
 
+    setFieldErrors(newFieldErrors);
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setError('Please fill in all required fields highlighted in red below.');
+
+      const fieldOrder = ['last_name', 'first_name', 'sex', 'date_of_birth', 'address', 'contact_number', 'emergency_contact_phone', 'philhealth_no'];
+      const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
+
+      if (firstErrorKey) {
+        setTimeout(() => {
+          const el = document.getElementById(`field-${firstErrorKey}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const focusable = el.querySelector('input, select') as HTMLElement;
+            if (focusable) {
+              focusable.focus({ preventScroll: true });
+            }
+          }
+        }, 50);
+      }
+      return;
+    }
+
     setError('');
+    setFieldErrors({});
     setSaving(true);
 
     try {
@@ -114,8 +150,8 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
       }
     >
       <PatientFormContent>
-        <PatientInfoSection data={enrolment} onChange={handleFieldChange} />
-        <AddressSection loc={loc} />
+        <PatientInfoSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} />
+        <AddressSection loc={loc} errors={fieldErrors} />
         <ContactSection data={enrolment} onChange={handleFieldChange} />
         <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
         <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} />

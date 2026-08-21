@@ -180,6 +180,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
   };
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -188,6 +190,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       value = formatPhilHealthNumber(value);
     }
     setFormData(prev => ({ ...prev, [key]: value }));
+    if (fieldErrors[key]) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   };
 
   const handleCheckboxChange = (section: 'mode_of_exposure' | 'body_part_affected', key: string) => (
@@ -207,16 +216,38 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   const handleSubmit = async () => {
+    const newFieldErrors: Record<string, string> = {};
+
     if (formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
-      setError('PhilHealth PIN must be exactly 12 digits.');
-      return;
+      newFieldErrors.philhealth_pin = 'PhilHealth PIN must be exactly 12 digits.';
     }
     if (!formData.exposure_category) {
-      setError('Please select Exposure Category');
-      return;
+      newFieldErrors.exposure_category = 'Please select Exposure Category';
     }
     if (!formData.date_of_exposure) {
-      setError('Please enter Date of Exposure');
+      newFieldErrors.date_of_exposure = 'Please enter Date of Exposure';
+    }
+
+    setFieldErrors(newFieldErrors);
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setError('Please fill in the required field(s) highlighted in red.');
+
+      const fieldOrder = ['philhealth_pin', 'exposure_category', 'date_of_exposure'];
+      const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
+
+      if (firstErrorKey) {
+        setTimeout(() => {
+          const el = document.getElementById(`field-${firstErrorKey}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const focusable = el.querySelector('input, select') as HTMLElement;
+            if (focusable) {
+              focusable.focus({ preventScroll: true });
+            }
+          }
+        }, 50);
+      }
       return;
     }
 
@@ -311,16 +342,25 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             </select>
           </div>
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>PhilHealth Identification Number (PIN)</label>
+        <div id="field-philhealth_pin" style={{
+          marginBottom: 16,
+          padding: fieldErrors.philhealth_pin ? '12px' : '0px',
+          border: fieldErrors.philhealth_pin ? '2px solid #ef4444' : 'none',
+          borderRadius: '8px',
+          backgroundColor: fieldErrors.philhealth_pin ? '#fef2f2' : 'transparent',
+        }}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.philhealth_pin ? '#dc2626' : '#374151', marginBottom: 6 }}>PhilHealth Identification Number (PIN)</label>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <input type="text" value={formData.philhealth_pin} onChange={handleFieldChange('philhealth_pin')} placeholder="XX-XXXXXXXXX-X" maxLength={14} disabled={readOnly} style={{ flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+            <input type="text" value={formData.philhealth_pin} onChange={handleFieldChange('philhealth_pin')} placeholder="XX-XXXXXXXXX-X" maxLength={14} disabled={readOnly} style={{ flex: 1, padding: '8px 12px', border: fieldErrors.philhealth_pin ? '2px solid #ef4444' : '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
             <select value={formData.philhealth_type} onChange={handleFieldChange('philhealth_type')} disabled={readOnly} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined, outline: 'none' }}>
               <option value="">— Select —</option>
               <option value="member">Member</option>
               <option value="dependent">Dependent</option>
             </select>
           </div>
+          {fieldErrors.philhealth_pin && (
+            <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.philhealth_pin}</div>
+          )}
         </div>
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Patient Name <span style={{ color: '#ef4444' }}>*</span></label>
@@ -354,22 +394,38 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               </label>
             </div>
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Exposure Category <span style={{ color: '#ef4444' }}>*</span></label>
+          <div id="field-exposure_category" style={{
+            padding: fieldErrors.exposure_category ? '10px' : '0px',
+            border: fieldErrors.exposure_category ? '2px solid #ef4444' : 'none',
+            borderRadius: '8px',
+            backgroundColor: fieldErrors.exposure_category ? '#fef2f2' : 'transparent',
+          }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.exposure_category ? '#dc2626' : '#374151', marginBottom: 8 }}>Exposure Category <span style={{ color: '#ef4444' }}>*</span></label>
             <div style={{ display: 'flex', gap: 16 }}>
               {(['I', 'II', 'III'] as const).map((cat) => (
                 <label key={cat} style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
                   <input type="radio" name="exposure_category" value={cat} checked={formData.exposure_category === cat} onChange={handleFieldChange('exposure_category')} disabled={readOnly} style={{ marginRight: 6 }} />
-                  <span style={{ fontSize: 13, color: '#374151' }}>{cat}</span>
+                  <span style={{ fontSize: 13, color: fieldErrors.exposure_category ? '#991b1b' : '#374151' }}>{cat}</span>
                 </label>
               ))}
             </div>
+            {fieldErrors.exposure_category && (
+              <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.exposure_category}</div>
+            )}
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date of Exposure <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="date" value={formData.date_of_exposure} onChange={handleFieldChange('date_of_exposure')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+          <div id="field-date_of_exposure" style={{
+            padding: fieldErrors.date_of_exposure ? '10px' : '0px',
+            border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : 'none',
+            borderRadius: '8px',
+            backgroundColor: fieldErrors.date_of_exposure ? '#fef2f2' : 'transparent',
+          }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.date_of_exposure ? '#dc2626' : '#374151', marginBottom: 6 }}>Date of Exposure <span style={{ color: '#ef4444' }}>*</span></label>
+            <input type="date" value={formData.date_of_exposure} onChange={handleFieldChange('date_of_exposure')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+            {fieldErrors.date_of_exposure && (
+              <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.date_of_exposure}</div>
+            )}
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date Treatment Started</label>

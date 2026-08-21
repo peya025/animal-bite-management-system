@@ -39,6 +39,7 @@ export const ROUTES = {
     DASHBOARD:      '/queue',
     MANAGEMENT:     '/queue/management',
     PATIENT_DETAIL: '/queue/:queueId/patient',
+    DISPLAY:        '/queue/display',
   },
 
   INVENTORY: {

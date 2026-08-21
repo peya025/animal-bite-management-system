@@ -283,6 +283,29 @@ export default function QueueDashboard() {
         </Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
+          <Tooltip title="Open Queue Display (Full Screen)">
+            <button
+              onClick={() => window.open('/queue/display', '_blank', 'width=1280,height=720')}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 8,
+                background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                color: '#fff', border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+                boxShadow: '0 2px 8px rgba(13,148,136,0.3)',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(13,148,136,0.4)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(13,148,136,0.3)'; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <path d="M8 21h8M12 17v4"/>
+              </svg>
+              Queue Display
+            </button>
+          </Tooltip>
           <Tooltip title="Refresh">
             <IconButton onClick={reload} disabled={loading}>
               <RefreshIcon />

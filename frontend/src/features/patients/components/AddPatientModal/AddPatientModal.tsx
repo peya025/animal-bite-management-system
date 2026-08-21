@@ -34,6 +34,11 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
     setEnrolment(prev => ({ ...prev, [key]: value }));
   };
 
+  // Direct setter for array values or non-string fields (used by GovProgramsSection)
+  const handleDirectChange = (key: keyof EnrolmentFormData, value: any) => {
+    setEnrolment(prev => ({ ...prev, [key]: value }));
+  };
+
   const handleSubmit = async () => {
     if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
       setError('Please fill in all required fields (Last Name, First Name, Date of Birth, Sex).');
@@ -113,7 +118,7 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
         <AddressSection loc={loc} />
         <ContactSection data={enrolment} onChange={handleFieldChange} />
         <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
-        <GovProgramsSection data={enrolment} onChange={handleFieldChange} />
+        <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} />
       </PatientFormContent>
     </FormModal>
   );

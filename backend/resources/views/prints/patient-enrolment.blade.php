@@ -419,7 +419,7 @@
                     <span class="lbl">Educational Attainment <span class="sub-lbl">(Pang-edukasyong katayuan)</span></span>
                     <table style="width: 100%; border: none; font-size: 10px;">
                         <tr>
-                            <td style="border: none; padding: 2px;"><span class="chk-label">{!! $chkBox($edu == 'none' || $edu == 'no_formal_education') !!} No Formal Education <span class="sub-lbl">(Walang Pormal na Edukasyon)</span></span></td>
+                            <td style="border: none; padding: 2px;"><span class="chk-label">{!! $chkBox($edu == 'no_formal' || $edu == 'none' || $edu == 'no_formal_education') !!} No Formal Education <span class="sub-lbl">(Walang Pormal na Edukasyon)</span></span></td>
                             <td style="border: none; padding: 2px;"><span class="chk-label">{!! $chkBox($edu == 'elementary') !!} Elementary <span class="sub-lbl">(Elementarya)</span></span></td>
                         </tr>
                         <tr>
@@ -471,10 +471,10 @@
             <tr>
                 <td colspan="2">
                     <span class="lbl">Family Member <span class="sub-lbl">(Posisyon sa Pamilya)</span></span>
-                    <span class="chk-label">{!! $chkBox($family == 'head') !!} Father <span class="sub-lbl">(Ama)</span></span>
-                    <span class="chk-label">{!! $chkBox($family == 'spouse') !!} Mother <span class="sub-lbl">(Ina)</span></span>
-                    <span class="chk-label">{!! $chkBox($family == 'child') !!} Son <span class="sub-lbl">(Anak na lalaki)</span></span>
-                    <span class="chk-label">{!! $chkBox($family == 'dependent') !!} Daughter <span class="sub-lbl">(Anak na babae)</span></span>
+                    <span class="chk-label">{!! $chkBox($family == 'father' || $family == 'head') !!} Father <span class="sub-lbl">(Ama)</span></span>
+                    <span class="chk-label">{!! $chkBox($family == 'mother' || $family == 'spouse') !!} Mother <span class="sub-lbl">(Ina)</span></span>
+                    <span class="chk-label">{!! $chkBox($family == 'son' || $family == 'child') !!} Son <span class="sub-lbl">(Anak na lalaki)</span></span>
+                    <span class="chk-label">{!! $chkBox($family == 'daughter' || $family == 'dependent') !!} Daughter <span class="sub-lbl">(Anak na babae)</span></span>
                     <span class="chk-label">{!! $chkBox($family == 'others') !!} Others <span class="sub-lbl">(Iba)</span></span>
                 </td>
             </tr>

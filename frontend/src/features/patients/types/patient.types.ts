@@ -51,6 +51,13 @@ export interface EnrolmentFormData {
   other_membership_no: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
+  // Multi-membership support
+  other_memberships: string[];
+  senior_citizen_id: string;
+  pwd_id: string;
+  indigenous_tribe: string;
+  other_membership_custom_name: string;
+  other_membership_custom_id: string;
 }
 
 export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
@@ -84,6 +91,13 @@ export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
   other_membership_no: '',
   emergency_contact_name: '',
   emergency_contact_phone: '',
+  // Multi-membership
+  other_memberships: [],
+  senior_citizen_id: '',
+  pwd_id: '',
+  indigenous_tribe: '',
+  other_membership_custom_name: '',
+  other_membership_custom_id: '',
 };
 
 export interface AddPatientModalProps {
@@ -91,3 +105,4 @@ export interface AddPatientModalProps {
   onSuccess: () => void;
   role?: string;
 }
+

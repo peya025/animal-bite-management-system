@@ -33,6 +33,25 @@ class VaccineInventoryController extends Controller
     }
 
     /**
+     * Get unique vaccine names available in inventory (for form dropdowns).
+     * Access: all authenticated staff
+     */
+    public function vaccineNames(Request $request)
+    {
+        $clinicId = $request->user()->clinic_id;
+
+        $names = VaccineInventory::where('clinic_id', $clinicId)
+            ->where('status', 'active')
+            ->where('current_quantity', '>', 0)
+            ->orderBy('vaccine_type')
+            ->pluck('vaccine_type')
+            ->unique()
+            ->values();
+
+        return response()->json(['vaccine_names' => $names]);
+    }
+
+    /**
      * Create a new vaccine inventory entry (admin only)
      */
     public function store(Request $request)

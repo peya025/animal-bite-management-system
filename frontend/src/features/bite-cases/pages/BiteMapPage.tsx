@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -224,7 +224,7 @@ export default function BiteMapPage() {
               value={datePreset}
               onChange={(e) => setDatePreset(e.target.value)}
               renderValue={(value) => {
-                const dateOptionMap: Record<string, { label: string; icon: JSX.Element }> = {
+                const dateOptionMap: Record<string, { label: string; icon: ReactNode }> = {
                   all: { label: 'All Time', icon: <CalendarTodayIcon sx={{ fontSize: 16, color: '#5f99f6' }} /> },
                   week: { label: 'This Week', icon: <DateRangeIcon sx={{ fontSize: 16, color: '#32c48d' }} /> },
                   month: { label: 'This Month', icon: <CalendarMonthIcon sx={{ fontSize: 16, color: '#8b5cf6' }} /> },
@@ -334,7 +334,7 @@ export default function BiteMapPage() {
               value={selectedSeverity}
               onChange={(e) => setSelectedSeverity(e.target.value)}
               renderValue={(value) => {
-                const severityOptionMap: Record<string, { label: string; icon: JSX.Element }> = {
+                const severityOptionMap: Record<string, { label: string; icon: ReactNode }> = {
                   all: { label: 'All Categories', icon: <CategoryIcon sx={{ fontSize: 16, color: '#7d93aa' }} /> },
                   severe: { label: 'Category III (Severe)', icon: <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} /> },
                   moderate: { label: 'Category II (Moderate)', icon: <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b', flexShrink: 0 }} /> },

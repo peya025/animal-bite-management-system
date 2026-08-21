@@ -7,18 +7,25 @@ import {
 } from '@mui/material';
 import {
   AccessTime as WaitIcon,
-  Cancel as CancelIcon,
-  Done as CompleteIcon,
-  Phone as CallIcon,
   Refresh as RefreshIcon,
   Warning as UrgentIcon,
   Error as EmergencyIcon,
+<<<<<<< HEAD
   OpenInNew as ViewIcon,
   PersonOff as NoResponseIcon,
   Replay as SecondChanceIcon,
   Delete as TrashIcon,
   Restore as TrashBinIcon,
+=======
+>>>>>>> 71acf5e63ae21b71afb6346606d20cfa8e3dd2b8
 } from '@mui/icons-material';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Call02Icon,
+  CheckmarkCircle02Icon,
+  CancelCircleIcon,
+  ArrowUpRight01Icon,
+} from '@hugeicons/core-free-icons';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
@@ -267,20 +274,48 @@ export default function QueueDashboard() {
     {
       key: 'view', header: 'VIEW', align: 'right' as const, width: '90px',
       render: entry => (
-        <Tooltip title="View Patient Detail">
+        <Tooltip title="View Patient Details & Forms">
           <button
             onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: entry.queue_id }))}
             style={{
+<<<<<<< HEAD
               display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '5px 14px',
               background: '#f0fdf4', border: '1px solid #a7f3d0',
               borderRadius: 8, color: '#059669', fontSize: 13, fontWeight: 600,
               cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+=======
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '5px 13px',
+              background: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              borderRadius: 8,
+              color: '#059669',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'all 0.15s ease',
+              boxShadow: '0 1px 2px rgba(16, 185, 129, 0.05)',
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#d1fae5'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f0fdf4'; }}
+            onMouseEnter={e => {
+              const el = e.currentTarget;
+              el.style.background = '#d1fae5';
+              el.style.borderColor = '#6ee7b7';
+              el.style.color = '#047857';
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget;
+              el.style.background = '#ecfdf5';
+              el.style.borderColor = '#a7f3d0';
+              el.style.color = '#059669';
+>>>>>>> 71acf5e63ae21b71afb6346606d20cfa8e3dd2b8
+            }}
           >
-            View <ViewIcon sx={{ fontSize: 14 }} />
+            View
+            <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />
           </button>
         </Tooltip>
       ),
@@ -294,25 +329,66 @@ export default function QueueDashboard() {
         const isActive     = isWaiting || isConsult;
 
         return (
+<<<<<<< HEAD
           <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
             {/* Call */}
+=======
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+>>>>>>> 71acf5e63ae21b71afb6346606d20cfa8e3dd2b8
             {isWaiting && (
-              <Tooltip title="Call Patient">
-                <IconButton size="small" onClick={() => setCallTarget(entry)}
-                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: 'var(--bg-hover)', color: '#3b82f6' } }}>
-                  <CallIcon sx={{ fontSize: 18 }} />
+              <Tooltip title="Call Patient to Station">
+                <IconButton
+                  size="small"
+                  onClick={() => setCallTarget(entry)}
+                  sx={{
+                    color: '#2563eb',
+                    bgcolor: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '8px',
+                    width: 32,
+                    height: 32,
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: '#dbeafe',
+                      borderColor: '#93c5fd',
+                      color: '#1d4ed8',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 2px 5px rgba(37, 99, 235, 0.15)',
+                    },
+                  }}
+                >
+                  <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
             {/* Complete */}
             {isConsult && (
               <Tooltip title="Complete Consultation">
-                <IconButton size="small" onClick={() => setCompleteTarget(entry)}
-                  sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#ecfdf5', color: '#059669' } }}>
-                  <CompleteIcon sx={{ fontSize: 18 }} />
+                <IconButton
+                  size="small"
+                  onClick={() => setCompleteTarget(entry)}
+                  sx={{
+                    color: '#059669',
+                    bgcolor: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    borderRadius: '8px',
+                    width: 32,
+                    height: 32,
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: '#d1fae5',
+                      borderColor: '#6ee7b7',
+                      color: '#047857',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 2px 5px rgba(16, 185, 129, 0.15)',
+                    },
+                  }}
+                >
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
+<<<<<<< HEAD
             {/* No Response */}
             {isActive && (
               <Tooltip title="Mark No Response">
@@ -337,6 +413,31 @@ export default function QueueDashboard() {
                 <IconButton size="small" onClick={() => setCancelTarget(entry)}
                   sx={{ color: 'var(--text-secondary)', bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
                   <CancelIcon sx={{ fontSize: 18 }} />
+=======
+            {(isWaiting || isConsult) && (
+              <Tooltip title="Cancel Queue Entry">
+                <IconButton
+                  size="small"
+                  onClick={() => setCancelTarget(entry)}
+                  sx={{
+                    color: '#dc2626',
+                    bgcolor: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '8px',
+                    width: 32,
+                    height: 32,
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: '#fee2e2',
+                      borderColor: '#fca5a5',
+                      color: '#b91c1c',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 2px 5px rgba(220, 38, 38, 0.15)',
+                    },
+                  }}
+                >
+                  <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={2} />
+>>>>>>> 71acf5e63ae21b71afb6346606d20cfa8e3dd2b8
                 </IconButton>
               </Tooltip>
             )}

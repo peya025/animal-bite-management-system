@@ -6,8 +6,9 @@ import {
 import {
   Refresh as RefreshIcon,
   MedicalServices as ConsultationIcon,
-  OpenInNew as LaunchIcon,
 } from '@mui/icons-material';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
@@ -215,37 +216,45 @@ export default function DoctorPatientListPage() {
       align: 'right',
       render: (patient) => (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            size="small"
-            onClick={() => {
-              setSelectedPatient(patient);
-              setShowViewModal(true);
-            }}
-            endIcon={<LaunchIcon sx={{ fontSize: '13px !important' }} />}
-            sx={{
-              bgcolor: '#ecfdf5',
-              border: '1px solid #a7f3d0',
-              borderRadius: '8px',
-              color: '#059669',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              textTransform: 'none',
-              px: 1.5,
-              py: 0.4,
-              minWidth: 'auto',
-              fontFamily: 'inherit',
-              lineHeight: 1.5,
-              boxShadow: 'none',
-              '&:hover': {
-                bgcolor: '#d1fae5',
-                borderColor: '#6ee7b7',
-                color: '#047857',
-                boxShadow: 'none',
-              },
-            }}
-          >
-            View
-          </Button>
+          <Tooltip title="View Patient Details & Forms">
+            <button
+              onClick={() => {
+                setSelectedPatient(patient);
+                setShowViewModal(true);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '5px 13px',
+                background: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                borderRadius: 8,
+                color: '#059669',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all 0.15s ease',
+                boxShadow: '0 1px 2px rgba(16, 185, 129, 0.05)',
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget;
+                el.style.background = '#d1fae5';
+                el.style.borderColor = '#6ee7b7';
+                el.style.color = '#047857';
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget;
+                el.style.background = '#ecfdf5';
+                el.style.borderColor = '#a7f3d0';
+                el.style.color = '#059669';
+              }}
+            >
+              View
+              <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />
+            </button>
+          </Tooltip>
         </Box>
       ),
     },

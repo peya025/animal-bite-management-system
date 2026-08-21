@@ -30,6 +30,39 @@ const ANIMAL_BITE_DIAGNOSES = [
   'Post-Exposure Prophylaxis (PEP)',
 ];
 
+const PERTINENT_HISTORY_OPTIONS = [
+  'Asthma',
+  'Hypertension (High blood pressure)',
+  'Diabetes Mellitus',
+  'Heart disease',
+  'Tuberculosis (TB)',
+  'Pneumonia',
+  'Chronic kidney disease',
+  'Liver disease',
+  'Seizure/Epilepsy',
+  'Allergies',
+  'Previous surgery',
+  'Previous hospitalization',
+  'Cancer',
+  'Anemia',
+  'Arthritis',
+  'Stroke',
+  'Migraine',
+  'Gastritis/Ulcer',
+  'Fever',
+  'Cough',
+  'Difficulty breathing',
+  'Chest pain',
+  'Abdominal pain',
+  'Headache',
+  'Dizziness',
+  'Vomiting',
+  'Diarrhea',
+  'Weakness/Fatigue',
+  'Elevated blood pressure',
+  'High blood sugar',
+];
+
 interface GeneralTreatmentFormProps {
   open: boolean;
   entry: any; // Queue entry with patient data
@@ -52,6 +85,9 @@ interface TreatmentFormData {
   mode_of_transaction: 'walk-in' | 'visited' | 'referral' | '';
   referred_from: string;
   referred_to: string;
+  pertinent_history: string;
+  reason_for_referral: string;
+  actions_taken: string;
 
   // Consultation Details
   date_of_consultation: string;
@@ -105,6 +141,9 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   mode_of_transaction: '',
   referred_from: '',
   referred_to: '',
+  pertinent_history: '',
+  reason_for_referral: 'For further evaluation and management.',
+  actions_taken: '',
   date_of_consultation: new Date().toISOString().split('T')[0],
   consultation_time: new Date().toTimeString().slice(0, 5),
   blood_pressure: '',
@@ -171,6 +210,7 @@ export default function GeneralTreatmentForm({
   // Track which checklist items are checked (separate from the editable text box)
   const [checkedDiagnoses, setCheckedDiagnoses] = useState<string[]>([]);
   const [checkedMeds, setCheckedMeds] = useState<string[]>([]);
+  const [checkedHistory, setCheckedHistory] = useState<string[]>([]);
 
   // Fetch available vaccine names from inventory
   useEffect(() => {
@@ -229,6 +269,9 @@ export default function GeneralTreatmentForm({
       referred_from: record.referred_from || '',
       referred_to: record.referred_to || '',
       referred_by: record.referred_by || '',
+      pertinent_history: asText(record.pertinent_history),
+      reason_for_referral: record.reason_for_referral || 'For further evaluation and management.',
+      actions_taken: asText(record.actions_taken),
       date_of_consultation: record.consultation_date || prev.date_of_consultation,
       consultation_time: record.consultation_time || prev.consultation_time,
       blood_pressure: record.blood_pressure || '',
@@ -264,6 +307,9 @@ export default function GeneralTreatmentForm({
     const matchedDiag = ANIMAL_BITE_DIAGNOSES.filter(d => diagText.includes(d));
     setCheckedDiagnoses(matchedDiag);
 
+    const histText = asText(record.pertinent_history);
+    setCheckedHistory(PERTINENT_HISTORY_OPTIONS.filter(h => histText.includes(h)));
+
     if (vaccineNames.length > 0) {
       const matchedMeds = vaccineNames.filter(v => medText.includes(v));
       setCheckedMeds(matchedMeds);
@@ -286,6 +332,7 @@ export default function GeneralTreatmentForm({
     }));
     setCheckedDiagnoses([]);
     setCheckedMeds([]);
+    setCheckedHistory([]);
     setError('');
 
     const patientId = entry.patient.patient_id || entry.patient.id;
@@ -389,6 +436,26 @@ export default function GeneralTreatmentForm({
     });
   };
 
+  // Toggle a pertinent history checklist item → also add/remove from the text box
+  const toggleHistory = (item: string) => {
+    const isChecked = checkedHistory.includes(item);
+    const next = isChecked
+      ? checkedHistory.filter(h => h !== item)
+      : [...checkedHistory, item];
+    setCheckedHistory(next);
+
+    setFormData(prev => {
+      const existingLines = prev.pertinent_history.split('\n').map(l => l.trim()).filter(Boolean);
+      let updated: string[];
+      if (isChecked) {
+        updated = existingLines.filter(l => l !== item);
+      } else {
+        updated = existingLines.includes(item) ? existingLines : [...existingLines, item];
+      }
+      return { ...prev, pertinent_history: updated.join('\n') };
+    });
+  };
+
   const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
 
@@ -441,6 +508,9 @@ export default function GeneralTreatmentForm({
         mode_of_transaction: formData.mode_of_transaction,
         referred_from: formData.referred_from || null,
         referred_to: formData.mode_of_transaction === 'referral' ? (formData.referred_to || 'Tagoloan Rural Health Unit (RHU) / ABTC') : null,
+        pertinent_history: formData.mode_of_transaction === 'referral' ? formData.pertinent_history : null,
+        reason_for_referral: formData.mode_of_transaction === 'referral' ? (formData.reason_for_referral || 'For further evaluation and management.') : null,
+        actions_taken: formData.mode_of_transaction === 'referral' ? formData.actions_taken : null,
         blood_pressure: formData.blood_pressure || null,
         temperature: formData.temperature || null,
         height: formData.height || null,
@@ -655,8 +725,8 @@ export default function GeneralTreatmentForm({
           </div>
         </div>
         {formData.mode_of_transaction === 'referral' && (
-          <div>
-            <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 12 }}>
+          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', margin: 0 }}>
               For REFERRAL Transaction only.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
@@ -690,6 +760,134 @@ export default function GeneralTreatmentForm({
                     📍 Primary Receiving Facility: Tagoloan RHU
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* ── 1. PERTINENT HISTORY OF ILLNESS AND FINDINGS ── */}
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+                Pertinent History of Illness and Findings
+                {checkedHistory.length > 0 && (
+                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, background: '#ecfdf5', color: '#059669', borderRadius: 99, padding: '2px 8px', border: '1px solid #a7f3d0' }}>
+                    {checkedHistory.length} checked
+                  </span>
+                )}
+              </label>
+              <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 8px 0' }}>
+                Check items to auto-fill the findings box — or write on the side (maaaring pumili o mag-type)
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {/* LEFT: Scrollable checklist */}
+                <div style={{
+                  border: '1px solid #d1d5db', borderRadius: 8,
+                  maxHeight: 220, overflowY: 'auto',
+                  backgroundColor: isFormDisabled ? '#f9fafb' : '#fff',
+                }}>
+                  {PERTINENT_HISTORY_OPTIONS.map((item, idx) => {
+                    const isChecked = checkedHistory.includes(item);
+                    return (
+                      <label key={item} style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '7px 12px',
+                        borderBottom: idx < PERTINENT_HISTORY_OPTIONS.length - 1 ? '1px solid #f3f4f6' : 'none',
+                        cursor: isFormDisabled ? 'default' : 'pointer',
+                        background: isChecked ? '#f0fdf4' : 'transparent',
+                        transition: 'background 0.1s',
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => !isFormDisabled && toggleHistory(item)}
+                          disabled={isFormDisabled}
+                          style={{ accentColor: '#10b981', width: 14, height: 14, flexShrink: 0, cursor: isFormDisabled ? 'default' : 'pointer' }}
+                        />
+                        <span style={{ fontSize: 12.5, color: isChecked ? '#065f46' : '#374151', fontWeight: isChecked ? 600 : 400, lineHeight: 1.3 }}>
+                          {item}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* RIGHT: Auto-filled + manually editable text box */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: 11, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M8 1v6H2" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="8" r="7" stroke="#9ca3af" strokeWidth="1.5"/></svg>
+                    Auto-fills when checked · Editable
+                  </div>
+                  <textarea
+                    value={formData.pertinent_history}
+                    onChange={handleFieldChange('pertinent_history')}
+                    disabled={isFormDisabled}
+                    rows={8}
+                    placeholder={isFormDisabled ? '—' : 'Checked history and findings appear here.\nYou can also type additional clinical notes…'}
+                    style={{
+                      width: '100%', flex: 1,
+                      padding: '10px 12px',
+                      border: isFormDisabled ? '1px solid #d1d5db' : '1.5px solid #a7f3d0',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                      backgroundColor: isFormDisabled ? '#f9fafb' : '#f0fdf4',
+                      color: isFormDisabled ? '#374151' : '#065f46',
+                      lineHeight: 1.6,
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ── 2. REASON FOR REFERRAL & ACTION/S TAKEN ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: '#f9fafb', padding: '16px', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                  Reason for Referral (Dahilan ng Referral)
+                </label>
+                <input
+                  type="text"
+                  value={formData.reason_for_referral}
+                  onChange={handleFieldChange('reason_for_referral')}
+                  disabled={isFormDisabled}
+                  placeholder="For further evaluation and management."
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    backgroundColor: '#f3f4f6',
+                    color: '#4b5563',
+                    outline: 'none',
+                    fontWeight: 500,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                  Action/s Taken (Mga Aksyong Ginawa Bago I-refer)
+                </label>
+                <textarea
+                  value={formData.actions_taken}
+                  onChange={handleFieldChange('actions_taken')}
+                  disabled={isFormDisabled}
+                  rows={4}
+                  placeholder={isFormDisabled ? '—' : 'Enter actions taken prior to referral (e.g. Wound washed with soap and water for 15 mins, antiseptic applied, tetanus toxoid given, etc.)'}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontFamily: 'inherit',
+                    backgroundColor: isFormDisabled ? '#f9fafb' : '#ffffff',
+                    outline: 'none',
+                    resize: 'vertical',
+                    lineHeight: 1.5,
+                  }}
+                />
               </div>
             </div>
           </div>

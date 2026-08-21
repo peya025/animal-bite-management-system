@@ -61,6 +61,9 @@ class TreatmentRecordController extends Controller
             'referred_from' => 'nullable|string|max:255',
             'referred_to' => 'nullable|string|max:255',
             'referred_by' => 'nullable|string|max:255',
+            'pertinent_history' => 'nullable|string',
+            'reason_for_referral' => 'nullable|string',
+            'actions_taken' => 'nullable|string',
             
             // Vital Signs
             'blood_pressure' => 'nullable|string|max:20',
@@ -100,6 +103,9 @@ class TreatmentRecordController extends Controller
             'referred_from' => $validated['referred_from'] ?? null,
             'referred_to' => $validated['referred_to'] ?? null,
             'referred_by' => $validated['referred_by'] ?? null,
+            'pertinent_history' => $validated['pertinent_history'] ?? null,
+            'reason_for_referral' => $validated['reason_for_referral'] ?? null,
+            'actions_taken' => $validated['actions_taken'] ?? null,
             
             // Vital signs
             'blood_pressure' => $validated['blood_pressure'] ?? null,

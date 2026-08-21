@@ -4,12 +4,15 @@ export interface QueueEntry {
   queue_date: string;
   visit_type: string;
   priority: 'normal' | 'urgent' | 'emergency';
-  status: 'waiting' | 'in_consultation' | 'completed' | 'cancelled';
+  status: 'waiting' | 'in_consultation' | 'completed' | 'cancelled' | 'no_response';
   checked_in_at: string;
   called_at: string | null;
   completed_at: string | null;
+  no_response_at: string | null;
   check_in_notes: string | null;
   consultation_notes: string | null;
+  is_carry_over?: boolean;
+  appointment_id?: number | null;
   patient: {
     patient_id: number;
     name: string;
@@ -26,6 +29,7 @@ export interface QueueStats {
   in_consultation: number;
   completed: number;
   cancelled: number;
+  no_response: number;
   by_visit_type?: Record<string, number>;
 }
 
@@ -41,6 +45,7 @@ export const STATUS_CFG: Record<string, { bg: string; color: string; label: stri
   in_consultation: { bg: '#fff7ed', color: '#c2410c', label: 'In Consultation' },
   completed:       { bg: '#ecfdf5', color: '#059669', label: 'Completed'       },
   cancelled:       { bg: '#f3f4f6', color: '#6b7280', label: 'Cancelled'       },
+  no_response:     { bg: '#fdf4ff', color: '#9333ea', label: 'No Response'     },
 };
 
 export const PRIORITY_CFG: Record<string, { bg: string; color: string; label: string }> = {

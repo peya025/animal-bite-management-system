@@ -83,6 +83,7 @@ export function QueueFilterBar({
               <MenuItem value="in_consultation">In Consultation</MenuItem>
               <MenuItem value="completed">Completed</MenuItem>
               <MenuItem value="cancelled">Cancelled</MenuItem>
+              <MenuItem value="no_response">No Response</MenuItem>
             </Select>
           </FormControl>
         </Grid>

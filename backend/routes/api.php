@@ -262,6 +262,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/waiting', [QueueController::class, 'waiting']);
             Route::get('/next', [QueueController::class, 'next']);
             Route::get('/statistics', [QueueController::class, 'statistics']);
+            Route::get('/trashed', [QueueController::class, 'trashed']);
             Route::get('/{id}', [QueueController::class, 'show']);
         });
 
@@ -276,6 +277,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::middleware('role:admin,triage,treatment')->group(function () {
             Route::post('/{id}/call', [QueueController::class, 'call']);
             Route::post('/{id}/complete', [QueueController::class, 'complete']);
+            Route::post('/{id}/no-response', [QueueController::class, 'noResponse']);
+            Route::post('/{id}/second-chance', [QueueController::class, 'secondChance']);
+        });
+
+        // Trash bin (admin, registration, triage, treatment)
+        Route::middleware('role:admin,registration,triage,treatment')->group(function () {
+            Route::delete('/{id}', [QueueController::class, 'softDelete']);
+            Route::post('/{id}/restore', [QueueController::class, 'restore']);
         });
     });
 

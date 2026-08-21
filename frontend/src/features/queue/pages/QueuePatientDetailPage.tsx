@@ -305,8 +305,7 @@ export default function QueuePatientDetailPage() {
         const editable = canEdit(userRole, 'triage');
         return (
           <Box sx={{ p: 3 }}>
-            {!editable && <ReadOnlyBanner />}
-            {/* Form 2 rendered inline with read-only mode */}
+            {/* Form 2 rendered inline with smart edit/read-only flow */}
             <GeneralTreatmentForm
               open={true}
               entry={entry}

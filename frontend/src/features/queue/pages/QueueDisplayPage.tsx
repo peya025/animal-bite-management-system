@@ -72,37 +72,42 @@ function StationPanel({
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '10px 18px', borderRadius: 12,
-        background: `${accent}22`, border: `1px solid ${accent}55`,
+        background: `${accent}18`, border: `2px solid ${accent}`,
       }}>
         <div style={{
           width: 10, height: 10, borderRadius: '50%',
           background: accent, boxShadow: `0 0 8px ${accent}`,
         }} />
-        <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 2, color: accent, textTransform: 'uppercase' }}>
+        <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 2, color: accentDark, textTransform: 'uppercase' }}>
           {label}
         </span>
         <span style={{
-          marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: accent,
-          background: `${accent}22`, padding: '2px 10px', borderRadius: 999,
+          marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: accentDark,
+          background: `${accent}25`, padding: '2px 12px', borderRadius: 999,
+          border: `1px solid ${accent}`,
         }}>
           {waitingCount} waiting
         </span>
       </div>
 
-      {/* Now Serving */}
+      {/* Next Patient card */}
       <div style={{
         flex: 1, borderRadius: 20, padding: '28px 32px',
         background: current
-          ? `linear-gradient(135deg, ${accentDark}99 0%, ${accent}44 100%)`
-          : 'rgba(255,255,255,0.04)',
-        border: `1px solid ${current ? accent + '66' : 'rgba(255,255,255,0.08)'}`,
-        boxShadow: current ? `0 0 32px ${accent}22` : 'none',
+          ? `linear-gradient(135deg, ${accentDark} 0%, ${accent} 100%)`
+          : '#f9fafb',
+        border: `2px solid ${current ? accent : '#e5e7eb'}`,
+        boxShadow: current ? `0 4px 24px ${accent}44` : 'none',
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         justifyContent: 'center', textAlign: 'center', minHeight: 260,
         transition: 'all 0.4s',
       }}>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: accent, marginBottom: 10 }}>
-          Now Serving
+        <div style={{
+          fontSize: 12, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase',
+          color: current ? 'rgba(255,255,255,0.85)' : accentDark,
+          marginBottom: 10,
+        }}>
+          Next Patient
         </div>
 
         {current ? (
@@ -110,9 +115,9 @@ function StationPanel({
             {/* Big blinking number */}
             <div style={{
               fontSize: 100, fontWeight: 900, lineHeight: 1,
-              color: blink ? '#fff' : `${accent}cc`,
+              color: blink ? '#fff' : 'rgba(255,255,255,0.7)',
               fontVariantNumeric: 'tabular-nums',
-              textShadow: `0 0 40px ${accent}66`,
+              textShadow: `0 4px 20px rgba(0,0,0,0.3)`,
               transition: 'color 0.4s',
             }}>
               {padNum(current.queue_number)}
@@ -121,14 +126,14 @@ function StationPanel({
             {/* Announcement text */}
             <div style={{
               marginTop: 10, padding: '8px 20px', borderRadius: 10,
-              background: `${accent}33`, border: `1px solid ${accent}55`,
+              background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.35)',
             }}>
               <span style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>
                 Number {padNum(current.queue_number)} — {destination}
               </span>
             </div>
 
-            <div style={{ fontSize: 14, color: '#d1d5db', marginTop: 10 }}>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', marginTop: 10 }}>
               {current.patient.name}
               {' · '}
               {VISIT_LABEL[current.visit_type] ?? current.visit_type}
@@ -138,7 +143,7 @@ function StationPanel({
               <div style={{
                 marginTop: 8, padding: '3px 12px', borderRadius: 20,
                 background: current.priority === 'emergency' ? '#dc2626' : '#f59e0b',
-                fontSize: 12, fontWeight: 700, display: 'inline-block',
+                fontSize: 12, fontWeight: 700, display: 'inline-block', color: '#fff',
               }}>
                 {current.priority.toUpperCase()}
               </div>
@@ -150,15 +155,15 @@ function StationPanel({
               disabled={completing}
               style={{
                 marginTop: 18, padding: '10px 28px', borderRadius: 10,
-                background: completing ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.12)',
-                border: '1.5px solid rgba(255,255,255,0.25)',
+                background: completing ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)',
+                border: '1.5px solid rgba(255,255,255,0.5)',
                 color: '#fff', fontSize: 13, fontWeight: 700,
                 cursor: completing ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', transition: 'all 0.2s',
                 display: 'inline-flex', alignItems: 'center', gap: 7,
               }}
-              onMouseEnter={e => { if (!completing) e.currentTarget.style.background = 'rgba(255,255,255,0.22)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+              onMouseEnter={e => { if (!completing) e.currentTarget.style.background = 'rgba(255,255,255,0.35)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="20 6 9 17 4 12"/>
@@ -168,8 +173,8 @@ function StationPanel({
           </>
         ) : (
           <>
-            <div style={{ fontSize: 52, marginBottom: 8, opacity: 0.3 }}>—</div>
-            <div style={{ fontSize: 15, color: '#6b7280' }}>No patient at {isTriage ? 'triage' : 'treatment'}</div>
+            <div style={{ fontSize: 64, marginBottom: 8, color: '#d1d5db' }}>—</div>
+            <div style={{ fontSize: 15, color: '#6b7280', fontWeight: 500 }}>No patient at {isTriage ? 'triage' : 'treatment'}</div>
           </>
         )}
       </div>
@@ -177,19 +182,19 @@ function StationPanel({
       {/* Next up */}
       <div style={{
         borderRadius: 16, padding: '18px 24px',
-        background: next ? `${accent}11` : 'rgba(255,255,255,0.03)',
-        border: `1px solid ${next ? accent + '33' : 'rgba(255,255,255,0.06)'}`,
+        background: next ? `${accent}12` : '#f3f4f6',
+        border: `1.5px solid ${next ? accent : '#e5e7eb'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
       }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: accent, marginBottom: 4 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: accentDark, marginBottom: 4 }}>
             Next
           </div>
-          <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: next ? '#fff' : '#374151' }}>
+          <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: next ? accentDark : '#9ca3af' }}>
             {next ? padNum(next.queue_number) : '—'}
           </div>
           {next && (
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {next.patient.name} · {VISIT_LABEL[next.visit_type] ?? next.visit_type}
             </div>
           )}

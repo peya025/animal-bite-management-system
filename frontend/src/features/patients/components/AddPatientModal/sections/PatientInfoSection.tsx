@@ -5,19 +5,20 @@ import type { EnrolmentFormData } from '../../../types';
 interface PatientInfoSectionProps {
   data: EnrolmentFormData;
   onChange: (key: keyof EnrolmentFormData) => (ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  errors?: Record<string, string>;
 }
 
-export function PatientInfoSection({ data, onChange }: PatientInfoSectionProps) {
+export function PatientInfoSection({ data, onChange, errors = {} }: PatientInfoSectionProps) {
   return (
     <div className="fm-section">
       <p className="fm-section-title">I. Patient Information</p>
 
       <div className="fm-grid fm-grid--4" style={{ marginBottom: 14 }}>
-        <FormField label="Last Name" required>
-          <input className="fm-input" value={data.last_name} onChange={onChange('last_name')} placeholder="Dela Cruz" />
+        <FormField id="field-last_name" label="Last Name" required error={!!errors.last_name} errorText={errors.last_name}>
+          <input className="fm-input" value={data.last_name} onChange={onChange('last_name')} placeholder="Dela Cruz" style={errors.last_name ? { borderColor: '#ef4444' } : undefined} />
         </FormField>
-        <FormField label="First Name" required>
-          <input className="fm-input" value={data.first_name} onChange={onChange('first_name')} placeholder="Juan" />
+        <FormField id="field-first_name" label="First Name" required error={!!errors.first_name} errorText={errors.first_name}>
+          <input className="fm-input" value={data.first_name} onChange={onChange('first_name')} placeholder="Juan" style={errors.first_name ? { borderColor: '#ef4444' } : undefined} />
         </FormField>
         <FormField label="Middle Name">
           <input className="fm-input" value={data.middle_name} onChange={onChange('middle_name')} placeholder="Santos" />
@@ -28,7 +29,7 @@ export function PatientInfoSection({ data, onChange }: PatientInfoSectionProps) 
       </div>
 
       <div className="fm-grid fm-grid--3" style={{ marginBottom: 14 }}>
-        <FormField label="Sex (Kasarian)" required>
+        <FormField id="field-sex" label="Sex (Kasarian)" required error={!!errors.sex} errorText={errors.sex}>
           <div className="fm-radio-group" style={{ paddingTop: 4 }}>
             <label className="fm-radio">
               <input type="radio" name="sex" value="female" checked={data.sex === 'female'} onChange={onChange('sex')} /> Female
@@ -38,8 +39,8 @@ export function PatientInfoSection({ data, onChange }: PatientInfoSectionProps) 
             </label>
           </div>
         </FormField>
-        <FormField label="Date of Birth" required>
-          <input className="fm-input" type="date" value={data.date_of_birth} onChange={onChange('date_of_birth')} />
+        <FormField id="field-date_of_birth" label="Date of Birth" required error={!!errors.date_of_birth} errorText={errors.date_of_birth}>
+          <input className="fm-input" type="date" value={data.date_of_birth} onChange={onChange('date_of_birth')} style={errors.date_of_birth ? { borderColor: '#ef4444' } : undefined} />
         </FormField>
         <FormField label="Blood Type">
           <select className="fm-select" value={data.blood_type} onChange={onChange('blood_type')}>

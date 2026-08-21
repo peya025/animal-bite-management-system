@@ -316,19 +316,35 @@ export default function GeneralTreatmentForm({
       });
   }, [open, entry?.patient?.patient_id, entry?.patient?.id]);
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     setFormData((prev) => ({ ...prev, [key]: ev.target.value }));
+    if (fieldErrors[key]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   };
 
   const handleCheckboxChange = (key: keyof typeof INITIAL_FORM_DATA.consultation_types) => (
     ev: React.ChangeEvent<HTMLInputElement>
   ) => {
-    setFormData((prev) => ({
-      ...prev,
-      consultation_types: { ...prev.consultation_types, [key]: ev.target.checked },
-    }));
+    setFormData((prev) => {
+      const updatedTypes = { ...prev.consultation_types, [key]: ev.target.checked };
+      if (Object.values(updatedTypes).some((v) => v) && fieldErrors.consultation_types) {
+        setFieldErrors((errs) => {
+          const next = { ...errs };
+          delete next.consultation_types;
+          return next;
+        });
+      }
+      return { ...prev, consultation_types: updatedTypes };
+    });
   };
 
   // Toggle a diagnosis checklist item → also add/remove from the text box
@@ -372,20 +388,41 @@ export default function GeneralTreatmentForm({
   };
 
   const handleSubmit = async () => {
-    // Validation
+    const newFieldErrors: Record<string, string> = {};
+
     if (!formData.nature_of_visit) {
-      setError('Please select Nature of Visit');
-      return;
+      newFieldErrors.nature_of_visit = 'Please select Nature of Visit';
     }
 
     const hasConsultationType = Object.values(formData.consultation_types).some((v) => v);
     if (!hasConsultationType) {
-      setError('Please select at least one Type of Consultation');
-      return;
+      newFieldErrors.consultation_types = 'Please select at least one Type of Consultation';
     }
 
     if (!formData.chief_complaints.trim()) {
-      setError('Please enter Chief Complaints');
+      newFieldErrors.chief_complaints = 'Please enter Chief Complaints';
+    }
+
+    setFieldErrors(newFieldErrors);
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setError('Please fill in the required field(s) highlighted in red.');
+
+      const fieldOrder = ['nature_of_visit', 'consultation_types', 'chief_complaints'];
+      const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
+
+      if (firstErrorKey) {
+        setTimeout(() => {
+          const el = document.getElementById(`field-${firstErrorKey}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const focusable = el.querySelector('input, textarea, select') as HTMLElement;
+            if (focusable) {
+              focusable.focus({ preventScroll: true });
+            }
+          }
+        }, 50);
+      }
       return;
     }
 
@@ -719,8 +756,19 @@ export default function GeneralTreatmentForm({
       </div>
 
       {/* Nature of Visit */}
-      <div style={{ marginBottom: 32 }}>
-        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+      <div
+        id="field-nature_of_visit"
+        style={{
+          marginBottom: 32,
+          padding: fieldErrors.nature_of_visit ? '16px' : '0px',
+          border: fieldErrors.nature_of_visit ? '2px solid #ef4444' : 'none',
+          borderRadius: '10px',
+          backgroundColor: fieldErrors.nature_of_visit ? '#fef2f2' : 'transparent',
+          boxShadow: fieldErrors.nature_of_visit ? '0 0 0 4px rgba(239, 68, 68, 0.12)' : 'none',
+          transition: 'all 0.25s ease',
+        }}
+      >
+        <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: fieldErrors.nature_of_visit ? '#dc2626' : '#374151', marginBottom: 8 }}>
           Nature of Visit <span style={{ color: '#ef4444' }}>*</span>
         </label>
         <div style={{ display: 'flex', gap: 24 }}>
@@ -737,18 +785,34 @@ export default function GeneralTreatmentForm({
                 checked={formData.nature_of_visit === option.value}
                 onChange={handleFieldChange('nature_of_visit')}
                 disabled={isFormDisabled}
-                style={{ marginRight: 8 }}
+                style={{ marginRight: 8, accentColor: fieldErrors.nature_of_visit ? '#ef4444' : undefined }}
               />
-              <span style={{ fontSize: 13, color: '#374151' }}>{option.label}</span>
+              <span style={{ fontSize: 13, color: fieldErrors.nature_of_visit ? '#991b1b' : '#374151', fontWeight: fieldErrors.nature_of_visit ? 600 : 400 }}>{option.label}</span>
             </label>
           ))}
         </div>
+        {fieldErrors.nature_of_visit && (
+          <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>⚠</span> {fieldErrors.nature_of_visit}
+          </div>
+        )}
       </div>
 
       {/* Type of Consultation */}
-      <div style={{ marginBottom: 32 }}>
-        <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Type of Consultation / Purpose of Visit
+      <div
+        id="field-consultation_types"
+        style={{
+          marginBottom: 32,
+          padding: fieldErrors.consultation_types ? '16px' : '0px',
+          border: fieldErrors.consultation_types ? '2px solid #ef4444' : 'none',
+          borderRadius: '10px',
+          backgroundColor: fieldErrors.consultation_types ? '#fef2f2' : 'transparent',
+          boxShadow: fieldErrors.consultation_types ? '0 0 0 4px rgba(239, 68, 68, 0.12)' : 'none',
+          transition: 'all 0.25s ease',
+        }}
+      >
+        <h3 style={{ color: fieldErrors.consultation_types ? '#dc2626' : '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Type of Consultation / Purpose of Visit <span style={{ color: '#ef4444' }}>*</span>
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 24px' }}>
           {[
@@ -772,12 +836,17 @@ export default function GeneralTreatmentForm({
                 checked={formData.consultation_types[type.key as keyof typeof formData.consultation_types]}
                 onChange={handleCheckboxChange(type.key as keyof typeof formData.consultation_types)}
                 disabled={isFormDisabled}
-                style={{ marginRight: 8 }}
+                style={{ marginRight: 8, accentColor: fieldErrors.consultation_types ? '#ef4444' : undefined }}
               />
-              <span style={{ fontSize: 13, color: '#374151' }}>{type.label}</span>
+              <span style={{ fontSize: 13, color: fieldErrors.consultation_types ? '#991b1b' : '#374151' }}>{type.label}</span>
             </label>
           ))}
         </div>
+        {fieldErrors.consultation_types && (
+          <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>⚠</span> {fieldErrors.consultation_types}
+          </div>
+        )}
       </div>
 
       {/* Clinical Notes */}
@@ -785,15 +854,44 @@ export default function GeneralTreatmentForm({
         <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           Clinical Notes
         </h3>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Chief Complaints <span style={{ color: '#ef4444' }}>*</span></label>
+        <div
+          id="field-chief_complaints"
+          style={{
+            marginBottom: 16,
+            padding: fieldErrors.chief_complaints ? '16px' : '0px',
+            border: fieldErrors.chief_complaints ? '2px solid #ef4444' : 'none',
+            borderRadius: '10px',
+            backgroundColor: fieldErrors.chief_complaints ? '#fef2f2' : 'transparent',
+            boxShadow: fieldErrors.chief_complaints ? '0 0 0 4px rgba(239, 68, 68, 0.12)' : 'none',
+            transition: 'all 0.25s ease',
+          }}
+        >
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: fieldErrors.chief_complaints ? '#dc2626' : '#374151', marginBottom: 6 }}>
+            Chief Complaints <span style={{ color: '#ef4444' }}>*</span>
+          </label>
           <textarea
             value={formData.chief_complaints}
             onChange={handleFieldChange('chief_complaints')}
             rows={3}
             disabled={isFormDisabled}
-            style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', resize: 'vertical', backgroundColor: isFormDisabled ? '#f9fafb' : undefined }}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: fieldErrors.chief_complaints ? '2px solid #ef4444' : '1px solid #d1d5db',
+              borderRadius: 6,
+              fontSize: 13,
+              fontFamily: 'inherit',
+              resize: 'vertical',
+              backgroundColor: isFormDisabled ? '#f9fafb' : (fieldErrors.chief_complaints ? '#ffffff' : undefined),
+              boxShadow: fieldErrors.chief_complaints ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : 'none',
+              outline: 'none',
+            }}
           />
+          {fieldErrors.chief_complaints && (
+            <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span>⚠</span> {fieldErrors.chief_complaints}
+            </div>
+          )}
         </div>
 
         {/* ── Diagnosis: Checklist (left) + Text Box (right) ── */}

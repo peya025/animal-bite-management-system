@@ -322,7 +322,7 @@ export default function PatientDetailsModal({
       const token = localStorage.getItem('authToken') || '';
       const patientId = (patient as any).patient_id || (patient as any).id;
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-      const printUrl = `${API_BASE.replace(/\/api$/, '')}/print/patient/${patientId}/enrolment?token=${encodeURIComponent(token)}`;
+      const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment?token=${encodeURIComponent(token)}`;
 
       const response = await fetch(printUrl, {
         headers: {
@@ -331,7 +331,10 @@ export default function PatientDetailsModal({
         },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch print template');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || `Failed to fetch print template (HTTP ${response.status})`);
+      }
       const html = await response.text();
 
       const iframe = document.createElement('iframe');
@@ -352,7 +355,9 @@ export default function PatientDetailsModal({
           } catch (e) {
             console.error('Print trigger failed:', e);
           } finally {
-            setTimeout(() => document.body.removeChild(iframe), 2000);
+            setTimeout(() => {
+              if (document.body.contains(iframe)) document.body.removeChild(iframe);
+            }, 2000);
             setPrinting(false);
           }
         }, 500);

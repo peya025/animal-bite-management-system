@@ -28,9 +28,9 @@ class PrintController extends Controller
             return response()->json(['message' => 'Unauthorized access. Please log in.'], 401);
         }
 
-        // Access control: Only registration staff, admin, and developer roles can access
-        if (!in_array($user->role, ['admin', 'registration', 'developer'])) {
-            return response()->json(['message' => 'Forbidden. Access restricted to Registration and Admin staff.'], 403);
+        // Access control: Only clinic staff roles can access
+        if (!in_array($user->role, ['admin', 'registration', 'triage', 'treatment', 'developer'])) {
+            return response()->json(['message' => 'Forbidden. Access restricted to clinic staff.'], 403);
         }
 
         $patient = Patient::with(['clinic', 'details'])->findOrFail($id);

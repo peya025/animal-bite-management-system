@@ -18,6 +18,7 @@ import {
   Typography,
   alpha,
   useTheme,
+  ListSubheader,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -25,6 +26,9 @@ import {
   Info as InfoIcon,
   Vaccines as VaccineIcon,
   LocalHospital as ClinicIcon,
+  Check as CheckIcon,
+  Numbers as NumbersIcon,
+  PostAdd as NewTypeIcon,
 } from '@mui/icons-material';
 import api from '../../../../services/api';
 import ConfirmationDialog from '../../../../components/feedback/ConfirmationDialog';
@@ -46,13 +50,39 @@ interface AddEditInventoryDialogProps {
   onSaved: () => void;
 }
 
-const VACCINE_TYPES = [
-  'Anti-Rabies Vaccine (ARV)',
-  'Verorab',
-  'Rabipur',
-  'Speeda',
-  'Rabivax',
-  'Other',
+// Standard ABTC Vaccine Groups
+const STANDARD_VACCINE_GROUPS = [
+  {
+    category: 'Anti-Rabies Vaccines (ARV)',
+    icon: '💉',
+    items: [
+      'Verorab (Purified Rabies Vaccine 0.5ml)',
+      'Rabipur (PCECV Rabies Vaccine 1IU)',
+      'Speeda (Purified Vero Cell Rabies Vaccine 0.5ml)',
+      'Rabivax-S (Purified Rabies Vaccine 0.5ml)',
+      'Abhayrab (Purified Rabies Vaccine 0.5ml)',
+      'Anti-Rabies Vaccine (ARV) — Generic',
+    ],
+  },
+  {
+    category: 'Rabies Immunoglobulins (RIG)',
+    icon: '🛡️',
+    items: [
+      'Equirab (Equine Rabies Immunoglobulin 1000IU)',
+      'Favirab (Equine Rabies Immunoglobulin 5ml)',
+      'Berirab (Human Rabies Immunoglobulin — HRIG)',
+      'Rabies Immunoglobulin (RIG) — Generic',
+    ],
+  },
+  {
+    category: 'Tetanus & Toxoids',
+    icon: '🩹',
+    items: [
+      'Tetanus Toxoid (TT 0.5ml)',
+      'Anti-Tetanus Serum (ATS 1500 IU)',
+      'Tetanus & Diphtheria (Td)',
+    ],
+  },
 ];
 
 export default function AddEditInventoryDialog({
@@ -69,12 +99,38 @@ export default function AddEditInventoryDialog({
     vaccine_type: '',
     batch_number: '',
     quantity: '',
+    unit: 'vials',
     expiration_date: '',
     remarks: '',
   });
+
+  // Custom vaccine type creation state
+  const [isAddingNewType, setIsAddingNewType] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [customVaccineTypes, setCustomVaccineTypes] = useState<string[]>([]);
+
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // Fetch registered vaccine types from backend to ensure all existing names are available
+  useEffect(() => {
+    if (open) {
+      api.get('/inventory/vaccine-names')
+        .then((res) => {
+          const names: string[] = res.data?.vaccine_names || [];
+          // Filter out standard ones to find newly added custom ones
+          const standardFlat = STANDARD_VACCINE_GROUPS.flatMap((g) => g.items);
+          const custom = names.filter((n) => !standardFlat.includes(n));
+          if (custom.length > 0) {
+            setCustomVaccineTypes((prev) => Array.from(new Set([...prev, ...custom])));
+          }
+        })
+        .catch(() => {
+          // ignore error
+        });
+    }
+  }, [open]);
 
   useEffect(() => {
     if (editItem) {
@@ -83,28 +139,59 @@ export default function AddEditInventoryDialog({
         vaccine_type: editItem.vaccine_type,
         batch_number: editItem.batch_number,
         quantity: String(editItem.current_quantity),
+        unit: 'vials',
         expiration_date: editItem.expiration_date?.split('T')[0] ?? '',
         remarks: '',
       });
+      setIsAddingNewType(false);
+      setNewTypeName('');
     } else {
       setForm({
         clinic_id: 1,
         vaccine_type: '',
         batch_number: '',
         quantity: '',
+        unit: 'vials',
         expiration_date: '',
         remarks: '',
       });
+      setIsAddingNewType(false);
+      setNewTypeName('');
     }
     setErrors({});
   }, [editItem, open]);
 
+  // Handle adding a new vaccine type on the fly
+  const handleAddNewType = () => {
+    const trimmed = newTypeName.trim();
+    if (!trimmed) {
+      setErrors((prev) => ({ ...prev, new_type: 'Please enter a vaccine type name' }));
+      return;
+    }
+
+    // Add to custom list if not exists
+    if (!customVaccineTypes.includes(trimmed)) {
+      setCustomVaccineTypes((prev) => [...prev, trimmed]);
+    }
+
+    // Select the new vaccine type in the form
+    setForm((prev) => ({ ...prev, vaccine_type: trimmed }));
+    setIsAddingNewType(false);
+    setNewTypeName('');
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.vaccine_type;
+      delete copy.new_type;
+      return copy;
+    });
+  };
+
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.vaccine_type) e.vaccine_type = 'Please select a vaccine type';
-    if (!form.batch_number.trim()) e.batch_number = 'Batch number is required';
+    if (!form.vaccine_type.trim()) e.vaccine_type = 'Please select or enter a vaccine type';
+    if (!form.batch_number.trim()) e.batch_number = 'Vaccine / Batch number is required';
     if (!isEdit && (!form.quantity || Number(form.quantity) < 1))
-      e.quantity = 'Enter a quantity of at least 1';
+      e.quantity = 'Enter a valid stock quantity (at least 1)';
     if (!form.expiration_date) e.expiration_date = 'Expiration date is required';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -126,13 +213,13 @@ export default function AddEditInventoryDialog({
           batch_number: form.batch_number,
           quantity: Number(form.quantity),
           expiration_date: form.expiration_date,
-          remarks: form.remarks || undefined,
+          remarks: form.remarks ? `${form.remarks} (${form.unit})` : undefined,
         });
       }
       onSaved();
       onClose();
     } catch {
-      setErrors({ submit: 'Something went wrong. Please try again.' });
+      setErrors({ submit: 'Something went wrong while saving to inventory. Please try again.' });
     } finally {
       setSaving(false);
     }
@@ -149,12 +236,12 @@ export default function AddEditInventoryDialog({
       ? null
       : daysUntilExpiry < 0
       ? {
-          text: 'Date is in the past',
+          text: 'Date is in the past (Expired)',
           color: theme.palette.error.main,
         }
       : daysUntilExpiry <= 30
       ? {
-          text: `Expires in ${daysUntilExpiry} days — very soon`,
+          text: `Expires in ${daysUntilExpiry} days — Very Soon`,
           color: theme.palette.warning.main,
         }
       : daysUntilExpiry <= 90
@@ -163,7 +250,7 @@ export default function AddEditInventoryDialog({
           color: theme.palette.warning.main,
         }
       : {
-          text: `Expires in ${daysUntilExpiry} days`,
+          text: `Expires in ${daysUntilExpiry} days (Good Stock)`,
           color: theme.palette.success.main,
         };
 
@@ -208,15 +295,15 @@ export default function AddEditInventoryDialog({
             variant="h6"
             sx={{ fontWeight: 700, color: '#fff', lineHeight: 1.2 }}
           >
-            {isEdit ? 'Edit Inventory Item' : 'Add Vaccine Stock'}
+            {isEdit ? 'Edit Vaccine Item' : 'Add New Vaccine Stock'}
           </Typography>
           <Typography
             variant="body2"
-            sx={{ color: 'rgba(255,255,255,0.75)', mt: 0.25 }}
+            sx={{ color: 'rgba(255,255,255,0.85)', mt: 0.25 }}
           >
             {isEdit
-              ? 'Update batch details below'
-              : 'Register a new vaccine batch to your inventory'}
+              ? 'Update batch details and clinic inventory records'
+              : 'Register and stock a new vaccine batch to clinic inventory'}
           </Typography>
         </Box>
         <IconButton
@@ -236,7 +323,7 @@ export default function AddEditInventoryDialog({
 
       <DialogContent sx={{ px: 3, pt: 3, pb: 1 }}>
         <Stack spacing={3}>
-          {/* Section 1 — Vaccine info */}
+          {/* Section 1 — Vaccine Information */}
           <Box>
             <Typography
               variant="overline"
@@ -245,16 +332,16 @@ export default function AddEditInventoryDialog({
                 letterSpacing: 1.1,
                 display: 'block',
                 mb: 1.5,
+                color: '#059669',
               }}
-              color="text.secondary"
             >
-              Vaccine Information
+              1. Vaccine &amp; Facility Information
             </Typography>
-            <Stack spacing={2}>
-              {/* Facility Clinic dropdown */}
+            <Stack spacing={2.5}>
+              {/* Facility Clinic context dropdown */}
               <Box>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-                  Facility Clinic Context{' '}
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#374151' }}>
+                  Receiving Facility / Clinic{' '}
                   <Box component="span" sx={{ color: 'error.main' }}>
                     *
                   </Box>
@@ -262,10 +349,10 @@ export default function AddEditInventoryDialog({
                 <FormControl fullWidth size="small">
                   <Select
                     value={form.clinic_id}
-                    onChange={(e) => setForm(f => ({ ...f, clinic_id: Number(e.target.value) }))}
+                    onChange={(e) => setForm((f) => ({ ...f, clinic_id: Number(e.target.value) }))}
                     sx={{ borderRadius: 2, bgcolor: '#f9fafb' }}
                   >
-                    {DEMO_CLINICS.map(c => (
+                    {DEMO_CLINICS.map((c) => (
                       <MenuItem key={c.clinic_id} value={c.clinic_id}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <ClinicIcon sx={{ fontSize: 18, color: c.color }} />
@@ -277,116 +364,280 @@ export default function AddEditInventoryDialog({
                 </FormControl>
               </Box>
 
-              {/* Visual pill selector */}
+              {/* Vaccine Type Dropdown-style Selection */}
               <Box>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-                  Vaccine Type{' '}
-                  <Box component="span" sx={{ color: 'error.main' }}>
-                    *
-                  </Box>
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {VACCINE_TYPES.map((v) => {
-                    const sel = form.vaccine_type === v;
-                    return (
-                      <Box
-                        key={v}
-                        onClick={() =>
-                          setForm((f) => ({ ...f, vaccine_type: v }))
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#374151' }}>
+                    Vaccine Type / Brand Name{' '}
+                    <Box component="span" sx={{ color: 'error.main' }}>
+                      *
+                    </Box>
+                  </Typography>
+                  {!isAddingNewType && (
+                    <Button
+                      size="small"
+                      startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                      onClick={() => setIsAddingNewType(true)}
+                      sx={{
+                        fontSize: 12,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        color: '#059669',
+                        p: 0,
+                        minWidth: 0,
+                        '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
+                      }}
+                    >
+                      + Add New Type
+                    </Button>
+                  )}
+                </Box>
+
+                {!isAddingNewType ? (
+                  <FormControl fullWidth size="small" error={!!errors.vaccine_type}>
+                    <Select
+                      value={form.vaccine_type}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '__ADD_NEW_TYPE__') {
+                          setIsAddingNewType(true);
+                        } else {
+                          setForm((f) => ({ ...f, vaccine_type: val }));
+                          if (errors.vaccine_type) {
+                            setErrors((errs) => {
+                              const copy = { ...errs };
+                              delete copy.vaccine_type;
+                              return copy;
+                            });
+                          }
                         }
+                      }}
+                      displayEmpty
+                      sx={{
+                        borderRadius: 2,
+                        bgcolor: form.vaccine_type ? '#f0fdf4' : '#fff',
+                        fontWeight: form.vaccine_type ? 600 : 400,
+                        borderColor: form.vaccine_type ? '#a7f3d0' : undefined,
+                      }}
+                    >
+                      <MenuItem value="" disabled>
+                        <em>— Select Vaccine Type (Pumili ng Bakuna) —</em>
+                      </MenuItem>
+
+                      {/* Standard Category Groups */}
+                      {STANDARD_VACCINE_GROUPS.map((group) => [
+                        <ListSubheader
+                          key={group.category}
+                          sx={{
+                            bgcolor: '#f8fafc',
+                            fontWeight: 700,
+                            fontSize: 12,
+                            lineHeight: '32px',
+                            color: '#0f766e',
+                            borderBottom: '1px solid #e2e8f0',
+                          }}
+                        >
+                          {group.icon} {group.category}
+                        </ListSubheader>,
+                        ...group.items.map((item) => (
+                          <MenuItem key={item} value={item} sx={{ fontSize: 13, pl: 3 }}>
+                            {item}
+                          </MenuItem>
+                        )),
+                      ])}
+
+                      {/* Custom / Added Types Group if any */}
+                      {customVaccineTypes.length > 0 && [
+                        <ListSubheader
+                          key="custom-types"
+                          sx={{
+                            bgcolor: '#f8fafc',
+                            fontWeight: 700,
+                            fontSize: 12,
+                            lineHeight: '32px',
+                            color: '#3b82f6',
+                            borderBottom: '1px solid #e2e8f0',
+                          }}
+                        >
+                          ✨ Custom / Added Vaccine Types
+                        </ListSubheader>,
+                        ...customVaccineTypes.map((item) => (
+                          <MenuItem key={item} value={item} sx={{ fontSize: 13, pl: 3 }}>
+                            {item}
+                          </MenuItem>
+                        )),
+                      ]}
+
+                      {/* Add New Type Option */}
+                      <Divider sx={{ my: 1 }} />
+                      <MenuItem
+                        value="__ADD_NEW_TYPE__"
                         sx={{
-                          px: 1.75,
-                          py: 0.75,
-                          borderRadius: 2,
-                          border: '1.5px solid',
-                          borderColor: sel
-                            ? 'primary.main'
-                            : errors.vaccine_type
-                            ? 'error.main'
-                            : 'divider',
-                          bgcolor: sel
-                            ? alpha(theme.palette.primary.main, 0.08)
-                            : 'transparent',
-                          color: sel ? 'primary.main' : 'text.secondary',
-                          fontWeight: sel ? 700 : 400,
+                          color: '#059669',
+                          fontWeight: 700,
                           fontSize: 13,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.75,
-                          '&:hover': {
-                            borderColor: 'primary.main',
-                            color: 'primary.main',
-                            bgcolor: alpha(theme.palette.primary.main, 0.05),
-                          },
+                          bgcolor: '#ecfdf5',
+                          '&:hover': { bgcolor: '#d1fae5' },
                         }}
                       >
-                        {sel && (
-                          <Box
-                            sx={{
-                              width: 7,
-                              height: 7,
-                              borderRadius: '50%',
-                              bgcolor: 'primary.main',
-                              flexShrink: 0,
-                            }}
-                          />
-                        )}
-                        {v}
-                      </Box>
-                    );
-                  })}
-                </Box>
-                {errors.vaccine_type && (
+                        <AddIcon sx={{ fontSize: 18, mr: 1 }} />
+                        + Add New Vaccine Type (Hindi Kasama sa Listahan)...
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+                ) : (
+                  /* Inline New Vaccine Type Entry */
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: '#f0fdf4',
+                      border: '1.5px solid #a7f3d0',
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#065f46', mb: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <NewTypeIcon sx={{ fontSize: 18, color: '#059669' }} />
+                      Add New Vaccine Type to System
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        autoFocus
+                        placeholder="e.g. Vaxirab-N (0.5ml), Equirab 5ml, etc."
+                        value={newTypeName}
+                        onChange={(e) => {
+                          setNewTypeName(e.target.value);
+                          if (errors.new_type) {
+                            setErrors((errs) => {
+                              const copy = { ...errs };
+                              delete copy.new_type;
+                              return copy;
+                            });
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddNewType();
+                          }
+                        }}
+                        error={!!errors.new_type}
+                        helperText={errors.new_type}
+                        sx={{
+                          flex: 1,
+                          bgcolor: '#fff',
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 1.5,
+                            height: 40,
+                          },
+                        }}
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={handleAddNewType}
+                        sx={{
+                          bgcolor: '#059669',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          textTransform: 'none',
+                          height: 40,
+                          px: 2.5,
+                          borderRadius: 1.5,
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.75,
+                          boxShadow: 'none',
+                          '&:hover': { bgcolor: '#047857', boxShadow: 'none' },
+                        }}
+                      >
+                        <CheckIcon sx={{ fontSize: 18 }} />
+                        Add &amp; Select
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        onClick={() => {
+                          setIsAddingNewType(false);
+                          setNewTypeName('');
+                        }}
+                        sx={{
+                          borderColor: '#cbd5e1',
+                          color: '#64748b',
+                          fontWeight: 600,
+                          fontSize: 13,
+                          textTransform: 'none',
+                          height: 40,
+                          px: 2,
+                          borderRadius: 1.5,
+                          flexShrink: 0,
+                          whiteSpace: 'nowrap',
+                          bgcolor: '#fff',
+                          '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' },
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+
+                {errors.vaccine_type && !isAddingNewType && (
                   <Typography
                     variant="caption"
-                    sx={{ color: 'error.main', mt: 0.5, display: 'block' }}
+                    sx={{ color: 'error.main', mt: 0.5, display: 'block', fontWeight: 500 }}
                   >
                     {errors.vaccine_type}
                   </Typography>
                 )}
               </Box>
 
-              {/* Batch number */}
-              <TextField
-                fullWidth
-                label="Batch Number"
-                placeholder="e.g. VAC-2024-001"
-                value={form.batch_number}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, batch_number: e.target.value }))
-                }
-                error={!!errors.batch_number}
-                helperText={
-                  errors.batch_number ||
-                  'Unique identifier printed on the vial box'
-                }
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: 'text.disabled',
-                            fontFamily: 'monospace',
-                          }}
-                        >
-                          #
-                        </Typography>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-              />
+              {/* Vaccine Number / Batch Number */}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#374151' }}>
+                  Vaccine / Batch Number (Numero ng Bakuna / Lot No.){' '}
+                  <Box component="span" sx={{ color: 'error.main' }}>
+                    *
+                  </Box>
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. VR-2026-089A, SP-2026-118C, LOT-9941"
+                  value={form.batch_number}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, batch_number: e.target.value.toUpperCase() }))
+                  }
+                  error={!!errors.batch_number}
+                  helperText={
+                    errors.batch_number ||
+                    'Unique batch, lot, or serial identifier printed on the vaccine vial/box'
+                  }
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <NumbersIcon sx={{ fontSize: 18, color: '#9ca3af' }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: 'monospace',
+                      fontWeight: 600,
+                    },
+                  }}
+                />
+              </Box>
             </Stack>
           </Box>
 
           <Divider />
 
-          {/* Section 2 — Stock details */}
+          {/* Section 2 — Stock Quantity & Expiration */}
           <Box>
             <Typography
               variant="overline"
@@ -395,52 +646,65 @@ export default function AddEditInventoryDialog({
                 letterSpacing: 1.1,
                 display: 'block',
                 mb: 1.5,
+                color: '#059669',
               }}
-              color="text.secondary"
             >
-              Stock Details
+              2. Stock Quantity &amp; Expiration
             </Typography>
-            <Stack spacing={2}>
+            <Stack spacing={2.5}>
               <Grid container spacing={2}>
                 {!isEdit && (
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Initial Quantity"
-                      type="number"
-                      placeholder="0"
-                      value={form.quantity}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, quantity: e.target.value }))
-                      }
-                      error={!!errors.quantity}
-                      helperText={
-                        errors.quantity ||
-                        'Number of vials in this batch (1 vial = 3 patients)'
-                      }
-                      slotProps={{
-                        htmlInput: { min: 1 },
-                        input: {
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <Typography
-                                variant="caption"
-                                sx={{ color: 'text.disabled' }}
-                              >
-                                vials
-                              </Typography>
-                            </InputAdornment>
-                          ),
-                        },
-                      }}
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                    />
+                  <Grid size={{ xs: 12, sm: 7 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#374151' }}>
+                      Initial Stock Quantity{' '}
+                      <Box component="span" sx={{ color: 'error.main' }}>
+                        *
+                      </Box>
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="number"
+                        placeholder="0"
+                        value={form.quantity}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, quantity: e.target.value }))
+                        }
+                        error={!!errors.quantity}
+                        helperText={
+                          errors.quantity ||
+                          '1 vial ≈ 3–4 ID doses (0.1 mL each) or 1 IM dose'
+                        }
+                        slotProps={{
+                          htmlInput: { min: 1 },
+                        }}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      />
+                      <FormControl size="small" sx={{ width: 120 }}>
+                        <Select
+                          value={form.unit}
+                          onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                          sx={{ borderRadius: 2, bgcolor: '#f9fafb' }}
+                        >
+                          <MenuItem value="vials">Vials</MenuItem>
+                          <MenuItem value="ampoules">Ampoules</MenuItem>
+                          <MenuItem value="doses">Doses</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
                   </Grid>
                 )}
-                <Grid size={{ xs: 12, sm: isEdit ? 12 : 6 }}>
+                <Grid size={{ xs: 12, sm: isEdit ? 12 : 5 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#374151' }}>
+                    Expiration Date{' '}
+                    <Box component="span" sx={{ color: 'error.main' }}>
+                      *
+                    </Box>
+                  </Typography>
                   <TextField
                     fullWidth
-                    label="Expiration Date"
+                    size="small"
                     type="date"
                     value={form.expiration_date}
                     onChange={(e) =>
@@ -471,7 +735,7 @@ export default function AddEditInventoryDialog({
                       />
                       <Typography
                         variant="caption"
-                        sx={{ color: expiryHint.color, fontWeight: 500 }}
+                        sx={{ color: expiryHint.color, fontWeight: 600 }}
                       >
                         {expiryHint.text}
                       </Typography>
@@ -483,33 +747,32 @@ export default function AddEditInventoryDialog({
               {!isEdit && (
                 <TextField
                   fullWidth
-                  label="Remarks"
+                  size="small"
+                  label="Remarks & Batch Origin"
                   multiline
                   rows={2}
-                  placeholder="e.g. Received from DOH batch delivery, stored at 2–8 °C"
+                  placeholder="e.g. Received from DOH Batch Allocation, LGU Procurement, stored at 2–8 °C in main vaccine cold-storage refrigerator"
                   value={form.remarks}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, remarks: e.target.value }))
                   }
-                  helperText="Optional — delivery notes, storage conditions, supplier info"
+                  helperText="Optional — delivery notes, supplier info, or storage condition"
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                 />
               )}
             </Stack>
           </Box>
 
-          {/* Live summary preview */}
+          {/* Live Summary Preview */}
           {!isEdit &&
             form.vaccine_type &&
+            form.batch_number &&
             form.quantity &&
             form.expiration_date && (
               <Box
                 sx={{
-                  bgcolor: alpha(theme.palette.primary.main, 0.06),
-                  border: `1px solid ${alpha(
-                    theme.palette.primary.main,
-                    0.2
-                  )}`,
+                  bgcolor: '#f0fdf4',
+                  border: '1.5px solid #a7f3d0',
                   borderRadius: 2,
                   p: 2,
                   display: 'flex',
@@ -518,24 +781,24 @@ export default function AddEditInventoryDialog({
                 }}
               >
                 <VaccineIcon
-                  sx={{ color: 'primary.main', flexShrink: 0 }}
+                  sx={{ color: '#059669', fontSize: 28, flexShrink: 0 }}
                 />
                 <Box>
                   <Typography
                     variant="body2"
-                    sx={{ fontWeight: 700, color: 'primary.main' }}
+                    sx={{ fontWeight: 700, color: '#065f46' }}
                   >
-                    Ready to add {form.quantity} vial
-                    {Number(form.quantity) !== 1 ? 's' : ''} of{' '}
-                    {form.vaccine_type}
+                    Ready to Stock: {form.quantity} {form.unit} of {form.vaccine_type}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Covers ≈ {Number(form.quantity) * 3} patients · Batch{' '}
-                    {form.batch_number || '—'} · Expires{' '}
-                    {new Date(form.expiration_date).toLocaleDateString(
-                      'en-US',
-                      { month: 'long', day: 'numeric', year: 'numeric' }
-                    )}
+                  <Typography variant="caption" sx={{ color: '#047857' }}>
+                    Vaccine No: <strong>{form.batch_number}</strong> · Approx.{' '}
+                    <strong>{Number(form.quantity) * 3} patients</strong> covered · Expires{' '}
+                    <strong>
+                      {new Date(form.expiration_date).toLocaleDateString(
+                        'en-US',
+                        { month: 'long', day: 'numeric', year: 'numeric' }
+                      )}
+                    </strong>
                   </Typography>
                 </Box>
               </Box>
@@ -619,7 +882,7 @@ export default function AddEditInventoryDialog({
           message={
             isEdit ? (
               <>
-                Save changes to <strong>{form.vaccine_type}</strong> (batch{' '}
+                Save changes to <strong>{form.vaccine_type}</strong> (Batch No.{' '}
                 <strong>{form.batch_number}</strong>)?
                 <br />
                 Expiration date will be updated to{' '}
@@ -627,11 +890,11 @@ export default function AddEditInventoryDialog({
               </>
             ) : (
               <>
-                Add <strong>{form.quantity} vial{Number(form.quantity) !== 1 ? 's' : ''}</strong> of{' '}
-                <strong>{form.vaccine_type}</strong> (batch{' '}
-                <strong>{form.batch_number}</strong>) to inventory?
+                Add <strong>{form.quantity} {form.unit}</strong> of{' '}
+                <strong>{form.vaccine_type}</strong> (Vaccine / Batch No.{' '}
+                <strong>{form.batch_number}</strong>) to clinic inventory?
                 <br />
-                This covers ≈{' '}
+                This covers approximately{' '}
                 <strong>{Number(form.quantity) * 3} patients</strong>.
               </>
             )

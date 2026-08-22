@@ -242,8 +242,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Vaccine names lookup — accessible to all authenticated staff for form dropdowns
     Route::get('/inventory/vaccine-names', [VaccineInventoryController::class, 'vaccineNames']);
 
-    // Vaccine Inventory (admin only)
-    Route::prefix('inventory')->middleware('role:admin')->group(function () {
+    // Vaccine Inventory (accessible to clinic staff & admins)
+    Route::prefix('inventory')->middleware('role:admin,treatment,nurse,doctor,staff,developer,triage,registration')->group(function () {
         Route::get('/statistics', [VaccineInventoryController::class, 'statistics']);
         Route::get('/', [VaccineInventoryController::class, 'index']);
         Route::post('/', [VaccineInventoryController::class, 'store']);

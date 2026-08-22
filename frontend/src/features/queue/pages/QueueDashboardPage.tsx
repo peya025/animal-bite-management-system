@@ -29,7 +29,7 @@ import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog'
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import type { QueueEntry } from '../types';
-import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, CATEGORY_CFG, CATEGORY_LABEL, waitTime, MAIN_STATUSES } from '../types';
+import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, CATEGORY_CFG, CATEGORY_LABEL, waitTime, MAIN_STATUSES, DONE_STATUSES } from '../types';
 import { useQueueData } from '../hooks';
 import {
   callNext, callQueuePatient, serveQueuePatient, markNoResponse,
@@ -44,6 +44,7 @@ import {
   QueueStatsGrid,
   TrashBinModal,
   SecondChanceQueuePanel,
+  QueueArchivePanel,
 } from '../components';
 import { buildRoute, ROUTES } from '../../../shared/config/routes';
 
@@ -109,7 +110,11 @@ export default function QueueDashboard() {
       String(q.queue_number).includes(search);
     const matchStatus   = !statusFilter   || q.status         === statusFilter;
     const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
-    return matchSearch && matchStatus && matchCategory;
+    // Main table only shows active/second-chance entries unless a specific status filter is set
+    const isActiveOrFiltered = statusFilter
+      ? true
+      : (MAIN_STATUSES as string[]).includes(q.status);
+    return matchSearch && matchStatus && matchCategory && isActiveOrFiltered;
   });
   const paginated = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -465,6 +470,12 @@ export default function QueueDashboard() {
           onAbsent={e => setAbsentTarget(e)}
         />
       )}
+
+      {/* ── ARCHIVE PANEL — completed, cancelled, absent, no-response ── */}
+      <QueueArchivePanel
+        entries={queue.filter(e => (DONE_STATUSES as string[]).includes(e.status))}
+        loading={loading}
+      />
 
       {/* ── MAIN QUEUE TABLE ── */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>

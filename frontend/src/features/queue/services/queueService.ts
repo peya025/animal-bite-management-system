@@ -1,63 +1,50 @@
-import api from '../../../services/api';
-import type { QueueEntry, QueueStats } from '../types';
+import api from '../../../shared/services/api';
+import type { QueueEntry, QueueStats, QueueHistoryEntry } from '../types';
 
+// ── Fetch main + second chance queues ────────────────────────────────────────
 export async function fetchQueueData(): Promise<{
   queue: QueueEntry[];
+  secondChanceQueue: QueueEntry[];
   stats: QueueStats;
   nextEntry: QueueEntry | null;
 }> {
-  const response = await api.get('/queue');
+  const { data } = await api.get('/queue');
+  const empty: QueueStats = {
+    total: 0, waiting: 0, called: 0, in_consultation: 0, serving: 0,
+    completed: 0, cancelled: 0, no_response: 0,
+    second_chance: 0, final_recall: 0, absent: 0,
+  };
   return {
-    queue: response.data.queue ?? [],
-    stats: response.data.stats ?? {
-      date: new Date().toISOString().split('T')[0],
-      total: 0,
-      waiting: 0,
-      in_consultation: 0,
-      completed: 0,
-      cancelled: 0,
-      no_response: 0,
-      by_visit_type: {},
-    },
-    nextEntry: response.data.next_patient ?? null,
+    queue:             data.queue              ?? [],
+    secondChanceQueue: data.second_chance_queue ?? [],
+    stats:             data.stats              ?? empty,
+    nextEntry:         data.next_patient        ?? null,
   };
 }
 
-export async function callQueuePatient(queueId: number) {
-  return api.post(`/queue/${queueId}/call`);
+// ── Main queue actions ────────────────────────────────────────────────────────
+export const callNext              = () => api.post('/queue/call-next');
+export const callQueuePatient        = (id: number) => api.post(`/queue/${id}/call`);
+export const serveQueuePatient       = (id: number) => api.post(`/queue/${id}/serve`);
+export const markNoResponse          = (id: number) => api.post(`/queue/${id}/no-response`);
+export const recallQueuePatient      = (id: number) => api.post(`/queue/${id}/recall`);
+export const markAbsent              = (id: number) => api.post(`/queue/${id}/absent`);
+export const cancelQueueEntry        = (id: number) => api.post(`/queue/${id}/cancel`);
+export const updateQueuePriority     = (id: number, priority: string) => api.put(`/queue/${id}/priority`, { priority });
+export const trashQueueEntry         = (id: number) => api.delete(`/queue/${id}`);
+export const restoreQueueEntry       = (id: number) => api.post(`/queue/${id}/restore`);
+
+export const completeQueueConsultation = (id: number, notes?: string) =>
+  api.post(`/queue/${id}/complete`, { consultation_notes: notes || undefined });
+
+// ── History ──────────────────────────────────────────────────────────────────
+export async function fetchQueueHistory(id: number): Promise<QueueHistoryEntry[]> {
+  const { data } = await api.get(`/queue/${id}/history`);
+  return data ?? [];
 }
 
-export async function cancelQueueEntry(queueId: number) {
-  return api.post(`/queue/${queueId}/cancel`);
-}
-
-export async function completeQueueConsultation(queueId: number, consultationNotes?: string) {
-  return api.post(`/queue/${queueId}/complete`, {
-    consultation_notes: consultationNotes || undefined,
-  });
-}
-
-export async function markNoResponse(queueId: number) {
-  return api.post(`/queue/${queueId}/no-response`);
-}
-
-export async function giveSecondChance(queueId: number) {
-  return api.post(`/queue/${queueId}/second-chance`);
-}
-
-export async function updateQueuePriority(queueId: number, priority: 'normal' | 'urgent' | 'emergency') {
-  return api.put(`/queue/${queueId}/priority`, { priority });
-}
-
-export async function trashQueueEntry(queueId: number) {
-  return api.delete(`/queue/${queueId}`);
-}
-
+// ── Trash bin listing ────────────────────────────────────────────────────────
 export async function fetchTrashedEntries(date?: string): Promise<QueueEntry[]> {
-  const response = await api.get('/queue/trashed', { params: date ? { date } : {} });
-  return response.data ?? [];
-}
-
-export async function restoreQueueEntry(queueId: number) {
-  return api.post(`/queue/${queueId}/restore`);
+  const { data } = await api.get('/queue/trashed', { params: date ? { date } : {} });
+  return data ?? [];
 }

@@ -654,10 +654,17 @@ export function SingleStockCardTable({ item, isDemo = false }: { item: Inventory
               <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#334155', mr: 1, whiteSpace: 'nowrap' }}>
                 Lot number:
               </Typography>
-              <Box sx={{ flex: 1, borderBottom: '1px solid #334155', pb: 0.25, pl: 1 }}>
+              <Box sx={{ flex: 1, borderBottom: '1px solid #334155', pb: 0.25, pl: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Typography sx={{ fontSize: '14px', fontFamily: 'monospace', fontWeight: 700, color: '#1e293b' }}>
                   {item.batch_number}
                 </Typography>
+                {item.status === 'active' && item.current_quantity > 0 && (
+                  <Chip
+                    label="🟢 FIFO: Use First"
+                    size="small"
+                    sx={{ height: 20, fontSize: 10, fontWeight: 800, bgcolor: '#dcfce7', color: '#15803d', border: '1px solid #86efac' }}
+                  />
+                )}
               </Box>
             </Box>
 

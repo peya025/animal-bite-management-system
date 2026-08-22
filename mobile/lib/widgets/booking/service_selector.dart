@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
 import '../../models/booking_draft.dart';
-import '../menu/section_header.dart';
 
 extension BookingServiceDetails on BookingService {
   String get description => switch (this) {
     BookingService.consultation => 'Assessment for a new bite or exposure',
-    BookingService.vaccination => 'Schedule an anti-rabies vaccination',
+    BookingService.vaccination => 'Schedule an anti-rabies vaccine dose',
   };
 
   IconData get icon => switch (this) {
@@ -31,28 +30,53 @@ class ServiceSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const MenuSectionHeader(title: 'Service type'),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            border: Border.all(
-              color: AppColors.divider,
-              width: 0.5,
-            ),
-            borderRadius: BorderRadius.circular(8),
+        const Text(
+          'SERVICE TYPE',
+          style: TextStyle(
+            color: Color(0xFF6B7280),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
           ),
-          child: Column(
+        ),
+        const SizedBox(height: 8),
+        for (final service in BookingService.values) ...[
+          _ServiceCard(
+            service: service,
+            isSelected: selected == service,
+            onTap: () => onSelected(service),
+          ),
+          const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 4),
+        // Teal notice box
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE1F5EE),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (var index = 0; index < BookingService.values.length; index++) ...[
-                _ServiceRow(
-                  service: BookingService.values[index],
-                  selected: selected == BookingService.values[index],
-                  onTap: () => onSelected(BookingService.values[index]),
+              const Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: Color(0xFF085041),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  selected == BookingService.consultation
+                      ? 'Consultation bookings require a bite incident intake form before submission.'
+                      : 'Vaccination bookings can be submitted directly without filling out a bite incident intake form.',
+                  style: const TextStyle(
+                    color: Color(0xFF085041),
+                    fontSize: 11,
+                    height: 1.4,
+                  ),
                 ),
-                if (index != BookingService.values.length - 1)
-                  const Divider(height: 0.5, thickness: 0.5),
-              ],
+              ),
             ],
           ),
         ),
@@ -61,82 +85,102 @@ class ServiceSelector extends StatelessWidget {
   }
 }
 
-class _ServiceRow extends StatelessWidget {
-  const _ServiceRow({
+class _ServiceCard extends StatelessWidget {
+  const _ServiceCard({
     required this.service,
-    required this.selected,
+    required this.isSelected,
     required this.onTap,
   });
 
   final BookingService service;
-  final bool selected;
+  final bool isSelected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Row(
-            children: [
-              Icon(
-                service.icon,
-                color: selected ? AppColors.primary : AppColors.textSecondary,
-                size: 20,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      service.label,
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      service.description,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Selection indicator - simple checkmark circle
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? AppColors.primary : Colors.transparent,
-                  border: Border.all(
-                    color: selected ? AppColors.primary : AppColors.divider,
-                    width: selected ? 0 : 1.5,
-                  ),
-                ),
-                child: selected
-                    ? const Icon(
-                        Icons.check,
-                        color: AppColors.white,
-                        size: 14,
-                      )
-                    : null,
-              ),
-            ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE1F5EE) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : Colors.grey.shade200,
+            width: isSelected ? 1.5 : 0.5,
           ),
+        ),
+        child: Row(
+          children: [
+            // Left 36x36 icon container
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.primary.withValues(alpha: 0.15)
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                service.icon,
+                size: 20,
+                color: isSelected ? AppColors.primary : const Color(0xFF9CA3AF),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Center info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    service.label,
+                    style: const TextStyle(
+                      color: Color(0xFF111827),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    service.description,
+                    style: const TextStyle(
+                      color: Color(0xFF6B7280),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Right radio button (20px)
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : const Color(0xFFD1D5DB),
+                  width: isSelected ? 2 : 1.5,
+                ),
+              ),
+              child: isSelected
+                  ? Center(
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+          ],
         ),
       ),
     );

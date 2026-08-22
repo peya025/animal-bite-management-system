@@ -2,18 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
-import '../models/booking_draft.dart';
 import '../models/bite_intake_route_args.dart';
+import '../models/booking_draft.dart';
 import '../models/patient_profile.dart';
 import '../services/api.dart';
 import '../widgets/booking/booking_header.dart';
 import '../widgets/booking/booking_summary.dart';
 import '../widgets/booking/date_selector.dart';
 import '../widgets/booking/service_selector.dart';
-import '../widgets/forms/app_dropdown_field.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
-
 import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class BookingView extends StatefulWidget {
@@ -87,13 +85,103 @@ class _BookingViewState extends State<BookingView> {
     }
   }
 
-  String _patientLabel(PatientProfile patient) {
-    final relationship = switch (patient.relationship) {
+  String _relationshipLabel(String rel) {
+    return switch (rel) {
       'self' => 'Self',
       'child' => 'Child',
       _ => 'Dependent',
     };
-    return '${patient.name} - $relationship';
+  }
+
+  String _patientInitials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return 'P';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+  }
+
+  void _openPatientPickerModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Text(
+                    'Select patient profile',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                for (final p in _patients)
+                  ListTile(
+                    leading: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: const Color(0xFFE1F5EE),
+                      child: Text(
+                        _patientInitials(p.name),
+                        style: const TextStyle(
+                          color: Color(0xFF085041),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      p.name,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    subtitle: Text(
+                      _relationshipLabel(p.relationship),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                    ),
+                    trailing: p.id == _selectedPatient?.id
+                        ? const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20)
+                        : null,
+                    onTap: () {
+                      setState(() => _selectedPatient = p);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                ListTile(
+                  leading: const CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Color(0xFFF3F4F6),
+                    child: Icon(Icons.person_add_alt_1_outlined, size: 18, color: Color(0xFF374151)),
+                  ),
+                  title: const Text(
+                    'Add child or dependent',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.primary),
+                  ),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _addDependent();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _handleNavigation(int index) {
@@ -195,298 +283,370 @@ class _BookingViewState extends State<BookingView> {
 
   @override
   Widget build(BuildContext context) {
+    final patient = _selectedPatient;
+
     return Scaffold(
-      backgroundColor: AppColors.pageBackground,
+      backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         bottom: false,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-                  sliver: SliverList.list(
-                    children: [
-                      const BookingHeader(),
-                      const SizedBox(height: 24),
-
-                      const SizedBox(height: 12),
+            child: Column(
+              children: [
+                const BookingHeader(),
+                Expanded(
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        sliver: SliverList.list(
+                          children: [
+                      // ─── 2. PATIENT PROFILE SECTION ───
+                      const Text(
+                        'PATIENT PROFILE',
+                        style: TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       if (_loadingPatients)
                         Container(
-                          height: 72,
+                          height: 60,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceMuted,
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200, width: 0.5),
                           ),
                           child: const SizedBox.square(
-                            dimension: 24,
+                            dimension: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         )
                       else if (_patients.isEmpty)
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceMuted,
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200, width: 0.5),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Text(
-                                _profileError ??
-                                    'Add a patient profile before booking.',
-                                style: const TextStyle(
-                                  color: AppColors.gray700,
-                                  fontSize: 12,
-                                ),
+                                _profileError ?? 'Add a patient profile before booking.',
+                                style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 10),
                               OutlinedButton.icon(
                                 onPressed: _addDependent,
-                                icon: const Icon(
-                                  Icons.person_add_alt_1_outlined,
-                                  size: 18,
-                                ),
+                                icon: const Icon(Icons.person_add_alt_1_outlined, size: 16),
                                 label: const Text('Add patient profile'),
                                 style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(52),
-                                  side: const BorderSide(
-                                    color: AppColors.divider,
-                                    width: 0.5,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  foregroundColor: AppColors.textPrimary,
-                                  textStyle: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  foregroundColor: AppColors.primary,
+                                  side: BorderSide(color: Colors.grey.shade300, width: 0.5),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                               ),
                             ],
                           ),
                         )
-                      else
-                        AppDropdownField<PatientProfile>(
-                          label: 'Patient profile',
-                          initialValue: _selectedPatient,
-                          prefixIcon: Icons.people_outline_rounded,
-                          items: _patients
-                              .map(
-                                (patient) => DropdownMenuItem(
-                                  value: patient,
+                      else ...[
+                        // Patient Card
+                        InkWell(
+                          onTap: _openPatientPickerModal,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade200, width: 0.5),
+                            ),
+                            child: Row(
+                              children: [
+                                // Left 36px circular avatar
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFE1F5EE),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
                                   child: Text(
-                                    _patientLabel(patient),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    patient != null ? _patientInitials(patient.name) : 'P',
+                                    style: const TextStyle(
+                                      color: Color(0xFF085041),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: (patient) =>
-                              setState(() => _selectedPatient = patient),
-                        ),
-                      if (_selectedPatient?.relationship == 'self') ...[
-                        const SizedBox(height: 6),
-                        const Row(
-                          children: [
-                            Icon(Icons.check_circle_outline_rounded, size: 14, color: AppColors.primary),
-                            SizedBox(width: 4),
-                            Text(
-                              'Auto-selected your personal profile',
-                              style: TextStyle(fontSize: 11, color: AppColors.primaryDark, fontWeight: FontWeight.w500),
+                                const SizedBox(width: 12),
+                                // Center info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        patient?.name ?? 'Select patient',
+                                        style: const TextStyle(
+                                          color: Color(0xFF111827),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        patient != null ? _relationshipLabel(patient.relationship) : 'No profile selected',
+                                        style: const TextStyle(
+                                          color: Color(0xFF6B7280),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: Color(0xFF6B7280),
+                                  size: 20,
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ],
-                      if (_patients.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                        const SizedBox(height: 8),
+                        // Below card: Inline row of two text links
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            TextButton.icon(
-                              onPressed: _selectedPatient == null
+                            GestureDetector(
+                              onTap: patient == null
                                   ? null
                                   : () async {
                                       await Navigator.of(context).pushNamed(
                                         AppRoutes.patientProfile,
-                                        arguments: _selectedPatient,
+                                        arguments: patient,
                                       );
-                                      if (mounted && _selectedPatient != null) {
-                                        await _loadPatients(
-                                          selectPatientId: _selectedPatient!.id,
-                                        );
+                                      if (mounted) {
+                                        await _loadPatients(selectPatientId: patient.id);
                                       }
                                     },
-                              icon: const Icon(Icons.badge_outlined, size: 16),
-                              label: const Text('View profile'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppColors.primary,
-                                textStyle: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.badge_outlined, size: 14, color: AppColors.primary),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'View profile',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 10),
+                              child: SizedBox(
+                                height: 12,
+                                child: VerticalDivider(
+                                  width: 1,
+                                  thickness: 1,
+                                  color: Color(0xFFD1D5DB),
                                 ),
                               ),
                             ),
-                            TextButton.icon(
-                              onPressed: _addDependent,
-                              icon: const Icon(
-                                Icons.person_add_alt_1_outlined,
-                                size: 16,
-                              ),
-                              label: const Text('Add child or dependent'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppColors.primary,
-                                textStyle: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                            GestureDetector(
+                              onTap: _addDependent,
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.person_add_alt_1_outlined, size: 14, color: AppColors.primary),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Add dependent',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ],
-                      const SizedBox(height: 24),
+
+                      const SizedBox(height: 20),
+
+                      // ─── 3. SERVICE TYPE SECTION ───
                       ServiceSelector(
                         selected: _service,
                         onSelected: (service) {
                           setState(() => _service = service);
                         },
                       ),
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceMuted,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _service == BookingService.consultation
-                              ? 'Consultation bookings require a bite incident intake form before submission.'
-                              : 'Vaccination bookings can be submitted directly without filling out a bite incident intake form.',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+
+                      const SizedBox(height: 20),
+
+                      // ─── 4. DATE PICKER SECTION ───
                       DateSelector(
                         selectedDate: _selectedDate,
                         onSelected: (date) {
                           setState(() => _selectedDate = date);
                         },
                       ),
-                      const SizedBox(height: 24),
+
+                      const SizedBox(height: 20),
+
+                      // ─── PREFERRED TIME SLOT & REASON SECTION ───
                       const Text(
                         'PREFERRED TIME SLOT',
                         style: TextStyle(
-                          color: AppColors.textSecondary,
+                          color: Color(0xFF6B7280),
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: 0.8,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
-                            child: ChoiceChip(
-                              label: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text('Morning (8 AM – 12 PM)'),
-                              ),
-                              selected: _timeSlot == BookingTimeSlot.morning,
-                              selectedColor: AppColors.primaryLight,
-                              labelStyle: TextStyle(
-                                color: _timeSlot == BookingTimeSlot.morning
-                                    ? AppColors.primaryDark
-                                    : AppColors.textPrimary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              onSelected: (_) => setState(() => _timeSlot = BookingTimeSlot.morning),
+                            child: _TimeSlotChip(
+                              label: 'Morning (8 AM – 12 PM)',
+                              isSelected: _timeSlot == BookingTimeSlot.morning,
+                              onTap: () => setState(() => _timeSlot = BookingTimeSlot.morning),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           Expanded(
-                            child: ChoiceChip(
-                              label: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text('Afternoon (1 PM – 5 PM)'),
-                              ),
-                              selected: _timeSlot == BookingTimeSlot.afternoon,
-                              selectedColor: AppColors.primaryLight,
-                              labelStyle: TextStyle(
-                                color: _timeSlot == BookingTimeSlot.afternoon
-                                    ? AppColors.primaryDark
-                                    : AppColors.textPrimary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              onSelected: (_) => setState(() => _timeSlot = BookingTimeSlot.afternoon),
+                            child: _TimeSlotChip(
+                              label: 'Afternoon (1 PM – 5 PM)',
+                              isSelected: _timeSlot == BookingTimeSlot.afternoon,
+                              onTap: () => setState(() => _timeSlot = BookingTimeSlot.afternoon),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+
+                      const SizedBox(height: 16),
+
                       const Text(
                         'REASON FOR VISIT / NOTES (OPTIONAL)',
                         style: TextStyle(
-                          color: AppColors.textSecondary,
+                          color: Color(0xFF6B7280),
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: 0.8,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       TextField(
                         controller: _notesController,
                         maxLines: 2,
                         style: const TextStyle(fontSize: 13),
                         decoration: InputDecoration(
-                          hintText: 'e.g. Follow-up dose, rabies concern, etc.',
-                          hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          hintText: 'e.g. Follow-up dose, rabies exposure concern, etc.',
+                          hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                          fillColor: Colors.white,
+                          filled: true,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: AppColors.border),
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade200, width: 0.5),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade200, width: 0.5),
                           ),
                           contentPadding: const EdgeInsets.all(12),
                         ),
                       ),
+
                       const SizedBox(height: 24),
+
+                      // ─── 5. BOTTOM CTA ───
                       BookingSummary(
-                        service: _service,
-                        date: DateSelector.formatDate(_selectedDate),
-                        patientName: _selectedPatient?.name,
                         onConfirm: _continueBooking,
                         isLoading: _booking,
                         confirmLabel: _service == BookingService.consultation
                             ? 'Continue to intake'
-                            : 'Book vaccination',
+                            : 'Confirm booking',
                       ),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-        ),
+        ],
       ),
+    ),
+  ),
+),
       bottomNavigationBar: MenuNavigation(
         selectedIndex: 1,
         onSelected: _handleNavigation,
+        showFabNotch: true,
       ),
       floatingActionButton: PatientActionButton(
         onPressed: () => showDigitalVaccinationCard(context),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
+  }
+}
+
+class _TimeSlotChip extends StatelessWidget {
+  const _TimeSlotChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE1F5EE) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : Colors.grey.shade200,
+            width: isSelected ? 1.5 : 0.5,
+          ),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: isSelected ? const Color(0xFF085041) : const Color(0xFF374151),
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+      ),
     );
   }
 }

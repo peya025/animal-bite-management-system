@@ -1,45 +1,66 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
-import 'section_header.dart';
 
 class GuidelinesSection extends StatelessWidget {
   const GuidelinesSection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MenuSectionHeader(title: 'Bite care guide'),
-        SizedBox(height: 10),
-        Row(
+        const Text(
+          'BITE CARE GUIDE',
+          style: TextStyle(
+            color: Color(0xFF9CA3AF),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Row(
           children: [
             Expanded(
-              child: _GuidelineTile(
+              child: _GuideCard(
+                cardBg: AppColors.primary,
+                iconBg: Color(0x33FFFFFF), // semi-transparent white
+                iconColor: Colors.white,
                 icon: Icons.water_drop_outlined,
-                label: 'Wash',
-                detail: 'Clean wound',
-                iconColor: AppColors.white,
-                primary: true,
+                title: 'Wash',
+                description: '15 mins under running water',
+                textColor: Colors.white,
+                mutedTextColor: Color(0xCCFFFFFF),
+                hasBorder: false,
               ),
             ),
-            SizedBox(width: 10),
+            SizedBox(width: 8),
             Expanded(
-              child: _GuidelineTile(
-                icon: Icons.local_hospital_outlined,
-                label: 'Consult',
-                detail: 'Seek care',
-                iconColor: Color(0xFFB86A00),
+              child: _GuideCard(
+                cardBg: Colors.white,
+                iconBg: Color(0xFFE1F5EE),
+                iconColor: AppColors.primary,
+                icon: Icons.medical_services_outlined,
+                title: 'Consult',
+                description: 'Visit clinic immediately',
+                textColor: Color(0xFF111827),
+                mutedTextColor: Color(0xFF6B7280),
+                hasBorder: true,
               ),
             ),
-            SizedBox(width: 10),
+            SizedBox(width: 8),
             Expanded(
-              child: _GuidelineTile(
+              child: _GuideCard(
+                cardBg: Colors.white,
+                iconBg: Color(0xFFEEF2FF),
+                iconColor: Color(0xFF4F46E5),
                 icon: Icons.vaccines_outlined,
-                label: 'Vaccinate',
-                detail: 'Stay protected',
-                iconColor: Color(0xFF4867B3),
+                title: 'Vaccinate',
+                description: 'Complete rabies vaccine series',
+                textColor: Color(0xFF111827),
+                mutedTextColor: Color(0xFF6B7280),
+                hasBorder: true,
               ),
             ),
           ],
@@ -49,56 +70,71 @@ class GuidelinesSection extends StatelessWidget {
   }
 }
 
-class _GuidelineTile extends StatelessWidget {
-  const _GuidelineTile({
-    required this.icon,
-    required this.label,
-    required this.detail,
+class _GuideCard extends StatelessWidget {
+  const _GuideCard({
+    required this.cardBg,
+    required this.iconBg,
     required this.iconColor,
-    this.primary = false,
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.textColor,
+    required this.mutedTextColor,
+    required this.hasBorder,
   });
 
-  final IconData icon;
-  final String label;
-  final String detail;
+  final Color cardBg;
+  final Color iconBg;
   final Color iconColor;
-  final bool primary;
+  final IconData icon;
+  final String title;
+  final String description;
+  final Color textColor;
+  final Color mutedTextColor;
+  final bool hasBorder;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 116,
+      constraints: const BoxConstraints(minHeight: 110),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: primary ? AppColors.primary : AppColors.white,
-        border: primary ? null : Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: hasBorder
+            ? Border.all(color: Colors.grey.shade200, width: 0.5)
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: iconColor, size: 22),
-          const Spacer(),
+          // Icon box 32x32, 10px radius
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          const SizedBox(height: 10),
           Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            title,
             style: TextStyle(
-              color: primary ? AppColors.white : AppColors.gray900,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+              color: textColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 2),
           Text(
-            detail,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            description,
             style: TextStyle(
-              color: primary
-                  ? AppColors.white.withValues(alpha: 0.82)
-                  : AppColors.gray500,
+              color: mutedTextColor,
               fontSize: 10,
+              fontWeight: FontWeight.w400,
+              height: 1.25,
             ),
           ),
         ],

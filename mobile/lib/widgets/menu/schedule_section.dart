@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../../app/app_theme.dart';
 import '../../models/appointment_summary.dart';
 import '../../services/api.dart';
-import 'menu_surface.dart';
-import 'section_header.dart';
 
 class ScheduleSection extends StatefulWidget {
   const ScheduleSection({super.key, required this.onOpenAppointments});
@@ -46,61 +44,98 @@ class _ScheduleSectionState extends State<ScheduleSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MenuSectionHeader(
-          title: 'Upcoming schedules',
-          actionLabel: 'View all',
-          onAction: widget.onOpenAppointments,
+        // Section Header Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'UPCOMING SCHEDULES',
+              style: TextStyle(
+                color: Color(0xFF9CA3AF),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.5,
+              ),
+            ),
+            GestureDetector(
+              onTap: widget.onOpenAppointments,
+              child: const Text(
+                'View all',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-        MenuSurface(
-          padding: const EdgeInsets.all(14),
-          color: AppColors.white,
-          showBorder: true,
-          showShadow: false,
+        // Appointment Card
+        InkWell(
           onTap: widget.onOpenAppointments,
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade200, width: 0.5),
+            ),
+            child: Row(
+              children: [
+                // Left 42x42 icon box (12px radius, #E1F5EE bg)
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE1F5EE),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.event_available_outlined,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.event_available_outlined,
-                  color: AppColors.primaryDark,
-                ),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _loading
-                          ? 'Loading appointments...'
-                          : _next?.typeLabel ?? 'No appointments yet',
-                      style: const TextStyle(
-                        color: AppColors.gray900,
-                        fontWeight: FontWeight.w600,
+                const SizedBox(width: 12),
+                // Center info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _loading
+                            ? 'Loading appointments...'
+                            : _next?.typeLabel ?? 'No appointments yet',
+                        style: const TextStyle(
+                          color: Color(0xFF111827),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      _next == null
-                          ? 'Book a consultation or vaccination request.'
-                          : '${_next!.patientName} - ${_next!.formattedDate}',
-                      style: const TextStyle(
-                        color: AppColors.gray500,
-                        fontSize: 11,
+                      const SizedBox(height: 2),
+                      Text(
+                        _next == null
+                            ? 'Schedule a consultation or vaccination'
+                            : '${_next!.patientName} • ${_next!.formattedDate}',
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.gray500),
-            ],
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFF9CA3AF),
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
       ],

@@ -37,6 +37,11 @@ class MockMobileApi {
     _isAuthenticated = true;
   }
 
+  Future<String> requestPasswordReset({required String email}) async {
+    await Future.delayed(const Duration(seconds: 1));
+    return 'If an account associated with $email exists, password reset instructions have been sent.';
+  }
+
   Future<void> activateInvitation({
     required String token,
     required String email,

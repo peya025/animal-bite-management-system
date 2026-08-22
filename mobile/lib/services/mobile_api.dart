@@ -73,6 +73,16 @@ class MobileApi {
     await _setToken(data['token'] as String, persist: true);
   }
 
+  Future<String> requestPasswordReset({required String email}) async {
+    final data = await _send(
+      'POST',
+      '/forgot-password',
+      body: {'email': email},
+    );
+    return data['message'] as String? ??
+        'Password reset instructions have been sent if account exists.';
+  }
+
   Future<void> activateInvitation({
     required String token,
     required String email,

@@ -107,9 +107,30 @@ class _SignUpViewState extends State<SignUpView> {
                       ),
                       SizedBox(
                         height: MediaQuery.sizeOf(context).height < 760
-                            ? 36
-                            : 48,
+                            ? 16
+                            : 24,
                       ),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Registering for the first time? Create your account below. If you were already given a clinic invite code, activate your record instead.',
+                                style: TextStyle(fontSize: 12, color: AppColors.gray700, height: 1.35),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
                       if (_errorMessage case final message?) ...[
                         FormErrorBanner(message: message),
                         const SizedBox(height: 20),
@@ -262,6 +283,27 @@ class _SignUpViewState extends State<SignUpView> {
                           context,
                         ).pushReplacementNamed(AppRoutes.login),
                       ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: _isLoading
+                            ? null
+                            : () => Navigator.of(context).pushNamed(AppRoutes.patientActivation),
+                        icon: const Icon(Icons.mark_email_read_outlined, color: AppColors.primary),
+                        label: const Text(
+                          'Have a Clinic Invite Code? Activate Record',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
+                          side: const BorderSide(color: AppColors.primary, width: 1.5),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),

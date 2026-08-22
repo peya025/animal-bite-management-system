@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../services/api.dart';
 import '../services/mobile_api.dart';
 
 class PatientActivationView extends StatefulWidget {
@@ -111,7 +110,7 @@ class _PatientActivationViewState extends State<PatientActivationView> {
             child: Form(
               key: _formKey,
               child: Column(
-                crossAxisAlignment: CrossAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Icon Header
                   Icon(

@@ -67,6 +67,7 @@ Route::middleware(['auth:sanctum', 'role:developer,admin'])->group(function () {
 Route::prefix('mobile')->group(function () {
     Route::post('/register', [PatientAccountAuthController::class, 'register']);
     Route::post('/login', [PatientAccountAuthController::class, 'login']);
+    Route::post('/forgot-password', [PatientAccountAuthController::class, 'forgotPassword']);
 
     Route::middleware(['auth:sanctum', 'patient.account'])->group(function () {
         Route::get('/me', [PatientAccountAuthController::class, 'me']);

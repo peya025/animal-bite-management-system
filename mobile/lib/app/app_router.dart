@@ -10,6 +10,7 @@ import '../views/history_view.dart';
 import '../views/login_view.dart';
 import '../views/menu_view.dart';
 import '../views/notifications_view.dart';
+import '../views/patient_activation_view.dart';
 import '../views/patient_profile_view.dart';
 import '../views/profile_setup_view.dart';
 import '../views/settings_view.dart';
@@ -23,6 +24,9 @@ abstract final class AppRouter {
       AppRoutes.welcome => const WelcomeView(),
       AppRoutes.login => const LoginView(),
       AppRoutes.signUp => const SignUpView(),
+      AppRoutes.patientActivation => PatientActivationView(
+        initialToken: settings.arguments is String ? settings.arguments as String : null,
+      ),
       AppRoutes.menu => const MenuView(),
       AppRoutes.booking => const BookingView(),
       AppRoutes.history => const HistoryView(),

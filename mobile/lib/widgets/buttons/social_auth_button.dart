@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
 
-enum SocialAuthProvider { google, apple }
+enum SocialAuthProvider { google }
 
 class SocialAuthButton extends StatelessWidget {
   const SocialAuthButton({
     super.key,
-    required this.provider,
+    this.provider = SocialAuthProvider.google,
     required this.onPressed,
   });
 
@@ -16,16 +16,12 @@ class SocialAuthButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isGoogle = provider == SocialAuthProvider.google;
-
     return OutlinedButton.icon(
       onPressed: onPressed,
-      icon: isGoogle
-          ? const _GoogleMark()
-          : const Icon(Icons.apple, color: AppColors.gray700, size: 28),
-      label: Text(
-        isGoogle ? 'Sign in with Google' : 'Sign in with Apple',
-        style: const TextStyle(
+      icon: const _GoogleMark(),
+      label: const Text(
+        'Sign in with Google',
+        style: TextStyle(
           color: AppColors.gray700,
           fontWeight: FontWeight.w600,
         ),

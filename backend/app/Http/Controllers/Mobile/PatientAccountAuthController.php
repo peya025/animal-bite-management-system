@@ -96,4 +96,17 @@ class PatientAccountAuthController extends Controller
 
         return response()->json(['message' => 'Successfully logged out.']);
     }
+
+    public function forgotPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $account = PatientAccount::where('email', $validated['email'])->first();
+
+        return response()->json([
+            'message' => 'If an account with that email exists, password reset instructions have been sent.',
+        ]);
+    }
 }

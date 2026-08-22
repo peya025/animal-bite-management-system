@@ -3,8 +3,7 @@ import {
   Alert, Box, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
 } from '@mui/material';
 import { Refresh as RefreshIcon, Science as DemoIcon, LocalHospital as ClinicIcon } from '@mui/icons-material';
-// Backend API imported but calls commented out below as requested to use local sample data
-// import api from '../../../services/api';
+import api from '../../../services/api';
 import StatCard from '../../../components/common/StatCard';
 import AddEditInventoryDialog from '../components/AddEditInventoryDialog/AddEditInventoryDialog';
 import AdjustStockDialog from '../components/AdjustStockDialog/AdjustStockDialog';
@@ -62,28 +61,73 @@ export default function VaccineInventory() {
   const [deleteItem,  setDeleteItem]  = useState<InventoryItem | null>(null);
   const [view, setView]               = useState<'table' | 'stockcard'>('table');
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback(async () => {
     setLoading(true);
-    let filtered = [...DEMO_INVENTORY_ITEMS];
-
-    if (selectedClinicId > 0) {
-      filtered = filtered.filter(i => i.clinic_id === selectedClinicId);
+    try {
+      const res = await api.get('/inventory', {
+        params: {
+          status: statusFilter || undefined,
+          vaccine_type: search || undefined,
+        },
+      });
+      const liveItems = res.data?.data || res.data || [];
+      if (Array.isArray(liveItems) && liveItems.length > 0) {
+        let filtered = [...liveItems];
+        if (batchFilter) {
+          filtered = filtered.filter(i => (i.batch_number || '').toLowerCase().includes(batchFilter.toLowerCase()));
+        }
+        setItems(filtered);
+        setTotal(res.data?.total || filtered.length);
+      } else {
+        // Fallback to sample items if live table has not been populated yet
+        let filtered = [...DEMO_INVENTORY_ITEMS];
+        if (selectedClinicId > 0) {
+          filtered = filtered.filter(i => i.clinic_id === selectedClinicId);
+        }
+        if (search) {
+          filtered = filtered.filter(i => i.vaccine_type.toLowerCase().includes(search.toLowerCase()));
+        }
+        if (statusFilter) {
+          filtered = filtered.filter(i => i.status === statusFilter);
+        }
+        if (batchFilter) {
+          filtered = filtered.filter(i => i.batch_number.toLowerCase().includes(batchFilter.toLowerCase()));
+        }
+        setItems(filtered);
+        setTotal(filtered.length);
+      }
+    } catch {
+      let filtered = [...DEMO_INVENTORY_ITEMS];
+      if (selectedClinicId > 0) {
+        filtered = filtered.filter(i => i.clinic_id === selectedClinicId);
+      }
+      if (search) {
+        filtered = filtered.filter(i => i.vaccine_type.toLowerCase().includes(search.toLowerCase()));
+      }
+      if (statusFilter) {
+        filtered = filtered.filter(i => i.status === statusFilter);
+      }
+      if (batchFilter) {
+        filtered = filtered.filter(i => i.batch_number.toLowerCase().includes(batchFilter.toLowerCase()));
+      }
+      setItems(filtered);
+      setTotal(filtered.length);
+    } finally {
+      setLoading(false);
     }
-    if (search) {
-      filtered = filtered.filter(i => i.vaccine_type.toLowerCase().includes(search.toLowerCase()));
-    }
-    if (statusFilter) {
-      filtered = filtered.filter(i => i.status === statusFilter);
-    }
-    if (batchFilter) {
-      filtered = filtered.filter(i => i.batch_number.toLowerCase().includes(batchFilter.toLowerCase()));
-    }
-    setItems(filtered);
-    setTotal(filtered.length);
-    setLoading(false);
   }, [search, statusFilter, batchFilter, selectedClinicId]);
 
-  const loadStats = useCallback(() => {
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await api.get('/inventory/statistics');
+      if (res.data && res.data.total_batches !== undefined) {
+        setStats(res.data);
+        return;
+      }
+    } catch {
+      // Fallback
+    }
+
     const activePool = selectedClinicId > 0
       ? DEMO_INVENTORY_ITEMS.filter(i => i.clinic_id === selectedClinicId)
       : DEMO_INVENTORY_ITEMS;

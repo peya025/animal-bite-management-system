@@ -162,6 +162,20 @@ class VaccinationController extends Controller
 
         $schedule->markAsCompleted($request->user(), $request->all());
 
+        // ── Auto-advance queue: complete patient's Treatment queue entry ──
+        \App\Models\Queue::where('clinic_id', $request->user()->clinic_id)
+            ->where('patient_id', $schedule->patient_id)
+            ->where('queue_date', \Carbon\Carbon::today()->toDateString())
+            ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
+            ->where('visit_type', 'vaccination')
+            ->whereNull('deleted_at')
+            ->latest('queue_id')
+            ->first()
+            ?->update([
+                'status'       => 'completed',
+                'completed_at' => now(),
+            ]);
+
         // Invalidate vaccination caches
         $this->clearVaccinationCaches($request->user()->clinic_id);
 

@@ -47,14 +47,12 @@ interface StationPanelProps {
   waitingCount:   number;
   blink:          boolean;
   calling:        boolean;
-  completing:     boolean;
   onCall:         () => void;
-  onComplete:     () => void;
 }
 
 function StationPanel({
   station, current, next, waitingCount, blink,
-  calling, completing, onCall, onComplete,
+  calling, onCall,
 }: StationPanelProps) {
   const isTriage   = station === 'triage';
   const accent     = isTriage ? '#0ea5e9' : '#f59e0b';   // blue for triage, amber for treatment
@@ -148,28 +146,6 @@ function StationPanel({
                 {current.priority.toUpperCase()}
               </div>
             )}
-
-            {/* Complete button */}
-            <button
-              onClick={onComplete}
-              disabled={completing}
-              style={{
-                marginTop: 18, padding: '10px 28px', borderRadius: 10,
-                background: completing ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)',
-                border: '1.5px solid rgba(255,255,255,0.5)',
-                color: '#fff', fontSize: 13, fontWeight: 700,
-                cursor: completing ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit', transition: 'all 0.2s',
-                display: 'inline-flex', alignItems: 'center', gap: 7,
-              }}
-              onMouseEnter={e => { if (!completing) e.currentTarget.style.background = 'rgba(255,255,255,0.35)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              {completing ? 'Completing...' : 'Mark Complete'}
-            </button>
           </>
         ) : (
           <>
@@ -240,8 +216,6 @@ export default function QueueDisplayPage() {
   const [lastCall, setLastCall]           = useState<QueueEntry | null>(null);
   const [callingTriage, setCallingTriage] = useState(false);
   const [callingTreatment, setCallingTreatment] = useState(false);
-  const [completingTriage, setCompletingTriage] = useState(false);
-  const [completingTreatment, setCompletingTreatment] = useState(false);
   const prevCalledRef = useRef<Set<number>>(new Set());
   const audioCtxRef   = useRef<AudioContext | null>(null);
 
@@ -293,31 +267,29 @@ export default function QueueDisplayPage() {
 
   useEffect(() => {
     loadQueue();
-    const id = setInterval(loadQueue, 10_000);
+    const id = setInterval(loadQueue, 5_000); // refresh every 5s
     return () => clearInterval(id);
   }, [loadQueue]);
 
   // Split queue by station
   const triageWaiting    = queue.filter(q => q.status === 'waiting' && getStation(q.visit_type) === 'triage');
   const treatmentWaiting = queue.filter(q => q.status === 'waiting' && getStation(q.visit_type) === 'treatment');
-  const triageCurrent    = queue.find(q => q.status === 'in_consultation' && getStation(q.visit_type) === 'triage') ?? null;
-  const treatmentCurrent = queue.find(q => q.status === 'in_consultation' && getStation(q.visit_type) === 'treatment') ?? null;
-  const triageNext       = triageWaiting[0] ?? null;
-  const treatmentNext    = treatmentWaiting[0] ?? null;
+  const triageInConsult    = queue.find(q => q.status === 'in_consultation' && getStation(q.visit_type) === 'triage') ?? null;
+  const treatmentInConsult = queue.find(q => q.status === 'in_consultation' && getStation(q.visit_type) === 'treatment') ?? null;
+
+  // "current" = in_consultation if exists, otherwise show first waiting patient so the display is never blank
+  const triageCurrent    = triageInConsult    ?? triageWaiting[0]    ?? null;
+  const treatmentCurrent = treatmentInConsult ?? treatmentWaiting[0] ?? null;
+
+  // "next" = second waiting patient (skip first if shown as current)
+  const triageNext    = triageInConsult    ? triageWaiting[0]    ?? null : triageWaiting[1]    ?? null;
+  const treatmentNext = treatmentInConsult ? treatmentWaiting[0] ?? null : treatmentWaiting[1] ?? null;
 
   // Call / Complete helpers
   const callStation = async (entry: QueueEntry | null, setBusy: (v: boolean) => void) => {
     if (!entry || callingTriage || callingTreatment) return;
     setBusy(true);
     try { await api.post(`/queue/${entry.queue_id}/call`); playChime(); await loadQueue(); }
-    catch { /* ignore */ }
-    finally { setBusy(false); }
-  };
-
-  const completeStation = async (entry: QueueEntry | null, setBusy: (v: boolean) => void) => {
-    if (!entry || completingTriage || completingTreatment) return;
-    setBusy(true);
-    try { await api.post(`/queue/${entry.queue_id}/complete`); await loadQueue(); }
     catch { /* ignore */ }
     finally { setBusy(false); }
   };
@@ -384,16 +356,14 @@ export default function QueueDisplayPage() {
           background: '#fff',
           display: 'flex', flexDirection: 'column', gap: 16,
         }}>
-          <StationPanel
+      <StationPanel
             station="triage"
             current={triageCurrent}
             next={triageNext}
             waitingCount={triageWaiting.length}
             blink={blink}
             calling={callingTriage}
-            completing={completingTriage}
             onCall={() => callStation(triageNext, setCallingTriage)}
-            onComplete={() => completeStation(triageCurrent, setCompletingTriage)}
           />
 
           {/* Triage waiting mini list */}
@@ -427,9 +397,7 @@ export default function QueueDisplayPage() {
             waitingCount={treatmentWaiting.length}
             blink={blink}
             calling={callingTreatment}
-            completing={completingTreatment}
             onCall={() => callStation(treatmentNext, setCallingTreatment)}
-            onComplete={() => completeStation(treatmentCurrent, setCompletingTreatment)}
           />
 
           {/* Treatment waiting mini list */}

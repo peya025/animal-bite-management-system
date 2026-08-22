@@ -99,7 +99,9 @@ class TreatmentRecordController extends Controller
             // General consultation fields
             'consultation_date' => $validated['consultation_date'] ?? Carbon::now()->toDateString(),
             'consultation_time' => $validated['consultation_time'] ?? Carbon::now()->format('H:i'),
-            'mode_of_transaction' => $validated['mode_of_transaction'] ?? null,
+            'mode_of_transaction' => in_array($validated['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral'])
+                ? $validated['mode_of_transaction']
+                : 'walk-in',
             'referred_from' => $validated['referred_from'] ?? null,
             'referred_to' => $validated['referred_to'] ?? null,
             'referred_by' => $validated['referred_by'] ?? null,
@@ -132,12 +134,31 @@ class TreatmentRecordController extends Controller
             'administered_by' => $request->user()->id,
         ]);
 
-        // Update queue status if queue_id provided
+        // ── Auto-advance queue: move patient from Triage → Treatment panel ──
+        // If queue_id provided, use it directly; otherwise find today's triage queue entry
+        $queueEntry = null;
         if (!empty($validated['queue_id'])) {
-            $queue = Queue::find($validated['queue_id']);
-            if ($queue) {
-                $queue->update(['status' => 'in_consultation']);
-            }
+            $queueEntry = Queue::find($validated['queue_id']);
+        }
+        if (!$queueEntry) {
+            $queueEntry = Queue::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->where('queue_date', \Carbon\Carbon::today()->toDateString())
+                ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
+                ->whereIn('visit_type', ['new_case', 'follow_up', 'observation'])
+                ->whereNull('deleted_at')
+                ->latest('queue_id')
+                ->first();
+        }
+
+        if ($queueEntry) {
+            $queueEntry->update([
+                'visit_type'         => 'vaccination', // moves to Treatment / Vaccination panel
+                'status'             => 'waiting',     // reset to waiting for Treatment nurse
+                'called_at'          => null,
+                'serving_at'         => null,
+                'consultation_notes' => 'Doctor completed Form 2 — referred to Treatment.',
+            ]);
         }
 
         return response()->json([

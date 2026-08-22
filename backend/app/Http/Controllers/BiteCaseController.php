@@ -132,6 +132,28 @@ class BiteCaseController extends Controller
                 VaccinationSchedule::generateWhoSchedule($incident);
             }
 
+            // ── Auto-advance queue: move patient from Triage → Treatment ──
+            // Find today's active queue entry for this patient
+            $todayQueue = \App\Models\Queue::where('clinic_id', $request->user()->clinic_id)
+                ->where('patient_id', $request->patient_id)
+                ->where('queue_date', \Carbon\Carbon::today()->toDateString())
+                ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
+                ->whereIn('visit_type', ['new_case', 'follow_up', 'observation'])
+                ->whereNull('deleted_at')
+                ->latest('queue_id')
+                ->first();
+
+            if ($todayQueue) {
+                $todayQueue->update([
+                    'visit_type'  => 'vaccination',
+                    'status'      => 'waiting',   // reset to waiting for Treatment nurse
+                    'called_at'   => null,
+                    'serving_at'  => null,
+                    'bite_id'     => $incident->bite_id,
+                    'consultation_notes' => 'Referred to Treatment after Triage assessment.',
+                ]);
+            }
+
             DB::commit();
 
             // Invalidate bite cases cache

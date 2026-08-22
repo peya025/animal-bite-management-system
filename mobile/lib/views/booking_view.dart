@@ -46,18 +46,29 @@ class _BookingViewState extends State<BookingView> {
     super.dispose();
   }
 
+  PatientProfile _findSelfOrFirst(List<PatientProfile> list) {
+    return list.firstWhere(
+      (patient) => patient.relationship == 'self',
+      orElse: () => list.first,
+    );
+  }
+
   Future<void> _loadPatients({int? selectPatientId}) async {
     try {
       final patients = await api.patients() as List<PatientProfile>;
       if (!mounted) return;
       setState(() {
         _patients = patients;
-        _selectedPatient = patients.isEmpty
-            ? null
-            : patients.firstWhere(
-                (patient) => patient.id == selectPatientId,
-                orElse: () => patients.first,
-              );
+        if (patients.isEmpty) {
+          _selectedPatient = null;
+        } else if (selectPatientId != null) {
+          _selectedPatient = patients.firstWhere(
+            (patient) => patient.id == selectPatientId,
+            orElse: () => _findSelfOrFirst(patients),
+          );
+        } else {
+          _selectedPatient = _findSelfOrFirst(patients);
+        }
         _profileError = null;
       });
     } catch (error) {
@@ -279,6 +290,19 @@ class _BookingViewState extends State<BookingView> {
                           onChanged: (patient) =>
                               setState(() => _selectedPatient = patient),
                         ),
+                      if (_selectedPatient?.relationship == 'self') ...[
+                        const SizedBox(height: 6),
+                        const Row(
+                          children: [
+                            Icon(Icons.check_circle_outline_rounded, size: 14, color: AppColors.primary),
+                            SizedBox(width: 4),
+                            Text(
+                              'Auto-selected your personal profile',
+                              style: TextStyle(fontSize: 11, color: AppColors.primaryDark, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (_patients.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Wrap(

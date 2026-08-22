@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
+import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import '../services/api.dart';
 import '../services/psgc_service.dart';
@@ -90,7 +91,43 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     _relationship =
         widget.existingPatient?.relationship ?? widget.initialRelationship;
     _prefillFromExistingPatient();
+    if (!_isEditMode && _relationship == 'self') {
+      _autoFillFromAccount();
+    }
     _loadMunicipalities();
+  }
+
+  Future<void> _autoFillFromAccount() async {
+    if (_isEditMode) return;
+    try {
+      final account = await api.account() as PatientAccountProfile;
+      if (!mounted) return;
+
+      setState(() {
+        if (_email.text.isEmpty && account.email.isNotEmpty) {
+          _email.text = account.email;
+        }
+        if (_contactNumber.text.isEmpty && account.phone != null && account.phone!.isNotEmpty) {
+          _contactNumber.text = account.phone!;
+        }
+
+        if (_firstName.text.isEmpty && _lastName.text.isEmpty && account.name.trim().isNotEmpty) {
+          final parts = account.name.trim().split(RegExp(r'\s+'));
+          if (parts.length == 1) {
+            _firstName.text = parts.first;
+          } else if (parts.length == 2) {
+            _firstName.text = parts.first;
+            _lastName.text = parts.last;
+          } else if (parts.length >= 3) {
+            _firstName.text = parts.first;
+            _middleName.text = parts.sublist(1, parts.length - 1).join(' ');
+            _lastName.text = parts.last;
+          }
+        }
+      });
+    } catch (_) {
+      // Ignore if account loading fails in mock mode or offline
+    }
   }
 
   Future<void> _loadMunicipalities() async {
@@ -580,8 +617,13 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                             ],
                             onChanged: _isLoading
                                 ? null
-                                : (value) =>
-                                      setState(() => _relationship = value!),
+                                : (value) {
+                                    if (value == null) return;
+                                    setState(() => _relationship = value);
+                                    if (value == 'self') {
+                                      _autoFillFromAccount();
+                                    }
+                                  },
                           ),
                           const SizedBox(height: 14),
                           _field('FIRST NAME *', _firstName, required: true),

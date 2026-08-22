@@ -23,7 +23,7 @@ class BookingView extends StatefulWidget {
 
 class _BookingViewState extends State<BookingView> {
   BookingService _service = BookingService.consultation;
-  DateTime _selectedDate = DateSelector.firstDate;
+  late DateTime _selectedDate;
   BookingTimeSlot _timeSlot = BookingTimeSlot.morning;
   final _notesController = TextEditingController();
   List<PatientProfile> _patients = const [];
@@ -35,6 +35,8 @@ class _BookingViewState extends State<BookingView> {
   @override
   void initState() {
     super.initState();
+    // Always initialise to today when screen opens — avoids stale date if app ran past midnight
+    _selectedDate = DateUtils.dateOnly(DateTime.now());
     _loadPatients();
   }
 
@@ -202,9 +204,12 @@ class _BookingViewState extends State<BookingView> {
       return;
     }
 
+    final today = DateUtils.dateOnly(DateTime.now());
+    final safeDate = _selectedDate.isBefore(today) ? today : _selectedDate;
+
     final booking = BookingDraft(
       service: _service,
-      date: _selectedDate,
+      date: safeDate,
       timeSlot: _timeSlot,
       notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
     );
@@ -299,7 +304,7 @@ class _BookingViewState extends State<BookingView> {
                   child: CustomScrollView(
                     slivers: [
                       SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
                         sliver: SliverList.list(
                           children: [
                       // ─── 2. PATIENT PROFILE SECTION ───

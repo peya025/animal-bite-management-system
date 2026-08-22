@@ -13,8 +13,8 @@ class DateSelector extends StatefulWidget {
   final DateTime selectedDate;
   final ValueChanged<DateTime> onSelected;
 
-  static final firstDate = DateTime.now();
-  static final lastDate = DateTime.now().add(const Duration(days: 365));
+  static DateTime get firstDate => DateUtils.dateOnly(DateTime.now());
+  static DateTime get lastDate => DateUtils.dateOnly(DateTime.now()).add(const Duration(days: 365));
 
   static String formatDate(DateTime date) {
     const weekdays = [
@@ -162,6 +162,12 @@ class _DateSelectorState extends State<DateSelector> {
                   return !cleanDay.isBefore(today);
                 },
                 onDaySelected: (selectedDay, focusedDay) {
+                  final cleanSelected = DateTime(
+                    selectedDay.year,
+                    selectedDay.month,
+                    selectedDay.day,
+                  );
+                  if (cleanSelected.isBefore(today)) return; // block past dates
                   setState(() => _focusedDay = focusedDay);
                   widget.onSelected(selectedDay);
                 },

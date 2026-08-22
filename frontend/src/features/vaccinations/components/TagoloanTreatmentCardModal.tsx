@@ -61,6 +61,17 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         setHospitalNo(res.data.patient?.hospital_no || '');
         setReferredBy(res.data.bite_incident?.referred_from || '');
         if (res.data.bite_incident?.case_number) setRegistryNo(res.data.bite_incident.case_number);
+        if (res.data.bite_incident?.mode_of_exposure) setModeOfExposure(res.data.bite_incident.mode_of_exposure);
+        if (res.data.bite_incident?.body_part_exposed) setBodyPartExposed(res.data.bite_incident.body_part_exposed);
+        if (res.data.bite_incident?.animal_type) {
+          if (res.data.bite_incident.animal_type === 'Dog') {
+            setAnimalType('Dog');
+            setAnimalTypeOthers('');
+          } else {
+            setAnimalType('Others');
+            setAnimalTypeOthers(res.data.bite_incident.animal_type_others || res.data.bite_incident.animal_type);
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to load treatment card data', err);

@@ -3,12 +3,11 @@ import 'package:flutter/services.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
+import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import '../services/api.dart';
 import '../services/psgc_service.dart';
-import '../widgets/buttons/primary_action_button.dart';
 import '../widgets/common/app_page_header.dart';
-import '../widgets/menu/menu_surface.dart';
 
 class ProfileSetupView extends StatefulWidget {
   const ProfileSetupView({
@@ -48,6 +47,8 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   final _indigenousTribe = TextEditingController();
   final _otherMembershipCustomName = TextEditingController();
   final _otherMembershipCustomId = TextEditingController();
+
+  int _currentStep = 0; // 0: Step 1, 1: Step 2, 2: Step 3
 
   late String _relationship;
   String? _gender;
@@ -90,7 +91,47 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     _relationship =
         widget.existingPatient?.relationship ?? widget.initialRelationship;
     _prefillFromExistingPatient();
+    if (!_isEditMode && _relationship == 'self') {
+      _autoFillFromAccount();
+    }
     _loadMunicipalities();
+  }
+
+  Future<void> _autoFillFromAccount() async {
+    if (_isEditMode) return;
+    try {
+      final account = await api.account() as PatientAccountProfile;
+      if (!mounted) return;
+
+      setState(() {
+        if (_email.text.isEmpty && account.email.isNotEmpty) {
+          _email.text = account.email;
+        }
+        if (_contactNumber.text.isEmpty &&
+            account.phone != null &&
+            account.phone!.isNotEmpty) {
+          _contactNumber.text = account.phone!;
+        }
+
+        if (_firstName.text.isEmpty &&
+            _lastName.text.isEmpty &&
+            account.name.trim().isNotEmpty) {
+          final parts = account.name.trim().split(RegExp(r'\s+'));
+          if (parts.length == 1) {
+            _firstName.text = parts.first;
+          } else if (parts.length == 2) {
+            _firstName.text = parts.first;
+            _lastName.text = parts.last;
+          } else if (parts.length >= 3) {
+            _firstName.text = parts.first;
+            _middleName.text = parts.sublist(1, parts.length - 1).join(' ');
+            _lastName.text = parts.last;
+          }
+        }
+      });
+    } catch (_) {
+      // Ignore if account loading fails
+    }
   }
 
   Future<void> _loadMunicipalities() async {
@@ -147,36 +188,72 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     }
   }
 
-  @override
-  void dispose() {
-    _firstName.dispose();
-    _middleName.dispose();
-    _lastName.dispose();
-    _suffix.dispose();
-    _birthDate.dispose();
-    _contactNumber.dispose();
-    _email.dispose();
-    _emergencyContactName.dispose();
-    _emergencyContactNumber.dispose();
-    _motherMaidenName.dispose();
-    _spouseName.dispose();
-    _purok.dispose();
-    _municipalityText.dispose();
-    _barangayText.dispose();
-    _philhealthNo.dispose();
-    _seniorCitizenId.dispose();
-    _pwdId.dispose();
-    _indigenousTribe.dispose();
-    _otherMembershipCustomName.dispose();
-    _otherMembershipCustomId.dispose();
-    super.dispose();
+  PsgcLocation? _findLocationByName(
+    List<PsgcLocation> locations,
+    String name,
+  ) {
+    final cleanName = name.trim().toLowerCase();
+    return locations
+        .where((loc) => loc.name.trim().toLowerCase() == cleanName)
+        .firstOrNull;
+  }
+
+  Future<void> _syncAddressSelectionFromExistingPatient() async {
+    if (_didSyncAddressFromExistingPatient) return;
+    _didSyncAddressFromExistingPatient = true;
+
+    final details = widget.existingPatient?.details;
+    final municipalityName = details?.addressMunicipality?.trim();
+    final barangayName = details?.addressBarangay?.trim();
+
+    if (municipalityName == null || municipalityName.isEmpty) return;
+
+    final matchedMunicipality = _findLocationByName(
+      _municipalities,
+      municipalityName,
+    );
+
+    if (matchedMunicipality == null) {
+      if (mounted) {
+        setState(() {
+          _useManualAddressFields = true;
+          _municipalityText.text = municipalityName;
+          _barangayText.text = barangayName ?? '';
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _selectedMunicipalityCode = matchedMunicipality.code;
+        _municipalityText.text = matchedMunicipality.name;
+      });
+    }
+
+    await _loadBarangays(matchedMunicipality.code);
+    if (!mounted || barangayName == null || barangayName.isEmpty) return;
+
+    final matchedBarangay = _findLocationByName(_barangays, barangayName);
+
+    if (matchedBarangay != null) {
+      setState(() {
+        _selectedBarangayCode = matchedBarangay.code;
+        _barangayText.text = matchedBarangay.name;
+      });
+    } else {
+      setState(() {
+        _useManualAddressFields = true;
+        _barangayText.text = barangayName;
+      });
+    }
   }
 
   Future<void> _chooseBirthDate() async {
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
-      initialDate: _selectedBirthDate ?? DateTime(2000),
+      initialDate: _selectedBirthDate ?? DateTime(now.year - 20, 1, 1),
       firstDate: DateTime(1900),
       lastDate: DateTime(now.year, now.month, now.day - 1),
     );
@@ -246,168 +323,168 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     _philhealthCategory = philhealth?.category ?? details?.philhealthCategory;
     _fourpsMember = fourps != null ? 'yes' : details?.fourpsMember;
     _fourpsCategory = fourps?.category ?? details?.fourpsCategory;
-    _fourpsRelationship =
-        fourps?.relationshipValue ?? details?.fourpsRelationship;
+    _fourpsRelationship = fourps?.relationshipValue ?? details?.fourpsRelationship;
     _registeredFourpsBeneficiary =
         fourps?.registeredBeneficiary ?? details?.registeredFourpsBeneficiary;
     _dswdNhts = dswd != null ? 'yes' : details?.dswdNhts;
-    _hasMembership =
-        details?.hasMembership ?? (memberships.isNotEmpty ? 'yes' : null);
+    _hasMembership = details?.hasMembership ??
+        (memberships.isNotEmpty ? 'yes' : null);
 
-    _otherMemberships.clear();
     if (senior != null) _otherMemberships.add('senior_citizen');
     if (pwd != null) _otherMemberships.add('pwd');
     if (indigenous != null) _otherMemberships.add('indigenous_member');
     if (other != null) _otherMemberships.add('others');
 
-    if (patient.dateOfBirth != null && patient.dateOfBirth!.isNotEmpty) {
-      _birthDate.text = patient.dateOfBirth!;
-      _selectedBirthDate = DateTime.tryParse(patient.dateOfBirth!);
-    }
-  }
-
-  Future<void> _syncAddressSelectionFromExistingPatient() async {
-    final patient = widget.existingPatient;
-    if (patient == null || _didSyncAddressFromExistingPatient) return;
-
-    final details = patient.details;
-    final municipalityName = details?.addressMunicipality?.trim();
-    final barangayName = details?.addressBarangay?.trim();
-
-    if (municipalityName == null || municipalityName.isEmpty) {
-      _didSyncAddressFromExistingPatient = true;
-      return;
-    }
-
-    final municipality = _municipalities
-        .where(
-          (item) => item.name.toLowerCase() == municipalityName.toLowerCase(),
-        )
-        .cast<PsgcLocation?>()
-        .firstWhere((item) => item != null, orElse: () => null);
-
-    if (municipality == null) {
-      _didSyncAddressFromExistingPatient = true;
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() => _selectedMunicipalityCode = municipality.code);
-    await _loadBarangays(municipality.code);
-
-    if (!mounted) return;
-    if (barangayName != null && barangayName.isNotEmpty) {
-      final barangay = _barangays
-          .where(
-            (item) => item.name.toLowerCase() == barangayName.toLowerCase(),
-          )
-          .cast<PsgcLocation?>()
-          .firstWhere((item) => item != null, orElse: () => null);
-      if (barangay != null) {
-        setState(() => _selectedBarangayCode = barangay.code);
+    if (patient.dateOfBirth != null) {
+      final parsed = DateTime.tryParse(patient.dateOfBirth!);
+      if (parsed != null) {
+        _selectedBirthDate = parsed;
+        _birthDate.text = patient.dateOfBirth!;
       }
     }
-
-    _didSyncAddressFromExistingPatient = true;
   }
 
   List<Map<String, dynamic>> _buildMembershipPayload() {
-    final memberships = <Map<String, dynamic>>[];
+    final list = <Map<String, dynamic>>[];
 
     if (_philhealthMember == 'yes') {
-      memberships.add({
+      list.add({
         'membership_type': 'philhealth',
-        'is_active': true,
-        'status_value': _philhealthStatus,
-        'category': _philhealthCategory,
         'membership_id_no': _optional(_philhealthNo),
+        'category': _optionalController(_philhealthCategory),
+        'relationship_type': _optionalController(_philhealthStatus),
       });
     }
 
     if (_fourpsMember == 'yes') {
-      memberships.add({
+      list.add({
         'membership_type': 'fourps',
-        'is_active': true,
-        'status_value': 'yes',
-        'category': _fourpsCategory,
-        'relationship_value': _fourpsRelationship,
-        'registered_beneficiary': _registeredFourpsBeneficiary,
+        'category': _optionalController(_fourpsCategory),
+        'relationship_value': _optionalController(_fourpsRelationship),
+        'registered_beneficiary':
+            _optionalController(_registeredFourpsBeneficiary),
       });
     }
 
     if (_dswdNhts == 'yes') {
-      memberships.add({
-        'membership_type': 'dswd_nhts',
-        'is_active': true,
-        'status_value': 'yes',
-      });
+      list.add({'membership_type': 'dswd_nhts'});
     }
 
     if (_otherMemberships.contains('senior_citizen')) {
-      memberships.add({
+      list.add({
         'membership_type': 'senior_citizen',
-        'is_active': true,
         'membership_id_no': _optional(_seniorCitizenId),
       });
     }
 
     if (_otherMemberships.contains('pwd')) {
-      memberships.add({
+      list.add({
         'membership_type': 'pwd',
-        'is_active': true,
         'membership_id_no': _optional(_pwdId),
       });
     }
 
     if (_otherMemberships.contains('indigenous_member')) {
-      memberships.add({
+      list.add({
         'membership_type': 'indigenous_member',
-        'is_active': true,
         'extra_value': _optional(_indigenousTribe),
       });
     }
 
     if (_otherMemberships.contains('others')) {
-      memberships.add({
+      list.add({
         'membership_type': 'other',
-        'is_active': true,
         'membership_label': _optional(_otherMembershipCustomName),
         'membership_id_no': _optional(_otherMembershipCustomId),
       });
     }
 
-    return memberships;
+    return list;
   }
 
-  void _clearMembershipFields() {
-    _philhealthMember = 'no';
-    _philhealthStatus = null;
-    _philhealthCategory = null;
-    _philhealthNo.clear();
-    _fourpsMember = 'no';
-    _fourpsCategory = null;
-    _fourpsRelationship = null;
-    _registeredFourpsBeneficiary = null;
-    _dswdNhts = 'no';
-    _otherMemberships.clear();
-    _seniorCitizenId.clear();
-    _pwdId.clear();
-    _indigenousTribe.clear();
-    _otherMembershipCustomName.clear();
-    _otherMembershipCustomId.clear();
+  String? _optionalController(String? value) {
+    final trimmed = value?.trim();
+    return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+  }
+
+  void _nextStep() {
+    setState(() => _error = null);
+
+    if (_currentStep == 0) {
+      // Validate Step 1: Basic info
+      if (_firstName.text.trim().isEmpty || _lastName.text.trim().isEmpty) {
+        setState(() => _error = 'Please enter first name and last name.');
+        return;
+      }
+      if (_gender == null) {
+        setState(() => _error = 'Please select a gender.');
+        return;
+      }
+      setState(() => _currentStep = 1);
+    } else if (_currentStep == 1) {
+      // Validate Step 2: Address & Contact
+      if (_useManualAddressFields) {
+        if (_municipalityText.text.trim().isEmpty ||
+            _barangayText.text.trim().isEmpty) {
+          setState(() => _error = 'Please enter municipality and barangay.');
+          return;
+        }
+      } else {
+        if (_selectedMunicipalityCode == null ||
+            _selectedBarangayCode == null) {
+          setState(() => _error = 'Please select municipality and barangay.');
+          return;
+        }
+      }
+
+      final contact = _contactNumber.text.trim();
+      if (contact.isNotEmpty && contact.length != 11) {
+        setState(() => _error = 'Contact number must be exactly 11 digits.');
+        return;
+      }
+
+      final emailVal = _email.text.trim();
+      final emailPattern = RegExp("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$");
+      if (emailVal.isNotEmpty && !emailPattern.hasMatch(emailVal)) {
+        setState(() => _error = 'Please enter a valid email address.');
+        return;
+      }
+
+      setState(() => _currentStep = 2);
+    }
+  }
+
+  void _prevStep() {
+    if (_currentStep > 0) {
+      setState(() {
+        _error = null;
+        _currentStep--;
+      });
+    } else {
+      Navigator.of(context).maybePop();
+    }
   }
 
   Future<void> _save() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _error = 'Please resolve highlighted form errors.');
+      return;
+    }
+
+    if (_gender == null) {
+      setState(() => _error = 'Gender is required.');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
+      final emailValue = _email.text.trim();
       final emailPattern = RegExp("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$");
-      if (_email.text.trim().isNotEmpty &&
-          !emailPattern.hasMatch(_email.text.trim())) {
+      if (emailValue.isNotEmpty && !emailPattern.hasMatch(emailValue)) {
         setState(() {
           _isLoading = false;
           _error = 'Please enter a valid email address.';
@@ -434,7 +511,6 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         return;
       }
 
-      // Get municipality and barangay names
       final municipalityName = _useManualAddressFields
           ? (_optional(_municipalityText) ?? '')
           : _municipalities
@@ -455,7 +531,6 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
           _locationContext?.province ??
           widget.existingPatient?.details?.province;
 
-      // Format full address
       final fullAddress = PsgcService.formatAddress(
         purok: _optional(_purok),
         barangayName: barangayName.isNotEmpty ? barangayName : null,
@@ -526,768 +601,1073 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F8F7),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    AppPageHeader(
-                      title: _isEditMode
-                          ? 'Edit patient profile'
-                          : 'Patient profile',
-                      subtitle: _isEditMode
-                          ? 'Update the saved Form 1 details for this patient.'
-                          : 'Add yourself or a dependent.',
-                      onBack: () => Navigator.of(context).maybePop(),
-                    ),
-                    const SizedBox(height: 20),
-                    if (_error case final message?) ...[
-                      Text(
-                        message,
-                        style: const TextStyle(color: AppColors.error),
+    return PopScope(
+      canPop: _currentStep == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _currentStep > 0) {
+          _prevStep();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF4F6F5),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppPageHeader(
+                        title: _isEditMode
+                            ? 'Edit patient profile'
+                            : 'Patient profile',
+                        subtitle: _isEditMode
+                            ? 'Update the saved Form 1 details for this patient.'
+                            : 'Add yourself or a dependent.',
+                        onBack: _prevStep,
                       ),
-                      const SizedBox(height: 12),
-                    ],
-                    MenuSurface(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _label('RELATIONSHIP'),
-                          DropdownButtonFormField<String>(
-                            initialValue: _relationship,
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'self',
-                                child: Text('Myself'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'child',
-                                child: Text('My child'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'dependent',
-                                child: Text('Dependent'),
-                              ),
-                            ],
-                            onChanged: _isLoading
-                                ? null
-                                : (value) =>
-                                      setState(() => _relationship = value!),
+                      const SizedBox(height: 16),
+                      // Step Progress Header
+                      _buildStepProgressHeader(),
+                      const SizedBox(height: 16),
+                      if (_error case final message?) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(height: 14),
-                          _field('FIRST NAME *', _firstName, required: true),
-                          _field('MIDDLE NAME', _middleName),
-                          _field('LAST NAME *', _lastName, required: true),
-                          _field('SUFFIX', _suffix),
-                          _label('GENDER *'),
-                          DropdownButtonFormField<String>(
-                            initialValue: _gender,
-                            hint: const Text('Select gender'),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'male',
-                                child: Text('Male'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'female',
-                                child: Text('Female'),
-                              ),
-                            ],
-                            onChanged: _isLoading
-                                ? null
-                                : (value) => setState(() => _gender = value),
-                            validator: (value) =>
-                                value == null ? 'Gender is required' : null,
-                          ),
-                          const SizedBox(height: 14),
-                          _label('DATE OF BIRTH'),
-                          TextFormField(
-                            controller: _birthDate,
-                            readOnly: true,
-                            onTap: _chooseBirthDate,
-                            decoration: InputDecoration(
-                              hintText: 'YYYY-MM-DD',
-                              suffixIcon: IconButton(
-                                tooltip: 'Choose birth date',
-                                onPressed: _chooseBirthDate,
-                                icon: const Icon(Icons.calendar_today_outlined),
-                              ),
+                          child: Text(
+                            message,
+                            style: const TextStyle(
+                              color: Color(0xFFDC2626),
+                              fontSize: 12,
                             ),
                           ),
-                          const SizedBox(height: 14),
-                          _label('BLOOD TYPE'),
-                          DropdownButtonFormField<String>(
-                            initialValue: _bloodType,
-                            hint: const Text('Select blood type'),
-                            items: const [
-                              DropdownMenuItem(value: 'A+', child: Text('A+')),
-                              DropdownMenuItem(value: 'A-', child: Text('A-')),
-                              DropdownMenuItem(value: 'B+', child: Text('B+')),
-                              DropdownMenuItem(value: 'B-', child: Text('B-')),
-                              DropdownMenuItem(
-                                value: 'AB+',
-                                child: Text('AB+'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'AB-',
-                                child: Text('AB-'),
-                              ),
-                              DropdownMenuItem(value: 'O+', child: Text('O+')),
-                              DropdownMenuItem(value: 'O-', child: Text('O-')),
-                            ],
-                            onChanged: _isLoading
-                                ? null
-                                : (value) => setState(() => _bloodType = value),
-                          ),
-                          const SizedBox(height: 14),
-                          _field('MOTHER\'S MAIDEN NAME', _motherMaidenName),
-                          _label('CIVIL STATUS'),
-                          DropdownButtonFormField<String>(
-                            initialValue: _civilStatus,
-                            hint: const Text('Select civil status'),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'single',
-                                child: Text('Single'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'married',
-                                child: Text('Married'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'widowed',
-                                child: Text('Widowed'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'separated',
-                                child: Text('Separated'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'annulled',
-                                child: Text('Annulled'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'cohabitation',
-                                child: Text('Co-Habitation'),
-                              ),
-                            ],
-                            onChanged: _isLoading
-                                ? null
-                                : (value) =>
-                                      setState(() => _civilStatus = value),
-                          ),
-                          if (_civilStatus == 'married') ...[
-                            const SizedBox(height: 14),
-                            _field('SPOUSE\'S NAME', _spouseName),
-                          ],
+                        ),
+                        const SizedBox(height: 14),
+                      ],
 
-                          // Address Section
-                          const Padding(
-                            padding: EdgeInsets.only(top: 20, bottom: 8),
-                            child: Text(
-                              'RESIDENTIAL ADDRESS — MISAMIS ORIENTAL',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ),
-                          if (_useManualAddressFields) ...[
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 14),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceMuted,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Address lookup is currently unavailable. You can still continue by typing the municipality and barangay manually.',
-                                    style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12,
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: TextButton.icon(
-                                      onPressed: _isLoading
-                                          ? null
-                                          : () {
-                                              setState(() {
-                                                _useManualAddressFields = false;
-                                              });
-                                              _loadMunicipalities();
-                                            },
-                                      icon: const Icon(Icons.refresh, size: 16),
-                                      label: const Text('Retry address lookup'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            _field(
-                              'CITY / MUNICIPALITY *',
-                              _municipalityText,
+                      // STEP 1: Basic Info (Relationship + Personal Info)
+                      if (_currentStep == 0) ...[
+                        // Card 1: Relationship
+                        _sectionCard(
+                          icon: Icons.people_outline_rounded,
+                          title: 'Relationship',
+                          children: [
+                            _chipSelector<String>(
+                              label: 'Who is this profile for?',
+                              selectedValue: _relationship,
                               required: true,
+                              options: const [
+                                MapEntry('self', 'Myself'),
+                                MapEntry('child', 'My child'),
+                                MapEntry('dependent', 'Dependent'),
+                              ],
+                              onSelected: (value) {
+                                setState(() => _relationship = value);
+                                if (value == 'self') _autoFillFromAccount();
+                              },
                             ),
-                            _field('BARANGAY *', _barangayText, required: true),
-                          ] else ...[
-                            _label('CITY / MUNICIPALITY *'),
-                            DropdownButtonFormField<String>(
-                              initialValue: _selectedMunicipalityCode,
-                              hint: Text(
-                                _loadingMunicipalities
+                          ],
+                        ),
+
+                        // Card 2: Personal Information
+                        _sectionCard(
+                          icon: Icons.person_outline_rounded,
+                          title: 'Personal information',
+                          children: [
+                            // 2-Column Row 1: First name & Last name
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _inputField(
+                                    'First name',
+                                    _firstName,
+                                    hint: 'e.g. Juan',
+                                    required: true,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _inputField(
+                                    'Last name',
+                                    _lastName,
+                                    hint: 'e.g. Dela Cruz',
+                                    required: true,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // 2-Column Row 2: Middle name & Suffix
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _inputField(
+                                    'Middle name',
+                                    _middleName,
+                                    hint: 'Optional',
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _inputField(
+                                    'Suffix',
+                                    _suffix,
+                                    hint: 'Jr., Sr.',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Gender Chips
+                            _chipSelector<String>(
+                              label: 'Gender',
+                              selectedValue: _gender,
+                              required: true,
+                              options: const [
+                                MapEntry('male', 'Male'),
+                                MapEntry('female', 'Female'),
+                                MapEntry('other', 'Other'),
+                              ],
+                              onSelected: (value) =>
+                                  setState(() => _gender = value),
+                            ),
+                            // 2-Column Row 3: Date of birth & Blood type
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _inputField(
+                                    'Date of birth',
+                                    _birthDate,
+                                    hint: 'MM / DD / YYYY',
+                                    readOnly: true,
+                                    onTap: _chooseBirthDate,
+                                    suffixIcon: IconButton(
+                                      onPressed: _chooseBirthDate,
+                                      icon: const Icon(
+                                        Icons.calendar_today_outlined,
+                                        size: 16,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _dropdownField<String>(
+                                    label: 'Blood type',
+                                    selectedValue: _bloodType,
+                                    hint: 'Select',
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 'A+',
+                                        child: Text('A+'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'A-',
+                                        child: Text('A-'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'B+',
+                                        child: Text('B+'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'B-',
+                                        child: Text('B-'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'AB+',
+                                        child: Text('AB+'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'AB-',
+                                        child: Text('AB-'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'O+',
+                                        child: Text('O+'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'O-',
+                                        child: Text('O-'),
+                                      ),
+                                    ],
+                                    onChanged: (val) =>
+                                        setState(() => _bloodType = val),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            _inputField(
+                              'Mother\'s maiden name',
+                              _motherMaidenName,
+                              hint: 'Full name',
+                            ),
+                            _dropdownField<String>(
+                              label: 'Civil status',
+                              selectedValue: _civilStatus,
+                              hint: 'Select status',
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'single',
+                                  child: Text('Single'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'married',
+                                  child: Text('Married'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'widowed',
+                                  child: Text('Widowed'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'separated',
+                                  child: Text('Separated'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'annulled',
+                                  child: Text('Annulled'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'cohabitation',
+                                  child: Text('Co-Habitation'),
+                                ),
+                              ],
+                              onChanged: (val) =>
+                                  setState(() => _civilStatus = val),
+                            ),
+                            if (_civilStatus == 'married')
+                              _inputField(
+                                'Spouse\'s name',
+                                _spouseName,
+                                hint: 'Full name',
+                              ),
+                          ],
+                        ),
+                      ],
+
+                      // STEP 2: Address & Contact (Residential Address + Contact Num)
+                      if (_currentStep == 1) ...[
+                        // Card 3: Residential Address
+                        _sectionCard(
+                          icon: Icons.location_on_outlined,
+                          title: 'Residential address — Misamis Oriental',
+                          children: [
+                            if (_useManualAddressFields) ...[
+                              _inputField(
+                                'City / Municipality',
+                                _municipalityText,
+                                hint: 'Select municipality',
+                                required: true,
+                              ),
+                              _inputField(
+                                'Barangay',
+                                _barangayText,
+                                hint: 'Select barangay',
+                                required: true,
+                              ),
+                            ] else ...[
+                              _dropdownField<String>(
+                                label: 'City / Municipality',
+                                selectedValue: _selectedMunicipalityCode,
+                                required: true,
+                                hint: _loadingMunicipalities
                                     ? 'Loading...'
                                     : 'Select municipality',
+                                items: _municipalities
+                                    .map(
+                                      (m) => DropdownMenuItem(
+                                        value: m.code,
+                                        child: Text(m.name),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: _isLoading || _loadingMunicipalities
+                                    ? null
+                                    : (value) {
+                                        setState(() {
+                                          _selectedMunicipalityCode = value;
+                                          _selectedBarangayCode = null;
+                                          _barangayText.clear();
+                                          final selectedMunicipality =
+                                              _municipalities
+                                                  .where((m) => m.code == value)
+                                                  .firstOrNull;
+                                          _municipalityText.text =
+                                              selectedMunicipality?.name ?? '';
+                                        });
+                                        if (value != null)
+                                          _loadBarangays(value);
+                                      },
                               ),
-                              items: _municipalities
-                                  .map(
-                                    (m) => DropdownMenuItem(
-                                      value: m.code,
-                                      child: Text(m.name),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: _isLoading || _loadingMunicipalities
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        _selectedMunicipalityCode = value;
-                                        _selectedBarangayCode = null;
-                                        _barangayText.clear();
-                                        final selectedMunicipality =
-                                            _municipalities
-                                                .where((m) => m.code == value)
-                                                .cast<PsgcLocation?>()
-                                                .firstWhere(
-                                                  (item) => item != null,
-                                                  orElse: () => null,
-                                                );
-                                        _municipalityText.text =
-                                            selectedMunicipality?.name ?? '';
-                                      });
-                                      if (value != null) _loadBarangays(value);
-                                    },
-                              validator: (value) => value == null
-                                  ? 'Municipality is required'
-                                  : null,
-                            ),
-                            const SizedBox(height: 14),
-                            _label('BARANGAY *'),
-                            DropdownButtonFormField<String>(
-                              initialValue: _selectedBarangayCode,
-                              hint: Text(
-                                _loadingBarangays
+                              _dropdownField<String>(
+                                label: 'Barangay',
+                                selectedValue: _selectedBarangayCode,
+                                required: true,
+                                hint: _loadingBarangays
                                     ? 'Loading...'
                                     : _selectedMunicipalityCode == null
                                     ? 'Select municipality first'
                                     : 'Select barangay',
+                                items: _barangays
+                                    .map(
+                                      (b) => DropdownMenuItem(
+                                        value: b.code,
+                                        child: Text(b.name),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: _isLoading || _loadingBarangays
+                                    ? null
+                                    : (value) {
+                                        setState(() {
+                                          _selectedBarangayCode = value;
+                                          final selectedBarangay = _barangays
+                                              .where((b) => b.code == value)
+                                              .firstOrNull;
+                                          _barangayText.text =
+                                              selectedBarangay?.name ?? '';
+                                        });
+                                      },
                               ),
-                              items: _barangays
-                                  .map(
-                                    (b) => DropdownMenuItem(
-                                      value: b.code,
-                                      child: Text(b.name),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged:
-                                  _isLoading ||
-                                      _loadingBarangays ||
-                                      _selectedMunicipalityCode == null
-                                  ? null
-                                  : (value) => setState(() {
-                                      _selectedBarangayCode = value;
-                                      final selectedBarangay = _barangays
-                                          .where((b) => b.code == value)
-                                          .cast<PsgcLocation?>()
-                                          .firstWhere(
-                                            (item) => item != null,
-                                            orElse: () => null,
-                                          );
-                                      _barangayText.text =
-                                          selectedBarangay?.name ?? '';
-                                    }),
-                              validator: (value) =>
-                                  value == null ? 'Barangay is required' : null,
+                            ],
+                            _inputField(
+                              'Purok / Zone / Street',
+                              _purok,
+                              hint: 'e.g. Purok 4, Limketkai Drive',
                             ),
                           ],
-                          const SizedBox(height: 14),
-                          _field('PUROK / ZONE / STREET', _purok),
+                        ),
 
-                          // Contact Section
-                          const Padding(
-                            padding: EdgeInsets.only(top: 16, bottom: 8),
-                            child: Text(
-                              'CONTACT INFORMATION',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.8,
-                              ),
+                        // Card 4: Contact Information
+                        _sectionCard(
+                          icon: Icons.phone_outlined,
+                          title: 'Contact information',
+                          children: [
+                            _inputField(
+                              'Contact number',
+                              _contactNumber,
+                              hint: '09XXXXXXXXX',
+                              phone: true,
                             ),
-                          ),
-                          _field('CONTACT NUMBER', _contactNumber, phone: true),
-                          _field('EMAIL ADDRESS', _email, email: true),
-
-                          // Emergency Contact Section
-                          const Padding(
-                            padding: EdgeInsets.only(top: 16, bottom: 8),
-                            child: Text(
-                              'EMERGENCY CONTACT',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.8,
-                              ),
+                            _inputField(
+                              'Email address',
+                              _email,
+                              hint: 'you@example.com',
+                              email: true,
                             ),
-                          ),
-                          _field(
-                            'Emergency contact name',
-                            _emergencyContactName,
-                          ),
-                          _field(
-                            'Emergency contact phone',
-                            _emergencyContactNumber,
-                            phone: true,
-                          ),
-
-                          // Socioeconomic Section
-                          const Padding(
-                            padding: EdgeInsets.only(top: 16, bottom: 8),
-                            child: Text(
-                              'SOCIOECONOMIC INFORMATION',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.8,
+                            // Info Callout Box
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE1F5EE),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                            ),
-                          ),
-                          _label('EDUCATIONAL ATTAINMENT'),
-                          DropdownButtonFormField<String>(
-                            initialValue: _educationalAttainment,
-                            hint: const Text('Select education level'),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'no_formal',
-                                child: Text('No Formal Education'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'elementary',
-                                child: Text('Elementary'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'high_school',
-                                child: Text('High School'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'vocational',
-                                child: Text('Vocational'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'college',
-                                child: Text('College'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'post_graduate',
-                                child: Text('Post Graduate'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'student',
-                                child: Text('Student'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'unknown',
-                                child: Text('Unknown'),
-                              ),
-                            ],
-                            onChanged: _isLoading
-                                ? null
-                                : (value) => setState(
-                                    () => _educationalAttainment = value,
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline_rounded,
+                                    size: 16,
+                                    color: Color(0xFF085041),
                                   ),
-                          ),
-                          const SizedBox(height: 14),
-                          _label('EMPLOYMENT STATUS'),
-                          DropdownButtonFormField<String>(
-                            initialValue: _employmentStatus,
-                            hint: const Text('Select employment status'),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'employed',
-                                child: Text('Employed'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'unemployed',
-                                child: Text('None/Unemployed'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'self_employed',
-                                child: Text('Self-Employed'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'retired',
-                                child: Text('Retired'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'student',
-                                child: Text('Student'),
-                              ),
-                            ],
-                            onChanged: _isLoading
-                                ? null
-                                : (value) =>
-                                      setState(() => _employmentStatus = value),
-                          ),
-                          const SizedBox(height: 14),
-                          _label('FAMILY MEMBER POSITION'),
-                          DropdownButtonFormField<String>(
-                            initialValue: _familyMember,
-                            hint: const Text('Select position'),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'father',
-                                child: Text('Father (Ama)'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'mother',
-                                child: Text('Mother (Ina)'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'son',
-                                child: Text('Son (Anak na Lalaki)'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'daughter',
-                                child: Text('Daughter (Anak na Babae)'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'others',
-                                child: Text('Others'),
-                              ),
-                            ],
-                            onChanged: _isLoading
-                                ? null
-                                : (value) =>
-                                      setState(() => _familyMember = value),
-                          ),
-
-                          // Government Programs Section
-                          const Padding(
-                            padding: EdgeInsets.only(top: 20, bottom: 8),
-                            child: Text(
-                              'GOVERNMENT PROGRAM INFORMATION',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ),
-                          _label('ANY GOVERNMENT PROGRAM / OTHER MEMBERSHIP?'),
-                          DropdownButtonFormField<String>(
-                            initialValue: _hasMembership,
-                            hint: const Text('Select'),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'yes',
-                                child: Text('Yes'),
-                              ),
-                              DropdownMenuItem(value: 'no', child: Text('No')),
-                            ],
-                            onChanged: _isLoading
-                                ? null
-                                : (value) => setState(() {
-                                    _hasMembership = value;
-                                    if (value == 'no') {
-                                      _clearMembershipFields();
-                                    }
-                                  }),
-                          ),
-                          if (_hasMembership == 'yes') ...[
-                            const SizedBox(height: 14),
-                            _label('PHILHEALTH MEMBER?'),
-                            DropdownButtonFormField<String>(
-                              initialValue: _philhealthMember,
-                              hint: const Text('Select'),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'yes',
-                                  child: Text('Yes'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'no',
-                                  child: Text('No'),
-                                ),
-                              ],
-                              onChanged: _isLoading
-                                  ? null
-                                  : (value) => setState(() {
-                                      _philhealthMember = value;
-                                      if (value != 'yes') {
-                                        _philhealthStatus = null;
-                                        _philhealthCategory = null;
-                                        _philhealthNo.clear();
-                                      }
-                                    }),
-                            ),
-                            if (_philhealthMember == 'yes') ...[
-                              const SizedBox(height: 14),
-                              _label('STATUS TYPE'),
-                              DropdownButtonFormField<String>(
-                                initialValue: _philhealthStatus,
-                                hint: const Text('Select status'),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'member',
-                                    child: Text('Member'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'dependent',
-                                    child: Text('Dependent'),
-                                  ),
-                                ],
-                                onChanged: _isLoading
-                                    ? null
-                                    : (value) => setState(
-                                        () => _philhealthStatus = value,
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Emergency contact details will be asked in the next step.',
+                                      style: TextStyle(
+                                        color: Color(0xFF085041),
+                                        fontSize: 11,
+                                        height: 1.3,
                                       ),
-                              ),
-                              const SizedBox(height: 14),
-                              _field('PHILHEALTH NO.', _philhealthNo),
-                              _label('CATEGORY'),
-                              DropdownButtonFormField<String>(
-                                initialValue: _philhealthCategory,
-                                hint: const Text('Select category'),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'fe_private',
-                                    child: Text('FE – Private'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'fe_government',
-                                    child: Text('FE – Government'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'ie',
-                                    child: Text('IE'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'others',
-                                    child: Text('Others'),
-                                  ),
-                                ],
-                                onChanged: _isLoading
-                                    ? null
-                                    : (value) => setState(
-                                        () => _philhealthCategory = value,
-                                      ),
-                              ),
-                            ],
-                            const SizedBox(height: 14),
-                            _label('4PS MEMBER?'),
-                            DropdownButtonFormField<String>(
-                              initialValue: _fourpsMember,
-                              hint: const Text('Select'),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'yes',
-                                  child: Text('Yes'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'no',
-                                  child: Text('No'),
-                                ),
-                              ],
-                              onChanged: _isLoading
-                                  ? null
-                                  : (value) => setState(() {
-                                      _fourpsMember = value;
-                                      if (value != 'yes') {
-                                        _fourpsCategory = null;
-                                        _fourpsRelationship = null;
-                                        _registeredFourpsBeneficiary = null;
-                                      }
-                                    }),
-                            ),
-                            if (_fourpsMember == 'yes') ...[
-                              const SizedBox(height: 14),
-                              _label('4PS MEMBERSHIP CATEGORY'),
-                              DropdownButtonFormField<String>(
-                                initialValue: _fourpsCategory,
-                                hint: const Text('Select category'),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'Beneficiary',
-                                    child: Text('Beneficiary'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'Member of Beneficiary',
-                                    child: Text('Member of Beneficiary'),
-                                  ),
-                                ],
-                                onChanged: _isLoading
-                                    ? null
-                                    : (value) => setState(() {
-                                        _fourpsCategory = value;
-                                        if (value != 'Member of Beneficiary') {
-                                          _fourpsRelationship = null;
-                                          _registeredFourpsBeneficiary = null;
-                                        }
-                                      }),
-                              ),
-                              if (_fourpsCategory ==
-                                  'Member of Beneficiary') ...[
-                                const SizedBox(height: 14),
-                                _label('REGISTERED 4PS BENEFICIARY'),
-                                DropdownButtonFormField<String>(
-                                  initialValue: _registeredFourpsBeneficiary,
-                                  hint: const Text('Select beneficiary'),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'Mother',
-                                      child: Text('Mother'),
                                     ),
-                                    DropdownMenuItem(
-                                      value: 'Father',
-                                      child: Text('Father'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      // STEP 3: Socioeconomic & Government Program
+                      if (_currentStep == 2) ...[
+                        // Card 5: Socioeconomic Information
+                        _sectionCard(
+                          icon: Icons.school_outlined,
+                          title: 'Socioeconomic information',
+                          children: [
+                            _dropdownField<String>(
+                              label: 'Educational attainment',
+                              selectedValue: _educationalAttainment,
+                              hint: 'Select education level',
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'Elementary',
+                                  child: Text('Elementary'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'High School',
+                                  child: Text('High School'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'College',
+                                  child: Text('College'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Postgraduate',
+                                  child: Text('Postgraduate'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'None',
+                                  child: Text('None'),
+                                ),
+                              ],
+                              onChanged: (val) =>
+                                  setState(() => _educationalAttainment = val),
+                            ),
+                            _dropdownField<String>(
+                              label: 'Employment status',
+                              selectedValue: _employmentStatus,
+                              hint: 'Select employment status',
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'Employed',
+                                  child: Text('Employed'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Unemployed',
+                                  child: Text('Unemployed'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Student',
+                                  child: Text('Student'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Retired',
+                                  child: Text('Retired'),
+                                ),
+                              ],
+                              onChanged: (val) =>
+                                  setState(() => _employmentStatus = val),
+                            ),
+                            _dropdownField<String>(
+                              label: 'Family member position',
+                              selectedValue: _familyMember,
+                              hint: 'Select position',
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'Head',
+                                  child: Text('Head of family'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Member',
+                                  child: Text('Member'),
+                                ),
+                              ],
+                              onChanged: (val) =>
+                                  setState(() => _familyMember = val),
+                            ),
+                          ],
+                        ),
+
+                        // Card 6: Government Program / Membership
+                        _sectionCard(
+                          icon: Icons.card_membership_outlined,
+                          title: 'Government program / membership',
+                          children: [
+                            _chipSelector<String>(
+                              label:
+                                  'Any government program or other membership?',
+                              selectedValue: _hasMembership,
+                              options: const [
+                                MapEntry('yes', 'Yes'),
+                                MapEntry('no', 'No'),
+                              ],
+                              onSelected: (val) =>
+                                  setState(() => _hasMembership = val),
+                            ),
+                            if (_hasMembership == 'yes') ...[
+                              _chipSelector<String>(
+                                label: 'PhilHealth member?',
+                                selectedValue: _philhealthMember,
+                                options: const [
+                                  MapEntry('yes', 'Yes'),
+                                  MapEntry('no', 'No'),
+                                ],
+                                onSelected: (val) =>
+                                    setState(() => _philhealthMember = val),
+                              ),
+                              if (_philhealthMember == 'yes') ...[
+                                _inputField(
+                                  'PhilHealth ID number',
+                                  _philhealthNo,
+                                  hint: '12-digit PhilHealth ID',
+                                  phone: true,
+                                ),
+                              ],
+                              _chipSelector<String>(
+                                label: '4Ps member?',
+                                selectedValue: _fourpsMember,
+                                options: const [
+                                  MapEntry('yes', 'Yes'),
+                                  MapEntry('no', 'No'),
+                                ],
+                                onSelected: (val) =>
+                                    setState(() => _fourpsMember = val),
+                              ),
+                              _chipSelector<String>(
+                                label: 'DSWD NHTS?',
+                                selectedValue: _dswdNhts,
+                                options: const [
+                                  MapEntry('yes', 'Yes'),
+                                  MapEntry('no', 'No'),
+                                ],
+                                onSelected: (val) =>
+                                    setState(() => _dswdNhts = val),
+                              ),
+                              const SizedBox(height: 6),
+                              _sentenceLabel('Other memberships'),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  _membershipChip(
+                                    'senior_citizen',
+                                    'Senior Citizen',
+                                  ),
+                                  _membershipChip('pwd', 'PWD'),
+                                  _membershipChip(
+                                    'indigenous_member',
+                                    'Indigenous Member',
+                                  ),
+                                  _membershipChip('others', 'Others'),
+                                ],
+                              ),
+                              if (_otherMemberships.contains('senior_citizen'))
+                                _inputField(
+                                  'Senior Citizen ID no.',
+                                  _seniorCitizenId,
+                                  hint: 'ID number',
+                                ),
+                              if (_otherMemberships.contains('pwd'))
+                                _inputField(
+                                  'PWD ID no.',
+                                  _pwdId,
+                                  hint: 'ID number',
+                                ),
+                              if (_otherMemberships.contains(
+                                'indigenous_member',
+                              ))
+                                _inputField(
+                                  'Tribe / Ethnicity',
+                                  _indigenousTribe,
+                                  hint: 'Specify tribe',
+                                ),
+                              if (_otherMemberships.contains('others')) ...[
+                                _inputField(
+                                  'Membership name',
+                                  _otherMembershipCustomName,
+                                  hint: 'Name of program',
+                                ),
+                                _inputField(
+                                  'Membership ID / Certificate no.',
+                                  _otherMembershipCustomId,
+                                  hint: 'ID number',
+                                ),
+                              ],
+                            ],
+                          ],
+                        ),
+                      ],
+
+                      const SizedBox(height: 16),
+
+                      // Action Buttons for Multi-Step Navigation
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_currentStep == 0) ...[
+                            SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _nextStep,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text('Continue'),
+                                    SizedBox(width: 6),
+                                    Icon(
+                                      Icons.arrow_forward_rounded,
+                                      size: 16,
+                                      color: Colors.white,
                                     ),
                                   ],
-                                  onChanged: _isLoading
-                                      ? null
-                                      : (value) => setState(
-                                          () => _registeredFourpsBeneficiary =
-                                              value,
-                                        ),
                                 ),
-                                const SizedBox(height: 14),
-                                _label(
-                                  'RELATIONSHIP TO REGISTERED 4PS BENEFICIARY',
-                                ),
-                                DropdownButtonFormField<String>(
-                                  initialValue: _fourpsRelationship,
-                                  hint: const Text('Select relationship'),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'Daughter',
-                                      child: Text('Daughter'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Son',
-                                      child: Text('Son'),
-                                    ),
-                                  ],
-                                  onChanged: _isLoading
-                                      ? null
-                                      : (value) => setState(
-                                          () => _fourpsRelationship = value,
-                                        ),
-                                ),
-                              ],
-                            ],
-                            const SizedBox(height: 14),
-                            _label('DSWD NHTS?'),
-                            DropdownButtonFormField<String>(
-                              initialValue: _dswdNhts,
-                              hint: const Text('Select'),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'yes',
-                                  child: Text('Yes'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'no',
-                                  child: Text('No'),
-                                ),
-                              ],
-                              onChanged: _isLoading
-                                  ? null
-                                  : (value) =>
-                                        setState(() => _dswdNhts = value),
+                              ),
                             ),
-                            const SizedBox(height: 16),
-                            _label('OTHER MEMBERSHIPS'),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
+                          ] else ...[
+                            Row(
                               children: [
-                                _membershipChip(
-                                  'senior_citizen',
-                                  'Senior Citizen',
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 48,
+                                    child: OutlinedButton.icon(
+                                      onPressed: _isLoading ? null : _prevStep,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xFF374151),
+                                        side: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 0.5,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        textStyle: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.arrow_back_rounded,
+                                        size: 16,
+                                      ),
+                                      label: const Text('Back'),
+                                    ),
+                                  ),
                                 ),
-                                _membershipChip('pwd', 'PWD'),
-                                _membershipChip(
-                                  'indigenous_member',
-                                  'Indigenous Member',
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: SizedBox(
+                                    height: 48,
+                                    child: ElevatedButton(
+                                      onPressed: _isLoading
+                                          ? null
+                                          : (_currentStep == 2
+                                                ? _save
+                                                : _nextStep),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        textStyle: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      child: _isLoading
+                                          ? const SizedBox.square(
+                                              dimension: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  _currentStep == 2
+                                                      ? (_isEditMode
+                                                            ? 'Save changes'
+                                                            : 'Save profile')
+                                                      : 'Continue',
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Icon(
+                                                  _currentStep == 2
+                                                      ? Icons
+                                                          .check_circle_outline_rounded
+                                                      : Icons
+                                                          .arrow_forward_rounded,
+                                                  size: 16,
+                                                  color: Colors.white,
+                                                ),
+                                              ],
+                                            ),
+                                    ),
+                                  ),
                                 ),
-                                _membershipChip('others', 'Others'),
                               ],
                             ),
-                            if (_otherMemberships.contains(
-                              'senior_citizen',
-                            )) ...[
-                              const SizedBox(height: 14),
-                              _field('SENIOR CITIZEN ID NO.', _seniorCitizenId),
-                            ],
-                            if (_otherMemberships.contains('pwd')) ...[
-                              const SizedBox(height: 14),
-                              _field('PWD ID NO.', _pwdId),
-                            ],
-                            if (_otherMemberships.contains(
-                              'indigenous_member',
-                            )) ...[
-                              const SizedBox(height: 14),
-                              _field('TRIBE / ETHNICITY', _indigenousTribe),
-                            ],
-                            if (_otherMemberships.contains('others')) ...[
-                              const SizedBox(height: 14),
-                              _field(
-                                'SPECIFY MEMBERSHIP NAME',
-                                _otherMembershipCustomName,
-                              ),
-                              _field(
-                                'MEMBERSHIP ID / CERTIFICATE NO.',
-                                _otherMembershipCustomId,
-                              ),
-                            ],
                           ],
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            height: 42,
+                            child: TextButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Draft saved successfully.',
+                                          ),
+                                        ),
+                                      );
+                                      Navigator.of(context).pop();
+                                    },
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF6B7280),
+                                textStyle: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              child: const Text('Save as draft'),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    PrimaryActionButton(
-                      label: _isEditMode
-                          ? 'Save changes'
-                          : 'Save patient profile',
-                      isLoading: _isLoading,
-                      onPressed: _save,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepProgressHeader() {
+    final title = switch (_currentStep) {
+      1 => 'Step 2 of 3 — Address & contact',
+      2 => 'Step 3 of 3 — Socioeconomic & program',
+      _ => 'Step 1 of 3 — Basic info',
+    };
+
+    final percent = switch (_currentStep) {
+      1 => '66%',
+      2 => '100%',
+      _ => '33%',
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+            Text(
+              percent,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _currentStep >= 1
+                      ? AppColors.primary
+                      : const Color(0xFFE1F5EE),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _currentStep >= 2
+                      ? AppColors.primary
+                      : const Color(0xFFE1F5EE),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionCard({
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111827),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _chipSelector<T>({
+    required String label,
+    required T? selectedValue,
+    required List<MapEntry<T, String>> options,
+    required ValueChanged<T> onSelected,
+    bool required = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sentenceLabel(label, required: required),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.map((option) {
+            final isSelected = selectedValue == option.key;
+            return ChoiceChip(
+              label: Text(option.value),
+              selected: isSelected,
+              selectedColor: const Color(0xFFE1F5EE),
+              backgroundColor: Colors.white,
+              side: BorderSide(
+                color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                width: isSelected ? 1.5 : 0.5,
+              ),
+              labelStyle: TextStyle(
+                color: isSelected
+                    ? const Color(0xFF085041)
+                    : const Color(0xFF374151),
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
+              onSelected: _isLoading ? null : (_) => onSelected(option.key),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _inputField(
+    String label,
+    TextEditingController controller, {
+    String? hint,
+    bool required = false,
+    bool phone = false,
+    bool email = false,
+    Widget? suffixIcon,
+    VoidCallback? onTap,
+    bool readOnly = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sentenceLabel(label, required: required),
+          TextFormField(
+            controller: controller,
+            enabled: !_isLoading,
+            readOnly: readOnly,
+            onTap: onTap,
+            keyboardType: phone
+                ? TextInputType.phone
+                : email
+                ? TextInputType.emailAddress
+                : TextInputType.name,
+            textCapitalization: phone || email
+                ? TextCapitalization.none
+                : TextCapitalization.words,
+            inputFormatters: phone
+                ? [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(11),
+                  ]
+                : null,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF9CA3AF),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade200, width: 0.5),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade200, width: 0.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.5,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+              suffixIcon: suffixIcon,
+            ),
+            validator: (value) {
+              final trimmed = value?.trim() ?? '';
+              if (required && trimmed.isEmpty) {
+                return '$label is required';
+              }
+              if (phone && trimmed.isNotEmpty && trimmed.length != 11) {
+                return 'Phone number must be 11 digits';
+              }
+              final emailPattern = RegExp("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$");
+              if (email &&
+                  trimmed.isNotEmpty &&
+                  !emailPattern.hasMatch(trimmed)) {
+                return 'Please enter a valid email address';
+              }
+              return null;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dropdownField<T>({
+    required String label,
+    required T? selectedValue,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?>? onChanged,
+    String? hint,
+    bool required = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sentenceLabel(label, required: required),
+          DropdownButtonFormField<T>(
+            initialValue: selectedValue,
+            hint: hint != null
+                ? Text(
+                    hint,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                  )
+                : null,
+            items: items,
+            onChanged: _isLoading ? null : onChanged,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade200, width: 0.5),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade200, width: 0.5),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+            ),
+            validator: (value) =>
+                (required && value == null) ? '$label is required' : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sentenceLabel(String text, {bool required = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          text: text,
+          style: const TextStyle(
+            color: Color(0xFF374151),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+          children: [
+            if (required)
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: AppColors.error),
+              ),
+          ],
         ),
       ),
     );
@@ -1298,6 +1678,17 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     return FilterChip(
       label: Text(label),
       selected: selected,
+      selectedColor: const Color(0xFFE1F5EE),
+      backgroundColor: Colors.white,
+      side: BorderSide(
+        color: selected ? AppColors.primary : Colors.grey.shade300,
+        width: selected ? 1.5 : 0.5,
+      ),
+      labelStyle: TextStyle(
+        color: selected ? const Color(0xFF085041) : const Color(0xFF374151),
+        fontSize: 12,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+      ),
       onSelected: _isLoading
           ? null
           : (value) {
@@ -1316,72 +1707,6 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                 }
               });
             },
-    );
-  }
-
-  Widget _field(
-    String label,
-    TextEditingController controller, {
-    bool required = false,
-    bool phone = false,
-    bool email = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _label(label),
-          TextFormField(
-            controller: controller,
-            enabled: !_isLoading,
-            keyboardType: phone
-                ? TextInputType.phone
-                : email
-                ? TextInputType.emailAddress
-                : TextInputType.name,
-            textCapitalization: phone || email
-                ? TextCapitalization.none
-                : TextCapitalization.words,
-            inputFormatters: phone
-                ? [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(11),
-                  ]
-                : null,
-            validator: (value) {
-              final trimmed = value?.trim() ?? '';
-              if (required && trimmed.isEmpty) {
-                return '$label is required';
-              }
-              if (phone && trimmed.isNotEmpty && trimmed.length != 11) {
-                return 'Phone number must be exactly 11 digits';
-              }
-              final emailPattern = RegExp("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$");
-              if (email &&
-                  trimmed.isNotEmpty &&
-                  !emailPattern.hasMatch(trimmed)) {
-                return 'Please enter a valid email address';
-              }
-              return null;
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _label(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: AppColors.gray700,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
 }

@@ -37,50 +37,52 @@ class _MenuViewState extends State<MenuView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.pageBackground,
+      backgroundColor: const Color(0xFFF4F6F5),
       body: SafeArea(
         bottom: false,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-                  sliver: SliverList.list(
-                    children: [
-                      MenuSearchHeader(
-                        onSearchPressed: _openSearch,
-                        onNotificationsPressed: () => Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.notifications),
-                      ),
-                      const SizedBox(height: 20),
-                      const CampaignBanner(),
-                      const SizedBox(height: 24),
-                      ScheduleSection(
-                        onOpenAppointments: () => Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.appointments),
-                      ),
-                      const SizedBox(height: 24),
-                      QuickActionsSection(
-                        onBook: () => Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.booking),
-                        onProfiles: () => Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.settings),
-                        onPatientCard: _openPatientCard,
-                        onHistory: () => Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.history),
-                      ),
-                      const SizedBox(height: 24),
-                      const GuidelinesSection(),
-                      const SizedBox(height: 24),
-                      const InformationPanels(),
-                    ],
+            child: Column(
+              children: [
+                MenuSearchHeader(
+                  onSearchPressed: _openSearch,
+                  onNotificationsPressed: () => Navigator.of(
+                    context,
+                  ).pushNamed(AppRoutes.notifications),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const CampaignBanner(),
+                        const SizedBox(height: 20),
+                        ScheduleSection(
+                          onOpenAppointments: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.appointments),
+                        ),
+                        const SizedBox(height: 20),
+                        QuickActionsSection(
+                          onBook: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.booking),
+                          onProfiles: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.settings),
+                          onPatientCard: _openPatientCard,
+                          onHistory: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.history),
+                        ),
+                        const SizedBox(height: 20),
+                        const GuidelinesSection(),
+                        const SizedBox(height: 20),
+                        const InformationPanels(),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -201,7 +203,7 @@ class _HomeSearchDelegate extends SearchDelegate<String?> {
           leading: Icon(item.icon, color: AppColors.primaryDark),
           title: Text(
             item.label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => close(context, item.route),

@@ -51,7 +51,7 @@ interface Patient {
 }
 
 export default function NursePatientListPage() {
-  const [tab, setTab] = useState<'due_today' | 'upcoming' | 'overdue' | 'all'>('due_today');
+  const [tab, setTab] = useState<'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('due_today');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -61,10 +61,12 @@ export default function NursePatientListPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showForm3, setShowForm3] = useState(false);
+  const [checkingInId, setCheckingInId] = useState<number | null>(null);
 
-  // Stats for top circular ring KPI summary cards
+  // Stats for top summary cards
   const [kpiStats, setKpiStats] = useState({
     dueToday: 0,
+    online: 0,
     upcoming: 0,
     overdue: 0,
     total: 0,
@@ -91,31 +93,37 @@ export default function NursePatientListPage() {
       setPatients(dataList);
       setTotalCount(response.data.total || 0);
 
-      // Compute top KPI summary counts dynamically
-      const dueCount = response.data.due_today_count ?? dataList.filter((p: Patient) => {
-        const appt = p.appointments?.find((a: any) => a.status === 'scheduled');
-        if (!appt) return false;
-        return new Date(appt.appointment_date).toDateString() === new Date().toDateString();
-      }).length;
-
-      const overdueCount = response.data.overdue_count ?? dataList.filter((p: Patient) => {
-        const appt = p.appointments?.find((a: any) => a.status === 'scheduled');
-        if (!appt) return false;
-        const apptDate = new Date(appt.appointment_date);
-        const todayDate = new Date();
-        return apptDate < todayDate && apptDate.toDateString() !== todayDate.toDateString();
-      }).length;
-
       setKpiStats({
-        dueToday: dueCount,
-        upcoming: response.data.upcoming_count ?? Math.max(0, (response.data.total || dataList.length) - dueCount - overdueCount),
-        overdue: overdueCount,
+        dueToday: response.data.due_today_count ?? 0,
+        online: response.data.online_count ?? 0,
+        upcoming: response.data.upcoming_count ?? 0,
+        overdue: response.data.overdue_count ?? 0,
         total: response.data.total || dataList.length,
       });
     } catch (error: any) {
       toast(error.response?.data?.message || 'Failed to load patients', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCheckIn = async (patient: Patient) => {
+    setCheckingInId(patient.patient_id);
+    try {
+      const appt = (patient as any).appointments?.[0];
+      const isConsultation = appt?.appointment_type === 'consultation';
+      const res = await api.post('/queue', {
+        patient_id: patient.patient_id,
+        visit_type: isConsultation ? 'consultation' : 'vaccination',
+        queue_category: 'appointment',
+        priority: 'normal',
+      });
+      toast(`Patient ${patient.last_name}, ${patient.first_name} checked in as Queue #${res.data?.queue_number || 'OK'}!`);
+      loadPatients();
+    } catch (err: any) {
+      toast(err.response?.data?.message || 'Failed to add patient to queue', 'error');
+    } finally {
+      setCheckingInId(null);
     }
   };
 
@@ -218,16 +226,52 @@ export default function NursePatientListPage() {
     {
       key: 'name',
       header: 'PATIENT NAME',
-      render: (patient) => (
-        <Box>
-          <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#111827', lineHeight: 1.3 }}>
-            {patient.last_name}, {patient.first_name} {patient.middle_name || ''}
-          </Typography>
-          <Typography sx={{ fontSize: 12, color: '#6b7280', mt: 0.25 }}>
-            {patient.age}y · {patient.gender} {patient.contact_number ? `· ${patient.contact_number}` : ''}
-          </Typography>
-        </Box>
-      ),
+      render: (patient) => {
+        const isOnline = Boolean(
+          (patient as any).appointments?.some((a: any) => a.booked_by_account_id) ||
+          (patient as any).bite_intakes?.length ||
+          ((patient as any).accounts && (patient as any).accounts.length > 0)
+        );
+        return (
+          <Box>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 0.25 }}>
+              <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#111827', lineHeight: 1.3 }}>
+                {patient.last_name}, {patient.first_name} {patient.middle_name || ''}
+              </Typography>
+              {isOnline ? (
+                <Chip
+                  label="Online"
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    bgcolor: '#e0f2fe',
+                    color: '#0369a1',
+                    border: '1px solid #bae6fd',
+                  }}
+                />
+              ) : (
+                <Chip
+                  label="Walk-in"
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    bgcolor: '#f3f4f6',
+                    color: '#4b5563',
+                    border: '1px solid #e5e7eb',
+                  }}
+                />
+              )}
+            </Stack>
+            <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+              {patient.age}y · {patient.gender} {patient.contact_number ? `· ${patient.contact_number}` : ''}
+            </Typography>
+          </Box>
+        );
+      },
     },
     {
       key: 'last_dose',
@@ -274,7 +318,7 @@ export default function NursePatientListPage() {
           return <Typography sx={{ fontSize: 12, color: '#9ca3af' }}>—</Typography>;
         }
 
-        const apptDate = new Date(appt.appointment_date);
+        const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
         const todayDate = new Date();
         const isToday = apptDate.toDateString() === todayDate.toDateString();
         const isPast = apptDate < todayDate && !isToday;
@@ -291,11 +335,11 @@ export default function NursePatientListPage() {
         return (
           <Box>
             <Typography sx={{ fontSize: 13, fontWeight: 600, color: isPast ? '#991b1b' : isToday ? '#047857' : '#111827' }}>
-              {doseMap[appt.dose_number] || `Dose ${appt.dose_number}`}
+              {doseMap[appt.dose_number] || (appt.appointment_type === 'consultation' ? 'Initial Consultation' : `Dose ${appt.dose_number || '1'}`)}
             </Typography>
             <Typography sx={{ fontSize: 11.5, fontWeight: isToday || isPast ? 700 : 400, color: isPast ? '#dc2626' : isToday ? '#059669' : '#6b7280' }}>
               {isToday
-                ? 'Scheduled Today'
+                ? `Scheduled Today (${appt.time_slot || 'regular'})`
                 : isPast
                 ? `${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))} days overdue`
                 : apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -308,45 +352,72 @@ export default function NursePatientListPage() {
       key: 'actions',
       header: 'ACTIONS',
       align: 'right',
-      render: (patient) => (
-        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => {
-              setSelectedPatient(patient);
-              setShowForm3(true);
-            }}
-            startIcon={<VaccinationIcon fontSize="small" />}
-            sx={{
-              fontSize: 12,
-              py: 0.4,
-              px: 1.5,
-              textTransform: 'none',
-              fontWeight: 600,
-              borderRadius: '6px',
-              borderColor: '#bbf7d0',
-              color: '#166534',
-              bgcolor: '#f0fdf4',
-              '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
-            }}
-          >
-            Record Dose (Form 3)
-          </Button>
-          <Tooltip title="View Treatment Record Card">
-            <IconButton
+      render: (patient) => {
+        const activeQueue = (patient as any).queues?.[0];
+        const appt = (patient as any).appointments?.[0];
+        const canCheckIn = !activeQueue && appt?.status === 'scheduled';
+
+        return (
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+            {canCheckIn && (
+              <Button
+                size="small"
+                variant="contained"
+                disabled={checkingInId === patient.patient_id}
+                onClick={() => handleCheckIn(patient)}
+                sx={{
+                  fontSize: 12,
+                  py: 0.4,
+                  px: 1.5,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  bgcolor: '#10b981',
+                  color: '#ffffff',
+                  '&:hover': { bgcolor: '#059669' },
+                }}
+              >
+                {checkingInId === patient.patient_id ? 'Checking in...' : 'Check In'}
+              </Button>
+            )}
+            <Button
               size="small"
+              variant="outlined"
               onClick={() => {
                 setSelectedPatient(patient);
                 setShowForm3(true);
               }}
-              sx={{ color: '#6b7280', bgcolor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#eff6ff', color: '#2563eb' } }}
+              startIcon={<VaccinationIcon fontSize="small" />}
+              sx={{
+                fontSize: 12,
+                py: 0.4,
+                px: 1.5,
+                textTransform: 'none',
+                fontWeight: 600,
+                borderRadius: '6px',
+                borderColor: '#bbf7d0',
+                color: '#166534',
+                bgcolor: '#f0fdf4',
+                '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
+              }}
             >
-              <ViewIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      ),
+              Record Dose (Form 3)
+            </Button>
+            <Tooltip title="View Treatment Record Card">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setSelectedPatient(patient);
+                  setShowForm3(true);
+                }}
+                sx={{ color: '#6b7280', bgcolor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#eff6ff', color: '#2563eb' } }}
+              >
+                <ViewIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        );
+      },
     },
   ];
 
@@ -380,7 +451,7 @@ export default function NursePatientListPage() {
             Treatment Patient List
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
-            {today} · Track vaccination schedules, doses, and follow-ups
+            {today} · Track vaccination schedules, online appointments, doses, and follow-ups
           </Typography>
           {/* Breadcrumb */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
@@ -405,11 +476,12 @@ export default function NursePatientListPage() {
       </Box>
 
       {/* ── Top Circular Ring Summary Cards (Matching Vaccine Inventory & Queue Design) ── */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
         <StatCard label="DUE TODAY" value={kpiStats.dueToday} color="info" total={totalCount || 1} loading={loading} />
+        <StatCard label="ONLINE APPOINTMENTS" value={kpiStats.online} color="primary" total={totalCount || 1} loading={loading} />
         <StatCard label="UPCOMING DOSES" value={kpiStats.upcoming} color="success" total={totalCount || 1} loading={loading} />
         <StatCard label="OVERDUE DOSES" value={kpiStats.overdue} color="error" total={totalCount || 1} loading={loading} />
-        <StatCard label="TOTAL TRACKED" value={totalCount} color="primary" total={totalCount || 1} loading={loading} />
+        <StatCard label="TOTAL TRACKED" value={totalCount} color="warning" total={totalCount || 1} loading={loading} />
       </Box>
 
       {/* ── Tabs Bar with Soft Count Badges ── */}
@@ -441,6 +513,19 @@ export default function NursePatientListPage() {
             }
             value="due_today"
             icon={<UpcomingIcon fontSize="small" />}
+            iconPosition="start"
+          />
+          <Tab
+            label={
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <span>Online Bookings</span>
+                <Box sx={{ bgcolor: tab === 'online' ? '#e0f2fe' : '#f3f4f6', color: tab === 'online' ? '#0284c7' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+                  {kpiStats.online}
+                </Box>
+              </Stack>
+            }
+            value="online"
+            icon={<CalendarIcon fontSize="small" />}
             iconPosition="start"
           />
           <Tab

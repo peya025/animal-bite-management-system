@@ -44,20 +44,22 @@ class MobileAppointmentController extends Controller
             $validated = Validator::make(
                 $request->all(),
                 [
-                    'patient_id' => ['required', 'integer', 'exists:patients,patient_id'],
-                    'appointment_type' => ['required', 'in:consultation,vaccination'],
-                    'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
-                    'time_slot' => ['nullable', 'in:morning,afternoon'],
-                    'notes' => ['nullable', 'string', 'max:1000'],
-                    'intake' => ['required', 'array'],
-                    'intake.bite_date' => ['required', 'date', 'before_or_equal:today'],
-                    'intake.bite_place' => ['nullable', 'string', 'max:255'],
-                    'intake.site_washed' => ['required', 'boolean'],
-                    'intake.exposure_type' => ['required', 'in:bite,scratch,lick,other'],
-                    'intake.animal_type' => ['required', 'string', 'max:100'],
+                    'patient_id'           => ['required', 'integer', 'exists:patients,patient_id'],
+                    'appointment_type'     => ['required', 'in:consultation,vaccination'],
+                    'scheduled_date'       => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+                    'time_slot'            => ['nullable', 'in:morning,afternoon'],
+                    'notes'                => ['nullable', 'string', 'max:1000'],
+                    'intake'               => ['required', 'array'],
+                    'intake.bite_date'     => ['required', 'date', 'before_or_equal:today'],
+                    'intake.bite_place'    => ['nullable', 'string', 'max:255'],
+                    'intake.site_washed'   => ['required', 'boolean'],
+                    'intake.exposure_type' => ['required', 'in:nibbling_uncovered_skin,nibbling_broken_skin,scratch_abrasion,transdermal_bite,handling_ingestion_raw_meat'],
+                    'intake.animal_type'   => ['required', 'string', 'max:100'],
+                    'intake.animal_type_others' => ['nullable', 'string', 'max:255'],
                     'intake.animal_status' => ['required', 'in:owned,stray,unknown'],
-                    'intake.animal_captured' => ['nullable', 'boolean'],
-                    'intake.wound_location' => ['nullable', 'string', 'max:255'],
+                    'intake.animal_captured'    => ['nullable', 'boolean'],
+                    'intake.wound_location'     => ['nullable', 'string', 'max:255'],
+                    'intake.body_part_exposed'  => ['nullable', 'in:head_neck,other_parts,na_ingestion'],
                     'intake.patient_description' => ['nullable', 'string', 'max:2000'],
                 ],
                 [
@@ -74,13 +76,15 @@ class MobileAppointmentController extends Controller
 
         $appointment = DB::transaction(function () use ($account, $patient, $validated) {
             $appointment = Appointment::create([
-                'patient_id' => $validated['patient_id'],
-                'appointment_type' => $validated['appointment_type'],
-                'scheduled_date' => $validated['scheduled_date'],
-                'time_slot' => $validated['time_slot'] ?? 'morning',
-                'notes' => $validated['notes'] ?? null,
+                'clinic_id'           => $patient->clinic_id,
+                'patient_id'          => $validated['patient_id'],
+                'appointment_type'    => $validated['appointment_type'],
+                'scheduled_date'      => $validated['scheduled_date'],
+                'appointment_date'    => $validated['scheduled_date'], // keep in sync
+                'time_slot'           => $validated['time_slot'] ?? 'morning',
+                'notes'               => $validated['notes'] ?? null,
                 'booked_by_account_id' => $account->id,
-                'status' => 'scheduled',
+                'status'              => 'scheduled',
             ]);
 
             if ($appointment->appointment_type === 'consultation' && !empty($validated['intake'])) {

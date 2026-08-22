@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 abstract final class AppColors {
   // Minimalist design system colors
-  static const primary = Color(0xFF14A98C); // Bright emerald teal - accents, dots, active
-  static const primaryDark = Color(0xFF0C6B5E); // Deep teal - CTA buttons, strong emphasis
-  static const primaryLight = Color(0xFFE1F5F1); // Light teal (keeping for compatibility)
+  static const primary = Color(0xFF1D9E75); // Exact teal
+  static const primaryDark = Color(0xFF085041); // Deep teal text
+  static const primaryLight = Color(0xFFE1F5EE); // Light teal surface background
   
   static const white = Color(0xFFFFFFFF);
-  static const pageBackground = Color(0xFFFAFAFA); // Off-white instead of tinted
+  static const pageBackground = Color(0xFFF5F5F5); // Light gray background
   
   // Text hierarchy
   static const textPrimary = Color(0xFF1A1A1A); // Near-black body text

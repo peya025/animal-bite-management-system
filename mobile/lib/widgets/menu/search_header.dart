@@ -14,63 +14,115 @@ class MenuSearchHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.primaryLight,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(
-            Icons.health_and_safety_outlined,
-            color: AppColors.primaryDark,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
         ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      ),
+      child: Row(
+        children: [
+          // Left: 38x38 rounded logo box (radius 10, #E1F5EE bg)
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE1F5EE),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.health_and_safety_outlined,
+              color: AppColors.primary,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Center: Greeting and Clinic Name
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Good morning',
+                  style: TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Animal Bite Center',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Color(0xFF111827),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Right: Search icon button (34x34, radius 10, white bg, 0.5px border)
+          _HeaderIconButton(
+            icon: Icons.search,
+            onTap: onSearchPressed,
+          ),
+          const SizedBox(width: 8),
+          // Right: Bell icon button with red dot
+          Stack(
+            clipBehavior: Clip.none,
             children: [
-              Text(
-                'Good morning',
-                style: TextStyle(color: AppColors.gray500, fontSize: 11),
+              _HeaderIconButton(
+                icon: Icons.notifications_none_rounded,
+                onTap: onNotificationsPressed,
               ),
-              SizedBox(height: 2),
-              Text(
-                'Animal Bite Center',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppColors.gray900,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade200, width: 0.5),
         ),
-        IconButton.filledTonal(
-          tooltip: 'Search',
-          onPressed: onSearchPressed,
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.surfaceMuted,
-            foregroundColor: AppColors.gray700,
-          ),
-          icon: const Icon(Icons.search_rounded),
-        ),
-        const SizedBox(width: 6),
-        IconButton.filledTonal(
-          tooltip: 'Notifications',
-          onPressed: onNotificationsPressed,
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.surfaceMuted,
-            foregroundColor: AppColors.gray700,
-          ),
-          icon: const Icon(Icons.notifications_none_rounded),
-        ),
-      ],
+        child: Icon(icon, size: 18, color: const Color(0xFF374151)),
+      ),
     );
   }
 }

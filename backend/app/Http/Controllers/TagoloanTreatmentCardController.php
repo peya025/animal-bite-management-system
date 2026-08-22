@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BiteIncident;
+use App\Models\BiteIncidentIntake;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\TagoloanTreatmentCard;
@@ -51,12 +52,41 @@ class TagoloanTreatmentCardController extends Controller
         $clinic = Clinic::find($clinicId);
         $patient = Patient::with(['details'])->where('clinic_id', $clinicId)->findOrFail($patientId);
         $latestBite = BiteIncident::where('clinic_id', $clinicId)->where('patient_id', $patientId)->orderBy('bite_date', 'desc')->first();
+        $latestIntake = BiteIncidentIntake::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest()->first();
         $treatmentRecords = TreatmentRecord::with('administeredBy')
             ->where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
             ->orderBy('dose_number', 'asc')
             ->get();
         $existingCard = TagoloanTreatmentCard::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest()->first();
+
+        // Resolve incident details from bite incident or mobile intake fallback
+        $biteData = null;
+        if ($latestBite) {
+            $biteData = [
+                'bite_id' => $latestBite->bite_id,
+                'case_number' => $latestBite->case_number,
+                'bite_date' => $latestBite->bite_date ? Carbon::parse($latestBite->bite_date)->format('Y-m-d') : null,
+                'bite_place' => $latestBite->bite_place,
+                'animal_type' => $latestBite->animal_type,
+                'animal_type_others' => null,
+                'referred_from' => $latestBite->referred_from,
+                'mode_of_exposure' => $latestIntake?->exposure_type,
+                'body_part_exposed' => $latestIntake?->body_part_exposed,
+            ];
+        } elseif ($latestIntake) {
+            $biteData = [
+                'bite_id' => $latestIntake->bite_id,
+                'case_number' => null,
+                'bite_date' => $latestIntake->bite_date ? Carbon::parse($latestIntake->bite_date)->format('Y-m-d') : null,
+                'bite_place' => $latestIntake->bite_place,
+                'animal_type' => $latestIntake->animal_type,
+                'animal_type_others' => $latestIntake->animal_type_others,
+                'referred_from' => null,
+                'mode_of_exposure' => $latestIntake->exposure_type,
+                'body_part_exposed' => $latestIntake->body_part_exposed,
+            ];
+        }
 
         return response()->json([
             'clinic' => [
@@ -78,14 +108,7 @@ class TagoloanTreatmentCardController extends Controller
                 'philhealth_status' => $patient->details->philhealth_status ?? 'member',
                 'hospital_no' => $patient->details->hospital_no ?? null,
             ],
-            'bite_incident' => $latestBite ? [
-                'bite_id' => $latestBite->bite_id,
-                'case_number' => $latestBite->case_number,
-                'bite_date' => $latestBite->bite_date ? Carbon::parse($latestBite->bite_date)->format('Y-m-d') : null,
-                'bite_place' => $latestBite->bite_place,
-                'animal_type' => $latestBite->animal_type,
-                'referred_from' => $latestBite->referred_from,
-            ] : null,
+            'bite_incident' => $biteData,
             'existing_card' => $existingCard,
             'treatment_records' => $treatmentRecords,
         ]);

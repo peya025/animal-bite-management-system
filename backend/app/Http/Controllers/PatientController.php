@@ -19,10 +19,13 @@ class PatientController extends Controller
     {
         $clinicId = $request->user()->clinic_id;
         
+        $tab = $request->get('tab', 'all');
+
         // Create cache key based on query parameters
         $cacheKey = sprintf(
-            'web:patients:clinic:%s:search:%s:gender:%s:membership:%s:sort:%s:%s:page:%s:per_page:%s',
+            'web:patients:clinic:%s:tab:%s:search:%s:gender:%s:membership:%s:sort:%s:%s:page:%s:per_page:%s',
             $clinicId,
+            $tab,
             $request->get('search', 'all'),
             $request->get('gender', 'all'),
             $request->get('membership_type', 'all'),
@@ -34,7 +37,7 @@ class PatientController extends Controller
 
         // Cache for 3 minutes (patient list changes moderately)
         return response()->json(
-            Cache::remember($cacheKey, 180, function () use ($request, $clinicId) {
+            Cache::remember($cacheKey, 180, function () use ($request, $clinicId, $tab) {
                 $query = Patient::where('clinic_id', $clinicId)
                     ->with([
                         'registeredBy',
@@ -42,13 +45,58 @@ class PatientController extends Controller
                         'memberships',
                         'latestTreatmentRecord',
                         'upcomingAppointment',
+                        'appointments' => function ($app) {
+                            $app->latest('scheduled_date');
+                        },
+                        'biteIntakes' => function ($bi) {
+                            $bi->latest();
+                        },
+                        'accounts',
                         'queues' => function ($q) {
                             $q->whereIn('status', ['waiting', 'in_consultation'])->latest();
                         }
                     ]);
 
+                // Tab-based filtering
+                switch ($tab) {
+                    case 'today_queue':
+                        $query->where(function ($q) {
+                            $q->whereHas('queues', function ($qu) {
+                                $qu->whereIn('status', ['waiting', 'in_consultation']);
+                            })->orWhereHas('appointments', function ($app) {
+                                $app->where(function ($d) {
+                                    $d->whereDate('appointment_date', \Carbon\Carbon::today())
+                                      ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
+                                })->where('status', 'scheduled');
+                            });
+                        });
+                        break;
+
+                    case 'online':
+                        $query->where(function ($q) {
+                            $q->whereHas('appointments', function ($app) {
+                                $app->whereNotNull('booked_by_account_id');
+                            })->orWhereHas('biteIntakes')->orWhereHas('accounts');
+                        });
+                        break;
+
+                    case 'overdue':
+                        $query->whereHas('appointments', function ($q) {
+                            $q->where(function ($d) {
+                                $d->where('appointment_date', '<', \Carbon\Carbon::today())
+                                  ->orWhere('scheduled_date', '<', \Carbon\Carbon::today());
+                            })->whereIn('status', ['scheduled', 'missed']);
+                        });
+                        break;
+
+                    case 'all':
+                    default:
+                        // No specific tab constraint
+                        break;
+                }
+
                 // Search functionality
-                if ($request->has('search')) {
+                if ($request->has('search') && $request->search) {
                     $search = $request->search;
                     $query->where(function($q) use ($search) {
                         $q->where('patient_number', 'like', "%{$search}%")
@@ -79,7 +127,42 @@ class PatientController extends Controller
 
                 // Paginate
                 $perPage = $request->get('per_page', 15);
-                return $query->paginate($perPage);
+                $paginated = $query->paginate($perPage);
+
+                // Summary counts for tabs
+                $allCount = Patient::where('clinic_id', $clinicId)->count();
+
+                $todayQueueCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
+                    $q->whereHas('queues', function ($qu) {
+                        $qu->whereIn('status', ['waiting', 'in_consultation']);
+                    })->orWhereHas('appointments', function ($app) {
+                        $app->where(function ($d) {
+                            $d->whereDate('appointment_date', \Carbon\Carbon::today())
+                              ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
+                        })->where('status', 'scheduled');
+                    });
+                })->count();
+
+                $onlineCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
+                    $q->whereHas('appointments', function ($app) {
+                        $app->whereNotNull('booked_by_account_id');
+                    })->orWhereHas('biteIntakes')->orWhereHas('accounts');
+                })->count();
+
+                $overdueCount = Patient::where('clinic_id', $clinicId)->whereHas('appointments', function ($q) {
+                    $q->where(function ($d) {
+                        $d->where('appointment_date', '<', \Carbon\Carbon::today())
+                          ->orWhere('scheduled_date', '<', \Carbon\Carbon::today());
+                    })->whereIn('status', ['scheduled', 'missed']);
+                })->count();
+
+                $res = $paginated->toArray();
+                $res['all_count'] = $allCount;
+                $res['today_queue_count'] = $todayQueueCount;
+                $res['online_count'] = $onlineCount;
+                $res['overdue_count'] = $overdueCount;
+
+                return $res;
             })
         );
     }

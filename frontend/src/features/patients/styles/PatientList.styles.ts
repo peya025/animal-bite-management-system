@@ -27,6 +27,49 @@ export const PatientListRoot = styled('div')`
   }
   .pm-title { font-size: 25px; font-weight: 600; color: var(--text-h); margin: 0 0 7px; letter-spacing: -0.5px; line-height: 1.2; }
   .pm-subtitle { font-size: 13px; color: var(--text-secondary); margin: 0; }
+  
+  /* Unified Filter Tabs */
+  .pm-tabs {
+    display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--card-border);
+    padding-bottom: 12px; margin-bottom: 4px;
+  }
+  .pm-tab-btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px;
+    border-radius: 9px; border: 1px solid var(--card-border); background: var(--input-bg);
+    color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .pm-tab-btn:hover { background: var(--bg-hover); }
+  .pm-tab-btn--active {
+    background: #10b981; border-color: #10b981; color: #ffffff; font-weight: 600;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+  }
+  .pm-tab-badge {
+    padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    background: rgba(0,0,0,0.08); color: inherit;
+  }
+  .pm-tab-btn--active .pm-tab-badge {
+    background: rgba(255,255,255,0.25); color: #ffffff;
+  }
+  
+  .pm-chip-online {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+    border-radius: 6px; font-size: 11px; font-weight: 600;
+    background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;
+  }
+  .pm-chip-walkin {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+    border-radius: 6px; font-size: 11px; font-weight: 600;
+    background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb;
+  }
+  .pm-btn-checkin {
+    display: inline-flex; align-items: center; gap: 4px; padding: 5px 11px;
+    border-radius: 6px; font-size: 11.5px; font-weight: 600;
+    background: #10b981; color: #ffffff; border: none; cursor: pointer;
+    box-shadow: 0 2px 4px rgba(16,185,129,0.2); transition: all 0.15s;
+  }
+  .pm-btn-checkin:hover { background: #059669; transform: translateY(-1px); }
+
   .pm-add-btn {
     display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px;
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);

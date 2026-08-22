@@ -160,8 +160,54 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       // Load appointments and pre-fill scheduled dates
       loadPatientAppointments();
+      loadPatientIncidentData();
     }
   }, [open, entry]);
+
+  const loadPatientIncidentData = async () => {
+    if (!entry?.patient?.patient_id) return;
+
+    try {
+      const res = await api.get(`/tagoloan-treatment-cards/patient/${entry.patient.patient_id}`);
+      const bite = res.data?.bite_incident;
+      const card = res.data?.existing_card;
+
+      if (bite || card) {
+        const mode = card?.mode_of_exposure || bite?.mode_of_exposure || '';
+        const bodyPart = card?.body_part_exposed || bite?.body_part_exposed || '';
+        const animal = card?.animal_type || bite?.animal_type || '';
+        const animalOther = card?.animal_type_others || bite?.animal_type_others || '';
+
+        setFormData(prev => ({
+          ...prev,
+          registry_no: prev.registry_no || card?.registry_no || bite?.case_number || '',
+          hospital_no: prev.hospital_no || card?.hospital_no || '',
+          referred_by: prev.referred_by || card?.referred_by || bite?.referred_from || '',
+          exposure_category: card?.exposure_category || prev.exposure_category || '',
+          date_of_exposure: formatDateForInput(card?.card_date || bite?.bite_date) || prev.date_of_exposure,
+          place_of_exposure: bite?.bite_place || prev.place_of_exposure,
+          mode_of_exposure: {
+            nibbling_uncovered: mode === 'nibbling_uncovered_skin',
+            nibbling_wounded: mode === 'nibbling_broken_skin',
+            scratch_abrasion: mode === 'scratch_abrasion',
+            transdermal_bite: mode === 'transdermal_bite',
+            handling_ingestion: mode === 'handling_ingestion_raw_meat',
+          },
+          body_part_affected: {
+            head_neck: bodyPart === 'head_neck',
+            other_parts: bodyPart === 'other_parts',
+            na_ingestion: bodyPart === 'na_ingestion',
+          },
+          animal_type: animal.toLowerCase() === 'dog' ? 'dog' : animal ? 'other' : prev.animal_type,
+          animal_type_other: animalOther || (animal.toLowerCase() !== 'dog' ? animal : ''),
+          past_history_bite: card?.past_bite_history ? 'yes' : card ? 'no' : prev.past_history_bite,
+          pep_completed: card?.past_pep_completed ? 'yes' : card ? 'no' : prev.pep_completed,
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load patient incident data:', err);
+    }
+  };
 
   const loadPatientAppointments = async () => {
     if (!entry?.patient?.patient_id) return;

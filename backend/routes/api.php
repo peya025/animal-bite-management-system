@@ -8,6 +8,7 @@ use App\Http\Controllers\BiteIncidentIntakeController;
 use App\Http\Controllers\ClinicModuleConfigController;
 use App\Http\Controllers\ClinicSetupController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
+use App\Http\Controllers\Mobile\MobileLocationController;
 use App\Http\Controllers\Mobile\MobileNotificationController;
 use App\Http\Controllers\Mobile\MobileVaccinationCardController;
 use App\Http\Controllers\Mobile\PatientAccountAuthController;
@@ -74,7 +75,12 @@ Route::prefix('mobile')->group(function () {
 
         Route::get('/patients', [PatientProfileController::class, 'index']);
         Route::post('/patients', [PatientProfileController::class, 'store']);
+        Route::patch('/patients/{patient}', [PatientProfileController::class, 'update']);
         Route::get('/patients/{patient}/vaccination-card', [MobileVaccinationCardController::class, 'show']);
+
+        Route::get('/locations/context', [MobileLocationController::class, 'context']);
+        Route::get('/locations/municipalities', [MobileLocationController::class, 'municipalities']);
+        Route::get('/locations/barangays', [MobileLocationController::class, 'barangays']);
 
         Route::get('/appointments', [MobileAppointmentController::class, 'index']);
         Route::post('/appointments', [MobileAppointmentController::class, 'store']);

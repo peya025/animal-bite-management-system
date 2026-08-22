@@ -268,23 +268,50 @@ class _BookingViewState extends State<BookingView> {
                         ),
                       if (_patients.isNotEmpty) ...[
                         const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: _addDependent,
-                            icon: const Icon(
-                              Icons.person_add_alt_1_outlined,
-                              size: 16,
-                            ),
-                            label: const Text('Add child or dependent'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              textStyle: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            TextButton.icon(
+                              onPressed: _selectedPatient == null
+                                  ? null
+                                  : () async {
+                                      await Navigator.of(context).pushNamed(
+                                        AppRoutes.patientProfile,
+                                        arguments: _selectedPatient,
+                                      );
+                                      if (mounted && _selectedPatient != null) {
+                                        await _loadPatients(
+                                          selectPatientId: _selectedPatient!.id,
+                                        );
+                                      }
+                                    },
+                              icon: const Icon(Icons.badge_outlined, size: 16),
+                              label: const Text('View profile'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                textStyle: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
-                          ),
+                            TextButton.icon(
+                              onPressed: _addDependent,
+                              icon: const Icon(
+                                Icons.person_add_alt_1_outlined,
+                                size: 16,
+                              ),
+                              label: const Text('Add child or dependent'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                textStyle: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                       const SizedBox(height: 24),

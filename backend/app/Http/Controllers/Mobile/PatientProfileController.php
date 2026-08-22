@@ -13,6 +13,61 @@ use Illuminate\Validation\ValidationException;
 
 class PatientProfileController extends Controller
 {
+    private function validatePatientPayload(Request $request, ?Patient $patient = null): array
+    {
+        $membershipService = app(PatientMembershipService::class);
+
+        $patientData = $request->validate([
+            'clinic_id' => ['sometimes', 'integer', 'exists:clinics,id'],
+            'relationship' => ['required', 'in:self,child,dependent'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'suffix' => ['nullable', 'string', 'max:50'],
+            'gender' => ['required', 'in:male,female'],
+            'date_of_birth' => ['nullable', 'date', 'before:today'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'string', 'email', 'max:255'],
+            'emergency_contact_name' => ['nullable', 'string', 'max:255'],
+            'emergency_contact_number' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $detailsData = $request->validate(array_merge([
+            'blood_type' => ['nullable', 'string', 'max:10'],
+            'mother_maiden_name' => ['nullable', 'string', 'max:255'],
+            'civil_status' => ['nullable', 'in:single,married,widowed,separated,annulled,cohabitation'],
+            'spouse_name' => ['nullable', 'string', 'max:255'],
+            'address_municipality' => ['nullable', 'string', 'max:255'],
+            'address_barangay' => ['nullable', 'string', 'max:255'],
+            'address_purok' => ['nullable', 'string', 'max:255'],
+            'province' => ['nullable', 'string', 'max:100'],
+            'educational_attainment' => ['nullable', 'string', 'max:50'],
+            'employment_status' => ['nullable', 'string', 'max:50'],
+            'family_member' => ['nullable', 'string', 'max:50'],
+            'philhealth_member' => ['nullable', 'in:yes,no'],
+            'philhealth_status' => ['nullable', 'in:member,dependent'],
+            'philhealth_no' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('patient_details', 'philhealth_no')->ignore($patient?->details?->id),
+            ],
+            'philhealth_category' => ['nullable', 'string', 'max:50'],
+            'fourps_member' => ['nullable', 'in:yes,no'],
+            'fourps_category' => ['nullable', 'string', 'max:50'],
+            'fourps_relationship' => ['nullable', 'string', 'max:50'],
+            'registered_fourps_beneficiary' => ['nullable', 'string', 'max:50'],
+            'dswd_nhts' => ['nullable', 'in:yes,no'],
+            'has_membership' => ['nullable', 'string', 'max:10'],
+            'other_membership' => ['nullable', 'string', 'max:500'],
+            'other_membership_name' => ['nullable', 'string', 'max:500'],
+            'other_membership_no' => ['nullable', 'string', 'max:500'],
+        ], $membershipService->validationRules()));
+
+        return [$patientData, $detailsData, $membershipService];
+    }
+
     public function index(Request $request)
     {
         $accountId = $request->user()->id;
@@ -28,52 +83,7 @@ class PatientProfileController extends Controller
 
     public function store(Request $request)
     {
-        $membershipService = app(PatientMembershipService::class);
-
-        // Validate basic patient data
-        $patientData = $request->validate([
-            'clinic_id' => ['required', 'integer', 'exists:clinics,id'],
-            'relationship' => ['required', 'in:self,child,dependent'],
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'suffix' => ['nullable', 'string', 'max:50'],
-            'gender' => ['required', 'in:male,female'],
-            'date_of_birth' => ['nullable', 'date', 'before:today'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'contact_number' => ['nullable', 'string', 'max:50'],
-            'email' => ['nullable', 'string', 'email', 'max:255'],
-            'emergency_contact_name' => ['nullable', 'string', 'max:255'],
-            'emergency_contact_number' => ['nullable', 'string', 'max:50'],
-        ]);
-
-        // Validate extended Form 1 data
-        $detailsData = $request->validate(array_merge([
-            'blood_type' => ['nullable', 'string', 'max:10'],
-            'mother_maiden_name' => ['nullable', 'string', 'max:255'],
-            'civil_status' => ['nullable', 'in:single,married,widowed,separated,annulled,cohabitation'],
-            'spouse_name' => ['nullable', 'string', 'max:255'],
-            'address_municipality' => ['nullable', 'string', 'max:255'],
-            'address_barangay' => ['nullable', 'string', 'max:255'],
-            'address_purok' => ['nullable', 'string', 'max:255'],
-            'province' => ['nullable', 'string', 'max:100'],
-            'educational_attainment' => ['nullable', 'string', 'max:50'],
-            'employment_status' => ['nullable', 'string', 'max:50'],
-            'family_member' => ['nullable', 'string', 'max:50'],
-            'philhealth_member' => ['nullable', 'in:yes,no'],
-            'philhealth_status' => ['nullable', 'in:member,dependent'],
-            'philhealth_no' => ['nullable', 'string', 'max:50', Rule::unique('patient_details', 'philhealth_no')],
-            'philhealth_category' => ['nullable', 'string', 'max:50'],
-            'fourps_member' => ['nullable', 'in:yes,no'],
-            'fourps_category' => ['nullable', 'string', 'max:50'],
-            'fourps_relationship' => ['nullable', 'string', 'max:50'],
-            'registered_fourps_beneficiary' => ['nullable', 'string', 'max:50'],
-            'dswd_nhts' => ['nullable', 'in:yes,no'],
-            'has_membership' => ['nullable', 'string', 'max:10'],
-            'other_membership' => ['nullable', 'string', 'max:500'],
-            'other_membership_name' => ['nullable', 'string', 'max:500'],
-            'other_membership_no' => ['nullable', 'string', 'max:500'],
-        ], $membershipService->validationRules()));
+        [$patientData, $detailsData, $membershipService] = $this->validatePatientPayload($request);
 
         $account = $request->user();
 
@@ -119,5 +129,58 @@ class PatientProfileController extends Controller
             $account->patients()->with(['details', 'memberships'])->whereKey($patient->patient_id)->firstOrFail(),
             201,
         );
+    }
+
+    public function update(Request $request, Patient $patient)
+    {
+        $account = $request->user();
+
+        $linkedPatient = $account->patients()
+            ->with(['details', 'memberships'])
+            ->whereKey($patient->patient_id)
+            ->wherePivotIn('status', ['pending', 'verified'])
+            ->firstOrFail();
+
+        [$patientData, $detailsData, $membershipService] = $this->validatePatientPayload($request, $linkedPatient);
+
+        if ($patientData['relationship'] === 'self'
+            && $account->patients()
+                ->wherePivot('relationship', 'self')
+                ->where('patients.patient_id', '!=', $linkedPatient->patient_id)
+                ->exists()) {
+            throw ValidationException::withMessages([
+                'relationship' => ['This account already has a self profile.'],
+            ]);
+        }
+
+        $updatedPatient = DB::transaction(function () use ($account, $linkedPatient, $patientData, $detailsData, $request, $membershipService) {
+            $relationship = $patientData['relationship'];
+            unset($patientData['relationship'], $patientData['clinic_id']);
+
+            $linkedPatient->update($patientData);
+
+            $detailsPayload = array_map(fn($value) => ($value === '' ? null : $value), $detailsData);
+            $memberships = $membershipService->membershipsFromPayload($request->all());
+            $detailsPayload = array_merge($detailsPayload, $membershipService->legacyFieldsFromMemberships($memberships));
+
+            if ($linkedPatient->details) {
+                $linkedPatient->details->update($detailsPayload);
+            } elseif (!empty(array_filter($detailsPayload, fn($value) => !is_null($value)))) {
+                $linkedPatient->details()->create($detailsPayload);
+            }
+
+            $membershipService->syncForPatient($linkedPatient, $memberships);
+
+            $account->patients()->updateExistingPivot($linkedPatient->patient_id, [
+                'relationship' => $relationship,
+            ]);
+
+            return $linkedPatient->fresh(['details', 'memberships']);
+        });
+
+        Cache::forget("mobile:patients:account:{$account->id}");
+        Cache::forget("mobile:account:me:{$account->id}");
+
+        return response()->json($updatedPatient);
     }
 }

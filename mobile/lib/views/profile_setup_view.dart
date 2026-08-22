@@ -15,10 +15,12 @@ class ProfileSetupView extends StatefulWidget {
     super.key,
     this.initialRelationship = 'self',
     this.returnToBooking = false,
+    this.existingPatient,
   });
 
   final String initialRelationship;
   final bool returnToBooking;
+  final PatientProfile? existingPatient;
 
   @override
   State<ProfileSetupView> createState() => _ProfileSetupViewState();
@@ -38,6 +40,8 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   final _motherMaidenName = TextEditingController();
   final _spouseName = TextEditingController();
   final _purok = TextEditingController();
+  final _municipalityText = TextEditingController();
+  final _barangayText = TextEditingController();
   final _philhealthNo = TextEditingController();
   final _seniorCitizenId = TextEditingController();
   final _pwdId = TextEditingController();
@@ -74,27 +78,44 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   String? _selectedBarangayCode;
   bool _loadingMunicipalities = false;
   bool _loadingBarangays = false;
+  bool _didSyncAddressFromExistingPatient = false;
+  bool _useManualAddressFields = false;
+  ClinicLocationContext? _locationContext;
+
+  bool get _isEditMode => widget.existingPatient != null;
 
   @override
   void initState() {
     super.initState();
-    _relationship = widget.initialRelationship;
+    _relationship =
+        widget.existingPatient?.relationship ?? widget.initialRelationship;
+    _prefillFromExistingPatient();
     _loadMunicipalities();
   }
 
   Future<void> _loadMunicipalities() async {
     setState(() => _loadingMunicipalities = true);
     try {
-      final municipalities = await PsgcService.getMunicipalities();
+      final locationContext =
+          await api.locationContext() as ClinicLocationContext;
+      final municipalities =
+          await api.locationMunicipalities() as List<PsgcLocation>;
       if (mounted) {
         setState(() {
+          _locationContext = locationContext;
           _municipalities = municipalities;
           _loadingMunicipalities = false;
+          _useManualAddressFields = municipalities.isEmpty;
         });
+        await _syncAddressSelectionFromExistingPatient();
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _loadingMunicipalities = false);
+        setState(() {
+          _loadingMunicipalities = false;
+          _useManualAddressFields = true;
+        });
+        await _syncAddressSelectionFromExistingPatient();
       }
     }
   }
@@ -106,16 +127,22 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
       _selectedBarangayCode = null;
     });
     try {
-      final barangays = await PsgcService.getBarangays(municipalityCode);
+      final barangays =
+          await api.locationBarangays(municipalityCode: municipalityCode)
+              as List<PsgcLocation>;
       if (mounted) {
         setState(() {
           _barangays = barangays;
           _loadingBarangays = false;
+          _useManualAddressFields = barangays.isEmpty;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _loadingBarangays = false);
+        setState(() {
+          _loadingBarangays = false;
+          _useManualAddressFields = true;
+        });
       }
     }
   }
@@ -134,6 +161,8 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     _motherMaidenName.dispose();
     _spouseName.dispose();
     _purok.dispose();
+    _municipalityText.dispose();
+    _barangayText.dispose();
     _philhealthNo.dispose();
     _seniorCitizenId.dispose();
     _pwdId.dispose();
@@ -161,6 +190,125 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   String? _optional(TextEditingController controller) {
     final value = controller.text.trim();
     return value.isEmpty ? null : value;
+  }
+
+  void _prefillFromExistingPatient() {
+    final patient = widget.existingPatient;
+    if (patient == null) return;
+
+    final details = patient.details;
+    final memberships = patient.memberships;
+
+    PatientMembership? membershipOf(String type) {
+      for (final membership in memberships) {
+        if (membership.membershipType == type) return membership;
+      }
+      return null;
+    }
+
+    final philhealth = membershipOf('philhealth');
+    final fourps = membershipOf('fourps');
+    final dswd = membershipOf('dswd_nhts');
+    final senior = membershipOf('senior_citizen');
+    final pwd = membershipOf('pwd');
+    final indigenous = membershipOf('indigenous_member');
+    final other = membershipOf('other');
+
+    _firstName.text = patient.firstName;
+    _middleName.text = patient.middleName ?? '';
+    _lastName.text = patient.lastName;
+    _suffix.text = patient.suffix ?? '';
+    _contactNumber.text = patient.contactNumber ?? '';
+    _email.text = patient.email ?? '';
+    _emergencyContactName.text = patient.emergencyContactName ?? '';
+    _emergencyContactNumber.text = patient.emergencyContactNumber ?? '';
+    _motherMaidenName.text = details?.motherMaidenName ?? '';
+    _spouseName.text = details?.spouseName ?? '';
+    _purok.text = details?.addressPurok ?? '';
+    _municipalityText.text = details?.addressMunicipality ?? '';
+    _barangayText.text = details?.addressBarangay ?? '';
+    _philhealthNo.text =
+        philhealth?.membershipIdNo ?? details?.philhealthNo ?? '';
+    _seniorCitizenId.text = senior?.membershipIdNo ?? '';
+    _pwdId.text = pwd?.membershipIdNo ?? '';
+    _indigenousTribe.text = indigenous?.extraValue ?? '';
+    _otherMembershipCustomName.text = other?.membershipLabel ?? '';
+    _otherMembershipCustomId.text = other?.membershipIdNo ?? '';
+
+    _gender = patient.gender;
+    _bloodType = details?.bloodType;
+    _civilStatus = details?.civilStatus;
+    _educationalAttainment = details?.educationalAttainment;
+    _employmentStatus = details?.employmentStatus;
+    _familyMember = details?.familyMember;
+    _philhealthMember = philhealth != null ? 'yes' : details?.philhealthMember;
+    _philhealthStatus = philhealth?.statusValue ?? details?.philhealthStatus;
+    _philhealthCategory = philhealth?.category ?? details?.philhealthCategory;
+    _fourpsMember = fourps != null ? 'yes' : details?.fourpsMember;
+    _fourpsCategory = fourps?.category ?? details?.fourpsCategory;
+    _fourpsRelationship =
+        fourps?.relationshipValue ?? details?.fourpsRelationship;
+    _registeredFourpsBeneficiary =
+        fourps?.registeredBeneficiary ?? details?.registeredFourpsBeneficiary;
+    _dswdNhts = dswd != null ? 'yes' : details?.dswdNhts;
+    _hasMembership =
+        details?.hasMembership ?? (memberships.isNotEmpty ? 'yes' : null);
+
+    _otherMemberships.clear();
+    if (senior != null) _otherMemberships.add('senior_citizen');
+    if (pwd != null) _otherMemberships.add('pwd');
+    if (indigenous != null) _otherMemberships.add('indigenous_member');
+    if (other != null) _otherMemberships.add('others');
+
+    if (patient.dateOfBirth != null && patient.dateOfBirth!.isNotEmpty) {
+      _birthDate.text = patient.dateOfBirth!;
+      _selectedBirthDate = DateTime.tryParse(patient.dateOfBirth!);
+    }
+  }
+
+  Future<void> _syncAddressSelectionFromExistingPatient() async {
+    final patient = widget.existingPatient;
+    if (patient == null || _didSyncAddressFromExistingPatient) return;
+
+    final details = patient.details;
+    final municipalityName = details?.addressMunicipality?.trim();
+    final barangayName = details?.addressBarangay?.trim();
+
+    if (municipalityName == null || municipalityName.isEmpty) {
+      _didSyncAddressFromExistingPatient = true;
+      return;
+    }
+
+    final municipality = _municipalities
+        .where(
+          (item) => item.name.toLowerCase() == municipalityName.toLowerCase(),
+        )
+        .cast<PsgcLocation?>()
+        .firstWhere((item) => item != null, orElse: () => null);
+
+    if (municipality == null) {
+      _didSyncAddressFromExistingPatient = true;
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _selectedMunicipalityCode = municipality.code);
+    await _loadBarangays(municipality.code);
+
+    if (!mounted) return;
+    if (barangayName != null && barangayName.isNotEmpty) {
+      final barangay = _barangays
+          .where(
+            (item) => item.name.toLowerCase() == barangayName.toLowerCase(),
+          )
+          .cast<PsgcLocation?>()
+          .firstWhere((item) => item != null, orElse: () => null);
+      if (barangay != null) {
+        setState(() => _selectedBarangayCode = barangay.code);
+      }
+    }
+
+    _didSyncAddressFromExistingPatient = true;
   }
 
   List<Map<String, dynamic>> _buildMembershipPayload() {
@@ -287,74 +435,82 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
       }
 
       // Get municipality and barangay names
-      final municipalityName = _municipalities
-          .firstWhere(
-            (m) => m.code == _selectedMunicipalityCode,
-            orElse: () => const PsgcLocation(code: '', name: ''),
-          )
-          .name;
-      final barangayName = _barangays
-          .firstWhere(
-            (b) => b.code == _selectedBarangayCode,
-            orElse: () => const PsgcLocation(code: '', name: ''),
-          )
-          .name;
+      final municipalityName = _useManualAddressFields
+          ? (_optional(_municipalityText) ?? '')
+          : _municipalities
+                .firstWhere(
+                  (m) => m.code == _selectedMunicipalityCode,
+                  orElse: () => const PsgcLocation(code: '', name: ''),
+                )
+                .name;
+      final barangayName = _useManualAddressFields
+          ? (_optional(_barangayText) ?? '')
+          : _barangays
+                .firstWhere(
+                  (b) => b.code == _selectedBarangayCode,
+                  orElse: () => const PsgcLocation(code: '', name: ''),
+                )
+                .name;
+      final provinceName =
+          _locationContext?.province ??
+          widget.existingPatient?.details?.province;
 
       // Format full address
       final fullAddress = PsgcService.formatAddress(
         purok: _optional(_purok),
         barangayName: barangayName.isNotEmpty ? barangayName : null,
         municipalityName: municipalityName.isNotEmpty ? municipalityName : null,
+        provinceName: provinceName,
       );
 
-      final patient =
-          await api.createPatient({
-                'relationship': _relationship,
-                'first_name': _firstName.text.trim(),
-                'middle_name': _optional(_middleName),
-                'last_name': _lastName.text.trim(),
-                'suffix': _optional(_suffix),
-                'gender': _gender,
-                'date_of_birth': _selectedBirthDate
-                    ?.toIso8601String()
-                    .split('T')
-                    .first,
-                'contact_number': _optional(_contactNumber),
-                'email': _optional(_email),
-                'emergency_contact_name': _optional(_emergencyContactName),
-                'emergency_contact_number': _optional(_emergencyContactNumber),
-                // Form 1 extended fields
-                'blood_type': _bloodType,
-                'mother_maiden_name': _optional(_motherMaidenName),
-                'civil_status': _civilStatus,
-                'spouse_name': _optional(_spouseName),
-                'address': fullAddress.isNotEmpty ? fullAddress : null,
-                'address_municipality': municipalityName.isNotEmpty
-                    ? municipalityName
-                    : null,
-                'address_barangay': barangayName.isNotEmpty
-                    ? barangayName
-                    : null,
-                'address_purok': _optional(_purok),
-                'province': 'Misamis Oriental',
-                'educational_attainment': _educationalAttainment,
-                'employment_status': _employmentStatus,
-                'family_member': _familyMember,
-                'philhealth_member': _philhealthMember,
-                'philhealth_status': _philhealthStatus,
-                'philhealth_no': _optional(_philhealthNo),
-                'philhealth_category': _philhealthCategory,
-                'fourps_member': _fourpsMember,
-                'fourps_category': _fourpsCategory,
-                'fourps_relationship': _fourpsRelationship,
-                'registered_fourps_beneficiary': _registeredFourpsBeneficiary,
-                'dswd_nhts': _dswdNhts,
-                'has_membership': _hasMembership,
-                'memberships': memberships,
-              })
-              as PatientProfile;
+      final payload = {
+        'relationship': _relationship,
+        'first_name': _firstName.text.trim(),
+        'middle_name': _optional(_middleName),
+        'last_name': _lastName.text.trim(),
+        'suffix': _optional(_suffix),
+        'gender': _gender,
+        'date_of_birth': _selectedBirthDate?.toIso8601String().split('T').first,
+        'contact_number': _optional(_contactNumber),
+        'email': _optional(_email),
+        'emergency_contact_name': _optional(_emergencyContactName),
+        'emergency_contact_number': _optional(_emergencyContactNumber),
+        'blood_type': _bloodType,
+        'mother_maiden_name': _optional(_motherMaidenName),
+        'civil_status': _civilStatus,
+        'spouse_name': _optional(_spouseName),
+        'address': fullAddress.isNotEmpty ? fullAddress : null,
+        'address_municipality': municipalityName.isNotEmpty
+            ? municipalityName
+            : null,
+        'address_barangay': barangayName.isNotEmpty ? barangayName : null,
+        'address_purok': _optional(_purok),
+        'province': provinceName,
+        'educational_attainment': _educationalAttainment,
+        'employment_status': _employmentStatus,
+        'family_member': _familyMember,
+        'philhealth_member': _philhealthMember,
+        'philhealth_status': _philhealthStatus,
+        'philhealth_no': _optional(_philhealthNo),
+        'philhealth_category': _philhealthCategory,
+        'fourps_member': _fourpsMember,
+        'fourps_category': _fourpsCategory,
+        'fourps_relationship': _fourpsRelationship,
+        'registered_fourps_beneficiary': _registeredFourpsBeneficiary,
+        'dswd_nhts': _dswdNhts,
+        'has_membership': _hasMembership,
+        'memberships': memberships,
+      };
+
+      final patient = _isEditMode
+          ? await api.updatePatient(
+                  patientId: widget.existingPatient!.id,
+                  profile: payload,
+                )
+                as PatientProfile
+          : await api.createPatient(payload) as PatientProfile;
       if (!mounted) return;
-      if (widget.returnToBooking) {
+      if (_isEditMode || widget.returnToBooking) {
         Navigator.of(context).pop(patient);
         return;
       }
@@ -384,8 +540,12 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     AppPageHeader(
-                      title: 'Patient profile',
-                      subtitle: 'Add yourself or a dependent.',
+                      title: _isEditMode
+                          ? 'Edit patient profile'
+                          : 'Patient profile',
+                      subtitle: _isEditMode
+                          ? 'Update the saved Form 1 details for this patient.'
+                          : 'Add yourself or a dependent.',
                       onBack: () => Navigator.of(context).maybePop(),
                     ),
                     const SizedBox(height: 20),
@@ -466,7 +626,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                           const SizedBox(height: 14),
                           _label('BLOOD TYPE'),
                           DropdownButtonFormField<String>(
-                            value: _bloodType,
+                            initialValue: _bloodType,
                             hint: const Text('Select blood type'),
                             items: const [
                               DropdownMenuItem(value: 'A+', child: Text('A+')),
@@ -492,7 +652,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                           _field('MOTHER\'S MAIDEN NAME', _motherMaidenName),
                           _label('CIVIL STATUS'),
                           DropdownButtonFormField<String>(
-                            value: _civilStatus,
+                            initialValue: _civilStatus,
                             hint: const Text('Select civil status'),
                             items: const [
                               DropdownMenuItem(
@@ -543,64 +703,131 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                               ),
                             ),
                           ),
-                          _label('CITY / MUNICIPALITY *'),
-                          DropdownButtonFormField<String>(
-                            value: _selectedMunicipalityCode,
-                            hint: Text(
-                              _loadingMunicipalities
-                                  ? 'Loading...'
-                                  : 'Select municipality',
+                          if (_useManualAddressFields) ...[
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 14),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceMuted,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Address lookup is currently unavailable. You can still continue by typing the municipality and barangay manually.',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextButton.icon(
+                                      onPressed: _isLoading
+                                          ? null
+                                          : () {
+                                              setState(() {
+                                                _useManualAddressFields = false;
+                                              });
+                                              _loadMunicipalities();
+                                            },
+                                      icon: const Icon(Icons.refresh, size: 16),
+                                      label: const Text('Retry address lookup'),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            items: _municipalities
-                                .map(
-                                  (m) => DropdownMenuItem(
-                                    value: m.code,
-                                    child: Text(m.name),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: _isLoading || _loadingMunicipalities
-                                ? null
-                                : (value) {
-                                    setState(
-                                      () => _selectedMunicipalityCode = value,
-                                    );
-                                    if (value != null) _loadBarangays(value);
-                                  },
-                            validator: (value) => value == null
-                                ? 'Municipality is required'
-                                : null,
-                          ),
-                          const SizedBox(height: 14),
-                          _label('BARANGAY *'),
-                          DropdownButtonFormField<String>(
-                            value: _selectedBarangayCode,
-                            hint: Text(
-                              _loadingBarangays
-                                  ? 'Loading...'
-                                  : _selectedMunicipalityCode == null
-                                  ? 'Select municipality first'
-                                  : 'Select barangay',
+                            _field(
+                              'CITY / MUNICIPALITY *',
+                              _municipalityText,
+                              required: true,
                             ),
-                            items: _barangays
-                                .map(
-                                  (b) => DropdownMenuItem(
-                                    value: b.code,
-                                    child: Text(b.name),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged:
-                                _isLoading ||
-                                    _loadingBarangays ||
-                                    _selectedMunicipalityCode == null
-                                ? null
-                                : (value) => setState(
-                                    () => _selectedBarangayCode = value,
-                                  ),
-                            validator: (value) =>
-                                value == null ? 'Barangay is required' : null,
-                          ),
+                            _field('BARANGAY *', _barangayText, required: true),
+                          ] else ...[
+                            _label('CITY / MUNICIPALITY *'),
+                            DropdownButtonFormField<String>(
+                              initialValue: _selectedMunicipalityCode,
+                              hint: Text(
+                                _loadingMunicipalities
+                                    ? 'Loading...'
+                                    : 'Select municipality',
+                              ),
+                              items: _municipalities
+                                  .map(
+                                    (m) => DropdownMenuItem(
+                                      value: m.code,
+                                      child: Text(m.name),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: _isLoading || _loadingMunicipalities
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _selectedMunicipalityCode = value;
+                                        _selectedBarangayCode = null;
+                                        _barangayText.clear();
+                                        final selectedMunicipality =
+                                            _municipalities
+                                                .where((m) => m.code == value)
+                                                .cast<PsgcLocation?>()
+                                                .firstWhere(
+                                                  (item) => item != null,
+                                                  orElse: () => null,
+                                                );
+                                        _municipalityText.text =
+                                            selectedMunicipality?.name ?? '';
+                                      });
+                                      if (value != null) _loadBarangays(value);
+                                    },
+                              validator: (value) => value == null
+                                  ? 'Municipality is required'
+                                  : null,
+                            ),
+                            const SizedBox(height: 14),
+                            _label('BARANGAY *'),
+                            DropdownButtonFormField<String>(
+                              initialValue: _selectedBarangayCode,
+                              hint: Text(
+                                _loadingBarangays
+                                    ? 'Loading...'
+                                    : _selectedMunicipalityCode == null
+                                    ? 'Select municipality first'
+                                    : 'Select barangay',
+                              ),
+                              items: _barangays
+                                  .map(
+                                    (b) => DropdownMenuItem(
+                                      value: b.code,
+                                      child: Text(b.name),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged:
+                                  _isLoading ||
+                                      _loadingBarangays ||
+                                      _selectedMunicipalityCode == null
+                                  ? null
+                                  : (value) => setState(() {
+                                      _selectedBarangayCode = value;
+                                      final selectedBarangay = _barangays
+                                          .where((b) => b.code == value)
+                                          .cast<PsgcLocation?>()
+                                          .firstWhere(
+                                            (item) => item != null,
+                                            orElse: () => null,
+                                          );
+                                      _barangayText.text =
+                                          selectedBarangay?.name ?? '';
+                                    }),
+                              validator: (value) =>
+                                  value == null ? 'Barangay is required' : null,
+                            ),
+                          ],
                           const SizedBox(height: 14),
                           _field('PUROK / ZONE / STREET', _purok),
 
@@ -658,7 +885,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                           ),
                           _label('EDUCATIONAL ATTAINMENT'),
                           DropdownButtonFormField<String>(
-                            value: _educationalAttainment,
+                            initialValue: _educationalAttainment,
                             hint: const Text('Select education level'),
                             items: const [
                               DropdownMenuItem(
@@ -703,7 +930,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                           const SizedBox(height: 14),
                           _label('EMPLOYMENT STATUS'),
                           DropdownButtonFormField<String>(
-                            value: _employmentStatus,
+                            initialValue: _employmentStatus,
                             hint: const Text('Select employment status'),
                             items: const [
                               DropdownMenuItem(
@@ -735,7 +962,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                           const SizedBox(height: 14),
                           _label('FAMILY MEMBER POSITION'),
                           DropdownButtonFormField<String>(
-                            value: _familyMember,
+                            initialValue: _familyMember,
                             hint: const Text('Select position'),
                             items: const [
                               DropdownMenuItem(
@@ -780,7 +1007,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                           ),
                           _label('ANY GOVERNMENT PROGRAM / OTHER MEMBERSHIP?'),
                           DropdownButtonFormField<String>(
-                            value: _hasMembership,
+                            initialValue: _hasMembership,
                             hint: const Text('Select'),
                             items: const [
                               DropdownMenuItem(
@@ -802,7 +1029,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                             const SizedBox(height: 14),
                             _label('PHILHEALTH MEMBER?'),
                             DropdownButtonFormField<String>(
-                              value: _philhealthMember,
+                              initialValue: _philhealthMember,
                               hint: const Text('Select'),
                               items: const [
                                 DropdownMenuItem(
@@ -829,7 +1056,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                               const SizedBox(height: 14),
                               _label('STATUS TYPE'),
                               DropdownButtonFormField<String>(
-                                value: _philhealthStatus,
+                                initialValue: _philhealthStatus,
                                 hint: const Text('Select status'),
                                 items: const [
                                   DropdownMenuItem(
@@ -851,7 +1078,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                               _field('PHILHEALTH NO.', _philhealthNo),
                               _label('CATEGORY'),
                               DropdownButtonFormField<String>(
-                                value: _philhealthCategory,
+                                initialValue: _philhealthCategory,
                                 hint: const Text('Select category'),
                                 items: const [
                                   DropdownMenuItem(
@@ -881,7 +1108,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                             const SizedBox(height: 14),
                             _label('4PS MEMBER?'),
                             DropdownButtonFormField<String>(
-                              value: _fourpsMember,
+                              initialValue: _fourpsMember,
                               hint: const Text('Select'),
                               items: const [
                                 DropdownMenuItem(
@@ -908,7 +1135,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                               const SizedBox(height: 14),
                               _label('4PS MEMBERSHIP CATEGORY'),
                               DropdownButtonFormField<String>(
-                                value: _fourpsCategory,
+                                initialValue: _fourpsCategory,
                                 hint: const Text('Select category'),
                                 items: const [
                                   DropdownMenuItem(
@@ -935,7 +1162,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                 const SizedBox(height: 14),
                                 _label('REGISTERED 4PS BENEFICIARY'),
                                 DropdownButtonFormField<String>(
-                                  value: _registeredFourpsBeneficiary,
+                                  initialValue: _registeredFourpsBeneficiary,
                                   hint: const Text('Select beneficiary'),
                                   items: const [
                                     DropdownMenuItem(
@@ -959,7 +1186,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                   'RELATIONSHIP TO REGISTERED 4PS BENEFICIARY',
                                 ),
                                 DropdownButtonFormField<String>(
-                                  value: _fourpsRelationship,
+                                  initialValue: _fourpsRelationship,
                                   hint: const Text('Select relationship'),
                                   items: const [
                                     DropdownMenuItem(
@@ -982,7 +1209,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                             const SizedBox(height: 14),
                             _label('DSWD NHTS?'),
                             DropdownButtonFormField<String>(
-                              value: _dswdNhts,
+                              initialValue: _dswdNhts,
                               hint: const Text('Select'),
                               items: const [
                                 DropdownMenuItem(
@@ -1050,7 +1277,9 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                     ),
                     const SizedBox(height: 18),
                     PrimaryActionButton(
-                      label: 'Save patient profile',
+                      label: _isEditMode
+                          ? 'Save changes'
+                          : 'Save patient profile',
                       isLoading: _isLoading,
                       onPressed: _save,
                     ),

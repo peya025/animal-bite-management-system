@@ -306,6 +306,8 @@ class BiteCaseController extends Controller
         
         // Get clinic info for map center
         $clinic = DB::table('clinics')->find($clinicId);
+        $clinicMunicipality = $this->resolveClinicMunicipality($clinic);
+        $clinicProvince = $this->resolveClinicProvince($clinic);
         
         $query = BiteIncident::where('clinic_id', $clinicId)
             ->with(['patient.details'])
@@ -327,7 +329,7 @@ class BiteCaseController extends Controller
             $query->where('severity', $request->severity);
         }
         
-        $cases = $query->get()->map(function ($case) use ($geocodingService) {
+        $cases = $query->get()->map(function ($case) use ($geocodingService, $clinicMunicipality, $clinicProvince) {
             // Parse location data from bite_place or fallback to patient details
             $locationParts = array_map('trim', explode(',', $case->bite_place));
             $count = count($locationParts);
@@ -342,19 +344,21 @@ class BiteCaseController extends Controller
                 $municipality = $locationParts[1];
             } else {
                 $address = $case->bite_place;
-                $barangay = $case->patient->details->address_barangay ?? $case->patient->address_barangay ?? 'Poblacion';
-                $municipality = $case->patient->details->address_municipality ?? $case->patient->address_municipality ?? 'Claveria';
+                $barangay = $case->patient->details->address_barangay ?? $case->patient->address_barangay ?? null;
+                $municipality = $case->patient->details->address_municipality ?? $case->patient->address_municipality ?? $clinicMunicipality;
             }
 
             if (empty($barangay) || $barangay === 'Unknown') {
-                $barangay = $case->patient->details->address_barangay ?? 'Poblacion';
+                $barangay = $case->patient->details->address_barangay ?? $case->patient->address_barangay ?? '';
             }
             if (empty($municipality) || $municipality === 'Unknown') {
-                $municipality = $case->patient->details->address_municipality ?? 'Claveria';
+                $municipality = $case->patient->details->address_municipality ?? $case->patient->address_municipality ?? $clinicMunicipality ?? '';
             }
+
+            $province = $case->patient->details->province ?? $clinicProvince;
             
             // Get real coordinates using hybrid geocoding
-            $coordinates = $geocodingService->getCoordinates($barangay, $municipality);
+            $coordinates = $geocodingService->getCoordinates($barangay, $municipality, $province);
             
             return [
                 'bite_id' => $case->bite_id,
@@ -413,7 +417,7 @@ class BiteCaseController extends Controller
                     }
                 }
                 if ($mun) {
-                    $coords = $geocodingService->getCoordinates('', $mun);
+                    $coords = $geocodingService->getCoordinates('', $mun, $clinicProvince);
                     $mapCenter = [
                         'latitude' => $coords['latitude'],
                         'longitude' => $coords['longitude']
@@ -447,9 +451,50 @@ class BiteCaseController extends Controller
             'map_zoom' => $mapZoom,
             'clinic' => [
                 'name' => $clinic->name ?? '',
-                'municipality' => $clinic->municipality ?? '',
-                'province' => $clinic->province ?? 'Misamis Oriental',
+                'municipality' => $clinicMunicipality ?? '',
+                'province' => $clinicProvince ?? '',
             ]
         ]);
+    }
+
+    private function resolveClinicMunicipality(?object $clinic): ?string
+    {
+        if (! $clinic) {
+            return null;
+        }
+
+        $municipality = trim((string) ($clinic->municipality ?? ''));
+        if ($municipality !== '') {
+            return $municipality;
+        }
+
+        $parts = $this->splitAddressParts($clinic->address ?? null);
+
+        return count($parts) >= 2 ? $parts[count($parts) - 2] : null;
+    }
+
+    private function resolveClinicProvince(?object $clinic): ?string
+    {
+        if (! $clinic) {
+            return null;
+        }
+
+        $province = trim((string) ($clinic->province ?? ''));
+        if ($province !== '') {
+            return $province;
+        }
+
+        $parts = $this->splitAddressParts($clinic->address ?? null);
+
+        return count($parts) >= 1 ? $parts[count($parts) - 1] : null;
+    }
+
+    private function splitAddressParts(?string $address): array
+    {
+        if (! $address) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $address)), fn ($part) => $part !== ''));
     }
 }

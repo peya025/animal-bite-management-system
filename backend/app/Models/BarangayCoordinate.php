@@ -26,18 +26,22 @@ class BarangayCoordinate extends Model
     /**
      * Find coordinates by location
      */
-    public static function findByLocation(string $barangay, string $municipality, string $province = 'Misamis Oriental')
+    public static function findByLocation(string $barangay, string $municipality, ?string $province = null)
     {
-        return self::where('barangay', $barangay)
-            ->where('municipality', $municipality)
-            ->where('province', $province)
-            ->first();
+        $query = self::where('barangay', $barangay)
+            ->where('municipality', $municipality);
+
+        if ($province !== null && trim($province) !== '') {
+            $query->where('province', trim($province));
+        }
+
+        return $query->first();
     }
 
     /**
      * Get or create coordinates for a location
      */
-    public static function getOrGeocodeLocation(string $barangay, string $municipality, string $province = 'Misamis Oriental')
+    public static function getOrGeocodeLocation(string $barangay, string $municipality, ?string $province = null)
     {
         // Try to find existing coordinates
         $coords = self::findByLocation($barangay, $municipality, $province);

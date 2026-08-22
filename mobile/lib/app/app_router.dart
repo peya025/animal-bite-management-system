@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../views/booking_view.dart';
 import '../models/bite_intake_route_args.dart';
+import '../models/patient_profile.dart';
+import '../models/patient_profile_form_args.dart';
 import '../views/bite_intake_view.dart';
 import '../views/appointments_view.dart';
 import '../views/history_view.dart';
 import '../views/login_view.dart';
 import '../views/menu_view.dart';
 import '../views/notifications_view.dart';
+import '../views/patient_profile_view.dart';
 import '../views/profile_setup_view.dart';
 import '../views/settings_view.dart';
 import '../views/sign_up_view.dart';
@@ -25,17 +28,31 @@ abstract final class AppRouter {
       AppRoutes.history => const HistoryView(),
       AppRoutes.settings => const SettingsView(),
       AppRoutes.notifications => const NotificationsView(),
-      AppRoutes.profileSetup => ProfileSetupView(
-        initialRelationship: settings.arguments == 'add-dependent'
-            ? 'child'
-            : 'self',
-        returnToBooking: settings.arguments == 'add-dependent',
-      ),
-      AppRoutes.biteIntake => settings.arguments is BiteIntakeRouteArgs
-          ? BiteIntakeView(
-              args: settings.arguments! as BiteIntakeRouteArgs,
-            )
-          : const BookingView(),
+      AppRoutes.profileSetup => switch (settings.arguments) {
+        PatientProfileFormArgs args => ProfileSetupView(
+          initialRelationship:
+              args.initialRelationship ?? args.patient?.relationship ?? 'self',
+          returnToBooking: args.returnToBooking,
+          existingPatient: args.patient,
+        ),
+        PatientProfile patient => ProfileSetupView(
+          initialRelationship: patient.relationship,
+          existingPatient: patient,
+        ),
+        'add-dependent' => const ProfileSetupView(
+          initialRelationship: 'child',
+          returnToBooking: true,
+        ),
+        _ => const ProfileSetupView(),
+      },
+      AppRoutes.patientProfile =>
+        settings.arguments is PatientProfile
+            ? PatientProfileView(patient: settings.arguments! as PatientProfile)
+            : const SettingsView(),
+      AppRoutes.biteIntake =>
+        settings.arguments is BiteIntakeRouteArgs
+            ? BiteIntakeView(args: settings.arguments! as BiteIntakeRouteArgs)
+            : const BookingView(),
       AppRoutes.appointments => const AppointmentsView(),
       _ => const WelcomeView(),
     };

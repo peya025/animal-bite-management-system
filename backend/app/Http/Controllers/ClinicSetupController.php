@@ -181,7 +181,7 @@ class ClinicSetupController extends Controller
         
         // Try to extract municipality (usually 2nd or 3rd part)
         $municipality = null;
-        $province = 'Misamis Oriental'; // default
+        $province = null;
         
         if (count($parts) >= 3) {
             // Format: Street, Barangay, Municipality, Province
@@ -191,7 +191,7 @@ class ClinicSetupController extends Controller
             } else {
                 // Format: Street, Municipality, Province
                 $municipality = $parts[1];
-                $province = $parts[2] ?? 'Misamis Oriental';
+                $province = $parts[2] ?? null;
             }
         } elseif (count($parts) == 2) {
             // Format: Municipality, Province
@@ -202,10 +202,12 @@ class ClinicSetupController extends Controller
         if ($municipality) {
             try {
                 $geocodingService = new \App\Services\GeocodingService();
-                $coords = $geocodingService->getCoordinates('', $municipality);
+                $coords = $geocodingService->getCoordinates('', $municipality, $province);
                 
                 $data['municipality'] = $municipality;
-                $data['province'] = $province;
+                if ($province) {
+                    $data['province'] = $province;
+                }
                 $data['latitude'] = $coords['latitude'];
                 $data['longitude'] = $coords['longitude'];
                 

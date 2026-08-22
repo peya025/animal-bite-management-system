@@ -28,6 +28,7 @@ export default function PatientList() {
   const [totalPages,           setTotalPages]           = useState(1);
   const [total,                setTotal]                = useState(0);
   const [perPage, setPerPage] = useState(15);
+  const [membershipFilter, setMembershipFilter] = useState('all');
   const [showAddModal,         setShowAddModal]         = useState(false);
   const [showPrintModal,       setShowPrintModal]       = useState(false);
   const [selectedInvitePatient, setSelectedInvitePatient] = useState<Patient | null>(null);
@@ -63,6 +64,7 @@ export default function PatientList() {
           page,
           per_page: perPage,
           ...(searchTerm ? { search: searchTerm } : {}),
+          ...(membershipFilter !== 'all' ? { membership_type: membershipFilter } : {}),
         },
       });
       const json = response.data;
@@ -76,10 +78,10 @@ export default function PatientList() {
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm, perPage]);
+  }, [page, searchTerm, perPage, membershipFilter]);
 
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
-  useEffect(() => { setPage(1); }, [perPage]);
+  useEffect(() => { setPage(1); }, [perPage, membershipFilter]);
 
   const getLiveStatus = (p: Patient) => {
     const activeQueue = (p as any).queues?.[0];
@@ -198,6 +200,32 @@ export default function PatientList() {
               <span>entries</span>
             </div>
             <div className="pm-controls-right">
+              <div className="pm-membership-filter-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>Program:</span>
+                <select
+                  value={membershipFilter}
+                  onChange={(e) => setMembershipFilter(e.target.value)}
+                  style={{
+                    padding: '7px 12px',
+                    fontSize: '13px',
+                    borderRadius: '8px',
+                    border: '1px solid #d1d5db',
+                    backgroundColor: '#ffffff',
+                    color: '#374151',
+                    fontWeight: 500,
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="all">All Programs</option>
+                  <option value="philhealth">PhilHealth</option>
+                  <option value="fourps">4Ps Beneficiaries</option>
+                  <option value="dswd_nhts">DSWD NHTS</option>
+                  <option value="senior_citizen">Senior Citizens</option>
+                  <option value="pwd">PWD (Disability)</option>
+                  <option value="indigenous_member">Indigenous Tribe</option>
+                </select>
+              </div>
               <div className="pm-search-wrap">
                 <svg className="pm-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>

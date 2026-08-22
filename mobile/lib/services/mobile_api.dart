@@ -232,6 +232,9 @@ class MobileApi {
         'patient_id': patient.id,
         'appointment_type': booking.service.name,
         'scheduled_date': booking.date.toIso8601String().split('T').first,
+        'time_slot': booking.timeSlot.name,
+        if (booking.notes != null && booking.notes!.trim().isNotEmpty)
+          'notes': booking.notes!.trim(),
         if (intake != null) 'intake': intake.toJson(),
       },
     );

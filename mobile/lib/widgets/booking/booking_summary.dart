@@ -13,6 +13,7 @@ class BookingSummary extends StatelessWidget {
     required this.onConfirm,
     this.patientName,
     this.isLoading = false,
+    this.confirmLabel,
   });
 
   final BookingService service;
@@ -20,6 +21,7 @@ class BookingSummary extends StatelessWidget {
   final VoidCallback onConfirm;
   final String? patientName;
   final bool isLoading;
+  final String? confirmLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -30,10 +32,7 @@ class BookingSummary extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: AppColors.white,
-            border: Border.all(
-              color: AppColors.divider,
-              width: 0.5,
-            ),
+            border: Border.all(color: AppColors.divider, width: 0.5),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -76,7 +75,7 @@ class BookingSummary extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         PrimaryActionButton(
-          label: 'Book appointment',
+          label: confirmLabel ?? 'Book appointment',
           isLoading: isLoading,
           onPressed: onConfirm,
         ),
@@ -102,11 +101,7 @@ class _SummaryRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: AppColors.textSecondary,
-            size: 18,
-          ),
+          Icon(icon, color: AppColors.textSecondary, size: 18),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

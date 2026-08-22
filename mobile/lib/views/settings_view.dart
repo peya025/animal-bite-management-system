@@ -56,10 +56,9 @@ class _SettingsViewState extends State<SettingsView> {
       builder: (context) => EditAccountDialog(
         account: account,
         onSave: (name, phone) async {
-          final updated = await api.updateAccount(
-            name: name,
-            phone: phone,
-          ) as PatientAccountProfile;
+          final updated =
+              await api.updateAccount(name: name, phone: phone)
+                  as PatientAccountProfile;
           if (mounted) setState(() => _account = updated);
         },
       ),
@@ -103,7 +102,9 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Log out?'),
-        content: const Text('You will need to sign in again to access patient records.'),
+        content: const Text(
+          'You will need to sign in again to access patient records.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -177,6 +178,15 @@ class _SettingsViewState extends State<SettingsView> {
                                   : Icons.person_outline_rounded,
                               title: patient.name,
                               subtitle: _relationshipLabel(patient),
+                              onTap: () async {
+                                await Navigator.of(context).pushNamed(
+                                  AppRoutes.patientProfile,
+                                  arguments: patient,
+                                );
+                                if (mounted) {
+                                  await _loadAccount();
+                                }
+                              },
                               trailing: StatusChip(status: patient.status),
                             ),
                           SettingsTile(

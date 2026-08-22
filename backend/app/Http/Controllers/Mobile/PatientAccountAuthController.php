@@ -67,7 +67,7 @@ class PatientAccountAuthController extends Controller
         // Cache for 5 minutes
         return response()->json(
             Cache::remember($cacheKey, 300, function () use ($request) {
-                return $request->user()->load('patients');
+                return $request->user()->load(['patients.details', 'patients.memberships']);
             })
         );
     }
@@ -86,7 +86,7 @@ class PatientAccountAuthController extends Controller
         Cache::forget("mobile:account:me:{$accountId}");
 
         return response()->json(
-            $request->user()->fresh()->load('patients'),
+            $request->user()->fresh()->load(['patients.details', 'patients.memberships']),
         );
     }
 
@@ -95,5 +95,18 @@ class PatientAccountAuthController extends Controller
         $request->user()->currentAccessToken()?->delete();
 
         return response()->json(['message' => 'Successfully logged out.']);
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $account = PatientAccount::where('email', $validated['email'])->first();
+
+        return response()->json([
+            'message' => 'If an account with that email exists, password reset instructions have been sent.',
+        ]);
     }
 }

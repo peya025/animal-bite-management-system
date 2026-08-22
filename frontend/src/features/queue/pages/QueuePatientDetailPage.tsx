@@ -17,15 +17,20 @@ import {
   Done as CompleteIcon,
   Cancel as CancelIcon,
   LockOutlined as LockIcon,
+  CheckCircle as ServeIcon,
+  PersonOff as NoRespIcon,
+  Replay as RecallIcon,
+  PersonOff as AbsentIcon,
 } from '@mui/icons-material';
 import { useQueueEntry } from '../hooks';
 import { ROUTES } from '../../../shared/config/routes';
 import { STATUS_CFG, PRIORITY_CFG, VISIT_LABEL, waitTime, type QueueEntry } from '../types';
-import { callQueuePatient, cancelQueueEntry } from '../services';
+import { callQueuePatient, cancelQueueEntry, serveQueuePatient, markNoResponse, recallQueuePatient, markAbsent } from '../services';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { CompleteDialog } from '../components/CompleteDialog';
+import { getMembershipByType, getPatientMemberships } from '../../patients/utils/memberships';
 
 // ─── Role helpers ──────────────────────────────────────────────────────────
 function canEdit(userRole: string, formOwner: 'registration' | 'triage' | 'treatment'): boolean {
@@ -60,7 +65,7 @@ function PatientHero({ entry, userRole, onMenuOpen }: {
 }) {
   const statusCfg  = STATUS_CFG[entry.status]  ?? STATUS_CFG.cancelled;
   const priorityCfg = PRIORITY_CFG[entry.priority] ?? PRIORITY_CFG.normal;
-  const isActive   = entry.status === 'waiting' || entry.status === 'in_consultation';
+  const isActive   = ['waiting','called','in_consultation','serving','second_chance','final_recall'].includes(entry.status);
 
   const initials = entry.patient?.name
     ? entry.patient.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -214,7 +219,7 @@ export default function QueuePatientDetailPage() {
   const { queueId } = useParams<{ queueId: string }>();
   const navigate = useNavigate();
 
-  const { entry, loading, error } = useQueueEntry(queueId);
+  const { entry, loading, error, reload } = useQueueEntry(queueId);
 
   const [activeTab, setActiveTab] = useState('form1');
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
@@ -225,9 +230,13 @@ export default function QueuePatientDetailPage() {
 
   // Queue action states
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [callDialog, setCallDialog] = useState(false);
-  const [cancelDialog, setCancelDialog] = useState(false);
+  const [callDialog,     setCallDialog]     = useState(false);
+  const [cancelDialog,   setCancelDialog]   = useState(false);
   const [completeDialog, setCompleteDialog] = useState(false);
+  const [serveDialog,    setServeDialog]    = useState(false);
+  const [noRespDialog,   setNoRespDialog]   = useState(false);
+  const [recallDialog,   setRecallDialog]   = useState(false);
+  const [absentDialog,   setAbsentDialog]   = useState(false);
 
   // No longer need modal states - forms are rendered inline
 
@@ -247,11 +256,28 @@ export default function QueuePatientDetailPage() {
   }, [userRole]);
 
   const handleCall = async () => {
-    try {
-      await callQueuePatient(Number(queueId));
-      toast(`Called Queue #${entry?.queue_number}`);
-      window.location.reload();
-    } catch { toast('Failed to call patient', 'error'); }
+    try { await callQueuePatient(Number(queueId)); toast(`Called Queue #${entry?.queue_number}`); reload(); }
+    catch { toast('Failed to call patient', 'error'); }
+  };
+
+  const handleServe = async () => {
+    try { await serveQueuePatient(Number(queueId)); toast('Patient is now being served'); reload(); }
+    catch { toast('Failed to start serving', 'error'); }
+  };
+
+  const handleNoResponse = async () => {
+    try { await markNoResponse(Number(queueId)); toast('Patient moved to Second Chance Queue'); reload(); }
+    catch { toast('Failed to mark no response', 'error'); }
+  };
+
+  const handleRecall = async () => {
+    try { await recallQueuePatient(Number(queueId)); toast('Patient recalled'); reload(); }
+    catch { toast('Failed to recall patient', 'error'); }
+  };
+
+  const handleAbsent = async () => {
+    try { await markAbsent(Number(queueId)); toast('Patient marked as No-Show'); reload(); }
+    catch { toast('Failed to mark absent', 'error'); }
   };
 
   const handleCancel = async () => {
@@ -286,7 +312,7 @@ export default function QueuePatientDetailPage() {
     );
   }
 
-  const isActive = entry.status === 'waiting' || entry.status === 'in_consultation';
+  const isActive = ['waiting','called','in_consultation','serving','second_chance','final_recall'].includes(entry.status);
 
   // Tab content renderer
   const renderTabContent = () => {
@@ -310,7 +336,7 @@ export default function QueuePatientDetailPage() {
               open={true}
               entry={entry}
               onClose={() => {}}
-              onSave={() => { toast('Form 2 saved'); window.location.reload(); }}
+              onSave={() => { toast('Form 2 saved'); reload(); }}
               readOnly={!editable}
               inline={true}
             />
@@ -327,7 +353,7 @@ export default function QueuePatientDetailPage() {
               open={true}
               entry={entry}
               onClose={() => {}}
-              onSave={() => { toast('Form 3 saved'); window.location.reload(); }}
+              onSave={() => { toast('Form 3 saved'); reload(); }}
               readOnly={!editable}
               inline={true}
             />
@@ -361,50 +387,95 @@ export default function QueuePatientDetailPage() {
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
         onClose={() => setMenuAnchor(null)}
-        slotProps={{ paper: { sx: { borderRadius: 2, minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.12)' } } }}
+        slotProps={{ paper: { sx: { borderRadius: 2, minWidth: 200, boxShadow: '0 4px 20px rgba(0,0,0,0.12)' } } }}
       >
+        {/* Call — waiting only */}
         {entry.status === 'waiting' && (
-          <MenuItem onClick={() => { setMenuAnchor(null); setCallDialog(true); }}
-            sx={{ gap: 1.5, fontSize: 14, color: '#374151' }}>
-            <CallIcon sx={{ fontSize: 18, color: '#3b82f6' }} /> Call Patient
+          <MenuItem onClick={() => { setMenuAnchor(null); setCallDialog(true); }} sx={{ gap: 1.5, fontSize: 14 }}>
+            <CallIcon sx={{ fontSize: 18, color: '#2563eb' }} /> Call Patient
           </MenuItem>
         )}
-        {entry.status === 'in_consultation' && (
-          <MenuItem onClick={() => { setMenuAnchor(null); setCompleteDialog(true); }}
-            sx={{ gap: 1.5, fontSize: 14, color: '#374151' }}>
-            <CompleteIcon sx={{ fontSize: 18, color: '#10b981' }} /> Complete Consultation
+        {/* Serve — called/second_chance/final_recall */}
+        {['called','second_chance','final_recall'].includes(entry.status) && (
+          <MenuItem onClick={() => { setMenuAnchor(null); setServeDialog(true); }} sx={{ gap: 1.5, fontSize: 14 }}>
+            <ServeIcon sx={{ fontSize: 18, color: '#059669' }} /> Start Serving
           </MenuItem>
         )}
+        {/* No Response — waiting or called */}
+        {['waiting','called','in_consultation'].includes(entry.status) && (
+          <MenuItem onClick={() => { setMenuAnchor(null); setNoRespDialog(true); }} sx={{ gap: 1.5, fontSize: 14 }}>
+            <NoRespIcon sx={{ fontSize: 18, color: '#9333ea' }} /> No Response
+          </MenuItem>
+        )}
+        {/* Recall — second_chance or final_recall */}
+        {['second_chance','final_recall'].includes(entry.status) && (
+          <MenuItem onClick={() => { setMenuAnchor(null); setRecallDialog(true); }} sx={{ gap: 1.5, fontSize: 14 }}>
+            <RecallIcon sx={{ fontSize: 18, color: '#ea580c' }} /> Recall
+          </MenuItem>
+        )}
+        {/* Absent — final_recall only */}
+        {entry.status === 'final_recall' && (
+          <MenuItem onClick={() => { setMenuAnchor(null); setAbsentDialog(true); }} sx={{ gap: 1.5, fontSize: 14, color: '#dc2626' }}>
+            <AbsentIcon sx={{ fontSize: 18 }} /> Mark No-Show
+          </MenuItem>
+        )}
+        {/* Complete — serving or in_consultation */}
+        {['serving','in_consultation','called'].includes(entry.status) && (
+          <MenuItem onClick={() => { setMenuAnchor(null); setCompleteDialog(true); }} sx={{ gap: 1.5, fontSize: 14 }}>
+            <CompleteIcon sx={{ fontSize: 18, color: '#10b981' }} /> Complete
+          </MenuItem>
+        )}
+        {/* Cancel — any active */}
         {isActive && (
-          <MenuItem onClick={() => { setMenuAnchor(null); setCancelDialog(true); }}
-            sx={{ gap: 1.5, fontSize: 14, color: '#dc2626' }}>
+          <MenuItem onClick={() => { setMenuAnchor(null); setCancelDialog(true); }} sx={{ gap: 1.5, fontSize: 14, color: '#dc2626' }}>
             <CancelIcon sx={{ fontSize: 18 }} /> Cancel Queue Entry
           </MenuItem>
         )}
       </Menu>
 
-      {/* ── Dialogs ── */}
+      {/* ── Confirmation Dialogs ── */}
       {callDialog && (
-        <ConfirmationDialog
-          variant="confirm"
-          title="Call Patient"
-          message={<>Call <strong>#{entry.queue_number} · {entry.patient.name}</strong> for consultation?</>}
-          confirmLabel="Yes, Call Now"
-          cancelLabel="Cancel"
+        <ConfirmationDialog variant="confirm" title="Call Patient"
+          message={<>Call <strong>#{entry.queue_number} · {entry.patient.name}</strong> to the station?</>}
+          confirmLabel="Call Now" cancelLabel="Cancel"
           onConfirm={() => { setCallDialog(false); handleCall(); }}
-          onCancel={() => setCallDialog(false)}
-        />
+          onCancel={() => setCallDialog(false)} />
+      )}
+      {serveDialog && (
+        <ConfirmationDialog variant="confirm" title="Start Serving"
+          message={<><strong>#{entry.queue_number} · {entry.patient.name}</strong> has responded. Start serving?</>}
+          confirmLabel="Yes, Start Serving" cancelLabel="Cancel"
+          onConfirm={() => { setServeDialog(false); handleServe(); }}
+          onCancel={() => setServeDialog(false)} />
+      )}
+      {noRespDialog && (
+        <ConfirmationDialog variant="confirm" title="No Response"
+          message={<><strong>#{entry.queue_number} · {entry.patient.name}</strong> did not respond. Move to Second Chance Queue?</>}
+          confirmLabel="Move to Second Chance" cancelLabel="Go Back"
+          onConfirm={() => { setNoRespDialog(false); handleNoResponse(); }}
+          onCancel={() => setNoRespDialog(false)} />
+      )}
+      {recallDialog && (
+        <ConfirmationDialog variant="confirm"
+          title={entry.status === 'final_recall' ? 'Final Recall' : 'Recall Patient'}
+          message={<>Recall <strong>#{entry.queue_number} · {entry.patient.name}</strong>{entry.status === 'final_recall' ? ' — this is their FINAL opportunity' : ' from the Second Chance Queue'}?</>}
+          confirmLabel="Recall Now" cancelLabel="Go Back"
+          onConfirm={() => { setRecallDialog(false); handleRecall(); }}
+          onCancel={() => setRecallDialog(false)} />
+      )}
+      {absentDialog && (
+        <ConfirmationDialog variant="danger" title="Mark as No-Show"
+          message={<>Mark <strong>#{entry.queue_number} · {entry.patient.name}</strong> as No-Show? They will be removed from active queues.</>}
+          confirmLabel="Mark No-Show" cancelLabel="Go Back"
+          onConfirm={() => { setAbsentDialog(false); handleAbsent(); }}
+          onCancel={() => setAbsentDialog(false)} />
       )}
       {cancelDialog && (
-        <ConfirmationDialog
-          variant="danger"
-          title="Cancel Queue Entry"
+        <ConfirmationDialog variant="danger" title="Cancel Queue Entry"
           message={<>Remove <strong>#{entry.queue_number} · {entry.patient.name}</strong> from the queue?</>}
-          confirmLabel="Yes, Cancel"
-          cancelLabel="Go Back"
+          confirmLabel="Yes, Cancel" cancelLabel="Go Back"
           onConfirm={() => { setCancelDialog(false); handleCancel(); }}
-          onCancel={() => setCancelDialog(false)}
-        />
+          onCancel={() => setCancelDialog(false)} />
       )}
       <CompleteDialog
         open={completeDialog}
@@ -560,6 +631,14 @@ type Form1Entry = QueueEntry & {
 function Form1InlineView({ entry, readOnly }: { entry: Form1Entry; readOnly: boolean }) {
   const patient = toRecord(entry?.patient);
   const details = toRecord(firstNonEmpty(patient.details, entry.patient_details));
+  const memberships = getPatientMemberships(entry?.patient);
+  const philhealth = getMembershipByType(memberships, 'philhealth');
+  const fourps = getMembershipByType(memberships, 'fourps');
+  const dswd = getMembershipByType(memberships, 'dswd_nhts');
+  const senior = getMembershipByType(memberships, 'senior_citizen');
+  const pwd = getMembershipByType(memberships, 'pwd');
+  const indigenous = getMembershipByType(memberships, 'indigenous_member');
+  const other = getMembershipByType(memberships, 'other');
 
   const civilStatusRaw = firstNonEmpty(details.civil_status, patient.civil_status);
   const spouseRaw = firstNonEmpty(details.spouse_name, patient.spouse_name);
@@ -650,12 +729,21 @@ function Form1InlineView({ entry, readOnly }: { entry: Form1Entry; readOnly: boo
 
       <Form1Section title="II. Government Program Information">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2.5 }}>
-          <Form1Field label="PhilHealth Member?" value={asYesNo(firstNonEmpty(details.philhealth_member, patient.philhealth_member))} />
-          <Form1Field label="Status Type" value={asOption(firstNonEmpty(details.philhealth_status, patient.philhealth_status), PHILHEALTH_STATUS_LABELS)} />
-          <Form1Field label="PhilHealth No." value={asDisplayValue(firstNonEmpty(details.philhealth_no, patient.philhealth_no))} />
-          <Form1Field label="Category" value={asOption(firstNonEmpty(details.philhealth_category, patient.philhealth_category), PHILHEALTH_CATEGORY_LABELS)} />
-          <Form1Field label="4Ps Member?" value={asYesNo(firstNonEmpty(details.fourps_member, patient.fourps_member))} />
-          <Form1Field label="DSWD NHTS?" value={asYesNo(firstNonEmpty(details.dswd_nhts, patient.dswd_nhts))} />
+          <Form1Field label="Any Membership?" value={asYesNo(memberships.length > 0 ? 'yes' : firstNonEmpty(details.has_membership, patient.has_membership))} />
+          <Form1Field label="PhilHealth Member?" value={asYesNo(philhealth ? 'yes' : firstNonEmpty(details.philhealth_member, patient.philhealth_member))} />
+          <Form1Field label="Status Type" value={asOption(firstNonEmpty(philhealth?.status_value, details.philhealth_status, patient.philhealth_status), PHILHEALTH_STATUS_LABELS)} />
+          <Form1Field label="PhilHealth No." value={asDisplayValue(firstNonEmpty(philhealth?.membership_id_no, details.philhealth_no, patient.philhealth_no))} />
+          <Form1Field label="Category" value={asOption(firstNonEmpty(philhealth?.category, details.philhealth_category, patient.philhealth_category), PHILHEALTH_CATEGORY_LABELS)} />
+          <Form1Field label="4Ps Member?" value={asYesNo(fourps ? 'yes' : firstNonEmpty(details.fourps_member, patient.fourps_member))} />
+          <Form1Field label="4Ps Category" value={asDisplayValue(firstNonEmpty(fourps?.category, details.fourps_category))} />
+          <Form1Field label="4Ps Relationship" value={asDisplayValue(firstNonEmpty(fourps?.relationship_value, details.fourps_relationship))} />
+          <Form1Field label="Registered 4Ps Beneficiary" value={asDisplayValue(firstNonEmpty(fourps?.registered_beneficiary, details.registered_fourps_beneficiary))} />
+          <Form1Field label="DSWD NHTS?" value={asYesNo(dswd ? 'yes' : firstNonEmpty(details.dswd_nhts, patient.dswd_nhts))} />
+          <Form1Field label="Senior Citizen ID" value={asDisplayValue(firstNonEmpty(senior?.membership_id_no))} />
+          <Form1Field label="PWD ID" value={asDisplayValue(firstNonEmpty(pwd?.membership_id_no))} />
+          <Form1Field label="Indigenous Tribe" value={asDisplayValue(firstNonEmpty(indigenous?.extra_value))} />
+          <Form1Field label="Other Membership" value={asDisplayValue(firstNonEmpty(other?.membership_label))} />
+          <Form1Field label="Other Membership ID" value={asDisplayValue(firstNonEmpty(other?.membership_id_no))} />
         </Box>
       </Form1Section>
     </Box>

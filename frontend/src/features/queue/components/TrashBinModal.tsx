@@ -15,15 +15,19 @@ interface TrashBinModalProps {
 }
 
 export default function TrashBinModal({ open, onClose, onRestored }: TrashBinModalProps) {
-  const [entries, setEntries] = useState<QueueEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [entries,   setEntries]   = useState<QueueEntry[]>([]);
+  const [loading,   setLoading]   = useState(false);
   const [restoring, setRestoring] = useState<number | null>(null);
+  const [error,     setError]     = useState('');
 
   const load = async () => {
     setLoading(true);
+    setError('');
     try {
       const data = await fetchTrashedEntries();
       setEntries(data);
+    } catch {
+      setError('Failed to load trash bin. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -39,6 +43,8 @@ export default function TrashBinModal({ open, onClose, onRestored }: TrashBinMod
       await restoreQueueEntry(entry.queue_id);
       await load();
       onRestored();
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Failed to restore entry. Please try again.');
     } finally {
       setRestoring(null);
     }
@@ -60,6 +66,11 @@ export default function TrashBinModal({ open, onClose, onRestored }: TrashBinMod
       </DialogTitle>
 
       <DialogContent sx={{ pt: 2, pb: 1, minHeight: 180 }}>
+        {error && (
+          <Box sx={{ mb: 2, p: 1.5, bgcolor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 2, color: '#dc2626', fontSize: 13 }}>
+            {error}
+          </Box>
+        )}
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress size={28} sx={{ color: '#10b981' }} />

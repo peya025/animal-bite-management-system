@@ -13,7 +13,7 @@ import '../widgets/booking/service_selector.dart';
 import '../widgets/forms/app_dropdown_field.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
-import '../widgets/menu/section_header.dart';
+
 import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class BookingView extends StatefulWidget {
@@ -29,6 +29,7 @@ class _BookingViewState extends State<BookingView> {
   List<PatientProfile> _patients = const [];
   PatientProfile? _selectedPatient;
   bool _loadingPatients = true;
+  bool _booking = false;
   String? _profileError;
 
   @override
@@ -95,10 +96,77 @@ class _BookingViewState extends State<BookingView> {
     }
 
     final booking = BookingDraft(service: _service, date: _selectedDate);
-    await Navigator.of(context).pushNamed(
-      AppRoutes.biteIntake,
-      arguments: BiteIntakeRouteArgs(patient: patient, booking: booking),
+
+    if (_service == BookingService.consultation) {
+      await Navigator.of(context).pushNamed(
+        AppRoutes.biteIntake,
+        arguments: BiteIntakeRouteArgs(patient: patient, booking: booking),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.vaccines_outlined, color: AppColors.primary),
+        title: const Text('Confirm vaccination booking'),
+        content: Text(
+          'Book a vaccination appointment for ${patient.name} on ${DateSelector.formatDate(_selectedDate)}?\n\nNo bite incident intake will be required for this booking.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Book vaccination'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _booking = true);
+    try {
+      await api.book(patient: patient, booking: booking);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          icon: const Icon(
+            Icons.assignment_turned_in_outlined,
+            color: AppColors.primary,
+          ),
+          title: const Text('Vaccination booked'),
+          content: Text(
+            '${patient.name} has been scheduled for vaccination on ${DateSelector.formatDate(_selectedDate)}.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _booking = false);
+    }
   }
 
   @override
@@ -118,7 +186,7 @@ class _BookingViewState extends State<BookingView> {
                     children: [
                       const BookingHeader(),
                       const SizedBox(height: 24),
-                     
+
                       const SizedBox(height: 12),
                       if (_loadingPatients)
                         Container(
@@ -195,29 +263,55 @@ class _BookingViewState extends State<BookingView> {
                                 ),
                               )
                               .toList(),
-                          onChanged: (patient) => setState(
-                            () => _selectedPatient = patient,
-                          ),
+                          onChanged: (patient) =>
+                              setState(() => _selectedPatient = patient),
                         ),
                       if (_patients.isNotEmpty) ...[
                         const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: _addDependent,
-                            icon: const Icon(
-                              Icons.person_add_alt_1_outlined,
-                              size: 16,
-                            ),
-                            label: const Text('Add child or dependent'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              textStyle: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            TextButton.icon(
+                              onPressed: _selectedPatient == null
+                                  ? null
+                                  : () async {
+                                      await Navigator.of(context).pushNamed(
+                                        AppRoutes.patientProfile,
+                                        arguments: _selectedPatient,
+                                      );
+                                      if (mounted && _selectedPatient != null) {
+                                        await _loadPatients(
+                                          selectPatientId: _selectedPatient!.id,
+                                        );
+                                      }
+                                    },
+                              icon: const Icon(Icons.badge_outlined, size: 16),
+                              label: const Text('View profile'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                textStyle: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
-                          ),
+                            TextButton.icon(
+                              onPressed: _addDependent,
+                              icon: const Icon(
+                                Icons.person_add_alt_1_outlined,
+                                size: 16,
+                              ),
+                              label: const Text('Add child or dependent'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                textStyle: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                       const SizedBox(height: 24),
@@ -226,6 +320,24 @@ class _BookingViewState extends State<BookingView> {
                         onSelected: (service) {
                           setState(() => _service = service);
                         },
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _service == BookingService.consultation
+                              ? 'Consultation bookings require a bite incident intake form before submission.'
+                              : 'Vaccination bookings can be submitted directly without filling out a bite incident intake form.',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                            height: 1.5,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 24),
                       DateSelector(
@@ -240,6 +352,10 @@ class _BookingViewState extends State<BookingView> {
                         date: DateSelector.formatDate(_selectedDate),
                         patientName: _selectedPatient?.name,
                         onConfirm: _continueBooking,
+                        isLoading: _booking,
+                        confirmLabel: _service == BookingService.consultation
+                            ? 'Continue to intake'
+                            : 'Book vaccination',
                       ),
                     ],
                   ),

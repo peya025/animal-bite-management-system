@@ -3,6 +3,19 @@ export interface PsgcItem {
   name: string;
 }
 
+export interface PatientMembership {
+  id?: number;
+  membership_type: 'philhealth' | 'fourps' | 'dswd_nhts' | 'senior_citizen' | 'pwd' | 'indigenous_member' | 'other';
+  is_active?: boolean;
+  status_value?: string | null;
+  category?: string | null;
+  relationship_value?: string | null;
+  registered_beneficiary?: string | null;
+  membership_id_no?: string | null;
+  membership_label?: string | null;
+  extra_value?: string | null;
+}
+
 export interface Patient {
   patient_id?: number;
   id: number;
@@ -16,6 +29,8 @@ export interface Patient {
   contact_number?: string;
   phone?: string;
   email?: string;
+  details?: Record<string, unknown>;
+  memberships?: PatientMembership[];
   created_at: string;
   status?: 'active' | 'pending' | 'inactive';
 }

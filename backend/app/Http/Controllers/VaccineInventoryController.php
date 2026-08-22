@@ -27,9 +27,64 @@ class VaccineInventoryController extends Controller
             $query->where('vaccine_type', 'like', '%' . $request->vaccine_type . '%');
         }
 
-        $inventory = $query->orderBy('expiration_date')->paginate(15);
+        // Strict FIFO / FEFO: earliest expiration date first, then creation date
+        $inventory = $query->orderBy('expiration_date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->paginate($request->input('per_page', 50));
+
+        // Calculate FIFO ranks for active stock
+        $activeBatches = VaccineInventory::where('clinic_id', $clinicId)
+            ->where('status', 'active')
+            ->where('current_quantity', '>', 0)
+            ->orderBy('expiration_date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $fifoMap = [];
+        foreach ($activeBatches as $batch) {
+            $type = $batch->vaccine_type;
+            if (!isset($fifoMap[$type])) {
+                $fifoMap[$type] = [];
+            }
+            $fifoMap[$type][] = $batch->inventory_id;
+        }
+
+        $inventory->getCollection()->transform(function ($item) use ($fifoMap) {
+            $type = $item->vaccine_type;
+            $ranks = $fifoMap[$type] ?? [];
+            $rankIndex = array_search($item->inventory_id, $ranks);
+
+            $item->is_fifo_priority = ($rankIndex === 0 && $item->status === 'active' && $item->current_quantity > 0);
+            $item->fifo_rank = $rankIndex !== false ? ($rankIndex + 1) : null;
+            return $item;
+        });
 
         return response()->json($inventory);
+    }
+
+    /**
+     * Get active FIFO recommendations per vaccine type
+     */
+    public function fifoRecommendations(Request $request)
+    {
+        $clinicId = $request->user()->clinic_id;
+
+        $activeBatches = VaccineInventory::where('clinic_id', $clinicId)
+            ->where('status', 'active')
+            ->where('current_quantity', '>', 0)
+            ->orderBy('expiration_date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->groupBy('vaccine_type')
+            ->map(function ($batches) {
+                return [
+                    'recommended_batch' => $batches->first(),
+                    'all_batches_fifo'  => $batches,
+                    'total_stock'       => $batches->sum('current_quantity'),
+                ];
+            });
+
+        return response()->json(['fifo_recommendations' => $activeBatches]);
     }
 
     /**

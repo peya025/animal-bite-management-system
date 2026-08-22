@@ -9,6 +9,7 @@ use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class MobileAppointmentController extends Controller
 {
@@ -30,26 +31,36 @@ class MobileAppointmentController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate(
-            [
-                'patient_id' => ['required', 'integer', 'exists:patients,patient_id'],
-                'appointment_type' => ['required', 'in:consultation,vaccination'],
-                'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
-                'intake' => ['required', 'array'],
-                'intake.bite_date' => ['required', 'date', 'before_or_equal:today'],
-                'intake.bite_place' => ['nullable', 'string', 'max:255'],
-                'intake.site_washed' => ['required', 'boolean'],
-                'intake.exposure_type' => ['required', 'in:bite,scratch,lick,other'],
-                'intake.animal_type' => ['required', 'string', 'max:100'],
-                'intake.animal_status' => ['required', 'in:owned,stray,unknown'],
-                'intake.animal_captured' => ['nullable', 'boolean'],
-                'intake.wound_location' => ['nullable', 'string', 'max:255'],
-                'intake.patient_description' => ['nullable', 'string', 'max:2000'],
-            ],
-            [
-                'intake.bite_date.before_or_equal' => 'The incident date must be today or earlier.',
-            ],
-        );
+        $validated = $request->validate([
+            'patient_id' => ['required', 'integer', 'exists:patients,patient_id'],
+            'appointment_type' => ['required', 'in:consultation,vaccination'],
+            'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'intake' => ['nullable', 'array'],
+        ]);
+
+        if ($validated['appointment_type'] === 'consultation') {
+            $validated = Validator::make(
+                $request->all(),
+                [
+                    'patient_id' => ['required', 'integer', 'exists:patients,patient_id'],
+                    'appointment_type' => ['required', 'in:consultation,vaccination'],
+                    'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+                    'intake' => ['required', 'array'],
+                    'intake.bite_date' => ['required', 'date', 'before_or_equal:today'],
+                    'intake.bite_place' => ['nullable', 'string', 'max:255'],
+                    'intake.site_washed' => ['required', 'boolean'],
+                    'intake.exposure_type' => ['required', 'in:bite,scratch,lick,other'],
+                    'intake.animal_type' => ['required', 'string', 'max:100'],
+                    'intake.animal_status' => ['required', 'in:owned,stray,unknown'],
+                    'intake.animal_captured' => ['nullable', 'boolean'],
+                    'intake.wound_location' => ['nullable', 'string', 'max:255'],
+                    'intake.patient_description' => ['nullable', 'string', 'max:2000'],
+                ],
+                [
+                    'intake.bite_date.before_or_equal' => 'The incident date must be today or earlier.',
+                ],
+            )->validate();
+        }
 
         $account = $request->user();
         $patient = $account->patients()
@@ -66,14 +77,16 @@ class MobileAppointmentController extends Controller
                 'status' => 'scheduled',
             ]);
 
-            BiteIncidentIntake::create([
-                ...$validated['intake'],
-                'clinic_id' => $patient->clinic_id,
-                'patient_id' => $patient->patient_id,
-                'patient_account_id' => $account->id,
-                'appointment_id' => $appointment->appointment_id,
-                'status' => 'pending',
-            ]);
+            if ($appointment->appointment_type === 'consultation' && !empty($validated['intake'])) {
+                BiteIncidentIntake::create([
+                    ...$validated['intake'],
+                    'clinic_id' => $patient->clinic_id,
+                    'patient_id' => $patient->patient_id,
+                    'patient_account_id' => $account->id,
+                    'appointment_id' => $appointment->appointment_id,
+                    'status' => 'pending',
+                ]);
+            }
 
             Notification::create([
                 'patient_id' => $patient->patient_id,

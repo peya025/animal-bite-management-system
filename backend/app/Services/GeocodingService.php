@@ -12,8 +12,10 @@ class GeocodingService
      * Get coordinates for a Philippine address
      * Uses hybrid approach: lookup table first, then Nominatim
      */
-    public function getCoordinates(string $barangay, string $municipality, string $province = 'Misamis Oriental'): array
+    public function getCoordinates(string $barangay, string $municipality, ?string $province = null): array
     {
+        $province = $this->normalizeProvince($province);
+
         // Step 1: Check lookup table first (fast)
         $cached = BarangayCoordinate::findByLocation($barangay, $municipality, $province);
         
@@ -228,6 +230,13 @@ class GeocodingService
         ];
     }
 
+    private function normalizeProvince(?string $province): string
+    {
+        $province = trim((string) $province);
+
+        return $province !== '' ? $province : 'Philippines';
+    }
+
     /**
      * Batch geocode multiple locations (for data migration)
      */
@@ -239,7 +248,7 @@ class GeocodingService
             $coords = $this->getCoordinates(
                 $location['barangay'],
                 $location['municipality'],
-                $location['province'] ?? 'Misamis Oriental'
+                $location['province'] ?? null
             );
             
             $results[] = array_merge($location, $coords);

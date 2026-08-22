@@ -11,6 +11,7 @@ import '../models/appointment_summary.dart';
 import '../models/app_notification.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_account_profile.dart';
+import 'psgc_service.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message);
@@ -26,9 +27,10 @@ class MobileApi {
   static final instance = MobileApi._();
 
   // Load from .env file - change .env when switching networks
-  static String get _baseUrl => dotenv.env['API_BASE_URL'] ?? 'http://192.168.18.53:8000/api/mobile';
+  static String get _baseUrl =>
+      dotenv.env['API_BASE_URL'] ?? 'http://192.168.18.53:8000/api/mobile';
   static int get clinicId => int.parse(dotenv.env['CLINIC_ID'] ?? '1');
-  
+
   static const _tokenKey = 'patient_account_token';
   static const _requestTimeout = Duration(seconds: 20);
   static const _storage = FlutterSecureStorage();
@@ -71,6 +73,16 @@ class MobileApi {
     await _setToken(data['token'] as String, persist: true);
   }
 
+  Future<String> requestPasswordReset({required String email}) async {
+    final data = await _send(
+      'POST',
+      '/forgot-password',
+      body: {'email': email},
+    );
+    return data['message'] as String? ??
+        'Password reset instructions have been sent if account exists.';
+  }
+
   Future<void> activateInvitation({
     required String token,
     required String email,
@@ -78,24 +90,29 @@ class MobileApi {
     required String passwordConfirmation,
   }) async {
     final rootUrl = _baseUrl.replaceAll('/api/mobile', '/api');
-    final response = await http.post(
-      Uri.parse('$rootUrl/patient-invitations/activate'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({
-        'token': token,
-        'email': email,
-        'password': password,
-        'password_confirmation': passwordConfirmation,
-      }),
-    ).timeout(_requestTimeout);
+    final response = await http
+        .post(
+          Uri.parse('$rootUrl/patient-invitations/activate'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({
+            'token': token,
+            'email': email,
+            'password': password,
+            'password_confirmation': passwordConfirmation,
+          }),
+        )
+        .timeout(_requestTimeout);
 
     final data = jsonDecode(response.body);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(data['message'] ?? 'Invalid or expired code. Please contact the clinic for a new invite.');
+      throw ApiException(
+        data['message'] ??
+            'Invalid or expired code. Please contact the clinic for a new invite.',
+      );
     }
 
     final authToken = data['token'] as String;
@@ -147,12 +164,59 @@ class MobileApi {
         .toList();
   }
 
+  Future<ClinicLocationContext> locationContext({int? clinicId}) async {
+    final effectiveClinicId = clinicId ?? MobileApi.clinicId;
+    final data =
+        await _send('GET', '/locations/context?clinic_id=$effectiveClinicId')
+            as Map<String, dynamic>;
+    return ClinicLocationContext.fromJson(data);
+  }
+
+  Future<List<PsgcLocation>> locationMunicipalities({int? clinicId}) async {
+    final effectiveClinicId = clinicId ?? MobileApi.clinicId;
+    final data =
+        await _send(
+              'GET',
+              '/locations/municipalities?clinic_id=$effectiveClinicId',
+            )
+            as Map<String, dynamic>;
+    final items = data['data'] as List<dynamic>? ?? const [];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(PsgcLocation.fromJson)
+        .toList();
+  }
+
+  Future<List<PsgcLocation>> locationBarangays({
+    required String municipalityCode,
+  }) async {
+    final data =
+        await _send(
+              'GET',
+              '/locations/barangays?municipality_code=$municipalityCode',
+            )
+            as Map<String, dynamic>;
+    final items = data['data'] as List<dynamic>? ?? const [];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(PsgcLocation.fromJson)
+        .toList();
+  }
+
   Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
     final data = await _send(
       'POST',
       '/patients',
       body: {'clinic_id': clinicId, ...profile},
     );
+    return PatientProfile.fromJson(data as Map<String, dynamic>);
+  }
+
+  Future<PatientProfile> updatePatient({
+    required int patientId,
+    required Map<String, dynamic> profile,
+  }) async {
+    final data = await _send('PATCH', '/patients/$patientId', body: profile);
     return PatientProfile.fromJson(data as Map<String, dynamic>);
   }
 
@@ -217,10 +281,9 @@ class MobileApi {
   Future<bool> checkConnectivity() async {
     try {
       final uri = Uri.parse('$_baseUrl/../test'); // hits /api/test
-      final res = await http.get(
-        uri,
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 6));
+      final res = await http
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 6));
       return res.statusCode < 500;
     } catch (_) {
       return false;

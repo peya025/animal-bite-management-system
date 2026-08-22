@@ -20,21 +20,25 @@ export function CompleteDialog({ open, entry, onClose, onDone }: CompleteDialogP
   const [notes, setNotes]             = useState('');
   const [saving, setSaving]           = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError]             = useState('');
 
   useEffect(() => {
     setNotes('');
     setShowConfirm(false);
+    setError('');
   }, [open]);
 
   const doComplete = async () => {
     if (!entry) return;
     setSaving(true);
+    setError('');
     try {
       await completeQueueConsultation(entry.queue_id, notes);
       onDone();
       onClose();
-    } catch {
-      // Handled by parent toast if needed
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Failed to complete consultation. Please try again.';
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -54,6 +58,9 @@ export function CompleteDialog({ open, entry, onClose, onDone }: CompleteDialogP
                 <> · Called {new Date(entry.called_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</>
               )}
             </Alert>
+          )}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
           )}
           <TextField
             fullWidth

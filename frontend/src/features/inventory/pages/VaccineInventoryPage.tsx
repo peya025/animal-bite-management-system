@@ -3,8 +3,7 @@ import {
   Alert, Box, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
 } from '@mui/material';
 import { Refresh as RefreshIcon, Science as DemoIcon, LocalHospital as ClinicIcon } from '@mui/icons-material';
-// Backend API imported but calls commented out below as requested to use local sample data
-// import api from '../../../services/api';
+import api from '../../../services/api';
 import StatCard from '../../../components/common/StatCard';
 import AddEditInventoryDialog from '../components/AddEditInventoryDialog/AddEditInventoryDialog';
 import AdjustStockDialog from '../components/AdjustStockDialog/AdjustStockDialog';
@@ -62,28 +61,73 @@ export default function VaccineInventory() {
   const [deleteItem,  setDeleteItem]  = useState<InventoryItem | null>(null);
   const [view, setView]               = useState<'table' | 'stockcard'>('table');
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback(async () => {
     setLoading(true);
-    let filtered = [...DEMO_INVENTORY_ITEMS];
-
-    if (selectedClinicId > 0) {
-      filtered = filtered.filter(i => i.clinic_id === selectedClinicId);
+    try {
+      const res = await api.get('/inventory', {
+        params: {
+          status: statusFilter || undefined,
+          vaccine_type: search || undefined,
+        },
+      });
+      const liveItems = res.data?.data || res.data || [];
+      if (Array.isArray(liveItems) && liveItems.length > 0) {
+        let filtered = [...liveItems];
+        if (batchFilter) {
+          filtered = filtered.filter(i => (i.batch_number || '').toLowerCase().includes(batchFilter.toLowerCase()));
+        }
+        setItems(filtered);
+        setTotal(res.data?.total || filtered.length);
+      } else {
+        // Fallback to sample items if live table has not been populated yet
+        let filtered = [...DEMO_INVENTORY_ITEMS];
+        if (selectedClinicId > 0) {
+          filtered = filtered.filter(i => i.clinic_id === selectedClinicId);
+        }
+        if (search) {
+          filtered = filtered.filter(i => i.vaccine_type.toLowerCase().includes(search.toLowerCase()));
+        }
+        if (statusFilter) {
+          filtered = filtered.filter(i => i.status === statusFilter);
+        }
+        if (batchFilter) {
+          filtered = filtered.filter(i => i.batch_number.toLowerCase().includes(batchFilter.toLowerCase()));
+        }
+        setItems(filtered);
+        setTotal(filtered.length);
+      }
+    } catch {
+      let filtered = [...DEMO_INVENTORY_ITEMS];
+      if (selectedClinicId > 0) {
+        filtered = filtered.filter(i => i.clinic_id === selectedClinicId);
+      }
+      if (search) {
+        filtered = filtered.filter(i => i.vaccine_type.toLowerCase().includes(search.toLowerCase()));
+      }
+      if (statusFilter) {
+        filtered = filtered.filter(i => i.status === statusFilter);
+      }
+      if (batchFilter) {
+        filtered = filtered.filter(i => i.batch_number.toLowerCase().includes(batchFilter.toLowerCase()));
+      }
+      setItems(filtered);
+      setTotal(filtered.length);
+    } finally {
+      setLoading(false);
     }
-    if (search) {
-      filtered = filtered.filter(i => i.vaccine_type.toLowerCase().includes(search.toLowerCase()));
-    }
-    if (statusFilter) {
-      filtered = filtered.filter(i => i.status === statusFilter);
-    }
-    if (batchFilter) {
-      filtered = filtered.filter(i => i.batch_number.toLowerCase().includes(batchFilter.toLowerCase()));
-    }
-    setItems(filtered);
-    setTotal(filtered.length);
-    setLoading(false);
   }, [search, statusFilter, batchFilter, selectedClinicId]);
 
-  const loadStats = useCallback(() => {
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await api.get('/inventory/statistics');
+      if (res.data && res.data.total_batches !== undefined) {
+        setStats(res.data);
+        return;
+      }
+    } catch {
+      // Fallback
+    }
+
     const activePool = selectedClinicId > 0
       ? DEMO_INVENTORY_ITEMS.filter(i => i.clinic_id === selectedClinicId)
       : DEMO_INVENTORY_ITEMS;
@@ -148,6 +192,7 @@ export default function VaccineInventory() {
               Facility: {selectedClinicId === 0 ? DEMO_CLINICS[0].name : (DEMO_CLINICS.find(c => c.clinic_id === selectedClinicId)?.name || DEMO_CLINICS[0].name)}
             </Typography>
             <Chip label="Independent ABTC Facility" size="small" sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#dcfce7', color: '#15803d' }} />
+            <Chip label="⚡ FIFO / FEFO Enforced" size="small" sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }} />
           </Box>
         </Box>
 
@@ -215,6 +260,54 @@ export default function VaccineInventory() {
             Add Stock
           </button>
         </Stack>
+      </Box>
+
+      {/* ── FIFO Protocol Notice Banner ── */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 1.5,
+          p: 1.5,
+          mb: 2.5,
+          bgcolor: '#f0fdf4',
+          border: '1px solid #bbf7d0',
+          borderRadius: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <Box
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: 1.5,
+              bgcolor: '#059669',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: 13,
+            }}
+          >
+            ✓
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>
+              First In, First Out (FIFO / FEFO) Protocol Active
+            </Typography>
+            <Typography sx={{ fontSize: 11.5, color: '#047857' }}>
+              Oldest and earliest-expiring vaccine batches are automatically prioritized for clinical use (marked with 🟢 <strong>FIFO: USE FIRST</strong>).
+            </Typography>
+          </Box>
+        </Box>
+        <Chip
+          label="Auto-Sorted by Earliest Expiry"
+          size="small"
+          sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#dcfce7', color: '#166534' }}
+        />
       </Box>
 
       {/* ── Stats Cards (Fills space evenly across both sides) ── */}

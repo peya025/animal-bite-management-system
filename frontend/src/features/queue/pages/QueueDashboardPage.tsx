@@ -383,7 +383,7 @@ export default function QueueDashboard() {
             {today} · Auto-refreshes every 30 seconds
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button onClick={() => { window.location.href = '/dashboard'; }}
+            <button onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}>
               Dashboard
             </button>

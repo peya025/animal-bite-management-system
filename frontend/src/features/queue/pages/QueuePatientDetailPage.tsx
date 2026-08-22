@@ -218,7 +218,7 @@ export default function QueuePatientDetailPage() {
   const { queueId } = useParams<{ queueId: string }>();
   const navigate = useNavigate();
 
-  const { entry, loading, error } = useQueueEntry(queueId);
+  const { entry, loading, error, reload } = useQueueEntry(queueId);
 
   const [activeTab, setActiveTab] = useState('form1');
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
@@ -255,43 +255,28 @@ export default function QueuePatientDetailPage() {
   }, [userRole]);
 
   const handleCall = async () => {
-    try {
-      await callQueuePatient(Number(queueId));
-      toast(`Called Queue #${entry?.queue_number}`);
-      window.location.reload();
-    } catch { toast('Failed to call patient', 'error'); }
+    try { await callQueuePatient(Number(queueId)); toast(`Called Queue #${entry?.queue_number}`); reload(); }
+    catch { toast('Failed to call patient', 'error'); }
   };
 
   const handleServe = async () => {
-    try {
-      await serveQueuePatient(Number(queueId));
-      toast('Patient is now being served');
-      window.location.reload();
-    } catch { toast('Failed to start serving', 'error'); }
+    try { await serveQueuePatient(Number(queueId)); toast('Patient is now being served'); reload(); }
+    catch { toast('Failed to start serving', 'error'); }
   };
 
   const handleNoResponse = async () => {
-    try {
-      await markNoResponse(Number(queueId));
-      toast('Patient moved to Second Chance Queue');
-      window.location.reload();
-    } catch { toast('Failed to mark no response', 'error'); }
+    try { await markNoResponse(Number(queueId)); toast('Patient moved to Second Chance Queue'); reload(); }
+    catch { toast('Failed to mark no response', 'error'); }
   };
 
   const handleRecall = async () => {
-    try {
-      await recallQueuePatient(Number(queueId));
-      toast('Patient recalled');
-      window.location.reload();
-    } catch { toast('Failed to recall patient', 'error'); }
+    try { await recallQueuePatient(Number(queueId)); toast('Patient recalled'); reload(); }
+    catch { toast('Failed to recall patient', 'error'); }
   };
 
   const handleAbsent = async () => {
-    try {
-      await markAbsent(Number(queueId));
-      toast('Patient marked as No-Show');
-      window.location.reload();
-    } catch { toast('Failed to mark absent', 'error'); }
+    try { await markAbsent(Number(queueId)); toast('Patient marked as No-Show'); reload(); }
+    catch { toast('Failed to mark absent', 'error'); }
   };
 
   const handleCancel = async () => {
@@ -327,7 +312,6 @@ export default function QueuePatientDetailPage() {
   }
 
   const isActive = ['waiting','called','in_consultation','serving','second_chance','final_recall'].includes(entry.status);
-  const canDoActions = isActive || ['admin','developer'].includes(userRole);
 
   // Tab content renderer
   const renderTabContent = () => {
@@ -351,7 +335,7 @@ export default function QueuePatientDetailPage() {
               open={true}
               entry={entry}
               onClose={() => {}}
-              onSave={() => { toast('Form 2 saved'); window.location.reload(); }}
+              onSave={() => { toast('Form 2 saved'); reload(); }}
               readOnly={!editable}
               inline={true}
             />
@@ -368,7 +352,7 @@ export default function QueuePatientDetailPage() {
               open={true}
               entry={entry}
               onClose={() => {}}
-              onSave={() => { toast('Form 3 saved'); window.location.reload(); }}
+              onSave={() => { toast('Form 3 saved'); reload(); }}
               readOnly={!editable}
               inline={true}
             />

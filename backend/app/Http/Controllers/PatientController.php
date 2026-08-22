@@ -21,10 +21,11 @@ class PatientController extends Controller
         
         // Create cache key based on query parameters
         $cacheKey = sprintf(
-            'web:patients:clinic:%s:search:%s:gender:%s:sort:%s:%s:page:%s:per_page:%s',
+            'web:patients:clinic:%s:search:%s:gender:%s:membership:%s:sort:%s:%s:page:%s:per_page:%s',
             $clinicId,
             $request->get('search', 'all'),
             $request->get('gender', 'all'),
+            $request->get('membership_type', 'all'),
             $request->get('sort_by', 'created_at'),
             $request->get('sort_order', 'desc'),
             $request->get('page', 1),
@@ -61,6 +62,14 @@ class PatientController extends Controller
                 // Filter by gender
                 if ($request->has('gender')) {
                     $query->where('gender', $request->gender);
+                }
+
+                // Filter by membership type
+                if ($request->filled('membership_type') && $request->membership_type !== 'all') {
+                    $type = $request->membership_type;
+                    $query->whereHas('memberships', function ($mQuery) use ($type) {
+                        $mQuery->where('membership_type', $type)->where('is_active', true);
+                    });
                 }
 
                 // Sort

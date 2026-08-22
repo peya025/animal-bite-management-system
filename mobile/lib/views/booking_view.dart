@@ -26,6 +26,8 @@ class BookingView extends StatefulWidget {
 class _BookingViewState extends State<BookingView> {
   BookingService _service = BookingService.consultation;
   DateTime _selectedDate = DateSelector.firstDate;
+  BookingTimeSlot _timeSlot = BookingTimeSlot.morning;
+  final _notesController = TextEditingController();
   List<PatientProfile> _patients = const [];
   PatientProfile? _selectedPatient;
   bool _loadingPatients = true;
@@ -36,6 +38,12 @@ class _BookingViewState extends State<BookingView> {
   void initState() {
     super.initState();
     _loadPatients();
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPatients({int? selectPatientId}) async {
@@ -95,7 +103,12 @@ class _BookingViewState extends State<BookingView> {
       return;
     }
 
-    final booking = BookingDraft(service: _service, date: _selectedDate);
+    final booking = BookingDraft(
+      service: _service,
+      date: _selectedDate,
+      timeSlot: _timeSlot,
+      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+    );
 
     if (_service == BookingService.consultation) {
       await Navigator.of(context).pushNamed(
@@ -345,6 +358,83 @@ class _BookingViewState extends State<BookingView> {
                         onSelected: (date) {
                           setState(() => _selectedDate = date);
                         },
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'PREFERRED TIME SLOT',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ChoiceChip(
+                              label: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('Morning (8 AM – 12 PM)'),
+                              ),
+                              selected: _timeSlot == BookingTimeSlot.morning,
+                              selectedColor: AppColors.primaryLight,
+                              labelStyle: TextStyle(
+                                color: _timeSlot == BookingTimeSlot.morning
+                                    ? AppColors.primaryDark
+                                    : AppColors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              onSelected: (_) => setState(() => _timeSlot = BookingTimeSlot.morning),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ChoiceChip(
+                              label: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('Afternoon (1 PM – 5 PM)'),
+                              ),
+                              selected: _timeSlot == BookingTimeSlot.afternoon,
+                              selectedColor: AppColors.primaryLight,
+                              labelStyle: TextStyle(
+                                color: _timeSlot == BookingTimeSlot.afternoon
+                                    ? AppColors.primaryDark
+                                    : AppColors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              onSelected: (_) => setState(() => _timeSlot = BookingTimeSlot.afternoon),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'REASON FOR VISIT / NOTES (OPTIONAL)',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _notesController,
+                        maxLines: 2,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Follow-up dose, rabies concern, etc.',
+                          hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: AppColors.border),
+                          ),
+                          contentPadding: const EdgeInsets.all(12),
+                        ),
                       ),
                       const SizedBox(height: 24),
                       BookingSummary(

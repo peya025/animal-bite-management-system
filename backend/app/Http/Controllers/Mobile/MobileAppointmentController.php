@@ -35,6 +35,8 @@ class MobileAppointmentController extends Controller
             'patient_id' => ['required', 'integer', 'exists:patients,patient_id'],
             'appointment_type' => ['required', 'in:consultation,vaccination'],
             'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'time_slot' => ['nullable', 'in:morning,afternoon'],
+            'notes' => ['nullable', 'string', 'max:1000'],
             'intake' => ['nullable', 'array'],
         ]);
 
@@ -45,6 +47,8 @@ class MobileAppointmentController extends Controller
                     'patient_id' => ['required', 'integer', 'exists:patients,patient_id'],
                     'appointment_type' => ['required', 'in:consultation,vaccination'],
                     'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+                    'time_slot' => ['nullable', 'in:morning,afternoon'],
+                    'notes' => ['nullable', 'string', 'max:1000'],
                     'intake' => ['required', 'array'],
                     'intake.bite_date' => ['required', 'date', 'before_or_equal:today'],
                     'intake.bite_place' => ['nullable', 'string', 'max:255'],
@@ -73,6 +77,8 @@ class MobileAppointmentController extends Controller
                 'patient_id' => $validated['patient_id'],
                 'appointment_type' => $validated['appointment_type'],
                 'scheduled_date' => $validated['scheduled_date'],
+                'time_slot' => $validated['time_slot'] ?? 'morning',
+                'notes' => $validated['notes'] ?? null,
                 'booked_by_account_id' => $account->id,
                 'status' => 'scheduled',
             ]);

@@ -46,6 +46,10 @@ export default function PatientList() {
   const printedBy  = userData   ? (JSON.parse(userData)?.name  ?? 'Unknown') : 'Unknown';
   const clinicName = clinicData ? (JSON.parse(clinicData)?.name ?? 'Animal Bite Treatment Center') : 'Animal Bite Treatment Center';
 
+  const [tab,                  setTab]                  = useState<'all' | 'today_queue' | 'online' | 'overdue'>('all');
+  const [tabCounts,            setTabCounts]            = useState({ all: 0, today_queue: 0, online: 0, overdue: 0 });
+  const [checkingInId,         setCheckingInId]         = useState<number | null>(null);
+
   // Debounce search input (wait 400ms after user stops typing)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -63,6 +67,7 @@ export default function PatientList() {
         params: {
           page,
           per_page: perPage,
+          tab,
           ...(searchTerm ? { search: searchTerm } : {}),
           ...(membershipFilter !== 'all' ? { membership_type: membershipFilter } : {}),
         },
@@ -71,26 +76,65 @@ export default function PatientList() {
       if (Array.isArray(json)) {
         setPatients(json); setTotal(json.length); setTotalPages(1);
       } else {
-        setPatients(json.data ?? []); setTotal(json.total ?? 0); setTotalPages(json.last_page ?? 1);
+        setPatients(json.data ?? []);
+        setTotal(json.total ?? 0);
+        setTotalPages(json.last_page ?? 1);
+        if (json.all_count !== undefined) {
+          setTabCounts({
+            all: json.all_count ?? 0,
+            today_queue: json.today_queue_count ?? 0,
+            online: json.online_count ?? 0,
+            overdue: json.overdue_count ?? 0,
+          });
+        }
       }
     } catch (e: any) {
       setError(e.response?.data?.message || e.message || 'Failed to load patients');
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm, perPage, membershipFilter]);
+  }, [page, searchTerm, perPage, membershipFilter, tab]);
 
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
-  useEffect(() => { setPage(1); }, [perPage, membershipFilter]);
+  useEffect(() => { setPage(1); }, [perPage, membershipFilter, tab]);
+
+  const handleCheckIn = async (p: Patient) => {
+    const patientId = p.patient_id || p.id;
+    setCheckingInId(patientId);
+    try {
+      const appt = (p as any).appointments?.[0];
+      const isConsultation = appt?.appointment_type === 'consultation';
+      const res = await api.post('/queue', {
+        patient_id: patientId,
+        visit_type: isConsultation ? 'consultation' : 'vaccination',
+        queue_category: 'appointment',
+        priority: 'normal',
+      });
+      alert(`Patient ${fullName(p)} checked in as Queue #${res.data?.queue_number || 'OK'}!`);
+      fetchPatients();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to check in patient to queue');
+    } finally {
+      setCheckingInId(null);
+    }
+  };
 
   const getLiveStatus = (p: Patient) => {
     const activeQueue = (p as any).queues?.[0];
     if (activeQueue) {
       if (activeQueue.status === 'waiting') {
-        return { label: 'In Queue (Waiting)', bg: '#d1fae5', color: '#065f46' };
+        return { label: `Queue #${activeQueue.queue_number || ''} (Waiting)`, bg: '#d1fae5', color: '#065f46' };
       }
       if (activeQueue.status === 'in_consultation') {
-        return { label: 'In Consultation', bg: '#eff6ff', color: '#2563eb' };
+        return { label: `Queue #${activeQueue.queue_number || ''} (In Consultation)`, bg: '#eff6ff', color: '#2563eb' };
+      }
+    }
+    const appt = (p as any).appointments?.[0];
+    if (appt && appt.status === 'scheduled') {
+      const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
+      const isToday = apptDate.toDateString() === new Date().toDateString();
+      if (isToday) {
+        return { label: `Appt Today (${appt.time_slot || 'scheduled'})`, bg: '#fef3c7', color: '#92400e' };
       }
     }
     const record = (p as any).latest_treatment_record;
@@ -167,7 +211,7 @@ export default function PatientList() {
           <div className="pm-panel-header">
             <div>
               <h1 className="pm-title">Patient Management</h1>
-              <p className="pm-subtitle">Manage and track all registered patients</p>
+              <p className="pm-subtitle">Manage and track all registered walk-in and online patients</p>
               {/* Breadcrumb */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
                 <button
@@ -185,6 +229,38 @@ export default function PatientList() {
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
               Add Patient
+            </button>
+          </div>
+
+          {/* Unified Filter Tabs */}
+          <div className="pm-tabs">
+            <button
+              className={`pm-tab-btn ${tab === 'all' ? 'pm-tab-btn--active' : ''}`}
+              onClick={() => setTab('all')}
+            >
+              All Patients
+              <span className="pm-tab-badge">{tabCounts.all || total}</span>
+            </button>
+            <button
+              className={`pm-tab-btn ${tab === 'today_queue' ? 'pm-tab-btn--active' : ''}`}
+              onClick={() => setTab('today_queue')}
+            >
+              Today's Queue
+              <span className="pm-tab-badge">{tabCounts.today_queue}</span>
+            </button>
+            <button
+              className={`pm-tab-btn ${tab === 'online' ? 'pm-tab-btn--active' : ''}`}
+              onClick={() => setTab('online')}
+            >
+              Online Appointments
+              <span className="pm-tab-badge">{tabCounts.online}</span>
+            </button>
+            <button
+              className={`pm-tab-btn ${tab === 'overdue' ? 'pm-tab-btn--active' : ''}`}
+              onClick={() => setTab('overdue')}
+            >
+              Overdue
+              <span className="pm-tab-badge">{tabCounts.overdue}</span>
             </button>
           </div>
 
@@ -269,23 +345,54 @@ export default function PatientList() {
                   <circle cx="9" cy="7" r="4"/>
                   <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
-                <p>{search ? 'No patients match your search.' : 'No patients registered yet.'}</p>
+                <p>{search ? 'No patients match your search.' : 'No patients registered in this category.'}</p>
               </div>
             ) : (
               <table className="pm-table">
                 <thead>
                   <tr>
-                    <th>Patient No.</th><th>Patient Name</th>
-                    <th>Date Registered</th><th>Status</th><th style={{ textAlign: 'center' }}>Action</th>
+                    <th>Patient No.</th>
+                    <th>Patient Name</th>
+                    <th>Source</th>
+                    <th>Date Registered</th>
+                    <th>Status / Schedule</th>
+                    <th style={{ textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {patients.map(p => {
                     const statusInfo = getLiveStatus(p);
+                    const isOnline = Boolean(
+                      (p as any).appointments?.some((a: any) => a.booked_by_account_id) ||
+                      (p as any).bite_intakes?.length ||
+                      ((p as any).accounts && (p as any).accounts.length > 0)
+                    );
+                    const activeQueue = (p as any).queues?.[0];
+                    const appt = (p as any).appointments?.[0];
+                    const canCheckIn = isOnline && !activeQueue && appt?.status === 'scheduled';
+
                     return (
                       <tr key={`patient-${p.patient_id || p.id}`}>
                         <td><span className="pm-patient-no">{p.patient_number}</span></td>
-                        <td><span className="pm-patient-name">{fullName(p)}</span></td>
+                        <td>
+                          <div>
+                            <span className="pm-patient-name">{fullName(p)}</span>
+                            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                              {p.age ? `${p.age}y · ` : ''}{p.gender} {p.contact_number ? `· ${p.contact_number}` : ''}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          {isOnline ? (
+                            <span className="pm-chip-online">
+                              Online
+                            </span>
+                          ) : (
+                            <span className="pm-chip-walkin">
+                              Walk-in
+                            </span>
+                          )}
+                        </td>
                         <td>{formatDate(p.created_at)}</td>
                         <td>
                           <span style={{
@@ -302,6 +409,16 @@ export default function PatientList() {
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <div className="pm-actions" style={{ justifyContent: 'center' }}>
+                            {canCheckIn && (
+                              <button
+                                className="pm-btn-checkin"
+                                title="Check-in patient into today's queue"
+                                disabled={checkingInId === (p.patient_id || p.id)}
+                                onClick={() => handleCheckIn(p)}
+                              >
+                                {checkingInId === (p.patient_id || p.id) ? 'Checking in...' : 'Check In'}
+                              </button>
+                            )}
                             <button
                               className="pm-btn-invite"
                               title="Invite Patient to Mobile Portal"

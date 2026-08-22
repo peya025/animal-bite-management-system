@@ -192,6 +192,7 @@ export default function VaccineInventory() {
               Facility: {selectedClinicId === 0 ? DEMO_CLINICS[0].name : (DEMO_CLINICS.find(c => c.clinic_id === selectedClinicId)?.name || DEMO_CLINICS[0].name)}
             </Typography>
             <Chip label="Independent ABTC Facility" size="small" sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#dcfce7', color: '#15803d' }} />
+            <Chip label="⚡ FIFO / FEFO Enforced" size="small" sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }} />
           </Box>
         </Box>
 
@@ -259,6 +260,54 @@ export default function VaccineInventory() {
             Add Stock
           </button>
         </Stack>
+      </Box>
+
+      {/* ── FIFO Protocol Notice Banner ── */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 1.5,
+          p: 1.5,
+          mb: 2.5,
+          bgcolor: '#f0fdf4',
+          border: '1px solid #bbf7d0',
+          borderRadius: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <Box
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: 1.5,
+              bgcolor: '#059669',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: 13,
+            }}
+          >
+            ✓
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>
+              First In, First Out (FIFO / FEFO) Protocol Active
+            </Typography>
+            <Typography sx={{ fontSize: 11.5, color: '#047857' }}>
+              Oldest and earliest-expiring vaccine batches are automatically prioritized for clinical use (marked with 🟢 <strong>FIFO: USE FIRST</strong>).
+            </Typography>
+          </Box>
+        </Box>
+        <Chip
+          label="Auto-Sorted by Earliest Expiry"
+          size="small"
+          sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#dcfce7', color: '#166534' }}
+        />
       </Box>
 
       {/* ── Stats Cards (Fills space evenly across both sides) ── */}

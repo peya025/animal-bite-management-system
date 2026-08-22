@@ -78,17 +78,30 @@ export default function InventoryTable({
 
   const isLowStock = (q: number) => q > 0 && q <= 10;
 
+  // ── Dynamically compute FIFO rankings for active stock (Earliest expiry first) ──
+  const fifoMap: Record<string, number[]> = {};
+  const activeSorted = [...items]
+    .filter(i => i.status === 'active' && i.current_quantity > 0)
+    .sort((a, b) => new Date(a.expiration_date).getTime() - new Date(b.expiration_date).getTime());
+
+  activeSorted.forEach(item => {
+    if (!fifoMap[item.vaccine_type]) {
+      fifoMap[item.vaccine_type] = [];
+    }
+    fifoMap[item.vaccine_type].push(item.inventory_id);
+  });
+
   // ── Column definitions ────────────────────────────────────
   const columns: ColumnDef<InventoryItem>[] = [
     {
       key: 'vaccine_type', header: 'Vaccine Type',
       render: item => (
         <Box>
-          <Typography sx={{ fontWeight: 500, fontSize: 14, color: '#111827' }}>
+          <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>
             {item.vaccine_type}
           </Typography>
-          <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
-            ID: {item.inventory_id}
+          <Typography sx={{ fontSize: 11.5, color: '#9ca3af', mt: 0.25 }}>
+            ID: #{item.inventory_id}
           </Typography>
         </Box>
       ),
@@ -114,12 +127,52 @@ export default function InventoryTable({
       },
     },
     {
-      key: 'batch_number', header: 'Batch Number',
-      render: item => (
-        <Typography sx={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, color: '#374151' }}>
-          {item.batch_number}
-        </Typography>
-      ),
+      key: 'batch_number', header: 'Vaccine / Batch No.',
+      render: item => {
+        const ranks = fifoMap[item.vaccine_type] || [];
+        const rankIdx = ranks.indexOf(item.inventory_id);
+        const isFifoFirst = (item.is_fifo_priority ?? (rankIdx === 0)) && item.status === 'active' && item.current_quantity > 0;
+        const isFifoNext = rankIdx > 0 && item.status === 'active' && item.current_quantity > 0;
+
+        return (
+          <Box>
+            <Typography sx={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#1f2937' }}>
+              {item.batch_number}
+            </Typography>
+            {isFifoFirst && (
+              <Chip
+                label="🟢 FIFO: USE FIRST"
+                size="small"
+                sx={{
+                  mt: 0.5,
+                  height: 20,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  bgcolor: '#dcfce7',
+                  color: '#15803d',
+                  border: '1px solid #86efac',
+                  letterSpacing: '0.2px',
+                }}
+              />
+            )}
+            {isFifoNext && (
+              <Chip
+                label={`⏳ FIFO #${rankIdx + 1} Next`}
+                size="small"
+                sx={{
+                  mt: 0.5,
+                  height: 19,
+                  fontSize: 9.5,
+                  fontWeight: 600,
+                  bgcolor: '#f1f5f9',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1',
+                }}
+              />
+            )}
+          </Box>
+        );
+      },
     },
     {
       key: 'current_quantity', header: 'Stock Quantity',

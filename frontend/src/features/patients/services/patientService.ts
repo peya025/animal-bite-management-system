@@ -1,5 +1,6 @@
 import type { EnrolmentFormData } from '../types';
 import api from '../../../shared/services/api';
+import { buildLegacyMembershipFields } from '../utils/memberships';
 
 export async function fetchPatientsList(params: { page?: number; perPage?: number; search?: string }) {
   const response = await api.get('/patients', {
@@ -19,26 +20,7 @@ export async function createPatientRecord(
   // Map and clean payload to prevent 422 errors (empty strings failing enum validation)
   const cleanField = (val: string) => val.trim() === '' ? null : val;
 
-  // Serialize multi-membership data into the columns that the backend knows about:
-  // - other_membership: JSON array of additional program keys e.g. ["senior_citizen","pwd"]
-  // - other_membership_name: JSON object with per-program names/tribe
-  // - other_membership_no: JSON object with per-program ID numbers
-  const otherMemberships = enrolment.other_memberships ?? [];
-  const otherMembershipNames: Record<string, string> = {};
-  const otherMembershipNos: Record<string, string> = {};
-  if (otherMemberships.includes('senior_citizen') && enrolment.senior_citizen_id) {
-    otherMembershipNos['senior_citizen'] = enrolment.senior_citizen_id;
-  }
-  if (otherMemberships.includes('pwd') && enrolment.pwd_id) {
-    otherMembershipNos['pwd'] = enrolment.pwd_id;
-  }
-  if (otherMemberships.includes('indigenous_member') && enrolment.indigenous_tribe) {
-    otherMembershipNames['indigenous_member'] = enrolment.indigenous_tribe;
-  }
-  if (otherMemberships.includes('others')) {
-    if (enrolment.other_membership_custom_name) otherMembershipNames['others'] = enrolment.other_membership_custom_name;
-    if (enrolment.other_membership_custom_id) otherMembershipNos['others'] = enrolment.other_membership_custom_id;
-  }
+  const membershipFields = buildLegacyMembershipFields(enrolment);
 
   const payload = {
     ...enrolment,
@@ -54,26 +36,21 @@ export async function createPatientRecord(
     
     // Clean fields that shouldn't send empty strings to strict enum rules
     civil_status: cleanField(enrolment.civil_status),
-    philhealth_member: cleanField(enrolment.philhealth_member),
-    philhealth_status: cleanField(enrolment.philhealth_status),
-    fourps_member: cleanField(enrolment.fourps_member),
-    fourps_category: cleanField(enrolment.fourps_category),
-    fourps_relationship: cleanField(enrolment.fourps_relationship),
-    registered_fourps_beneficiary: cleanField(enrolment.registered_fourps_beneficiary),
-    dswd_nhts: cleanField(enrolment.dswd_nhts),
-    has_membership: cleanField(enrolment.has_membership),
+    philhealth_member: membershipFields.philhealth_member,
+    philhealth_status: cleanField(membershipFields.philhealth_status ?? enrolment.philhealth_status),
+    philhealth_no: cleanField(membershipFields.philhealth_no ?? enrolment.philhealth_no),
+    philhealth_category: cleanField(membershipFields.philhealth_category ?? enrolment.philhealth_category),
+    fourps_member: membershipFields.fourps_member,
+    fourps_category: cleanField(membershipFields.fourps_category ?? enrolment.fourps_category),
+    fourps_relationship: cleanField(membershipFields.fourps_relationship ?? enrolment.fourps_relationship),
+    registered_fourps_beneficiary: cleanField(membershipFields.registered_fourps_beneficiary ?? enrolment.registered_fourps_beneficiary),
+    dswd_nhts: membershipFields.dswd_nhts,
+    has_membership: membershipFields.has_membership,
     blood_type: cleanField(enrolment.blood_type),
-
-    // Multi-membership serialization
-    other_membership: otherMemberships.length > 0
-      ? JSON.stringify(otherMemberships)
-      : cleanField(enrolment.other_membership),
-    other_membership_name: Object.keys(otherMembershipNames).length > 0
-      ? JSON.stringify(otherMembershipNames)
-      : cleanField(enrolment.other_membership_name),
-    other_membership_no: Object.keys(otherMembershipNos).length > 0
-      ? JSON.stringify(otherMembershipNos)
-      : cleanField(enrolment.other_membership_no),
+    memberships: membershipFields.memberships,
+    other_membership: membershipFields.other_membership,
+    other_membership_name: membershipFields.other_membership_name,
+    other_membership_no: membershipFields.other_membership_no,
 
     // Strip frontend-only fields not known to the backend
     other_memberships: undefined,
@@ -105,10 +82,17 @@ export async function createPatientRecord(
     }
 
     return patientData;
-  } catch (err: any) {
-    if (err.response?.data?.message) {
-      throw new Error(err.response.data.message);
+  } catch (err: unknown) {
+    const responseMessage = typeof err === 'object' && err !== null
+      && 'response' in err
+      && typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
+      ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+      : null;
+
+    if (responseMessage) {
+      throw new Error(responseMessage, { cause: err });
     }
-    throw new Error('Failed to save patient record.');
+
+    throw new Error('Failed to save patient record.', { cause: err });
   }
 }

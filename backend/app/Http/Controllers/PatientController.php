@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Patient;
+use App\Services\PatientMembershipService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class PatientController extends Controller
@@ -36,9 +38,9 @@ class PatientController extends Controller
                     ->with([
                         'registeredBy',
                         'details',
+                        'memberships',
                         'latestTreatmentRecord',
                         'upcomingAppointment',
-                        'details',
                         'queues' => function ($q) {
                             $q->whereIn('status', ['waiting', 'in_consultation'])->latest();
                         }
@@ -79,8 +81,10 @@ class PatientController extends Controller
      */
     public function store(Request $request)
     {
+        $membershipService = app(PatientMembershipService::class);
+
         // Validate basic patient data
-        $request->validate([
+        $request->validate(array_merge([
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -123,42 +127,48 @@ class PatientController extends Controller
             'other_membership' => 'nullable|string|max:500',
             'other_membership_name' => 'nullable|string|max:500',
             'other_membership_no' => 'nullable|string|max:500',
-        ]);
+        ], $membershipService->validationRules()));
 
-        $patient = Patient::create([
-            'clinic_id' => $request->user()->clinic_id,
-            'first_name' => $request->first_name,
-            'middle_name' => $request->middle_name,
-            'last_name' => $request->last_name,
-            'suffix' => $request->suffix,
-            'gender' => $request->gender,
-            'age' => $request->age,
-            'date_of_birth' => $request->date_of_birth,
-            'address' => $request->address,
-            'contact_number' => $request->contact_number,
-            'email' => $request->email,
-            'emergency_contact_name' => $request->emergency_contact_name,
-            'emergency_contact_number' => $request->emergency_contact_number,
-            'registered_by' => $request->user()->id,
-            'registration_source' => 'staff',
-        ]);
+        $patient = DB::transaction(function () use ($request, $membershipService) {
+            $patient = Patient::create([
+                'clinic_id' => $request->user()->clinic_id,
+                'first_name' => $request->first_name,
+                'middle_name' => $request->middle_name,
+                'last_name' => $request->last_name,
+                'suffix' => $request->suffix,
+                'gender' => $request->gender,
+                'age' => $request->age,
+                'date_of_birth' => $request->date_of_birth,
+                'address' => $request->address,
+                'contact_number' => $request->contact_number,
+                'email' => $request->email,
+                'emergency_contact_name' => $request->emergency_contact_name,
+                'emergency_contact_number' => $request->emergency_contact_number,
+                'registered_by' => $request->user()->id,
+                'registration_source' => 'staff',
+            ]);
 
-        // Create patient details if any extended data provided
-        $detailsData = $request->only([
-            'blood_type', 'mother_maiden_name', 'civil_status', 'spouse_name',
-            'address_municipality', 'address_barangay', 'address_purok', 'province',
-            'educational_attainment', 'employment_status', 'family_member',
-            'philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category',
-            'fourps_member', 'fourps_category', 'fourps_relationship', 'registered_fourps_beneficiary', 'dswd_nhts', 'has_membership', 'other_membership', 'other_membership_name', 'other_membership_no'
-        ]);
+            $detailsData = $request->only([
+                'blood_type', 'mother_maiden_name', 'civil_status', 'spouse_name',
+                'address_municipality', 'address_barangay', 'address_purok', 'province',
+                'educational_attainment', 'employment_status', 'family_member',
+                'philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category',
+                'fourps_member', 'fourps_category', 'fourps_relationship', 'registered_fourps_beneficiary',
+                'dswd_nhts', 'has_membership', 'other_membership', 'other_membership_name', 'other_membership_no'
+            ]);
 
-        // Convert empty strings to NULL to avoid unique constraint violations
-        // (e.g. philhealth_no has a unique index and multiple patients with no PhilHealth all collide on '')
-        $detailsData = array_map(fn($v) => ($v === '' ? null : $v), $detailsData);
+            $detailsData = array_map(fn($v) => ($v === '' ? null : $v), $detailsData);
+            $memberships = $membershipService->membershipsFromPayload($request->all());
+            $detailsData = array_merge($detailsData, $membershipService->legacyFieldsFromMemberships($memberships));
 
-        if (!empty(array_filter($detailsData, fn($v) => !is_null($v)))) {
-            $patient->details()->create($detailsData);
-        }
+            if (!empty(array_filter($detailsData, fn($v) => !is_null($v)))) {
+                $patient->details()->create($detailsData);
+            }
+
+            $membershipService->syncForPatient($patient, $memberships);
+
+            return $patient;
+        });
         
         // Invalidate patient list cache for this clinic
         $this->clearPatientListCache($request->user()->clinic_id);
@@ -166,7 +176,7 @@ class PatientController extends Controller
 
         return response()->json([
             'message' => 'Patient registered successfully',
-            'patient' => $patient->load(['registeredBy', 'details']),
+            'patient' => $patient->load(['registeredBy', 'details', 'memberships']),
         ], 201);
     }
 
@@ -185,6 +195,7 @@ class PatientController extends Controller
                     ->with([
                         'registeredBy',
                         'details',
+                        'memberships',
                         // Form 2: Bite cases with their nested treatment records
                         'biteIncidents' => function($query) {
                             $query->with(['treatmentRecords' => function($q) {
@@ -210,7 +221,9 @@ class PatientController extends Controller
         $patient = Patient::where('clinic_id', $request->user()->clinic_id)
             ->findOrFail($id);
 
-        $request->validate([
+        $membershipService = app(PatientMembershipService::class);
+
+        $request->validate(array_merge([
             'first_name' => 'sometimes|required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'sometimes|required|string|max:255',
@@ -228,6 +241,10 @@ class PatientController extends Controller
             'mother_maiden_name' => 'nullable|string|max:255',
             'civil_status' => 'nullable|in:single,married,widowed,separated,annulled,cohabitation',
             'spouse_name' => 'nullable|string|max:255',
+            'address_municipality' => 'nullable|string|max:255',
+            'address_barangay' => 'nullable|string|max:255',
+            'address_purok' => 'nullable|string|max:255',
+            'province' => 'nullable|string|max:100',
             'educational_attainment' => 'nullable|string|max:50',
             'employment_status' => 'nullable|string|max:50',
             'family_member' => 'nullable|string|max:50',
@@ -246,31 +263,44 @@ class PatientController extends Controller
             'registered_fourps_beneficiary' => 'nullable|string|max:50',
             'dswd_nhts' => 'nullable|in:yes,no',
             'has_membership' => 'nullable|string|max:10',
-            'other_membership' => 'nullable|string|max:50',
-            'other_membership_name' => 'nullable|string|max:100',
-            'other_membership_no' => 'nullable|string|max:100',
-        ]);
+            'other_membership' => 'nullable|string|max:500',
+            'other_membership_name' => 'nullable|string|max:500',
+            'other_membership_no' => 'nullable|string|max:500',
+        ], $membershipService->validationRules()));
 
-        $patient->update($request->all());
+        DB::transaction(function () use ($request, $patient, $membershipService) {
+            $patient->update($request->only([
+                'first_name', 'middle_name', 'last_name', 'suffix', 'gender', 'age',
+                'date_of_birth', 'address', 'contact_number', 'email',
+                'emergency_contact_name', 'emergency_contact_number',
+            ]));
 
-        // Update details if any details fields are provided
-        $detailsFields = [
-            'blood_type', 'mother_maiden_name', 'civil_status', 'spouse_name',
-            'educational_attainment', 'employment_status', 'family_member',
-            'philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category',
-            'fourps_member', 'fourps_category', 'fourps_relationship', 'registered_fourps_beneficiary', 'dswd_nhts', 'has_membership', 'other_membership', 'other_membership_name', 'other_membership_no'
-        ];
-        
-        $detailsData = $request->only($detailsFields);
-        // Convert empty strings to NULL to prevent unique constraint violations
-        $detailsData = array_map(fn($v) => ($v === '' ? null : $v), $detailsData);
-        if (!empty(array_filter($detailsData, fn($v) => !is_null($v)))) {
-            if ($patient->details) {
-                $patient->details->update($detailsData);
-            } else {
-                $patient->details()->create($detailsData);
+            $detailsFields = [
+                'blood_type', 'mother_maiden_name', 'civil_status', 'spouse_name',
+                'address_municipality', 'address_barangay', 'address_purok', 'province',
+                'educational_attainment', 'employment_status', 'family_member',
+                'philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category',
+                'fourps_member', 'fourps_category', 'fourps_relationship', 'registered_fourps_beneficiary',
+                'dswd_nhts', 'has_membership', 'other_membership', 'other_membership_name', 'other_membership_no'
+            ];
+
+            $detailsData = $request->only($detailsFields);
+            $detailsData = array_map(fn($v) => ($v === '' ? null : $v), $detailsData);
+
+            if ($membershipService->payloadHasMembershipData($request->all())) {
+                $memberships = $membershipService->membershipsFromPayload($request->all());
+                $detailsData = array_merge($detailsData, $membershipService->legacyFieldsFromMemberships($memberships));
+                $membershipService->syncForPatient($patient, $memberships);
             }
-        }
+
+            if (!empty($detailsData)) {
+                if ($patient->details) {
+                    $patient->details->update($detailsData);
+                } elseif (!empty(array_filter($detailsData, fn($v) => !is_null($v)))) {
+                    $patient->details()->create($detailsData);
+                }
+            }
+        });
 
         // Invalidate patient list cache
         $this->clearPatientListCache($request->user()->clinic_id);
@@ -279,7 +309,7 @@ class PatientController extends Controller
 
         return response()->json([
             'message' => 'Patient updated successfully',
-            'patient' => $patient->load('details'),
+            'patient' => $patient->fresh()->load(['details', 'memberships']),
         ]);
     }
 

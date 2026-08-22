@@ -6,6 +6,7 @@ import type { Patient, EnrolmentFormData } from '../types';
 import { INITIAL_ENROLMENT_DATA } from '../types';
 import { useAddressLocation } from '../hooks';
 import api from '../../../shared/services/api';
+import { buildEnrolmentFromPatient, buildLegacyMembershipFields, toRecord } from '../utils/memberships';
 import {
   PatientInfoSection,
   AddressSection,
@@ -25,82 +26,35 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
   const [enrolment, setEnrolment] = useState<EnrolmentFormData>(INITIAL_ENROLMENT_DATA);
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
+  const [fullPatient, setFullPatient] = useState<Patient | Record<string, unknown> | null>(null);
   const loc = useAddressLocation();
+  const { setPurok } = loc;
 
   useEffect(() => {
-    if (open && patient) {
-      const dob = patient.date_of_birth;
-      let formattedDob = '';
-      if (dob) {
-        const d = new Date(dob);
-        if (!isNaN(d.getTime())) {
-          formattedDob = d.toISOString().split('T')[0];
-        }
-      }
-
-      const phMember = (patient as any).philhealth_member || '';
-      const fpsMember = (patient as any).fourps_member || '';
-      const dswdMember = (patient as any).dswd_nhts || '';
-      const otherMem = (patient as any).other_membership || '';
-      
-      let dbHasMembership = (patient as any).has_membership || '';
-      if (!dbHasMembership) {
-        if (phMember === 'yes' || fpsMember === 'yes' || dswdMember === 'yes' || (otherMem && otherMem !== 'none')) {
-          dbHasMembership = 'yes';
-        } else if (phMember === 'no' || fpsMember === 'no' || dswdMember === 'no' || otherMem === 'none') {
-          dbHasMembership = 'no';
-        }
-      }
-
-      setEnrolment({
-        last_name: patient.last_name || '',
-        first_name: patient.first_name || '',
-        middle_name: (patient as any).middle_name || '',
-        suffix: (patient as any).suffix || '',
-        date_of_birth: formattedDob,
-        sex: patient.gender || 'male',
-        blood_type: (patient as any).blood_type || '',
-        civil_status: (patient as any).civil_status || '',
-        spouse_name: (patient as any).spouse_name || '',
-        mother_maiden_name: (patient as any).mother_maiden_name || '',
-        contact_number: patient.contact_number || patient.phone || '',
-        email: patient.email || '',
-        family_member: (patient as any).family_member || '',
-        educational_attainment: (patient as any).educational_attainment || '',
-        employment_status: (patient as any).employment_status || '',
-        philhealth_member: phMember,
-        philhealth_status: (patient as any).philhealth_status || '',
-        philhealth_no: (patient as any).philhealth_no || '',
-        philhealth_category: (patient as any).philhealth_category || '',
-        fourps_member: fpsMember,
-        fourps_category: (patient as any).fourps_category || '',
-        fourps_relationship: (patient as any).fourps_relationship || '',
-        registered_fourps_beneficiary: (patient as any).registered_fourps_beneficiary || '',
-        dswd_nhts: dswdMember,
-        has_membership: dbHasMembership,
-        other_membership: otherMem,
-        other_membership_name: (patient as any).other_membership_name || '',
-        other_membership_no: (patient as any).other_membership_no || '',
-        emergency_contact_name: (patient as any).emergency_contact_name || '',
-        emergency_contact_phone: (patient as any).emergency_contact_number || (patient as any).emergency_contact_phone || '',
-        // Multi-membership: parse existing JSON if present
-        other_memberships: (() => {
-          try { return otherMem && otherMem.startsWith('[') ? JSON.parse(otherMem) : []; }
-          catch { return []; }
-        })(),
-        senior_citizen_id: '',
-        pwd_id: '',
-        indigenous_tribe: '',
-        other_membership_custom_name: '',
-        other_membership_custom_id: '',
-      });
-
-      // Pre-fill address if available
-      if (patient.address) {
-        loc.setPurok(patient.address);
-      }
+    if (!open || !patient) {
+      return;
     }
-  }, [open, patient]);
+
+    setFullPatient(patient);
+    setEnrolment(buildEnrolmentFromPatient(patient));
+
+    if (patient.address) {
+      setPurok(patient.address);
+    }
+
+    const patientId = patient.patient_id || patient.id;
+    api.get(`/patients/${patientId}`)
+      .then(({ data }) => {
+        setFullPatient(data as Record<string, unknown>);
+        setEnrolment(buildEnrolmentFromPatient(data as Record<string, unknown>));
+        if (typeof data?.address === 'string') {
+          setPurok(data.address);
+        }
+      })
+      .catch(() => {
+        setFullPatient(patient);
+      });
+  }, [open, patient, setPurok]);
 
   if (!open || !patient) return null;
 
@@ -118,7 +72,7 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     setEnrolment(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleDirectChange = (key: keyof EnrolmentFormData, value: any) => {
+  const handleDirectChange = (key: keyof EnrolmentFormData, value: unknown) => {
     setEnrolment(prev => ({ ...prev, [key]: value }));
   };
 
@@ -155,15 +109,22 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
 
     const cleanField = (val: string) => val.trim() === '' ? null : val;
     const patientId = patient.patient_id || patient.id;
+    const patientRecord = toRecord(fullPatient ?? patient);
+    const patientDetails = toRecord(patientRecord.details);
+    const membershipFields = buildLegacyMembershipFields(enrolment);
 
     const payload = {
-      ...enrolment,
       first_name: enrolment.first_name.trim(),
       middle_name: cleanField(enrolment.middle_name),
       last_name: enrolment.last_name.trim(),
       suffix: cleanField(enrolment.suffix),
       gender: enrolment.sex,
-      address: loc.full || patient.address,
+      date_of_birth: cleanField(enrolment.date_of_birth),
+      address: loc.full || (typeof patientRecord.address === 'string' ? patientRecord.address : patient.address),
+      address_municipality: cleanField(loc.munName) || toRecord(patientDetails).address_municipality || null,
+      address_barangay: cleanField(loc.brgyName) || toRecord(patientDetails).address_barangay || null,
+      address_purok: cleanField(loc.purok) || toRecord(patientDetails).address_purok || null,
+      province: toRecord(patientDetails).province || 'Misamis Oriental',
       contact_number: cleanField(enrolment.contact_number),
       email: cleanField(enrolment.email),
       emergency_contact_name: cleanField(enrolment.emergency_contact_name),
@@ -172,25 +133,34 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       blood_type: cleanField(enrolment.blood_type),
       spouse_name: cleanField(enrolment.spouse_name),
       mother_maiden_name: cleanField(enrolment.mother_maiden_name),
-      philhealth_member: cleanField(enrolment.philhealth_member),
-      philhealth_status: cleanField(enrolment.philhealth_status),
-      fourps_member: cleanField(enrolment.fourps_member),
-      fourps_category: cleanField(enrolment.fourps_category),
-      fourps_relationship: cleanField(enrolment.fourps_relationship),
-      registered_fourps_beneficiary: cleanField(enrolment.registered_fourps_beneficiary),
-      dswd_nhts: cleanField(enrolment.dswd_nhts),
-      has_membership: cleanField(enrolment.has_membership),
-      other_membership: cleanField(enrolment.other_membership),
-      other_membership_name: cleanField(enrolment.other_membership_name),
-      other_membership_no: cleanField(enrolment.other_membership_no),
+      family_member: cleanField(enrolment.family_member),
+      educational_attainment: cleanField(enrolment.educational_attainment),
+      employment_status: cleanField(enrolment.employment_status),
+      philhealth_member: membershipFields.philhealth_member,
+      philhealth_status: cleanField(membershipFields.philhealth_status ?? enrolment.philhealth_status),
+      philhealth_no: cleanField(membershipFields.philhealth_no ?? enrolment.philhealth_no),
+      philhealth_category: cleanField(membershipFields.philhealth_category ?? enrolment.philhealth_category),
+      fourps_member: membershipFields.fourps_member,
+      fourps_category: cleanField(membershipFields.fourps_category ?? enrolment.fourps_category),
+      fourps_relationship: cleanField(membershipFields.fourps_relationship ?? enrolment.fourps_relationship),
+      registered_fourps_beneficiary: cleanField(membershipFields.registered_fourps_beneficiary ?? enrolment.registered_fourps_beneficiary),
+      dswd_nhts: membershipFields.dswd_nhts,
+      has_membership: membershipFields.has_membership,
+      other_membership: membershipFields.other_membership,
+      other_membership_name: membershipFields.other_membership_name,
+      other_membership_no: membershipFields.other_membership_no,
+      memberships: membershipFields.memberships,
     };
 
     try {
       await api.put(`/patients/${patientId}`, payload);
       onSuccess();
       onClose();
-    } catch (e: any) {
-      setError(e.response?.data?.message || e.message || 'Failed to update patient record.');
+    } catch (e: unknown) {
+      const message = typeof e === 'object' && e !== null && 'response' in e
+        ? (e as { response?: { data?: { message?: string } } }).response?.data?.message
+        : undefined;
+      setError(message || (e instanceof Error ? e.message : 'Failed to update patient record.'));
     } finally {
       setSaving(false);
     }

@@ -200,6 +200,11 @@ class Patient extends Model
         return $this->hasOne(PatientDetails::class, 'patient_id', 'patient_id');
     }
 
+    public function memberships()
+    {
+        return $this->hasMany(PatientMembership::class, 'patient_id', 'patient_id');
+    }
+
     /**
      * Helper: Get active bite cases
      */

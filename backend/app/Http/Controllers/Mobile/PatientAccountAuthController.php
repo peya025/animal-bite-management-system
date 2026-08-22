@@ -67,7 +67,7 @@ class PatientAccountAuthController extends Controller
         // Cache for 5 minutes
         return response()->json(
             Cache::remember($cacheKey, 300, function () use ($request) {
-                return $request->user()->load('patients');
+                return $request->user()->load(['patients.details', 'patients.memberships']);
             })
         );
     }
@@ -86,7 +86,7 @@ class PatientAccountAuthController extends Controller
         Cache::forget("mobile:account:me:{$accountId}");
 
         return response()->json(
-            $request->user()->fresh()->load('patients'),
+            $request->user()->fresh()->load(['patients.details', 'patients.memberships']),
         );
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
+use App\Services\PatientMembershipService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -20,13 +21,15 @@ class PatientProfileController extends Controller
         // Cache for 10 minutes (patient profiles don't change often)
         return response()->json(
             Cache::remember($cacheKey, 600, function () use ($request) {
-                return $request->user()->patients()->orderByPivot('is_primary', 'desc')->get();
+                return $request->user()->patients()->with(['details', 'memberships'])->orderByPivot('is_primary', 'desc')->get();
             })
         );
     }
 
     public function store(Request $request)
     {
+        $membershipService = app(PatientMembershipService::class);
+
         // Validate basic patient data
         $patientData = $request->validate([
             'clinic_id' => ['required', 'integer', 'exists:clinics,id'],
@@ -39,12 +42,13 @@ class PatientProfileController extends Controller
             'date_of_birth' => ['nullable', 'date', 'before:today'],
             'address' => ['nullable', 'string', 'max:255'],
             'contact_number' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'string', 'email', 'max:255'],
             'emergency_contact_name' => ['nullable', 'string', 'max:255'],
             'emergency_contact_number' => ['nullable', 'string', 'max:50'],
         ]);
 
         // Validate extended Form 1 data
-        $detailsData = $request->validate([
+        $detailsData = $request->validate(array_merge([
             'blood_type' => ['nullable', 'string', 'max:10'],
             'mother_maiden_name' => ['nullable', 'string', 'max:255'],
             'civil_status' => ['nullable', 'in:single,married,widowed,separated,annulled,cohabitation'],
@@ -66,10 +70,10 @@ class PatientProfileController extends Controller
             'registered_fourps_beneficiary' => ['nullable', 'string', 'max:50'],
             'dswd_nhts' => ['nullable', 'in:yes,no'],
             'has_membership' => ['nullable', 'string', 'max:10'],
-            'other_membership' => ['nullable', 'string', 'max:50'],
-            'other_membership_name' => ['nullable', 'string', 'max:100'],
-            'other_membership_no' => ['nullable', 'string', 'max:100'],
-        ]);
+            'other_membership' => ['nullable', 'string', 'max:500'],
+            'other_membership_name' => ['nullable', 'string', 'max:500'],
+            'other_membership_no' => ['nullable', 'string', 'max:500'],
+        ], $membershipService->validationRules()));
 
         $account = $request->user();
 
@@ -80,7 +84,7 @@ class PatientProfileController extends Controller
             ]);
         }
 
-        $patient = DB::transaction(function () use ($account, $patientData, $detailsData) {
+        $patient = DB::transaction(function () use ($account, $patientData, $detailsData, $request, $membershipService) {
             $relationship = $patientData['relationship'];
             unset($patientData['relationship']);
 
@@ -89,10 +93,15 @@ class PatientProfileController extends Controller
                 'registration_source' => 'mobile',
             ]);
 
-            // Create patient details if any extended data provided
-            if (!empty(array_filter($detailsData))) {
-                $patient->details()->create($detailsData);
+            $detailsPayload = array_map(fn($value) => ($value === '' ? null : $value), $detailsData);
+            $memberships = $membershipService->membershipsFromPayload($request->all());
+            $detailsPayload = array_merge($detailsPayload, $membershipService->legacyFieldsFromMemberships($memberships));
+
+            if (!empty(array_filter($detailsPayload, fn($value) => !is_null($value)))) {
+                $patient->details()->create($detailsPayload);
             }
+
+            $membershipService->syncForPatient($patient, $memberships);
 
             $account->patients()->attach($patient->patient_id, [
                 'relationship' => $relationship,
@@ -107,7 +116,7 @@ class PatientProfileController extends Controller
         Cache::forget("mobile:patients:account:{$account->id}");
 
         return response()->json(
-            $account->patients()->with('details')->whereKey($patient->patient_id)->firstOrFail(),
+            $account->patients()->with(['details', 'memberships'])->whereKey($patient->patient_id)->firstOrFail(),
             201,
         );
     }

@@ -30,6 +30,7 @@ import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmen
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { CompleteDialog } from '../components/CompleteDialog';
+import { getMembershipByType, getPatientMemberships } from '../../patients/utils/memberships';
 
 // ─── Role helpers ──────────────────────────────────────────────────────────
 function canEdit(userRole: string, formOwner: 'registration' | 'triage' | 'treatment'): boolean {
@@ -630,6 +631,14 @@ type Form1Entry = QueueEntry & {
 function Form1InlineView({ entry, readOnly }: { entry: Form1Entry; readOnly: boolean }) {
   const patient = toRecord(entry?.patient);
   const details = toRecord(firstNonEmpty(patient.details, entry.patient_details));
+  const memberships = getPatientMemberships(entry?.patient);
+  const philhealth = getMembershipByType(memberships, 'philhealth');
+  const fourps = getMembershipByType(memberships, 'fourps');
+  const dswd = getMembershipByType(memberships, 'dswd_nhts');
+  const senior = getMembershipByType(memberships, 'senior_citizen');
+  const pwd = getMembershipByType(memberships, 'pwd');
+  const indigenous = getMembershipByType(memberships, 'indigenous_member');
+  const other = getMembershipByType(memberships, 'other');
 
   const civilStatusRaw = firstNonEmpty(details.civil_status, patient.civil_status);
   const spouseRaw = firstNonEmpty(details.spouse_name, patient.spouse_name);
@@ -720,12 +729,21 @@ function Form1InlineView({ entry, readOnly }: { entry: Form1Entry; readOnly: boo
 
       <Form1Section title="II. Government Program Information">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2.5 }}>
-          <Form1Field label="PhilHealth Member?" value={asYesNo(firstNonEmpty(details.philhealth_member, patient.philhealth_member))} />
-          <Form1Field label="Status Type" value={asOption(firstNonEmpty(details.philhealth_status, patient.philhealth_status), PHILHEALTH_STATUS_LABELS)} />
-          <Form1Field label="PhilHealth No." value={asDisplayValue(firstNonEmpty(details.philhealth_no, patient.philhealth_no))} />
-          <Form1Field label="Category" value={asOption(firstNonEmpty(details.philhealth_category, patient.philhealth_category), PHILHEALTH_CATEGORY_LABELS)} />
-          <Form1Field label="4Ps Member?" value={asYesNo(firstNonEmpty(details.fourps_member, patient.fourps_member))} />
-          <Form1Field label="DSWD NHTS?" value={asYesNo(firstNonEmpty(details.dswd_nhts, patient.dswd_nhts))} />
+          <Form1Field label="Any Membership?" value={asYesNo(memberships.length > 0 ? 'yes' : firstNonEmpty(details.has_membership, patient.has_membership))} />
+          <Form1Field label="PhilHealth Member?" value={asYesNo(philhealth ? 'yes' : firstNonEmpty(details.philhealth_member, patient.philhealth_member))} />
+          <Form1Field label="Status Type" value={asOption(firstNonEmpty(philhealth?.status_value, details.philhealth_status, patient.philhealth_status), PHILHEALTH_STATUS_LABELS)} />
+          <Form1Field label="PhilHealth No." value={asDisplayValue(firstNonEmpty(philhealth?.membership_id_no, details.philhealth_no, patient.philhealth_no))} />
+          <Form1Field label="Category" value={asOption(firstNonEmpty(philhealth?.category, details.philhealth_category, patient.philhealth_category), PHILHEALTH_CATEGORY_LABELS)} />
+          <Form1Field label="4Ps Member?" value={asYesNo(fourps ? 'yes' : firstNonEmpty(details.fourps_member, patient.fourps_member))} />
+          <Form1Field label="4Ps Category" value={asDisplayValue(firstNonEmpty(fourps?.category, details.fourps_category))} />
+          <Form1Field label="4Ps Relationship" value={asDisplayValue(firstNonEmpty(fourps?.relationship_value, details.fourps_relationship))} />
+          <Form1Field label="Registered 4Ps Beneficiary" value={asDisplayValue(firstNonEmpty(fourps?.registered_beneficiary, details.registered_fourps_beneficiary))} />
+          <Form1Field label="DSWD NHTS?" value={asYesNo(dswd ? 'yes' : firstNonEmpty(details.dswd_nhts, patient.dswd_nhts))} />
+          <Form1Field label="Senior Citizen ID" value={asDisplayValue(firstNonEmpty(senior?.membership_id_no))} />
+          <Form1Field label="PWD ID" value={asDisplayValue(firstNonEmpty(pwd?.membership_id_no))} />
+          <Form1Field label="Indigenous Tribe" value={asDisplayValue(firstNonEmpty(indigenous?.extra_value))} />
+          <Form1Field label="Other Membership" value={asDisplayValue(firstNonEmpty(other?.membership_label))} />
+          <Form1Field label="Other Membership ID" value={asDisplayValue(firstNonEmpty(other?.membership_id_no))} />
         </Box>
       </Form1Section>
     </Box>

@@ -40,32 +40,43 @@ export default function AddToQueueModal({ open, onClose, onSuccess }: AddToQueue
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loadingPatients, setLoadingPatients] = useState(false);
+  const [patientSearch, setPatientSearch] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [visitType, setVisitType] = useState<'new_case' | 'follow_up' | 'vaccination' | 'observation'>('new_case');
   const [priority, setPriority] = useState<'normal' | 'urgent' | 'emergency'>('normal');
+  const [category, setCategory] = useState<'regular' | 'appointment' | 'senior_citizen' | 'pwd' | 'pregnant' | 'priority'>('regular');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (open) {
-      loadPatients();
-      // Reset form
       setSelectedPatient(null);
       setVisitType('new_case');
       setPriority('normal');
+      setCategory('regular');
+      setPatientSearch('');
       setNotes('');
       setError('');
+      loadPatients('');
     }
   }, [open]);
 
-  const loadPatients = async () => {
+  // Server-side patient search — only fires when user types (not on open reset)
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => loadPatients(patientSearch), 350);
+    return () => clearTimeout(timer);
+  }, [patientSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadPatients = async (search: string) => {
     setLoadingPatients(true);
     try {
-      const response = await api.get('/patients?per_page=100');
+      const response = await api.get('/patients', {
+        params: { per_page: 50, search: search || undefined },
+      });
       const patientData = Array.isArray(response.data) ? response.data : response.data.data || [];
       setPatients(patientData);
-    } catch (err) {
-      console.error('Failed to load patients:', err);
+    } catch {
       setError('Failed to load patient list');
     } finally {
       setLoadingPatients(false);
@@ -86,6 +97,7 @@ export default function AddToQueueModal({ open, onClose, onSuccess }: AddToQueue
         patient_id: selectedPatient.patient_id,
         visit_type: visitType,
         priority: priority,
+        queue_category: category,
         check_in_notes: notes || undefined,
       });
 
@@ -120,20 +132,26 @@ export default function AddToQueueModal({ open, onClose, onSuccess }: AddToQueue
           </Alert>
         )}
 
-        {/* Patient Selection */}
+        {/* Patient Selection — server-side search */}
         <Box sx={{ mb: 3 }}>
           <Autocomplete
             options={patients}
             getOptionLabel={getPatientLabel}
             value={selectedPatient}
             onChange={(_, newValue) => setSelectedPatient(newValue)}
+            onInputChange={(_, val, reason) => {
+              // Only trigger search on actual user input, not on selection/reset
+              if (reason === 'input') setPatientSearch(val);
+            }}
             loading={loadingPatients}
+            filterOptions={x => x}
+            noOptionsText={loadingPatients ? 'Searching…' : 'No patients found — type to search'}
             renderInput={(params) => (
               <TextField
                 {...params}
                 label="Select Patient"
                 required
-                helperText="Search by patient number or name"
+                helperText="Type to search by name or patient number"
                 slotProps={{
                   input: {
                     ...(params as any).InputProps,
@@ -150,9 +168,7 @@ export default function AddToQueueModal({ open, onClose, onSuccess }: AddToQueue
             renderOption={(props, option) => (
               <li {...props} key={option.patient_id}>
                 <Box>
-                  <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-                    {getPatientLabel(option)}
-                  </Typography>
+                  <Typography sx={{ fontWeight: 600, fontSize: 14 }}>{getPatientLabel(option)}</Typography>
                   <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
                     {option.gender} · DOB: {new Date(option.date_of_birth).toLocaleDateString()}
                   </Typography>
@@ -160,6 +176,21 @@ export default function AddToQueueModal({ open, onClose, onSuccess }: AddToQueue
               </li>
             )}
           />
+        </Box>
+
+        {/* Queue Category */}
+        <Box sx={{ mb: 3 }}>
+          <FormControl fullWidth required>
+            <InputLabel>Queue Category</InputLabel>
+            <Select value={category} label="Queue Category" onChange={e => setCategory(e.target.value as any)}>
+              <MenuItem value="regular">👤 Regular / Walk-in</MenuItem>
+              <MenuItem value="appointment">📅 Appointment</MenuItem>
+              <MenuItem value="senior_citizen">👴 Senior Citizen</MenuItem>
+              <MenuItem value="pwd">♿ PWD</MenuItem>
+              <MenuItem value="pregnant">🤰 Pregnant</MenuItem>
+              <MenuItem value="priority">🚨 Priority / Urgent</MenuItem>
+            </Select>
+          </FormControl>
         </Box>
 
         {/* Visit Type */}
@@ -210,9 +241,8 @@ export default function AddToQueueModal({ open, onClose, onSuccess }: AddToQueue
 
         {selectedPatient && (
           <Alert severity="info" icon={false} sx={{ fontSize: 13 }}>
-            <strong>Patient:</strong> {getPatientLabel(selectedPatient)}
-            <br />
-            <strong>Visit:</strong> {visitType.replace('_', ' ')} · <strong>Priority:</strong> {priority}
+            <strong>Patient:</strong> {getPatientLabel(selectedPatient)}<br />
+            <strong>Visit:</strong> {visitType.replace('_', ' ')} · <strong>Priority:</strong> {priority} · <strong>Category:</strong> {category.replace('_', ' ')}
           </Alert>
         )}
       </DialogContent>

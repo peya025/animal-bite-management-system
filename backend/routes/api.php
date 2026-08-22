@@ -241,9 +241,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Vaccine names lookup — accessible to all authenticated staff for form dropdowns
     Route::get('/inventory/vaccine-names', [VaccineInventoryController::class, 'vaccineNames']);
+    Route::get('/inventory/fifo-recommendations', [VaccineInventoryController::class, 'fifoRecommendations']);
 
-    // Vaccine Inventory (admin only)
-    Route::prefix('inventory')->middleware('role:admin')->group(function () {
+    // Vaccine Inventory (accessible to clinic staff & admins)
+    Route::prefix('inventory')->middleware('role:admin,treatment,nurse,doctor,staff,developer,triage,registration')->group(function () {
         Route::get('/statistics', [VaccineInventoryController::class, 'statistics']);
         Route::get('/', [VaccineInventoryController::class, 'index']);
         Route::post('/', [VaccineInventoryController::class, 'store']);
@@ -256,35 +257,39 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Queue Management
     Route::prefix('queue')->group(function () {
-        // View queue (admin, registration, triage, treatment)
+        // View queue (all staff)
         Route::middleware('role:admin,registration,triage,treatment')->group(function () {
-            Route::get('/', [QueueController::class, 'index']);
-            Route::get('/waiting', [QueueController::class, 'waiting']);
-            Route::get('/next', [QueueController::class, 'next']);
+            Route::get('/',           [QueueController::class, 'index']);
+            Route::get('/waiting',    [QueueController::class, 'waiting']);
+            Route::get('/next',       [QueueController::class, 'next']);
             Route::get('/statistics', [QueueController::class, 'statistics']);
-            Route::get('/trashed', [QueueController::class, 'trashed']);
-            Route::get('/{id}', [QueueController::class, 'show']);
+            Route::get('/trashed',    [QueueController::class, 'trashed']);
+            Route::get('/{id}',       [QueueController::class, 'show']);
+            Route::get('/{id}/history', [QueueController::class, 'history']);
         });
 
-        // Add to queue (admin, registration only)
+        // Add / cancel / priority (admin, registration)
         Route::middleware('role:admin,registration')->group(function () {
-            Route::post('/', [QueueController::class, 'store']);
-            Route::post('/{id}/cancel', [QueueController::class, 'cancel']);
-            Route::put('/{id}/priority', [QueueController::class, 'updatePriority']);
+            Route::post('/',              [QueueController::class, 'store']);
+            Route::post('/{id}/cancel',   [QueueController::class, 'cancel']);
+            Route::put('/{id}/priority',  [QueueController::class, 'updatePriority']);
         });
 
-        // Call & Complete (admin, triage, treatment)
+        // Call / Serve / Complete / No-Response / Recall / Absent (admin, triage, treatment)
         Route::middleware('role:admin,triage,treatment')->group(function () {
-            Route::post('/{id}/call', [QueueController::class, 'call']);
-            Route::post('/{id}/complete', [QueueController::class, 'complete']);
+            Route::post('/call-next',        [QueueController::class, 'callNext']);
+            Route::post('/{id}/call',        [QueueController::class, 'call']);
+            Route::post('/{id}/serve',       [QueueController::class, 'serve']);
+            Route::post('/{id}/complete',    [QueueController::class, 'complete']);
             Route::post('/{id}/no-response', [QueueController::class, 'noResponse']);
-            Route::post('/{id}/second-chance', [QueueController::class, 'secondChance']);
+            Route::post('/{id}/recall',      [QueueController::class, 'recall']);
+            Route::post('/{id}/absent',      [QueueController::class, 'markAbsent']);
         });
 
-        // Trash bin (admin, registration, triage, treatment)
+        // Trash bin (all staff)
         Route::middleware('role:admin,registration,triage,treatment')->group(function () {
-            Route::delete('/{id}', [QueueController::class, 'softDelete']);
-            Route::post('/{id}/restore', [QueueController::class, 'restore']);
+            Route::delete('/{id}',         [QueueController::class, 'softDelete']);
+            Route::post('/{id}/restore',   [QueueController::class, 'restore']);
         });
     });
 

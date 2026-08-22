@@ -179,6 +179,8 @@ export interface InventoryItem {
   created_at: string;
   updated_at: string;
   transactions_count?: number;
+  is_fifo_priority?: boolean;
+  fifo_rank?: number | null;
 }
 
 export interface InventoryStats {

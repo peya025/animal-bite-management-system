@@ -211,15 +211,6 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
           <div className="header-right">
             <NotificationButton />
             <ThemeToggle />
-            <div className="user-menu">
-              <div className="user-info">
-                <div className="user-avatar">{initials}</div>
-                <div className="user-details">
-                  <p className="user-name">{user?.name}</p>
-                  <p className="user-role">{user?.role ? ROLE_LABELS[user.role] : 'User'}</p>
-                </div>
-              </div>
-            </div>
           </div>
         </header>
 

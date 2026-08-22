@@ -152,7 +152,11 @@ class PatientController extends Controller
             'fourps_member', 'fourps_category', 'fourps_relationship', 'registered_fourps_beneficiary', 'dswd_nhts', 'has_membership', 'other_membership', 'other_membership_name', 'other_membership_no'
         ]);
 
-        if (!empty(array_filter($detailsData, fn($v) => !is_null($v) && $v !== ''))) {
+        // Convert empty strings to NULL to avoid unique constraint violations
+        // (e.g. philhealth_no has a unique index and multiple patients with no PhilHealth all collide on '')
+        $detailsData = array_map(fn($v) => ($v === '' ? null : $v), $detailsData);
+
+        if (!empty(array_filter($detailsData, fn($v) => !is_null($v)))) {
             $patient->details()->create($detailsData);
         }
         
@@ -258,7 +262,9 @@ class PatientController extends Controller
         ];
         
         $detailsData = $request->only($detailsFields);
-        if (!empty($detailsData)) {
+        // Convert empty strings to NULL to prevent unique constraint violations
+        $detailsData = array_map(fn($v) => ($v === '' ? null : $v), $detailsData);
+        if (!empty(array_filter($detailsData, fn($v) => !is_null($v)))) {
             if ($patient->details) {
                 $patient->details->update($detailsData);
             } else {

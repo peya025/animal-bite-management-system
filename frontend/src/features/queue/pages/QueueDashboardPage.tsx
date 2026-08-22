@@ -11,6 +11,8 @@ import {
   Warning as UrgentIcon,
   Error as EmergencyIcon,
   Restore as TrashBinIcon,
+  PersonAdd as AddPersonIcon,
+  SkipNext as CallNextIcon,
 } from '@mui/icons-material';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -19,125 +21,101 @@ import {
   CancelCircleIcon,
   ArrowUpRight01Icon,
   UserBlock01Icon,
-  RotateLeft01Icon,
   Delete02Icon,
+  CheckmarkBadge04Icon,
 } from '@hugeicons/core-free-icons';
+
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
-
 import type { QueueEntry } from '../types';
-import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, waitTime } from '../types';
+import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, CATEGORY_CFG, CATEGORY_LABEL, waitTime, MAIN_STATUSES, DONE_STATUSES } from '../types';
 import { useQueueData } from '../hooks';
 import {
-  callQueuePatient, cancelQueueEntry, markNoResponse,
-  giveSecondChance, updateQueuePriority, trashQueueEntry,
+  callNext, callQueuePatient, serveQueuePatient, markNoResponse,
+  recallQueuePatient, markAbsent, cancelQueueEntry,
+  updateQueuePriority, trashQueueEntry, completeQueueConsultation,
 } from '../services';
 import {
+  AddToQueueModal,
   CompleteDialog,
   NextPatientBanner,
   QueueFilterBar,
   QueueStatsGrid,
   TrashBinModal,
+  SecondChanceQueuePanel,
+  QueueArchivePanel,
 } from '../components';
 import { buildRoute, ROUTES } from '../../../shared/config/routes';
 
 export default function QueueDashboard() {
   const navigate = useNavigate();
+
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
-  const toast = (message: string, severity: 'success' | 'error' = 'success') =>
-    setSnackbar({ open: true, message, severity });
+  const toast = (msg: string, severity: 'success' | 'error' = 'success') =>
+    setSnackbar({ open: true, message: msg, severity });
 
-  const { queue, stats, loading, nextEntry, reload } = useQueueData(msg => toast(msg, 'error'));
+  const { queue, secondChanceQueue, stats, loading, nextEntry, reload } =
+    useQueueData(msg => toast(msg, 'error'));
 
-  const [search, setSearch]             = useState('');
+  const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [page, setPage]                 = useState(0);
-  const [rowsPerPage, setRowsPerPage]   = useState(15);
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [page,         setPage]         = useState(0);
+  const [rowsPerPage,  setRowsPerPage]  = useState(15);
+  const [showAddModal, setShowAddModal] = useState(false);
 
-  // Action targets
-  const [callTarget, setCallTarget]             = useState<QueueEntry | null>(null);
-  const [cancelTarget, setCancelTarget]         = useState<QueueEntry | null>(null);
-  const [completeTarget, setCompleteTarget]     = useState<QueueEntry | null>(null);
-  const [noResponseTarget, setNoResponseTarget] = useState<QueueEntry | null>(null);
-  const [secondChanceTarget, setSecondChanceTarget] = useState<QueueEntry | null>(null);
-  const [trashTarget, setTrashTarget]           = useState<QueueEntry | null>(null);
-  const [showTrashBin, setShowTrashBin]         = useState(false);
+  // ── Confirmation targets ────────────────────────────────────────────────────
+  const [callTarget,       setCallTarget]       = useState<QueueEntry | null>(null);
+  const [serveTarget,      setServeTarget]       = useState<QueueEntry | null>(null);
+  const [cancelTarget,     setCancelTarget]     = useState<QueueEntry | null>(null);
+  const [completeTarget,   setCompleteTarget]   = useState<QueueEntry | null>(null);
+  const [noRespTarget,     setNoRespTarget]     = useState<QueueEntry | null>(null);
+  const [recallTarget,     setRecallTarget]     = useState<QueueEntry | null>(null);
+  const [absentTarget,     setAbsentTarget]     = useState<QueueEntry | null>(null);
+  const [trashTarget,      setTrashTarget]      = useState<QueueEntry | null>(null);
+  const [showTrashBin,     setShowTrashBin]     = useState(false);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const handleCall = async (entry: QueueEntry) => {
-    try {
-      await callQueuePatient(entry.queue_id);
-      toast(`Called #${entry.queue_number} · ${entry.patient.name}`);
-      reload();
-    } catch {
-      toast('Failed to call patient', 'error');
+  const run = async (fn: () => Promise<unknown>, successMsg: string, errMsg: string) => {
+    try   { await fn(); toast(successMsg); reload(); }
+    catch (err: any) {
+      const msg = err?.response?.data?.message ?? errMsg;
+      toast(msg, 'error');
     }
   };
 
-  const handleCancel = async (entry: QueueEntry) => {
-    try {
-      await cancelQueueEntry(entry.queue_id);
-      toast(`Cancelled #${entry.queue_number}`);
-      reload();
-    } catch {
-      toast('Failed to cancel queue entry', 'error');
-    }
-  };
-
-  const handleNoResponse = async (entry: QueueEntry) => {
-    try {
-      await markNoResponse(entry.queue_id);
-      toast(`#${entry.queue_number} marked as No Response`);
-      reload();
-    } catch {
-      toast('Failed to mark no response', 'error');
-    }
-  };
-
-  const handleSecondChance = async (entry: QueueEntry) => {
-    try {
-      await giveSecondChance(entry.queue_id);
-      toast(`#${entry.queue_number} re-queued — Second Chance granted`);
-      reload();
-    } catch {
-      toast('Failed to give second chance', 'error');
-    }
-  };
+  const handleCallNext   = () => run(() => callNext(),                                  'Called next patient',                             'No patients waiting or failed to call next');
+  const handleCall       = (e: QueueEntry) => run(() => callQueuePatient(e.queue_id),   `Called #${e.queue_number} · ${e.patient.name}`,   'Failed to call patient');
+  const handleServe      = (e: QueueEntry) => run(() => serveQueuePatient(e.queue_id),  `#${e.queue_number} is now being served`,           'Failed to mark as serving');
+  const handleNoResponse = (e: QueueEntry) => run(() => markNoResponse(e.queue_id),     `#${e.queue_number} moved to Second Chance Queue`, 'Failed to mark no response');
+  const handleRecall     = (e: QueueEntry) => run(() => recallQueuePatient(e.queue_id), `#${e.queue_number} recalled`,                     'Failed to recall patient');
+  const handleAbsent     = (e: QueueEntry) => run(() => markAbsent(e.queue_id),         `#${e.queue_number} marked as No-Show`,            'Failed to mark absent');
+  const handleCancel     = (e: QueueEntry) => run(() => cancelQueueEntry(e.queue_id),   `Cancelled #${e.queue_number}`,                    'Failed to cancel');
+  const handleTrash      = (e: QueueEntry) => run(() => trashQueueEntry(e.queue_id),    `#${e.queue_number} moved to trash`,               'Failed to trash entry');
 
   const handlePriorityChange = async (entry: QueueEntry, priority: 'normal' | 'urgent' | 'emergency') => {
-    try {
-      await updateQueuePriority(entry.queue_id, priority);
-      toast(`Priority updated to ${priority} for #${entry.queue_number}`);
-      reload();
-    } catch {
-      toast('Failed to update priority', 'error');
-    }
-  };
-
-  const handleTrash = async (entry: QueueEntry) => {
-    try {
-      await trashQueueEntry(entry.queue_id);
-      toast(`#${entry.queue_number} moved to trash`);
-      reload();
-    } catch {
-      toast('Failed to trash queue entry', 'error');
-    }
+    try   { await updateQueuePriority(entry.queue_id, priority); toast(`Priority updated to ${priority}`); reload(); }
+    catch { toast('Failed to update priority', 'error'); }
   };
 
   // ── Filter + Pagination ───────────────────────────────────────────────────
 
-  const filtered = queue.filter(q => {
+  const filtered  = queue.filter(q => {
     const matchSearch = !search ||
       q.patient.name.toLowerCase().includes(search.toLowerCase()) ||
       String(q.queue_number).includes(search);
-    const matchStatus = !statusFilter || q.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchStatus   = !statusFilter   || q.status         === statusFilter;
+    const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
+    // Main table only shows active/second-chance entries unless a specific status filter is set
+    const isActiveOrFiltered = statusFilter
+      ? true
+      : (MAIN_STATUSES as string[]).includes(q.status);
+    return matchSearch && matchStatus && matchCategory && isActiveOrFiltered;
   });
-
   const paginated = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -149,40 +127,63 @@ export default function QueueDashboard() {
   const columns: ColumnDef<QueueEntry>[] = [
     {
       key: 'queue_id', header: 'QUEUE ID', width: '90px',
-      render: entry => (
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: 'var(--bg-secondary)', borderRadius: 1, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
-          #{entry.queue_id}
+      render: e => (
+        <Box sx={{ display: 'inline-flex', px: 1.25, py: 0.25, bgcolor: 'var(--bg-secondary)', borderRadius: 1, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
+          #{e.queue_id}
         </Box>
       ),
     },
     {
       key: 'queue_number', header: 'QUEUE #', width: '80px',
-      render: entry => (
+      render: e => (
         <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#3b82f6' }}>{entry.queue_number}</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#3b82f6' }}>{e.queue_number}</Typography>
         </Box>
       ),
     },
     {
+      key: 'queue_category', header: 'CATEGORY', width: '120px',
+      render: e => {
+        const cfg = CATEGORY_CFG[e.queue_category] ?? CATEGORY_CFG.regular;
+        const label = CATEGORY_LABEL[e.queue_category] ?? e.queue_category;
+        return (
+          <Box sx={{
+            display: 'inline-flex', alignItems: 'center', gap: 0.5,
+            px: 1.25, py: 0.4,
+            bgcolor: cfg.bg, color: cfg.color,
+            borderRadius: 1.5, fontSize: 11, fontWeight: 700,
+            whiteSpace: 'nowrap',
+          }}>
+            {cfg.icon} {label}
+          </Box>
+        );
+      },
+    },
+    {
       key: 'patient', header: 'PATIENT',
-      render: entry => {
-        const queueDateStr = entry.queue_date ? new Date(entry.queue_date).toISOString().split('T')[0] : '';
+      render: e => {
+        const qDate   = e.queue_date ? new Date(e.queue_date).toISOString().split('T')[0] : '';
         const todayStr = new Date().toISOString().split('T')[0];
-        const isCarryOver = entry.is_carry_over || (queueDateStr && queueDateStr < todayStr);
-        const isActive = entry.status === 'waiting' || entry.status === 'in_consultation';
+        const isCarry  = e.is_carry_over || (qDate && qDate < todayStr);
+        const isActive = MAIN_STATUSES.includes(e.status);
         return (
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)', lineHeight: 1.3 }}>{entry.patient.name}</Typography>
-              {isCarryOver && isActive && (
+              <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)', lineHeight: 1.3 }}>{e.patient.name}</Typography>
+              {isCarry && isActive && (
                 <Box sx={{ px: 1, py: 0.2, bgcolor: '#fef3c7', color: '#92400e', borderRadius: 1, fontSize: 10, fontWeight: 700 }}>
-                  Carried Over ({queueDateStr ? new Date(queueDateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Past Date'})
+                  Carried Over {qDate ? `(${new Date(qDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}
+                </Box>
+              )}
+              {e.call_count > 0 && (
+                <Box sx={{ px: 1, py: 0.2, bgcolor: '#f3e8ff', color: '#7e22ce', borderRadius: 1, fontSize: 10, fontWeight: 700 }}>
+                  Called {e.call_count}×
                 </Box>
               )}
             </Box>
             <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mt: 0.25 }}>
-              {entry.patient.age}y · {entry.patient.gender}
-              {entry.biteIncident && ` · ${entry.biteIncident.case_number}`}
+              {e.patient.age}y · {e.patient.gender}
+              {e.biteIncident && ` · ${e.biteIncident.case_number}`}
             </Typography>
           </Box>
         );
@@ -190,23 +191,22 @@ export default function QueueDashboard() {
     },
     {
       key: 'visit_type', header: 'VISIT TYPE',
-      render: entry => (
+      render: e => (
         <Box sx={{ display: 'inline-flex', px: 2, py: 0.5, bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
-          {VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
+          {VISIT_LABEL[e.visit_type] ?? e.visit_type}
         </Box>
       ),
     },
     {
-      // ── SEGREGATE: inline priority dropdown ──
       key: 'priority', header: 'PRIORITY',
-      render: entry => {
-        const cfg = PRIORITY_CFG[entry.priority] ?? PRIORITY_CFG.normal;
-        const isActive = entry.status === 'waiting' || entry.status === 'in_consultation';
+      render: e => {
+        const cfg      = PRIORITY_CFG[e.priority] ?? PRIORITY_CFG.normal;
+        const isActive = MAIN_STATUSES.includes(e.status);
         if (!isActive) {
           return (
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 12, fontWeight: 600 }}>
-              {entry.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
-              {entry.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
+              {e.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
+              {e.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
               {cfg.label}
             </Box>
           );
@@ -214,8 +214,8 @@ export default function QueueDashboard() {
         return (
           <FormControl size="small" variant="outlined">
             <Select
-              value={entry.priority}
-              onChange={e => handlePriorityChange(entry, e.target.value as 'normal' | 'urgent' | 'emergency')}
+              value={e.priority}
+              onChange={ev => handlePriorityChange(e, ev.target.value as 'normal' | 'urgent' | 'emergency')}
               renderValue={val => {
                 const c = PRIORITY_CFG[val] ?? PRIORITY_CFG.normal;
                 return (
@@ -246,8 +246,8 @@ export default function QueueDashboard() {
     },
     {
       key: 'status', header: 'STATUS',
-      render: entry => {
-        const cfg = STATUS_CFG[entry.status] ?? STATUS_CFG.cancelled;
+      render: e => {
+        const cfg = STATUS_CFG[e.status] ?? STATUS_CFG.cancelled;
         return (
           <Box sx={{ display: 'inline-flex', px: 2, py: 0.5, bgcolor: cfg.bg, color: cfg.color, borderRadius: 1.5, fontSize: 12, fontWeight: 600 }}>
             {cfg.label}
@@ -257,232 +257,110 @@ export default function QueueDashboard() {
     },
     {
       key: 'wait_time', header: 'WAIT TIME',
-      render: entry => {
-        const active = entry.status === 'waiting' || entry.status === 'in_consultation';
-        return active ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <WaitIcon sx={{ fontSize: 14, color: 'var(--text-secondary)' }} />
-            <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>{waitTime(entry.checked_in_at)}</Typography>
-          </Box>
-        ) : <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>—</Typography>;
+      render: e => {
+        const active = MAIN_STATUSES.includes(e.status);
+        return active
+          ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <WaitIcon sx={{ fontSize: 14, color: 'var(--text-secondary)' }} />
+              <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>{waitTime(e.checked_in_at)}</Typography>
+            </Box>
+          : <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>—</Typography>;
       },
     },
     {
       key: 'view', header: 'VIEW', align: 'right' as const, width: '90px',
-      render: entry => (
+      render: e => (
         <Tooltip title="View Patient Details & Forms">
           <button
-            onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: entry.queue_id }))}
+            onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: e.queue_id }))}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '5px 13px',
-              background: '#ecfdf5',
-              border: '1px solid #a7f3d0',
-              borderRadius: 8,
-              color: '#059669',
-              fontSize: 12.5,
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              transition: 'all 0.15s ease',
-              boxShadow: '0 1px 2px rgba(16, 185, 129, 0.05)',
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 13px', background: '#ecfdf5', border: '1px solid #a7f3d0',
+              borderRadius: 8, color: '#059669', fontSize: 12.5, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease',
             }}
-            onMouseEnter={e => {
-              const el = e.currentTarget;
-              el.style.background = '#d1fae5';
-              el.style.borderColor = '#6ee7b7';
-              el.style.color = '#047857';
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget;
-              el.style.background = '#ecfdf5';
-              el.style.borderColor = '#a7f3d0';
-              el.style.color = '#059669';
-            }}
+            onMouseEnter={el => { (el.currentTarget as HTMLElement).style.background = '#d1fae5'; }}
+            onMouseLeave={el => { (el.currentTarget as HTMLElement).style.background = '#ecfdf5'; }}
           >
-            View
-            <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />
+            View <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />
           </button>
         </Tooltip>
       ),
     },
     {
       key: 'queue_actions', header: 'QUEUE ACTIONS', align: 'right',
-      render: entry => {
-        const isWaiting    = entry.status === 'waiting';
-        const isConsult    = entry.status === 'in_consultation';
-        const isNoResponse = entry.status === 'no_response';
-        const isActive     = isWaiting || isConsult;
+      render: e => {
+        const isWaiting = e.status === 'waiting';
+        const isCalled  = e.status === 'called';
+        const isServing = e.status === 'serving' || e.status === 'in_consultation';
+        const isActive  = MAIN_STATUSES.includes(e.status);
+        const isDone    = ['completed', 'cancelled', 'absent'].includes(e.status);
 
         return (
           <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'flex-end', alignItems: 'center' }}>
-            {/* Call */}
+
+            {/* Call — waiting only */}
             {isWaiting && (
               <Tooltip title="Call Patient to Station">
-                <IconButton
-                  size="small"
-                  onClick={() => setCallTarget(entry)}
-                  sx={{
-                    color: '#2563eb',
-                    bgcolor: '#eff6ff',
-                    border: '1px solid #bfdbfe',
-                    borderRadius: '8px',
-                    width: 32,
-                    height: 32,
-                    transition: 'all 0.15s ease',
-                    '&:hover': {
-                      bgcolor: '#dbeafe',
-                      borderColor: '#93c5fd',
-                      color: '#1d4ed8',
-                      transform: 'translateY(-1px)',
-                      boxShadow: '0 2px 5px rgba(37, 99, 235, 0.15)',
-                    },
-                  }}
-                >
+                <IconButton size="small" onClick={() => setCallTarget(e)}
+                  sx={actionBtn('#2563eb', '#eff6ff', '#bfdbfe', '#dbeafe', '#93c5fd', '#1d4ed8')}>
                   <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
-            {/* Complete */}
-            {isConsult && (
+
+            {/* Serve (patient responded) — called only */}
+            {isCalled && (
+              <Tooltip title="Patient Responded — Start Serving">
+                <IconButton size="small" onClick={() => setServeTarget(e)}
+                  sx={actionBtn('#0d9488', '#f0fdfa', '#99f6e4', '#ccfbf1', '#5eead4', '#0f766e')}>
+                  <HugeiconsIcon icon={CheckmarkBadge04Icon} size={16} strokeWidth={2} />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {/* Complete — serving only */}
+            {isServing && (
               <Tooltip title="Complete Consultation">
-                <IconButton
-                  size="small"
-                  onClick={() => setCompleteTarget(entry)}
-                  sx={{
-                    color: '#059669',
-                    bgcolor: '#ecfdf5',
-                    border: '1px solid #a7f3d0',
-                    borderRadius: '8px',
-                    width: 32,
-                    height: 32,
-                    transition: 'all 0.15s ease',
-                    '&:hover': {
-                      bgcolor: '#d1fae5',
-                      borderColor: '#6ee7b7',
-                      color: '#047857',
-                      transform: 'translateY(-1px)',
-                      boxShadow: '0 2px 5px rgba(16, 185, 129, 0.15)',
-                    },
-                  }}
-                >
+                <IconButton size="small" onClick={() => setCompleteTarget(e)}
+                  sx={actionBtn('#059669', '#ecfdf5', '#a7f3d0', '#d1fae5', '#6ee7b7', '#047857')}>
                   <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
-            {/* No Response */}
-            {isActive && (
-              <Tooltip title="Mark No Response">
-                <IconButton
-                  size="small"
-                  onClick={() => setNoResponseTarget(entry)}
-                  sx={{
-                    color: '#9333ea',
-                    bgcolor: '#faf5ff',
-                    border: '1px solid #e9d5ff',
-                    borderRadius: '8px',
-                    width: 32,
-                    height: 32,
-                    transition: 'all 0.15s ease',
-                    '&:hover': {
-                      bgcolor: '#f3e8ff',
-                      borderColor: '#d8b4fe',
-                      color: '#7e22ce',
-                      transform: 'translateY(-1px)',
-                      boxShadow: '0 2px 5px rgba(147, 51, 234, 0.15)',
-                    },
-                  }}
-                >
+
+            {/* No Response — waiting or called */}
+            {(isWaiting || isCalled) && (
+              <Tooltip title="No Response — Move to Second Chance">
+                <IconButton size="small" onClick={() => setNoRespTarget(e)}
+                  sx={actionBtn('#9333ea', '#faf5ff', '#e9d5ff', '#f3e8ff', '#d8b4fe', '#7e22ce')}>
                   <HugeiconsIcon icon={UserBlock01Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
-            {/* Second Chance */}
-            {isNoResponse && (
-              <Tooltip title="Give Second Chance (re-queue)">
-                <IconButton
-                  size="small"
-                  onClick={() => setSecondChanceTarget(entry)}
-                  sx={{
-                    color: '#7c3aed',
-                    bgcolor: '#f5f3ff',
-                    border: '1px solid #ddd6fe',
-                    borderRadius: '8px',
-                    width: 32,
-                    height: 32,
-                    transition: 'all 0.15s ease',
-                    '&:hover': {
-                      bgcolor: '#ede9fe',
-                      borderColor: '#c4b5fd',
-                      color: '#6d28d9',
-                      transform: 'translateY(-1px)',
-                      boxShadow: '0 2px 5px rgba(124, 58, 237, 0.15)',
-                    },
-                  }}
-                >
-                  <HugeiconsIcon icon={RotateLeft01Icon} size={16} strokeWidth={2} />
-                </IconButton>
-              </Tooltip>
-            )}
-            {/* Cancel */}
+
+            {/* Cancel — any active */}
             {isActive && (
               <Tooltip title="Cancel Queue Entry">
-                <IconButton
-                  size="small"
-                  onClick={() => setCancelTarget(entry)}
-                  sx={{
-                    color: '#dc2626',
-                    bgcolor: '#fef2f2',
-                    border: '1px solid #fecaca',
-                    borderRadius: '8px',
-                    width: 32,
-                    height: 32,
-                    transition: 'all 0.15s ease',
-                    '&:hover': {
-                      bgcolor: '#fee2e2',
-                      borderColor: '#fca5a5',
-                      color: '#b91c1c',
-                      transform: 'translateY(-1px)',
-                      boxShadow: '0 2px 5px rgba(220, 38, 38, 0.15)',
-                    },
-                  }}
-                >
+                <IconButton size="small" onClick={() => setCancelTarget(e)}
+                  sx={actionBtn('#dc2626', '#fef2f2', '#fecaca', '#fee2e2', '#fca5a5', '#b91c1c')}>
                   <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
-            {/* Trash */}
-            {!isConsult && (
+
+            {/* Trash — not serving/in-consultation */}
+            {!isServing && !isDone && (
               <Tooltip title="Move to Trash">
-                <IconButton
-                  size="small"
-                  onClick={() => setTrashTarget(entry)}
-                  sx={{
-                    color: '#64748b',
-                    bgcolor: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    width: 32,
-                    height: 32,
-                    transition: 'all 0.15s ease',
-                    '&:hover': {
-                      bgcolor: '#fee2e2',
-                      borderColor: '#fca5a5',
-                      color: '#dc2626',
-                      transform: 'translateY(-1px)',
-                      boxShadow: '0 2px 5px rgba(220, 38, 38, 0.15)',
-                    },
-                  }}
-                >
+                <IconButton size="small" onClick={() => setTrashTarget(e)}
+                  sx={actionBtn('#64748b', '#f8fafc', '#e2e8f0', '#fee2e2', '#fca5a5', '#dc2626')}>
                   <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
-            {/* Completed / cancelled — no actions */}
-            {entry.status === 'completed' && (
-              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: '32px', px: 0.5 }}>—</Typography>
+
+            {isDone && (
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', px: 0.5 }}>—</Typography>
             )}
           </Box>
         );
@@ -490,21 +368,22 @@ export default function QueueDashboard() {
     },
   ];
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <Box sx={{ px: 3 }}>
+
       {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', margin: '0 0 7px 0' }}>
             Queue Dashboard
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
+          <Typography sx={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
             {today} · Auto-refreshes every 30 seconds
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button onClick={() => { window.location.href = '/dashboard'; }}
+            <button onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}>
               Dashboard
             </button>
@@ -512,10 +391,40 @@ export default function QueueDashboard() {
             <span style={{ color: 'var(--text-secondary)' }}>Queue</span>
           </Box>
         </Box>
+
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
 
-          {/* Queue Display button */}
+          {/* Add to Queue */}
+          <Tooltip title="Add patient to queue">
+            <IconButton
+              onClick={() => setShowAddModal(true)}
+              sx={{ color: '#059669', bgcolor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 1.5, '&:hover': { bgcolor: '#d1fae5' } }}
+            >
+              <AddPersonIcon />
+            </IconButton>
+          </Tooltip>
+
+          {/* Call Next */}
+          {nextEntry && (
+            <Tooltip title="Auto-call next eligible patient">
+              <button
+                onClick={handleCallNext}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 8,
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  color: '#fff', border: 'none', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+                  boxShadow: '0 2px 8px rgba(37,99,235,0.3)', whiteSpace: 'nowrap',
+                }}
+              >
+                <CallNextIcon style={{ fontSize: 16 }} />
+                Call Next
+              </button>
+            </Tooltip>
+          )}
+
           <Tooltip title="Open Queue Display (Full Screen)">
             <button
               onClick={() => window.open('/queue/display', '_blank', 'width=1280,height=720')}
@@ -525,47 +434,72 @@ export default function QueueDashboard() {
                 background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
                 color: '#fff', border: 'none', cursor: 'pointer',
                 fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-                boxShadow: '0 2px 8px rgba(13,148,136,0.3)',
-                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 8px rgba(13,148,136,0.3)', whiteSpace: 'nowrap',
               }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2"/>
-                <path d="M8 21h8M12 17v4"/>
+                <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
               </svg>
               Queue Display
             </button>
           </Tooltip>
 
-          {/* Trash Bin button */}
-          <Tooltip title="Trash Bin — View removed entries">
+          <Tooltip title="Trash Bin">
             <IconButton onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
               <TrashBinIcon />
             </IconButton>
           </Tooltip>
           <Tooltip title="Refresh">
-            <IconButton onClick={reload} disabled={loading}>
-              <RefreshIcon />
-            </IconButton>
+            <IconButton onClick={reload} disabled={loading}><RefreshIcon /></IconButton>
           </Tooltip>
         </Stack>
       </Box>
 
       {/* Next Patient Banner */}
-      {nextEntry && <NextPatientBanner entry={nextEntry} onCall={handleCall} />}
+      {nextEntry && <NextPatientBanner entry={nextEntry} onCall={handleCall} onCallNext={handleCallNext} />}
 
       {/* Stats */}
       <QueueStatsGrid stats={stats} />
 
-      {/* Queue Table */}
+      {/* ── SECOND CHANCE QUEUE PANEL (only when populated) ── */}
+      {secondChanceQueue.length > 0 && (
+        <SecondChanceQueuePanel
+          entries={secondChanceQueue}
+          loading={loading}
+          onRecall={e => setRecallTarget(e)}
+          onAbsent={e => setAbsentTarget(e)}
+        />
+      )}
+
+      {/* ── ARCHIVE PANEL — completed, cancelled, absent, no-response ── */}
+      <QueueArchivePanel
+        entries={queue.filter(e => (DONE_STATUSES as string[]).includes(e.status))}
+        loading={loading}
+      />
+
+      {/* ── MAIN QUEUE TABLE ── */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 14, color: 'var(--text-h)' }}>
+            Main Queue
+          </Typography>
+          {secondChanceQueue.length > 0 && (
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.4, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 12, fontWeight: 600 }}>
+              ↩ {secondChanceQueue.length} in Second Chance Queue
+            </Box>
+          )}
+        </Box>
+
         <QueueFilterBar
           search={search}
           onSearchChange={v => { setSearch(v); setPage(0); }}
           statusFilter={statusFilter}
           onStatusChange={v => { setStatusFilter(v); setPage(0); }}
-          onClear={() => { setSearch(''); setStatusFilter(''); setPage(0); }}
+          categoryFilter={categoryFilter}
+          onCategoryChange={v => { setCategoryFilter(v); setPage(0); }}
+          onClear={() => { setSearch(''); setStatusFilter(''); setCategoryFilter(''); setPage(0); }}
         />
+
         <DataTable
           columns={columns}
           rows={paginated}
@@ -573,9 +507,10 @@ export default function QueueDashboard() {
           skeletonRows={rowsPerPage}
           rowKey={e => e.queue_id}
           emptyIcon={<WaitIcon sx={{ fontSize: 36, color: 'var(--text-secondary)' }} />}
-          emptyTitle={statusFilter ? `No ${STATUS_CFG[statusFilter]?.label ?? statusFilter} patients` : 'Queue is empty'}
+          emptyTitle={statusFilter ? `No ${STATUS_CFG[statusFilter as keyof typeof STATUS_CFG]?.label ?? statusFilter} patients` : 'Queue is empty'}
           emptySubtitle="Patients added by registration will appear here"
         />
+
         <TablePager
           count={filtered.length}
           page={page}
@@ -587,72 +522,63 @@ export default function QueueDashboard() {
 
       {/* ── Confirmation Dialogs ── */}
 
-      {/* Call */}
       {callTarget && (
-        <ConfirmationDialog
-          variant="confirm"
-          title="Call Patient"
-          message={<>Call <strong>#{callTarget.queue_number} · {callTarget.patient.name}</strong> for consultation?</>}
-          confirmLabel="Yes, Call Now"
-          cancelLabel="Cancel"
+        <ConfirmationDialog variant="confirm" title="Call Patient"
+          message={<>Call <strong>#{callTarget.queue_number} · {callTarget.patient.name}</strong> to the station?</>}
+          confirmLabel="Call Now" cancelLabel="Cancel"
           onConfirm={() => { handleCall(callTarget); setCallTarget(null); }}
-          onCancel={() => setCallTarget(null)}
-        />
+          onCancel={() => setCallTarget(null)} />
       )}
 
-      {/* Cancel */}
+      {serveTarget && (
+        <ConfirmationDialog variant="confirm" title="Patient Responded"
+          message={<><strong>#{serveTarget.queue_number} · {serveTarget.patient.name}</strong> has responded. Start serving?</>}
+          confirmLabel="Yes, Start Serving" cancelLabel="Cancel"
+          onConfirm={() => { handleServe(serveTarget); setServeTarget(null); }}
+          onCancel={() => setServeTarget(null)} />
+      )}
+
+      {noRespTarget && (
+        <ConfirmationDialog variant="confirm" title="No Response"
+          message={<><strong>#{noRespTarget.queue_number} · {noRespTarget.patient.name}</strong> did not respond. Move to Second Chance Queue and continue with next patient?</>}
+          confirmLabel="Move to Second Chance" cancelLabel="Go Back"
+          onConfirm={() => { handleNoResponse(noRespTarget); setNoRespTarget(null); }}
+          onCancel={() => setNoRespTarget(null)} />
+      )}
+
+      {recallTarget && (
+        <ConfirmationDialog variant="confirm"
+          title={recallTarget.status === 'final_recall' ? 'Final Recall' : 'Recall Patient'}
+          message={<>Recall <strong>#{recallTarget.queue_number} · {recallTarget.patient.name}</strong>{recallTarget.status === 'final_recall' ? ' — this is their FINAL opportunity' : ' from the Second Chance Queue'}?</>}
+          confirmLabel="Recall Now" cancelLabel="Go Back"
+          onConfirm={() => { handleRecall(recallTarget); setRecallTarget(null); }}
+          onCancel={() => setRecallTarget(null)} />
+      )}
+
+      {absentTarget && (
+        <ConfirmationDialog variant="danger" title="Mark as Absent"
+          message={<>Mark <strong>#{absentTarget.queue_number} · {absentTarget.patient.name}</strong> as <strong>Absent</strong>? This is their final recall and they will be removed from active queues.</>}
+          confirmLabel="Mark Absent" cancelLabel="Go Back"
+          onConfirm={() => { handleAbsent(absentTarget); setAbsentTarget(null); }}
+          onCancel={() => setAbsentTarget(null)} />
+      )}
+
       {cancelTarget && (
-        <ConfirmationDialog
-          variant="danger"
-          title="Cancel Queue Entry"
+        <ConfirmationDialog variant="danger" title="Cancel Queue Entry"
           message={<>Remove <strong>#{cancelTarget.queue_number} · {cancelTarget.patient.name}</strong> from the queue?</>}
-          confirmLabel="Yes, Cancel"
-          cancelLabel="Go Back"
+          confirmLabel="Yes, Cancel" cancelLabel="Go Back"
           onConfirm={() => { handleCancel(cancelTarget); setCancelTarget(null); }}
-          onCancel={() => setCancelTarget(null)}
-        />
+          onCancel={() => setCancelTarget(null)} />
       )}
 
-      {/* No Response */}
-      {noResponseTarget && (
-        <ConfirmationDialog
-          variant="confirm"
-          title="Mark as No Response"
-          message={<><strong>#{noResponseTarget.queue_number} · {noResponseTarget.patient.name}</strong> did not respond when called. Mark as No Response?</>}
-          confirmLabel="Mark No Response"
-          cancelLabel="Go Back"
-          onConfirm={() => { handleNoResponse(noResponseTarget); setNoResponseTarget(null); }}
-          onCancel={() => setNoResponseTarget(null)}
-        />
-      )}
-
-      {/* Second Chance */}
-      {secondChanceTarget && (
-        <ConfirmationDialog
-          variant="confirm"
-          title="Give Second Chance"
-          message={<>Re-queue <strong>#{secondChanceTarget.queue_number} · {secondChanceTarget.patient.name}</strong> at the end of today's queue?</>}
-          confirmLabel="Yes, Re-queue"
-          cancelLabel="Go Back"
-          onConfirm={() => { handleSecondChance(secondChanceTarget); setSecondChanceTarget(null); }}
-          onCancel={() => setSecondChanceTarget(null)}
-        />
-      )}
-
-      {/* Trash */}
       {trashTarget && (
-        <ConfirmationDialog
-          variant="danger"
-          title="Move to Trash"
-          message={<>Move <strong>#{trashTarget.queue_number} · {trashTarget.patient.name}</strong> to trash? You can restore it from the Trash Bin.</>}
-          confirmLabel="Move to Trash"
-          cancelLabel="Go Back"
+        <ConfirmationDialog variant="danger" title="Move to Trash"
+          message={<>Move <strong>#{trashTarget.queue_number} · {trashTarget.patient.name}</strong> to trash? You can restore it later.</>}
+          confirmLabel="Move to Trash" cancelLabel="Go Back"
           onConfirm={() => { handleTrash(trashTarget); setTrashTarget(null); }}
-          onCancel={() => setTrashTarget(null)}
-        />
+          onCancel={() => setTrashTarget(null)} />
       )}
 
-      {/* Complete */}
       <CompleteDialog
         open={!!completeTarget}
         entry={completeTarget}
@@ -660,11 +586,17 @@ export default function QueueDashboard() {
         onDone={() => { reload(); toast('Consultation completed'); }}
       />
 
-      {/* Trash Bin Modal */}
       <TrashBinModal
         open={showTrashBin}
         onClose={() => setShowTrashBin(false)}
         onRestored={() => { reload(); toast('Entry restored to queue'); }}
+      />
+
+      {/* Add to Queue Modal */}
+      <AddToQueueModal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={() => { setShowAddModal(false); reload(); toast('Patient added to queue'); }}
       />
 
       <Snackbar
@@ -679,4 +611,22 @@ export default function QueueDashboard() {
       </Snackbar>
     </Box>
   );
+}
+
+// ── Action button style helper ─────────────────────────────────────────────
+function actionBtn(
+  color: string, bg: string, border: string,
+  hoverBg: string, hoverBorder: string, hoverColor: string,
+) {
+  return {
+    color, bgcolor: bg,
+    border: `1px solid ${border}`,
+    borderRadius: '8px', width: 32, height: 32,
+    transition: 'all 0.15s ease',
+    '&:hover': {
+      bgcolor: hoverBg, borderColor: hoverBorder, color: hoverColor,
+      transform: 'translateY(-1px)',
+      boxShadow: `0 2px 5px ${color}30`,
+    },
+  } as const;
 }

@@ -13,34 +13,30 @@ class Queue extends Model
     protected $primaryKey = 'queue_id';
 
     protected $fillable = [
-        'clinic_id',
-        'patient_id',
-        'appointment_id',
-        'bite_id',
-        'queue_number',
-        'queue_date',
-        'visit_type',
-        'priority',
-        'status',
-        'checked_in_at',
-        'called_at',
-        'completed_at',
-        'checked_in_by',
-        'handled_by',
-        'check_in_notes',
-        'consultation_notes',
-        'no_response_at',
+        'clinic_id', 'patient_id', 'appointment_id', 'bite_id',
+        'queue_number', 'queue_date', 'visit_type', 'queue_category', 'priority', 'status',
+        'checked_in_at', 'called_at', 'completed_at', 'cancelled_at', 'serving_at',
+        'second_chance_at', 'final_recall_at', 'absent_at', 'no_response_at',
+        'checked_in_by', 'handled_by',
+        'check_in_notes', 'consultation_notes',
+        'call_count', 'recall_stage',
         'deleted_at',
     ];
 
     protected $casts = [
-        'queue_number'   => 'integer',
-        'queue_date'     => 'date',
-        'checked_in_at'  => 'datetime',
-        'called_at'      => 'datetime',
-        'completed_at'   => 'datetime',
-        'no_response_at' => 'datetime',
-        'deleted_at'     => 'datetime',
+        'queue_number'     => 'integer',
+        'call_count'       => 'integer',
+        'queue_date'       => 'date',
+        'checked_in_at'    => 'datetime',
+        'called_at'        => 'datetime',
+        'completed_at'     => 'datetime',
+        'cancelled_at'     => 'datetime',
+        'serving_at'       => 'datetime',
+        'second_chance_at' => 'datetime',
+        'final_recall_at'  => 'datetime',
+        'absent_at'        => 'datetime',
+        'no_response_at'   => 'datetime',
+        'deleted_at'       => 'datetime',
     ];
 
     /**
@@ -97,6 +93,11 @@ class Queue extends Model
     public function biteIncidentRelation()
     {
         return $this->belongsTo(BiteIncident::class, 'bite_id', 'bite_id');
+    }
+
+    public function history()
+    {
+        return $this->hasMany(QueueHistory::class, 'queue_id', 'queue_id')->orderBy('occurred_at', 'asc');
     }
 
     /**

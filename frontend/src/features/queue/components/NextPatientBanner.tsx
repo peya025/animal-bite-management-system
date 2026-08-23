@@ -11,9 +11,10 @@ interface NextPatientBannerProps {
   onCall: (entry: QueueEntry) => void;
   /** Called when staff press "Call Next" — auto-selects next eligible patient */
   onCallNext?: () => void;
+  showActions?: boolean;
 }
 
-export function NextPatientBanner({ entry, onCall, onCallNext }: NextPatientBannerProps) {
+export function NextPatientBanner({ entry, onCall, onCallNext, showActions = true }: NextPatientBannerProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const categoryLabel = entry.queue_category
@@ -58,59 +59,61 @@ export function NextPatientBanner({ entry, onCall, onCallNext }: NextPatientBann
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {/* Call Next — auto-select the highest-priority waiting patient */}
-          {onCallNext && (
+        {showActions && (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {/* Call Next — auto-select the highest-priority waiting patient */}
+            {onCallNext && (
+              <button
+                onClick={onCallNext}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '9px 16px',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: '#fff',
+                  border: '1px solid rgba(255,255,255,0.4)',
+                  borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  transition: 'all 0.2s', whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
+              >
+                <CallNextIcon style={{ fontSize: 16 }} />
+                Call Next
+              </button>
+            )}
+
+            {/* Call This Patient — opens confirmation dialog */}
             <button
-              onClick={onCallNext}
+              onClick={() => setConfirmOpen(true)}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '9px 16px',
-                background: 'rgba(255,255,255,0.15)',
-                color: '#fff',
-                border: '1px solid rgba(255,255,255,0.4)',
-                borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '9px 18px',
+                background: '#fff', color: '#059669',
+                border: 'none', borderRadius: '8px',
+                fontSize: '13px', fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'inherit',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                 transition: 'all 0.2s', whiteSpace: 'nowrap',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+              }}
             >
-              <CallNextIcon style={{ fontSize: 16 }} />
-              Call Next
+              <CallIcon style={{ fontSize: 16 }} />
+              Call Patient
             </button>
-          )}
-
-          {/* Call This Patient — opens confirmation dialog */}
-          <button
-            onClick={() => setConfirmOpen(true)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              padding: '9px 18px',
-              background: '#fff', color: '#059669',
-              border: 'none', borderRadius: '8px',
-              fontSize: '13px', fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'inherit',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              transition: 'all 0.2s', whiteSpace: 'nowrap',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
-            }}
-          >
-            <CallIcon style={{ fontSize: 16 }} />
-            Call Patient
-          </button>
-        </Box>
+          </Box>
+        )}
       </Box>
 
       {/* Confirmation dialog — prevents accidental calls */}
-      {confirmOpen && (
+      {showActions && confirmOpen && (
         <ConfirmationDialog
           variant="confirm"
           title="Call Patient"

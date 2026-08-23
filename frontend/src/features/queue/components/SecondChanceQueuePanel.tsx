@@ -15,6 +15,7 @@ interface SecondChanceQueuePanelProps {
   loading?: boolean;
   onRecall: (entry: QueueEntry) => void;
   onAbsent: (entry: QueueEntry) => void;
+  canManage?: boolean;
 }
 
 function StageTag({ status }: { status: string }) {
@@ -35,7 +36,7 @@ function StageTag({ status }: { status: string }) {
 }
 
 export function SecondChanceQueuePanel({
-  entries, loading, onRecall, onAbsent,
+  entries, loading, onRecall, onAbsent, canManage = true,
 }: SecondChanceQueuePanelProps) {
   const navigate = useNavigate();
 
@@ -165,26 +166,28 @@ export function SecondChanceQueuePanel({
                 {/* Actions */}
                 <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0 }}>
                   {/* Recall */}
-                  <Tooltip title={`Recall patient${isFinalRecall ? ' (Final)' : ''}`}>
-                    <IconButton
-                      size="small"
-                      onClick={() => onRecall(entry)}
-                      sx={{
-                        color: isFinalRecall ? '#dc2626' : '#ea580c',
-                        bgcolor: isFinalRecall ? '#fef2f2' : '#fff7ed',
-                        border: `1px solid ${isFinalRecall ? '#fecaca' : '#fed7aa'}`,
-                        borderRadius: '8px', width: 32, height: 32,
-                        transition: 'all 0.15s',
-                        '&:hover': {
-                          bgcolor: isFinalRecall ? '#fee2e2' : '#ffedd5',
-                          transform: 'translateY(-1px)',
-                          boxShadow: '0 2px 5px rgba(234,88,12,0.2)',
-                        },
-                      }}
-                    >
-                      <HugeiconsIcon icon={Call02Icon} size={15} strokeWidth={2.2} />
-                    </IconButton>
-                  </Tooltip>
+                  {canManage && (
+                    <Tooltip title={`Recall patient${isFinalRecall ? ' (Final)' : ''}`}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onRecall(entry)}
+                        sx={{
+                          color: isFinalRecall ? '#dc2626' : '#ea580c',
+                          bgcolor: isFinalRecall ? '#fef2f2' : '#fff7ed',
+                          border: `1px solid ${isFinalRecall ? '#fecaca' : '#fed7aa'}`,
+                          borderRadius: '8px', width: 32, height: 32,
+                          transition: 'all 0.15s',
+                          '&:hover': {
+                            bgcolor: isFinalRecall ? '#fee2e2' : '#ffedd5',
+                            transform: 'translateY(-1px)',
+                            boxShadow: '0 2px 5px rgba(234,88,12,0.2)',
+                          },
+                        }}
+                      >
+                        <HugeiconsIcon icon={Call02Icon} size={15} strokeWidth={2.2} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
 
                   {/* View */}
                   <Tooltip title="View patient details">
@@ -204,7 +207,7 @@ export function SecondChanceQueuePanel({
                   </Tooltip>
 
                   {/* Absent — only on final recall */}
-                  {isFinalRecall && (
+                  {canManage && isFinalRecall && (
                     <Tooltip title="Mark as Absent (no more recalls)">
                       <IconButton
                         size="small"

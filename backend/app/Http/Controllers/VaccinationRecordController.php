@@ -98,6 +98,9 @@ class VaccinationRecordController extends Controller
             'additional_meds.tt' => 'nullable|boolean',
             'additional_meds.ats' => 'nullable|boolean',
             'icd_code' => 'nullable|string|max:20',
+        ], [
+            'doses.required' => "Please select a Vaccine Type for today's dose before saving.",
+            'doses.min' => "Please select a Vaccine Type for today's dose before saving.",
         ]);
 
         DB::beginTransaction();

@@ -115,7 +115,7 @@ const DOSE_NUMBER_TO_PERIOD: Record<number, string> = Object.fromEntries(
 ) as Record<number, string>;
 
 const createInitialDoses = (): VaccinationDose[] => [
-  { period: 'Day 0', route: 'IM', date: '', given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
+  { period: 'Day 0', route: 'IM', date: new Date().toISOString().split('T')[0], given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
   { period: 'Day 3', route: 'IM', date: '', given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
   { period: 'Day 7', route: 'IM', date: '', given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
   { period: 'Day 28', route: '', date: '', given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
@@ -404,12 +404,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
     setFifoErrors(prev => ({ ...prev, [selectedDose.period]: '' }));
 
+    const todayStr = new Date().toISOString().split('T')[0];
     const suggestedUnits = vaccineType ? getSuggestedWholeUnits(vaccineType) : '1';
 
     setDoses(prev => prev.map((dose, i) => (
       i === index
         ? {
             ...dose,
+            date: dose.date || (vaccineType ? todayStr : ''),
             vaccine_type: vaccineType,
             batch_number: dose.inventory_linked ? dose.batch_number : '',
             expiration_date: dose.inventory_linked ? dose.expiration_date : '',
@@ -438,6 +440,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         i === index
           ? {
               ...dose,
+              date: dose.date || todayStr,
               batch_number: fifoBatch.batch_number,
               expiration_date: fifoBatch.expiration_date ? formatDateForInput(fifoBatch.expiration_date) : '',
               available_stock: fifoBatch.current_quantity,
@@ -498,16 +501,25 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       return;
     }
 
-    // Validate doses with recorded dates
-    const filledDoses = doses.filter(d => d.date);
-    for (const d of filledDoses) {
-      if (!d.vaccine_type) {
-        setError(`Please select a Vaccine Type for ${d.period} before saving.`);
-        return;
+    // Auto-fill today's date for candidate doses with vaccine type selected
+    const todayStr = new Date().toISOString().split('T')[0];
+    const candidateDoses = doses.map(d => {
+      if (d.vaccine_type && !d.date) {
+        return { ...d, date: todayStr };
       }
+      return d;
+    });
+
+    const filledDoses = candidateDoses.filter(d => d.date && d.vaccine_type);
+    if (filledDoses.length === 0) {
+      setError("Please select a Vaccine Type for today's dose before saving.");
+      return;
+    }
+
+    for (const d of filledDoses) {
       const units = parseInt(d.inventory_units_used, 10);
       if (isNaN(units) || units < 0) {
-        setError(`Please enter a valid Stock Units Used (0 for shared open vial, or 1+ for new vial) for ${d.period}.`);
+        setError(`Please enter valid Stock Units Used (0 for shared open vial, or 1+ for new vial) for ${d.period}.`);
         return;
       }
       if (!d.inventory_linked && fifoErrors[d.period] && units > 0) {
@@ -533,11 +545,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         doses: filledDoses.map(d => ({
           period: d.period,
           route: d.route || null,
-          date: d.date,
+          date: d.date || todayStr,
           given_by: d.given_by || null,
           signature: d.signature || null,
           vaccine_type: d.vaccine_type,
-          inventory_units_used: parseInt(d.inventory_units_used, 10) || 1,
+          inventory_units_used: parseInt(d.inventory_units_used, 10) || 0,
         })),
         additional_meds: additionalMeds,
         icd_code: icdCode || null,

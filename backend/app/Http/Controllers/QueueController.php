@@ -559,7 +559,7 @@ class QueueController extends Controller
         $request->validate([
             'patient_id'       => 'required|exists:patients,patient_id',
             'bite_incident_id' => 'nullable|exists:bite_incidents,bite_id',
-            'visit_type'       => 'required|in:new_case,follow_up,vaccination,observation',
+            'visit_type'       => 'required|in:new_case,consultation,follow_up,vaccination,observation',
             'priority'         => 'nullable|in:normal,urgent,emergency',
             'queue_category'   => 'nullable|in:regular,appointment,senior_citizen,pwd,pregnant,priority',
             'check_in_notes'   => 'nullable|string|max:1000',
@@ -598,13 +598,18 @@ class QueueController extends Controller
             // default to regular (staff can always override)
             $category = $request->get('queue_category', 'regular');
 
+            $visitType = $request->visit_type;
+            if ($visitType === 'consultation') {
+                $visitType = 'new_case';
+            }
+
             $queue = Queue::create([
                 'clinic_id'      => $clinicId,
                 'patient_id'     => $request->patient_id,
                 'bite_id'        => $request->bite_incident_id,
                 'queue_number'   => $nextQueueNumber,
                 'queue_date'     => $todayDate,
-                'visit_type'     => $request->visit_type,
+                'visit_type'     => $visitType,
                 'priority'       => $request->get('priority', 'normal'),
                 'queue_category' => $category,
                 'status'         => 'waiting',
@@ -613,6 +618,17 @@ class QueueController extends Controller
                 'check_in_notes' => $request->check_in_notes,
                 'call_count'     => 0,
             ]);
+
+            // Sync any scheduled appointments for today with this queue number
+            \App\Models\Appointment::where('patient_id', $request->patient_id)
+                ->where('status', 'scheduled')
+                ->where(function ($q) use ($todayDate) {
+                    $q->whereDate('scheduled_date', $todayDate)
+                      ->orWhereDate('appointment_date', $todayDate);
+                })
+                ->update([
+                    'queue_number' => $nextQueueNumber,
+                ]);
 
             $this->logHistory($queue, 'checked_in', 'waiting', $request->user()->id,
                 "Category: {$category}, Priority: {$queue->priority}");
@@ -624,6 +640,7 @@ class QueueController extends Controller
                 'queue'          => $queue->load(['patient', 'biteIncident']),
                 'queue_number'   => $nextQueueNumber,
                 'queue_category' => $category,
+                'visit_type'     => $visitType,
             ], 201);
         });
     }

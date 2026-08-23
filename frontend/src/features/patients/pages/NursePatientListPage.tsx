@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -35,22 +36,31 @@ import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import StatCard from '../../../components/common/StatCard/StatCard';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import api from '../../../shared/services/api';
 
 interface Patient {
   patient_id: number;
+  patient_number: string;
   first_name: string;
-  last_name: string;
   middle_name?: string;
-  age: number;
+  last_name: string;
+  date_of_birth: string;
   gender: string;
+  age: number;
   contact_number?: string;
   address?: string;
+  emergency_contact?: string;
+  membership_type?: string;
+  created_at: string;
+  status: string;
   appointments?: any[];
+  queues?: any[];
   latest_treatment_record?: any;
 }
 
 export default function NursePatientListPage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('due_today');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,6 +72,13 @@ export default function NursePatientListPage() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showForm3, setShowForm3] = useState(false);
   const [checkingInId, setCheckingInId] = useState<number | null>(null);
+
+  const [checkInModalData, setCheckInModalData] = useState<{
+    patientName: string;
+    patientNumber: string;
+    queueNumber: number | string;
+    station: string;
+  } | null>(null);
 
   // Stats for top summary cards
   const [kpiStats, setKpiStats] = useState({
@@ -111,14 +128,21 @@ export default function NursePatientListPage() {
     setCheckingInId(patient.patient_id);
     try {
       const appt = (patient as any).appointments?.[0];
-      const isConsultation = appt?.appointment_type === 'consultation';
+      const isConsultation = !appt || appt?.appointment_type === 'consultation' || appt?.appointment_type === 'checkup' || (patient as any).bite_intakes?.length > 0;
+      const visitType = isConsultation ? 'new_case' : 'vaccination';
       const res = await api.post('/queue', {
         patient_id: patient.patient_id,
-        visit_type: isConsultation ? 'consultation' : 'vaccination',
+        visit_type: visitType,
         queue_category: 'appointment',
         priority: 'normal',
       });
-      toast(`Patient ${patient.last_name}, ${patient.first_name} checked in as Queue #${res.data?.queue_number || 'OK'}!`);
+      const station = visitType === 'new_case' ? 'Triage Queue (Doctor Assessment)' : 'Treatment Queue (Vaccination)';
+      setCheckInModalData({
+        patientName: `${patient.last_name}, ${patient.first_name}`,
+        patientNumber: patient.patient_number,
+        queueNumber: res.data?.queue_number || '1',
+        station,
+      });
       loadPatients();
     } catch (err: any) {
       toast(err.response?.data?.message || 'Failed to add patient to queue', 'error');
@@ -668,6 +692,51 @@ export default function NursePatientListPage() {
             setShowForm3(false);
             setSelectedPatient(null);
           }}
+        />
+      )}
+
+      {/* ── Check-In Success Modal (Modern Notification) ── */}
+      {checkInModalData && (
+        <ConfirmationDialog
+          variant="success"
+          title="Patient Checked In"
+          message={
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'center', marginTop: '6px' }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                border: '1.5px solid #86efac',
+                borderRadius: '14px',
+                padding: '16px 24px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '4px',
+                width: '100%',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.12)',
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                  Live Queue Number
+                </span>
+                <span style={{ fontSize: '36px', fontWeight: 800, color: '#047857', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>
+                  #{String(checkInModalData.queueNumber).padStart(3, '0')}
+                </span>
+                <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#059669', background: '#ffffff', padding: '2px 10px', borderRadius: '999px', border: '1px solid #a7f3d0' }}>
+                  {checkInModalData.station}
+                </span>
+              </div>
+
+              <div style={{ fontSize: '13.5px', color: '#4b5563', textAlign: 'center', lineHeight: 1.5 }}>
+                <strong style={{ color: '#111827' }}>{checkInModalData.patientName}</strong> has been successfully placed in the active queue.
+              </div>
+            </div>
+          }
+          confirmLabel="Go to Queue"
+          cancelLabel="Done"
+          onConfirm={() => {
+            setCheckInModalData(null);
+            navigate('/queue');
+          }}
+          onCancel={() => setCheckInModalData(null)}
         />
       )}
 

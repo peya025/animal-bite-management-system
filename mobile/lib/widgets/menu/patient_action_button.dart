@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../app/app_theme.dart';
-
 class PatientActionButton extends StatelessWidget {
   const PatientActionButton({super.key, required this.onPressed});
 
@@ -10,16 +8,16 @@ class PatientActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 56,
-      height: 56,
+      width: 50,
+      height: 50,
       decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white, width: 2),
+        color: const Color(0xFF1D9E75),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF4F6F5), width: 3),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x401D9E75),
-            blurRadius: 10,
+            color: Color(0x591D9E75),
+            blurRadius: 12,
             offset: Offset(0, 4),
           ),
         ],
@@ -28,12 +26,12 @@ class PatientActionButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: const Center(
             child: Icon(
               Icons.person_search,
               color: Colors.white,
-              size: 26,
+              size: 22,
             ),
           ),
         ),

@@ -481,7 +481,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     setFieldErrors(newFieldErrors);
 
     if (Object.keys(newFieldErrors).length > 0) {
-      setError('Please fill in the required field(s) highlighted in red.');
+      const errorList = Object.values(newFieldErrors);
+      setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = ['philhealth_pin', 'exposure_category', 'date_of_exposure'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
@@ -491,6 +492,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           const el = document.getElementById(`field-${firstErrorKey}`);
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const scrollParent = el.closest('[class*="Body"]') || el.closest('.fm-body');
+            if (scrollParent) {
+              const rect = el.getBoundingClientRect();
+              const parentRect = scrollParent.getBoundingClientRect();
+              if (rect.top < parentRect.top || rect.bottom > parentRect.bottom) {
+                scrollParent.scrollBy({ top: rect.top - parentRect.top - 40, behavior: 'smooth' });
+              }
+            }
             const focusable = el.querySelector('input, select') as HTMLElement;
             if (focusable) {
               focusable.focus({ preventScroll: true });

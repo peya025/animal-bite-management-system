@@ -184,17 +184,32 @@ export default function DoctorPatientListPage() {
       key: 'status',
       header: 'STATUS',
       render: (patient) => {
+        const record = getLastConsultation(patient);
         const activeQueue = (patient as any).queues?.[0];
+
+        const hasTodayConsultation = Boolean(
+          record && (
+            (record.consultation_date && new Date(record.consultation_date).toDateString() === new Date().toDateString()) ||
+            (record.created_at && new Date(record.created_at).toDateString() === new Date().toDateString())
+          )
+        );
+
+        if (hasTodayConsultation) {
+          if (activeQueue && activeQueue.visit_type === 'vaccination') {
+            return <Chip label="Referred to Treatment" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} />;
+          }
+          return <Chip label="Consultation Done" size="small" sx={{ bgcolor: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 600 }} />;
+        }
+
         if (activeQueue) {
           if (activeQueue.status === 'waiting') {
-            return <Chip label="In Queue (Waiting)" size="small" sx={{ bgcolor: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 600 }} />;
+            return <Chip label="In Queue (Waiting)" size="small" sx={{ bgcolor: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 600 }} />;
           }
-          if (activeQueue.status === 'in_consultation') {
+          if (['in_consultation', 'serving', 'called'].includes(activeQueue.status)) {
             return <Chip label="In Consultation" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} />;
           }
         }
 
-        const record = getLastConsultation(patient);
         if (!record) {
           return <Chip label="Registered" size="small" sx={{ bgcolor: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 600 }} />;
         }

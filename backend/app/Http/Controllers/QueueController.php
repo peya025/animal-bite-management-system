@@ -459,7 +459,7 @@ class QueueController extends Controller
                 : null;
             $serviceSeconds = $servedAt ? now()->diffInSeconds($servedAt) : null;
 
-            $isTriageTransfer = $request->user()->role === 'triage'
+            $isTriageTransfer = in_array($request->user()->role, ['triage', 'doctor', 'admin'])
                 && in_array($queue->visit_type, ['new_case', 'follow_up', 'observation', 'consultation']);
 
             if ($isTriageTransfer) {

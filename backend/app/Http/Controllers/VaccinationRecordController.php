@@ -85,6 +85,19 @@ class VaccinationRecordController extends Controller
             'patient_id' => 'required|exists:patients,patient_id',
             'bite_id' => 'nullable|exists:bite_incidents,bite_id',
             'queue_id' => 'nullable|exists:queues,queue_id',
+            'exposure_category' => 'nullable|in:I,II,III',
+            'date_of_exposure' => 'nullable|date',
+            'date_treatment_started' => 'nullable|date',
+            'place_of_exposure' => 'nullable|string|max:255',
+            'mode_of_exposure' => 'nullable',
+            'body_part_affected' => 'nullable',
+            'animal_type' => 'nullable|string|max:100',
+            'animal_type_other' => 'nullable|string|max:255',
+            'past_history_bite' => 'nullable|in:yes,no',
+            'pep_completed' => 'nullable|in:yes,no',
+            'registry_no' => 'nullable|string|max:100',
+            'hospital_no' => 'nullable|string|max:100',
+            'referred_by' => 'nullable|string|max:255',
             'doses' => 'required|array',
             'doses.*.period' => 'required|string',
             'doses.*.route' => 'nullable|in:ID,IM',
@@ -217,97 +230,184 @@ class VaccinationRecordController extends Controller
                 }
             }
 
-            // Update or create Tagoloan treatment card for ICD code and additional meds
-            if ($request->has('icd_code') || $request->has('additional_meds')) {
-                $card = TagoloanTreatmentCard::where('clinic_id', $clinicId)
-                    ->where('patient_id', $patientId)
-                    ->when($biteId, function ($query) use ($biteId) {
-                        return $query->where('bite_id', $biteId);
-                    })
-                    ->first();
+            // ──────────────────────────────────────────────────────────────
+            // ✨ SAVE / UPDATE TAGOLOAN TREATMENT CARD (FORM 3 FULL DATA)
+            // ──────────────────────────────────────────────────────────────
+            $modeMap = [
+                'nibbling_uncovered' => 'nibbling_uncovered_skin',
+                'nibbling_wounded'   => 'nibbling_broken_skin',
+                'scratch_abrasion'   => 'scratch_abrasion',
+                'transdermal_bite'   => 'transdermal_bite',
+                'handling_ingestion' => 'handling_ingestion_raw_meat',
+            ];
+            $rawMode = is_array($request->mode_of_exposure) ? ($request->mode_of_exposure[0] ?? null) : $request->mode_of_exposure;
+            $modeOfExposure = $modeMap[$rawMode] ?? $rawMode;
 
-                $cardData = [];
-                
-                if ($request->has('icd_code')) {
-                    $cardData['icd10_code'] = $request->icd_code;
-                }
+            $bodyMap = [
+                'head_neck'    => 'head_neck',
+                'other_parts'  => 'other_parts',
+                'na_ingestion' => 'na_ingestion',
+            ];
+            $rawBody = is_array($request->body_part_affected) ? ($request->body_part_affected[0] ?? null) : $request->body_part_affected;
+            $bodyPartExposed = $bodyMap[$rawBody] ?? $rawBody;
 
-                // Store additional medications in a JSON field or separate logic
-                // For now, we'll add them to the treatment records as separate entries
-                $additionalMeds = $request->input('additional_meds', []);
-                
-                if ($card && !empty($cardData)) {
-                    $card->update($cardData);
-                } elseif (!$card && ($request->has('icd_code') || !empty($additionalMeds))) {
-                    // Create card if it doesn't exist
-                    TagoloanTreatmentCard::create([
-                        'clinic_id' => $clinicId,
-                        'patient_id' => $patientId,
-                        'bite_id' => $biteId,
-                        'card_date' => now()->toDateString(),
-                        'icd10_code' => $request->icd_code,
-                        'created_by' => $userId,
-                    ]);
-                }
+            $card = TagoloanTreatmentCard::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->when($biteId, function ($query) use ($biteId) {
+                    return $query->where('bite_id', $biteId);
+                })
+                ->latest()
+                ->first();
 
-                // Store additional medications as treatment records with special markers
-                foreach (['erig', 'tt', 'ats'] as $med) {
-                    if (!empty($additionalMeds[$med])) {
-                        $existingMed = TreatmentRecord::where('clinic_id', $clinicId)
-                            ->where('patient_id', $patientId)
-                            ->where('medication_given', strtoupper($med))
-                            ->when($biteId, function ($query) use ($biteId) {
-                                return $query->where('bite_id', $biteId);
-                            })
-                            ->first();
+            $cardData = [
+                'clinic_id'          => $clinicId,
+                'patient_id'         => $patientId,
+                'card_date'          => $request->date_of_exposure ?? now()->toDateString(),
+                'registry_no'        => $request->registry_no,
+                'hospital_no'        => $request->hospital_no,
+                'referred_by'        => $request->referred_by,
+                'exposure_category'  => $request->exposure_category,
+                'mode_of_exposure'   => $modeOfExposure,
+                'body_part_exposed'  => $bodyPartExposed,
+                'animal_type'        => $request->animal_type,
+                'animal_type_others' => $request->animal_type_other,
+                'past_bite_history'  => $request->past_history_bite === 'yes',
+                'past_pep_completed' => $request->pep_completed === 'yes',
+                'icd10_code'         => $request->icd_code,
+                'created_by'         => $userId,
+            ];
 
-                        if (!$existingMed) {
-                            TreatmentRecord::create([
-                                'clinic_id' => $clinicId,
-                                'patient_id' => $patientId,
-                                'bite_id' => $biteId,
-                                'medication_given' => strtoupper($med),
-                                'treatment_date' => now(),
-                                'administered_by' => $userId,
-                                'administered_at' => now(),
-                                'status' => 'completed',
-                                'remarks' => 'Additional medication administered',
-                            ]);
-                        }
+            if ($card) {
+                $card->update(array_filter($cardData, fn($v) => !is_null($v)));
+            } else {
+                $card = TagoloanTreatmentCard::create($cardData);
+            }
+
+            // Store additional medications as treatment records with special markers
+            $additionalMeds = $request->input('additional_meds', []);
+            foreach (['erig', 'tt', 'ats'] as $med) {
+                if (!empty($additionalMeds[$med])) {
+                    $existingMed = TreatmentRecord::where('clinic_id', $clinicId)
+                        ->where('patient_id', $patientId)
+                        ->where('medication_given', strtoupper($med))
+                        ->when($biteId, function ($query) use ($biteId) {
+                            return $query->where('bite_id', $biteId);
+                        })
+                        ->first();
+
+                    if (!$existingMed) {
+                        TreatmentRecord::create([
+                            'clinic_id'        => $clinicId,
+                            'patient_id'       => $patientId,
+                            'bite_id'          => $biteId,
+                            'medication_given' => strtoupper($med),
+                            'treatment_date'   => now(),
+                            'administered_by'  => $userId,
+                            'administered_at'  => now(),
+                            'status'           => 'completed',
+                            'remarks'          => 'Additional medication administered',
+                        ]);
                     }
                 }
             }
-
 
             // ──────────────────────────────────────────────────────────────
             // ✨ AUTO-CREATE FOLLOW-UP APPOINTMENTS (Day 3, 7, 28, etc.)
             // ──────────────────────────────────────────────────────────────
             $this->createFollowUpAppointments($request, $clinicId, $patientId, $biteId, $userId);
 
-            // Ensure BiteIncident exists for patient so vaccination shows on Bite Map
+            // ──────────────────────────────────────────────────────────────
+            // ✨ SYNC BITE INCIDENT & MAP CATEGORY/SEVERITY FOR BITE MAP
+            // ──────────────────────────────────────────────────────────────
+            $severityMap = [
+                'I'   => 'minor',
+                'II'  => 'moderate',
+                'III' => 'severe',
+            ];
+            $severity = $severityMap[$request->exposure_category ?? ''] ?? 'moderate';
+
+            $patientObj = Patient::with('details')->find($patientId);
+            $street = $patientObj?->details->address_purok ?? $patientObj?->address_purok ?? 'Zone 1';
+            $brgy = $patientObj?->details->address_barangay ?? $patientObj?->address_barangay ?? 'Poblacion';
+            $mun = $patientObj?->details->address_municipality ?? $patientObj?->address_municipality ?? 'Tagoloan';
+            $bitePlace = $request->place_of_exposure ?: "{$street}, {$brgy}, {$mun}";
+            $biteDate = $request->date_of_exposure ?: now()->toDateString();
+            $animalType = $request->animal_type === 'other' ? ($request->animal_type_other ?: 'other') : ($request->animal_type ?: 'dog');
+
             $incident = BiteIncident::where('patient_id', $patientId)->first();
             if (!$incident) {
-                $patientObj = Patient::with('details')->find($patientId);
-                if ($patientObj) {
-                    $street = $patientObj->details->address_purok ?? $patientObj->address_purok ?? 'Zone 1';
-                    $brgy = $patientObj->details->address_barangay ?? $patientObj->address_barangay ?? 'Poblacion';
-                    $mun = $patientObj->details->address_municipality ?? $patientObj->address_municipality ?? 'Claveria';
-                    $bitePlace = "{$street}, {$brgy}, {$mun}";
-
-                    BiteIncident::create([
-                        'clinic_id' => $clinicId,
-                        'patient_id' => $patientId,
-                        'bite_date' => now()->toDateString(),
-                        'bite_place' => $bitePlace,
-                        'exposure_type' => 'bite',
-                        'severity' => 'moderate',
-                        'animal_type' => 'dog',
-                        'status' => 'completed',
-                        'created_by' => $userId,
-                    ]);
-                }
+                $incident = BiteIncident::create([
+                    'clinic_id'     => $clinicId,
+                    'patient_id'    => $patientId,
+                    'bite_date'     => $biteDate,
+                    'bite_place'    => $bitePlace,
+                    'exposure_type' => 'bite',
+                    'severity'      => $severity,
+                    'animal_type'   => $animalType,
+                    'status'        => 'completed',
+                    'created_by'    => $userId,
+                ]);
             } else {
-                $incident->update(['status' => 'completed']);
+                $incident->update([
+                    'severity'      => $severity,
+                    'bite_date'     => $biteDate,
+                    'bite_place'    => $bitePlace,
+                    'animal_type'   => $animalType,
+                    'status'        => 'completed',
+                ]);
+            }
+
+            if ($card) {
+                $card->update(['bite_id' => $incident->bite_id]);
+            }
+
+            // ──────────────────────────────────────────────────────────────
+            // ✨ AUTO-COMPLETE TODAY'S ACTIVE QUEUE FOR TREATMENT NURSE
+            // ──────────────────────────────────────────────────────────────
+            $todayQueue = null;
+            if (!empty($request->queue_id)) {
+                $todayQueue = Queue::where('clinic_id', $clinicId)
+                    ->where('queue_id', $request->queue_id)
+                    ->whereNull('deleted_at')
+                    ->first();
+            }
+
+            if (!$todayQueue) {
+                $todayQueue = Queue::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->where('queue_date', Carbon::today()->toDateString())
+                    ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
+                    ->whereNull('deleted_at')
+                    ->latest('queue_id')
+                    ->first();
+            }
+
+            if ($todayQueue) {
+                $completionNotes = 'Vaccination administered (Form 3 completed by Nurse) — Visit Completed.';
+                
+                \App\Models\QueueHistory::create([
+                    'queue_id'     => $todayQueue->queue_id,
+                    'clinic_id'    => $todayQueue->clinic_id,
+                    'patient_id'   => $todayQueue->patient_id,
+                    'action'       => 'completed',
+                    'from_status'  => $todayQueue->status,
+                    'to_status'    => 'completed',
+                    'call_count'   => $todayQueue->call_count ?? 0,
+                    'performed_by' => $userId,
+                    'notes'        => $completionNotes,
+                    'occurred_at'  => now(),
+                ]);
+
+                $todayQueue->update([
+                    'status'             => 'completed',
+                    'completed_at'       => now(),
+                    'consultation_notes' => $todayQueue->consultation_notes 
+                        ? $todayQueue->consultation_notes . ' | ' . $completionNotes 
+                        : $completionNotes,
+                    'recall_stage'       => null,
+                ]);
+
+                Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
             }
 
             Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
@@ -317,6 +417,7 @@ class VaccinationRecordController extends Controller
             return response()->json([
                 'message' => 'Vaccination records saved successfully',
                 'records_count' => count($request->doses),
+                'queue' => $todayQueue?->fresh(),
             ], 201);
         } catch (ValidationException $e) {
             DB::rollBack();

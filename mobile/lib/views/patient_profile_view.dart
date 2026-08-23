@@ -251,7 +251,7 @@ class _PatientProfileViewState extends State<PatientProfileView> {
                       ),
                       _InfoRow(
                         label: 'PhilHealth no.',
-                        value: details?.philhealthNo,
+                        value: _formatPhilHealth(details?.philhealthNo),
                       ),
                       _InfoRow(
                         label: 'PhilHealth category',
@@ -427,6 +427,16 @@ String _membershipTitle(PatientMembership membership) {
   }
 }
 
+String _formatPhilHealth(String? value) {
+  if (value == null || value.trim().isEmpty) return '—';
+  final digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 11) {
+    return '${digits.substring(0, 2)}-${digits.substring(2)}';
+  }
+  return '${digits.substring(0, 2)}-${digits.substring(2, 11)}-${digits.substring(11, digits.length > 12 ? 12 : digits.length)}';
+}
+
 String _membershipDetails(PatientMembership membership) {
   final parts = <String>[];
 
@@ -443,7 +453,10 @@ String _membershipDetails(PatientMembership membership) {
     parts.add('Beneficiary: ${membership.registeredBeneficiary}');
   }
   if (membership.membershipIdNo?.trim().isNotEmpty == true) {
-    parts.add('ID: ${membership.membershipIdNo}');
+    final idFormatted = membership.membershipType == 'philhealth'
+        ? _formatPhilHealth(membership.membershipIdNo)
+        : membership.membershipIdNo!;
+    parts.add('ID: $idFormatted');
   }
   if (membership.extraValue?.trim().isNotEmpty == true) {
     parts.add('Extra: ${membership.extraValue}');

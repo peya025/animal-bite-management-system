@@ -18,6 +18,7 @@ class TreatmentRecord extends Model
         'bite_id',
         'appointment_id',
         'inventory_id',
+        'inventory_units_used',
         'protocol_type',
         'dose_number',
         'scheduled_date',
@@ -68,6 +69,7 @@ class TreatmentRecord extends Model
 
     protected $casts = [
         'dose_number' => 'integer',
+        'inventory_units_used' => 'integer',
         'scheduled_date' => 'date',
         'treatment_date' => 'datetime',
         'expiration_date' => 'date',

@@ -22,6 +22,7 @@ class VaccineTypePreset extends Model
         'administration_route',
         'is_multidose',
         'doses_per_vial',
+        'regimen_units_per_patient',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class VaccineTypePreset extends Model
         'default_open_vial_hours' => 'integer',
         'is_multidose' => 'boolean',
         'doses_per_vial' => 'integer',
+        'regimen_units_per_patient' => 'decimal:2',
     ];
 
     public function clinic()

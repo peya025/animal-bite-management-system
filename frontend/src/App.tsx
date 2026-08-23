@@ -8,6 +8,7 @@ import PatientList from './features/patients/pages/PatientListPage';
 import NursePatientList from './features/patients/pages/NursePatientListPage';
 import DoctorPatientList from './features/patients/pages/DoctorPatientListPage';
 import VaccineInventory from './features/inventory/pages/VaccineInventoryPage';
+import VaccineTypeManagementPage from './features/inventory/pages/VaccineTypeManagementPage';
 import QueueDashboard from './features/queue/pages/QueueDashboardPage';
 import QueueDisplayPage from './features/queue/pages/QueueDisplayPage';
 import QueuePatientDetailPage from './features/queue/pages/QueuePatientDetailPage';
@@ -74,6 +75,7 @@ function App() {
           <Route path="/nurse/patients" element={<ProtectedRoute><AppLayout title="My Patients"><NursePatientList /></AppLayout></ProtectedRoute>} />
           <Route path="/doctor/patients" element={<ProtectedRoute><AppLayout title="My Patients"><DoctorPatientList /></AppLayout></ProtectedRoute>} />
           <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
+          <Route path="/inventory/types" element={<ProtectedRoute><AppLayout title="Vaccine Type Setup"><VaccineTypeManagementPage /></AppLayout></ProtectedRoute>} />
           <Route path="/queue" element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
           <Route path="/queue/display" element={<ProtectedRoute><QueueDisplayPage /></ProtectedRoute>} />
           <Route path="/queue/:queueId/patient" element={<ProtectedRoute><AppLayout title="Patient Detail"><QueuePatientDetailPage /></AppLayout></ProtectedRoute>} />

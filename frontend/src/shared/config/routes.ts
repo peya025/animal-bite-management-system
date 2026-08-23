@@ -44,6 +44,7 @@ export const ROUTES = {
 
   INVENTORY: {
     LIST: '/inventory',
+    TYPES: '/inventory/types',
   },
 
   TREATMENT_RECORDS: {

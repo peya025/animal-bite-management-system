@@ -27,6 +27,11 @@ export interface FifoRecommendations {
 
 export interface FifoBatchResponse {
   fifo_batch: VaccineBatch;
+  is_open_vial?: boolean;
+  next_dose_index?: number;
+  total_doses?: number;
+  units_to_deduct?: number;
+  discard_at?: string | null;
   message: string;
 }
 

@@ -166,7 +166,7 @@ export interface QueueStats {
 
 // ─── Inventory ────────────────────────────────────────────────
 
-export type InventoryStatus = 'active' | 'expired' | 'deleted';
+export type InventoryStatus = 'active' | 'expired' | 'depleted' | 'deleted';
 
 export interface VaccineTypePreset {
   id?: number;
@@ -180,6 +180,7 @@ export interface VaccineTypePreset {
   administration_route?: string;
   is_multidose?: boolean;
   doses_per_vial?: number;
+  regimen_units_per_patient?: number;
   active_batches_count?: number;
   total_stock?: number;
   total_dispensed?: number;

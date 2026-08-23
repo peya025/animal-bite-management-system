@@ -11,7 +11,6 @@ import {
   Warning as UrgentIcon,
   Error as EmergencyIcon,
   Restore as TrashBinIcon,
-  PersonAdd as AddPersonIcon,
   SkipNext as CallNextIcon,
 } from '@mui/icons-material';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -34,10 +33,9 @@ import { useQueueData } from '../hooks';
 import {
   callNext, callQueuePatient, serveQueuePatient, markNoResponse,
   recallQueuePatient, markAbsent, cancelQueueEntry,
-  updateQueuePriority, trashQueueEntry, completeQueueConsultation,
+  updateQueuePriority, trashQueueEntry,
 } from '../services';
 import {
-  AddToQueueModal,
   CompleteDialog,
   NextPatientBanner,
   QueueFilterBar,
@@ -47,9 +45,11 @@ import {
   QueueArchivePanel,
 } from '../components';
 import { buildRoute, ROUTES } from '../../../shared/config/routes';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function QueueDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -65,7 +65,6 @@ export default function QueueDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [page,         setPage]         = useState(0);
   const [rowsPerPage,  setRowsPerPage]  = useState(15);
-  const [showAddModal, setShowAddModal] = useState(false);
 
   // ── Confirmation targets ────────────────────────────────────────────────────
   const [callTarget,       setCallTarget]       = useState<QueueEntry | null>(null);
@@ -82,8 +81,11 @@ export default function QueueDashboard() {
 
   const run = async (fn: () => Promise<unknown>, successMsg: string, errMsg: string) => {
     try   { await fn(); toast(successMsg); reload(); }
-    catch (err: any) {
-      const msg = err?.response?.data?.message ?? errMsg;
+    catch (err: unknown) {
+      const response = typeof err === 'object' && err !== null && 'response' in err
+        ? (err as { response?: { data?: { message?: string } } }).response
+        : undefined;
+      const msg = response?.data?.message ?? errMsg;
       toast(msg, 'error');
     }
   };
@@ -121,6 +123,7 @@ export default function QueueDashboard() {
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
+  const isRegistrationStaff = user?.role === 'registration';
 
   // ── Table Columns ─────────────────────────────────────────────────────────
 
@@ -200,9 +203,10 @@ export default function QueueDashboard() {
     {
       key: 'priority', header: 'PRIORITY',
       render: e => {
-        const cfg      = PRIORITY_CFG[e.priority] ?? PRIORITY_CFG.normal;
+        const cfg = PRIORITY_CFG[e.priority] ?? PRIORITY_CFG.normal;
         const isActive = MAIN_STATUSES.includes(e.status);
-        if (!isActive) {
+        const canEditPriority = isActive && !isRegistrationStaff;
+        if (!canEditPriority) {
           return (
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 12, fontWeight: 600 }}>
               {e.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
@@ -368,6 +372,10 @@ export default function QueueDashboard() {
     },
   ];
 
+  const visibleColumns = isRegistrationStaff
+    ? columns.filter(column => column.key !== 'queue_actions')
+    : columns;
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -395,18 +403,9 @@ export default function QueueDashboard() {
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
 
-          {/* Add to Queue */}
-          <Tooltip title="Add patient to queue">
-            <IconButton
-              onClick={() => setShowAddModal(true)}
-              sx={{ color: '#059669', bgcolor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 1.5, '&:hover': { bgcolor: '#d1fae5' } }}
-            >
-              <AddPersonIcon />
-            </IconButton>
-          </Tooltip>
 
           {/* Call Next */}
-          {nextEntry && (
+          {!isRegistrationStaff && nextEntry && (
             <Tooltip title="Auto-call next eligible patient">
               <button
                 onClick={handleCallNext}
@@ -444,11 +443,13 @@ export default function QueueDashboard() {
             </button>
           </Tooltip>
 
-          <Tooltip title="Trash Bin">
-            <IconButton onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
-              <TrashBinIcon />
-            </IconButton>
-          </Tooltip>
+          {!isRegistrationStaff && (
+            <Tooltip title="Trash Bin">
+              <IconButton onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
+                <TrashBinIcon />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Refresh">
             <IconButton onClick={reload} disabled={loading}><RefreshIcon /></IconButton>
           </Tooltip>
@@ -456,7 +457,14 @@ export default function QueueDashboard() {
       </Box>
 
       {/* Next Patient Banner */}
-      {nextEntry && <NextPatientBanner entry={nextEntry} onCall={handleCall} onCallNext={handleCallNext} />}
+      {nextEntry && (
+        <NextPatientBanner
+          entry={nextEntry}
+          onCall={handleCall}
+          onCallNext={handleCallNext}
+          showActions={!isRegistrationStaff}
+        />
+      )}
 
       {/* Stats */}
       <QueueStatsGrid stats={stats} />
@@ -468,6 +476,7 @@ export default function QueueDashboard() {
           loading={loading}
           onRecall={e => setRecallTarget(e)}
           onAbsent={e => setAbsentTarget(e)}
+          canManage={!isRegistrationStaff}
         />
       )}
 
@@ -501,7 +510,7 @@ export default function QueueDashboard() {
         />
 
         <DataTable
-          columns={columns}
+          columns={visibleColumns}
           rows={paginated}
           loading={loading}
           skeletonRows={rowsPerPage}
@@ -592,12 +601,6 @@ export default function QueueDashboard() {
         onRestored={() => { reload(); toast('Entry restored to queue'); }}
       />
 
-      {/* Add to Queue Modal */}
-      <AddToQueueModal
-        open={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSuccess={() => { setShowAddModal(false); reload(); toast('Patient added to queue'); }}
-      />
 
       <Snackbar
         open={snackbar.open}

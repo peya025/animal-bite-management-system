@@ -14,17 +14,47 @@ import {
   GovProgramsSection,
 } from './sections';
 
-export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalProps) {
+export default function AddPatientModal({ onClose, onSuccess, role }: AddPatientModalProps) {
   const [enrolment, setEnrolment] = useState<EnrolmentFormData>(INITIAL_ENROLMENT_DATA);
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const loc = useAddressLocation();
+  const isRegistrationStaff = role === 'registration';
 
   const handleFieldChange = (key: keyof EnrolmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     let value = ev.target.value;
+    if (key === 'visit_type' && value !== 'follow_up') {
+      setEnrolment(prev => ({ ...prev, visit_type: value as EnrolmentFormData['visit_type'], follow_up_date: '' }));
+      if (fieldErrors.follow_up_date) {
+        setFieldErrors(prev => {
+          const next = { ...prev };
+          delete next.follow_up_date;
+          return next;
+        });
+      }
+      return;
+    }
+    if (key === 'queue_priority_group') {
+      const nextGroup = value as EnrolmentFormData['queue_priority_group'];
+      const forcedPriority = nextGroup === 'normal' ? enrolment.queue_priority_level : 'priority';
+      setEnrolment(prev => ({
+        ...prev,
+        queue_priority_group: nextGroup,
+        queue_priority_level: forcedPriority,
+      }));
+      if (fieldErrors.queue_priority_group || fieldErrors.queue_priority_level) {
+        setFieldErrors(prev => {
+          const next = { ...prev };
+          delete next.queue_priority_group;
+          delete next.queue_priority_level;
+          return next;
+        });
+      }
+      return;
+    }
     if (key === 'contact_number' || key === 'emergency_contact_phone') {
       value = value.replace(/\D/g, '').slice(0, 11);
     } else if (key === 'philhealth_no') {
@@ -43,7 +73,7 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
   };
 
   // Direct setter for array values or non-string fields (used by GovProgramsSection)
-  const handleDirectChange = (key: keyof EnrolmentFormData, value: any) => {
+  const handleDirectChange = (key: keyof EnrolmentFormData, value: EnrolmentFormData[keyof EnrolmentFormData]) => {
     setEnrolment(prev => ({ ...prev, [key]: value }));
   };
 
@@ -61,6 +91,18 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
     }
     if (!enrolment.date_of_birth) {
       newFieldErrors.date_of_birth = 'Date of Birth is required';
+    }
+    if (isRegistrationStaff && !enrolment.visit_type) {
+      newFieldErrors.visit_type = 'Visit type is required';
+    }
+    if (isRegistrationStaff && enrolment.visit_type === 'follow_up' && !enrolment.follow_up_date) {
+      newFieldErrors.follow_up_date = 'Follow-up date is required';
+    }
+    if (isRegistrationStaff && !enrolment.queue_priority_group) {
+      newFieldErrors.queue_priority_group = 'Queue category is required';
+    }
+    if (isRegistrationStaff && !enrolment.queue_priority_level) {
+      newFieldErrors.queue_priority_level = 'Priority is required';
     }
 
     if (enrolment.contact_number && enrolment.contact_number.length !== 11) {
@@ -96,7 +138,7 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
     if (Object.keys(newFieldErrors).length > 0) {
       setError('Please fill in all required fields highlighted in red below.');
 
-      const fieldOrder = ['last_name', 'first_name', 'sex', 'date_of_birth', 'address', 'contact_number', 'emergency_contact_phone', 'philhealth_no'];
+      const fieldOrder = ['last_name', 'first_name', 'sex', 'date_of_birth', 'visit_type', 'follow_up_date', 'queue_priority_group', 'queue_priority_level', 'address', 'contact_number', 'emergency_contact_phone', 'philhealth_no'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -124,10 +166,13 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
         munName: loc.munName,
         brgyName: loc.brgyName,
         purok: loc.purok,
+      }, {
+        autoQueue: isRegistrationStaff,
       });
       onSuccess();
-    } catch (e: any) {
-      setError(e.message || 'Failed to save patient record.');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to save patient record.';
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -150,7 +195,7 @@ export default function AddPatientModal({ onClose, onSuccess }: AddPatientModalP
       }
     >
       <PatientFormContent>
-        <PatientInfoSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} />
+        <PatientInfoSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} showQueueFields={isRegistrationStaff} />
         <AddressSection loc={loc} errors={fieldErrors} />
         <ContactSection data={enrolment} onChange={handleFieldChange} />
         <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />

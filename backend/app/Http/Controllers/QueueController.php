@@ -459,6 +459,37 @@ class QueueController extends Controller
                 : null;
             $serviceSeconds = $servedAt ? now()->diffInSeconds($servedAt) : null;
 
+            $isTriageTransfer = $request->user()->role === 'triage'
+                && in_array($queue->visit_type, ['new_case', 'follow_up', 'observation', 'consultation']);
+
+            if ($isTriageTransfer) {
+                $transferNotes = collect([
+                    'Doctor completed Form 2 — referred to Treatment.',
+                    $request->consultation_notes,
+                ])->filter()->implode(' | ');
+
+                $this->logHistory($queue, 'transferred_to_treatment', 'waiting', $request->user()->id, $transferNotes);
+
+                $queue->update([
+                    'visit_type'         => 'vaccination',
+                    'status'             => 'waiting',
+                    'called_at'          => null,
+                    'serving_at'         => null,
+                    'completed_at'       => null,
+                    'consultation_notes' => $transferNotes,
+                    'recall_stage'       => null,
+                ]);
+
+                $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+
+                return response()->json([
+                    'message'          => 'Patient transferred to treatment queue',
+                    'queue'            => $queue->fresh(),
+                    'waiting_seconds'  => $waitingSeconds,
+                    'service_seconds'  => $serviceSeconds,
+                ]);
+            }
+
             $this->logHistory($queue, 'completed', 'completed', $request->user()->id,
                 $request->consultation_notes ?? null);
 

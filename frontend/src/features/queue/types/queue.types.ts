@@ -128,6 +128,21 @@ export const PRIORITY_CFG: Record<string, { bg: string; color: string; label: st
   emergency: { bg: '#fee2e2', color: '#dc2626', label: 'Emergency' },
 };
 
+export function getPriorityDisplayLabel(
+  priority: string,
+  queueCategory?: QueueCategory,
+): string {
+  if (
+    priority === 'urgent'
+    && queueCategory
+    && ['priority', 'pregnant', 'senior_citizen', 'pwd'].includes(queueCategory)
+  ) {
+    return 'Priority';
+  }
+
+  return PRIORITY_CFG[priority]?.label ?? priority;
+}
+
 /** Groups for quick status checks */
 export const MAIN_STATUSES: QueueStatus[]   = ['waiting', 'called', 'in_consultation', 'serving'];
 export const SECOND_STATUSES: QueueStatus[] = ['second_chance', 'final_recall'];

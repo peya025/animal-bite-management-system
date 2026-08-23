@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Alert, Box, CircularProgress, IconButton,
   Paper, Snackbar, Stack, Tooltip, Typography,
@@ -28,7 +28,7 @@ import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog'
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import type { QueueEntry } from '../types';
-import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, CATEGORY_CFG, CATEGORY_LABEL, waitTime, MAIN_STATUSES, DONE_STATUSES } from '../types';
+import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, CATEGORY_CFG, CATEGORY_LABEL, getPriorityDisplayLabel, waitTime, MAIN_STATUSES } from '../types';
 import { useQueueData } from '../hooks';
 import {
   callNext, callQueuePatient, serveQueuePatient, markNoResponse,
@@ -42,13 +42,105 @@ import {
   QueueStatsGrid,
   TrashBinModal,
   SecondChanceQueuePanel,
-  QueueArchivePanel,
+  TreatmentTransferArchivePanel,
+  TreatmentCompletedPanel,
 } from '../components';
 import { buildRoute, ROUTES } from '../../../shared/config/routes';
 import { useAuth } from '../../../contexts/AuthContext';
 
+const TRIAGE_VISIT_TYPES = ['new_case', 'follow_up', 'observation', 'consultation'];
+const TREATMENT_VISIT_TYPES = ['vaccination'];
+
+function isPriorityQueueEntry(entry: QueueEntry): boolean {
+  return ['priority', 'pregnant', 'senior_citizen', 'pwd'].includes(entry.queue_category)
+    || entry.priority === 'urgent'
+    || entry.priority === 'emergency';
+}
+
+function priorityCategoryRank(entry: QueueEntry): number {
+  switch (entry.queue_category) {
+    case 'priority':
+      return 0;
+    case 'pregnant':
+    case 'senior_citizen':
+    case 'pwd':
+      return 1;
+    case 'appointment':
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+function priorityLevelRank(entry: QueueEntry): number {
+  switch (entry.priority) {
+    case 'emergency':
+      return 0;
+    case 'urgent':
+      return 1;
+    default:
+      return 2;
+  }
+}
+
+function displayRank(entry: QueueEntry): number {
+  if (['called', 'serving', 'in_consultation'].includes(entry.status)) return 0;
+  if (entry.status === 'waiting' && isPriorityQueueEntry(entry)) return 1;
+  if (entry.status === 'waiting') return 2;
+  if (['second_chance', 'final_recall'].includes(entry.status)) return 3;
+  return 4;
+}
+
+function sortQueueForDisplay(a: QueueEntry, b: QueueEntry): number {
+  const rankDiff = displayRank(a) - displayRank(b);
+  if (rankDiff !== 0) return rankDiff;
+
+  const categoryDiff = priorityCategoryRank(a) - priorityCategoryRank(b);
+  if (categoryDiff !== 0) return categoryDiff;
+
+  const priorityDiff = priorityLevelRank(a) - priorityLevelRank(b);
+  if (priorityDiff !== 0) return priorityDiff;
+
+  return a.queue_number - b.queue_number;
+}
+
+function getScopedNextEntry(entries: QueueEntry[]): QueueEntry | null {
+  const waitingEntries = entries.filter(entry => entry.status === 'waiting');
+  if (waitingEntries.length === 0) return null;
+  return [...waitingEntries].sort(sortQueueForDisplay)[0] ?? null;
+}
+
+function getRegistrationStatusDisplay(entry: QueueEntry): { label: string; bg: string; color: string } {
+  if (entry.status === 'completed') {
+    return { label: 'Completed', bg: '#ecfdf5', color: '#059669' };
+  }
+
+  if (entry.status === 'cancelled') {
+    return { label: 'Cancelled', bg: '#f3f4f6', color: '#6b7280' };
+  }
+
+  if (entry.status === 'absent') {
+    return { label: 'Absent', bg: '#f1f5f9', color: '#475569' };
+  }
+
+  if (entry.status === 'no_response') {
+    return { label: 'No Response', bg: '#fdf4ff', color: '#9333ea' };
+  }
+
+  if (TREATMENT_VISIT_TYPES.includes(entry.visit_type)) {
+    return { label: 'Treatment', bg: '#ecfeff', color: '#0f766e' };
+  }
+
+  if (TRIAGE_VISIT_TYPES.includes(entry.visit_type)) {
+    return { label: 'Triage', bg: '#eff6ff', color: '#2563eb' };
+  }
+
+  return { label: 'Queue', bg: '#f3f4f6', color: '#6b7280' };
+}
+
 export default function QueueDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
@@ -56,6 +148,12 @@ export default function QueueDashboard() {
   });
   const toast = (msg: string, severity: 'success' | 'error' = 'success') =>
     setSnackbar({ open: true, message: msg, severity });
+
+  const queueToast = (location.state as { queueToast?: { message: string; severity: 'success' | 'error' } } | null)?.queueToast;
+  if (queueToast && !snackbar.open && snackbar.message !== queueToast.message) {
+    setSnackbar({ open: true, message: queueToast.message, severity: queueToast.severity });
+    navigate(location.pathname, { replace: true, state: null });
+  }
 
   const { queue, secondChanceQueue, stats, loading, nextEntry, reload } =
     useQueueData(msg => toast(msg, 'error'));
@@ -104,9 +202,52 @@ export default function QueueDashboard() {
     catch { toast('Failed to update priority', 'error'); }
   };
 
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  });
+  const isRegistrationStaff = user?.role === 'registration';
+  const isTriageDoctor = user?.role === 'triage';
+  const isTreatmentNurse = user?.role === 'treatment';
+  const transferredToTreatmentEntries = isTriageDoctor
+    ? queue.filter(entry =>
+        entry.visit_type === 'vaccination'
+        && entry.consultation_notes?.includes('Doctor completed Form 2')
+      )
+    : [];
+  const completedTreatmentEntries = isTreatmentNurse
+    ? queue.filter(entry => entry.visit_type === 'vaccination' && entry.status === 'completed')
+    : [];
+  const visibleSecondChanceQueue = isTreatmentNurse ? [] : secondChanceQueue;
+  const roleScopedQueue = isTriageDoctor
+    ? queue.filter(entry => TRIAGE_VISIT_TYPES.includes(entry.visit_type))
+    : isTreatmentNurse
+      ? queue.filter(entry => TREATMENT_VISIT_TYPES.includes(entry.visit_type))
+      : queue;
+  const roleScopedNextEntry = isTriageDoctor || isTreatmentNurse
+    ? getScopedNextEntry(roleScopedQueue)
+    : nextEntry;
+  const pageTitle = isTriageDoctor
+    ? 'Triage Dashboard'
+    : isTreatmentNurse
+      ? 'Treatment Queue Dashboard'
+      : isRegistrationStaff
+        ? 'Registration Queue Dashboard'
+        : user?.role === 'admin'
+          ? 'Admin Queue Dashboard'
+          : 'Queue Dashboard';
+  const queueSectionTitle = isTriageDoctor
+    ? 'Triage Queue'
+    : isTreatmentNurse
+      ? 'Treatment Queue'
+      : isRegistrationStaff
+        ? 'Registration Queue'
+        : user?.role === 'admin'
+          ? 'Admin Queue'
+          : 'Main Queue';
+
   // ── Filter + Pagination ───────────────────────────────────────────────────
 
-  const filtered  = queue.filter(q => {
+  const filtered  = roleScopedQueue.filter(q => {
     const matchSearch = !search ||
       q.patient.name.toLowerCase().includes(search.toLowerCase()) ||
       String(q.queue_number).includes(search);
@@ -118,12 +259,10 @@ export default function QueueDashboard() {
       : (MAIN_STATUSES as string[]).includes(q.status);
     return matchSearch && matchStatus && matchCategory && isActiveOrFiltered;
   });
-  const paginated = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-  });
-  const isRegistrationStaff = user?.role === 'registration';
+  const sortedQueue = isTriageDoctor || isTreatmentNurse
+    ? [...filtered].sort(sortQueueForDisplay)
+    : filtered;
+  const paginated = sortedQueue.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   // ── Table Columns ─────────────────────────────────────────────────────────
 
@@ -211,7 +350,7 @@ export default function QueueDashboard() {
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 12, fontWeight: 600 }}>
               {e.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
               {e.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
-              {cfg.label}
+              {getPriorityDisplayLabel(e.priority, e.queue_category)}
             </Box>
           );
         }
@@ -226,7 +365,7 @@ export default function QueueDashboard() {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: c.color, fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                     {val === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
                     {val === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
-                    {c.label}
+                    {getPriorityDisplayLabel(val, e.queue_category)}
                   </Box>
                 );
               }}
@@ -241,7 +380,7 @@ export default function QueueDashboard() {
               MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontFamily: 'inherit', fontSize: 13 } } } } }}
             >
               <MenuItem value="normal">Normal</MenuItem>
-              <MenuItem value="urgent">Urgent</MenuItem>
+              <MenuItem value="urgent">{['priority', 'pregnant', 'senior_citizen', 'pwd'].includes(e.queue_category) ? 'Priority' : 'Urgent'}</MenuItem>
               <MenuItem value="emergency">Emergency</MenuItem>
             </Select>
           </FormControl>
@@ -251,7 +390,9 @@ export default function QueueDashboard() {
     {
       key: 'status', header: 'STATUS',
       render: e => {
-        const cfg = STATUS_CFG[e.status] ?? STATUS_CFG.cancelled;
+        const cfg = isRegistrationStaff
+          ? getRegistrationStatusDisplay(e)
+          : (STATUS_CFG[e.status] ?? STATUS_CFG.cancelled);
         return (
           <Box sx={{ display: 'inline-flex', px: 2, py: 0.5, bgcolor: cfg.bg, color: cfg.color, borderRadius: 1.5, fontSize: 12, fontWeight: 600 }}>
             {cfg.label}
@@ -299,6 +440,7 @@ export default function QueueDashboard() {
         const isServing = e.status === 'serving' || e.status === 'in_consultation';
         const isActive  = MAIN_STATUSES.includes(e.status);
         const isDone    = ['completed', 'cancelled', 'absent'].includes(e.status);
+        const canCancelOrTrash = !isTriageDoctor;
 
         return (
           <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'flex-end', alignItems: 'center' }}>
@@ -325,7 +467,7 @@ export default function QueueDashboard() {
 
             {/* Complete — serving only */}
             {isServing && (
-              <Tooltip title="Complete Consultation">
+              <Tooltip title={isTriageDoctor ? 'Transfer to Treatment' : isTreatmentNurse ? 'Complete Treatment' : 'Complete Consultation'}>
                 <IconButton size="small" onClick={() => setCompleteTarget(e)}
                   sx={actionBtn('#059669', '#ecfdf5', '#a7f3d0', '#d1fae5', '#6ee7b7', '#047857')}>
                   <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} strokeWidth={2} />
@@ -344,7 +486,7 @@ export default function QueueDashboard() {
             )}
 
             {/* Cancel — any active */}
-            {isActive && (
+            {canCancelOrTrash && isActive && (
               <Tooltip title="Cancel Queue Entry">
                 <IconButton size="small" onClick={() => setCancelTarget(e)}
                   sx={actionBtn('#dc2626', '#fef2f2', '#fecaca', '#fee2e2', '#fca5a5', '#b91c1c')}>
@@ -354,7 +496,7 @@ export default function QueueDashboard() {
             )}
 
             {/* Trash — not serving/in-consultation */}
-            {!isServing && !isDone && (
+            {canCancelOrTrash && !isServing && !isDone && (
               <Tooltip title="Move to Trash">
                 <IconButton size="small" onClick={() => setTrashTarget(e)}
                   sx={actionBtn('#64748b', '#f8fafc', '#e2e8f0', '#fee2e2', '#fca5a5', '#dc2626')}>
@@ -385,7 +527,7 @@ export default function QueueDashboard() {
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', margin: '0 0 7px 0' }}>
-            Queue Dashboard
+            {pageTitle}
           </Typography>
           <Typography sx={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
             {today} · Auto-refreshes every 30 seconds
@@ -405,10 +547,16 @@ export default function QueueDashboard() {
 
 
           {/* Call Next */}
-          {!isRegistrationStaff && nextEntry && (
+          {!isRegistrationStaff && user?.role !== 'admin' && !isTriageDoctor && roleScopedNextEntry && (
             <Tooltip title="Auto-call next eligible patient">
               <button
-                onClick={handleCallNext}
+                onClick={() => {
+                  if ((isTriageDoctor || isTreatmentNurse) && roleScopedNextEntry) {
+                    handleCall(roleScopedNextEntry);
+                    return;
+                  }
+                  handleCallNext();
+                }}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '8px 14px', borderRadius: 8,
@@ -457,12 +605,14 @@ export default function QueueDashboard() {
       </Box>
 
       {/* Next Patient Banner */}
-      {nextEntry && (
+      {!isRegistrationStaff && user?.role !== 'admin' && roleScopedNextEntry && (
         <NextPatientBanner
-          entry={nextEntry}
+          entry={roleScopedNextEntry}
           onCall={handleCall}
-          onCallNext={handleCallNext}
-          showActions={!isRegistrationStaff}
+          onCallNext={(isTriageDoctor || isTreatmentNurse)
+            ? (() => handleCall(roleScopedNextEntry))
+            : handleCallNext}
+          showActions={isTriageDoctor || !isRegistrationStaff}
         />
       )}
 
@@ -470,31 +620,33 @@ export default function QueueDashboard() {
       <QueueStatsGrid stats={stats} />
 
       {/* ── SECOND CHANCE QUEUE PANEL (only when populated) ── */}
-      {secondChanceQueue.length > 0 && (
+      {visibleSecondChanceQueue.length > 0 && (
         <SecondChanceQueuePanel
-          entries={secondChanceQueue}
+          entries={visibleSecondChanceQueue}
           loading={loading}
           onRecall={e => setRecallTarget(e)}
           onAbsent={e => setAbsentTarget(e)}
-          canManage={!isRegistrationStaff}
+          canManage={!isRegistrationStaff && !isTreatmentNurse}
         />
       )}
 
-      {/* ── ARCHIVE PANEL — completed, cancelled, absent, no-response ── */}
-      <QueueArchivePanel
-        entries={queue.filter(e => (DONE_STATUSES as string[]).includes(e.status))}
-        loading={loading}
-      />
+
+      {isTriageDoctor && (
+        <TreatmentTransferArchivePanel
+          entries={transferredToTreatmentEntries}
+          loading={loading}
+        />
+      )}
 
       {/* ── MAIN QUEUE TABLE ── */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Typography sx={{ fontWeight: 700, fontSize: 14, color: 'var(--text-h)' }}>
-            Main Queue
+            {queueSectionTitle}
           </Typography>
-          {secondChanceQueue.length > 0 && (
+          {visibleSecondChanceQueue.length > 0 && (
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.4, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 12, fontWeight: 600 }}>
-              ↩ {secondChanceQueue.length} in Second Chance Queue
+              ↩ {visibleSecondChanceQueue.length} in Second Chance Queue
             </Box>
           )}
         </Box>
@@ -521,13 +673,20 @@ export default function QueueDashboard() {
         />
 
         <TablePager
-          count={filtered.length}
+          count={sortedQueue.length}
           page={page}
           rowsPerPage={rowsPerPage}
           onPageChange={setPage}
           onRowsPerPageChange={n => { setRowsPerPage(n); setPage(0); }}
         />
       </Paper>
+
+      {isTreatmentNurse && (
+        <TreatmentCompletedPanel
+          entries={completedTreatmentEntries}
+          loading={loading}
+        />
+      )}
 
       {/* ── Confirmation Dialogs ── */}
 
@@ -592,7 +751,8 @@ export default function QueueDashboard() {
         open={!!completeTarget}
         entry={completeTarget}
         onClose={() => setCompleteTarget(null)}
-        onDone={() => { reload(); toast('Consultation completed'); }}
+        onDone={() => { reload(); toast(isTriageDoctor ? 'Patient transferred to treatment queue' : isTreatmentNurse ? 'Treatment completed' : 'Consultation completed'); }}
+        mode={isTriageDoctor ? 'transfer' : isTreatmentNurse ? 'treatment' : 'complete'}
       />
 
       <TrashBinModal

@@ -6,9 +6,10 @@ interface PatientInfoSectionProps {
   data: EnrolmentFormData;
   onChange: (key: keyof EnrolmentFormData) => (ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   errors?: Record<string, string>;
+  showQueueFields?: boolean;
 }
 
-export function PatientInfoSection({ data, onChange, errors = {} }: PatientInfoSectionProps) {
+export function PatientInfoSection({ data, onChange, errors = {}, showQueueFields = false }: PatientInfoSectionProps) {
   return (
     <div className="fm-section">
       <p className="fm-section-title">I. Patient Information</p>
@@ -68,6 +69,40 @@ export function PatientInfoSection({ data, onChange, errors = {} }: PatientInfoS
           </select>
         </FormField>
       </div>
+
+      {showQueueFields && (
+        <div className="fm-grid fm-grid--4" style={{ marginBottom: 14 }}>
+          <FormField id="field-visit_type" label="Visit Type" required error={!!errors.visit_type} errorText={errors.visit_type}>
+            <select className="fm-select" value={data.visit_type} onChange={onChange('visit_type')} style={errors.visit_type ? { borderColor: '#ef4444' } : undefined}>
+              <option value="new_case">New Case</option>
+              <option value="follow_up">Follow Up</option>
+            </select>
+          </FormField>
+          <FormField id="field-follow_up_date" label="Follow-up Date" required={data.visit_type === 'follow_up'} error={!!errors.follow_up_date} errorText={errors.follow_up_date}>
+            <input className="fm-input" type="date" value={data.follow_up_date} onChange={onChange('follow_up_date')} disabled={data.visit_type !== 'follow_up'} style={errors.follow_up_date ? { borderColor: '#ef4444' } : undefined} />
+          </FormField>
+          <FormField id="field-queue_priority_group" label="Queue Category" required error={!!errors.queue_priority_group} errorText={errors.queue_priority_group}>
+            <select className="fm-select" value={data.queue_priority_group} onChange={onChange('queue_priority_group')} style={errors.queue_priority_group ? { borderColor: '#ef4444' } : undefined}>
+              <option value="normal">Normal</option>
+              <option value="pregnant">Pregnant</option>
+              <option value="senior">Senior Citizen</option>
+              <option value="pwd">PWD</option>
+            </select>
+          </FormField>
+          <FormField id="field-queue_priority_level" label="Priority" required error={!!errors.queue_priority_level} errorText={errors.queue_priority_level}>
+            <select
+              className="fm-select"
+              value={data.queue_priority_level}
+              onChange={onChange('queue_priority_level')}
+              disabled={data.queue_priority_group !== 'normal'}
+              style={errors.queue_priority_level ? { borderColor: '#ef4444' } : undefined}
+            >
+              <option value="normal">Normal</option>
+              <option value="priority">Priority</option>
+            </select>
+          </FormField>
+        </div>
+      )}
 
       {data.civil_status === 'married' && (
         <div style={{ marginBottom: 14 }}>

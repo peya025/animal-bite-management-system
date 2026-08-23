@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Alert, Button, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, Divider, TextField,
@@ -14,19 +14,25 @@ interface CompleteDialogProps {
   entry: QueueEntry | null;
   onClose: () => void;
   onDone: () => void;
+  mode?: 'complete' | 'transfer' | 'treatment';
 }
 
-export function CompleteDialog({ open, entry, onClose, onDone }: CompleteDialogProps) {
+export function CompleteDialog({ open, entry, onClose, onDone, mode = 'complete' }: CompleteDialogProps) {
   const [notes, setNotes]             = useState('');
   const [saving, setSaving]           = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError]             = useState('');
 
-  useEffect(() => {
+  const resetState = () => {
     setNotes('');
     setShowConfirm(false);
     setError('');
-  }, [open]);
+  };
+
+  const handleClose = () => {
+    resetState();
+    onClose();
+  };
 
   const doComplete = async () => {
     if (!entry) return;
@@ -36,18 +42,54 @@ export function CompleteDialog({ open, entry, onClose, onDone }: CompleteDialogP
       await completeQueueConsultation(entry.queue_id, notes);
       onDone();
       onClose();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Failed to complete consultation. Please try again.';
+    } catch (err: unknown) {
+      const response = typeof err === 'object' && err !== null && 'response' in err
+        ? (err as { response?: { data?: { message?: string } } }).response
+        : undefined;
+      const msg = response?.data?.message ?? 'Failed to complete the queue action. Please try again.';
       setError(msg);
     } finally {
       setSaving(false);
     }
   };
 
+  const isTransferMode = mode === 'transfer';
+  const isTreatmentMode = mode === 'treatment';
+  const dialogTitle = isTransferMode
+    ? 'Transfer to Treatment'
+    : isTreatmentMode
+      ? 'Complete Treatment'
+      : 'Complete Consultation';
+  const notesLabel = isTransferMode
+    ? 'Transfer Notes (optional)'
+    : isTreatmentMode
+      ? 'Treatment Notes (optional)'
+      : 'Consultation Notes (optional)';
+  const notesPlaceholder = isTransferMode
+    ? 'Notes for the treatment nurse, reminders, endorsements…'
+    : isTreatmentMode
+      ? 'Summary of treatment given, vaccination details, recommendations…'
+      : 'Summary of consultation, recommendations…';
+  const actionLabel = isTransferMode
+    ? 'Transfer to Treatment'
+    : isTreatmentMode
+      ? 'Complete Treatment'
+      : 'Mark Complete';
+  const confirmLabel = isTransferMode
+    ? 'Yes, Transfer'
+    : isTreatmentMode
+      ? 'Yes, Complete Treatment'
+      : 'Yes, Complete';
+  const confirmMessage = isTransferMode
+    ? <>Transfer <strong>{entry?.patient.name}</strong> to the treatment nurse queue?</>
+    : isTreatmentMode
+      ? <>Mark treatment for <strong>{entry?.patient.name}</strong> as complete?</>
+      : <>Mark consultation for <strong>{entry?.patient.name}</strong> as complete?</>;
+
   return (
     <>
-      <Dialog open={open && !showConfirm} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Complete Consultation</DialogTitle>
+      <Dialog open={open && !showConfirm} onClose={handleClose} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>{dialogTitle}</DialogTitle>
         <Divider />
         <DialogContent sx={{ pt: 2 }}>
           {entry && (
@@ -66,15 +108,15 @@ export function CompleteDialog({ open, entry, onClose, onDone }: CompleteDialogP
             fullWidth
             multiline
             rows={3}
-            label="Consultation Notes (optional)"
-            placeholder="Summary of consultation, recommendations…"
+            label={notesLabel}
+            placeholder={notesPlaceholder}
             value={notes}
             onChange={e => setNotes(e.target.value)}
             sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={handleClose} disabled={saving}>Cancel</Button>
           <Button
             variant="contained"
             color="success"
@@ -82,7 +124,7 @@ export function CompleteDialog({ open, entry, onClose, onDone }: CompleteDialogP
             startIcon={saving ? <CircularProgress size={16} /> : <CompleteIcon />}
             onClick={() => setShowConfirm(true)}
           >
-            Mark Complete
+            {actionLabel}
           </Button>
         </DialogActions>
       </Dialog>
@@ -90,9 +132,9 @@ export function CompleteDialog({ open, entry, onClose, onDone }: CompleteDialogP
       {showConfirm && entry && (
         <ConfirmationDialog
           variant="success"
-          title="Complete Consultation"
-          message={<>Mark consultation for <strong>{entry.patient.name}</strong> as complete?</>}
-          confirmLabel="Yes, Complete"
+          title={dialogTitle}
+          message={confirmMessage}
+          confirmLabel={confirmLabel}
           cancelLabel="Go Back"
           onConfirm={() => {
             setShowConfirm(false);

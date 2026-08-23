@@ -239,7 +239,7 @@ class AppointmentController extends Controller
                         },
                         'latestTreatmentRecord',
                         'queues' => function ($qu) {
-                            $qu->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)->latest();
                         }
                     ]);
                     break;
@@ -390,13 +390,14 @@ class AppointmentController extends Controller
 
             switch ($tab) {
                 case 'today':
-                    // Patients seen today OR currently waiting/in consultation in queue
+                    // Patients seen today OR currently active in queue
                     $query->where(function ($q) {
                         $q->whereHas('treatmentRecords', function ($tr) {
                             $tr->whereDate('consultation_date', Carbon::today())
                                ->whereNull('dose_number');
                         })->orWhereHas('queues', function ($qu) {
-                            $qu->whereIn('status', ['waiting', 'in_consultation']);
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                               ->whereDate('queue_date', Carbon::today());
                         });
                     })->with([
                         'treatmentRecords' => function ($tr) {
@@ -405,7 +406,9 @@ class AppointmentController extends Controller
                                ->orderBy('created_at', 'desc');
                         },
                         'queues' => function ($qu) {
-                            $qu->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                               ->whereDate('queue_date', Carbon::today())
+                               ->latest();
                         }
                     ]);
                     break;
@@ -427,7 +430,9 @@ class AppointmentController extends Controller
                 default:
                     // All clinic patients with their latest consultation record
                     $query->with(['latestConsultationRecord', 'queues' => function ($qu) {
-                        $qu->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                        $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                           ->whereDate('queue_date', Carbon::today())
+                           ->latest();
                     }]);
                     break;
             }

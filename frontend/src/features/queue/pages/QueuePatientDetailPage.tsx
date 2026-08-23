@@ -31,6 +31,7 @@ import VaccinationRecordForm from '../../vaccinations/components/VaccinationReco
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { CompleteDialog } from '../components/CompleteDialog';
 import { getMembershipByType, getPatientMemberships } from '../../patients/utils/memberships';
+import StockLevelIndicator from '../../inventory/components/StockLevelIndicator/StockLevelIndicator';
 
 // ─── Role helpers ──────────────────────────────────────────────────────────
 function canEdit(userRole: string, formOwner: 'registration' | 'triage' | 'treatment'): boolean {
@@ -379,6 +380,8 @@ export default function QueuePatientDetailPage() {
 
       {/* ── Tab Content ── */}
       <Box sx={{ maxWidth: 960, mx: 'auto', py: 3, px: 2 }}>
+        {/* Priority 14: Live Clinic Stock-Level Color Coding */}
+        <StockLevelIndicator compact={true} showLegend={true} />
         {renderTabContent()}
       </Box>
 

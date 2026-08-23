@@ -46,6 +46,7 @@ import {
 } from '../components';
 import { buildRoute, ROUTES } from '../../../shared/config/routes';
 import { useAuth } from '../../../contexts/AuthContext';
+import StockLevelIndicator from '../../inventory/components/StockLevelIndicator/StockLevelIndicator';
 
 export default function QueueDashboard() {
   const navigate = useNavigate();
@@ -455,6 +456,9 @@ export default function QueueDashboard() {
           </Tooltip>
         </Stack>
       </Box>
+
+      {/* Priority 14: Live Clinic Stock-Level Color Coding */}
+      <StockLevelIndicator compact={false} showLegend={true} />
 
       {/* Next Patient Banner */}
       {nextEntry && (

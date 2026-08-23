@@ -39,6 +39,7 @@ import InventoryTable from '../components/InventoryTable/InventoryTable';
 import StockCardView from '../components/StockCardView/StockCardView';
 import FifoComplianceReport from '../components/FifoComplianceReport/FifoComplianceReport';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import StockLevelIndicator from '../components/StockLevelIndicator/StockLevelIndicator';
 import type { InventoryItem } from '../types';
 import { deriveInventoryStatus } from '../utils/inventoryStatus';
 
@@ -293,6 +294,9 @@ export default function VaccineInventory() {
           </Button>
         </Stack>
       </Box>
+
+      {/* Priority 14: Stock-Level Color Coding & Live Clinic Stock Summary */}
+      <StockLevelIndicator showLegend={true} />
 
       {view === 'table' && (
         <>

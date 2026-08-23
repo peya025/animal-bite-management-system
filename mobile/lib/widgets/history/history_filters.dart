@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../app/app_theme.dart';
-
 enum HistoryFilter { all, appointments, vaccinations }
 
 extension HistoryFilterLabel on HistoryFilter {
@@ -26,37 +24,47 @@ class HistoryFilters extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       child: Row(
         children: [
           for (final filter in HistoryFilter.values) ...[
-            ChoiceChip(
-              label: Text(filter.label),
-              selected: filter == selected,
-              showCheckmark: false,
-              onSelected: (_) => onSelected(filter),
-              selectedColor: AppColors.primaryLight,
-              backgroundColor: AppColors.white,
-              side: BorderSide(
-                color: filter == selected
-                    ? AppColors.primary
-                    : const Color(0xFFE2E8E6),
-              ),
-              labelStyle: TextStyle(
-                color: filter == selected
-                    ? AppColors.primaryDark
-                    : AppColors.gray700,
-                fontWeight: filter == selected
-                    ? FontWeight.w700
-                    : FontWeight.w500,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            GestureDetector(
+              onTap: () => onSelected(filter),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: filter == selected
+                      ? const Color(0xFF1D9E75)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: filter == selected
+                      ? null
+                      : Border.all(
+                          color: const Color(0xFFE5E7EB),
+                          width: 0.5,
+                        ),
+                ),
+                child: Text(
+                  filter.label,
+                  style: TextStyle(
+                    color: filter == selected
+                        ? Colors.white
+                        : const Color(0xFF6B7280),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ),
-            if (filter != HistoryFilter.values.last) const SizedBox(width: 8),
+            if (filter != HistoryFilter.values.last) const SizedBox(width: 6),
           ],
         ],
       ),
     );
   }
 }
+

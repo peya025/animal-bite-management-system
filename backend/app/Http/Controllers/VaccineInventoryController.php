@@ -783,4 +783,71 @@ class VaccineInventoryController extends Controller
             'transactions' => $transactions,
         ]);
     }
+
+    /**
+     * Public endpoint for landing page to display live vaccine catalog and availability
+     */
+    public function publicAvailability(Request $request)
+    {
+        $presets = VaccineTypePreset::orderBy('category')->orderBy('vaccine_name')->get();
+
+        // If presets empty, auto-seed defaults
+        if ($presets->isEmpty()) {
+            $this->presets($request);
+            $presets = VaccineTypePreset::orderBy('category')->orderBy('vaccine_name')->get();
+        }
+
+        $activeInventory = VaccineInventory::where('status', 'active')
+            ->where('current_quantity', '>', 0)
+            ->get();
+
+        $catalog = $presets->map(function ($preset) use ($activeInventory) {
+            $matches = $activeInventory->filter(function ($inv) use ($preset) {
+                return strcasecmp($inv->vaccine_type, $preset->vaccine_name) === 0;
+            });
+
+            $totalVials = $matches->sum('current_quantity');
+            $activeBatches = $matches->count();
+
+            $status = 'In Stock';
+            $statusColor = 'success';
+            if ($totalVials === 0) {
+                $status = 'Available on Demand';
+                $statusColor = 'info';
+            } elseif ($totalVials <= 5) {
+                $status = 'Limited Stock';
+                $statusColor = 'warning';
+            }
+
+            return [
+                'id' => $preset->id,
+                'vaccine_name' => $preset->vaccine_name,
+                'category' => $preset->category ?? 'Anti-Rabies Vaccines (ARV)',
+                'administration_route' => $preset->administration_route ?? 'Intradermal / Intramuscular',
+                'dosing_regimen_notes' => $preset->dosing_regimen_notes,
+                'storage_temperature_notes' => $preset->storage_temperature_notes ?? 'Store at +2°C to +8°C. Monitored Cold-Chain.',
+                'shelf_life_months' => $preset->default_shelf_life_months,
+                'open_vial_hours' => $preset->default_open_vial_hours,
+                'is_multidose' => $preset->is_multidose,
+                'availability_status' => $status,
+                'status_color' => $statusColor,
+                'in_stock' => $totalVials > 0,
+            ];
+        });
+
+        $byCategory = $catalog->groupBy('category');
+
+        $clinic = \App\Models\Clinic::first();
+
+        return response()->json([
+            'facility_name' => $clinic ? $clinic->name : 'Tagoloan Animal Bite Treatment Center',
+            'facility_address' => $clinic ? ($clinic->address ?? 'Poblacion, Tagoloan, Misamis Oriental') : 'Poblacion, Tagoloan, Misamis Oriental',
+            'operating_schedule' => 'Mondays & Thursdays (8:00 AM – 5:00 PM)',
+            'cold_chain_status' => 'Certified (+2°C to +8°C Active)',
+            'who_pep_compliant' => true,
+            'vaccines' => $catalog,
+            'categories' => $byCategory,
+        ]);
+    }
 }
+

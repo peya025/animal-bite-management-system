@@ -40,6 +40,7 @@ Route::get('/test', function () {
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
+Route::get('/public/vaccine-availability', [VaccineInventoryController::class, 'publicAvailability']);
 
 // Form 1 Printout Route
 Route::get('/print/patient/{id}/enrolment', [PrintController::class, 'enrolment']);

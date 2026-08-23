@@ -1680,4 +1680,361 @@ a {
 .feature-card:nth-child(3) { animation-delay: 0.3s; }
 .feature-card:nth-child(4) { animation-delay: 0.4s; }
 .feature-card:nth-child(5) { animation-delay: 0.5s; }
-.feature-card:nth-child(6) { animation-delay: 0.6s; }`;
+.feature-card:nth-child(6) { animation-delay: 0.6s; }
+
+/* ===== Redesigned Live Vaccine Directory & Emergency Protocol Styles ===== */
+.vaccine-tracker-section {
+  padding: 4.5rem 1.5rem;
+  background: var(--body-bg);
+  position: relative;
+}
+
+.vaccine-tracker-container {
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+.vaccine-tracker-header {
+  text-align: center;
+  margin-bottom: 2.25rem;
+}
+
+.vaccine-tracker-header h2 {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--brand-text-full);
+  letter-spacing: -0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.vaccine-tracker-header p {
+  font-size: 1rem;
+  color: var(--gray-600);
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.vaccine-status-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.25rem 1.75rem;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 2.5rem;
+}
+
+.status-badge-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.status-indicator-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* 1. Filter Bar with Single Active State & Ghost Style */
+.vaccine-cat-tabs {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  margin-bottom: 2.5rem;
+  justify-content: center;
+}
+
+.vaccine-cat-tab-btn {
+  padding: 0.55rem 1.35rem;
+  border-radius: 9999px;
+  border: 1px solid #d1d5db;
+  background: transparent;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+[data-theme='dark'] .vaccine-cat-tab-btn {
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+.vaccine-cat-tab-btn:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #065f46;
+}
+
+[data-theme='dark'] .vaccine-cat-tab-btn:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #059669;
+  color: #6ee7b7;
+}
+
+.vaccine-cat-tab-btn.active {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border-color: #059669 !important;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.28);
+}
+
+/* 2. Group Section Headers & Context */
+.vaccine-group-section {
+  margin-bottom: 3.25rem;
+}
+
+.vaccine-group-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.vaccine-group-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--gray-900);
+  margin-bottom: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.vaccine-group-context-line {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* 3. Cards Grid & Card Content Layout */
+.vaccine-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.vaccine-pub-card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 18px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  min-height: 250px;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.vaccine-pub-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: #a7f3d0;
+}
+
+.vaccine-pub-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.vaccine-single-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+}
+
+.badge-cat-tag {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-low-stock {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-out-of-stock {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.vaccine-pub-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 0.25rem;
+  line-height: 1.35;
+}
+
+.vaccine-pub-formulation {
+  font-size: 0.8125rem;
+  color: var(--gray-500);
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+}
+
+.vaccine-pub-route-override {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  margin-bottom: 0.75rem;
+  width: fit-content;
+}
+
+/* 4. Pinned Facts Footer */
+.vaccine-facts-footer {
+  margin-top: auto;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--gray-200);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.vaccine-storage-fact {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  line-height: 1.35;
+}
+
+.vaccine-discard-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  line-height: 1.35;
+}
+
+/* Emergency Bite Action Banner */
+.emergency-bite-banner {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 24px;
+  padding: 2.5rem;
+  color: #ffffff;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+  margin-bottom: 3.5rem;
+}
+
+.emergency-banner-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.emergency-alert-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.emergency-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.emergency-step-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: background 0.2s;
+}
+
+.emergency-step-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.step-number-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.emergency-step-card h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+  color: #f1f5f9;
+}
+
+.emergency-step-card p {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .vaccine-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  .vaccine-status-summary-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .emergency-bite-banner {
+    padding: 1.75rem;
+  }
+}`;
+
+

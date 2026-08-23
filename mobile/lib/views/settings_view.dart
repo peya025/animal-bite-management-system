@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
-import '../app/app_theme.dart';
 import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import '../services/api.dart';
-import '../widgets/common/app_page_header.dart';
-import '../widgets/common/status_chip.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/settings/edit_account_dialog.dart';
@@ -130,140 +127,277 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.pageBackground,
+      backgroundColor: const Color(0xFFF4F6F5),
       body: SafeArea(
         bottom: false,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-                  sliver: SliverList.list(
+            child: Column(
+              children: [
+                // 1. Top bar
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Color(0xFFE5E7EB),
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const AppPageHeader(
-                        title: 'Settings',
-                        subtitle: 'Manage your profile and app preferences.',
-                        centered: true,
-                      ),
-                      const SizedBox(height: 24),
-                      const SettingsSectionLabel(title: 'Profile card'),
-                      const SizedBox(height: 10),
-                      if (_loadingAccount)
-                        const Center(child: CircularProgressIndicator())
-                      else if (_account case final account?)
-                        ProfileCard(
-                          name: account.name,
-                          email: account.email,
-                          phone: account.phone,
-                          patientCount: account.patients.length,
-                          onEdit: _editAccount,
-                        )
-                      else
-                        SettingsTile(
-                          icon: Icons.sync_problem_rounded,
-                          title: 'Could not load account',
-                          subtitle: _accountError ?? 'Try again',
-                          onTap: _loadAccount,
+                      Text(
+                        'Settings',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF111827),
                         ),
-                      const SizedBox(height: 24),
-                      SettingsGroup(
-                        title: 'Patient profiles',
-                        children: [
-                          for (final patient in _account?.patients ?? const [])
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Manage your profile and preferences',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Main Scrollable Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 80),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 2. Profile hero card
+                        if (_loadingAccount)
+                          Container(
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1D9E75),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            alignment: Alignment.center,
+                            child: const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            ),
+                          )
+                        else if (_account case final account?)
+                          ProfileCard(
+                            name: account.name,
+                            email: account.email,
+                            phone: account.phone,
+                            patientCount: account.patients.length,
+                            onEdit: _editAccount,
+                          )
+                        else
+                          Material(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
+                              onTap: _loadAccount,
+                              borderRadius: BorderRadius.circular(14),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.sync_problem_rounded,
+                                      color: Color(0xFFEF4444),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _accountError ??
+                                            'Could not load account. Tap to retry.',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF111827),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 14),
+
+                        // 3. Patient profiles section
+                        SettingsGroup(
+                          title: 'Patient profiles',
+                          children: [
+                            for (final patient
+                                in _account?.patients ?? const [])
+                              SettingsTile(
+                                icon: patient.relationship == 'child'
+                                    ? Icons.mood_rounded
+                                    : Icons.person_rounded,
+                                iconBgColor: const Color(0xFFE1F5EE),
+                                iconColor: const Color(0xFF1D9E75),
+                                title: patient.name,
+                                subtitle: _relationshipLabel(patient),
+                                onTap: () async {
+                                  await Navigator.of(context).pushNamed(
+                                    AppRoutes.patientProfile,
+                                    arguments: patient,
+                                  );
+                                  if (mounted) {
+                                    await _loadAccount();
+                                  }
+                                },
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (patient.status == 'pending')
+                                      const PendingBadge(),
+                                    const SizedBox(width: 6),
+                                    const Icon(
+                                      Icons.chevron_right,
+                                      color: Color(0xFFD1D5DB),
+                                      size: 16,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             SettingsTile(
-                              icon: patient.relationship == 'child'
-                                  ? Icons.child_care_rounded
-                                  : Icons.person_outline_rounded,
-                              title: patient.name,
-                              subtitle: _relationshipLabel(patient),
-                              onTap: () async {
-                                await Navigator.of(context).pushNamed(
-                                  AppRoutes.patientProfile,
-                                  arguments: patient,
-                                );
-                                if (mounted) {
-                                  await _loadAccount();
-                                }
-                              },
-                              trailing: StatusChip(status: patient.status),
+                              icon: Icons.add,
+                              iconBgColor: const Color(0xFFF9FAFB),
+                              iconColor: const Color(0xFF9CA3AF),
+                              iconBorder: Border.all(
+                                color: const Color(0xFFD1D5DB),
+                                width: 0.5,
+                              ),
+                              title: 'Add child or dependent',
+                              onTap: _addDependent,
+                              trailing: const Icon(
+                                Icons.chevron_right,
+                                color: Color(0xFFD1D5DB),
+                                size: 16,
+                              ),
                             ),
-                          SettingsTile(
-                            icon: Icons.person_add_alt_1_outlined,
-                            title: 'Add child or dependent',
-                            subtitle: 'Create another patient profile',
-                            onTap: _addDependent,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      SettingsGroup(
-                        title: 'Preferences',
-                        children: [
-                          SettingsTile(
-                            icon: Icons.notifications_none_rounded,
-                            title: 'Notifications',
-                            subtitle: 'Appointment and vaccination reminders',
-                            trailing: Switch(
-                              value: _notificationsEnabled,
-                              activeThumbColor: AppColors.white,
-                              activeTrackColor: AppColors.primary,
-                              inactiveThumbColor: AppColors.white,
-                              inactiveTrackColor: AppColors.gray500,
-                              onChanged: (value) {
-                                setState(() => _notificationsEnabled = value);
-                              },
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // 4. Preferences section
+                        SettingsGroup(
+                          title: 'Preferences',
+                          children: [
+                            SettingsTile(
+                              icon: Icons.notifications_none_rounded,
+                              iconBgColor: const Color(0xFFE1F5EE),
+                              iconColor: const Color(0xFF1D9E75),
+                              title: 'Notifications',
+                              subtitle: 'Appointment and vaccination reminders',
+                              trailing: CustomToggleSwitch(
+                                value: _notificationsEnabled,
+                                onChanged: (val) {
+                                  setState(() => _notificationsEnabled = val);
+                                },
+                              ),
+                            ),
+                            SettingsTile(
+                              icon: Icons.language_rounded,
+                              iconBgColor: const Color(0xFFEFF6FF),
+                              iconColor: const Color(0xFF3B82F6),
+                              title: 'Language',
+                              subtitle: 'English',
+                              onTap: () => _showDemoMessage(
+                                'Language selection will be added later.',
+                              ),
+                            ),
+                            SettingsTile(
+                              icon: Icons.lock_outline_rounded,
+                              iconBgColor: const Color(0xFFF5F3FF),
+                              iconColor: const Color(0xFF7C3AED),
+                              title: 'Privacy and security',
+                              subtitle: 'Password and account permissions',
+                              onTap: () => _showDemoMessage(
+                                'Privacy settings will be added later.',
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // 5. Support section
+                        SettingsGroup(
+                          title: 'Support',
+                          children: [
+                            SettingsTile(
+                              icon: Icons.help_outline_rounded,
+                              iconBgColor: const Color(0xFFFFF7ED),
+                              iconColor: const Color(0xFFEA580C),
+                              title: 'Help center',
+                              subtitle: 'FAQs and contact information',
+                              onTap: () => _showDemoMessage(
+                                'Help center will be added later.',
+                              ),
+                            ),
+                            SettingsTile(
+                              icon: Icons.info_outline_rounded,
+                              iconBgColor: const Color(0xFFF9FAFB),
+                              iconColor: const Color(0xFF6B7280),
+                              title: 'About',
+                              subtitle: 'AnimalCare · v1.0.0',
+                              onTap: () => _showDemoMessage(
+                                'AnimalCare · v1.0.0',
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // 6. Logout row — separate card
+                        Container(
+                          clipBehavior: Clip.antiAlias,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFFE5E7EB),
+                              width: 0.5,
                             ),
                           ),
-                          SettingsTile(
-                            icon: Icons.language_rounded,
-                            title: 'Language',
-                            subtitle: 'English',
-                            onTap: () => _showDemoMessage(
-                              'Language selection will be added later.',
-                            ),
-                          ),
-                          SettingsTile(
-                            icon: Icons.lock_outline_rounded,
-                            title: 'Privacy and security',
-                            subtitle: 'Password and account permissions',
-                            onTap: () => _showDemoMessage(
-                              'Privacy settings will be added later.',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      SettingsGroup(
-                        title: 'Support',
-                        children: [
-                          SettingsTile(
-                            icon: Icons.help_outline_rounded,
-                            title: 'Help center',
-                            subtitle: 'FAQs and contact information',
-                            onTap: () => _showDemoMessage(
-                              'Help center will be added later.',
-                            ),
-                          ),
-                          SettingsTile(
-                            icon: Icons.info_outline_rounded,
-                            title: 'About',
-                            subtitle: 'AnimalCare demo version 1.0.0',
-                            onTap: () => _showDemoMessage(
-                              'AnimalCare mobile demo version 1.0.0',
-                            ),
-                          ),
-                          SettingsTile(
+                          child: SettingsTile(
                             icon: Icons.logout_rounded,
+                            iconBgColor: const Color(0xFFFEF2F2),
+                            iconColor: const Color(0xFFEF4444),
                             title: 'Log out',
                             subtitle: 'Return to the login screen',
                             destructive: true,
                             onTap: _confirmLogout,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 18),
+
+                        // 7. Version tag
+                        const Center(
+                          child: Text(
+                            'AnimalCare · demo v1.0.0',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFFD1D5DB),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

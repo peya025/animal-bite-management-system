@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AddPatientModal from '../components/AddPatientModal';
 import InvitePatientModal from '../components/InvitePatientModal';
 import EditPatientModal from '../components/EditPatientModal';
@@ -6,6 +7,7 @@ import PatientDetailsModal from '../components/PatientDetailsModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import api from '../../../shared/services/api';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -19,6 +21,7 @@ const fullName = (p: Patient) =>
 
 // ─── Main Component ───────────────────────────────────────────
 export default function PatientList() {
+  const navigate = useNavigate();
   const [patients,             setPatients]             = useState<Patient[]>([]);
   const [loading,              setLoading]              = useState(true);
   const [error,                setError]                = useState('');
@@ -39,6 +42,14 @@ export default function PatientList() {
   const [showEditModal,        setShowEditModal]        = useState(false);
   const [selectedViewPatient,   setSelectedViewPatient]   = useState<Patient | null>(null);
   const [showViewModal,        setShowViewModal]        = useState(false);
+
+  const [checkInModalData,     setCheckInModalData]     = useState<{
+    patientName: string;
+    patientNumber: string;
+    queueNumber: number | string;
+    station: string;
+  } | null>(null);
+  const [checkInError,         setCheckInError]         = useState('');
 
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
@@ -103,17 +114,24 @@ export default function PatientList() {
     setCheckingInId(patientId);
     try {
       const appt = (p as any).appointments?.[0];
-      const isConsultation = appt?.appointment_type === 'consultation';
+      const isConsultation = !appt || appt?.appointment_type === 'consultation' || appt?.appointment_type === 'checkup' || (p as any).bite_intakes?.length > 0;
+      const visitType = isConsultation ? 'new_case' : 'vaccination';
       const res = await api.post('/queue', {
         patient_id: patientId,
-        visit_type: isConsultation ? 'consultation' : 'vaccination',
+        visit_type: visitType,
         queue_category: 'appointment',
         priority: 'normal',
       });
-      alert(`Patient ${fullName(p)} checked in as Queue #${res.data?.queue_number || 'OK'}!`);
+      const station = visitType === 'new_case' ? 'Triage Queue (Doctor Assessment)' : 'Treatment Queue (Vaccination)';
+      setCheckInModalData({
+        patientName: fullName(p),
+        patientNumber: p.patient_number,
+        queueNumber: res.data?.queue_number || '1',
+        station,
+      });
       fetchPatients();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to check in patient to queue');
+      setCheckInError(err.response?.data?.message || 'Failed to check in patient to queue');
     } finally {
       setCheckingInId(null);
     }
@@ -642,6 +660,63 @@ export default function PatientList() {
           setShowEditModal(true);
         }}
       />
+
+      {/* ── Check-In Success Modal (Modern Notification) ── */}
+      {checkInModalData && (
+        <ConfirmationDialog
+          variant="success"
+          title="Patient Checked In"
+          message={
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'center', marginTop: '6px' }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                border: '1.5px solid #86efac',
+                borderRadius: '14px',
+                padding: '16px 24px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '4px',
+                width: '100%',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.12)',
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                  Live Queue Number
+                </span>
+                <span style={{ fontSize: '36px', fontWeight: 800, color: '#047857', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>
+                  #{String(checkInModalData.queueNumber).padStart(3, '0')}
+                </span>
+                <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#059669', background: '#ffffff', padding: '2px 10px', borderRadius: '999px', border: '1px solid #a7f3d0' }}>
+                  {checkInModalData.station}
+                </span>
+              </div>
+
+              <div style={{ fontSize: '13.5px', color: '#4b5563', textAlign: 'center', lineHeight: 1.5 }}>
+                <strong style={{ color: '#111827' }}>{checkInModalData.patientName}</strong> has been successfully placed in the active queue.
+              </div>
+            </div>
+          }
+          confirmLabel="Go to Queue"
+          cancelLabel="Done"
+          onConfirm={() => {
+            setCheckInModalData(null);
+            navigate('/queue');
+          }}
+          onCancel={() => setCheckInModalData(null)}
+        />
+      )}
+
+      {/* ── Check-In Error Modal ── */}
+      {checkInError && (
+        <ConfirmationDialog
+          variant="danger"
+          title="Check-In Notice"
+          message={checkInError}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setCheckInError('')}
+        />
+      )}
     </PatientListRoot>
   );
 }

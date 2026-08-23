@@ -8,7 +8,7 @@ interface QueueEntry {
   queue_number: number;
   visit_type: string;
   priority: 'normal' | 'urgent' | 'emergency';
-  status: 'waiting' | 'in_consultation' | 'completed' | 'cancelled';
+  status: 'waiting' | 'called' | 'serving' | 'in_consultation' | 'completed' | 'cancelled';
   checked_in_at: string;
   patient: { name: string; age: number; gender: string };
 }
@@ -20,9 +20,7 @@ const VISIT_LABEL: Record<string, string> = {
   observation: 'Observation',
 };
 
-// Triage handles: new cases, follow-ups (needs doctor assessment)
-// Treatment handles: vaccinations, observations (direct treatment)
-const TRIAGE_TYPES    = new Set(['new_case', 'follow_up']);
+// Treatment station handles vaccinations and observations; everything else goes to triage
 const TREATMENT_TYPES = new Set(['vaccination', 'observation']);
 
 function getStation(visitType: string): 'triage' | 'treatment' {
@@ -46,13 +44,10 @@ interface StationPanelProps {
   next:           QueueEntry | null;
   waitingCount:   number;
   blink:          boolean;
-  calling:        boolean;
-  onCall:         () => void;
 }
 
 function StationPanel({
   station, current, next, waitingCount, blink,
-  calling, onCall,
 }: StationPanelProps) {
   const isTriage   = station === 'triage';
   const accent     = isTriage ? '#0ea5e9' : '#f59e0b';   // blue for triage, amber for treatment
@@ -177,29 +172,16 @@ function StationPanel({
         </div>
 
         {next && (
-          <button
-            onClick={onCall}
-            disabled={calling}
-            style={{
-              flexShrink: 0, padding: '10px 20px', borderRadius: 10,
-              background: calling
-                ? `${accent}33`
-                : `linear-gradient(135deg, ${accent} 0%, ${accentDark} 100%)`,
-              border: 'none', color: '#fff',
-              fontSize: 13, fontWeight: 700,
-              cursor: calling ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', transition: 'all 0.2s',
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              boxShadow: `0 4px 14px ${accent}44`,
-            }}
-            onMouseEnter={e => { if (!calling) { e.currentTarget.style.transform = 'translateY(-2px)'; } }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.21 12 19.79 19.79 0 0 1 1.14 3.38 2 2 0 0 1 3.11 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+          <div style={{
+            flexShrink: 0, padding: '10px 20px', borderRadius: 10,
+            background: `${accent}18`, border: `1.5px solid ${accent}44`,
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+          }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2.5">
+              <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
             </svg>
-            {calling ? 'Calling...' : `Call #${padNum(next.queue_number)}`}
-          </button>
+            <span style={{ fontSize: 12, fontWeight: 700, color: accentDark }}>Up next</span>
+          </div>
         )}
       </div>
     </div>
@@ -213,10 +195,9 @@ export default function QueueDisplayPage() {
   const [queue, setQueue]     = useState<QueueEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [blink, setBlink]     = useState(true);
-  const [lastCall, setLastCall]           = useState<QueueEntry | null>(null);
-  const [callingTriage, setCallingTriage] = useState(false);
-  const [callingTreatment, setCallingTreatment] = useState(false);
-  const prevCalledRef = useRef<Set<number>>(new Set());
+  const [lastCall, setLastCall] = useState<QueueEntry | null>(null);
+  const prevCalledRef  = useRef<Set<number>>(new Set());
+  const autoCallingRef = useRef<Set<number>>(new Set()); // guard against duplicate auto-calls
   const audioCtxRef   = useRef<AudioContext | null>(null);
 
   // Clock
@@ -251,48 +232,64 @@ export default function QueueDisplayPage() {
     } catch { /* ignore */ }
   }, []);
 
-  // Load queue
+  // Load queue + auto-call next patient when a station slot is free
   const loadQueue = useCallback(async () => {
     try {
       const res = await api.get('/queue');
       const entries: QueueEntry[] = res.data.queue ?? [];
       setQueue(entries);
-      const nowCalled = new Set(entries.filter(e => e.status === 'in_consultation').map(e => e.queue_id));
-      const newlyCalled = entries.find(e => e.status === 'in_consultation' && !prevCalledRef.current.has(e.queue_id));
+
+      // Chime notification for newly active (called/serving) patients
+      const ACTIVE_STATUSES = ['called', 'serving', 'in_consultation'];
+      const nowCalled = new Set(entries.filter(e => ACTIVE_STATUSES.includes(e.status)).map(e => e.queue_id));
+      const newlyCalled = entries.find(e => ACTIVE_STATUSES.includes(e.status) && !prevCalledRef.current.has(e.queue_id));
       if (newlyCalled) { setLastCall(newlyCalled); playChime(); }
       prevCalledRef.current = nowCalled;
+
+      // Auto-call: for each station, if no one is active (called/serving/in_consultation)
+      // and there's a waiting patient, call them automatically
+      for (const station of ['triage', 'treatment'] as const) {
+        const inConsult = entries.find(e => ACTIVE_STATUSES.includes(e.status) && getStation(e.visit_type) === station);
+        if (inConsult) continue; // station already has an active patient
+
+        const nextWaiting = entries.find(e => e.status === 'waiting' && getStation(e.visit_type) === station);
+        if (!nextWaiting) continue; // nobody waiting
+
+        // Skip if we're already mid-call for this entry (prevents duplicate POSTs across polls)
+        if (autoCallingRef.current.has(nextWaiting.queue_id)) continue;
+
+        autoCallingRef.current.add(nextWaiting.queue_id);
+        api.post(`/queue/${nextWaiting.queue_id}/call`)
+          .then(() => playChime())
+          .catch(() => {/* ignore — next poll will retry if still needed */})
+          .finally(() => autoCallingRef.current.delete(nextWaiting.queue_id));
+      }
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, [playChime]);
 
   useEffect(() => {
     loadQueue();
-    const id = setInterval(loadQueue, 5_000); // refresh every 5s
+    const id = setInterval(loadQueue, 5_000); // poll every 5s
     return () => clearInterval(id);
   }, [loadQueue]);
+
+  // Active statuses = patient is at or being directed to the station
+  const ACTIVE = (s: string) => ['called', 'serving', 'in_consultation'].includes(s);
 
   // Split queue by station
   const triageWaiting    = queue.filter(q => q.status === 'waiting' && getStation(q.visit_type) === 'triage');
   const treatmentWaiting = queue.filter(q => q.status === 'waiting' && getStation(q.visit_type) === 'treatment');
-  const triageInConsult    = queue.find(q => q.status === 'in_consultation' && getStation(q.visit_type) === 'triage') ?? null;
-  const treatmentInConsult = queue.find(q => q.status === 'in_consultation' && getStation(q.visit_type) === 'treatment') ?? null;
+  const triageInConsult    = queue.find(q => ACTIVE(q.status) && getStation(q.visit_type) === 'triage') ?? null;
+  const treatmentInConsult = queue.find(q => ACTIVE(q.status) && getStation(q.visit_type) === 'treatment') ?? null;
 
-  // "current" = in_consultation if exists, otherwise show first waiting patient so the display is never blank
+  // "current" = in_consultation if exists, otherwise show first waiting so the display is never blank
   const triageCurrent    = triageInConsult    ?? triageWaiting[0]    ?? null;
   const treatmentCurrent = treatmentInConsult ?? treatmentWaiting[0] ?? null;
 
   // "next" = second waiting patient (skip first if shown as current)
   const triageNext    = triageInConsult    ? triageWaiting[0]    ?? null : triageWaiting[1]    ?? null;
   const treatmentNext = treatmentInConsult ? treatmentWaiting[0] ?? null : treatmentWaiting[1] ?? null;
-
-  // Call / Complete helpers
-  const callStation = async (entry: QueueEntry | null, setBusy: (v: boolean) => void) => {
-    if (!entry || callingTriage || callingTreatment) return;
-    setBusy(true);
-    try { await api.post(`/queue/${entry.queue_id}/call`); playChime(); await loadQueue(); }
-    catch { /* ignore */ }
-    finally { setBusy(false); }
-  };
 
   const clinicName = (() => {
     try { return JSON.parse(localStorage.getItem('clinicData') ?? '{}')?.name ?? 'Animal Bite Center'; }
@@ -362,8 +359,6 @@ export default function QueueDisplayPage() {
             next={triageNext}
             waitingCount={triageWaiting.length}
             blink={blink}
-            calling={callingTriage}
-            onCall={() => callStation(triageNext, setCallingTriage)}
           />
 
           {/* Triage waiting mini list */}
@@ -396,8 +391,6 @@ export default function QueueDisplayPage() {
             next={treatmentNext}
             waitingCount={treatmentWaiting.length}
             blink={blink}
-            calling={callingTreatment}
-            onCall={() => callStation(treatmentNext, setCallingTreatment)}
           />
 
           {/* Treatment waiting mini list */}
@@ -426,7 +419,7 @@ export default function QueueDisplayPage() {
         fontSize: 12, fontWeight: 600, color: '#fff',
         borderTop: '1px solid #059669',
       }}>
-        <span>🔔 Auto-refreshes every 10 seconds</span>
+        <span>🔔 Auto-refreshes every 5 seconds</span>
         <span>
           Triage: {triageWaiting.length} waiting
           &nbsp;·&nbsp;

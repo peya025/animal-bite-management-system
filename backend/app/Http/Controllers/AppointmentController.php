@@ -159,6 +159,9 @@ class AppointmentController extends Controller
      * Get patient list for NURSE role
      * GET /api/nurse/patients
      */
+    // Active queue statuses (covers all non-terminal states including the auto-call flow)
+    const ACTIVE_QUEUE_STATUSES = ['waiting', 'called', 'serving', 'in_consultation'];
+
     public function nursePatients(Request $request)
     {
         try {
@@ -169,7 +172,7 @@ class AppointmentController extends Controller
 
             switch ($tab) {
                 case 'due_today':
-                    // Patients with appointments today OR currently waiting/in consultation in queue
+                    // Patients with appointments today OR currently active in queue (any non-terminal status)
                     $query->where(function ($q) {
                         $q->whereHas('appointments', function ($app) {
                             $app->where(function ($d) {
@@ -177,7 +180,8 @@ class AppointmentController extends Controller
                                   ->orWhereDate('scheduled_date', Carbon::today());
                             })->where('status', 'scheduled');
                         })->orWhereHas('queues', function ($qu) {
-                            $qu->whereIn('status', ['waiting', 'in_consultation']);
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                               ->whereDate('queue_date', Carbon::today());
                         });
                     })->with([
                         'appointments' => function ($app) {
@@ -191,7 +195,9 @@ class AppointmentController extends Controller
                         },
                         'latestTreatmentRecord',
                         'queues' => function ($qu) {
-                            $qu->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                               ->whereDate('queue_date', Carbon::today())
+                               ->latest();
                         }
                     ]);
                     break;
@@ -260,9 +266,30 @@ class AppointmentController extends Controller
                     ]);
                     break;
 
+                case 'completed_today':
+                    // Patients who had Form 3 (vaccination/treatment records) saved today
+                    $query->whereHas('treatmentRecords', function ($q) {
+                        $q->whereNotNull('dose_number')
+                          ->whereDate('treatment_date', Carbon::today());
+                    })->with([
+                        'latestTreatmentRecord',
+                        'appointments' => function ($app) {
+                            $app->latest('appointment_date');
+                        },
+                        'biteIntakes' => function ($bi) {
+                            $bi->latest();
+                        },
+                        'queues' => function ($qu) {
+                            $qu->where('status', 'completed')
+                               ->whereDate('queue_date', Carbon::today())
+                               ->latest();
+                        }
+                    ]);
+                    break;
+
                 case 'all':
                 default:
-                    // All clinic patients with their latest treatment record, appointment info, and online intake
+                    // All clinic patients with their latest treatment record and appointment info
                     $query->with([
                         'latestTreatmentRecord',
                         'upcomingAppointment',
@@ -273,7 +300,9 @@ class AppointmentController extends Controller
                             $bi->latest();
                         },
                         'queues' => function ($qu) {
-                            $qu->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                               ->whereDate('queue_date', Carbon::today())
+                               ->latest();
                         }
                     ]);
                     break;
@@ -300,7 +329,8 @@ class AppointmentController extends Controller
                           ->orWhereDate('scheduled_date', Carbon::today());
                     })->where('status', 'scheduled');
                 })->orWhereHas('queues', function ($qu) {
-                    $qu->whereIn('status', ['waiting', 'in_consultation']);
+                    $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                       ->whereDate('queue_date', Carbon::today());
                 });
             })->count();
 
@@ -324,11 +354,17 @@ class AppointmentController extends Controller
                 })->whereIn('status', ['scheduled', 'missed']);
             })->count();
 
+            $completedTodayCount = Patient::where('clinic_id', $clinicId)->whereHas('treatmentRecords', function ($q) {
+                $q->whereNotNull('dose_number')
+                  ->whereDate('treatment_date', Carbon::today());
+            })->count();
+
             $res = $patients->toArray();
-            $res['due_today_count'] = $dueTodayCount;
-            $res['online_count'] = $onlineCount;
-            $res['upcoming_count'] = $upcomingCount;
-            $res['overdue_count'] = $overdueCount;
+            $res['due_today_count']      = $dueTodayCount;
+            $res['online_count']         = $onlineCount;
+            $res['upcoming_count']       = $upcomingCount;
+            $res['overdue_count']        = $overdueCount;
+            $res['completed_today_count'] = $completedTodayCount;
 
             return response()->json($res);
         } catch (\Exception $e) {

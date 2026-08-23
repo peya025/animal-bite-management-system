@@ -8,6 +8,7 @@ use App\Models\BiteIncident;
 use App\Models\Queue;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class TreatmentRecordController extends Controller
 {
@@ -159,6 +160,9 @@ class TreatmentRecordController extends Controller
                 'serving_at'         => null,
                 'consultation_notes' => 'Doctor completed Form 2 — referred to Treatment.',
             ]);
+
+            // Flush queue cache so the display picks up the visit_type change immediately
+            Cache::forget("web:queue:clinic:{$clinicId}:date:" . \Carbon\Carbon::today()->toDateString());
         }
 
         return response()->json([

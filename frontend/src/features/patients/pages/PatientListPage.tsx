@@ -68,12 +68,13 @@ export default function PatientList() {
   const [showBulkConfirm,      setShowBulkConfirm]      = useState(false);
 
   // Helper to distinguish online appointment patients from walk-in patients
+  // A patient is considered an Online Appointment applicant ONLY if they submitted a bite intake AND confirmed their booking
   const isOnlinePatient = (p: Patient) => {
-    return Boolean(
-      (p as any).appointments?.some((a: any) => a.booked_by_account_id) ||
-      (p as any).bite_intakes?.length ||
-      ((p as any).accounts && (p as any).accounts.length > 0)
+    const hasIntake = Boolean((p as any).bite_intakes && (p as any).bite_intakes.length > 0);
+    const hasConfirmedBooking = Boolean(
+      (p as any).appointments?.some((a: any) => a.booked_by_account_id && a.status !== 'cancelled')
     );
+    return hasIntake && hasConfirmedBooking;
   };
 
   // Debounce search input (wait 400ms after user stops typing)

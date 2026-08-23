@@ -339,6 +339,52 @@ class MockMobileApi {
     ];
   }
 
+  Future<Map<String, dynamic>> history({int? patientId}) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    return {
+      'summary': {
+        'total_visits': 3,
+        'total_vaccinations': 2,
+        'active_cases': 1,
+      },
+      'active_case': {
+        'case_number': 'Case BC-2026-0018',
+        'next_dose_text': 'Next: Day 7 dose · March 17, 2026',
+        'due_badge_text': 'Due in 4 days',
+      },
+      'records': [
+        {
+          'id': 'app-1',
+          'type': 'appointments',
+          'title': 'Bite consultation',
+          'date_time': 'March 10, 2026 · 9:30 AM',
+          'case_number': 'BC-2026-0018',
+          'status': 'completed',
+        },
+        {
+          'id': 'vac-1',
+          'type': 'vaccinations',
+          'title': 'Anti-rabies vaccine · Day 3',
+          'date_time': 'March 13, 2026 · 10:00 AM',
+          'status': 'completed',
+          'completed_doses': 2,
+          'total_doses': 4,
+          'dose_label': '2 of 4 done',
+        },
+        {
+          'id': 'vac-2',
+          'type': 'vaccinations',
+          'title': 'Anti-rabies vaccine · Day 7',
+          'date_time': 'March 17, 2026 · 10:00 AM',
+          'status': 'scheduled',
+          'completed_doses': 2,
+          'total_doses': 4,
+          'dose_label': '3 of 4 · upcoming',
+        },
+      ],
+    };
+  }
+
   String _resolveString(
     Map<String, dynamic> profile,
     Map<String, dynamic>? existing,

@@ -280,6 +280,12 @@ class MobileApi {
     await _send('PATCH', '/notifications/read-all');
   }
 
+  Future<Map<String, dynamic>> history({int? patientId}) async {
+    final query = patientId != null ? '?patient_id=$patientId' : '';
+    final data = await _send('GET', '/history$query') as Map<String, dynamic>;
+    return data;
+  }
+
   /// Returns true if the server is reachable.
   Future<bool> checkConnectivity() async {
     try {

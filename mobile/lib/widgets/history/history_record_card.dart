@@ -25,6 +25,38 @@ class HistoryRecord {
   final int? completedDoses;
   final int totalDoses;
   final String? doseLabel;
+
+  factory HistoryRecord.fromJson(Map<String, dynamic> json) {
+    final typeStr = json['type'] as String? ?? 'appointments';
+    final filterType = typeStr == 'vaccinations'
+        ? HistoryFilter.vaccinations
+        : HistoryFilter.appointments;
+
+    final statusStr = json['status'] as String? ?? 'scheduled';
+    final status = switch (statusStr) {
+      'completed' => HistoryStatus.completed,
+      'missed' => HistoryStatus.missed,
+      _ => HistoryStatus.scheduled,
+    };
+
+    final icon = filterType == HistoryFilter.vaccinations
+        ? (status == HistoryStatus.completed
+            ? Icons.vaccines_outlined
+            : Icons.calendar_today_outlined)
+        : Icons.medical_information_outlined;
+
+    return HistoryRecord(
+      type: filterType,
+      title: json['title'] as String? ?? 'Record',
+      dateTime: json['date_time'] as String? ?? '',
+      status: status,
+      icon: icon,
+      caseNumber: json['case_number'] as String?,
+      completedDoses: json['completed_doses'] as int?,
+      totalDoses: json['total_doses'] as int? ?? 4,
+      doseLabel: json['dose_label'] as String?,
+    );
+  }
 }
 
 class HistoryTimelineItem extends StatelessWidget {

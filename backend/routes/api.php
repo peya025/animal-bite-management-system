@@ -180,6 +180,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Patient Portal Invitations & Account Linking (Staff endpoints)
     Route::middleware('role:admin,registration,triage')->group(function () {
         Route::post('/patient-invitations', [PatientInvitationController::class, 'store']);
+        Route::post('/patient-invitations/bulk', [PatientInvitationController::class, 'bulkStore']);
         Route::post('/patient-invitations/{id}/resend', [PatientInvitationController::class, 'resend']);
         Route::post('/patients/{patient_id}/link-account', [PatientInvitationController::class, 'linkAccount']);
         Route::patch('/patient-account-patient/{id}/verify', [PatientInvitationController::class, 'verifyLink']);

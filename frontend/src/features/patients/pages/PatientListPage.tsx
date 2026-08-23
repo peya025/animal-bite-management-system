@@ -61,6 +61,21 @@ export default function PatientList() {
   const [tabCounts,            setTabCounts]            = useState({ all: 0, today_queue: 0, online: 0, overdue: 0 });
   const [checkingInId,         setCheckingInId]         = useState<number | null>(null);
 
+  // Bulk walk-in portal invite state
+  const [selectedWalkinIds,    setSelectedWalkinIds]    = useState<number[]>([]);
+  const [bulkInviting,         setBulkInviting]         = useState(false);
+  const [bulkFeedback,         setBulkFeedback]         = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showBulkConfirm,      setShowBulkConfirm]      = useState(false);
+
+  // Helper to distinguish online appointment patients from walk-in patients
+  const isOnlinePatient = (p: Patient) => {
+    return Boolean(
+      (p as any).appointments?.some((a: any) => a.booked_by_account_id) ||
+      (p as any).bite_intakes?.length ||
+      ((p as any).accounts && (p as any).accounts.length > 0)
+    );
+  };
+
   // Debounce search input (wait 400ms after user stops typing)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -70,6 +85,12 @@ export default function PatientList() {
 
     return () => clearTimeout(timeoutId);
   }, [search]);
+
+  // Clear selection on filter/tab/page changes
+  useEffect(() => {
+    setSelectedWalkinIds([]);
+    setBulkFeedback(null);
+  }, [tab, page, searchTerm, perPage, membershipFilter]);
 
   const fetchPatients = useCallback(async () => {
     setLoading(true); setError('');
@@ -108,6 +129,54 @@ export default function PatientList() {
 
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
   useEffect(() => { setPage(1); }, [perPage, membershipFilter, tab]);
+
+  // Visible walk-in patients on current page
+  const visibleWalkins = useMemo(() => {
+    return patients.filter(p => !isOnlinePatient(p));
+  }, [patients]);
+
+  const isAllWalkinSelected = visibleWalkins.length > 0 && visibleWalkins.every(p => selectedWalkinIds.includes(p.patient_id || p.id));
+
+  const handleToggleSelectAllWalkins = () => {
+    if (isAllWalkinSelected) {
+      const visibleIds = new Set(visibleWalkins.map(p => p.patient_id || p.id));
+      setSelectedWalkinIds(prev => prev.filter(id => !visibleIds.has(id)));
+    } else {
+      const newIds = new Set([...selectedWalkinIds, ...visibleWalkins.map(p => p.patient_id || p.id)]);
+      setSelectedWalkinIds(Array.from(newIds));
+    }
+  };
+
+  const handleToggleWalkinPatient = (patientId: number) => {
+    setSelectedWalkinIds(prev =>
+      prev.includes(patientId) ? prev.filter(id => id !== patientId) : [...prev, patientId]
+    );
+  };
+
+  const handleConfirmBulkInvite = async () => {
+    if (selectedWalkinIds.length === 0) return;
+    setBulkInviting(true);
+    setBulkFeedback(null);
+    setShowBulkConfirm(false);
+    try {
+      const res = await api.post('/patient-invitations/bulk', {
+        patient_ids: selectedWalkinIds,
+      });
+      setBulkFeedback({
+        message: res.data?.message || `Successfully sent ${selectedWalkinIds.length} portal invitation(s).`,
+        type: 'success',
+      });
+      setSelectedWalkinIds([]);
+      fetchPatients();
+    } catch (err: any) {
+      setBulkFeedback({
+        message: err.response?.data?.message || 'Failed to send bulk invitations.',
+        type: 'error',
+      });
+    } finally {
+      setBulkInviting(false);
+    }
+  };
 
   const handleCheckIn = async (p: Patient) => {
     const patientId = p.patient_id || p.id;
@@ -344,6 +413,58 @@ export default function PatientList() {
             </div>
           </div>
 
+          {/* Bulk Walk-in Portal Invite Action Bar */}
+          {selectedWalkinIds.length > 0 && (
+            <div className="pm-bulk-bar">
+              <div className="pm-bulk-bar-info">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+                <span>{selectedWalkinIds.length} Walk-in Patient{selectedWalkinIds.length > 1 ? 's' : ''} Selected for Portal Invitation</span>
+              </div>
+              <div className="pm-bulk-bar-actions">
+                <button
+                  className="pm-btn-bulk-send"
+                  disabled={bulkInviting}
+                  onClick={() => setShowBulkConfirm(true)}
+                >
+                  {bulkInviting ? 'Sending Invites...' : `Send Portal Invites (${selectedWalkinIds.length})`}
+                </button>
+                <button
+                  className="pm-btn-bulk-clear"
+                  onClick={() => setSelectedWalkinIds([])}
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Action Feedback Message */}
+          {bulkFeedback && (
+            <div style={{
+              padding: '10px 16px',
+              borderRadius: '8px',
+              marginBottom: '8px',
+              fontSize: '13px',
+              fontWeight: 500,
+              backgroundColor: bulkFeedback.type === 'success' ? '#f0fdf4' : '#fef2f2',
+              color: bulkFeedback.type === 'success' ? '#166534' : '#991b1b',
+              border: `1px solid ${bulkFeedback.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <span>{bulkFeedback.message}</span>
+              <button
+                onClick={() => setBulkFeedback(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700 }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Table */}
           <div className="pm-table-wrap">
             {loading ? (
@@ -369,6 +490,17 @@ export default function PatientList() {
               <table className="pm-table">
                 <thead>
                   <tr>
+                    <th style={{ width: '40px', textAlign: 'center' }}>
+                      {visibleWalkins.length > 0 && (
+                        <input
+                          type="checkbox"
+                          className="pm-checkbox"
+                          checked={isAllWalkinSelected}
+                          onChange={handleToggleSelectAllWalkins}
+                          title="Select all walk-in patients on this page"
+                        />
+                      )}
+                    </th>
                     <th>Patient No.</th>
                     <th>Patient Name</th>
                     <th>Source</th>
@@ -380,17 +512,27 @@ export default function PatientList() {
                 <tbody>
                   {patients.map(p => {
                     const statusInfo = getLiveStatus(p);
-                    const isOnline = Boolean(
-                      (p as any).appointments?.some((a: any) => a.booked_by_account_id) ||
-                      (p as any).bite_intakes?.length ||
-                      ((p as any).accounts && (p as any).accounts.length > 0)
-                    );
+                    const isOnline = isOnlinePatient(p);
                     const activeQueue = (p as any).queues?.[0];
                     const appt = (p as any).appointments?.[0];
                     const canCheckIn = isOnline && !activeQueue && appt?.status === 'scheduled';
+                    const patientId = p.patient_id || p.id;
 
                     return (
-                      <tr key={`patient-${p.patient_id || p.id}`}>
+                      <tr key={`patient-${patientId}`}>
+                        <td style={{ textAlign: 'center' }}>
+                          {!isOnline ? (
+                            <input
+                              type="checkbox"
+                              className="pm-checkbox"
+                              checked={selectedWalkinIds.includes(patientId)}
+                              onChange={() => handleToggleWalkinPatient(patientId)}
+                              title="Select walk-in patient for portal invite"
+                            />
+                          ) : (
+                            <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>
+                          )}
+                        </td>
                         <td><span className="pm-patient-no">{p.patient_number}</span></td>
                         <td>
                           <div>
@@ -431,38 +573,40 @@ export default function PatientList() {
                               <button
                                 className="pm-btn-checkin"
                                 title="Check-in patient into today's queue"
-                                disabled={checkingInId === (p.patient_id || p.id)}
+                                disabled={checkingInId === patientId}
                                 onClick={() => handleCheckIn(p)}
                               >
-                                {checkingInId === (p.patient_id || p.id) ? 'Checking in...' : 'Check In'}
+                                {checkingInId === patientId ? 'Checking in...' : 'Check In'}
                               </button>
                             )}
-                            <button
-                              className="pm-btn-invite"
-                              title="Invite Patient to Mobile Portal"
-                              onClick={() => {
-                                setSelectedInvitePatient(p);
-                                setShowInviteModal(true);
-                              }}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                padding: '4px 9px',
-                                borderRadius: '6px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                border: '1px solid #bbf7d0',
-                                backgroundColor: '#f0fdf4',
-                                color: '#166534',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                              </svg>
-                              Portal Invite
-                            </button>
+                            {!isOnline && (
+                              <button
+                                className="pm-btn-invite"
+                                title="Invite Walk-in Patient to Mobile Portal"
+                                onClick={() => {
+                                  setSelectedInvitePatient(p);
+                                  setShowInviteModal(true);
+                                }}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '4px 9px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: '1px solid #bbf7d0',
+                                  backgroundColor: '#f0fdf4',
+                                  color: '#166534',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                </svg>
+                                Portal Invite
+                              </button>
+                            )}
                             <button
                               className="pm-btn-view"
                               onClick={() => {
@@ -715,6 +859,29 @@ export default function PatientList() {
           confirmLabel="OK"
           hideCancel
           onConfirm={() => setCheckInError('')}
+        />
+      )}
+
+      {/* ── Bulk Portal Invite Confirmation Modal ── */}
+      {showBulkConfirm && (
+        <ConfirmationDialog
+          variant="primary"
+          title="Send Portal Invitations"
+          message={
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p style={{ margin: 0, fontSize: '13.5px', color: '#374151' }}>
+                Are you sure you want to send Mobile Patient Portal invitations via SMS and Email to{' '}
+                <strong>{selectedWalkinIds.length} selected walk-in patient(s)</strong>?
+              </p>
+              <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>
+                Patients with existing verified accounts or missing contact numbers will be automatically skipped.
+              </p>
+            </div>
+          }
+          confirmLabel={bulkInviting ? 'Sending...' : 'Send Invitations'}
+          cancelLabel="Cancel"
+          onConfirm={handleConfirmBulkInvite}
+          onCancel={() => setShowBulkConfirm(false)}
         />
       )}
     </PatientListRoot>

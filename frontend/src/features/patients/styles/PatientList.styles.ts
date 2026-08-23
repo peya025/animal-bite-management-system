@@ -230,6 +230,84 @@ export const PatientListRoot = styled('div')`
   .pm-stat-value { font-size: 30px; font-weight: 800; margin: 0 0 2px; line-height: 1; }
   .pm-stat-sub { font-size: 11px; opacity: 0.7; margin: 0; }
 
+  .pm-bulk-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    gap: 12px;
+    flex-wrap: wrap;
+    animation: pm-fadeIn 0.2s ease-out;
+  }
+  @keyframes pm-fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .pm-bulk-bar-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #065f46;
+  }
+  .pm-bulk-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pm-btn-bulk-send {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: #059669;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
+    transition: all 0.15s;
+  }
+  .pm-btn-bulk-send:hover:not(:disabled) {
+    background: #047857;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(5, 150, 105, 0.3);
+  }
+  .pm-btn-bulk-send:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .pm-btn-bulk-clear {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: transparent;
+    color: #4b5563;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .pm-btn-bulk-clear:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+  .pm-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #059669;
+  }
+
   @media (max-width: 900px) {
     .pm-layout { grid-template-columns: 1fr; }
     .pm-side-panel { flex-direction: row; position: static; }

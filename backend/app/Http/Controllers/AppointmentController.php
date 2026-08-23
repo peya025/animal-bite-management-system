@@ -225,12 +225,16 @@ class AppointmentController extends Controller
                     break;
 
                 case 'online':
-                    // Patients with submitted bite intake AND confirmed vaccination booking
+                    // Patients with submitted bite intake OR confirmed booking from mobile
                     $query->where(function ($q) {
                         $q->whereHas('biteIntakes')
-                          ->whereHas('appointments', function ($app) {
+                          ->orWhereHas('appointments', function ($app) {
                               $app->whereNotNull('booked_by_account_id')
                                   ->where('status', '!=', 'cancelled');
+                          })
+                          ->orWhere(function ($sub) {
+                              $sub->where('registration_source', 'mobile')
+                                  ->whereHas('appointments');
                           });
                     })->with([
                         'appointments' => function ($app) {
@@ -338,9 +342,13 @@ class AppointmentController extends Controller
 
             $onlineCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
                 $q->whereHas('biteIntakes')
-                  ->whereHas('appointments', function ($app) {
+                  ->orWhereHas('appointments', function ($app) {
                       $app->whereNotNull('booked_by_account_id')
                           ->where('status', '!=', 'cancelled');
+                  })
+                  ->orWhere(function ($sub) {
+                      $sub->where('registration_source', 'mobile')
+                          ->whereHas('appointments');
                   });
             })->count();
 

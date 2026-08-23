@@ -57,9 +57,13 @@ class PatientController extends Controller
             case 'online':
                 $query->where(function ($q) {
                     $q->whereHas('biteIntakes')
-                      ->whereHas('appointments', function ($app) {
+                      ->orWhereHas('appointments', function ($app) {
                           $app->whereNotNull('booked_by_account_id')
                               ->where('status', '!=', 'cancelled');
+                      })
+                      ->orWhere(function ($sub) {
+                          $sub->where('registration_source', 'mobile')
+                              ->whereHas('appointments');
                       });
                 });
                 break;
@@ -129,9 +133,13 @@ class PatientController extends Controller
 
         $onlineCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
             $q->whereHas('biteIntakes')
-              ->whereHas('appointments', function ($app) {
+              ->orWhereHas('appointments', function ($app) {
                   $app->whereNotNull('booked_by_account_id')
                       ->where('status', '!=', 'cancelled');
+              })
+              ->orWhere(function ($sub) {
+                  $sub->where('registration_source', 'mobile')
+                      ->whereHas('appointments');
               });
         })->count();
 

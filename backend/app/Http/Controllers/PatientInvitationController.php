@@ -81,6 +81,77 @@ class PatientInvitationController extends Controller
     }
 
     /**
+     * Staff sends invitations in bulk to multiple walk-in patients.
+     * POST /api/patient-invitations/bulk
+     */
+    public function bulkStore(Request $request): JsonResponse
+    {
+        $request->validate([
+            'patient_ids' => 'required|array|min:1',
+            'patient_ids.*' => 'required|integer',
+        ]);
+
+        $patientIds = array_unique($request->patient_ids);
+        $sentCount = 0;
+        $skippedCount = 0;
+        $errors = [];
+
+        $patients = Patient::whereIn('patient_id', $patientIds)->get();
+
+        foreach ($patients as $patient) {
+            // Check if patient has a contact number
+            if (empty($patient->contact_number)) {
+                $skippedCount++;
+                $errors[] = "Patient {$patient->first_name} {$patient->last_name} (#{$patient->patient_number}) has no contact number.";
+                continue;
+            }
+
+            // Check if patient already has a verified portal account
+            $alreadyVerified = PatientAccountPatient::where('patient_id', $patient->patient_id)
+                ->where('status', 'verified')
+                ->exists();
+
+            if ($alreadyVerified) {
+                $skippedCount++;
+                $errors[] = "Patient {$patient->first_name} {$patient->last_name} already has a verified portal account.";
+                continue;
+            }
+
+            // Expire previous pending invitations for this patient
+            PatientInvitation::where('patient_id', $patient->patient_id)
+                ->where('status', 'pending')
+                ->update(['status' => 'expired']);
+
+            // Generate 64-char token & 7 days expiry
+            $token = Str::random(64);
+            $expiresAt = now()->addDays(7);
+
+            $invitation = PatientInvitation::create([
+                'clinic_id' => $patient->clinic_id,
+                'patient_id' => $patient->patient_id,
+                'invited_by' => auth()->id(),
+                'phone' => $patient->contact_number,
+                'token' => $token,
+                'status' => 'pending',
+                'expires_at' => $expiresAt,
+            ]);
+
+            // Send SMS & Email
+            $this->sendInvitationSms($invitation->phone, $invitation->token, $patient);
+            $this->sendInvitationEmail($patient->email, $invitation->token, $patient);
+
+            $sentCount++;
+        }
+
+        return response()->json([
+            'message' => "Successfully sent {$sentCount} portal invitation(s)." . ($skippedCount > 0 ? " ({$skippedCount} skipped due to missing phone or existing account)" : ""),
+            'sent_count' => $sentCount,
+            'skipped_count' => $skippedCount,
+            'errors' => $errors,
+        ]);
+    }
+
+    /**
      * Patient activates mobile app account using activation token.
      * POST /api/patient-invitations/activate
      */

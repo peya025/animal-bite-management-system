@@ -74,16 +74,16 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     roles: ['treatment', 'admin'],
   },
   {
+    label: 'Vaccine Type Setup',
+    path: ROUTES.INVENTORY.TYPES,
+    icon: GLOBAL_NAV_ICONS['Vaccine Type Setup'],
+    roles: ['admin'],
+  },
+  {
     label: 'Vaccination Schedule',
     path: ROUTES.VACCINATIONS.LIST,
     icon: GLOBAL_NAV_ICONS['Vaccinations'],
     roles: ['triage', 'treatment'],
-  },
-  {
-    label: 'Treatment Records',
-    path: ROUTES.TREATMENT_RECORDS.LIST,
-    icon: GLOBAL_NAV_ICONS['Treatment Records'],
-    roles: ['treatment', 'triage'],
   },
   {
     label: 'Reports & Analytics',

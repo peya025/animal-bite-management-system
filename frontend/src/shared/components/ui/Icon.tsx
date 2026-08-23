@@ -421,6 +421,15 @@ export const GLOBAL_NAV_ICONS: Record<string, React.ReactNode> = {
   ),
   Inventory: <Icon name="inventory" />,
   'Vaccine Inventory': <Icon name="inventory" />,
+  'Vaccine Type Setup': (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="12" height="16" rx="2.5" />
+      <path d="M7 8h4" />
+      <path d="M7 12h4" />
+      <path d="M18 8v8" />
+      <path d="M14 12h8" />
+    </svg>
+  ),
   Reports: <Icon name="reports" />,
   'Reports & Surveillance': <Icon name="reports" />,
   'Reports & Analytics': <Icon name="reports" />,

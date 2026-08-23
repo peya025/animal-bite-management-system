@@ -9,7 +9,9 @@ use App\Models\Appointment;
 use App\Models\BiteIncident;
 use App\Models\Patient;
 use App\Models\Clinic;
+use App\Services\VaccineInventoryUsageService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
@@ -28,7 +30,7 @@ class VaccinationRecordController extends Controller
             $records = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->whereNotNull('dose_number')
-                ->with(['administeredBy'])
+                ->with(['administeredBy', 'inventory'])
                 ->orderBy('dose_number')
                 ->get();
 
@@ -89,11 +91,16 @@ class VaccinationRecordController extends Controller
             'doses.*.date' => 'nullable|date',
             'doses.*.given_by' => 'nullable|string|max:255',
             'doses.*.signature' => 'nullable|string|max:255',
+            'doses.*.vaccine_type' => 'nullable|string|max:255',
+            'doses.*.inventory_units_used' => 'nullable|integer|min:0|max:999',
             'additional_meds' => 'nullable|array',
             'additional_meds.erig' => 'nullable|boolean',
             'additional_meds.tt' => 'nullable|boolean',
             'additional_meds.ats' => 'nullable|boolean',
             'icd_code' => 'nullable|string|max:20',
+        ], [
+            'doses.required' => "Please select a Vaccine Type for today's dose before saving.",
+            'doses.min' => "Please select a Vaccine Type for today's dose before saving.",
         ]);
 
         DB::beginTransaction();
@@ -113,16 +120,30 @@ class VaccinationRecordController extends Controller
                 'Booster 2' => 365, // Approximate day 365
             ];
 
+            $inventoryUsageService = app(VaccineInventoryUsageService::class);
+
             // Process each dose
             foreach ($request->doses as $doseData) {
-                // Skip empty doses (no date filled)
                 if (empty($doseData['date'])) {
                     continue;
                 }
 
                 $doseNumber = $periodMapping[$doseData['period']] ?? 0;
+                $selectedVaccineType = trim((string) ($doseData['vaccine_type'] ?? ''));
+                $inventoryUnitsUsed = (int) ($doseData['inventory_units_used'] ?? 0);
 
-                // Check if record exists for this dose
+                if ($selectedVaccineType === '') {
+                    throw ValidationException::withMessages([
+                        'doses' => "Select a vaccine type for {$doseData['period']} before saving.",
+                    ]);
+                }
+
+                if ($inventoryUnitsUsed < 0) {
+                    throw ValidationException::withMessages([
+                        'doses' => "Enter valid stock units (0 for shared open vial, or 1+ for new vial) for {$doseData['period']}.",
+                    ]);
+                }
+
                 $existing = TreatmentRecord::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)
                     ->where('dose_number', $doseNumber)
@@ -131,6 +152,24 @@ class VaccinationRecordController extends Controller
                     })
                     ->first();
 
+                if ($existing && $existing->inventory_id) {
+                    $existingType = trim((string) ($existing->vaccine_brand ?? $existing->vaccine_generic ?? ''));
+                    $existingUnits = (int) ($existing->inventory_units_used ?? 0);
+
+                    if ($existingType !== '' && $existingType !== $selectedVaccineType) {
+                        throw ValidationException::withMessages([
+                            'doses' => "{$doseData['period']} is already linked to {$existingType}. Delete and recreate the dose if you need a different vaccine type.",
+                        ]);
+                    }
+
+                    if ($existingUnits >= 0 && $existingUnits !== $inventoryUnitsUsed) {
+                        throw ValidationException::withMessages([
+                            'doses' => "{$doseData['period']} is already recorded with {$existingUnits} inventory unit(s). Delete and recreate the dose to change stock usage.",
+                        ]);
+                    }
+                }
+
+                $baseRemarks = 'Given by: ' . ($doseData['given_by'] ?? '');
                 $treatmentData = [
                     'clinic_id' => $clinicId,
                     'patient_id' => $patientId,
@@ -143,15 +182,38 @@ class VaccinationRecordController extends Controller
                     'administered_by' => $userId,
                     'administered_at' => now(),
                     'status' => 'completed',
-                    'remarks' => "Given by: " . ($doseData['given_by'] ?? ''),
+                    'vaccine_brand' => $selectedVaccineType,
+                    'vaccine_generic' => $selectedVaccineType,
+                    'inventory_units_used' => $inventoryUnitsUsed,
+                    'remarks' => trim($baseRemarks . ' | Inventory units used: ' . $inventoryUnitsUsed . ($inventoryUnitsUsed === 0 ? ' (Shared Open Vial)' : '')),
                 ];
 
-                if ($existing) {
-                    // Update existing record
-                    $existing->update($treatmentData);
+                $record = $existing;
+                if ($record) {
+                    $record->update($treatmentData);
                 } else {
-                    // Create new record
-                    TreatmentRecord::create($treatmentData);
+                    $record = TreatmentRecord::create($treatmentData);
+                }
+
+                if (!$record->inventory_id) {
+                    $usage = $inventoryUsageService->administerDoseAutomated(
+                        $clinicId,
+                        $userId,
+                        (int) $record->treatment_id,
+                        $selectedVaccineType
+                    );
+
+                    $batch = $usage['batch'];
+                    $record->update([
+                        'inventory_id' => $batch->inventory_id,
+                        'batch_no' => $batch->batch_number,
+                        'expiration_date' => $batch->expiration_date,
+                        'inventory_units_used' => $usage['units_deducted'],
+                        'administration_notes' => $usage['is_shared']
+                            ? "Shared open vial (Dose {$usage['dose_index']} of {$usage['total_doses']}) from batch {$batch->batch_number}"
+                            : "New vial opened (Dose 1 of {$usage['total_doses']}) from FIFO batch {$batch->batch_number}",
+                        'remarks' => trim($baseRemarks . " | Dose {$usage['dose_index']} of {$usage['total_doses']}" . ($usage['is_shared'] ? ' (Shared Open Vial)' : ' (New Vial)')),
+                    ]);
                 }
             }
 
@@ -256,6 +318,12 @@ class VaccinationRecordController extends Controller
                 'message' => 'Vaccination records saved successfully',
                 'records_count' => count($request->doses),
             ], 201);
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => $e->validator->errors()->first(),
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Store vaccination records error: ' . $e->getMessage());
@@ -277,7 +345,7 @@ class VaccinationRecordController extends Controller
 
             $record = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('treatment_id', $id)
-                ->with(['patient', 'biteIncident', 'administeredBy'])
+                ->with(['patient', 'biteIncident', 'administeredBy', 'inventory'])
                 ->firstOrFail();
 
             return response()->json($record);

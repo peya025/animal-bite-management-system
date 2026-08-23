@@ -40,6 +40,7 @@ Route::get('/test', function () {
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
+Route::get('/public/vaccine-availability', [VaccineInventoryController::class, 'publicAvailability']);
 
 // Form 1 Printout Route
 Route::get('/print/patient/{id}/enrolment', [PrintController::class, 'enrolment']);
@@ -179,6 +180,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Patient Portal Invitations & Account Linking (Staff endpoints)
     Route::middleware('role:admin,registration,triage')->group(function () {
         Route::post('/patient-invitations', [PatientInvitationController::class, 'store']);
+        Route::post('/patient-invitations/bulk', [PatientInvitationController::class, 'bulkStore']);
         Route::post('/patient-invitations/{id}/resend', [PatientInvitationController::class, 'resend']);
         Route::post('/patients/{patient_id}/link-account', [PatientInvitationController::class, 'linkAccount']);
         Route::patch('/patient-account-patient/{id}/verify', [PatientInvitationController::class, 'verifyLink']);
@@ -246,9 +248,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [TagoloanTreatmentCardController::class, 'store']);
     });
 
-    // Vaccine names lookup — accessible to all authenticated staff for form dropdowns
+    // Vaccine names & presets lookup — accessible to all authenticated staff for form dropdowns
     Route::get('/inventory/vaccine-names', [VaccineInventoryController::class, 'vaccineNames']);
+    Route::get('/inventory/presets', [VaccineInventoryController::class, 'presets']);
+    Route::middleware('role:admin')->group(function () {
+        Route::post('/inventory/presets', [VaccineInventoryController::class, 'storePreset']);
+        Route::put('/inventory/presets/{id}', [VaccineInventoryController::class, 'updatePreset']);
+        Route::delete('/inventory/presets/{id}', [VaccineInventoryController::class, 'deletePreset']);
+    });
     Route::get('/inventory/fifo-recommendations', [VaccineInventoryController::class, 'fifoRecommendations']);
+    Route::get('/inventory/next-fifo-batch', [VaccineInventoryController::class, 'getNextFifoBatch']);
+    Route::post('/inventory/validate-fifo', [VaccineInventoryController::class, 'validateFifoBatch']);
+    Route::post('/inventory/use-vaccine', [VaccineInventoryController::class, 'useVaccine']);
 
     // Vaccine Inventory (accessible to clinic staff & admins)
     Route::prefix('inventory')->middleware('role:admin,treatment,nurse,doctor,staff,developer,triage,registration')->group(function () {
@@ -259,6 +270,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [VaccineInventoryController::class, 'update']);
         Route::delete('/{id}', [VaccineInventoryController::class, 'destroy']);
         Route::post('/{id}/adjust', [VaccineInventoryController::class, 'adjustStock']);
+        Route::post('/{id}/open-vial', [VaccineInventoryController::class, 'openVial']);
+        Route::post('/{id}/discard-vial', [VaccineInventoryController::class, 'discardVial']);
         Route::get('/{id}/transactions', [VaccineInventoryController::class, 'transactions']);
     });
 
@@ -309,8 +322,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/{id}', [VaccinationRecordController::class, 'show']);
         });
 
-        // Create/Update vaccination records (admin, treatment/nurse only)
-        Route::middleware('role:admin,treatment')->group(function () {
+        // Create/Update vaccination records (admin, treatment, nurse)
+        Route::middleware('role:admin,treatment,nurse')->group(function () {
             Route::post('/', [VaccinationRecordController::class, 'store']);
             Route::delete('/{id}', [VaccinationRecordController::class, 'destroy']);
         });
@@ -328,7 +341,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Role-Based Patient Lists
-    Route::middleware('role:admin,treatment')->group(function () {
+    Route::middleware('role:admin,treatment,nurse')->group(function () {
         Route::get('/nurse/patients', [AppointmentController::class, 'nursePatients']);
     });
     Route::middleware('role:admin,triage')->group(function () {

@@ -6,19 +6,7 @@ import {
 } from '@mui/material';
 import api from '../../../../services/api';
 import ConfirmationDialog from '../../../../components/feedback/ConfirmationDialog';
-
-interface InventoryItem {
-  inventory_id: number;
-  clinic_id: number;
-  vaccine_type: string;
-  batch_number: string;
-  current_quantity: number;
-  expiration_date: string;
-  status: 'active' | 'expired' | 'deleted';
-  created_at: string;
-  updated_at: string;
-  transactions_count?: number;
-}
+import type { InventoryItem } from '../../types';
 
 interface AdjustStockDialogProps {
   open: boolean;
@@ -34,9 +22,13 @@ export default function AdjustStockDialog({ open, item, onClose, onSaved }: Adju
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
-    setForm({ transaction_type: 'received', quantity: '', remarks: '' });
-    setError('');
-    setShowConfirm(false);
+    const timer = window.setTimeout(() => {
+      setForm({ transaction_type: 'received', quantity: '', remarks: '' });
+      setError('');
+      setShowConfirm(false);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [open]);
 
   const handleSubmit = async () => {

@@ -38,14 +38,15 @@ export interface EmptyStateConfig {
 export interface DataTableProps<T> {
   /** Column definitions in display order */
   columns: ColumnDef<T>[];
-  /** Row data */
-  rows: T[];
+  /** Row data (supports rows or data alias) */
+  rows?: T[];
+  data?: T[];
   /** Show skeleton rows while data is loading */
   loading?: boolean;
   /** Number of skeleton rows to show (default 5) */
   skeletonRows?: number;
-  /** Unique key extractor for each row */
-  rowKey: (row: T) => string | number;
+  /** Unique key extractor for each row (function or string property name) */
+  rowKey: ((row: T) => string | number) | string;
   /** Optional per-row background colour override */
   rowBg?: (row: T) => string | undefined;
   /** Click handler for an entire row */
@@ -55,6 +56,8 @@ export interface DataTableProps<T> {
   emptyTitle?: string;
   emptySubtitle?: string;
   emptyAction?: { label: string; onClick: () => void };
+  /** Custom empty state node override */
+  emptyState?: ReactNode;
   /** Minimum table width (default 600) */
   minWidth?: number;
 }
@@ -63,7 +66,8 @@ export interface DataTableProps<T> {
 
 export default function DataTable<T>({
   columns,
-  rows,
+  rows: rowsProp,
+  data: dataProp,
   loading = false,
   rowKey,
   rowBg,
@@ -72,8 +76,19 @@ export default function DataTable<T>({
   emptyTitle = 'No records found',
   emptySubtitle,
   emptyAction,
+  emptyState,
   minWidth = 600,
 }: DataTableProps<T>) {
+  const rows = rowsProp ?? dataProp ?? [];
+
+  const getKey = (row: T, index: number) => {
+    if (typeof rowKey === 'function') return rowKey(row);
+    if (typeof rowKey === 'string' && row && (row as any)[rowKey] !== undefined) {
+      return (row as any)[rowKey];
+    }
+    return index;
+  };
+
   return (
     <TableContainer sx={{ bgcolor: 'var(--card-bg)' }}>
       <Table sx={{ minWidth }}>
@@ -112,42 +127,48 @@ export default function DataTable<T>({
           ) : rows.length === 0 ? (
             /* Empty state */
             <TableRow>
-              <TableCell colSpan={columns.length} align="center" sx={{ py: 12, border: 0 }}>
-                {emptyIcon && (
-                  <Box sx={{
-                    width: 80, height: 80, borderRadius: 3, bgcolor: 'var(--bg-secondary)',
-                    mx: 'auto', mb: 2.5,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {emptyIcon}
-                  </Box>
-                )}
-                <Typography sx={{ fontWeight: 600, fontSize: 15, color: 'var(--text-h)', mb: 0.5 }}>
-                  {emptyTitle}
-                </Typography>
-                {emptySubtitle && (
-                  <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', mb: emptyAction ? 2 : 0 }}>
-                    {emptySubtitle}
-                  </Typography>
-                )}
-                {emptyAction && (
-                  <Button
-                    onClick={emptyAction.onClick}
-                    variant="contained"
-                    disableElevation
-                    sx={{
-                      mt: emptySubtitle ? 0 : 2,
-                      bgcolor: '#10b981',
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      fontSize: 13,
-                      py: 1,
-                      borderRadius: 1.5,
-                      '&:hover': { bgcolor: '#059669' },
-                    }}
-                  >
-                    {emptyAction.label}
-                  </Button>
+              <TableCell colSpan={columns.length} align="center" sx={{ py: 6, border: 0 }}>
+                {emptyState ? (
+                  emptyState
+                ) : (
+                  <>
+                    {emptyIcon && (
+                      <Box sx={{
+                        width: 80, height: 80, borderRadius: 3, bgcolor: 'var(--bg-secondary)',
+                        mx: 'auto', mb: 2.5,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {emptyIcon}
+                      </Box>
+                    )}
+                    <Typography sx={{ fontWeight: 600, fontSize: 15, color: 'var(--text-h)', mb: 0.5 }}>
+                      {emptyTitle}
+                    </Typography>
+                    {emptySubtitle && (
+                      <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', mb: emptyAction ? 2 : 0 }}>
+                        {emptySubtitle}
+                      </Typography>
+                    )}
+                    {emptyAction && (
+                      <Button
+                        onClick={emptyAction.onClick}
+                        variant="contained"
+                        disableElevation
+                        sx={{
+                          mt: emptySubtitle ? 0 : 2,
+                          bgcolor: '#10b981',
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          fontSize: 13,
+                          py: 1,
+                          borderRadius: 1.5,
+                          '&:hover': { bgcolor: '#059669' },
+                        }}
+                      >
+                        {emptyAction.label}
+                      </Button>
+                    )}
+                  </>
                 )}
               </TableCell>
             </TableRow>
@@ -155,7 +176,7 @@ export default function DataTable<T>({
             /* Data rows */
             rows.map((row, idx) => (
               <TableRow
-                key={rowKey(row)}
+                key={getKey(row, idx)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 sx={{
                   bgcolor: rowBg

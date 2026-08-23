@@ -6,19 +6,7 @@ import {
 } from '@mui/material';
 import { History as HistoryIcon } from '@mui/icons-material';
 import api from '../../../../services/api';
-
-interface InventoryItem {
-  inventory_id: number;
-  clinic_id: number;
-  vaccine_type: string;
-  batch_number: string;
-  current_quantity: number;
-  expiration_date: string;
-  status: 'active' | 'expired' | 'deleted';
-  created_at: string;
-  updated_at: string;
-  transactions_count?: number;
-}
+import type { InventoryItem } from '../../types';
 
 interface Transaction {
   transaction_id: number;
@@ -55,12 +43,17 @@ export default function TransactionHistoryDialog({
 
   useEffect(() => {
     if (!open || !item) return;
-    setLoading(true);
-    api
-      .get(`/inventory/${item.inventory_id}/transactions`)
-      .then((res) => setTransactions(res.data.transactions ?? []))
-      .catch(() => setTransactions([]))
-      .finally(() => setLoading(false));
+
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      api
+        .get(`/inventory/${item.inventory_id}/transactions`)
+        .then((res) => setTransactions(res.data.transactions ?? []))
+        .catch(() => setTransactions([]))
+        .finally(() => setLoading(false));
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [open, item]);
 
   return (

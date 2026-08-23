@@ -6,6 +6,21 @@ import antiviralVaccineImg from '../assets/image.png';
 import rorOrModified from '../assets/roror-modified.png';
 import { ROUTES } from '../shared/config/routes';
 import ThemeToggle from '../shared/components/ThemeToggle';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  VaccineIcon,
+  Shield01Icon,
+  BandageIcon,
+  ThermometerColdIcon,
+  ClockAlertIcon,
+  Alert02Icon,
+  AlertCircleIcon,
+  Book02Icon,
+  Video01Icon,
+  HelpCircleIcon,
+  Settings01Icon,
+  InjectionIcon,
+} from '@hugeicons/core-free-icons';
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -38,6 +53,18 @@ export default function LandingPage() {
     requirement_notice: 'Please bring updated PhilHealth MDR',
   });
 
+  // Live Public Vaccine Availability State
+  const [vaccineInfo, setVaccineInfo] = useState<{
+    facility_name: string;
+    facility_address: string;
+    operating_schedule: string;
+    cold_chain_status: string;
+    who_pep_compliant: boolean;
+    vaccines: any[];
+  } | null>(null);
+  const [activeCat, setActiveCat] = useState<string>('All');
+  const [loadingVaccines, setLoadingVaccines] = useState(true);
+
   useEffect(() => {
     fetch('/api/landing-page-settings')
       .then(res => res.json())
@@ -50,6 +77,17 @@ export default function LandingPage() {
         }
       })
       .catch(() => console.log('Using default landing page settings'));
+
+    // Fetch Live Vaccine Availability & Catalog
+    fetch('/api/public/vaccine-availability')
+      .then(res => res.json())
+      .then(data => {
+        setVaccineInfo(data);
+        setLoadingVaccines(false);
+      })
+      .catch(() => {
+        setLoadingVaccines(false);
+      });
 
     // Check if setup is needed on page load
     const checkSetup = async () => {
@@ -412,7 +450,9 @@ export default function LandingPage() {
           <div className="gov-header-container">
             <ul className={`subnav-links ${isMenuOpen ? 'active' : ''}`}>
               <li><a href="#" className="active">HOME</a></li>
-              <li><a href="#about">ABOUT US</a></li>
+              <li><a href="#vaccines">AVAILABLE VACCINES</a></li>
+              <li><a href="#emergency">EMERGENCY PROTOCOL</a></li>
+              <li><a href="#about">SERVICES</a></li>
               <li><a href="#help">HELP CENTER</a></li>
               <li><a href="#contact">CONTACT SUPPORT</a></li>
             </ul>
@@ -446,6 +486,265 @@ export default function LandingPage() {
                 <img src="/assets/doctor_cat_memphis.png" alt="Cat Doctor Specialist" className="membership-doctor-thumb" />
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* ── SECTION: Emergency Animal Bite Action Protocol ── */}
+        <section id="emergency" style={{ maxWidth: '1300px', margin: '0 auto', padding: '3.5rem 1.5rem 0' }}>
+          <div className="emergency-bite-banner">
+            <div className="emergency-banner-top">
+              <div className="emergency-alert-icon">
+                <HugeiconsIcon icon={Alert02Icon} size={28} color="#ef4444" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: '#f87171' }}>
+                  Bitten or Scratched by an Animal? Immediate Action Required!
+                </h3>
+                <p style={{ fontSize: '0.9rem', color: '#cbd5e1', margin: '0.25rem 0 0' }}>
+                  Rabies is 100% fatal once symptoms appear, but 100% preventable with immediate Post-Exposure Prophylaxis (PEP).
+                </p>
+              </div>
+            </div>
+
+            <div className="emergency-steps-grid">
+              <div className="emergency-step-card">
+                <div className="step-number-tag">1</div>
+                <h4>Wash with Soap &amp; Water</h4>
+                <p>Wash the bite/scratch wound thoroughly under running water with soap for at least 15 continuous minutes.</p>
+              </div>
+
+              <div className="emergency-step-card">
+                <div className="step-number-tag">2</div>
+                <h4>Apply Antiseptic</h4>
+                <p>Disinfect with Povidone-iodine (Betadine) or 70% alcohol. Do NOT apply garlic, stone, or caustic substances.</p>
+              </div>
+
+              <div className="emergency-step-card">
+                <div className="step-number-tag">3</div>
+                <h4>Visit Tagoloan ABTC</h4>
+                <p>Proceed immediately to our clinic on clinic days for exposure grading (Category I, II, or III) and physician assessment.</p>
+              </div>
+
+              <div className="emergency-step-card">
+                <div className="step-number-tag">4</div>
+                <h4>Complete Regimen</h4>
+                <p>Receive your WHO-compliant Anti-Rabies Vaccine (ARV) and Immunoglobulin (RIG) on all scheduled follow-up dates.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── SECTION: Live Vaccine Availability & Regimen Catalog ── */}
+        <section id="vaccines" className="vaccine-tracker-section">
+          <div className="vaccine-tracker-container">
+            <div className="vaccine-tracker-header">
+              <p style={{ color: '#059669', fontWeight: 700, fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.25rem' }}>
+                | Live Clinic Inventory &amp; Regimen Catalog
+              </p>
+              <h2>Available Vaccines &amp; Biologicals</h2>
+              <p>
+                Real-time stock status and official clinical administration protocols at Tagoloan Animal Bite Treatment Center.
+              </p>
+            </div>
+
+            {/* Status Summary & Cold-Chain Bar */}
+            <div className="vaccine-status-summary-bar">
+              <div className="status-badge-item">
+                <div className="status-indicator-dot"></div>
+                <div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--gray-900)' }}>
+                    {vaccineInfo?.cold_chain_status || 'Monitored Cold-Chain (+2°C to +8°C Active)'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>
+                    FIFO Batch Quality &amp; Potency Guaranteed
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)', display: 'block' }}>FACILITY SCHEDULE</span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--gray-900)' }}>
+                    {dynSettings.operating_schedule || 'Mondays & Thursdays'} ({dynSettings.operating_hours || '8:00 AM – 5:00 PM'})
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)', display: 'block' }}>REGISTRATION WINDOW</span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#059669' }}>
+                    {dynSettings.registration_window || '8:00 AM – 10:00 AM'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 1. Category Filter Tabs with Single Active State */}
+            <div className="vaccine-cat-tabs" role="tablist" aria-label="Vaccine category filters">
+              {[
+                { key: 'All', label: 'All Vaccines' },
+                { key: 'Anti-Rabies Vaccines (ARV)', label: 'Anti-Rabies (ARV)' },
+                { key: 'Rabies Immunoglobulins (RIG)', label: 'Immunoglobulins (RIG)' },
+                { key: 'Tetanus & Toxoids', label: 'Tetanus & Toxoids' },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  role="tab"
+                  aria-selected={activeCat === item.key}
+                  className={`vaccine-cat-tab-btn ${activeCat === item.key ? 'active' : ''}`}
+                  onClick={() => setActiveCat(item.key)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 2. Grouped Sections */}
+            {loadingVaccines ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
+                <p>Loading live vaccine catalog…</p>
+              </div>
+            ) : (
+              <div>
+                {[
+                  {
+                    key: 'Anti-Rabies Vaccines (ARV)',
+                    title: 'Anti-Rabies Vaccines (ARV)',
+                    icon: <HugeiconsIcon icon={VaccineIcon} size={22} color="#059669" />,
+                    badgeLabel: 'Anti-Rabies',
+                    contextLine: 'Administered via Intradermal (ID, 0.1 mL at 2 sites) or Intramuscular (IM) according to WHO PEP protocol.',
+                    defaultRoute: 'Intradermal (ID) / Intramuscular (IM)',
+                  },
+                  {
+                    key: 'Rabies Immunoglobulins (RIG)',
+                    title: 'Rabies Immunoglobulins (RIG)',
+                    icon: <HugeiconsIcon icon={Shield01Icon} size={22} color="#0284c7" />,
+                    badgeLabel: 'Immunoglobulin',
+                    contextLine: 'Passive immunization administered via local infiltration around wound sites on Day 0 for Category III bite exposures.',
+                    defaultRoute: 'Local Wound Infiltration',
+                  },
+                  {
+                    key: 'Tetanus & Toxoids',
+                    title: 'Tetanus & Toxoids',
+                    icon: <HugeiconsIcon icon={BandageIcon} size={22} color="#b45309" />,
+                    badgeLabel: 'Tetanus',
+                    contextLine: 'Wound infection prophylaxis administered via Intramuscular (IM) injection according to patient immunization history.',
+                    defaultRoute: 'Intramuscular (IM)',
+                  },
+                ]
+                  .filter((sec) => activeCat === 'All' || activeCat === sec.key)
+                  .map((sec) => {
+                    const sectionVaccines = (vaccineInfo?.vaccines || []).filter(
+                      (v: any) => v.category === sec.key
+                    );
+
+                    if (sectionVaccines.length === 0 && activeCat !== 'All') {
+                      return null;
+                    }
+
+                    return (
+                      <section key={sec.key} className="vaccine-group-section" aria-labelledby={`sec-${sec.key}`}>
+                        {/* Section Header with Shared Context Line */}
+                        <div className="vaccine-group-header">
+                          <h3 id={`sec-${sec.key}`} className="vaccine-group-title">
+                            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{sec.icon}</span>
+                            <span>{sec.title}</span>
+                          </h3>
+                          <p className="vaccine-group-context-line">
+                            {sec.contextLine}
+                          </p>
+                        </div>
+
+                        {/* Cards Grid */}
+                        <div className="vaccine-cards-grid">
+                          {sectionVaccines.map((v: any) => {
+                            // Split name and formulation cleanly if in parentheses
+                            let mainTitle = v.vaccine_name;
+                            let formulation = '';
+                            const match = v.vaccine_name.match(/^(.*?)\s*\((.*?)\)$/);
+                            if (match) {
+                              mainTitle = match[1];
+                              formulation = match[2];
+                            }
+
+                            // Storage note cleanup (remove duplicate discard note from routine storage string)
+                            let cleanStorage = v.storage_temperature_notes || 'Store at +2°C to +8°C. Monitored Cold-Chain.';
+                            if (v.open_vial_hours) {
+                              cleanStorage = cleanStorage.replace(/Reconstituted.*?within\s*\d+\s*hours\.?/i, '').trim();
+                              cleanStorage = cleanStorage.replace(/Discard.*?within\s*\d+\s*hours\.?/i, '').trim();
+                            }
+
+                            // Route override: only show if differs from group default
+                            const hasRouteOverride =
+                              v.administration_route &&
+                              v.administration_route.trim().toLowerCase() !== sec.defaultRoute.trim().toLowerCase();
+
+                            // Badge: show status only when low or out of stock; otherwise show clean category tag
+                            const isLowStock = v.availability_status === 'Limited Stock';
+                            const isOutOfStock = v.availability_status === 'Out of Stock';
+
+                            return (
+                              <article className="vaccine-pub-card" key={v.id || v.vaccine_name}>
+                                {/* Top Header Row: One badge only */}
+                                <div className="vaccine-pub-header-row">
+                                  {isLowStock ? (
+                                    <span className="vaccine-single-badge badge-low-stock">
+                                      <HugeiconsIcon icon={AlertCircleIcon} size={13} />
+                                      Low Stock
+                                    </span>
+                                  ) : isOutOfStock ? (
+                                    <span className="vaccine-single-badge badge-out-of-stock">
+                                      <HugeiconsIcon icon={AlertCircleIcon} size={13} />
+                                      Currently Unavailable
+                                    </span>
+                                  ) : (
+                                    <span className="vaccine-single-badge badge-cat-tag">
+                                      {sec.badgeLabel}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Vaccine Brand Name (15-16px, bold) */}
+                                <h4 className="vaccine-pub-title">{mainTitle}</h4>
+
+                                {/* Formulation / Strength */}
+                                {formulation && (
+                                  <div className="vaccine-pub-formulation">{formulation}</div>
+                                )}
+
+                                {/* Route text ONLY if differs from section default */}
+                                {hasRouteOverride && (
+                                  <div className="vaccine-pub-route-override">
+                                    <HugeiconsIcon icon={InjectionIcon} size={13} color="#0369a1" />
+                                    <span>Route: {v.administration_route}</span>
+                                  </div>
+                                )}
+
+                                {/* Card Facts Pinned to Bottom */}
+                                <div className="vaccine-facts-footer">
+                                  {/* Routine Informational Storage Note */}
+                                  <div className="vaccine-storage-fact">
+                                    <HugeiconsIcon icon={ThermometerColdIcon} size={15} color="#6b7280" />
+                                    <span>{cleanStorage || 'Store at +2°C to +8°C. Cold-chain required.'}</span>
+                                  </div>
+
+                                  {/* Urgent Discard-After-Opening Warning (Distinct Amber Warning) */}
+                                  {v.open_vial_hours && (
+                                    <div className="vaccine-discard-warning" role="note">
+                                      <HugeiconsIcon icon={ClockAlertIcon} size={15} color="#92400e" />
+                                      <span>
+                                        <strong>Discard open vial after {v.open_vial_hours} hours</strong>
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })}
+              </div>
+            )}
           </div>
         </section>
 
@@ -656,28 +955,36 @@ export default function LandingPage() {
 
           <div className="help-grid">
             <div className="help-card">
-              <div className="help-icon">📖</div>
+              <div className="help-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <HugeiconsIcon icon={Book02Icon} size={28} color="#059669" />
+              </div>
               <h3>User Guides</h3>
               <p>Step-by-step instructions for each role</p>
               <a href="#contact" className="help-link">Learn more →</a>
             </div>
 
             <div className="help-card">
-              <div className="help-icon">🎥</div>
+              <div className="help-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <HugeiconsIcon icon={Video01Icon} size={28} color="#0284c7" />
+              </div>
               <h3>Video Tutorials</h3>
               <p>Watch demonstration videos</p>
               <a href="#contact" className="help-link">Watch now →</a>
             </div>
 
             <div className="help-card">
-              <div className="help-icon">❓</div>
+              <div className="help-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <HugeiconsIcon icon={HelpCircleIcon} size={28} color="#d97706" />
+              </div>
               <h3>FAQs</h3>
               <p>Common questions and answers</p>
               <a href="#contact" className="help-link">View FAQs →</a>
             </div>
 
             <div className="help-card">
-              <div className="help-icon">🛠️</div>
+              <div className="help-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <HugeiconsIcon icon={Settings01Icon} size={28} color="#6366f1" />
+              </div>
               <h3>Technical Support</h3>
               <p>Get help with system issues</p>
               <a href="#contact" className="help-link">Contact us →</a>

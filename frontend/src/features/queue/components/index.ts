@@ -6,4 +6,6 @@ export * from './QueueStatsGrid';
 export * from './QueueFilterBar';
 export { default as TrashBinModal } from './TrashBinModal';
 export * from './SecondChanceQueuePanel';
-export * from './QueueArchivePanel';
+
+export * from './TreatmentTransferArchivePanel';
+export * from './TreatmentCompletedPanel';

@@ -15,12 +15,23 @@ export async function fetchPatientsList(params: { page?: number; perPage?: numbe
 
 export async function createPatientRecord(
   enrolment: EnrolmentFormData,
-  addressDetails: { full: string; munName: string; brgyName: string; purok: string }
+  addressDetails: { full: string; munName: string; brgyName: string; purok: string },
+  options: { autoQueue?: boolean } = {}
 ) {
   // Map and clean payload to prevent 422 errors (empty strings failing enum validation)
   const cleanField = (val: string) => val.trim() === '' ? null : val;
 
   const membershipFields = buildLegacyMembershipFields(enrolment);
+  const queueCategoryMap: Record<EnrolmentFormData['queue_priority_group'], 'regular' | 'pregnant' | 'senior_citizen' | 'pwd'> = {
+    normal: 'regular',
+    pregnant: 'pregnant',
+    senior: 'senior_citizen',
+    pwd: 'pwd',
+  };
+  const isSpecialPriorityCategory = ['pregnant', 'senior', 'pwd'].includes(enrolment.queue_priority_group);
+  const queuePriority = isSpecialPriorityCategory || enrolment.queue_priority_level === 'priority'
+    ? 'urgent'
+    : 'normal';
 
   const payload = {
     ...enrolment,
@@ -59,6 +70,10 @@ export async function createPatientRecord(
     indigenous_tribe: undefined,
     other_membership_custom_name: undefined,
     other_membership_custom_id: undefined,
+    visit_type: undefined,
+    follow_up_date: undefined,
+    queue_priority_group: undefined,
+    queue_priority_level: undefined,
   };
 
   try {
@@ -66,14 +81,22 @@ export async function createPatientRecord(
     const patientData = res.data;
     const patientId = patientData.patient?.patient_id || patientData.data?.patient_id || patientData.patient_id;
 
-    // Automatically add patient to queue (FIFO - first come first serve)
-    if (patientId) {
+    // Automatically add patient to queue when requested
+    if (patientId && options.autoQueue) {
       try {
+        const queueNotes = [
+          'Auto-added from registration',
+          enrolment.visit_type === 'follow_up' && enrolment.follow_up_date
+            ? `Follow-up date: ${enrolment.follow_up_date}`
+            : null,
+        ].filter(Boolean).join(' | ');
+
         await api.post('/queue', {
           patient_id: patientId,
-          visit_type: 'new_case',
-          priority: 'normal',
-          check_in_notes: 'Auto-added from registration',
+          visit_type: enrolment.visit_type,
+          priority: queuePriority,
+          queue_category: queueCategoryMap[enrolment.queue_priority_group],
+          check_in_notes: queueNotes,
         });
       } catch (queueError) {
         console.error('Failed to add to queue:', queueError);

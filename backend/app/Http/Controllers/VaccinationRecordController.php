@@ -278,48 +278,6 @@ class VaccinationRecordController extends Controller
                 }
             }
 
-            // ── Auto-complete queue: mark patient's treatment queue entry as done ──
-            // Use queue_id if provided; otherwise find today's vaccination/treatment queue entry
-            $queueEntry = null;
-            if (!empty($request->queue_id)) {
-                $queueEntry = Queue::where('clinic_id', $clinicId)
-                    ->find($request->queue_id);
-            }
-            if (!$queueEntry) {
-                $queueEntry = Queue::where('clinic_id', $clinicId)
-                    ->where('patient_id', $patientId)
-                    ->where('queue_date', Carbon::today()->toDateString())
-                    ->whereIn('status', ['waiting', 'called', 'serving', 'in_consultation'])
-                    ->whereIn('visit_type', ['vaccination', 'observation'])
-                    ->whereNull('deleted_at')
-                    ->latest('queue_id')
-                    ->first();
-            }
-
-            if ($queueEntry) {
-                // Log history before updating (mirrors QueueController::complete())
-                \App\Models\QueueHistory::create([
-                    'queue_id'     => $queueEntry->queue_id,
-                    'clinic_id'    => $queueEntry->clinic_id,
-                    'patient_id'   => $queueEntry->patient_id,
-                    'action'       => 'completed',
-                    'from_status'  => $queueEntry->status,
-                    'to_status'    => 'completed',
-                    'call_count'   => $queueEntry->call_count ?? 0,
-                    'performed_by' => $userId,
-                    'notes'        => 'Form 3 saved — treatment/vaccination completed.',
-                    'occurred_at'  => now(),
-                ]);
-
-                $queueEntry->update([
-                    'status'             => 'completed',
-                    'completed_at'       => now(),
-                    'consultation_notes' => 'Form 3 saved — treatment/vaccination completed.',
-                ]);
-
-                // Flush queue cache so the display reflects completion immediately
-                Cache::forget("web:queue:clinic:{$clinicId}:date:" . Carbon::today()->toDateString());
-            }
 
             // ──────────────────────────────────────────────────────────────
             // ✨ AUTO-CREATE FOLLOW-UP APPOINTMENTS (Day 3, 7, 28, etc.)

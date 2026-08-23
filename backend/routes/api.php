@@ -40,6 +40,7 @@ Route::get('/test', function () {
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
+Route::get('/public/vaccine-availability', [VaccineInventoryController::class, 'publicAvailability']);
 
 // Form 1 Printout Route
 Route::get('/print/patient/{id}/enrolment', [PrintController::class, 'enrolment']);
@@ -179,6 +180,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Patient Portal Invitations & Account Linking (Staff endpoints)
     Route::middleware('role:admin,registration,triage')->group(function () {
         Route::post('/patient-invitations', [PatientInvitationController::class, 'store']);
+        Route::post('/patient-invitations/bulk', [PatientInvitationController::class, 'bulkStore']);
         Route::post('/patient-invitations/{id}/resend', [PatientInvitationController::class, 'resend']);
         Route::post('/patients/{patient_id}/link-account', [PatientInvitationController::class, 'linkAccount']);
         Route::patch('/patient-account-patient/{id}/verify', [PatientInvitationController::class, 'verifyLink']);

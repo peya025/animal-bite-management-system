@@ -43,6 +43,10 @@ export interface EnrolmentFormData {
   date_of_birth: string;
   sex: string;
   blood_type: string;
+  visit_type: 'new_case' | 'follow_up';
+  follow_up_date: string;
+  queue_priority_group: 'normal' | 'pregnant' | 'senior' | 'pwd';
+  queue_priority_level: 'normal' | 'priority';
   civil_status: string;
   spouse_name: string;
   mother_maiden_name: string;
@@ -83,6 +87,10 @@ export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
   date_of_birth: '',
   sex: '',
   blood_type: '',
+  visit_type: 'new_case',
+  follow_up_date: '',
+  queue_priority_group: 'normal',
+  queue_priority_level: 'normal',
   civil_status: '',
   spouse_name: '',
   mother_maiden_name: '',

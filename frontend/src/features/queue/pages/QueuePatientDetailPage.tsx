@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -24,7 +24,7 @@ import {
 } from '@mui/icons-material';
 import { useQueueEntry } from '../hooks';
 import { ROUTES } from '../../../shared/config/routes';
-import { STATUS_CFG, PRIORITY_CFG, VISIT_LABEL, waitTime, type QueueEntry } from '../types';
+import { STATUS_CFG, PRIORITY_CFG, VISIT_LABEL, getPriorityDisplayLabel, waitTime, type QueueEntry } from '../types';
 import { callQueuePatient, cancelQueueEntry, serveQueuePatient, markNoResponse, recallQueuePatient, markAbsent } from '../services';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
@@ -37,6 +37,23 @@ import StockLevelIndicator from '../../inventory/components/StockLevelIndicator/
 function canEdit(userRole: string, formOwner: 'registration' | 'triage' | 'treatment'): boolean {
   if (userRole === 'admin' || userRole === 'developer') return true;
   return userRole === formOwner;
+}
+
+function getStoredUserRole(): string {
+  try {
+    const raw = localStorage.getItem('userData');
+    if (!raw) return '';
+    return JSON.parse(raw).role ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function getDefaultTabForRole(userRole: string): string {
+  if (userRole === 'registration') return 'form1';
+  if (userRole === 'triage') return 'form2';
+  if (userRole === 'treatment') return 'form3';
+  return 'form1';
 }
 
 // ─── Read-only Notice Banner ────────────────────────────────────────────────
@@ -101,7 +118,7 @@ function PatientHero({ entry, userRole, onMenuOpen }: {
               {VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
             </Box>
             <Box sx={{ px: 1.5, py: 0.25, bgcolor: priorityCfg.bg, borderRadius: 1.5, fontSize: 12, fontWeight: 600, color: priorityCfg.color }}>
-              {priorityCfg.label}
+              {getPriorityDisplayLabel(entry.priority, entry.queue_category)}
             </Box>
           </Box>
 
@@ -222,7 +239,8 @@ export default function QueuePatientDetailPage() {
 
   const { entry, loading, error, reload } = useQueueEntry(queueId);
 
-  const [activeTab, setActiveTab] = useState('form1');
+  const [userRole] = useState<string>(() => getStoredUserRole());
+  const [activeTab, setActiveTab] = useState(() => getDefaultTabForRole(getStoredUserRole()));
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
@@ -240,21 +258,6 @@ export default function QueuePatientDetailPage() {
   const [absentDialog,   setAbsentDialog]   = useState(false);
 
   // No longer need modal states - forms are rendered inline
-
-  const [userRole, setUserRole] = useState('');
-  useEffect(() => {
-    const raw = localStorage.getItem('userData');
-    if (raw) setUserRole(JSON.parse(raw).role ?? '');
-  }, []);
-
-  // Smart default tab: pick the tab that matches the user's role
-  useEffect(() => {
-    if (!userRole) return;
-    if (userRole === 'registration') setActiveTab('form1');
-    else if (userRole === 'triage') setActiveTab('form2');
-    else if (userRole === 'treatment') setActiveTab('form3');
-    else setActiveTab('form1');
-  }, [userRole]);
 
   const handleCall = async () => {
     try { await callQueuePatient(Number(queueId)); toast(`Called Queue #${entry?.queue_number}`); reload(); }
@@ -337,7 +340,16 @@ export default function QueuePatientDetailPage() {
               open={true}
               entry={entry}
               onClose={() => {}}
-              onSave={() => { toast('Form 2 saved'); reload(); }}
+              onSave={() => {
+                if (userRole === 'triage') {
+                  navigate(ROUTES.QUEUE.DASHBOARD, {
+                    state: { queueToast: { message: 'Form 2 saved successfully', severity: 'success' } },
+                  });
+                  return;
+                }
+                toast('Form 2 saved');
+                reload();
+              }}
               readOnly={!editable}
               inline={true}
             />
@@ -354,7 +366,16 @@ export default function QueuePatientDetailPage() {
               open={true}
               entry={entry}
               onClose={() => {}}
-              onSave={() => { toast('Form 3 saved'); reload(); }}
+              onSave={() => {
+                if (userRole === 'treatment') {
+                  navigate(ROUTES.QUEUE.DASHBOARD, {
+                    state: { queueToast: { message: 'Form 3 saved successfully', severity: 'success' } },
+                  });
+                  return;
+                }
+                toast('Form 3 saved');
+                reload();
+              }}
               readOnly={!editable}
               inline={true}
             />
@@ -425,11 +446,11 @@ export default function QueuePatientDetailPage() {
         {/* Complete — serving or in_consultation */}
         {['serving','in_consultation','called'].includes(entry.status) && (
           <MenuItem onClick={() => { setMenuAnchor(null); setCompleteDialog(true); }} sx={{ gap: 1.5, fontSize: 14 }}>
-            <CompleteIcon sx={{ fontSize: 18, color: '#10b981' }} /> Complete
+            <CompleteIcon sx={{ fontSize: 18, color: '#10b981' }} /> {userRole === 'triage' ? 'Transfer to Treatment' : userRole === 'treatment' ? 'Complete Treatment' : 'Complete'}
           </MenuItem>
         )}
         {/* Cancel — any active */}
-        {isActive && (
+        {isActive && userRole !== 'triage' && (
           <MenuItem onClick={() => { setMenuAnchor(null); setCancelDialog(true); }} sx={{ gap: 1.5, fontSize: 14, color: '#dc2626' }}>
             <CancelIcon sx={{ fontSize: 18 }} /> Cancel Queue Entry
           </MenuItem>
@@ -485,9 +506,10 @@ export default function QueuePatientDetailPage() {
         entry={entry}
         onClose={() => setCompleteDialog(false)}
         onDone={() => {
-          toast('Consultation completed');
+          toast(userRole === 'triage' ? 'Patient transferred to treatment queue' : userRole === 'treatment' ? 'Treatment completed' : 'Consultation completed');
           navigate(ROUTES.QUEUE.DASHBOARD);
         }}
+        mode={userRole === 'triage' ? 'transfer' : userRole === 'treatment' ? 'treatment' : 'complete'}
       />
 
       {/* ── Toast ── */}

@@ -4,11 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\TreatmentRecord;
 use App\Models\Patient;
-use App\Models\BiteIncident;
-use App\Models\Queue;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Cache;
 
 class TreatmentRecordController extends Controller
 {
@@ -134,36 +131,6 @@ class TreatmentRecordController extends Controller
             'status' => 'completed', // General consultation is completed when Form 2 is saved
             'administered_by' => $request->user()->id,
         ]);
-
-        // ── Auto-advance queue: move patient from Triage → Treatment panel ──
-        // If queue_id provided, use it directly; otherwise find today's triage queue entry
-        $queueEntry = null;
-        if (!empty($validated['queue_id'])) {
-            $queueEntry = Queue::find($validated['queue_id']);
-        }
-        if (!$queueEntry) {
-            $queueEntry = Queue::where('clinic_id', $clinicId)
-                ->where('patient_id', $validated['patient_id'])
-                ->where('queue_date', \Carbon\Carbon::today()->toDateString())
-                ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
-                ->whereIn('visit_type', ['new_case', 'follow_up', 'observation'])
-                ->whereNull('deleted_at')
-                ->latest('queue_id')
-                ->first();
-        }
-
-        if ($queueEntry) {
-            $queueEntry->update([
-                'visit_type'         => 'vaccination', // moves to Treatment / Vaccination panel
-                'status'             => 'waiting',     // reset to waiting for Treatment nurse
-                'called_at'          => null,
-                'serving_at'         => null,
-                'consultation_notes' => 'Doctor completed Form 2 — referred to Treatment.',
-            ]);
-
-            // Flush queue cache so the display picks up the visit_type change immediately
-            Cache::forget("web:queue:clinic:{$clinicId}:date:" . \Carbon\Carbon::today()->toDateString());
-        }
 
         return response()->json([
             'message' => 'Treatment record saved successfully',

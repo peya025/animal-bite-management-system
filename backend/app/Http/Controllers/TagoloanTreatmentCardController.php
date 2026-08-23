@@ -59,6 +59,12 @@ class TagoloanTreatmentCardController extends Controller
             ->orderBy('dose_number', 'asc')
             ->get();
         $existingCard = TagoloanTreatmentCard::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest()->first();
+        $latestConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->whereNotNull('nature_of_visit')
+            ->orderBy('consultation_date', 'desc')
+            ->orderBy('consultation_time', 'desc')
+            ->first();
 
         // Resolve incident details from bite incident or mobile intake fallback
         $biteData = null;
@@ -110,6 +116,7 @@ class TagoloanTreatmentCardController extends Controller
             ],
             'bite_incident' => $biteData,
             'existing_card' => $existingCard,
+            'latest_consultation' => $latestConsultation,
             'treatment_records' => $treatmentRecords,
         ]);
     }

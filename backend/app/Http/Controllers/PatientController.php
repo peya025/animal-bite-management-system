@@ -18,121 +18,31 @@ class PatientController extends Controller
     public function index(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
-        
         $tab = $request->get('tab', 'all');
 
-        // Create cache key based on query parameters
-        $cacheKey = sprintf(
-            'web:patients:clinic:%s:tab:%s:search:%s:gender:%s:membership:%s:sort:%s:%s:page:%s:per_page:%s',
-            $clinicId,
-            $tab,
-            $request->get('search', 'all'),
-            $request->get('gender', 'all'),
-            $request->get('membership_type', 'all'),
-            $request->get('sort_by', 'created_at'),
-            $request->get('sort_order', 'desc'),
-            $request->get('page', 1),
-            $request->get('per_page', 15)
-        );
-
-        // Cache for 3 minutes (patient list changes moderately)
-        return response()->json(
-            Cache::remember($cacheKey, 180, function () use ($request, $clinicId, $tab) {
-                $query = Patient::where('clinic_id', $clinicId)
-                    ->with([
-                        'registeredBy',
-                        'details',
-                        'memberships',
-                        'latestTreatmentRecord',
-                        'upcomingAppointment',
-                        'appointments' => function ($app) {
-                            $app->latest('scheduled_date');
-                        },
-                        'biteIntakes' => function ($bi) {
-                            $bi->latest();
-                        },
-                        'accounts',
-                        'queues' => function ($q) {
-                            $q->whereIn('status', ['waiting', 'in_consultation'])->latest();
-                        }
-                    ]);
-
-                // Tab-based filtering
-                switch ($tab) {
-                    case 'today_queue':
-                        $query->where(function ($q) {
-                            $q->whereHas('queues', function ($qu) {
-                                $qu->whereIn('status', ['waiting', 'in_consultation']);
-                            })->orWhereHas('appointments', function ($app) {
-                                $app->where(function ($d) {
-                                    $d->whereDate('appointment_date', \Carbon\Carbon::today())
-                                      ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
-                                })->where('status', 'scheduled');
-                            });
-                        });
-                        break;
-
-                    case 'online':
-                        $query->where(function ($q) {
-                            $q->whereHas('appointments', function ($app) {
-                                $app->whereNotNull('booked_by_account_id');
-                            })->orWhereHas('biteIntakes')->orWhereHas('accounts');
-                        });
-                        break;
-
-                    case 'overdue':
-                        $query->whereHas('appointments', function ($q) {
-                            $q->where(function ($d) {
-                                $d->where('appointment_date', '<', \Carbon\Carbon::today())
-                                  ->orWhere('scheduled_date', '<', \Carbon\Carbon::today());
-                            })->whereIn('status', ['scheduled', 'missed']);
-                        });
-                        break;
-
-                    case 'all':
-                    default:
-                        // No specific tab constraint
-                        break;
+        $query = Patient::where('clinic_id', $clinicId)
+            ->with([
+                'registeredBy',
+                'details',
+                'memberships',
+                'latestTreatmentRecord',
+                'upcomingAppointment',
+                'appointments' => function ($app) {
+                    $app->latest('scheduled_date');
+                },
+                'biteIntakes' => function ($bi) {
+                    $bi->latest();
+                },
+                'accounts',
+                'queues' => function ($q) {
+                    $q->whereIn('status', ['waiting', 'in_consultation'])->latest();
                 }
+            ]);
 
-                // Search functionality
-                if ($request->has('search') && $request->search) {
-                    $search = $request->search;
-                    $query->where(function($q) use ($search) {
-                        $q->where('patient_number', 'like', "%{$search}%")
-                          ->orWhere('contact_number', 'like', "%{$search}%")
-                          ->orWhere(function ($nameQuery) use ($search) {
-                              $nameQuery->searchName($search);
-                          });
-                    });
-                }
-
-                // Filter by gender
-                if ($request->has('gender')) {
-                    $query->where('gender', $request->gender);
-                }
-
-                // Filter by membership type
-                if ($request->filled('membership_type') && $request->membership_type !== 'all') {
-                    $type = $request->membership_type;
-                    $query->whereHas('memberships', function ($mQuery) use ($type) {
-                        $mQuery->where('membership_type', $type)->where('is_active', true);
-                    });
-                }
-
-                // Sort
-                $sortBy = $request->get('sort_by', 'created_at');
-                $sortOrder = $request->get('sort_order', 'desc');
-                $query->orderBy($sortBy, $sortOrder);
-
-                // Paginate
-                $perPage = $request->get('per_page', 15);
-                $paginated = $query->paginate($perPage);
-
-                // Summary counts for tabs
-                $allCount = Patient::where('clinic_id', $clinicId)->count();
-
-                $todayQueueCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
+        // Tab-based filtering
+        switch ($tab) {
+            case 'today_queue':
+                $query->where(function ($q) {
                     $q->whereHas('queues', function ($qu) {
                         $qu->whereIn('status', ['waiting', 'in_consultation']);
                     })->orWhereHas('appointments', function ($app) {
@@ -141,30 +51,100 @@ class PatientController extends Controller
                               ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
                         })->where('status', 'scheduled');
                     });
-                })->count();
+                });
+                break;
 
-                $onlineCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
+            case 'online':
+                $query->where(function ($q) {
                     $q->whereHas('appointments', function ($app) {
                         $app->whereNotNull('booked_by_account_id');
                     })->orWhereHas('biteIntakes')->orWhereHas('accounts');
-                })->count();
+                });
+                break;
 
-                $overdueCount = Patient::where('clinic_id', $clinicId)->whereHas('appointments', function ($q) {
+            case 'overdue':
+                $query->whereHas('appointments', function ($q) {
                     $q->where(function ($d) {
                         $d->where('appointment_date', '<', \Carbon\Carbon::today())
                           ->orWhere('scheduled_date', '<', \Carbon\Carbon::today());
                     })->whereIn('status', ['scheduled', 'missed']);
-                })->count();
+                });
+                break;
 
-                $res = $paginated->toArray();
-                $res['all_count'] = $allCount;
-                $res['today_queue_count'] = $todayQueueCount;
-                $res['online_count'] = $onlineCount;
-                $res['overdue_count'] = $overdueCount;
+            case 'all':
+            default:
+                // No specific tab constraint
+                break;
+        }
 
-                return $res;
-            })
-        );
+        // Search functionality
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('patient_number', 'like', "%{$search}%")
+                  ->orWhere('contact_number', 'like', "%{$search}%")
+                  ->orWhere(function ($nameQuery) use ($search) {
+                      $nameQuery->searchName($search);
+                  });
+            });
+        }
+
+        // Filter by gender
+        if ($request->has('gender')) {
+            $query->where('gender', $request->gender);
+        }
+
+        // Filter by membership type
+        if ($request->filled('membership_type') && $request->membership_type !== 'all') {
+            $type = $request->membership_type;
+            $query->whereHas('memberships', function ($mQuery) use ($type) {
+                $mQuery->where('membership_type', $type)->where('is_active', true);
+            });
+        }
+
+        // Sort
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Paginate
+        $perPage = $request->get('per_page', 15);
+        $paginated = $query->paginate($perPage);
+
+        // Summary counts for tabs
+        $allCount = Patient::where('clinic_id', $clinicId)->count();
+
+        $todayQueueCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
+            $q->whereHas('queues', function ($qu) {
+                $qu->whereIn('status', ['waiting', 'in_consultation']);
+            })->orWhereHas('appointments', function ($app) {
+                $app->where(function ($d) {
+                    $d->whereDate('appointment_date', \Carbon\Carbon::today())
+                      ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
+                })->where('status', 'scheduled');
+            });
+        })->count();
+
+        $onlineCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
+            $q->whereHas('appointments', function ($app) {
+                $app->whereNotNull('booked_by_account_id');
+            })->orWhereHas('biteIntakes')->orWhereHas('accounts');
+        })->count();
+
+        $overdueCount = Patient::where('clinic_id', $clinicId)->whereHas('appointments', function ($q) {
+            $q->where(function ($d) {
+                $d->where('appointment_date', '<', \Carbon\Carbon::today())
+                  ->orWhere('scheduled_date', '<', \Carbon\Carbon::today());
+            })->whereIn('status', ['scheduled', 'missed']);
+        })->count();
+
+        $res = $paginated->toArray();
+        $res['all_count'] = $allCount;
+        $res['today_queue_count'] = $todayQueueCount;
+        $res['online_count'] = $onlineCount;
+        $res['overdue_count'] = $overdueCount;
+
+        return response()->json($res);
     }
 
     /**
@@ -261,9 +241,7 @@ class PatientController extends Controller
 
             return $patient;
         });
-        
-        // Invalidate patient list cache for this clinic
-        $this->clearPatientListCache($request->user()->clinic_id);
+
         Cache::forget("web:bite-cases:map-data:clinic:{$request->user()->clinic_id}");
 
         return response()->json([
@@ -278,30 +256,25 @@ class PatientController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $cacheKey = "web:patient:{$id}:clinic:{$request->user()->clinic_id}";
+        $patient = Patient::where('clinic_id', $request->user()->clinic_id)
+            ->with([
+                'registeredBy',
+                'details',
+                'memberships',
+                // Form 2: Bite cases with their nested treatment records
+                'biteIncidents' => function($query) {
+                    $query->with(['treatmentRecords' => function($q) {
+                        $q->orderBy('dose_number')->orderBy('scheduled_date');
+                    }])->latest('bite_date');
+                },
+                // Form 3: All treatment records (vaccinations + consultations)
+                'treatmentRecords' => function($query) {
+                    $query->orderBy('dose_number')->orderBy('scheduled_date');
+                },
+            ])
+            ->findOrFail($id);
 
-        // Cache for 5 minutes
-        return response()->json(
-            Cache::remember($cacheKey, 300, function () use ($request, $id) {
-                return Patient::where('clinic_id', $request->user()->clinic_id)
-                    ->with([
-                        'registeredBy',
-                        'details',
-                        'memberships',
-                        // Form 2: Bite cases with their nested treatment records
-                        'biteIncidents' => function($query) {
-                            $query->with(['treatmentRecords' => function($q) {
-                                $q->orderBy('dose_number')->orderBy('scheduled_date');
-                            }])->latest('bite_date');
-                        },
-                        // Form 3: All treatment records (vaccinations + consultations)
-                        'treatmentRecords' => function($query) {
-                            $query->orderBy('dose_number')->orderBy('scheduled_date');
-                        },
-                    ])
-                    ->findOrFail($id);
-            })
-        );
+        return response()->json($patient);
     }
 
     /**
@@ -416,44 +389,9 @@ class PatientController extends Controller
 
         $patient->delete();
 
-        // Invalidate patient list cache
-        $this->clearPatientListCache($request->user()->clinic_id);
-        // Invalidate specific patient cache
-        Cache::forget("web:patient:{$id}:clinic:{$request->user()->clinic_id}");
-
         return response()->json([
             'message' => 'Patient deleted successfully',
         ]);
-    }
-
-    /**
-     * Helper method to clear patient list cache
-     */
-    private function clearPatientListCache($clinicId)
-    {
-        // Clear all possible patient list cache variations
-        // This is a simple approach - in production you might use cache tags
-        $searches = ['all', '']; // Common searches
-        $genders = ['all', 'male', 'female', ''];
-        $sorts = ['created_at', 'first_name', 'patient_number'];
-        $orders = ['asc', 'desc'];
-        
-        foreach ($searches as $search) {
-            foreach ($genders as $gender) {
-                foreach ($sorts as $sort) {
-                    foreach ($orders as $order) {
-                        // Clear first 5 pages
-                        for ($page = 1; $page <= 5; $page++) {
-                            $cacheKey = sprintf(
-                                'web:patients:clinic:%s:search:%s:gender:%s:sort:%s:%s:page:%s:per_page:15',
-                                $clinicId, $search, $gender, $sort, $order, $page
-                            );
-                            Cache::forget($cacheKey);
-                        }
-                    }
-                }
-            }
-        }
     }
 
     /**

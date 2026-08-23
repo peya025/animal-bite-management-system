@@ -286,18 +286,20 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       const res = await api.get(`/tagoloan-treatment-cards/patient/${entry.patient.patient_id}`);
       const bite = res.data?.bite_incident;
       const card = res.data?.existing_card;
+      const consultation = res.data?.latest_consultation;
 
-      if (bite || card) {
+      if (bite || card || consultation) {
         const mode = card?.mode_of_exposure || bite?.mode_of_exposure || '';
         const bodyPart = card?.body_part_exposed || bite?.body_part_exposed || '';
         const animal = card?.animal_type || bite?.animal_type || '';
         const animalOther = card?.animal_type_others || bite?.animal_type_others || '';
+        const resolvedReferredBy = consultation?.referred_by || consultation?.referred_from || card?.referred_by || bite?.referred_from || '';
 
         setFormData(prev => ({
           ...prev,
           registry_no: prev.registry_no || card?.registry_no || bite?.case_number || '',
           hospital_no: prev.hospital_no || card?.hospital_no || '',
-          referred_by: prev.referred_by || card?.referred_by || bite?.referred_from || '',
+          referred_by: resolvedReferredBy || prev.referred_by || '',
           exposure_category: card?.exposure_category || prev.exposure_category || '',
           date_of_exposure: formatDateForInput(card?.card_date || bite?.bite_date) || prev.date_of_exposure,
           place_of_exposure: bite?.bite_place || prev.place_of_exposure,
@@ -598,11 +600,26 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             <input type="text" value={formData.hospital_no} onChange={handleFieldChange('hospital_no')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
           </div>
           <div>
-            <ReferralLocationSelector
-              label="Referred by"
-              value={formData.referred_by}
-              onChange={(val) => setFormData((prev) => ({ ...prev, referred_by: val }))}
-              disabled={readOnly}
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+              Referred by
+            </label>
+            <input
+              type="text"
+              value={formData.referred_by || ''}
+              readOnly
+              disabled
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 13,
+                backgroundColor: '#f9fafb',
+                color: '#374151',
+                cursor: 'not-allowed',
+                fontWeight: 500,
+              }}
+              placeholder="— Form 2 Consultation"
             />
           </div>
         </div>

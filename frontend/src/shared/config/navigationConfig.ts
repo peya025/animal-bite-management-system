@@ -86,12 +86,6 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     roles: ['triage', 'treatment'],
   },
   {
-    label: 'Treatment Records',
-    path: ROUTES.TREATMENT_RECORDS.LIST,
-    icon: GLOBAL_NAV_ICONS['Treatment Records'],
-    roles: ['treatment', 'triage'],
-  },
-  {
     label: 'Reports & Analytics',
     path: ROUTES.REPORTS.LIST,
     icon: GLOBAL_NAV_ICONS['Reports & Analytics'],

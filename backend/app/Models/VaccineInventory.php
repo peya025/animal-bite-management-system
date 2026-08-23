@@ -20,10 +20,12 @@ class VaccineInventory extends Model
         'manufactured_date',
         'shelf_life_months',
         'open_vial_hours',
+        'doses_per_vial',
         'cold_chain_notes',
         'opened_at',
         'open_vial_discard_at',
         'open_vial_status',
+        'open_vial_doses_used',
         'current_quantity',
         'expiration_date',
         'status',
@@ -37,6 +39,8 @@ class VaccineInventory extends Model
         'open_vial_discard_at' => 'datetime',
         'shelf_life_months' => 'integer',
         'open_vial_hours' => 'integer',
+        'doses_per_vial' => 'integer',
+        'open_vial_doses_used' => 'integer',
     ];
 
     /**

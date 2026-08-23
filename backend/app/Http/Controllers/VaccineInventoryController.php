@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\VaccineInventory;
 use App\Models\VaccineTypePreset;
 use App\Models\InventoryTransaction;
+use App\Services\VaccineInventoryUsageService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class VaccineInventoryController extends Controller
@@ -120,16 +122,10 @@ class VaccineInventoryController extends Controller
         $clinicId = $request->user()->clinic_id;
         $vaccineType = $request->vaccine_type;
 
-        // Get the oldest batch with earliest expiration date
-        $fifoBatch = VaccineInventory::where('clinic_id', $clinicId)
-            ->where('vaccine_type', $vaccineType)
-            ->where('status', 'active')
-            ->where('current_quantity', '>', 0)
-            ->orderBy('expiration_date', 'asc')  // First Expire, First Out
-            ->orderBy('created_at', 'asc')        // First In, First Out (tiebreaker)
-            ->first();
+        $usageService = app(\App\Services\VaccineInventoryUsageService::class);
+        $preview = $usageService->getNextAutomatedVialPreview($clinicId, $vaccineType);
 
-        if (!$fifoBatch) {
+        if (!$preview) {
             return response()->json([
                 'error' => 'No available stock for the selected vaccine type',
                 'vaccine_type' => $vaccineType,
@@ -137,8 +133,13 @@ class VaccineInventoryController extends Controller
         }
 
         return response()->json([
-            'fifo_batch' => $fifoBatch,
-            'message' => 'FIFO batch retrieved successfully',
+            'fifo_batch' => $preview['batch'],
+            'is_open_vial' => $preview['is_open_vial'],
+            'next_dose_index' => $preview['next_dose_index'],
+            'total_doses' => $preview['total_doses'],
+            'units_to_deduct' => $preview['units_to_deduct'],
+            'discard_at' => $preview['discard_at'],
+            'message' => 'FIFO batch and automated vial allocation retrieved successfully',
         ]);
     }
 
@@ -152,71 +153,31 @@ class VaccineInventoryController extends Controller
             'vaccine_type' => 'required|string|max:100',
             'quantity' => 'required|integer|min:1',
             'treatment_id' => 'required|integer',
-            'force_batch_id' => 'nullable|integer', // Allow override for corrections (admin only)
+            'force_batch_id' => 'nullable|integer',
         ]);
 
-        $clinicId = $request->user()->clinic_id;
-        $vaccineType = $request->vaccine_type;
-        $quantity = $request->quantity;
-        $treatmentId = $request->treatment_id;
-        $forceBatchId = $request->force_batch_id;
+        try {
+            $usage = app(VaccineInventoryUsageService::class)->deductForTreatment(
+                (int) $request->user()->clinic_id,
+                (int) $request->user()->id,
+                (int) $request->treatment_id,
+                (string) $request->vaccine_type,
+                (int) $request->quantity,
+                $request->filled('force_batch_id') ? (int) $request->force_batch_id : null,
+            );
 
-        // If force_batch_id is provided (admin override), use that batch
-        if ($forceBatchId) {
-            $batch = VaccineInventory::where('clinic_id', $clinicId)
-                ->where('inventory_id', $forceBatchId)
-                ->where('status', 'active')
-                ->where('current_quantity', '>=', $quantity)
-                ->first();
-
-            if (!$batch) {
-                return response()->json([
-                    'error' => 'Specified batch not found or insufficient quantity',
-                ], 400);
-            }
-        } else {
-            // STRICT FIFO: Get the oldest batch with earliest expiration
-            $batch = VaccineInventory::where('clinic_id', $clinicId)
-                ->where('vaccine_type', $vaccineType)
-                ->where('status', 'active')
-                ->where('current_quantity', '>=', $quantity)
-                ->orderBy('expiration_date', 'asc')
-                ->orderBy('created_at', 'asc')
-                ->first();
-
-            if (!$batch) {
-                return response()->json([
-                    'error' => 'Insufficient stock for the selected vaccine type',
-                    'vaccine_type' => $vaccineType,
-                    'required_quantity' => $quantity,
-                ], 400);
-            }
+            return response()->json([
+                'message' => 'Vaccine used successfully (FIFO enforced)',
+                'batch_used' => $usage['batch'],
+                'quantity_used' => $usage['quantity_used'],
+                'remaining_quantity' => $usage['remaining_quantity'],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'error' => $e->validator->errors()->first(),
+                'messages' => $e->errors(),
+            ], 422);
         }
-
-        // Deduct quantity from inventory
-        $newQuantity = $batch->current_quantity - $quantity;
-        $batch->update([
-            'current_quantity' => $newQuantity,
-            'status' => $newQuantity === 0 ? 'depleted' : 'active',
-        ]);
-
-        // Record transaction
-        InventoryTransaction::create([
-            'inventory_id' => $batch->inventory_id,
-            'staff_id' => $request->user()->id,
-            'transaction_type' => 'used',
-            'quantity' => $quantity,
-            'transaction_date' => now(),
-            'reference_id' => (string) $treatmentId,
-            'remarks' => 'Vaccine administered to patient (Treatment ID: ' . $treatmentId . ')',
-        ]);
-
-        return response()->json([
-            'message' => 'Vaccine used successfully (FIFO enforced)',
-            'batch_used' => $batch->fresh(),
-            'quantity_used' => $quantity,
-            'remaining_quantity' => $newQuantity,
-        ]);
     }
 
     /**
@@ -288,93 +249,6 @@ class VaccineInventoryController extends Controller
     {
         $clinicId = $request->user()->clinic_id;
 
-        // Auto-seed defaults if table is empty
-        if (VaccineTypePreset::count() === 0) {
-            $defaults = [
-                [
-                    'vaccine_name' => 'Verorab (Purified Rabies Vaccine 0.5ml)',
-                    'category' => 'Anti-Rabies Vaccines (ARV)',
-                    'default_shelf_life_months' => 36,
-                    'default_open_vial_hours' => 6,
-                    'administration_route' => 'Intradermal (ID) / Intramuscular (IM)',
-                    'dosing_regimen_notes' => 'Post-Exposure (PEP): 0.1 mL ID (2 sites on Day 0, 3, 7, 28) or 0.5 mL IM (Day 0, 3, 7, 14, 28). Pre-Exposure (PrEP): 0.1 mL ID on Day 0, 7, 21/28.',
-                    'storage_temperature_notes' => 'Store at +2°C to +8°C. Do not freeze. Reconstituted multi-dose vial usable within 6 hours.',
-                    'is_multidose' => true,
-                    'doses_per_vial' => 1,
-                ],
-                [
-                    'vaccine_name' => 'Speeda (Purified Vero Cell Rabies Vaccine 0.5ml)',
-                    'category' => 'Anti-Rabies Vaccines (ARV)',
-                    'default_shelf_life_months' => 24,
-                    'default_open_vial_hours' => 6,
-                    'administration_route' => 'Intradermal (ID) / Intramuscular (IM)',
-                    'dosing_regimen_notes' => 'PEP: Updated Thai Red Cross 2-site ID regimen (0.1 mL at 2 sites on Day 0, 3, 7, 28). Keep in cold-chain during daily session.',
-                    'storage_temperature_notes' => 'Store at +2°C to +8°C. Protect from direct light.',
-                    'is_multidose' => true,
-                    'doses_per_vial' => 1,
-                ],
-                [
-                    'vaccine_name' => 'Rabipur (PCECV Rabies Vaccine 1IU)',
-                    'category' => 'Anti-Rabies Vaccines (ARV)',
-                    'default_shelf_life_months' => 36,
-                    'default_open_vial_hours' => 8,
-                    'administration_route' => 'Intramuscular (IM) / Intradermal (ID)',
-                    'dosing_regimen_notes' => 'PEP: 1 dose IM in deltoid area on Day 0, 3, 7, 14, 28. Discard reconstituted vial after 8 hours.',
-                    'storage_temperature_notes' => 'Store at +2°C to +8°C. Reconstituted vial discard within 8 hours.',
-                    'is_multidose' => true,
-                    'doses_per_vial' => 1,
-                ],
-                [
-                    'vaccine_name' => 'Equirab (Equine Rabies Immunoglobulin 1000IU)',
-                    'category' => 'Rabies Immunoglobulins (RIG)',
-                    'default_shelf_life_months' => 24,
-                    'default_open_vial_hours' => 6,
-                    'administration_route' => 'Local Wound Infiltration',
-                    'dosing_regimen_notes' => 'DOH Protocol: 40 IU/kg body weight. Infiltrate as much as anatomically feasible around wound sites on Day 0 only.',
-                    'storage_temperature_notes' => 'Strict cold-chain +2°C to +8°C. Discard un-infiltrated remainder within 6 hours.',
-                    'is_multidose' => true,
-                    'doses_per_vial' => 1,
-                ],
-                [
-                    'vaccine_name' => 'Favirab (Equine Rabies Immunoglobulin 5ml)',
-                    'category' => 'Rabies Immunoglobulins (RIG)',
-                    'default_shelf_life_months' => 24,
-                    'default_open_vial_hours' => 6,
-                    'administration_route' => 'Local Wound Infiltration',
-                    'dosing_regimen_notes' => '40 IU/kg body weight administered locally around bite wounds. Administer on Day 0 together with 1st ARV dose.',
-                    'storage_temperature_notes' => 'Store at +2°C to +8°C. Protect from freezing.',
-                    'is_multidose' => true,
-                    'doses_per_vial' => 1,
-                ],
-                [
-                    'vaccine_name' => 'Tetanus Toxoid (TT 0.5ml)',
-                    'category' => 'Tetanus & Toxoids',
-                    'default_shelf_life_months' => 36,
-                    'default_open_vial_hours' => 6,
-                    'administration_route' => 'Intramuscular (IM)',
-                    'dosing_regimen_notes' => '0.5 mL IM deep in deltoid. Repeat booster dose as indicated by immunization history / wound risk category.',
-                    'storage_temperature_notes' => 'Store at +2°C to +8°C. Shake well before use.',
-                    'is_multidose' => true,
-                    'doses_per_vial' => 1,
-                ],
-                [
-                    'vaccine_name' => 'Anti-Tetanus Serum (ATS 1500 IU)',
-                    'category' => 'Tetanus & Toxoids',
-                    'default_shelf_life_months' => 24,
-                    'default_open_vial_hours' => 4,
-                    'administration_route' => 'Intramuscular (IM) / Subcutaneous',
-                    'dosing_regimen_notes' => '1500 IU to 3000 IU IM for high-risk animal bite wounds (Category III). Perform skin sensitivity test prior to administration.',
-                    'storage_temperature_notes' => 'Store at +2°C to +8°C.',
-                    'is_multidose' => true,
-                    'doses_per_vial' => 1,
-                ],
-            ];
-
-            foreach ($defaults as $def) {
-                VaccineTypePreset::create(array_merge($def, ['clinic_id' => $clinicId]));
-            }
-        }
-
         $presets = VaccineTypePreset::where(function ($q) use ($clinicId) {
             $q->whereNull('clinic_id')->orWhere('clinic_id', $clinicId);
         })->orderBy('vaccine_name')->get();
@@ -412,6 +286,7 @@ class VaccineInventoryController extends Controller
             'administration_route' => 'nullable|string|max:150',
             'is_multidose' => 'nullable|boolean',
             'doses_per_vial' => 'nullable|integer|min:1',
+            'regimen_units_per_patient' => 'nullable|numeric|min:0.1|max:999.99',
         ]);
 
         $clinicId = $request->user()->clinic_id;
@@ -430,6 +305,7 @@ class VaccineInventoryController extends Controller
                 'administration_route' => $request->administration_route,
                 'is_multidose' => $request->boolean('is_multidose', true),
                 'doses_per_vial' => $request->input('doses_per_vial', 1),
+                'regimen_units_per_patient' => $request->input('regimen_units_per_patient', 1),
             ]
         );
 
@@ -459,6 +335,7 @@ class VaccineInventoryController extends Controller
             'administration_route' => 'nullable|string|max:150',
             'is_multidose' => 'nullable|boolean',
             'doses_per_vial' => 'nullable|integer|min:1',
+            'regimen_units_per_patient' => 'nullable|numeric|min:0.1|max:999.99',
         ]);
 
         $preset->update($request->only([
@@ -471,6 +348,7 @@ class VaccineInventoryController extends Controller
             'administration_route',
             'is_multidose',
             'doses_per_vial',
+            'regimen_units_per_patient',
         ]));
 
         return response()->json([

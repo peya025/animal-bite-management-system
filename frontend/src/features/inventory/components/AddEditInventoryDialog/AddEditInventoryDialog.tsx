@@ -1,45 +1,61 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+type ApiError = {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+};
 import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
-  Divider,
+  FormControl,
   Grid,
   IconButton,
-  InputAdornment,
+  InputLabel,
   MenuItem,
-  FormControl,
   Select,
   Stack,
   TextField,
-  Typography,
-  Chip,
-  useTheme,
   Tooltip,
+  Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Close as CloseIcon,
   Vaccines as VaccineIcon,
-  LocalHospital as ClinicIcon,
-  Check as CheckIcon,
-  Numbers as NumbersIcon,
-  PostAdd as NewTypeIcon,
   CalendarMonth as CalendarIcon,
   AccessTime as TimeIcon,
+
+  Inventory2 as BalanceIcon,
+  TrendingDown as DispensedIcon,
+  Rule as StatusIcon,
+  PostAdd as NewTypeIcon,
+  Preview as PreviewIcon,
   AcUnit as ColdChainIcon,
-  Layers as LayersIcon,
   Medication as RegimenIcon,
+  AutoFixHigh as AutoIcon,
 } from '@mui/icons-material';
 import api from '../../../../services/api';
-import ConfirmationDialog from '../../../../components/feedback/ConfirmationDialog';
+import { useAuth } from '../../../../shared/contexts/AuthContext';
+import { formatDate } from '../../../../shared/utils';
 import VaccineTypeDialog from '../VaccineTypeDialog/VaccineTypeDialog';
 import { getVaccinePresets } from '../../services/vaccineInventoryService';
 import type { InventoryItem, VaccineTypePreset } from '../../types';
+import {
+  addMonthsToDate,
+  deriveInventoryStatus,
+  describeExpiry,
+  formatDateInput,
+  getStatusVisual,
+} from '../../utils/inventoryStatus';
 
 interface AddEditInventoryDialogProps {
   open: boolean;
@@ -49,100 +65,12 @@ interface AddEditInventoryDialogProps {
   onSaved: () => void;
 }
 
-// ─── Default Fallback Presets ─────────────────────────────────
-const DEFAULT_PRESETS: VaccineTypePreset[] = [
-  {
-    vaccine_name: 'Verorab (Purified Rabies Vaccine 0.5ml)',
-    category: 'Anti-Rabies Vaccines (ARV)',
-    default_shelf_life_months: 36,
-    default_open_vial_hours: 6,
-    administration_route: 'Intradermal (ID) / Intramuscular (IM)',
-    dosing_regimen_notes: 'PEP: 0.1 mL ID (2 sites on Day 0, 3, 7, 28) or 0.5 mL IM (Day 0, 3, 7, 14, 28).',
-    storage_temperature_notes: 'Store at +2°C to +8°C. Do not freeze. Reconstituted multi-dose vial usable within 6 hours.',
-    is_multidose: true,
-    doses_per_vial: 1,
-  },
-  {
-    vaccine_name: 'Speeda (Purified Vero Cell Rabies Vaccine 0.5ml)',
-    category: 'Anti-Rabies Vaccines (ARV)',
-    default_shelf_life_months: 24,
-    default_open_vial_hours: 6,
-    administration_route: 'Intradermal (ID) / Intramuscular (IM)',
-    dosing_regimen_notes: 'PEP: Updated Thai Red Cross 2-site ID regimen (0.1 mL at 2 sites on Day 0, 3, 7, 28).',
-    storage_temperature_notes: 'Store at +2°C to +8°C. Protect from direct light.',
-    is_multidose: true,
-    doses_per_vial: 1,
-  },
-  {
-    vaccine_name: 'Rabipur (PCECV Rabies Vaccine 1IU)',
-    category: 'Anti-Rabies Vaccines (ARV)',
-    default_shelf_life_months: 36,
-    default_open_vial_hours: 8,
-    administration_route: 'Intramuscular (IM) / Intradermal (ID)',
-    dosing_regimen_notes: 'PEP: 1 dose IM in deltoid area on Day 0, 3, 7, 14, 28.',
-    storage_temperature_notes: 'Store at +2°C to +8°C. Reconstituted vial discard within 8 hours.',
-    is_multidose: true,
-    doses_per_vial: 1,
-  },
-  {
-    vaccine_name: 'Equirab (Equine Rabies Immunoglobulin 1000IU)',
-    category: 'Rabies Immunoglobulins (RIG)',
-    default_shelf_life_months: 24,
-    default_open_vial_hours: 6,
-    administration_route: 'Local Wound Infiltration',
-    dosing_regimen_notes: '40 IU/kg body weight. Infiltrate as much as anatomically feasible around wound sites.',
-    storage_temperature_notes: 'Strict cold-chain +2°C to +8°C. Discard un-infiltrated remainder within 6 hours.',
-    is_multidose: true,
-    doses_per_vial: 1,
-  },
-  {
-    vaccine_name: 'Favirab (Equine Rabies Immunoglobulin 5ml)',
-    category: 'Rabies Immunoglobulins (RIG)',
-    default_shelf_life_months: 24,
-    default_open_vial_hours: 6,
-    administration_route: 'Local Wound Infiltration',
-    dosing_regimen_notes: '40 IU/kg body weight administered locally around bite wounds on Day 0.',
-    storage_temperature_notes: 'Store at +2°C to +8°C. Protect from freezing.',
-    is_multidose: true,
-    doses_per_vial: 1,
-  },
-  {
-    vaccine_name: 'Tetanus Toxoid (TT 0.5ml)',
-    category: 'Tetanus & Toxoids',
-    default_shelf_life_months: 36,
-    default_open_vial_hours: 6,
-    administration_route: 'Intramuscular (IM)',
-    dosing_regimen_notes: '0.5 mL IM deep in deltoid. Repeat booster dose as indicated by immunization history.',
-    storage_temperature_notes: 'Store at +2°C to +8°C. Shake well before use.',
-    is_multidose: true,
-    doses_per_vial: 1,
-  },
-  {
-    vaccine_name: 'Anti-Tetanus Serum (ATS 1500 IU)',
-    category: 'Tetanus & Toxoids',
-    default_shelf_life_months: 24,
-    default_open_vial_hours: 4,
-    administration_route: 'Intramuscular (IM)',
-    dosing_regimen_notes: '1500 IU to 3000 IU IM for high-risk animal bite wounds (Category III).',
-    storage_temperature_notes: 'Store at +2°C to +8°C.',
-    is_multidose: true,
-    doses_per_vial: 1,
-  },
-];
-
 const COMMON_SUPPLIERS = [
   'DOH Central Supply',
   'Regional Health Office X',
   'Provincial Medical Depot',
   'City Health Office',
   'Direct Procurement / Hospital Pharmacy',
-];
-
-const UNIT_OPTIONS = [
-  { value: 'vials', label: 'Vials (Multi-dose / Single)' },
-  { value: 'ampoules', label: 'Ampoules' },
-  { value: 'doses', label: 'Doses' },
-  { value: 'boxes', label: 'Boxes' },
 ];
 
 export default function AddEditInventoryDialog({
@@ -152,204 +80,156 @@ export default function AddEditInventoryDialog({
   onClose,
   onSaved,
 }: AddEditInventoryDialogProps) {
-  const theme = useTheme();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const isEdit = Boolean(editItem);
 
-  // Form fields ordered to match table column flow (left-to-right)
   const [form, setForm] = useState({
     clinic_id: 1,
     vaccine_type: '',
     batch_number: '',
     received_from: 'DOH Central Supply',
     quantity: '',
-    unit: 'vials',
     manufactured_date: '',
-    shelf_life_months: 24,
-    open_vial_hours: 6,
-    cold_chain_notes: '',
     expiration_date: '',
+    shelf_life_months: 24,
+    open_vial_hours: null as number | null,
+    cold_chain_notes: '',
     remarks: '',
   });
-
-  const [presets, setPresets] = useState<VaccineTypePreset[]>(DEFAULT_PRESETS);
+  const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<VaccineTypePreset | null>(null);
-
-  // Unified VaccineTypeDialog state
-  const [typeDialogOpen, setTypeDialogOpen] = useState(false);
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [typeDialogOpen, setTypeDialogOpen] = useState(false);
+  const [expirationMode, setExpirationMode] = useState<'auto' | 'manual'>('auto');
+  const [presetLoadError, setPresetLoadError] = useState('');
 
-  // Load presets on open
-  const fetchPresets = () => {
-    getVaccinePresets()
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setPresets(data);
-        }
-      })
-      .catch(() => {});
+  const fetchPresets = async () => {
+    try {
+      const data = await getVaccinePresets();
+      setPresets(Array.isArray(data) ? data : []);
+      setPresetLoadError('');
+    } catch {
+      setPresets([]);
+      setPresetLoadError('Could not load Vaccine Types. Make sure the backend is running, or add a type from the separate Vaccine Type Setup screen.');
+    }
   };
 
   useEffect(() => {
-    if (open) {
-      fetchPresets();
-    }
+    if (!open) return;
+
+    const timer = window.setTimeout(() => {
+      void fetchPresets();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [open]);
 
-  // Sync form state when dialog opens or editItem changes
   useEffect(() => {
-    if (editItem) {
+    if (!open) return;
+
+    const timer = window.setTimeout(() => {
+      const baseType = editItem?.vaccine_type || initialVaccineType || '';
+      const matchedPreset = presets.find((preset) => preset.vaccine_name.toLowerCase() === baseType.toLowerCase()) || null;
+      const shelfLife = matchedPreset?.default_shelf_life_months ?? editItem?.shelf_life_months ?? 24;
+      const manufacturedDate = formatDateInput(editItem?.manufactured_date) || '';
+      const expirationDate = formatDateInput(editItem?.expiration_date) || '';
+      const autoExpiration = manufacturedDate ? addMonthsToDate(manufacturedDate, shelfLife) : '';
+      const nextMode = manufacturedDate && expirationDate && autoExpiration && autoExpiration !== expirationDate ? 'manual' : 'auto';
+
+      setSelectedPreset(matchedPreset);
+      setExpirationMode(nextMode);
       setForm({
-        clinic_id: editItem.clinic_id || 1,
-        vaccine_type: editItem.vaccine_type,
-        batch_number: editItem.batch_number,
-        received_from: editItem.received_from || 'DOH Central Supply',
-        quantity: String(editItem.current_quantity),
-        unit: 'vials',
-        manufactured_date: editItem.manufactured_date ? editItem.manufactured_date.split('T')[0] : '',
-        shelf_life_months: editItem.shelf_life_months || 24,
-        open_vial_hours: editItem.open_vial_hours || 6,
-        cold_chain_notes: editItem.cold_chain_notes || '',
-        expiration_date: editItem.expiration_date ? editItem.expiration_date.split('T')[0] : '',
-        remarks: '',
-      });
-      const match = presets.find((p) => p.vaccine_name.toLowerCase() === editItem.vaccine_type.toLowerCase());
-      setSelectedPreset(match || null);
-    } else {
-      const defaultType = initialVaccineType || '';
-      setForm({
-        clinic_id: 1,
-        vaccine_type: defaultType,
-        batch_number: '',
-        received_from: 'DOH Central Supply',
-        quantity: '',
-        unit: 'vials',
-        manufactured_date: '',
-        shelf_life_months: 24,
-        open_vial_hours: 6,
-        cold_chain_notes: '',
-        expiration_date: '',
-        remarks: '',
-      });
-      if (defaultType) {
-        const match = presets.find((p) => p.vaccine_name.toLowerCase() === defaultType.toLowerCase());
-        setSelectedPreset(match || null);
-      } else {
-        setSelectedPreset(null);
-      }
-    }
-    setErrors({});
-    setShowConfirm(false);
-    setShowCancelConfirm(false);
-  }, [editItem, open, presets, initialVaccineType]);
-
-  // Handle Vaccine Type selection and apply preset logic
-  const handleVaccineTypeSelect = (typeName: string) => {
-    const matchedPreset = presets.find((p) => p.vaccine_name === typeName);
-    setSelectedPreset(matchedPreset || null);
-
-    const shelfLife = matchedPreset?.default_shelf_life_months ?? 24;
-    const openVial = matchedPreset?.default_open_vial_hours ?? 6;
-    const coldNotes = matchedPreset?.storage_temperature_notes ?? 'Store at +2°C to +8°C';
-
-    setForm((prev) => {
-      let nextExp = prev.expiration_date;
-      if (prev.manufactured_date) {
-        const mDate = new Date(prev.manufactured_date);
-        if (!isNaN(mDate.getTime())) {
-          mDate.setMonth(mDate.getMonth() + shelfLife);
-          nextExp = mDate.toISOString().split('T')[0];
-        }
-      }
-      return {
-        ...prev,
-        vaccine_type: typeName,
+        clinic_id: editItem?.clinic_id || 1,
+        vaccine_type: baseType,
+        batch_number: editItem?.batch_number || '',
+        received_from: editItem?.received_from || 'DOH Central Supply',
+        quantity: editItem ? String(editItem.current_quantity) : '',
+        manufactured_date: manufacturedDate,
+        expiration_date: expirationDate,
         shelf_life_months: shelfLife,
-        open_vial_hours: openVial,
-        cold_chain_notes: coldNotes,
-        expiration_date: nextExp,
-      };
-    });
+        open_vial_hours: matchedPreset?.default_open_vial_hours ?? editItem?.open_vial_hours ?? null,
+        cold_chain_notes: matchedPreset?.storage_temperature_notes || editItem?.cold_chain_notes || '',
+        remarks: '',
+      });
+      setErrors({});
+    }, 0);
 
-    setErrors((prev) => {
-      const copy = { ...prev };
-      delete copy.vaccine_type;
-      return copy;
-    });
-  };
+    return () => window.clearTimeout(timer);
+  }, [editItem, initialVaccineType, open, presets]);
 
-  // Auto-calculate Expiration Date when Manufactured Date changes
-  const handleManufacturedDateChange = (mDateStr: string) => {
+  const calculatedExpiration = useMemo(() => {
+    if (!form.manufactured_date) return '';
+    return addMonthsToDate(form.manufactured_date, Number(form.shelf_life_months) || 0);
+  }, [form.manufactured_date, form.shelf_life_months]);
+
+
+  const handleVaccineTypeSelect = (vaccineType: string) => {
+    const matchedPreset = presets.find((preset) => preset.vaccine_name === vaccineType) || null;
+    setSelectedPreset(matchedPreset);
+    setExpirationMode('auto');
     setForm((prev) => {
-      let calcExp = prev.expiration_date;
-      if (mDateStr) {
-        const mDate = new Date(mDateStr);
-        if (!isNaN(mDate.getTime())) {
-          const months = prev.shelf_life_months || 24;
-          mDate.setMonth(mDate.getMonth() + months);
-          calcExp = mDate.toISOString().split('T')[0];
-        }
-      }
+      const nextShelfLife = matchedPreset?.default_shelf_life_months ?? prev.shelf_life_months;
       return {
         ...prev,
-        manufactured_date: mDateStr,
-        expiration_date: calcExp,
+        vaccine_type: vaccineType,
+        shelf_life_months: nextShelfLife,
+        open_vial_hours: matchedPreset?.default_open_vial_hours ?? null,
+        cold_chain_notes: matchedPreset?.storage_temperature_notes ?? prev.cold_chain_notes,
+        expiration_date: prev.manufactured_date ? addMonthsToDate(prev.manufactured_date, nextShelfLife) : prev.expiration_date,
       };
     });
+    setErrors((prev) => ({ ...prev, vaccine_type: '' }));
   };
 
-  // Derived Calculations
-  const daysUntilExpiry = form.expiration_date
-    ? Math.ceil((new Date(form.expiration_date).getTime() - Date.now()) / 86400000)
+  const [todayMs] = useState(() => Date.now());
+
+  const dispensed = isEdit ? Number(editItem?.total_dispensed || 0) : 0;
+  const quantity = Number(form.quantity || 0);
+  const balance = quantity;
+  const expiryDays = form.expiration_date
+    ? Math.ceil((new Date(form.expiration_date).getTime() - todayMs) / 86_400_000)
     : null;
 
-  const expiryBadge = useMemo(() => {
-    if (daysUntilExpiry === null) return null;
-    if (daysUntilExpiry < 0) {
-      return { text: `🔴 Expired (${Math.abs(daysUntilExpiry)}d ago)`, color: '#dc2626', bg: '#fee2e2', status: 'expired' };
-    }
-    if (daysUntilExpiry <= 30) {
-      return { text: `🟠 Expires in ${daysUntilExpiry} days (Soon)`, color: '#d97706', bg: '#fef3c7', status: 'expiring' };
-    }
-    if (daysUntilExpiry <= 90) {
-      return { text: `🟡 ${Math.round(daysUntilExpiry / 30)} months left`, color: '#b45309', bg: '#fffbeb', status: 'active' };
-    }
-    return { text: `🟢 ${Math.round(daysUntilExpiry / 30)} months (Good)`, color: '#059669', bg: '#ecfdf5', status: 'active' };
-  }, [daysUntilExpiry]);
+  const previewStatus = deriveInventoryStatus({
+    current_quantity: balance,
+    expiration_date: form.expiration_date,
+    open_vial_status: editItem?.open_vial_status,
+  });
+  const previewStatusVisual = getStatusVisual(previewStatus);
 
-  const derivedBalance = Number(form.quantity) || 0;
-  const derivedDispensed = isEdit ? (editItem?.total_dispensed ?? 0) : 0;
-  const derivedStatus = derivedBalance === 0 ? 'Depleted' : expiryBadge?.status === 'expired' ? 'Expired' : expiryBadge?.status === 'expiring' ? 'Expiring Soon' : 'Active';
+  const regimenUnits = Number(selectedPreset?.regimen_units_per_patient || 0);
+  const coverageEstimate = regimenUnits > 0 && quantity > 0 ? quantity / regimenUnits : 0;
+
+  const submitDisabledReason = useMemo(() => {
+    if (presets.length === 0) return 'Add a Vaccine Type first in the separate Vaccine Type Setup screen.';
+    if (!form.vaccine_type.trim()) return 'Select a vaccine type first.';
+    if (!form.batch_number.trim()) return 'Enter the batch / lot number.';
+    if (!form.received_from.trim()) return 'Enter who the stock was received from.';
+    if (!form.quantity || Number(form.quantity) < 1) {
+      return isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
+    }
+    if (!form.expiration_date) return 'Provide an expiration date or a manufactured date to auto-calculate it.';
+    if (!isEdit && expiryDays !== null && expiryDays <= 0) return 'New stock must have a future expiration date.';
+    return '';
+  }, [expiryDays, form.batch_number, form.expiration_date, form.quantity, form.received_from, form.vaccine_type, isEdit, presets.length]);
 
   const validate = () => {
-    const e: Record<string, string> = {};
-    if (!form.vaccine_type.trim()) e.vaccine_type = 'Select or register a vaccine type';
-    if (!form.batch_number.trim()) e.batch_number = 'Batch / Lot number is required';
-    if (!isEdit && (!form.quantity || Number(form.quantity) < 1)) {
-      e.quantity = 'Initial stock quantity must be at least 1 vial';
-    }
-    if (!form.expiration_date) {
-      e.expiration_date = 'Expiration date is required';
-    } else if (daysUntilExpiry !== null && daysUntilExpiry <= 0) {
-      e.expiration_date = 'Expiration date must be in the future for new stock';
-    }
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    const next: Record<string, string> = {};
+    if (!form.vaccine_type.trim()) next.vaccine_type = 'Select a vaccine type.';
+    if (!form.batch_number.trim()) next.batch_number = 'Batch / lot number is required.';
+    if (!form.received_from.trim()) next.received_from = 'Received From is required.';
+    if (!form.quantity || Number(form.quantity) < 1) next.quantity = isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
+    if (!form.expiration_date) next.expiration_date = 'Expiration date is required.';
+    if (!isEdit && expiryDays !== null && expiryDays <= 0) next.expiration_date = 'New stock must have a future expiration date.';
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
-
-  const isFormValid = Boolean(
-    form.vaccine_type.trim() &&
-    form.batch_number.trim() &&
-    (isEdit || (form.quantity && Number(form.quantity) >= 1)) &&
-    form.expiration_date &&
-    (daysUntilExpiry === null || daysUntilExpiry > 0)
-  );
 
   const handleSubmit = async () => {
     if (!validate()) return;
+
     setSaving(true);
     try {
       if (isEdit) {
@@ -360,27 +240,29 @@ export default function AddEditInventoryDialog({
           manufactured_date: form.manufactured_date || undefined,
           shelf_life_months: form.shelf_life_months,
           open_vial_hours: form.open_vial_hours,
-          cold_chain_notes: form.cold_chain_notes,
+          cold_chain_notes: form.cold_chain_notes || undefined,
           expiration_date: form.expiration_date,
         });
       } else {
         await api.post('/inventory', {
           vaccine_type: form.vaccine_type,
           batch_number: form.batch_number,
-          received_from: form.received_from || 'DOH Central Supply',
+          received_from: form.received_from,
           quantity: Number(form.quantity),
           manufactured_date: form.manufactured_date || undefined,
           shelf_life_months: form.shelf_life_months,
           open_vial_hours: form.open_vial_hours,
-          cold_chain_notes: form.cold_chain_notes,
+          cold_chain_notes: form.cold_chain_notes || undefined,
           expiration_date: form.expiration_date,
-          remarks: form.remarks ? `${form.remarks} (${form.unit})` : undefined,
+          remarks: form.remarks.trim() || undefined,
         });
       }
+
       onSaved();
       onClose();
-    } catch (err: any) {
-      setErrors({ submit: err.response?.data?.message || 'Something went wrong while saving to inventory. Please try again.' });
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      setErrors({ submit: apiError.response?.data?.message || 'Something went wrong while saving inventory.' });
     } finally {
       setSaving(false);
     }
@@ -393,17 +275,14 @@ export default function AddEditInventoryDialog({
       <Dialog
         open={open}
         onClose={onClose}
-        maxWidth="md"
+        maxWidth="lg"
         fullWidth
-        slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}
         aria-labelledby="vaccine-stock-dialog-title"
+        slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}
       >
-        {/* ── Gradient Header ── */}
         <Box
           sx={{
-            background: isEdit
-              ? `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`
-              : 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+            background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
             px: 3,
             py: 2.25,
             display: 'flex',
@@ -416,7 +295,7 @@ export default function AddEditInventoryDialog({
               width: 44,
               height: 44,
               borderRadius: 2,
-              bgcolor: 'rgba(255,255,255,0.2)',
+              bgcolor: 'rgba(255,255,255,0.18)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -426,633 +305,437 @@ export default function AddEditInventoryDialog({
             <VaccineIcon sx={{ color: '#fff', fontSize: 24 }} />
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography
-              id="vaccine-stock-dialog-title"
-              variant="h6"
-              sx={{ fontWeight: 700, color: '#fff', fontSize: '1.075rem', lineHeight: 1.25, letterSpacing: '-0.2px' }}
-            >
-              {isEdit ? 'Edit Vaccine Stock Details' : 'Add New Vaccine Stock'}
+            <Typography id="vaccine-stock-dialog-title" sx={{ fontWeight: 800, color: '#fff', fontSize: '1.1rem' }}>
+              {isEdit ? 'Edit stock batch' : 'Add stock batch'}
             </Typography>
-            <Typography
-              variant="body2"
-              sx={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.8125rem', mt: 0.35, lineHeight: 1.35 }}
-            >
-              {isEdit
-                ? 'Update batch parameters, shelf-life, and storage logs'
-                : 'Register and stock a new vaccine batch to clinic inventory'}
+            <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, mt: 0.25 }}>
+              Daily-use stock entry form. Vaccine rules stay read-only here so staff always see which setup rule is being applied.
             </Typography>
           </Box>
-          <IconButton
-            onClick={onClose}
-            size="small"
-            aria-label="Close dialog"
-            sx={{
-              color: 'rgba(255,255,255,0.85)',
-              '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.18)' },
-            }}
-          >
+          <IconButton onClick={onClose} size="small" aria-label="Close dialog" sx={{ color: '#fff' }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
 
-        <DialogContent sx={{ px: 3.5, pt: 3, pb: 2 }}>
-          <Stack spacing={3}>
+        <DialogContent sx={{ px: 3, py: 3 }}>
+          <Stack spacing={2.5}>
+            {errors.submit && <Alert severity="error">{errors.submit}</Alert>}
 
-            {errors.submit && (
-              <Alert severity="error" onClose={() => setErrors((e) => ({ ...e, submit: '' }))}>
-                {errors.submit}
-              </Alert>
+            <Alert severity="info" icon={<AutoIcon fontSize="inherit" />} sx={{ border: '1px solid #dbeafe', bgcolor: '#f8fbff' }}>
+              The form starts with the same left-to-right concepts used in the inventory table: vaccine type, batch, source, dispensed, balance, expiration, and status.
+            </Alert>
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                  <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#334155' }}>
+                    Vaccine Type
+                  </Typography>
+                  <Tooltip title={isAdmin ? 'Create a new vaccine type in the separate setup form' : 'Admin only: vaccine types are configured separately from stock'}>
+                    <span>
+                      <Button
+                        size="small"
+                        startIcon={<NewTypeIcon sx={{ fontSize: 15 }} />}
+                        onClick={() => isAdmin && setTypeDialogOpen(true)}
+                        disabled={!isAdmin}
+                        sx={{ textTransform: 'none', fontWeight: 700, fontSize: 12, color: '#059669', p: 0, minWidth: 0 }}
+                      >
+                        Add New Type
+                      </Button>
+                    </span>
+                  </Tooltip>
+                </Box>
+
+                <FormControl fullWidth size="small" error={!!errors.vaccine_type || !!presetLoadError}>
+                  <InputLabel id="inventory-vaccine-type-label">Vaccine Type</InputLabel>
+                  <Select
+                    labelId="inventory-vaccine-type-label"
+                    value={form.vaccine_type}
+                    label="Vaccine Type"
+                    onChange={(e) => handleVaccineTypeSelect(e.target.value)}
+                    disabled={presets.length === 0}
+                    sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
+                  >
+                    {presets.map((preset) => (
+                      <MenuItem key={preset.vaccine_name} value={preset.vaccine_name}>
+                        <Box>
+                          <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>{preset.vaccine_name}</Typography>
+                          <Typography sx={{ fontSize: 11, color: '#64748b' }}>
+                            {preset.default_shelf_life_months} month shelf-life • {preset.default_open_vial_hours ? `${preset.default_open_vial_hours}h discard-by` : 'single-dose'}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography sx={{ fontSize: 11.5, color: errors.vaccine_type || presetLoadError ? '#dc2626' : '#64748b', mt: 0.75 }}>
+                  {errors.vaccine_type || presetLoadError || 'Pick a saved vaccine rule so expiry and discard settings are applied consistently.'}
+                </Typography>
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 2.5 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Batch No. / Lot"
+                  value={form.batch_number}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, batch_number: e.target.value.toUpperCase() }));
+                    setErrors((prev) => ({ ...prev, batch_number: '' }));
+                  }}
+                  error={!!errors.batch_number}
+                  helperText={errors.batch_number || 'Shown in FIFO / FEFO order.'}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' }, '& input': { fontFamily: 'monospace', fontWeight: 700 } }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 3.5 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Received From"
+                  value={form.received_from}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, received_from: e.target.value }));
+                    setErrors((prev) => ({ ...prev, received_from: '' }));
+                  }}
+                  error={!!errors.received_from}
+                  helperText={errors.received_from || 'Use the same wording staff use for the source or depot.'}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 6, md: 1 }}>
+                <Box sx={{ p: 1.25, borderRadius: 2, border: '1px solid #fee2e2', bgcolor: '#fff7f7', minHeight: 86 }}>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
+                    <DispensedIcon sx={{ fontSize: 15, color: '#dc2626' }} />
+                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#b91c1c' }}>Dispensed</Typography>
+                  </Stack>
+                  <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>{dispensed}</Typography>
+                  <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>Read-only</Typography>
+                </Box>
+              </Grid>
+
+              <Grid size={{ xs: 6, md: 1 }}>
+                <Box sx={{ p: 1.25, borderRadius: 2, border: '1px solid #bbf7d0', bgcolor: '#f0fdf4', minHeight: 86 }}>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
+                    <BalanceIcon sx={{ fontSize: 15, color: '#047857' }} />
+                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#047857' }}>Balance</Typography>
+                  </Stack>
+                  <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#059669' }}>{balance || 0}</Typography>
+                  <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>Derived</Typography>
+                </Box>
+              </Grid>
+            </Grid>
+
+            {selectedPreset && (
+              <Box sx={{ p: 1.75, border: '1px solid #dbeafe', borderRadius: 2.5, bgcolor: '#f8fbff' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', mb: 1.25 }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#1d4ed8' }}>
+                    Applied vaccine rule (read-only reference)
+                  </Typography>
+                  <Chip label={selectedPreset.category || 'General'} size="small" sx={{ fontWeight: 700, bgcolor: '#eff6ff', color: '#1d4ed8' }} />
+                </Box>
+                <Grid container spacing={1.25}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
+                      <CalendarIcon sx={{ fontSize: 16, color: '#2563eb', mt: 0.15 }} />
+                      <Box>
+                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Shelf-life</Typography>
+                        <Typography sx={{ fontSize: 12.5, color: '#1f2937', fontWeight: 700 }}>{selectedPreset.default_shelf_life_months} months from Manufactured Date</Typography>
+                      </Box>
+                    </Stack>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
+                      <TimeIcon sx={{ fontSize: 16, color: '#c2410c', mt: 0.15 }} />
+                      <Box>
+                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Discard by</Typography>
+                        <Typography sx={{ fontSize: 12.5, color: '#1f2937', fontWeight: 700 }}>
+                          {selectedPreset.default_open_vial_hours ? `${selectedPreset.default_open_vial_hours} hours after opening` : 'Not used for single-dose stock'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
+                      <RegimenIcon sx={{ fontSize: 16, color: '#047857', mt: 0.15 }} />
+                      <Box>
+                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Units per patient regimen</Typography>
+                        <Typography sx={{ fontSize: 12.5, color: '#1f2937', fontWeight: 700 }}>
+                          {selectedPreset.regimen_units_per_patient || 1}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
+                      <ColdChainIcon sx={{ fontSize: 16, color: '#0369a1', mt: 0.15 }} />
+                      <Box>
+                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Storage note</Typography>
+                        <Typography sx={{ fontSize: 12.5, color: '#1f2937' }}>
+                          {selectedPreset.storage_temperature_notes || 'No extra storage note saved.'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Box>
             )}
 
-            {/* ── SECTION 1: Vaccine & Facility Information ── */}
-            <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.75 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ width: 6, height: 16, bgcolor: '#059669', borderRadius: 1 }} />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#111827', fontSize: '0.95rem' }}>
-                    1. Vaccine &amp; Facility Information
-                  </Typography>
-                </Box>
-                {/* Facility Context Badge */}
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.4, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 1.5 }}>
-                  <ClinicIcon sx={{ fontSize: 15, color: '#16a34a' }} />
-                  <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: '#15803d' }}>
-                    Facility: Tagoloan ABTC
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Grid container spacing={2.5}>
-                {/* Column 1 in Table: Vaccine Type */}
-                <Grid size={{ xs: 12, md: 7 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}>
-                      Vaccine Type / Brand Profile <Box component="span" sx={{ color: 'error.main' }}>*</Box>
-                    </Typography>
-                    <Button
-                      size="small"
-                      startIcon={<NewTypeIcon sx={{ fontSize: 15 }} />}
-                      onClick={() => setTypeDialogOpen(true)}
-                      sx={{
-                        textTransform: 'none',
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        color: '#059669',
-                        p: 0,
-                        minWidth: 0,
-                        '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
-                      }}
-                    >
-                      + Add New Vaccine Type Profile
-                    </Button>
-                  </Box>
-
-                  <FormControl fullWidth size="small" error={!!errors.vaccine_type}>
-                    <Select
-                      value={form.vaccine_type}
-                      displayEmpty
-                      onChange={(e) => handleVaccineTypeSelect(e.target.value)}
-                      sx={{ borderRadius: 2, bgcolor: '#f9fafb' }}
-                      renderValue={(selected) => {
-                        if (!selected) {
-                          return <Typography sx={{ color: '#9ca3af', fontSize: '0.875rem' }}>Select defined vaccine profile…</Typography>;
-                        }
-                        return (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <VaccineIcon sx={{ fontSize: 18, color: '#059669' }} />
-                            <Typography sx={{ fontWeight: 600, fontSize: '0.875rem', color: '#111827' }}>
-                              {selected}
-                            </Typography>
-                          </Box>
-                        );
-                      }}
-                    >
-                      {presets.map((preset) => (
-                        <MenuItem key={preset.vaccine_name} value={preset.vaccine_name}>
-                          <Box sx={{ py: 0.25, width: '100%' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{preset.vaccine_name}</Typography>
-                              {preset.category && (
-                                <Chip label={preset.category} size="small" sx={{ height: 18, fontSize: 10, bgcolor: '#f3f4f6' }} />
-                              )}
-                            </Box>
-                            <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 0.25 }}>
-                              ⏱️ Shelf-life: {preset.default_shelf_life_months}m | ⚡ Discard: {preset.default_open_vial_hours ? `${preset.default_open_vial_hours}h` : 'Single-dose'} | 💉 {preset.administration_route || 'ID/IM'}
-                            </Typography>
-                          </Box>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  {/* Affordance Cue */}
-                  <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 0.5 }}>
-                    💡 Dosing and expiration rules are pulled from this vaccine's saved profile — manage them under <strong>Vaccine Types</strong>.
-                  </Typography>
-                  {errors.vaccine_type && (
-                    <Typography variant="caption" sx={{ color: 'error.main', display: 'block', mt: 0.25 }}>
-                      {errors.vaccine_type}
-                    </Typography>
-                  )}
-                </Grid>
-
-                {/* Column 2 in Table: Batch No. / FIFO Priority */}
-                <Grid size={{ xs: 12, md: 5 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#374151', fontSize: '0.85rem' }}>
-                    Batch / Lot Number <Box component="span" sx={{ color: 'error.main' }}>*</Box>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="e.g. VR-2026-089"
-                    value={form.batch_number}
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      setForm((f) => ({ ...f, batch_number: val }));
-                      setErrors((err) => {
-                        const copy = { ...err };
-                        delete copy.batch_number;
-                        return copy;
-                      });
-                    }}
-                    error={!!errors.batch_number}
-                    helperText={errors.batch_number || 'Earliest expiry is prioritized as FIFO #1 (🟢 USE FIRST).'}
-                    slotProps={{
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <NumbersIcon sx={{ fontSize: 18, color: '#9ca3af' }} />
-                          </InputAdornment>
-                        ),
-                      },
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f9fafb' },
-                      '& input': { fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.5px' },
-                    }}
-                  />
-                </Grid>
-
-                {/* Column 3 in Table: Received From (Source/Supplier) */}
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#374151', fontSize: '0.85rem' }}>
-                    Received From (Source / Issuing Depot) <Box component="span" sx={{ color: 'error.main' }}>*</Box>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="e.g. DOH Central Supply, Regional Health Office X"
-                    value={form.received_from}
-                    onChange={(e) => setForm((f) => ({ ...f, received_from: e.target.value }))}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f9fafb' } }}
-                  />
-                  {/* Quick supplier chips */}
-                  <Stack direction="row" spacing={0.75} sx={{ mt: 1, flexWrap: 'wrap', gap: 0.75 }}>
-                    <Typography variant="caption" sx={{ color: '#6b7280', alignSelf: 'center', fontSize: 11 }}>
-                      Quick Fill:
-                    </Typography>
-                    {COMMON_SUPPLIERS.map((s) => (
-                      <Chip
-                        key={s}
-                        label={s}
-                        size="small"
-                        clickable
-                        onClick={() => setForm((f) => ({ ...f, received_from: s }))}
-                        sx={{
-                          height: 22,
-                          fontSize: 10.5,
-                          bgcolor: form.received_from === s ? '#dcfce7' : '#f3f4f6',
-                          color: form.received_from === s ? '#166534' : '#4b5563',
-                          fontWeight: form.received_from === s ? 700 : 500,
-                          border: form.received_from === s ? '1px solid #86efac' : '1px solid #e5e7eb',
-                        }}
-                      />
-                    ))}
-                  </Stack>
-                </Grid>
-
-                {/* Read-Only Profile Parameters Banner */}
-                {selectedPreset && (
-                  <Grid size={{ xs: 12 }}>
-                    <Box
-                      sx={{
-                        p: 1.75,
-                        bgcolor: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: 2.5,
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.5px' }}>
-                          PULLED PROFILE RULES (READ-ONLY REFERENCE)
-                        </Typography>
-                        <Chip
-                          label={selectedPreset.category || 'Standard'}
-                          size="small"
-                          sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#e0f2fe', color: '#0369a1' }}
-                        />
-                      </Box>
-
-                      <Grid container spacing={1.5}>
-                        <Grid size={{ xs: 12, sm: 4 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                            <CalendarIcon sx={{ fontSize: 16, color: '#0284c7' }} />
-                            <Typography sx={{ fontSize: 12, color: '#334155' }}>
-                              Shelf-Life: <strong>{selectedPreset.default_shelf_life_months} months</strong>
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 4 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                            <TimeIcon sx={{ fontSize: 16, color: '#d97706' }} />
-                            <Typography sx={{ fontSize: 12, color: '#334155' }}>
-                              Open-Vial Discard: <strong>{selectedPreset.default_open_vial_hours ? `${selectedPreset.default_open_vial_hours} hours` : 'Single Dose'}</strong>
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 4 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                            <ColdChainIcon sx={{ fontSize: 16, color: '#059669' }} />
-                            <Typography sx={{ fontSize: 12, color: '#334155' }}>
-                              Cold Chain: <strong>+2°C to +8°C</strong>
-                            </Typography>
-                          </Box>
-                        </Grid>
-
-                        {selectedPreset.dosing_regimen_notes && (
-                          <Grid size={{ xs: 12 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, mt: 0.5 }}>
-                              <RegimenIcon sx={{ fontSize: 15, color: '#64748b', mt: 0.25 }} />
-                              <Typography sx={{ fontSize: 11.5, color: '#475569', lineHeight: 1.35 }}>
-                                Regimen: <em>{selectedPreset.dosing_regimen_notes}</em>
-                              </Typography>
-                            </Box>
-                          </Grid>
-                        )}
-                      </Grid>
-                    </Box>
-                  </Grid>
-                )}
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label={isEdit ? 'Balance' : 'Initial Quantity'}
+                  value={form.quantity}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, quantity: e.target.value }));
+                    setErrors((prev) => ({ ...prev, quantity: '' }));
+                  }}
+                  error={!!errors.quantity}
+                  helperText={errors.quantity || 'Used to compute the read-only Balance value.'}
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+                />
               </Grid>
+
+              <Grid size={{ xs: 12, md: 4 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label="Manufactured Date"
+                  value={form.manufactured_date}
+                  onChange={(e) => {
+                    const manufacturedDate = e.target.value;
+                    setExpirationMode('auto');
+                    setForm((prev) => ({
+                      ...prev,
+                      manufactured_date: manufacturedDate,
+                      expiration_date: manufacturedDate ? addMonthsToDate(manufacturedDate, Number(prev.shelf_life_months) || 0) : '',
+                    }));
+                  }}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  helperText={selectedPreset ? `Auto-adds ${form.shelf_life_months} month(s) from the selected vaccine rule.` : 'Set this to auto-calculate Expiration Date.'}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 3.5 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label="Expiration Date"
+                  value={form.expiration_date}
+                  onChange={(e) => {
+                    setExpirationMode('manual');
+                    setForm((prev) => ({ ...prev, expiration_date: e.target.value }));
+                    setErrors((prev) => ({ ...prev, expiration_date: '' }));
+                  }}
+                  error={!!errors.expiration_date}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  helperText={errors.expiration_date || 'Auto-filled by default. You can override it for exceptions.'}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 1.5 }}>
+                <Box sx={{ p: 1.25, borderRadius: 2, border: `1px solid ${previewStatusVisual.border}`, bgcolor: previewStatusVisual.bg, minHeight: 86 }}>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
+                    <StatusIcon sx={{ fontSize: 15, color: previewStatusVisual.color }} />
+                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: previewStatusVisual.color }}>Status</Typography>
+                  </Stack>
+                  <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: previewStatusVisual.color }}>
+                    {previewStatus}
+                  </Typography>
+                  <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>Derived</Typography>
+                </Box>
+              </Grid>
+            </Grid>
+
+            <Box sx={{ mt: -0.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              {calculatedExpiration && (
+                <Chip
+                  icon={<CalendarIcon sx={{ fontSize: 16 }} />}
+                  label={`${formatDate(calculatedExpiration)} (${describeExpiry(calculatedExpiration).replace('Expires ', '')})`}
+                  sx={{ fontWeight: 700, bgcolor: '#ecfdf5', color: '#047857' }}
+                />
+              )}
+              <Chip
+                icon={<AutoIcon sx={{ fontSize: 16 }} />}
+                label={expirationMode === 'auto' ? 'Auto-calculated expiration is active' : 'Manual expiration override is active'}
+                sx={{ fontWeight: 700, bgcolor: expirationMode === 'auto' ? '#eff6ff' : '#fff7ed', color: expirationMode === 'auto' ? '#1d4ed8' : '#c2410c' }}
+              />
+              {expirationMode === 'manual' && calculatedExpiration && (
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setExpirationMode('auto');
+                    setForm((prev) => ({ ...prev, expiration_date: calculatedExpiration }));
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                >
+                  Use calculated date
+                </Button>
+              )}
             </Box>
 
-            <Divider />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Remarks"
+                  value={form.remarks}
+                  onChange={(e) => setForm((prev) => ({ ...prev, remarks: e.target.value }))}
+                  placeholder="Optional receiving note, invoice, or exception"
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Box sx={{ p: 1.5, borderRadius: 2.5, border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#334155', mb: 0.75 }}>
+                    Coverage estimate
+                  </Typography>
+                  <Typography sx={{ fontSize: 13, color: '#1f2937', lineHeight: 1.5 }}>
+                    {selectedPreset
+                      ? `At ${selectedPreset.regimen_units_per_patient || 1} unit(s) per patient regimen, this batch covers approximately ${coverageEstimate.toFixed(1)} patient regimen(s).`
+                      : 'Select a vaccine type to show the saved regimen-unit rule.'}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: '#64748b', mt: 0.5 }}>
+                    This is for planning only. Actual automatic deduction should happen later in the patient vaccination / administration flow.
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
 
-            {/* ── SECTION 2: Stock Quantity, Manufacturing & Expiration ── */}
             <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.75 }}>
-                <Box sx={{ width: 6, height: 16, bgcolor: '#059669', borderRadius: 1 }} />
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#111827', fontSize: '0.95rem' }}>
-                  2. Stock Quantity, Manufacturing &amp; Expiration
+              <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a', mb: 1.25 }}>
+                Quick source shortcuts
+              </Typography>
+              <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', gap: 0.75 }}>
+                {COMMON_SUPPLIERS.map((supplier) => (
+                  <Chip
+                    key={supplier}
+                    label={supplier}
+                    clickable
+                    onClick={() => setForm((prev) => ({ ...prev, received_from: supplier }))}
+                    sx={{
+                      fontWeight: form.received_from === supplier ? 700 : 500,
+                      bgcolor: form.received_from === supplier ? '#dcfce7' : '#f8fafc',
+                      color: form.received_from === supplier ? '#166534' : '#475569',
+                      border: form.received_from === supplier ? '1px solid #86efac' : '1px solid #e2e8f0',
+                    }}
+                  />
+                ))}
+              </Stack>
+            </Box>
+
+            <Box sx={{ p: 2, borderRadius: 2.5, bgcolor: '#f8fafc', border: '1px solid #dbe3ec' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <PreviewIcon sx={{ fontSize: 18, color: '#059669' }} />
+                <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a' }}>
+                  Live table-row preview
                 </Typography>
               </Box>
 
-              <Grid container spacing={2.5}>
-                {/* Column 4 & 5 in Table: Initial Quantity & Derived Balance */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#374151', fontSize: '0.85rem' }}>
-                    {isEdit ? 'Current Stock Quantity' : 'Initial Stock Received'}{' '}
-                    <Box component="span" sx={{ color: 'error.main' }}>*</Box>
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      size="small"
-                      placeholder="e.g. 100"
-                      value={form.quantity}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setForm((f) => ({ ...f, quantity: val }));
-                        setErrors((err) => {
-                          const copy = { ...err };
-                          delete copy.quantity;
-                          return copy;
-                        });
-                      }}
-                      error={!!errors.quantity}
-                      slotProps={{ htmlInput: { min: 1 } }}
-                      sx={{
-                        '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f9fafb' },
-                        '& input': { fontWeight: 700, fontSize: '1rem', color: '#111827' },
-                      }}
-                    />
-                    <FormControl size="small" sx={{ width: 140 }}>
-                      <Select
-                        value={form.unit}
-                        onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                        sx={{ borderRadius: 2, bgcolor: '#f9fafb' }}
-                      >
-                        {UNIT_OPTIONS.map((u) => (
-                          <MenuItem key={u.value} value={u.value}>
-                            {u.label.split(' ')[0]}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
-
-                  {/* Derived Balance Card */}
-                  <Box
-                    sx={{
-                      mt: 1,
-                      p: 1.25,
-                      borderRadius: 2,
-                      bgcolor: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <Box>
-                      <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
-                        DERIVED BALANCE PREVIEW
-                      </Typography>
-                      <Typography sx={{ fontSize: 14, fontWeight: 800, color: derivedBalance > 0 ? '#059669' : '#94a3b8' }}>
-                        {derivedBalance} {form.unit}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label={`≈ ${derivedBalance * (selectedPreset?.doses_per_vial || 3)} doses`}
-                      size="small"
-                      sx={{ bgcolor: '#ecfdf5', color: '#047857', fontWeight: 700, fontSize: 11 }}
-                    />
-                  </Box>
-                  {errors.quantity && (
-                    <Typography variant="caption" sx={{ color: 'error.main', display: 'block', mt: 0.25 }}>
-                      {errors.quantity}
-                    </Typography>
-                  )}
-                </Grid>
-
-                {/* Column 6 in Table: Manufacturing Date & Auto-Computed Expiration */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#374151', fontSize: '0.85rem' }}>
-                    Manufactured Date (Optional)
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    type="date"
-                    size="small"
-                    value={form.manufactured_date}
-                    onChange={(e) => handleManufacturedDateChange(e.target.value)}
-                    helperText="Used to auto-calculate Expiration Date."
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f9fafb' } }}
-                  />
-
-                  {/* Expiration Date Field */}
-                  <Box sx={{ mt: 1.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}>
-                        Expiration Date <Box component="span" sx={{ color: 'error.main' }}>*</Box>
-                      </Typography>
-                      {expiryBadge && (
-                        <Chip
-                          label={expiryBadge.text}
-                          size="small"
-                          sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: expiryBadge.bg, color: expiryBadge.color }}
-                        />
-                      )}
-                    </Box>
-                    <TextField
-                      fullWidth
-                      type="date"
-                      size="small"
-                      value={form.expiration_date}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setForm((f) => ({ ...f, expiration_date: val }));
-                        setErrors((err) => {
-                          const copy = { ...err };
-                          delete copy.expiration_date;
-                          return copy;
-                        });
-                      }}
-                      error={!!errors.expiration_date}
-                      helperText={errors.expiration_date || 'Auto-calculated from profile shelf-life (editable for exceptions).'}
-                      slotProps={{ inputLabel: { shrink: true } }}
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f9fafb' } }}
-                    />
-                  </Box>
-                </Grid>
-
-                {/* Remarks Field */}
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#374151', fontSize: '0.85rem' }}>
-                    Remarks &amp; Cold-Chain Verification Notes (Optional)
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="e.g. Received in good cold-chain condition at +4.2°C (Invoice #PO-2026-904)"
-                    value={form.remarks}
-                    onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f9fafb' } }}
-                  />
-                </Grid>
-              </Grid>
-            </Box>
-
-            <Divider />
-
-            {/* ── LIVE PREVIEW ROW (Linking Modal Inputs to Inventory Table Output) ── */}
-            <Box
-              sx={{
-                p: 2,
-                borderRadius: 2.5,
-                bgcolor: '#f1f5f9',
-                border: '1px solid #cbd5e1',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <LayersIcon sx={{ fontSize: 18, color: '#059669' }} />
-                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#0f172a' }}>
-                    Live Inventory Table Row Preview
-                  </Typography>
-                </Box>
-                <Chip
-                  label="Matches Table Columns"
-                  size="small"
-                  sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#e2e8f0', color: '#475569' }}
-                />
-              </Box>
-
-              {/* Table Row Miniature */}
               <Box
                 sx={{
-                  bgcolor: '#fff',
-                  borderRadius: 2,
-                  p: 1.5,
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                   display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(7, 1fr)' },
-                  gap: 1.5,
-                  alignItems: 'center',
-                  fontSize: 12,
+                  gridTemplateColumns: { xs: '1fr', lg: '1.3fr 1fr 1fr .7fr .7fr 1.2fr .8fr' },
+                  gap: 1.25,
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: '#fff',
+                  border: '1px solid #e2e8f0',
                 }}
               >
-                {/* 1. Vaccine Type */}
                 <Box>
-                  <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>VACCINE TYPE</Typography>
-                  <Typography sx={{ fontWeight: 700, fontSize: 12, color: '#0f172a', noWrap: true }}>
-                    {form.vaccine_type || '—'}
-                  </Typography>
-                  <Typography sx={{ fontSize: 10, color: '#64748b' }}>Preview ID: #NEW</Typography>
+                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>VACCINE TYPE</Typography>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#0f172a' }}>{form.vaccine_type || '—'}</Typography>
                 </Box>
-
-                {/* 2. Batch + FIFO */}
                 <Box>
-                  <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>BATCH / FIFO</Typography>
-                  <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, color: '#1e293b' }}>
-                    {form.batch_number || '—'}
-                  </Typography>
-                  <Chip label="🟢 USE FIRST" size="small" sx={{ height: 18, fontSize: 9, fontWeight: 800, bgcolor: '#dcfce7', color: '#15803d', mt: 0.25 }} />
+                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>BATCH NO. / FIFO</Typography>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1e293b', fontFamily: 'monospace' }}>{form.batch_number || '—'}</Typography>
+                  <Typography sx={{ fontSize: 10.5, color: '#166534' }}>New active batch joins FIFO order</Typography>
                 </Box>
-
-                {/* 3. Received From */}
                 <Box>
-                  <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>RECEIVED FROM</Typography>
-                  <Typography sx={{ fontSize: 11.5, color: '#334155', fontWeight: 500 }}>
-                    {form.received_from || '—'}
-                  </Typography>
+                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>RECEIVED FROM</Typography>
+                  <Typography sx={{ fontSize: 12, color: '#334155' }}>{form.received_from || '—'}</Typography>
                 </Box>
-
-                {/* 4. Dispensed */}
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>DISPENSED</Typography>
-                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#dc2626' }}>
-                    {derivedDispensed}
-                  </Typography>
-                  <Typography sx={{ fontSize: 9.5, color: '#94a3b8' }}>vials</Typography>
-                </Box>
-
-                {/* 5. Balance */}
-                <Box sx={{ textAlign: 'center', p: 0.75, bgcolor: '#ecfdf5', borderRadius: 1.5, border: '1px solid #86efac' }}>
-                  <Typography sx={{ fontSize: 9.5, color: '#047857', fontWeight: 700 }}>BALANCE</Typography>
-                  <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#059669' }}>
-                    {derivedBalance}
-                  </Typography>
-                  <Typography sx={{ fontSize: 9, color: '#64748b' }}>vials</Typography>
-                </Box>
-
-                {/* 6. Expiration */}
                 <Box>
-                  <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>EXPIRATION</Typography>
-                  <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: '#334155' }}>
-                    {form.expiration_date || '—'}
-                  </Typography>
-                  {expiryBadge && (
-                    <Typography sx={{ fontSize: 10, fontWeight: 700, color: expiryBadge.color }}>
-                      {expiryBadge.text.split('(')[0]}
-                    </Typography>
-                  )}
+                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>DISPENSED</Typography>
+                  <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#dc2626' }}>{dispensed}</Typography>
                 </Box>
-
-                {/* 7. Status */}
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>STATUS</Typography>
+                <Box>
+                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>BALANCE</Typography>
+                  <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#059669' }}>{balance || 0}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>EXPIRATION</Typography>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#334155' }}>{form.expiration_date ? formatDate(form.expiration_date) : '—'}</Typography>
+                  <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>{form.expiration_date ? describeExpiry(form.expiration_date) : 'Pending expiration'}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>STATUS</Typography>
                   <Chip
-                    label={derivedStatus}
+                    label={previewStatus}
                     size="small"
                     sx={{
-                      height: 20,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      bgcolor: derivedStatus === 'Active' ? '#ecfdf5' : '#fef3c7',
-                      color: derivedStatus === 'Active' ? '#059669' : '#b45309',
                       mt: 0.25,
+                      fontWeight: 800,
+                      bgcolor: previewStatusVisual.bg,
+                      color: previewStatusVisual.color,
+                      border: `1px solid ${previewStatusVisual.border}`,
                     }}
                   />
                 </Box>
               </Box>
             </Box>
-
           </Stack>
         </DialogContent>
 
-        <Divider />
-
-        <DialogActions sx={{ px: 3.5, py: 2, bgcolor: '#f8fafc', justifyContent: 'space-between' }}>
-          <Button
-            onClick={onClose}
-            variant="outlined"
-            color="inherit"
-            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}
-          >
+        <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Button onClick={onClose} variant="outlined" color="inherit" sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>
             Cancel
           </Button>
 
-          <Tooltip
-            title={!isFormValid ? 'Please fill in Vaccine Type, Batch Number, Quantity, and valid Expiration Date' : ''}
-          >
-            <span>
-              <Button
-                onClick={handleSubmit}
-                variant="contained"
-                disabled={!isFormValid || saving}
-                startIcon={saving ? <CircularProgress size={16} color="inherit" /> : isEdit ? <CheckIcon /> : <AddIcon />}
-                sx={{
-                  bgcolor: '#059669',
-                  '&:hover': { bgcolor: '#047857' },
-                  textTransform: 'none',
-                  borderRadius: 2,
-                  px: 3,
-                  fontWeight: 700,
-                  boxShadow: '0 2px 8px rgba(5,150,105,0.3)',
-                }}
-              >
-                {saving ? 'Saving…' : isEdit ? 'Update Vaccine Record' : 'Add to Inventory'}
-              </Button>
-            </span>
-          </Tooltip>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+            {!!submitDisabledReason && (
+              <Typography sx={{ fontSize: 12, color: '#b45309', maxWidth: 420, textAlign: 'right' }}>
+                Add to Inventory is disabled: {submitDisabledReason}
+              </Typography>
+            )}
+            <Button
+              onClick={handleSubmit}
+              variant="contained"
+              disabled={!!submitDisabledReason || saving}
+              startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
+              sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 2, px: 3, bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}
+            >
+              {saving ? 'Saving…' : isEdit ? 'Save batch changes' : 'Add to Inventory'}
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
 
-      {/* ── Sub-Modal: Unified Vaccine Type Profile Dialog ── */}
       {typeDialogOpen && (
         <VaccineTypeDialog
           open={typeDialogOpen}
           onClose={() => setTypeDialogOpen(false)}
           onSaved={(created) => {
-            fetchPresets();
-            handleVaccineTypeSelect(created.vaccine_name);
+            const nextPreset = created as VaccineTypePreset;
+            setPresets((prev) => {
+              const withoutOld = prev.filter((preset) => preset.vaccine_name !== nextPreset.vaccine_name);
+              return [...withoutOld, nextPreset].sort((a, b) => a.vaccine_name.localeCompare(b.vaccine_name));
+            });
+            handleVaccineTypeSelect(nextPreset.vaccine_name);
             setTypeDialogOpen(false);
           }}
-        />
-      )}
-
-      {/* Confirmation Dialogs */}
-      {showConfirm && (
-        <ConfirmationDialog
-          variant="confirm"
-          colorVariant="success"
-          title={isEdit ? 'Update Vaccine Inventory Record?' : 'Add New Vaccine Stock?'}
-          message={`Are you sure you want to ${isEdit ? 'update' : 'add'} ${form.vaccine_type || 'this vaccine'} (Batch: ${form.batch_number}) with ${form.quantity} ${form.unit} to clinic inventory?`}
-          confirmLabel={isEdit ? 'Yes, Update' : 'Yes, Add Stock'}
-          onConfirm={() => {
-            setShowConfirm(false);
-            handleSubmit();
-          }}
-          onCancel={() => setShowConfirm(false)}
-        />
-      )}
-
-      {showCancelConfirm && (
-        <ConfirmationDialog
-          variant="warning"
-          colorVariant="warning"
-          title="Discard Unsaved Changes?"
-          message="You have unsaved stock details. Are you sure you want to close without saving?"
-          confirmLabel="Discard & Close"
-          onConfirm={() => {
-            setShowCancelConfirm(false);
-            onClose();
-          }}
-          onCancel={() => setShowCancelConfirm(false)}
         />
       )}
     </>

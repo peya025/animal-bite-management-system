@@ -26,7 +26,6 @@ import {
   LocalHospital as ClinicIcon,
 } from '@mui/icons-material';
 import type { InventoryItem } from '../../types';
-import { DEMO_CLINICS } from '../../data/inventoryDemoData';
 import ConfirmationDialog from '../../../../components/feedback/ConfirmationDialog';
 
 // ─── Types & Interfaces ───────────────────────────────────────
@@ -219,8 +218,10 @@ export default function StockCardFileManager({
 
   const activeClinic = useMemo(() => {
     return {
-      ...DEMO_CLINICS[0],
+      clinic_id: 1,
       name: 'Tagoloan Animal Bite Treatment Center',
+      code: 'ABTC-TAGOLOAN',
+      address: 'Tagoloan, Misamis Oriental',
     };
   }, []);
 

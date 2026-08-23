@@ -168,6 +168,23 @@ export interface QueueStats {
 
 export type InventoryStatus = 'active' | 'expired' | 'deleted';
 
+export interface VaccineTypePreset {
+  id?: number;
+  clinic_id?: number;
+  vaccine_name: string;
+  category?: string;
+  default_shelf_life_months: number;
+  default_open_vial_hours?: number | null;
+  storage_temperature_notes?: string;
+  dosing_regimen_notes?: string;
+  administration_route?: string;
+  is_multidose?: boolean;
+  doses_per_vial?: number;
+  active_batches_count?: number;
+  total_stock?: number;
+  total_dispensed?: number;
+}
+
 export interface InventoryItem {
   inventory_id: number;
   clinic_id: number;
@@ -181,6 +198,16 @@ export interface InventoryItem {
   transactions_count?: number;
   is_fifo_priority?: boolean;
   fifo_rank?: number | null;
+  // Additional computed and metadata fields from backend
+  total_dispensed?: number;
+  received_from?: string;
+  manufactured_date?: string;
+  shelf_life_months?: number;
+  open_vial_hours?: number;
+  cold_chain_notes?: string;
+  opened_at?: string;
+  open_vial_discard_at?: string;
+  open_vial_status?: 'unopened' | 'opened' | 'discarded' | 'depleted';
 }
 
 export interface InventoryStats {

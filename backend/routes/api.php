@@ -246,9 +246,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [TagoloanTreatmentCardController::class, 'store']);
     });
 
-    // Vaccine names lookup — accessible to all authenticated staff for form dropdowns
+    // Vaccine names & presets lookup — accessible to all authenticated staff for form dropdowns
     Route::get('/inventory/vaccine-names', [VaccineInventoryController::class, 'vaccineNames']);
+    Route::get('/inventory/presets', [VaccineInventoryController::class, 'presets']);
+    Route::post('/inventory/presets', [VaccineInventoryController::class, 'storePreset']);
+    Route::put('/inventory/presets/{id}', [VaccineInventoryController::class, 'updatePreset']);
+    Route::delete('/inventory/presets/{id}', [VaccineInventoryController::class, 'deletePreset']);
     Route::get('/inventory/fifo-recommendations', [VaccineInventoryController::class, 'fifoRecommendations']);
+    Route::get('/inventory/next-fifo-batch', [VaccineInventoryController::class, 'getNextFifoBatch']);
+    Route::post('/inventory/validate-fifo', [VaccineInventoryController::class, 'validateFifoBatch']);
+    Route::post('/inventory/use-vaccine', [VaccineInventoryController::class, 'useVaccine']);
 
     // Vaccine Inventory (accessible to clinic staff & admins)
     Route::prefix('inventory')->middleware('role:admin,treatment,nurse,doctor,staff,developer,triage,registration')->group(function () {
@@ -259,6 +266,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [VaccineInventoryController::class, 'update']);
         Route::delete('/{id}', [VaccineInventoryController::class, 'destroy']);
         Route::post('/{id}/adjust', [VaccineInventoryController::class, 'adjustStock']);
+        Route::post('/{id}/open-vial', [VaccineInventoryController::class, 'openVial']);
+        Route::post('/{id}/discard-vial', [VaccineInventoryController::class, 'discardVial']);
         Route::get('/{id}/transactions', [VaccineInventoryController::class, 'transactions']);
     });
 

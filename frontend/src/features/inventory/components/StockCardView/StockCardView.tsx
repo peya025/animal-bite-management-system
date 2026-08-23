@@ -12,7 +12,8 @@ import {
 } from '@mui/icons-material';
 import type { InventoryItem } from '../../types';
 import { formatDate } from '../../../../shared/utils';
-import { DEMO_TRANSACTIONS_MAP, DEMO_CLINICS } from '../../data/inventoryDemoData';
+import api from '../../../../services/api';
+import { useAuth } from '../../../../shared/contexts/AuthContext';
 import StockCardFileManager from './StockCardFileManager';
 
 // ─── Constants ────────────────────────────────────────────────
@@ -46,70 +47,48 @@ function mapTx(tx: Transaction) {
 
 // ─── Single Stock Card Table Component ────────────────────────
 
-export function SingleStockCardTable({ item, isDemo = false }: { item: InventoryItem; isDemo?: boolean }) {
+export function SingleStockCardTable({ item }: { item: InventoryItem }) {
+  const { clinic: authClinic } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState<number>(6); // Default to July (index 6)
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [fileManagerOpen, setFileManagerOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const clinic = DEMO_CLINICS.find(c => c.clinic_id === item.clinic_id) || DEMO_CLINICS[0];
+  const clinic = {
+    clinic_id: item.clinic_id || authClinic?.id || 1,
+    name: authClinic?.name || 'Animal Bite Treatment Center',
+    code: authClinic?.clinic_code || 'ABTC',
+    address: authClinic?.address || '',
+  };
 
   useEffect(() => {
+    if (!item?.inventory_id) return;
     setLoading(true);
-    setTransactions(DEMO_TRANSACTIONS_MAP[item.inventory_id] ?? []);
-    setLoading(false);
-  }, [item.inventory_id]);
+    api.get(`/inventory/${item.inventory_id}/transactions`)
+      .then(res => {
+        setTransactions(res.data?.transactions ?? []);
+      })
+      .catch(() => {
+        setTransactions([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [item?.inventory_id]);
 
   const monthName = MONTH_NAMES[selectedMonth];
   const monthYear = `${monthName} ${selectedYear}`;
   const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
 
-  // Filter or generate transactions for the selected month
-  const activeTxList = (transactions.length > 0 ? transactions : DEMO_TRANSACTIONS_MAP[item.inventory_id] ?? []);
-
-  let monthlyTx = activeTxList.filter(tx => {
+  // Filter transactions for the selected month
+  const monthlyTx = transactions.filter(tx => {
     const d = new Date(tx.transaction_date);
-    return d.getMonth() === selectedMonth;
+    return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
   });
-
-  if (isDemo && monthlyTx.length === 0) {
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const mStr = pad(selectedMonth + 1);
-    monthlyTx = [
-      {
-        transaction_id: item.inventory_id * 1000 + selectedMonth * 10 + 1,
-        transaction_type: 'received',
-        quantity: 50 + ((selectedMonth * 7) % 30),
-        transaction_date: `${selectedYear}-${mStr}-02T08:30:00Z`,
-        remarks: 'Central Supply Delivery',
-        staff: { name: 'Admin Staff' },
-      },
-      {
-        transaction_id: item.inventory_id * 1000 + selectedMonth * 10 + 2,
-        transaction_type: 'used',
-        quantity: 5 + (selectedMonth % 4),
-        transaction_date: `${selectedYear}-${mStr}-09T10:15:00Z`,
-        remarks: 'Routine Vaccination',
-      },
-      {
-        transaction_id: item.inventory_id * 1000 + selectedMonth * 10 + 3,
-        transaction_type: 'used',
-        quantity: 8 + (selectedMonth % 3),
-        transaction_date: `${selectedYear}-${mStr}-17T14:00:00Z`,
-        remarks: 'Outbreak Response',
-      },
-      {
-        transaction_id: item.inventory_id * 1000 + selectedMonth * 10 + 4,
-        transaction_type: 'used',
-        quantity: 6,
-        transaction_date: `${selectedYear}-${mStr}-24T11:45:00Z`,
-        remarks: 'Clinic Dispensation',
-      },
-    ];
-  }
 
   // Build day rows for daysInMonth with running balance
   const dayRows: Array<{
@@ -798,10 +777,9 @@ export function SingleStockCardTable({ item, isDemo = false }: { item: Inventory
 interface StockCardViewProps {
   items: InventoryItem[];
   loading: boolean;
-  isDemo?: boolean;
 }
 
-export default function StockCardView({ items, loading, isDemo: _isDemo = false }: StockCardViewProps) {
+export default function StockCardView({ items, loading }: StockCardViewProps) {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>

@@ -8,4 +8,5 @@ export type {
   InventoryStats,
   InventoryTransaction,
   InventoryStatus,
+  VaccineTypePreset,
 } from '../../../shared/types';

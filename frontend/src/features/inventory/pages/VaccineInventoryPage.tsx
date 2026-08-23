@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Alert, Box, IconButton, Snackbar, Stack, Tooltip, Typography, Chip,
+  Alert, Box, IconButton, Snackbar, Stack, Tooltip, Typography, Chip, Tabs, Tab,
 } from '@mui/material';
-import { Refresh as RefreshIcon, Science as DemoIcon, LocalHospital as ClinicIcon } from '@mui/icons-material';
+import { Refresh as RefreshIcon, LocalHospital as ClinicIcon, VerifiedUser as VerifiedIcon } from '@mui/icons-material';
 import api from '../../../services/api';
+import { useAuth } from '../../../shared/contexts/AuthContext';
 import StatCard from '../../../components/common/StatCard';
 import AddEditInventoryDialog from '../components/AddEditInventoryDialog/AddEditInventoryDialog';
 import AdjustStockDialog from '../components/AdjustStockDialog/AdjustStockDialog';
@@ -11,55 +12,49 @@ import TransactionHistoryDialog from '../components/TransactionHistoryDialog/Tra
 import DeleteDialog from '../components/DeleteDialog/DeleteDialog';
 import InventoryTable from '../components/InventoryTable/InventoryTable';
 import StockCardView from '../components/StockCardView/StockCardView';
-import { DEMO_INVENTORY_ITEMS, DEMO_CLINICS } from '../data/inventoryDemoData';
+import FifoComplianceReport from '../components/FifoComplianceReport/FifoComplianceReport';
+import VaccineTypesCatalog from '../components/VaccineTypesCatalog/VaccineTypesCatalog';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import type { InventoryItem } from '../types';
 
-// ─── Types ────────────────────────────────────────────────────
-interface InventoryItem {
-  inventory_id: number;
-  clinic_id: number;
-  vaccine_type: string;
-  batch_number: string;
-  current_quantity: number;
-  expiration_date: string;
-  status: 'active' | 'expired' | 'deleted';
-  created_at: string;
-  updated_at: string;
-  transactions_count?: number;
-}
-interface InventoryStats {
-  total_batches: number;
-  active_batches: number;
-  depleted_batches: number;
-  expired_batches: number;
-  total_stock: number;
-  expiring_soon: number;
-  low_stock: number;
-}
+// ─── Component ────────────────────────────────────────────────
 
-// ─── Main Component ───────────────────────────────────────────
 export default function VaccineInventory() {
-  const [items, setItems]               = useState<InventoryItem[]>(DEMO_INVENTORY_ITEMS);
-  const [stats, setStats]               = useState<InventoryStats | null>(null);
-  const [loading, setLoading]           = useState(false);
+  const { clinic } = useAuth();
+
+  const [items, setItems]               = useState<InventoryItem[]>([]);
+  const [stats, setStats]               = useState<{
+    total_batches: number;
+    active_batches: number;
+    depleted_batches: number;
+    expired_batches: number;
+    total_stock: number;
+    expiring_soon: number;
+    low_stock: number;
+  } | null>(null);
+
+  const [loading, setLoading]           = useState(true);
   const [page, setPage]                 = useState(0);
   const [rowsPerPage, setRowsPerPage]   = useState(15);
-  const [total, setTotal]               = useState(DEMO_INVENTORY_ITEMS.length);
+  const [total, setTotal]               = useState(0);
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [batchFilter, setBatchFilter]   = useState('');
   const [expiryFrom, setExpiryFrom]     = useState('');
   const [expiryTo, setExpiryTo]         = useState('');
-  const [selectedClinicId] = useState<number>(0); // 0 = All Clinics
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
   const [addOpen,     setAddOpen]     = useState(false);
   const [editItem,    setEditItem]    = useState<InventoryItem | null>(null);
+  const [initialVaccineType, setInitialVaccineType] = useState<string>('');
   const [adjustItem,  setAdjustItem]  = useState<InventoryItem | null>(null);
   const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
   const [deleteItem,  setDeleteItem]  = useState<InventoryItem | null>(null);
-  const [view, setView]               = useState<'table' | 'stockcard'>('table');
+  const [openVialTarget, setOpenVialTarget] = useState<InventoryItem | null>(null);
+  const [discardVialTarget, setDiscardVialTarget] = useState<InventoryItem | null>(null);
+  const [view, setView]               = useState<'table' | 'catalog' | 'stockcard' | 'fifo'>('table');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -68,86 +63,94 @@ export default function VaccineInventory() {
         params: {
           status: statusFilter || undefined,
           vaccine_type: search || undefined,
+          per_page: 100,
         },
       });
-      const liveItems = res.data?.data || res.data || [];
-      if (Array.isArray(liveItems) && liveItems.length > 0) {
-        let filtered = [...liveItems];
-        if (batchFilter) {
-          filtered = filtered.filter(i => (i.batch_number || '').toLowerCase().includes(batchFilter.toLowerCase()));
-        }
-        setItems(filtered);
-        setTotal(res.data?.total || filtered.length);
-      } else {
-        // Fallback to sample items if live table has not been populated yet
-        let filtered = [...DEMO_INVENTORY_ITEMS];
-        if (selectedClinicId > 0) {
-          filtered = filtered.filter(i => i.clinic_id === selectedClinicId);
-        }
-        if (search) {
-          filtered = filtered.filter(i => i.vaccine_type.toLowerCase().includes(search.toLowerCase()));
-        }
-        if (statusFilter) {
-          filtered = filtered.filter(i => i.status === statusFilter);
-        }
-        if (batchFilter) {
-          filtered = filtered.filter(i => i.batch_number.toLowerCase().includes(batchFilter.toLowerCase()));
-        }
-        setItems(filtered);
-        setTotal(filtered.length);
-      }
-    } catch {
-      let filtered = [...DEMO_INVENTORY_ITEMS];
-      if (selectedClinicId > 0) {
-        filtered = filtered.filter(i => i.clinic_id === selectedClinicId);
-      }
-      if (search) {
-        filtered = filtered.filter(i => i.vaccine_type.toLowerCase().includes(search.toLowerCase()));
-      }
-      if (statusFilter) {
-        filtered = filtered.filter(i => i.status === statusFilter);
-      }
+      const liveItems: InventoryItem[] = res.data?.data || res.data || [];
+      let filtered = Array.isArray(liveItems) ? [...liveItems] : [];
       if (batchFilter) {
-        filtered = filtered.filter(i => i.batch_number.toLowerCase().includes(batchFilter.toLowerCase()));
+        filtered = filtered.filter(i => (i.batch_number || '').toLowerCase().includes(batchFilter.toLowerCase()));
       }
       setItems(filtered);
-      setTotal(filtered.length);
+      setTotal(res.data?.total || filtered.length);
+    } catch (err: any) {
+      setItems([]);
+      setTotal(0);
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || 'Failed to load vaccine inventory from server',
+        severity: 'error',
+      });
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, batchFilter, selectedClinicId]);
+  }, [search, statusFilter, batchFilter]);
 
   const loadStats = useCallback(async () => {
     try {
       const res = await api.get('/inventory/statistics');
       if (res.data && res.data.total_batches !== undefined) {
         setStats(res.data);
-        return;
       }
-    } catch {
-      // Fallback
+    } catch (err: any) {
+      if (items.length > 0) {
+        setStats({
+          total_batches: items.length,
+          active_batches: items.filter(i => i.status === 'active').length,
+          depleted_batches: items.filter(i => i.current_quantity === 0).length,
+          expired_batches: items.filter(i => i.status === 'expired').length,
+          total_stock: items.reduce((sum, i) => sum + i.current_quantity, 0),
+          expiring_soon: 0,
+          low_stock: 0,
+        });
+      } else {
+        setStats({
+          total_batches: 0,
+          active_batches: 0,
+          depleted_batches: 0,
+          expired_batches: 0,
+          total_stock: 0,
+          expiring_soon: 0,
+          low_stock: 0,
+        });
+      }
     }
+  }, [items]);
 
-    const activePool = selectedClinicId > 0
-      ? DEMO_INVENTORY_ITEMS.filter(i => i.clinic_id === selectedClinicId)
-      : DEMO_INVENTORY_ITEMS;
+  const handleConfirmOpenVial = async () => {
+    if (!openVialTarget) return;
+    try {
+      await api.post(`/inventory/${openVialTarget.inventory_id}/open-vial`, {
+        open_vial_hours: openVialTarget.open_vial_hours || 6,
+      });
+      showSuccess(`Vial marked OPENED. Discard countdown started.`);
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.response?.data?.message || 'Failed to mark vial as opened', severity: 'error' });
+    } finally {
+      setOpenVialTarget(null);
+    }
+  };
 
-    setStats({
-      total_batches: activePool.length,
-      active_batches: activePool.filter(i => i.status === 'active').length,
-      depleted_batches: activePool.filter(i => i.current_quantity === 0).length,
-      expired_batches: activePool.filter(i => i.status === 'expired').length,
-      total_stock: activePool.reduce((sum, i) => sum + i.current_quantity, 0),
-      expiring_soon: 0,
-      low_stock: 0,
-    });
-  }, [selectedClinicId]);
+  const handleConfirmDiscardVial = async () => {
+    if (!discardVialTarget) return;
+    try {
+      await api.post(`/inventory/${discardVialTarget.inventory_id}/discard-vial`, {
+        reason: 'Marked empty / discard timer elapsed',
+      });
+      showSuccess(`Open vial cleared and discarded.`);
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.response?.data?.message || 'Failed to discard open vial', severity: 'error' });
+    } finally {
+      setDiscardVialTarget(null);
+    }
+  };
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { loadStats(); }, [loadStats]);
 
   const showSuccess = (msg: string) => {
     setSnackbar({ open: true, message: msg, severity: 'success' });
+    loadData();
     loadStats();
   };
 
@@ -161,7 +164,7 @@ export default function VaccineInventory() {
               Vaccine Inventory
             </Typography>
             <Chip
-              icon={<DemoIcon style={{ fontSize: 16 }} />}
+              icon={<VerifiedIcon style={{ fontSize: 16 }} />}
               label="Standardized ABTC System"
               color="success"
               variant="outlined"
@@ -189,7 +192,7 @@ export default function VaccineInventory() {
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.25, mt: 1.25, px: 1.5, py: 0.65, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 2 }}>
             <ClinicIcon sx={{ color: '#059669', fontSize: 18 }} />
             <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#166534' }}>
-              Facility: {selectedClinicId === 0 ? DEMO_CLINICS[0].name : (DEMO_CLINICS.find(c => c.clinic_id === selectedClinicId)?.name || DEMO_CLINICS[0].name)}
+              Facility: {clinic?.name || 'Tagoloan Animal Bite Treatment Center'}
             </Typography>
             <Chip label="Independent ABTC Facility" size="small" sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#dcfce7', color: '#15803d' }} />
             <Chip label="⚡ FIFO / FEFO Enforced" size="small" sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }} />
@@ -197,53 +200,32 @@ export default function VaccineInventory() {
         </Box>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* View toggle */}
-          <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: 1, overflow: 'hidden' }}>
-            <Tooltip title="Inventory List View">
-              <IconButton
-                size="small"
-                onClick={() => setView('table')}
-                sx={{
-                  borderRadius: 0, px: 1.5,
-                  background: view === 'table' ? '#10b981' : '#fff',
-                  color: view === 'table' ? '#fff' : '#6b7280',
-                  '&:hover': { background: view === 'table' ? '#059669' : '#f3f4f6' },
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <path d="M3 9h18M3 15h18M9 3v18"/>
-                </svg>
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Official Stock Card Table View">
-              <IconButton
-                size="small"
-                onClick={() => setView('stockcard')}
-                sx={{
-                  borderRadius: 0, px: 1.5,
-                  borderLeft: '1px solid #e5e7eb',
-                  background: view === 'stockcard' ? '#10b981' : '#fff',
-                  color: view === 'stockcard' ? '#fff' : '#6b7280',
-                  '&:hover': { background: view === 'stockcard' ? '#059669' : '#f3f4f6' },
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="16" y1="13" x2="8" y2="13"/>
-                  <line x1="16" y1="17" x2="8" y2="17"/>
-                </svg>
-              </IconButton>
-            </Tooltip>
-          </Box>
+          {/* View toggle with Tabs */}
+          <Tabs
+            value={view}
+            onChange={(_, newValue) => setView(newValue)}
+            sx={{
+              minHeight: 36,
+              '& .MuiTab-root': {
+                minHeight: 36,
+                fontSize: 12,
+                fontWeight: 600,
+                textTransform: 'none',
+                px: 2,
+              },
+            }}
+          >
+            <Tab label="📋 Inventory Batches" value="table" />
+            <Tab label="💉 Vaccine Types Catalog" value="catalog" />
+            <Tab label="📄 Stock Card" value="stockcard" />
+            <Tab label="✓ FIFO Compliance" value="fifo" />
+          </Tabs>
 
           <Tooltip title="Refresh">
             <IconButton onClick={loadData} disabled={loading}><RefreshIcon /></IconButton>
           </Tooltip>
           <button
-            onClick={() => setAddOpen(true)}
+            onClick={() => { setInitialVaccineType(''); setEditItem(null); setAddOpen(true); }}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '9px 18px',
               background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
@@ -257,58 +239,60 @@ export default function VaccineInventory() {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            Add Stock
+            Add Stock Batch
           </button>
         </Stack>
       </Box>
 
       {/* ── FIFO Protocol Notice Banner ── */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 1.5,
-          p: 1.5,
-          mb: 2.5,
-          bgcolor: '#f0fdf4',
-          border: '1px solid #bbf7d0',
-          borderRadius: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-          <Box
-            sx={{
-              width: 28,
-              height: 28,
-              borderRadius: 1.5,
-              bgcolor: '#059669',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: 13,
-            }}
-          >
-            ✓
+      {view === 'table' && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            p: 1.5,
+            mb: 2.5,
+            bgcolor: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            borderRadius: 2,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box
+              sx={{
+                width: 28,
+                height: 28,
+                borderRadius: 1.5,
+                bgcolor: '#059669',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 800,
+                fontSize: 13,
+              }}
+            >
+              ✓
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>
+                First In, First Out (FIFO / FEFO) Protocol Active
+              </Typography>
+              <Typography sx={{ fontSize: 11.5, color: '#047857' }}>
+                Oldest and earliest-expiring vaccine batches are automatically prioritized for clinical use (marked with 🟢 <strong>FIFO: USE FIRST</strong>).
+              </Typography>
+            </Box>
           </Box>
-          <Box>
-            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>
-              First In, First Out (FIFO / FEFO) Protocol Active
-            </Typography>
-            <Typography sx={{ fontSize: 11.5, color: '#047857' }}>
-              Oldest and earliest-expiring vaccine batches are automatically prioritized for clinical use (marked with 🟢 <strong>FIFO: USE FIRST</strong>).
-            </Typography>
-          </Box>
+          <Chip
+            label="Auto-Sorted by Earliest Expiry"
+            size="small"
+            sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#dcfce7', color: '#166534' }}
+          />
         </Box>
-        <Chip
-          label="Auto-Sorted by Earliest Expiry"
-          size="small"
-          sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#dcfce7', color: '#166534' }}
-        />
-      </Box>
+      )}
 
       {/* ── Stats Cards (Fills space evenly across both sides) ── */}
       {view === 'table' && (
@@ -333,7 +317,7 @@ export default function VaccineInventory() {
         </Box>
       )}
 
-      {/* ── Table or Official Stock Card View ── */}
+      {/* ── Main Views: Batches Table | Vaccine Type Catalog | Stock Card | FIFO Report ── */}
       {view === 'table' ? (
         <InventoryTable
           items={items} loading={loading} page={page} rowsPerPage={rowsPerPage} total={total}
@@ -345,31 +329,85 @@ export default function VaccineInventory() {
           onRowsPerPageChange={setRowsPerPage} onEdit={setEditItem}
           onAdjust={setAdjustItem} onHistory={setHistoryItem}
           onDelete={setDeleteItem}
+          onOpenVial={setOpenVialTarget}
+          onDiscardVial={setDiscardVialTarget}
           onViewStockCard={() => setView('stockcard')}
-          onAddFirst={() => setAddOpen(true)}
+          onAddFirst={() => { setInitialVaccineType(''); setAddOpen(true); }}
         />
+      ) : view === 'catalog' ? (
+        <VaccineTypesCatalog
+          onStockBatch={(vaccineType) => {
+            setInitialVaccineType(vaccineType);
+            setEditItem(null);
+            setAddOpen(true);
+          }}
+        />
+      ) : view === 'stockcard' ? (
+        <StockCardView items={items} loading={loading} />
       ) : (
-        <StockCardView items={items} loading={loading} isDemo={true} />
+        <FifoComplianceReport />
       )}
 
       {/* ── Dialogs ── */}
       <AddEditInventoryDialog
-        open={addOpen || !!editItem} editItem={editItem}
-        onClose={() => { setAddOpen(false); setEditItem(null); }}
+        open={addOpen || !!editItem}
+        editItem={editItem}
+        initialVaccineType={initialVaccineType}
+        onClose={() => { setAddOpen(false); setEditItem(null); setInitialVaccineType(''); }}
         onSaved={() => { loadData(); showSuccess(editItem ? 'Inventory updated successfully' : 'Stock added successfully'); }}
       />
-      <AdjustStockDialog open={!!adjustItem} item={adjustItem} onClose={() => setAdjustItem(null)}
-        onSaved={() => { loadData(); showSuccess('Stock adjusted successfully'); }} />
-      <TransactionHistoryDialog open={!!historyItem} item={historyItem} onClose={() => setHistoryItem(null)} />
-      <DeleteDialog open={!!deleteItem} item={deleteItem} onClose={() => setDeleteItem(null)}
-        onDeleted={() => { loadData(); showSuccess('Inventory record deleted'); }} />
+      <AdjustStockDialog
+        open={!!adjustItem}
+        item={adjustItem}
+        onClose={() => setAdjustItem(null)}
+        onSaved={() => { loadData(); showSuccess('Stock adjusted successfully'); }}
+      />
+      <TransactionHistoryDialog
+        open={!!historyItem}
+        item={historyItem}
+        onClose={() => setHistoryItem(null)}
+      />
+      <DeleteDialog
+        open={!!deleteItem}
+        item={deleteItem}
+        onClose={() => setDeleteItem(null)}
+        onDeleted={() => { loadData(); showSuccess('Inventory record deleted'); }}
+      />
+
+      {/* Mark Vial Opened Confirmation Dialog */}
+      {openVialTarget && (
+        <ConfirmationDialog
+          variant="warning"
+          colorVariant="warning"
+          title="Mark Vial OPENED?"
+          message={`Are you opening a vial of ${openVialTarget.vaccine_type} (Batch: ${openVialTarget.batch_number})? This will start a ${openVialTarget.open_vial_hours || 6}-hour discard countdown.`}
+          confirmLabel="Yes, Start Countdown"
+          onConfirm={handleConfirmOpenVial}
+          onCancel={() => setOpenVialTarget(null)}
+        />
+      )}
+
+      {/* Clear / Discard Open Vial Confirmation Dialog */}
+      {discardVialTarget && (
+        <ConfirmationDialog
+          variant="danger"
+          colorVariant="danger"
+          title="Discard / Close Open Vial?"
+          message={`Mark the opened vial of ${discardVialTarget.vaccine_type} (Batch: ${discardVialTarget.batch_number}) as empty or discarded?`}
+          confirmLabel="Yes, Mark Discarded"
+          onConfirm={handleConfirmDiscardVial}
+          onCancel={() => setDiscardVialTarget(null)}
+        />
+      )}
 
       {/* ── Snackbar ── */}
-      <Snackbar open={snackbar.open} autoHideDuration={4000}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
         onClose={() => setSnackbar(s => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        <Alert severity={snackbar.severity} variant="filled"
-          onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity={snackbar.severity} variant="filled" onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
           {snackbar.message}
         </Alert>
       </Snackbar>

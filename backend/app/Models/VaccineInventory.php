@@ -16,6 +16,14 @@ class VaccineInventory extends Model
         'clinic_id',
         'vaccine_type',
         'batch_number',
+        'received_from',
+        'manufactured_date',
+        'shelf_life_months',
+        'open_vial_hours',
+        'cold_chain_notes',
+        'opened_at',
+        'open_vial_discard_at',
+        'open_vial_status',
         'current_quantity',
         'expiration_date',
         'status',
@@ -24,6 +32,11 @@ class VaccineInventory extends Model
     protected $casts = [
         'current_quantity' => 'integer',
         'expiration_date' => 'date',
+        'manufactured_date' => 'date',
+        'opened_at' => 'datetime',
+        'open_vial_discard_at' => 'datetime',
+        'shelf_life_months' => 'integer',
+        'open_vial_hours' => 'integer',
     ];
 
     /**

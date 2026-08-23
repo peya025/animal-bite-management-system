@@ -1,7 +1,8 @@
-import { Box, Chip, Paper, Tooltip, IconButton, Typography } from '@mui/material';
+import { useState } from 'react';
+import { Box, Chip, Paper, Tooltip, IconButton, Typography, Collapse } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon, ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons';
 import type { QueueEntry } from '../types';
 import { CATEGORY_LABEL, STATUS_CFG, VISIT_LABEL } from '../types';
 import { buildRoute, ROUTES } from '../../../shared/config/routes';
@@ -21,6 +22,7 @@ function completionTime(entry: QueueEntry): string {
 
 export function TreatmentCompletedPanel({ entries, loading }: TreatmentCompletedPanelProps) {
   const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(false);
 
   if (!loading && entries.length === 0) return null;
 
@@ -31,50 +33,45 @@ export function TreatmentCompletedPanel({ entries, loading }: TreatmentCompleted
   });
 
   return (
-    <Paper elevation={0} sx={{ border: '1px solid #bbf7d0', borderRadius: 3, overflow: 'hidden', mt: 3 }}>
+    <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', mt: 3, mb: 3 }}>
       <Box
+        onClick={() => setExpanded(!expanded)}
         sx={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          px: 3,
-          py: 2,
-          background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-          borderBottom: '1px solid #bbf7d0',
+          px: 2.5,
+          py: 1.5,
+          bgcolor: '#f8fafc',
+          borderBottom: expanded ? '1px solid #e2e8f0' : 'none',
+          cursor: 'pointer',
+          userSelect: 'none',
+          transition: 'background-color 0.15s ease',
+          '&:hover': { bgcolor: '#f1f5f9' },
           gap: 2,
-          flexWrap: 'wrap',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box
-            sx={{
-              width: 34,
-              height: 34,
-              borderRadius: 2,
-              bgcolor: '#16a34a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Typography sx={{ fontSize: 16 }}>✓</Typography>
-          </Box>
-          <Box>
-            <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#166534', lineHeight: 1.2 }}>
-              Completed Today
-            </Typography>
-            <Typography sx={{ fontSize: 12, color: '#15803d' }}>
-              Patients whose treatment or vaccination visit has been fully completed today
-            </Typography>
-          </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#334155' }}>
+            Completed ({sortedEntries.length})
+          </Typography>
+          <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+            • Patients with completed visits today
+          </Typography>
         </Box>
 
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.4, bgcolor: '#ecfdf5', color: '#15803d', border: '1px solid #86efac', borderRadius: 1.5, fontSize: 11, fontWeight: 700 }}>
-          {sortedEntries.length} Completed
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+            {expanded ? 'Hide list' : 'Show list'}
+          </Typography>
+          <IconButton size="small" sx={{ p: 0.5, color: '#64748b' }}>
+            <HugeiconsIcon icon={expanded ? ArrowUp01Icon : ArrowDown01Icon} size={16} />
+          </IconButton>
         </Box>
       </Box>
 
-      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Collapse in={expanded}>
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: '#ffffff' }}>
         {sortedEntries.map(entry => {
           const statusCfg = STATUS_CFG[entry.status] ?? STATUS_CFG.completed;
           const categoryLabel = CATEGORY_LABEL[entry.queue_category] ?? entry.queue_category;
@@ -152,7 +149,8 @@ export function TreatmentCompletedPanel({ entries, loading }: TreatmentCompleted
             </Box>
           );
         })}
-      </Box>
+        </Box>
+      </Collapse>
     </Paper>
   );
 }

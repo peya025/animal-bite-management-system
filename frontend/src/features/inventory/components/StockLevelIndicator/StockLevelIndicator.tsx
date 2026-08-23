@@ -74,9 +74,10 @@ export function evaluateStockLevelTier(
 interface StockLevelIndicatorProps {
   compact?: boolean;
   showLegend?: boolean;
+  variant?: 'cards' | 'strip';
 }
 
-export default function StockLevelIndicator({ compact = false, showLegend = true }: StockLevelIndicatorProps) {
+export default function StockLevelIndicator({ compact = false, showLegend = true, variant = 'cards' }: StockLevelIndicatorProps) {
   const [stockList, setStockList] = useState<VaccineStockSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -139,6 +140,84 @@ export default function StockLevelIndicator({ compact = false, showLegend = true
 
   if (loading && stockList.length === 0) {
     return null;
+  }
+
+  // ── Condensed Single/Stacked Strip (for Queue Dashboard) ──
+  if (variant === 'strip') {
+    if (stockList.length === 0) return null;
+
+    return (
+      <Box
+        sx={{
+          mb: 1.5,
+          border: '1px solid #e2e8f0',
+          borderRadius: 2,
+          bgcolor: '#ffffff',
+          overflow: 'hidden',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        }}
+      >
+        {stockList.map((item, idx) => {
+          const visual = evaluateStockLevelTier(item.total_stock, item.earliest_expiration);
+          return (
+            <Box
+              key={item.vaccine_type}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                px: 2,
+                py: 0.75,
+                minHeight: 38,
+                borderBottom: idx < stockList.length - 1 ? '1px solid #f1f5f9' : 'none',
+                bgcolor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
+                fontSize: 12.5,
+                gap: 2,
+                flexWrap: 'wrap',
+              }}
+            >
+              {/* Left: Indicator dot + Name + Count */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 200 }}>
+                <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: visual.accent, flexShrink: 0 }} />
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
+                  {item.vaccine_type}
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+                  ({item.total_stock} vial{item.total_stock === 1 ? '' : 's'})
+                </Typography>
+                {item.open_vials_count > 0 && (
+                  <Chip
+                    label={`${item.open_vials_count} open`}
+                    size="small"
+                    sx={{ height: 18, fontSize: 9.5, fontWeight: 600, bgcolor: '#ecfeff', color: '#0e7490', border: '1px solid #a5f3fc' }}
+                  />
+                )}
+              </Box>
+
+              {/* Right: Badge + Earliest Expiry */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Chip
+                  label={visual.badgeLabel}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    bgcolor: visual.badgeBg,
+                    color: visual.badgeColor,
+                    border: `1px solid ${visual.border}`,
+                    borderRadius: 1,
+                  }}
+                />
+                <Typography sx={{ fontSize: 11.5, color: '#64748b', whiteSpace: 'nowrap' }}>
+                  Earliest exp: <span style={{ fontWeight: 600, color: visual.color }}>{item.earliest_expiration ? formatDate(item.earliest_expiration) : 'N/A'}</span>
+                </Typography>
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+    );
   }
 
   return (

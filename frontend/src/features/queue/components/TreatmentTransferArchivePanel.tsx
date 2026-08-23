@@ -1,7 +1,8 @@
-import { Box, Chip, Paper, Tooltip, IconButton, Typography } from '@mui/material';
+import { useState } from 'react';
+import { Box, Chip, Paper, Tooltip, IconButton, Typography, Collapse } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon, ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons';
 import type { QueueEntry } from '../types';
 import { CATEGORY_LABEL, STATUS_CFG, VISIT_LABEL } from '../types';
 import { buildRoute, ROUTES } from '../../../shared/config/routes';
@@ -18,6 +19,7 @@ function statusRank(status: QueueEntry['status']): number {
     case 'called':
       return 1;
     case 'serving':
+      return 2;
     case 'in_consultation':
       return 2;
     case 'completed':
@@ -33,6 +35,7 @@ function statusRank(status: QueueEntry['status']): number {
 
 export function TreatmentTransferArchivePanel({ entries, loading }: TreatmentTransferArchivePanelProps) {
   const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(false);
 
   if (!loading && entries.length === 0) return null;
 
@@ -46,131 +49,120 @@ export function TreatmentTransferArchivePanel({ entries, loading }: TreatmentTra
   const completedCount = sortedEntries.filter(entry => entry.status === 'completed').length;
 
   return (
-    <Paper elevation={0} sx={{ border: '1px solid #dbeafe', borderRadius: 3, overflow: 'hidden', mb: 3 }}>
+    <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', mb: 3 }}>
       <Box
+        onClick={() => setExpanded(!expanded)}
         sx={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          px: 3,
-          py: 2,
-          background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-          borderBottom: '1px solid #bfdbfe',
+          px: 2.5,
+          py: 1.5,
+          bgcolor: '#f8fafc',
+          borderBottom: expanded ? '1px solid #e2e8f0' : 'none',
+          cursor: 'pointer',
+          userSelect: 'none',
+          transition: 'background-color 0.15s ease',
+          '&:hover': { bgcolor: '#f1f5f9' },
           gap: 2,
           flexWrap: 'wrap',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box
-            sx={{
-              width: 34,
-              height: 34,
-              borderRadius: 2,
-              bgcolor: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Typography sx={{ fontSize: 16 }}>↗</Typography>
-          </Box>
-          <Box>
-            <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#1e3a8a', lineHeight: 1.2 }}>
-              Transferred to Treatment
-            </Typography>
-            <Typography sx={{ fontSize: 12, color: '#1d4ed8' }}>
-              Patients already endorsed by the doctor to the treatment nurse queue
-            </Typography>
-          </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#334155' }}>
+            Transferred to Treatment ({sortedEntries.length})
+          </Typography>
+          <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+            • Endorsed to treatment nurse queue ({activeCount} active, {completedCount} completed)
+          </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.4, bgcolor: '#dbeafe', color: '#1d4ed8', border: '1px solid #93c5fd', borderRadius: 1.5, fontSize: 11, fontWeight: 700 }}>
-            {sortedEntries.length} Total
-          </Box>
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.4, bgcolor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: 1.5, fontSize: 11, fontWeight: 700 }}>
-            {activeCount} In Treatment Queue
-          </Box>
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.4, bgcolor: '#f3f4f6', color: '#4b5563', border: '1px solid #d1d5db', borderRadius: 1.5, fontSize: 11, fontWeight: 700 }}>
-            {completedCount} Completed
-          </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+            {expanded ? 'Hide list' : 'Show list'}
+          </Typography>
+          <IconButton size="small" sx={{ p: 0.5, color: '#64748b' }}>
+            <HugeiconsIcon icon={expanded ? ArrowUp01Icon : ArrowDown01Icon} size={16} />
+          </IconButton>
         </Box>
       </Box>
 
-      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {sortedEntries.map(entry => {
-          const statusCfg = STATUS_CFG[entry.status] ?? STATUS_CFG.cancelled;
-          const categoryLabel = CATEGORY_LABEL[entry.queue_category] ?? entry.queue_category;
-          return (
-            <Box
-              key={entry.queue_id}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                px: 2,
-                py: 1.25,
-                borderRadius: 2,
-                bgcolor: '#f8fbff',
-                border: '1px solid #dbeafe',
-              }}
-            >
+      <Collapse in={expanded}>
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: '#ffffff' }}>
+          {sortedEntries.map(entry => {
+            const statusCfg = STATUS_CFG[entry.status] ?? STATUS_CFG.cancelled;
+            const categoryLabel = CATEGORY_LABEL[entry.queue_category] ?? entry.queue_category;
+            return (
               <Box
+                key={entry.queue_id}
                 sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 1.5,
-                  bgcolor: '#eff6ff',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
+                  gap: 2,
+                  px: 2,
+                  py: 1.25,
+                  borderRadius: 2,
+                  bgcolor: '#f8fbff',
+                  border: '1px solid #dbeafe',
                 }}
               >
-                <Typography sx={{ fontWeight: 800, fontSize: 13, color: '#2563eb' }}>
-                  {entry.queue_number}
-                </Typography>
-              </Box>
-
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#1f2937', lineHeight: 1.2 }}>
-                  {entry.patient.name}
-                </Typography>
-                <Typography sx={{ fontSize: 11, color: '#64748b', mt: 0.25 }}>
-                  {entry.patient.age}y · {entry.patient.gender}
-                  &nbsp;·&nbsp;{VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
-                  &nbsp;·&nbsp;{categoryLabel}
-                </Typography>
-              </Box>
-
-              <Chip
-                size="small"
-                label={statusCfg.label}
-                sx={{ bgcolor: statusCfg.bg, color: statusCfg.color, fontWeight: 700, fontSize: 10, height: 20 }}
-              />
-
-              <Tooltip title="View patient details">
-                <IconButton
-                  size="small"
-                  onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: entry.queue_id }))}
+                <Box
                   sx={{
-                    color: '#2563eb',
-                    bgcolor: '#fff',
-                    border: '1px solid #bfdbfe',
-                    borderRadius: '7px',
-                    width: 28,
-                    height: 28,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 1.5,
+                    bgcolor: '#eff6ff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     flexShrink: 0,
-                    '&:hover': { bgcolor: '#eff6ff', color: '#1d4ed8', borderColor: '#93c5fd' },
                   }}
                 >
-                  <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          );
-        })}
-      </Box>
+                  <Typography sx={{ fontWeight: 800, fontSize: 13, color: '#2563eb' }}>
+                    {entry.queue_number}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#1f2937', lineHeight: 1.2 }}>
+                    {entry.patient.name}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: '#64748b', mt: 0.25 }}>
+                    {entry.patient.age}y · {entry.patient.gender}
+                    &nbsp;·&nbsp;{VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
+                    &nbsp;·&nbsp;{categoryLabel}
+                  </Typography>
+                </Box>
+
+                <Chip
+                  size="small"
+                  label={statusCfg.label}
+                  sx={{ bgcolor: statusCfg.bg, color: statusCfg.color, fontWeight: 700, fontSize: 10, height: 20 }}
+                />
+
+                <Tooltip title="View patient details">
+                  <IconButton
+                    size="small"
+                    onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: entry.queue_id }))}
+                    sx={{
+                      color: '#2563eb',
+                      bgcolor: '#fff',
+                      border: '1px solid #bfdbfe',
+                      borderRadius: '7px',
+                      width: 28,
+                      height: 28,
+                      flexShrink: 0,
+                      '&:hover': { bgcolor: '#eff6ff', color: '#1d4ed8', borderColor: '#93c5fd' },
+                    }}
+                  >
+                    <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            );
+          })}
+        </Box>
+      </Collapse>
     </Paper>
   );
 }

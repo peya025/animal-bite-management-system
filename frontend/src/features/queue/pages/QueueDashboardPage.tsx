@@ -39,6 +39,9 @@ import {
   CompleteDialog,
   NextPatientBanner,
   QueueFilterBar,
+  QueueKPIStrip,
+  SecondaryCountersRow,
+  QueueProgressBar,
   QueueStatsGrid,
   TrashBinModal,
   SecondChanceQueuePanel,
@@ -265,36 +268,60 @@ export default function QueueDashboard() {
     : filtered;
   const paginated = sortedQueue.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  // ── Table Columns ─────────────────────────────────────────────────────────
+  // ── Highlight waiting rows on KPI click ────────────────────────────────────
+  const [highlightedQueueId, setHighlightedQueueId] = useState<number | null>(null);
+
+  const handleWaitingClick = () => {
+    const firstWaiting = sortedQueue.find(e => e.status === 'waiting');
+    if (firstWaiting) {
+      setHighlightedQueueId(firstWaiting.queue_id);
+      const el = document.getElementById('queue-table-container');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => setHighlightedQueueId(null), 2500);
+    } else {
+      document.getElementById('queue-table-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // ── Table Columns (Sentence Case Headers) ─────────────────────────────────
 
   const columns: ColumnDef<QueueEntry>[] = [
     {
-      key: 'queue_id', header: 'QUEUE ID', width: '90px',
+      key: 'queue_id', header: 'Queue ID', width: '90px',
       render: e => (
-        <Box sx={{ display: 'inline-flex', px: 1.25, py: 0.25, bgcolor: 'var(--bg-secondary)', borderRadius: 1, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
+        <Box sx={{ display: 'inline-flex', px: 1.25, py: 0.25, bgcolor: 'var(--bg-secondary)', borderRadius: 1, fontSize: 12, fontWeight: 500, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
           #{e.queue_id}
         </Box>
       ),
     },
     {
-      key: 'queue_number', header: 'QUEUE #', width: '80px',
-      render: e => (
-        <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#3b82f6' }}>{e.queue_number}</Typography>
-        </Box>
-      ),
+      key: 'queue_number', header: 'Queue #', width: '80px',
+      render: e => {
+        const isHighlighted = highlightedQueueId === e.queue_id;
+        return (
+          <Box sx={{
+            width: 38, height: 38, borderRadius: 2,
+            bgcolor: isHighlighted ? '#dbeafe' : '#eff6ff',
+            border: isHighlighted ? '2px solid #2563eb' : 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.3s ease',
+          }}>
+            <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#2563eb' }}>{e.queue_number}</Typography>
+          </Box>
+        );
+      },
     },
     {
-      key: 'queue_category', header: 'CATEGORY', width: '120px',
+      key: 'queue_category', header: 'Category', width: '120px',
       render: e => {
         const cfg = CATEGORY_CFG[e.queue_category] ?? CATEGORY_CFG.regular;
         const label = CATEGORY_LABEL[e.queue_category] ?? e.queue_category;
         return (
           <Box sx={{
             display: 'inline-flex', alignItems: 'center', gap: 0.5,
-            px: 1.25, py: 0.4,
+            px: 1.25, py: 0.35,
             bgcolor: cfg.bg, color: cfg.color,
-            borderRadius: 1.5, fontSize: 11, fontWeight: 700,
+            borderRadius: 1.5, fontSize: 11, fontWeight: 500,
             whiteSpace: 'nowrap',
           }}>
             {cfg.icon} {label}
@@ -303,7 +330,7 @@ export default function QueueDashboard() {
       },
     },
     {
-      key: 'patient', header: 'PATIENT',
+      key: 'patient', header: 'Patient',
       render: e => {
         const qDate   = e.queue_date ? new Date(e.queue_date).toISOString().split('T')[0] : '';
         const todayStr = new Date().toISOString().split('T')[0];
@@ -312,19 +339,19 @@ export default function QueueDashboard() {
         return (
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)', lineHeight: 1.3 }}>{e.patient.name}</Typography>
+              <Typography sx={{ fontWeight: 500, fontSize: 13.5, color: 'var(--text-h)', lineHeight: 1.3 }}>{e.patient.name}</Typography>
               {isCarry && isActive && (
-                <Box sx={{ px: 1, py: 0.2, bgcolor: '#fef3c7', color: '#92400e', borderRadius: 1, fontSize: 10, fontWeight: 700 }}>
+                <Box sx={{ px: 0.8, py: 0.15, bgcolor: '#fef3c7', color: '#92400e', borderRadius: 1, fontSize: 10, fontWeight: 600 }}>
                   Carried Over {qDate ? `(${new Date(qDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}
                 </Box>
               )}
               {e.call_count > 0 && (
-                <Box sx={{ px: 1, py: 0.2, bgcolor: '#f3e8ff', color: '#7e22ce', borderRadius: 1, fontSize: 10, fontWeight: 700 }}>
+                <Box sx={{ px: 0.8, py: 0.15, bgcolor: '#f3e8ff', color: '#7e22ce', borderRadius: 1, fontSize: 10, fontWeight: 600 }}>
                   Called {e.call_count}×
                 </Box>
               )}
             </Box>
-            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mt: 0.25 }}>
+            <Typography sx={{ fontSize: 11.5, color: 'var(--text-secondary)', mt: 0.25 }}>
               {e.patient.age}y · {e.patient.gender}
               {e.biteIncident && ` · ${e.biteIncident.case_number}`}
             </Typography>
@@ -333,22 +360,22 @@ export default function QueueDashboard() {
       },
     },
     {
-      key: 'visit_type', header: 'VISIT TYPE',
+      key: 'visit_type', header: 'Visit type',
       render: e => (
-        <Box sx={{ display: 'inline-flex', px: 2, py: 0.5, bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
+        <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500, color: 'var(--text)' }}>
           {VISIT_LABEL[e.visit_type] ?? e.visit_type}
         </Box>
       ),
     },
     {
-      key: 'priority', header: 'PRIORITY',
+      key: 'priority', header: 'Priority',
       render: e => {
         const cfg = PRIORITY_CFG[e.priority] ?? PRIORITY_CFG.normal;
         const isActive = MAIN_STATUSES.includes(e.status);
         const canEditPriority = isActive && !isRegistrationStaff;
         if (!canEditPriority) {
           return (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 12, fontWeight: 600 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.35, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 11.5, fontWeight: 500 }}>
               {e.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
               {e.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
               {getPriorityDisplayLabel(e.priority, e.queue_category)}
@@ -363,7 +390,7 @@ export default function QueueDashboard() {
               renderValue={val => {
                 const c = PRIORITY_CFG[val] ?? PRIORITY_CFG.normal;
                 return (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: c.color, fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: c.color, fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit' }}>
                     {val === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
                     {val === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
                     {getPriorityDisplayLabel(val, e.queue_category)}
@@ -371,14 +398,14 @@ export default function QueueDashboard() {
                 );
               }}
               sx={{
-                fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
+                fontSize: 11.5, fontFamily: 'inherit', fontWeight: 500,
                 bgcolor: cfg.bg, color: cfg.color,
-                borderRadius: 1.5, minWidth: 110,
+                borderRadius: 1.5, minWidth: 105,
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
                 '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: cfg.color },
-                '& .MuiSelect-select': { py: 0.5, px: 1.5, fontFamily: 'inherit' },
+                '& .MuiSelect-select': { py: 0.35, px: 1.25, fontFamily: 'inherit' },
               }}
-              MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontFamily: 'inherit', fontSize: 13 } } } } }}
+              MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontFamily: 'inherit', fontSize: 12.5 } } } } }}
             >
               <MenuItem value="normal">Normal</MenuItem>
               <MenuItem value="urgent">{['priority', 'pregnant', 'senior_citizen', 'pwd'].includes(e.queue_category) ? 'Priority' : 'Urgent'}</MenuItem>
@@ -389,52 +416,52 @@ export default function QueueDashboard() {
       },
     },
     {
-      key: 'status', header: 'STATUS',
+      key: 'status', header: 'Status',
       render: e => {
         const cfg = isRegistrationStaff
           ? getRegistrationStatusDisplay(e)
           : (STATUS_CFG[e.status] ?? STATUS_CFG.cancelled);
         return (
-          <Box sx={{ display: 'inline-flex', px: 2, py: 0.5, bgcolor: cfg.bg, color: cfg.color, borderRadius: 1.5, fontSize: 12, fontWeight: 600 }}>
+          <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: cfg.bg, color: cfg.color, borderRadius: 1.5, fontSize: 11.5, fontWeight: 500 }}>
             {cfg.label}
           </Box>
         );
       },
     },
     {
-      key: 'wait_time', header: 'WAIT TIME',
+      key: 'wait_time', header: 'Wait time',
       render: e => {
         const active = MAIN_STATUSES.includes(e.status);
         return active
           ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <WaitIcon sx={{ fontSize: 14, color: 'var(--text-secondary)' }} />
-              <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>{waitTime(e.checked_in_at)}</Typography>
+              <WaitIcon sx={{ fontSize: 13, color: 'var(--text-secondary)' }} />
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>{waitTime(e.checked_in_at)}</Typography>
             </Box>
-          : <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>—</Typography>;
+          : <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography>;
       },
     },
     {
-      key: 'view', header: 'VIEW', align: 'right' as const, width: '90px',
+      key: 'view', header: 'View', align: 'right' as const, width: '85px',
       render: e => (
         <Tooltip title="View Patient Details & Forms">
           <button
             onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: e.queue_id }))}
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '5px 13px', background: '#ecfdf5', border: '1px solid #a7f3d0',
-              borderRadius: 8, color: '#059669', fontSize: 12.5, fontWeight: 600,
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0',
+              borderRadius: 6, color: '#059669', fontSize: 12, fontWeight: 500,
               cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease',
             }}
             onMouseEnter={el => { (el.currentTarget as HTMLElement).style.background = '#d1fae5'; }}
             onMouseLeave={el => { (el.currentTarget as HTMLElement).style.background = '#ecfdf5'; }}
           >
-            View <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />
+            View <HugeiconsIcon icon={ArrowUpRight01Icon} size={12} strokeWidth={2.2} />
           </button>
         </Tooltip>
       ),
     },
     {
-      key: 'queue_actions', header: 'QUEUE ACTIONS', align: 'right',
+      key: 'queue_actions', header: 'Queue actions', align: 'right',
       render: e => {
         const isWaiting = e.status === 'waiting';
         const isCalled  = e.status === 'called';
@@ -522,30 +549,23 @@ export default function QueueDashboard() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Box sx={{ px: 3 }}>
+    <Box sx={{ px: { xs: 1.5, sm: 3 } }}>
 
-      {/* Header */}
-      <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+      {/* ── 1. Compact Header Row (<= 60px tall) ── */}
+      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, minHeight: 44 }}>
         <Box>
-          <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', margin: '0 0 7px 0' }}>
-            {pageTitle}
-          </Typography>
-          <Typography sx={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-            {today} · Auto-refreshes every 30 seconds
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button onClick={() => navigate(ROUTES.DASHBOARD)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}>
-              Dashboard
-            </button>
-            <span style={{ color: 'var(--text-secondary)' }}>›</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Queue</span>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, flexWrap: 'wrap' }}>
+            <Typography component="h1" sx={{ fontWeight: 600, fontSize: '20px', lineHeight: 1.2, letterSpacing: '-0.3px', color: 'var(--text-h)', m: 0 }}>
+              {pageTitle}
+            </Typography>
+            <Typography sx={{ fontSize: '12px', color: 'var(--text-secondary)', m: 0 }}>
+              {today} · Auto-refreshes every 30s
+            </Typography>
           </Box>
         </Box>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
-
+          {loading && <CircularProgress size={16} sx={{ color: '#10b981' }} />}
 
           {/* Call Next */}
           {!isRegistrationStaff && user?.role !== 'admin' && !isTriageDoctor && roleScopedNextEntry && (
@@ -560,32 +580,33 @@ export default function QueueDashboard() {
                 }}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '8px 14px', borderRadius: 8,
+                  padding: '6px 12px', borderRadius: 8,
                   background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
                   color: '#fff', border: 'none', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-                  boxShadow: '0 2px 8px rgba(37,99,235,0.3)', whiteSpace: 'nowrap',
+                  fontSize: 12.5, fontWeight: 500, fontFamily: 'inherit',
+                  boxShadow: '0 2px 6px rgba(37,99,235,0.25)', whiteSpace: 'nowrap',
                 }}
               >
-                <CallNextIcon style={{ fontSize: 16 }} />
+                <CallNextIcon style={{ fontSize: 15 }} />
                 Call Next
               </button>
             </Tooltip>
           )}
 
+          {/* Queue Display */}
           <Tooltip title="Open Queue Display (Full Screen)">
             <button
               onClick={() => window.open('/queue/display', '_blank', 'width=1280,height=720')}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', borderRadius: 8,
+                padding: '6px 12px', borderRadius: 8,
                 background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
                 color: '#fff', border: 'none', cursor: 'pointer',
-                fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-                boxShadow: '0 2px 8px rgba(13,148,136,0.3)', whiteSpace: 'nowrap',
+                fontSize: 12.5, fontWeight: 500, fontFamily: 'inherit',
+                boxShadow: '0 2px 6px rgba(13,148,136,0.25)', whiteSpace: 'nowrap',
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
               </svg>
               Queue Display
@@ -594,76 +615,81 @@ export default function QueueDashboard() {
 
           {!isRegistrationStaff && (
             <Tooltip title="Trash Bin">
-              <IconButton onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
-                <TrashBinIcon />
+              <IconButton size="small" onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
+                <TrashBinIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </Tooltip>
           )}
           <Tooltip title="Refresh">
-            <IconButton onClick={reload} disabled={loading}><RefreshIcon /></IconButton>
+            <IconButton size="small" onClick={reload} disabled={loading}><RefreshIcon sx={{ fontSize: 18 }} /></IconButton>
           </Tooltip>
         </Stack>
       </Box>
 
-      {/* Priority 14: Live Clinic Stock-Level Color Coding */}
-      <StockLevelIndicator compact={false} showLegend={true} />
+      {/* ── 2. KPI Strip (Waiting, Called, Serving, Completed, Total Today) ── */}
+      <QueueKPIStrip stats={stats} onWaitingClick={handleWaitingClick} />
 
-      {/* Next Patient Banner */}
+      {/* ── 3. Condensed Vaccine Stock Strip ── */}
+      <StockLevelIndicator variant="strip" showLegend={false} />
+
+      {/* ── 4. Slim Inline Secondary Counters Row ── */}
+      <SecondaryCountersRow stats={stats} />
+
+      {/* ── 5. Next Patient Banner (if active) ── */}
       {!isRegistrationStaff && user?.role !== 'admin' && roleScopedNextEntry && (
-        <NextPatientBanner
-          entry={roleScopedNextEntry}
-          onCall={handleCall}
-          onCallNext={(isTriageDoctor || isTreatmentNurse)
-            ? (() => handleCall(roleScopedNextEntry))
-            : handleCallNext}
-          showActions={isTriageDoctor || !isRegistrationStaff}
-        />
+        <Box sx={{ mb: 2 }}>
+          <NextPatientBanner
+            entry={roleScopedNextEntry}
+            onCall={handleCall}
+            onCallNext={(isTriageDoctor || isTreatmentNurse)
+              ? (() => handleCall(roleScopedNextEntry))
+              : handleCallNext}
+            showActions={isTriageDoctor || !isRegistrationStaff}
+          />
+        </Box>
       )}
 
-      {/* Stats */}
-      <QueueStatsGrid stats={stats} />
-
-      {/* ── SECOND CHANCE QUEUE PANEL (only when populated) ── */}
-      {visibleSecondChanceQueue.length > 0 && (
-        <SecondChanceQueuePanel
-          entries={visibleSecondChanceQueue}
-          loading={loading}
-          onRecall={e => setRecallTarget(e)}
-          onAbsent={e => setAbsentTarget(e)}
-          canManage={!isRegistrationStaff && !isTreatmentNurse}
-        />
-      )}
-
-
-      {isTriageDoctor && (
-        <TreatmentTransferArchivePanel
-          entries={transferredToTreatmentEntries}
-          loading={loading}
-        />
-      )}
-
-      {/* ── MAIN QUEUE TABLE ── */}
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 14, color: 'var(--text-h)' }}>
-            {queueSectionTitle}
-          </Typography>
+      {/* ── 6. Main Queue Table (Actionable section directly accessible!) ── */}
+      <Paper
+        id="queue-table-container"
+        elevation={0}
+        sx={{
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 3,
+          overflow: 'hidden',
+          background: 'background.paper',
+          p: { xs: 1.5, sm: 2.5 },
+          mb: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+            <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)' }}>
+              {queueSectionTitle}
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
+              ({stats?.waiting ?? 0} patients waiting)
+            </Typography>
+          </Box>
           {visibleSecondChanceQueue.length > 0 && (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.4, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 12, fontWeight: 600 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500 }}>
               ↩ {visibleSecondChanceQueue.length} in Second Chance Queue
             </Box>
           )}
         </Box>
 
-        <QueueFilterBar
-          search={search}
-          onSearchChange={v => { setSearch(v); setPage(0); }}
-          statusFilter={statusFilter}
-          onStatusChange={v => { setStatusFilter(v); setPage(0); }}
-          categoryFilter={categoryFilter}
-          onCategoryChange={v => { setCategoryFilter(v); setPage(0); }}
-          onClear={() => { setSearch(''); setStatusFilter(''); setCategoryFilter(''); setPage(0); }}
-        />
+        <Box sx={{ mb: 1.5 }}>
+          <QueueFilterBar
+            search={search}
+            onSearchChange={v => { setSearch(v); setPage(0); }}
+            statusFilter={statusFilter}
+            onStatusChange={v => { setStatusFilter(v); setPage(0); }}
+            categoryFilter={categoryFilter}
+            onCategoryChange={v => { setCategoryFilter(v); setPage(0); }}
+            onClear={() => { setSearch(''); setStatusFilter(''); setCategoryFilter(''); setPage(0); }}
+          />
+        </Box>
 
         <DataTable
           columns={visibleColumns}
@@ -671,7 +697,7 @@ export default function QueueDashboard() {
           loading={loading}
           skeletonRows={rowsPerPage}
           rowKey={e => e.queue_id}
-          emptyIcon={<WaitIcon sx={{ fontSize: 36, color: 'var(--text-secondary)' }} />}
+          emptyIcon={<WaitIcon sx={{ fontSize: 28, color: 'var(--text-secondary)' }} />}
           emptyTitle={statusFilter ? `No ${STATUS_CFG[statusFilter as keyof typeof STATUS_CFG]?.label ?? statusFilter} patients` : 'Queue is empty'}
           emptySubtitle="Patients added by registration will appear here"
         />
@@ -684,6 +710,27 @@ export default function QueueDashboard() {
           onRowsPerPageChange={n => { setRowsPerPage(n); setPage(0); }}
         />
       </Paper>
+
+      {/* ── 7. Today's Progress Bar ── */}
+      <QueueProgressBar stats={stats} />
+
+      {/* ── 8. Historical / Reference Archive Panels (Collapsed by default) ── */}
+      {visibleSecondChanceQueue.length > 0 && (
+        <SecondChanceQueuePanel
+          entries={visibleSecondChanceQueue}
+          loading={loading}
+          onRecall={e => setRecallTarget(e)}
+          onAbsent={e => setAbsentTarget(e)}
+          canManage={!isRegistrationStaff && !isTreatmentNurse}
+        />
+      )}
+
+      {isTriageDoctor && (
+        <TreatmentTransferArchivePanel
+          entries={transferredToTreatmentEntries}
+          loading={loading}
+        />
+      )}
 
       {isTreatmentNurse && (
         <TreatmentCompletedPanel

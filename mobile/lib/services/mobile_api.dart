@@ -286,6 +286,11 @@ class MobileApi {
     return data;
   }
 
+  Future<Map<String, dynamic>> vaccinationCard(int patientId) async {
+    final data = await _send('GET', '/patients/$patientId/vaccination-card') as Map<String, dynamic>;
+    return data;
+  }
+
   /// Returns true if the server is reachable.
   Future<bool> checkConnectivity() async {
     try {

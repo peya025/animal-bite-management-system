@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'app/app.dart';
+import 'l10n/language_controller.dart';
 import 'services/mobile_api.dart';
 import 'services/mock_mobile_api.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize stored language preference
+  await LanguageController.instance.initialize();
+
   // Load environment variables from .env file
   await dotenv.load(fileName: ".env");
   

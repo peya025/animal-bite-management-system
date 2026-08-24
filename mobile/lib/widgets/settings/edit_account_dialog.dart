@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/app_theme.dart';
 import '../../models/patient_account_profile.dart';
@@ -64,10 +65,11 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppColors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       icon: const Icon(
-        Icons.manage_accounts_outlined,
+        LucideIcons.userCheck,
         color: AppColors.primary,
+        size: 28,
       ),
       title: const Text(
         'Edit account',
@@ -90,7 +92,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                   label: 'ACCOUNT NAME',
                   controller: _name,
                   enabled: !_saving,
-                  prefixIcon: Icons.person_outline_rounded,
+                  prefixIcon: LucideIcons.user,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   validator: (value) => value == null || value.trim().isEmpty
@@ -102,14 +104,14 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                   label: 'EMAIL',
                   controller: _email,
                   enabled: false,
-                  prefixIcon: Icons.mail_outline_rounded,
+                  prefixIcon: LucideIcons.mail,
                 ),
                 const SizedBox(height: 16),
                 AppTextField(
                   label: 'PHONE',
                   controller: _phone,
                   enabled: !_saving,
-                  prefixIcon: Icons.phone_outlined,
+                  prefixIcon: LucideIcons.phone,
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.done,
                   inputFormatters: [

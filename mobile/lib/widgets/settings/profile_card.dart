@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ProfileCard extends StatelessWidget {
   const ProfileCard({
@@ -140,9 +141,9 @@ class ProfileCard extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       child: const Icon(
-                        Icons.edit_outlined,
+                        LucideIcons.pencil,
                         color: Colors.white,
-                        size: 16,
+                        size: 15,
                       ),
                     ),
                   ),

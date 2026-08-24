@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 
 class GuidelinesSection extends StatelessWidget {
   const GuidelinesSection({super.key});
@@ -11,9 +12,9 @@ class GuidelinesSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'BITE CARE GUIDE',
-          style: TextStyle(
+        Text(
+          context.tr('guide_section_title'),
+          style: const TextStyle(
             color: Color(0xFF9CA3AF),
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -21,31 +22,31 @@ class GuidelinesSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        const IntrinsicHeight(
+        IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 child: _GuideCard(
                   imagePath: 'assets/images/guide/guide_wash.png',
-                  title: 'Wash',
-                  description: '15 mins under running water',
+                  title: context.tr('guide_wash_title'),
+                  description: context.tr('guide_wash_desc'),
                 ),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: _GuideCard(
                   imagePath: 'assets/images/guide/guide_consult.png',
-                  title: 'Consult',
-                  description: 'Visit clinic immediately',
+                  title: context.tr('guide_consult_title'),
+                  description: context.tr('guide_consult_desc'),
                 ),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: _GuideCard(
                   imagePath: 'assets/images/guide/guide_vaccinate.png',
-                  title: 'Vaccinate',
-                  description: 'Complete rabies vaccine series',
+                  title: context.tr('guide_vaccinate_title'),
+                  description: context.tr('guide_vaccinate_desc'),
                 ),
               ),
             ],

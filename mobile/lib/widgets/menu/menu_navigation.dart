@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../app/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 
 class MenuNavigation extends StatelessWidget {
   const MenuNavigation({
@@ -17,25 +18,25 @@ class MenuNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      const _NavigationItem(
+      _NavigationItem(
         LucideIcons.home,
         LucideIcons.home,
-        'Home',
+        context.tr('nav_home'),
       ),
-      const _NavigationItem(
+      _NavigationItem(
         LucideIcons.calendarPlus,
         LucideIcons.calendarPlus,
-        'Book',
+        context.tr('nav_book'),
       ),
-      const _NavigationItem(
+      _NavigationItem(
         LucideIcons.history,
         LucideIcons.history,
-        'History',
+        context.tr('nav_history'),
       ),
-      const _NavigationItem(
+      _NavigationItem(
         LucideIcons.settings,
         LucideIcons.settings,
-        'Settings',
+        context.tr('nav_settings'),
       ),
     ];
 

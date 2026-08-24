@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../app/app_routes.dart';
+import '../l10n/app_localizations.dart';
 import '../models/appointment_summary.dart';
 import '../models/patient_profile.dart';
 import '../services/api.dart';
@@ -214,20 +215,20 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
           icon: const Icon(LucideIcons.arrowLeft, color: Color(0xFF111827)),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Schedule Calendar',
-              style: TextStyle(
+              context.tr('cal_title'),
+              style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF111827),
               ),
             ),
             Text(
-              'View & track appointments by profile',
-              style: TextStyle(
+              context.tr('cal_subtitle'),
+              style: const TextStyle(
                 fontSize: 11,
                 color: Color(0xFF6B7280),
                 fontWeight: FontWeight.w400,
@@ -320,7 +321,7 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
         children: [
           // All Profiles chip
           _buildFilterChip(
-            label: 'All Profiles',
+            label: context.tr('cal_all_profiles'),
             isSelected: _selectedPatientId == null,
             count: _allEvents.length,
             onTap: () => setState(() => _selectedPatientId = null),
@@ -420,102 +421,171 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
-      child: TableCalendar<CalendarEvent>(
-        firstDay: DateTime.utc(2025, 1, 1),
-        lastDay: DateTime.utc(2030, 12, 31),
-        focusedDay: _focusedDay,
-        selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-        calendarFormat: _calendarFormat,
-        eventLoader: _getEventsForDay,
-        startingDayOfWeek: StartingDayOfWeek.sunday,
-        headerStyle: HeaderStyle(
-          formatButtonVisible: true,
-          formatButtonShowsNext: false,
-          formatButtonDecoration: BoxDecoration(
-            color: const Color(0xFFE1F5EE),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          formatButtonTextStyle: const TextStyle(
-            color: Color(0xFF085041),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-          titleCentered: true,
-          titleTextStyle: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF111827),
-          ),
-          leftChevronIcon: const Icon(LucideIcons.chevronLeft, color: Color(0xFF374151), size: 16),
-          rightChevronIcon: const Icon(LucideIcons.chevronRight, color: Color(0xFF374151), size: 16),
-        ),
-        calendarStyle: CalendarStyle(
-          outsideDaysVisible: false,
-          todayDecoration: const BoxDecoration(
-            color: Color(0xFFBBF7D0),
-            shape: BoxShape.circle,
-          ),
-          todayTextStyle: const TextStyle(
-            color: Color(0xFF065F46),
-            fontWeight: FontWeight.w700,
-          ),
-          selectedDecoration: const BoxDecoration(
-            color: Color(0xFF1D9E75),
-            shape: BoxShape.circle,
-          ),
-          selectedTextStyle: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
-          markersMaxCount: 3,
-          markerDecoration: const BoxDecoration(
-            color: Color(0xFF3B82F6),
-            shape: BoxShape.circle,
-          ),
-        ),
-        calendarBuilders: CalendarBuilders(
-          markerBuilder: (context, date, events) {
-            if (events.isEmpty) return const SizedBox.shrink();
-            return Positioned(
-              bottom: 4,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: events.take(3).map((event) {
-                  final color = switch (event.status) {
-                    'completed' => const Color(0xFF10B981),
-                    'missed' => const Color(0xFFEF4444),
-                    _ => const Color(0xFF3B82F6),
-                  };
-                  return Container(
-                    width: 5,
-                    height: 5,
-                    margin: const EdgeInsets.symmetric(horizontal: 1),
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
-                  );
-                }).toList(),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TableCalendar<CalendarEvent>(
+            firstDay: DateTime.utc(2025, 1, 1),
+            lastDay: DateTime.utc(2030, 12, 31),
+            focusedDay: _focusedDay,
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            calendarFormat: _calendarFormat,
+            eventLoader: _getEventsForDay,
+            startingDayOfWeek: StartingDayOfWeek.sunday,
+            headerStyle: HeaderStyle(
+              formatButtonVisible: true,
+              formatButtonShowsNext: false,
+              formatButtonDecoration: BoxDecoration(
+                color: const Color(0xFFE1F5EE),
+                borderRadius: BorderRadius.circular(12),
               ),
-            );
-          },
-        ),
-        onDaySelected: (selectedDay, focusedDay) {
-          setState(() {
-            _selectedDay = selectedDay;
-            _focusedDay = focusedDay;
-          });
-        },
-        onFormatChanged: (format) {
-          setState(() {
-            _calendarFormat = format;
-          });
-        },
-        onPageChanged: (focusedDay) {
-          _focusedDay = focusedDay;
-        },
+              formatButtonTextStyle: const TextStyle(
+                color: Color(0xFF085041),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              titleCentered: true,
+              titleTextStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF111827),
+              ),
+              leftChevronIcon: const Icon(LucideIcons.chevronLeft, color: Color(0xFF374151), size: 16),
+              rightChevronIcon: const Icon(LucideIcons.chevronRight, color: Color(0xFF374151), size: 16),
+            ),
+            calendarStyle: CalendarStyle(
+              outsideDaysVisible: false,
+              todayDecoration: const BoxDecoration(
+                color: Color(0xFFBBF7D0),
+                shape: BoxShape.circle,
+              ),
+              todayTextStyle: const TextStyle(
+                color: Color(0xFF065F46),
+                fontWeight: FontWeight.w700,
+              ),
+              selectedDecoration: const BoxDecoration(
+                color: Color(0xFF1D9E75),
+                shape: BoxShape.circle,
+              ),
+              selectedTextStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+              markersMaxCount: 3,
+              markerDecoration: const BoxDecoration(
+                color: Color(0xFF3B82F6),
+                shape: BoxShape.circle,
+              ),
+            ),
+            calendarBuilders: CalendarBuilders(
+              markerBuilder: (context, date, events) {
+                if (events.isEmpty) return const SizedBox.shrink();
+                return Positioned(
+                  bottom: 4,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: events.take(3).map((event) {
+                      final color = switch (event.status) {
+                        'completed' => const Color(0xFF10B981),
+                        'missed' => const Color(0xFFEF4444),
+                        _ => const Color(0xFF3B82F6),
+                      };
+                      return Container(
+                        width: 6,
+                        height: 6,
+                        margin: const EdgeInsets.symmetric(horizontal: 1),
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            onFormatChanged: (format) {
+              setState(() {
+                _calendarFormat = format;
+              });
+            },
+            onPageChanged: (focusedDay) {
+              _focusedDay = focusedDay;
+            },
+          ),
+          const SizedBox(height: 8),
+          const Divider(height: 1, thickness: 0.6, color: Color(0xFFF3F4F6)),
+          const SizedBox(height: 10),
+
+          // ─── Color Guide / Legend Bar ───
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                _buildLegendItem(
+                  color: const Color(0xFF10B981),
+                  label: context.tr('cal_completed'),
+                ),
+                _buildLegendItem(
+                  color: const Color(0xFF3B82F6),
+                  label: context.tr('cal_scheduled'),
+                ),
+                _buildLegendItem(
+                  color: const Color(0xFFEF4444),
+                  label: context.tr('cal_missed'),
+                ),
+                _buildLegendItem(
+                  color: const Color(0xFF065F46),
+                  bgColor: const Color(0xFFBBF7D0),
+                  label: context.tr('cal_today'),
+                  isBordered: true,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildLegendItem({
+    required Color color,
+    required String label,
+    Color? bgColor,
+    bool isBordered = false,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: bgColor ?? color,
+            border: isBordered ? Border.all(color: color, width: 1.2) : null,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF4B5563),
+          ),
+        ),
+      ],
     );
   }
 

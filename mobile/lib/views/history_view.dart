@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../services/api.dart';
+import '../widgets/common/app_toast.dart';
 import '../widgets/history/history_filters.dart';
 import '../widgets/history/history_record_card.dart';
 import '../widgets/history/history_summary.dart';
@@ -86,12 +87,7 @@ class _HistoryViewState extends State<HistoryView> {
 
   void _showFilterMenu() {
     _loadHistory();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('History updated'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+    AppToast.info(context, 'History updated');
   }
 
   @override

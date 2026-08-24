@@ -5,6 +5,7 @@ import '../app/app_theme.dart';
 import '../models/app_notification.dart';
 import '../services/api.dart';
 import '../widgets/common/app_page_header.dart';
+import '../widgets/common/app_toast.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/menu_surface.dart';
 import '../widgets/menu/patient_action_button.dart';
@@ -100,9 +101,7 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   void _showError(Object error) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error.toString()), backgroundColor: AppColors.error),
-    );
+    AppToast.error(context, error.toString());
   }
 
   void _navigate(int index) {

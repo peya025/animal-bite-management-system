@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app/app_routes.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/language_controller.dart';
 import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import '../services/api.dart';
+import '../widgets/common/app_toast.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/settings/edit_account_dialog.dart';
+import '../widgets/settings/language_selection_sheet.dart';
 import '../widgets/settings/profile_card.dart';
 import '../widgets/settings/settings_group.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
@@ -63,10 +68,12 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Future<void> _addDependent() async {
-    final created = await Navigator.of(
+    final account = _account;
+    if (account == null) return;
+    await Navigator.of(
       context,
-    ).pushNamed(AppRoutes.profileSetup, arguments: 'add-dependent');
-    if (created != null && mounted) await _loadAccount();
+    ).pushNamed(AppRoutes.profileSetup, arguments: {'accountId': account.id});
+    if (mounted) await _loadAccount();
   }
 
   String _relationshipLabel(PatientProfile patient) {
@@ -89,29 +96,132 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   void _showDemoMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    AppToast.info(context, message);
   }
 
   Future<void> _confirmLogout() async {
     final shouldLogout = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Log out?'),
-        content: const Text(
-          'You will need to sign in again to access patient records.',
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 380),
+          padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x24000000),
+                blurRadius: 28,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top Icon Badge
+              Container(
+                width: 52,
+                height: 52,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF2F2),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  LucideIcons.logOut,
+                  color: Color(0xFFEF4444),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Title
+              Text(
+                context.tr('logout_dialog_title'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827),
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Description
+              Text(
+                context.tr('logout_dialog_desc'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 22),
+
+              // Action Buttons Row
+              Row(
+                children: [
+                  // Cancel Button
+                  Expanded(
+                    child: SizedBox(
+                      height: 44,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF374151),
+                          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          context.tr('btn_cancel'),
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
+                  // Log Out Button
+                  Expanded(
+                    child: SizedBox(
+                      height: 44,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEF4444),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          context.tr('btn_logout'),
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Log out'),
-          ),
-        ],
       ),
     );
 
@@ -148,21 +258,21 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ),
                   ),
-                  child: const Column(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Settings',
-                        style: TextStyle(
+                        context.tr('settings_title'),
+                        style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF111827),
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        'Manage your profile and preferences',
-                        style: TextStyle(
+                        context.tr('settings_subtitle'),
+                        style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF9CA3AF),
                         ),
@@ -216,7 +326,7 @@ class _SettingsViewState extends State<SettingsView> {
                                 child: Row(
                                   children: [
                                     const Icon(
-                                      Icons.sync_problem_rounded,
+                                      LucideIcons.alertCircle,
                                       color: Color(0xFFEF4444),
                                     ),
                                     const SizedBox(width: 12),
@@ -239,14 +349,14 @@ class _SettingsViewState extends State<SettingsView> {
 
                         // 3. Patient profiles section
                         SettingsGroup(
-                          title: 'Patient profiles',
+                          title: context.tr('settings_patient_profiles'),
                           children: [
                             for (final patient
                                 in _account?.patients ?? const [])
                               SettingsTile(
                                 icon: patient.relationship == 'child'
-                                    ? Icons.mood_rounded
-                                    : Icons.person_rounded,
+                                    ? LucideIcons.smile
+                                    : LucideIcons.user,
                                 iconBgColor: const Color(0xFFE1F5EE),
                                 iconColor: const Color(0xFF1D9E75),
                                 title: patient.name,
@@ -267,7 +377,7 @@ class _SettingsViewState extends State<SettingsView> {
                                       const PendingBadge(),
                                     const SizedBox(width: 6),
                                     const Icon(
-                                      Icons.chevron_right,
+                                      LucideIcons.chevronRight,
                                       color: Color(0xFFD1D5DB),
                                       size: 16,
                                     ),
@@ -275,17 +385,17 @@ class _SettingsViewState extends State<SettingsView> {
                                 ),
                               ),
                             SettingsTile(
-                              icon: Icons.add,
+                              icon: LucideIcons.plus,
                               iconBgColor: const Color(0xFFF9FAFB),
                               iconColor: const Color(0xFF9CA3AF),
                               iconBorder: Border.all(
                                 color: const Color(0xFFD1D5DB),
                                 width: 0.5,
                               ),
-                              title: 'Add child or dependent',
+                              title: context.tr('settings_add_dependent'),
                               onTap: _addDependent,
                               trailing: const Icon(
-                                Icons.chevron_right,
+                                LucideIcons.chevronRight,
                                 color: Color(0xFFD1D5DB),
                                 size: 16,
                               ),
@@ -296,14 +406,14 @@ class _SettingsViewState extends State<SettingsView> {
 
                         // 4. Preferences section
                         SettingsGroup(
-                          title: 'Preferences',
+                          title: context.tr('settings_preferences'),
                           children: [
                             SettingsTile(
-                              icon: Icons.notifications_none_rounded,
+                              icon: LucideIcons.bell,
                               iconBgColor: const Color(0xFFE1F5EE),
                               iconColor: const Color(0xFF1D9E75),
-                              title: 'Notifications',
-                              subtitle: 'Appointment and vaccination reminders',
+                              title: context.tr('settings_notifications'),
+                              subtitle: context.tr('settings_notifications_desc'),
                               trailing: CustomToggleSwitch(
                                 value: _notificationsEnabled,
                                 onChanged: (val) {
@@ -312,21 +422,24 @@ class _SettingsViewState extends State<SettingsView> {
                               ),
                             ),
                             SettingsTile(
-                              icon: Icons.language_rounded,
+                              icon: LucideIcons.globe,
                               iconBgColor: const Color(0xFFEFF6FF),
                               iconColor: const Color(0xFF3B82F6),
-                              title: 'Language',
-                              subtitle: 'English',
-                              onTap: () => _showDemoMessage(
-                                'Language selection will be added later.',
+                              title: context.tr('settings_language'),
+                              subtitle: LanguageController.instance.currentLanguageDisplayName,
+                              onTap: () => showLanguageSelectionSheet(context),
+                              trailing: const Icon(
+                                LucideIcons.chevronRight,
+                                color: Color(0xFFD1D5DB),
+                                size: 16,
                               ),
                             ),
                             SettingsTile(
-                              icon: Icons.lock_outline_rounded,
+                              icon: LucideIcons.lock,
                               iconBgColor: const Color(0xFFF5F3FF),
                               iconColor: const Color(0xFF7C3AED),
-                              title: 'Privacy and security',
-                              subtitle: 'Password and account permissions',
+                              title: context.tr('settings_privacy'),
+                              subtitle: context.tr('settings_privacy_desc'),
                               onTap: () => _showDemoMessage(
                                 'Privacy settings will be added later.',
                               ),
@@ -337,23 +450,23 @@ class _SettingsViewState extends State<SettingsView> {
 
                         // 5. Support section
                         SettingsGroup(
-                          title: 'Support',
+                          title: context.tr('settings_support'),
                           children: [
                             SettingsTile(
-                              icon: Icons.help_outline_rounded,
+                              icon: LucideIcons.helpCircle,
                               iconBgColor: const Color(0xFFFFF7ED),
                               iconColor: const Color(0xFFEA580C),
-                              title: 'Help center',
-                              subtitle: 'FAQs and contact information',
+                              title: context.tr('settings_help_center'),
+                              subtitle: context.tr('settings_help_desc'),
                               onTap: () => _showDemoMessage(
                                 'Help center will be added later.',
                               ),
                             ),
                             SettingsTile(
-                              icon: Icons.info_outline_rounded,
+                              icon: LucideIcons.info,
                               iconBgColor: const Color(0xFFF9FAFB),
                               iconColor: const Color(0xFF6B7280),
-                              title: 'About',
+                              title: context.tr('settings_about'),
                               subtitle: 'AnimalCare · v1.0.0',
                               onTap: () => _showDemoMessage(
                                 'AnimalCare · v1.0.0',
@@ -375,11 +488,11 @@ class _SettingsViewState extends State<SettingsView> {
                             ),
                           ),
                           child: SettingsTile(
-                            icon: Icons.logout_rounded,
+                            icon: LucideIcons.logOut,
                             iconBgColor: const Color(0xFFFEF2F2),
                             iconColor: const Color(0xFFEF4444),
-                            title: 'Log out',
-                            subtitle: 'Return to the login screen',
+                            title: context.tr('settings_logout'),
+                            subtitle: context.tr('settings_logout_desc'),
                             destructive: true,
                             onTap: _confirmLogout,
                           ),

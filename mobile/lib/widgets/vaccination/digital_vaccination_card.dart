@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../app/app_theme.dart';
 import '../../models/patient_profile.dart';
 import '../../services/api.dart';
+import '../common/app_toast.dart';
 
 Future<void> showDigitalVaccinationCard(BuildContext context, {int? initialPatientId}) {
   return showModalBottomSheet<void>(
@@ -118,13 +119,7 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
   }
 
   void _shareCard() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Vaccination certificate link copied to clipboard.'),
-        duration: Duration(seconds: 2),
-        backgroundColor: Color(0xFF1D9E75),
-      ),
-    );
+    AppToast.success(context, 'Vaccination certificate link copied to clipboard.');
   }
 
   @override

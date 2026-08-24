@@ -10,6 +10,7 @@ import '../widgets/booking/booking_header.dart';
 import '../widgets/booking/booking_summary.dart';
 import '../widgets/booking/date_selector.dart';
 import '../widgets/booking/service_selector.dart';
+import '../widgets/common/app_toast.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
@@ -274,12 +275,7 @@ class _BookingViewState extends State<BookingView> {
       ).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.toString()),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppToast.error(context, error.toString());
       }
     } finally {
       if (mounted) setState(() => _booking = false);

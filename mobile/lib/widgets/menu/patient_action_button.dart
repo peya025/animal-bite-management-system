@@ -1,37 +1,51 @@
 import 'package:flutter/material.dart';
+import '../../app/app_theme.dart';
 
 class PatientActionButton extends StatelessWidget {
-  const PatientActionButton({super.key, required this.onPressed});
+  const PatientActionButton({
+    super.key,
+    required this.onPressed,
+    this.tooltip = 'Patient card',
+  });
 
   final VoidCallback onPressed;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 50,
       height: 50,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1D9E75),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF4F6F5), width: 3),
-        boxShadow: const [
+      decoration: const BoxDecoration(
+        color: AppColors.primary,
+        shape: BoxShape.circle,
+        boxShadow: [
           BoxShadow(
-            color: Color(0x591D9E75),
-            blurRadius: 12,
+            color: Color(0x401D9E75),
+            blurRadius: 10,
             offset: Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(14),
-          child: const Center(
-            child: Icon(
-              Icons.person_search,
-              color: Colors.white,
-              size: 22,
+        shape: const CircleBorder(),
+        child: Tooltip(
+          message: tooltip,
+          child: InkWell(
+            onTap: onPressed,
+            customBorder: const CircleBorder(),
+            child: const Center(
+              child: Icon(
+                Icons.person_search,
+                color: Colors.white,
+                size: 22,
+              ),
             ),
           ),
         ),
@@ -39,3 +53,4 @@ class PatientActionButton extends StatelessWidget {
     );
   }
 }
+

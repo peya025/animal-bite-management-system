@@ -88,6 +88,7 @@ export default function VaccinationSchedulePage() {
   // Tagoloan Card modal
   const [cardPatientId, setCardPatientId] = useState<number | null>(null);
   const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [cardExposureCategory, setCardExposureCategory] = useState<'I' | 'II' | 'III' | ''>('');
 
   // Record new vaccination modal
   const [recordModalOpen, setRecordModalOpen] = useState(false);
@@ -257,6 +258,7 @@ export default function VaccinationSchedulePage() {
             }}
             onClick={() => {
               setCardPatientId(r.patient?.patient_id || r.patient_id);
+              setCardExposureCategory(r.bite_incident?.exposure_category || r.exposure_category || '');
               setCardModalOpen(true);
             }}
           >
@@ -607,6 +609,7 @@ export default function VaccinationSchedulePage() {
         open={cardModalOpen}
         onClose={() => setCardModalOpen(false)}
         patientId={cardPatientId}
+        initialExposureCategory={cardExposureCategory}
       />
     </Box>
   );

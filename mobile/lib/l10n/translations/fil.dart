@@ -71,4 +71,14 @@ const Map<String, String> filTranslations = {
   'cal_no_events': 'Walang iskedyul sa petsang ito',
   'cal_no_events_desc': 'Wala kang nakatakdang konsultasyon o bakuna sa araw na ito.',
   'cal_book_btn': 'Magpa-book ng appointment',
+
+  // Profile Archiving
+  'prof_archive_title': 'I-archive ang Profile ng Dependent',
+  'prof_archive_desc': 'Itago sa aktibong booking habang ligtas na pinapanatili ang lahat ng nakaraang vaccination card, sertipiko, at rekord.',
+  'prof_archive_btn': 'I-archive ang Profile',
+  'prof_archive_confirm_title': 'I-archive ang Profile ng Dependent?',
+  'prof_archive_confirm_desc': 'Ang lahat ng nakaraang vaccination card, sertipiko, at rekord medikal ay mananatiling ligtas sa iyong account. Hindi na lalabas ang profile na ito sa bagong booking.',
+  'prof_has_active_appointment': 'May aktibong paparating na appointment ang dependent na ito. Mangyaring kanselahin o kumpletuhin muna ito bago i-archive.',
+  'prof_archived_badge': 'Naka-archive',
+  'prof_archived_banner': 'Naka-archive ang profile na ito. Nakatago ito sa aktibong booking, ngunit napanatili ang lahat ng nakaraang rekord.',
 };

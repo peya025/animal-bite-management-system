@@ -220,6 +220,10 @@ class MobileApi {
     return PatientProfile.fromJson(data as Map<String, dynamic>);
   }
 
+  Future<void> archivePatient(int patientId) async {
+    await _send('DELETE', '/patients/$patientId');
+  }
+
   Future<void> book({
     required PatientProfile patient,
     required BookingDraft booking,

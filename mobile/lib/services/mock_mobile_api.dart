@@ -200,6 +200,26 @@ class MockMobileApi {
     return PatientProfile.fromJson(_deepCopyMap(updated));
   }
 
+  Future<void> archivePatient(int patientId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final index = _patients.indexWhere(
+      (item) => (item['patient_id'] ?? item['id']) == patientId,
+    );
+    if (index == -1) {
+      throw Exception('Patient profile not found');
+    }
+    final patient = _patients[index];
+    final pivot = Map<String, dynamic>.from(
+      (patient['pivot'] as Map<String, dynamic>?) ?? {},
+    );
+    if (pivot['relationship'] == 'self') {
+      throw Exception('Account owner profile cannot be archived.');
+    }
+    patient['is_active'] = false;
+    pivot['is_active'] = false;
+    patient['pivot'] = pivot;
+  }
+
   Future<void> book({
     required PatientProfile patient,
     required dynamic booking,

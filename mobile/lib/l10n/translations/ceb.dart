@@ -71,4 +71,14 @@ const Map<String, String> cebTranslations = {
   'cal_no_events': 'Walay eskedyul sa kini nga petsa',
   'cal_no_events_desc': 'Wala kay nakatakdang konsultasyon o bakuna para karong adlawa.',
   'cal_book_btn': 'Magpa-book og appointment',
+
+  // Profile Archiving
+  'prof_archive_title': 'I-archive ang Profile sa Dependent',
+  'prof_archive_desc': 'Itago sa aktibong booking samtang luwas nga gipreserbar ang tanang vaccination card, sertipiko, ug mga rekord.',
+  'prof_archive_btn': 'I-archive ang Profile',
+  'prof_archive_confirm_title': 'I-archive ang Profile sa Dependent?',
+  'prof_archive_confirm_desc': 'Ang tanang nangaging vaccination card, sertipiko, ug rekord medikal magpabiling luwas sa imong account. Dili na kini mogawas sa bag-ong booking.',
+  'prof_has_active_appointment': 'Kini nga dependent dunay aktibong umaabot nga appointment. Palihog kanselaha o kompletuha una kini usa i-archive.',
+  'prof_archived_badge': 'Naka-archive',
+  'prof_archived_banner': 'Naka-archive kini nga profile. Nakatago kini sa aktibong booking, apan napreserbar ang tanang nangaging rekord.',
 };

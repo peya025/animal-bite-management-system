@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
+import '../l10n/app_localizations.dart';
+import '../models/appointment_summary.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_profile_form_args.dart';
+import '../services/api.dart';
 import '../widgets/common/app_page_header.dart';
+import '../widgets/common/app_toast.dart';
 import '../widgets/common/status_chip.dart';
 import '../widgets/menu/menu_surface.dart';
 
@@ -19,6 +24,7 @@ class PatientProfileView extends StatefulWidget {
 
 class _PatientProfileViewState extends State<PatientProfileView> {
   late PatientProfile _patient;
+  bool _archiving = false;
 
   @override
   void initState() {
@@ -34,9 +40,170 @@ class _PatientProfileViewState extends State<PatientProfileView> {
 
     if (updated is PatientProfile && mounted) {
       setState(() => _patient = updated);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Patient profile updated.')));
+      AppToast.success(context, 'Patient profile updated.');
+    }
+  }
+
+  Future<void> _confirmArchiveProfile() async {
+    if (_patient.relationship.toLowerCase() == 'self') return;
+
+    // Check if patient has active upcoming appointments
+    try {
+      final dynamic rawApps = await api.appointments();
+      final List<AppointmentSummary> apps = (rawApps is List)
+          ? rawApps.whereType<AppointmentSummary>().toList()
+          : const [];
+
+      final hasActiveUpcoming = apps.any(
+        (a) => a.patientId == _patient.id && (a.status == 'scheduled' || a.status == 'pending'),
+      );
+
+      if (hasActiveUpcoming && mounted) {
+        AppToast.error(
+          context,
+          context.tr('prof_has_active_appointment'),
+        );
+        return;
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final shouldArchive = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 380),
+          padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x24000000),
+                blurRadius: 28,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon Badge
+              Container(
+                width: 52,
+                height: 52,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF2F2),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  LucideIcons.archive,
+                  color: Color(0xFFEF4444),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Title
+              Text(
+                context.tr('prof_archive_confirm_title'),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827),
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Description
+              Text(
+                context.tr('prof_archive_confirm_desc'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 22),
+
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 44,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF374151),
+                          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          context.tr('btn_cancel'),
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: 44,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEF4444),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          context.tr('prof_archive_btn'),
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (shouldArchive == true && mounted) {
+      setState(() => _archiving = true);
+      try {
+        await api.archivePatient(_patient.id);
+        if (!mounted) return;
+        final updated = _patient.copyWith(isActive: false);
+        AppToast.info(context, '${_patient.name} has been archived.');
+        Navigator.of(context).pop(updated);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _archiving = false);
+        AppToast.error(context, e.toString());
+      }
     }
   }
 
@@ -70,6 +237,37 @@ class _PatientProfileViewState extends State<PatientProfileView> {
                       ),
                     ),
                   ),
+                  if (!patient.isActive) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.archive,
+                            color: Color(0xFFD97706),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              context.tr('prof_archived_banner'),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF92400E),
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   MenuSurface(
                     padding: const EdgeInsets.all(16),
@@ -291,6 +489,95 @@ class _PatientProfileViewState extends State<PatientProfileView> {
                         ),
                     ],
                   ),
+                  if (patient.relationship.toLowerCase() != 'self' && patient.isActive) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFFEE2E2), width: 1),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  LucideIcons.archive,
+                                  color: Color(0xFFEF4444),
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      context.tr('prof_archive_title'),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF111827),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      context.tr('prof_archive_desc'),
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        color: Color(0xFF6B7280),
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            height: 40,
+                            child: OutlinedButton(
+                              onPressed: _archiving ? null : _confirmArchiveProfile,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFDC2626),
+                                side: const BorderSide(color: Color(0xFFFECACA), width: 1),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: _archiving
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFFDC2626),
+                                      ),
+                                    )
+                                  : Text(
+                                      context.tr('prof_archive_btn'),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

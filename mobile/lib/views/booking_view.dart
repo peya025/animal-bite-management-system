@@ -56,7 +56,8 @@ class _BookingViewState extends State<BookingView> {
 
   Future<void> _loadPatients({int? selectPatientId}) async {
     try {
-      final patients = await api.patients() as List<PatientProfile>;
+      final rawPatients = await api.patients() as List<PatientProfile>;
+      final patients = rawPatients.where((p) => p.isActive).toList();
       if (!mounted) return;
       setState(() {
         _patients = patients;

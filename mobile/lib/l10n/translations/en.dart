@@ -71,4 +71,14 @@ const Map<String, String> enTranslations = {
   'cal_no_events': 'No schedules on this date',
   'cal_no_events_desc': 'You have no consultation or vaccination scheduled for this day.',
   'cal_book_btn': 'Book an appointment',
+
+  // Profile Archiving
+  'prof_archive_title': 'Archive Dependent Profile',
+  'prof_archive_desc': 'Hide from active booking while safely preserving all past vaccination cards, certificates, and records.',
+  'prof_archive_btn': 'Archive Profile',
+  'prof_archive_confirm_title': 'Archive Dependent Profile?',
+  'prof_archive_confirm_desc': 'All past vaccination cards, certificates, and medical history will remain safely preserved in your account. This profile will no longer appear when booking new appointments.',
+  'prof_has_active_appointment': 'This dependent has an active upcoming appointment. Please cancel or complete it before archiving.',
+  'prof_archived_badge': 'Archived',
+  'prof_archived_banner': 'This profile is archived. It is hidden from active booking, but all past records are preserved.',
 };

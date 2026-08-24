@@ -357,10 +357,16 @@ class _SettingsViewState extends State<SettingsView> {
                                 icon: patient.relationship == 'child'
                                     ? LucideIcons.smile
                                     : LucideIcons.user,
-                                iconBgColor: const Color(0xFFE1F5EE),
-                                iconColor: const Color(0xFF1D9E75),
+                                iconBgColor: !patient.isActive
+                                    ? const Color(0xFFF3F4F6)
+                                    : const Color(0xFFE1F5EE),
+                                iconColor: !patient.isActive
+                                    ? const Color(0xFF9CA3AF)
+                                    : const Color(0xFF1D9E75),
                                 title: patient.name,
-                                subtitle: _relationshipLabel(patient),
+                                subtitle: !patient.isActive
+                                    ? '${_relationshipLabel(patient)} • ${context.tr('prof_archived_badge')}'
+                                    : _relationshipLabel(patient),
                                 onTap: () async {
                                   await Navigator.of(context).pushNamed(
                                     AppRoutes.patientProfile,
@@ -373,7 +379,29 @@ class _SettingsViewState extends State<SettingsView> {
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (patient.status == 'pending')
+                                    if (!patient.isActive)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF3F4F6),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: const Color(0xFFE5E7EB),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          context.tr('prof_archived_badge'),
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                      )
+                                    else if (patient.status == 'pending')
                                       const PendingBadge(),
                                     const SizedBox(width: 6),
                                     const Icon(

@@ -144,6 +144,7 @@ class PatientProfile {
     this.emergencyContactNumber,
     this.details,
     this.memberships = const [],
+    this.isActive = true,
   });
 
   final int id;
@@ -164,8 +165,53 @@ class PatientProfile {
   final String? emergencyContactNumber;
   final PatientDetailsProfile? details;
   final List<PatientMembership> memberships;
+  final bool isActive;
 
   bool get isVerified => status == 'verified';
+
+  PatientProfile copyWith({
+    int? id,
+    String? name,
+    String? firstName,
+    String? lastName,
+    String? relationship,
+    String? status,
+    String? patientNumber,
+    String? middleName,
+    String? suffix,
+    String? gender,
+    String? dateOfBirth,
+    String? address,
+    String? contactNumber,
+    String? email,
+    String? emergencyContactName,
+    String? emergencyContactNumber,
+    PatientDetailsProfile? details,
+    List<PatientMembership>? memberships,
+    bool? isActive,
+  }) {
+    return PatientProfile(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      relationship: relationship ?? this.relationship,
+      status: status ?? this.status,
+      patientNumber: patientNumber ?? this.patientNumber,
+      middleName: middleName ?? this.middleName,
+      suffix: suffix ?? this.suffix,
+      gender: gender ?? this.gender,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      address: address ?? this.address,
+      contactNumber: contactNumber ?? this.contactNumber,
+      email: email ?? this.email,
+      emergencyContactName: emergencyContactName ?? this.emergencyContactName,
+      emergencyContactNumber: emergencyContactNumber ?? this.emergencyContactNumber,
+      details: details ?? this.details,
+      memberships: memberships ?? this.memberships,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 
   factory PatientProfile.fromJson(Map<String, dynamic> json) {
     final pivot = json['pivot'] as Map<String, dynamic>? ?? const {};
@@ -184,6 +230,11 @@ class PatientProfile {
           lastName,
           suffix,
         ].where((part) => part != null && part.trim().isNotEmpty).join(' ');
+
+    final rawIsActive = json['is_active'] ?? pivot['is_active'];
+    final bool parsedIsActive = (rawIsActive is bool)
+        ? rawIsActive
+        : (rawIsActive == 1 || rawIsActive == '1' || rawIsActive == null);
 
     return PatientProfile(
       id: (json['patient_id'] ?? json['id']) as int,
@@ -209,6 +260,7 @@ class PatientProfile {
           .whereType<Map<String, dynamic>>()
           .map(PatientMembership.fromJson)
           .toList(),
+      isActive: parsedIsActive,
     );
   }
 }

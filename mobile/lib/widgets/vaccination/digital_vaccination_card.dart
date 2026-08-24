@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/app_theme.dart';
@@ -24,162 +25,143 @@ class DigitalVaccinationCardSheet extends StatefulWidget {
 }
 
 class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardSheet> {
-  bool _loadingCard = true;
-  String _error = '';
   List<PatientProfile> _patients = const [];
   PatientProfile? _selectedPatient;
   Map<String, dynamic>? _cardData;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadPatientsAndCard();
+    _loadInitial();
   }
 
-  Future<void> _loadPatientsAndCard() async {
-    setState(() {
-      _error = '';
-    });
-
+  Future<void> _loadInitial() async {
     try {
       final dynamic raw = await api.patients();
-      final List<PatientProfile> patientsList = (raw is List)
+      final List<PatientProfile> list = (raw is List)
           ? raw.whereType<PatientProfile>().toList()
           : const <PatientProfile>[];
 
-      if (!mounted) return;
-
-      setState(() {
-        _patients = patientsList;
-      });
-
-      if (patientsList.isNotEmpty) {
-        PatientProfile target = patientsList.first;
-        if (widget.initialPatientId != null) {
-          for (final p in patientsList) {
-            if (p.id == widget.initialPatientId) {
-              target = p;
-              break;
-            }
-          }
-        } else {
-          for (final p in patientsList) {
-            if (p.relationship.toLowerCase() == 'self') {
-              target = p;
-              break;
-            }
-          }
-        }
-
-        _selectPatient(target);
-      } else {
+      if (mounted) {
         setState(() {
-          _loadingCard = false;
-          _error = 'No patient profile found. Please register or verify a patient profile first.';
+          _patients = list;
+          if (list.isNotEmpty) {
+            if (widget.initialPatientId != null) {
+              _selectedPatient = list.firstWhere(
+                (p) => p.id == widget.initialPatientId,
+                orElse: () => list.first,
+              );
+            } else {
+              _selectedPatient = list.first;
+            }
+          }
         });
+
+        if (_selectedPatient != null) {
+          await _loadCard(_selectedPatient!.id);
+        } else {
+          setState(() {
+            _loading = false;
+            _error = 'No patient profile found.';
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _loadingCard = false;
-          _error = e.toString();
+          _loading = false;
+          _error = 'Failed to load patient profiles.';
         });
       }
     }
   }
 
-  Future<void> _selectPatient(PatientProfile patient) async {
+  Future<void> _loadCard(int patientId) async {
     setState(() {
-      _selectedPatient = patient;
-      _loadingCard = true;
-      _error = '';
+      _loading = true;
+      _error = null;
     });
 
     try {
-      final data = await api.vaccinationCard(patient.id);
+      final dynamic data = await api.vaccinationCard(patientId);
       if (mounted) {
-        setState(() {
-          _cardData = data;
-          _loadingCard = false;
-        });
+        if (data is Map<String, dynamic>) {
+          setState(() {
+            _cardData = data;
+            _loading = false;
+          });
+        } else {
+          setState(() {
+            _loading = false;
+            _error = 'Invalid card data format received from server.';
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _loadingCard = false;
-          _error = 'Unable to load vaccination card: ${e.toString()}';
+          _loading = false;
+          _error = 'Unable to fetch official vaccination record ($e).';
         });
       }
     }
   }
 
+  void _selectPatient(PatientProfile p) {
+    if (_selectedPatient?.id == p.id) return;
+    setState(() {
+      _selectedPatient = p;
+    });
+    _loadCard(p.id);
+  }
+
   void _shareCard() {
-    if (_cardData == null) return;
-
-    final patient = _cardData!['patient'] as Map<String, dynamic>? ?? {};
-    final clinic = _cardData!['clinic'] as Map<String, dynamic>? ?? {};
-    final card = _cardData!['card'] as Map<String, dynamic>? ?? {};
-    final progress = _cardData!['progress'] as Map<String, dynamic>? ?? {};
-    final qrPayload = _cardData!['qr_payload']?.toString() ?? '';
-
-    final text = StringBuffer()
-      ..writeln('🏥 ${clinic['name'] ?? 'ANIMAL BITE TREATMENT CENTER'}')
-      ..writeln('DOH Accreditation: ${clinic['doh_accreditation_no'] ?? 'N/A'} | PhilHealth: ${clinic['philhealth_accreditation_no'] ?? 'N/A'}')
-      ..writeln('----------------------------------------')
-      ..writeln('👤 Patient: ${patient['full_name'] ?? _selectedPatient?.name}')
-      ..writeln('🆔 Patient ID: ${patient['patient_number'] ?? _selectedPatient?.patientNumber}')
-      ..writeln('💉 Progress: ${progress['dose_label'] ?? '4 doses'} (${_cardData!['status'] ?? 'ACTIVE'})')
-      ..writeln('⚠️ Exposure: Category ${card['exposure_category'] ?? 'III'} (${card['animal_type'] ?? 'Animal Bite'})')
-      ..writeln('📅 Date of Exposure: ${card['date_of_exposure'] ?? 'N/A'}')
-      ..writeln('🔗 Verification: $qrPayload');
-
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Official card summary copied for sharing:\n\n${text.toString()}'),
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'OK',
-          textColor: Colors.white,
-          onPressed: () {},
-        ),
+      const SnackBar(
+        content: Text('Vaccination certificate link copied to clipboard.'),
+        duration: Duration(seconds: 2),
+        backgroundColor: Color(0xFF1D9E75),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.all(12),
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F8F7),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF4F6F5),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top drag pill
+                // Modal Handle
                 Center(
                   child: Container(
-                    width: 44,
+                    width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD1D8D6),
-                      borderRadius: BorderRadius.circular(4),
+                      color: const Color(0xFFD1D5DB),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
-                // Header with Title and Close button
+                // Top Header Row
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Expanded(
                       child: Column(
@@ -188,14 +170,14 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
                           Text(
                             'Digital Vaccination Card',
                             style: TextStyle(
-                              color: AppColors.gray900,
-                              fontSize: 19,
-                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF111827),
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Official DOH & PhilHealth accredited electronic proof.',
+                            'Official Post-Exposure Prophylaxis (PEP) Certificate',
                             style: TextStyle(
                               color: AppColors.gray500,
                               fontSize: 11,
@@ -207,7 +189,7 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
                     IconButton(
                       tooltip: 'Close',
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
+                      icon: const Icon(LucideIcons.x, size: 18),
                     ),
                   ],
                 ),
@@ -252,7 +234,7 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.person_outline_rounded,
+                                  LucideIcons.user,
                                   size: 14,
                                   color: isSelected ? Colors.white : const Color(0xFF4B5563),
                                 ),
@@ -286,7 +268,7 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
                 ],
 
                 // ─── Card Content / Loader ───
-                if (_loadingCard)
+                if (_loading)
                   Container(
                     height: 280,
                     alignment: Alignment.center,
@@ -296,7 +278,7 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
                     ),
                     child: const CircularProgressIndicator(color: Color(0xFF1D9E75)),
                   )
-                else if (_error.isNotEmpty)
+                else if (_error != null && _error!.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -306,10 +288,10 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
                     ),
                     child: Column(
                       children: [
-                        const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 28),
+                        const Icon(LucideIcons.alertCircle, color: Color(0xFFDC2626), size: 28),
                         const SizedBox(height: 8),
                         Text(
-                          _error,
+                          _error!,
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13),
                         ),
@@ -325,7 +307,7 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
                 Row(
                   children: [
                     const Icon(
-                      Icons.verified_user_outlined,
+                      LucideIcons.badgeCheck,
                       color: Color(0xFF059669),
                       size: 16,
                     ),
@@ -343,7 +325,7 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
                       onPressed: _shareCard,
-                      icon: const Icon(Icons.share_rounded, size: 14),
+                      icon: const Icon(LucideIcons.share2, size: 14),
                       label: const Text('Export / Share', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1D9E75),
@@ -419,7 +401,7 @@ class _OfficialVaccinationCard extends StatelessWidget {
             color: AppColors.primaryDark,
             child: Row(
               children: [
-                const Icon(Icons.health_and_safety_outlined, color: AppColors.white, size: 20),
+                const Icon(LucideIcons.shieldCheck, color: AppColors.white, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -533,10 +515,9 @@ class _VerifiedStatusBadge extends StatelessWidget {
     final badgeColor = isCompleted
         ? const Color(0xFF10B981)
         : (isPending ? const Color(0xFFF59E0B) : const Color(0xFF1D9E75));
-
     final icon = isCompleted
-        ? Icons.verified_rounded
-        : (isPending ? Icons.hourglass_top_rounded : Icons.schedule_rounded);
+        ? LucideIcons.badgeCheck
+        : (isPending ? LucideIcons.clock : LucideIcons.calendarCheck);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -549,16 +530,17 @@ class _VerifiedStatusBadge extends StatelessWidget {
         children: [
           Icon(
             icon,
-            color: AppColors.white,
-            size: 12,
+            size: 13,
+            color: Colors.white,
           ),
           const SizedBox(width: 4),
           Text(
-            status.toUpperCase(),
+            upper,
             style: const TextStyle(
-              color: AppColors.white,
-              fontSize: 9,
+              color: Colors.white,
+              fontSize: 10,
               fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -587,21 +569,19 @@ class _CardDetailRow extends StatelessWidget {
           label,
           style: const TextStyle(
             color: AppColors.gray500,
-            fontSize: 8.5,
+            fontSize: 9,
             fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
+            letterSpacing: 0.5,
           ),
         ),
-        const SizedBox(height: 1),
+        const SizedBox(height: 2),
         Text(
           value,
           style: TextStyle(
-            color: highlight ? const Color(0xFF047857) : const Color(0xFF1F2937),
-            fontSize: 11,
+            color: highlight ? const Color(0xFF1D9E75) : AppColors.gray900,
+            fontSize: 11.5,
             fontWeight: highlight ? FontWeight.w700 : FontWeight.w600,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -615,35 +595,41 @@ class _ScannableQrWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 102,
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(color: const Color(0xFFDCE5E2)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          QrImageView(
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFD1D5DB), width: 0.8),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+          child: QrImageView(
             data: qrPayload,
             version: QrVersions.auto,
-            size: 90,
-            padding: EdgeInsets.zero,
+            size: 80,
             backgroundColor: Colors.white,
+            errorCorrectionLevel: QrErrorCorrectLevel.M,
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'SCAN TO VERIFY',
-            style: TextStyle(
-              color: Color(0xFF047857),
-              fontSize: 7.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
-            ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'SCAN TO VERIFY',
+          style: TextStyle(
+            fontSize: 7.5,
+            fontWeight: FontWeight.w700,
+            color: AppColors.gray500,
+            letterSpacing: 0.5,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -653,50 +639,68 @@ class _LiveDoseProgress extends StatelessWidget {
 
   final List<dynamic> doses;
 
+  bool _isDoseComplete(String name) {
+    final match = doses.firstWhere(
+      (d) => d['dose_number']?.toString().toUpperCase() == name.toUpperCase(),
+      orElse: () => null,
+    );
+    return match != null && match['status']?.toString().toUpperCase() == 'COMPLETED';
+  }
+
+  String _getDoseDate(String name) {
+    final match = doses.firstWhere(
+      (d) => d['dose_number']?.toString().toUpperCase() == name.toUpperCase(),
+      orElse: () => null,
+    );
+    return match != null ? (match['formatted_date'] ?? match['date'] ?? '') : '';
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Map of 4 standard doses (Day 0, Day 3, Day 7, Day 28)
-    final doseSteps = ['Day 0', 'Day 3', 'Day 7', 'Day 28'];
+    final d0 = _isDoseComplete('Day 0');
+    final d3 = _isDoseComplete('Day 3');
+    final d7 = _isDoseComplete('Day 7');
+    final d28 = _isDoseComplete('Day 28');
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      color: const Color(0xFFF2F8F6),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9FAFB),
+        border: Border(
+          top: BorderSide(color: Color(0xFFE5E7EB), width: 0.8),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var i = 0; i < doseSteps.length; i++) ...[
-            _buildDoseItem(doseSteps[i]),
-            if (i < doseSteps.length - 1)
-              _buildDoseLine(
-                isComplete: _isStepComplete(doseSteps[i]) && _isStepComplete(doseSteps[i + 1]),
-              ),
-          ],
+          const Text(
+            'RABIES POST-EXPOSURE DOSE TIMELINE',
+            style: TextStyle(
+              color: AppColors.gray500,
+              fontSize: 8.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildDoseItem('Day 0', d0),
+              _buildDoseLine(isComplete: d0 && d3),
+              _buildDoseItem('Day 3', d3),
+              _buildDoseLine(isComplete: d3 && d7),
+              _buildDoseItem('Day 7', d7),
+              _buildDoseLine(isComplete: d7 && d28),
+              _buildDoseItem('Day 28', d28),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  bool _isStepComplete(String stepName) {
-    for (final d in doses) {
-      if (d is Map<String, dynamic>) {
-        if (d['period'] == stepName && d['status'] == 'completed') {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  String _getDoseDate(String stepName) {
-    for (final d in doses) {
-      if (d is Map<String, dynamic> && d['period'] == stepName) {
-        return d['administered_date'] ?? d['scheduled_date'] ?? '';
-      }
-    }
-    return '';
-  }
-
-  Widget _buildDoseItem(String label) {
-    final complete = _isStepComplete(label);
+  Widget _buildDoseItem(String label, bool complete) {
     final date = _getDoseDate(label);
 
     return Column(
@@ -715,9 +719,9 @@ class _LiveDoseProgress extends StatelessWidget {
           ),
           child: complete
               ? const Icon(
-                  Icons.check_rounded,
+                  LucideIcons.check,
                   color: AppColors.white,
-                  size: 13,
+                  size: 12,
                 )
               : null,
         ),

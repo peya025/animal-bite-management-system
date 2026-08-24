@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/app_theme.dart';
 
@@ -33,9 +34,9 @@ class MenuSearchHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
-              Icons.health_and_safety_outlined,
+              LucideIcons.shieldCheck,
               color: AppColors.primary,
-              size: 22,
+              size: 20,
             ),
           ),
           const SizedBox(width: 12),
@@ -61,7 +62,7 @@ class MenuSearchHeader extends StatelessWidget {
                   style: TextStyle(
                     color: Color(0xFF111827),
                     fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -70,7 +71,7 @@ class MenuSearchHeader extends StatelessWidget {
           const SizedBox(width: 10),
           // Right: Search icon button (34x34, radius 10, white bg, 0.5px border)
           _HeaderIconButton(
-            icon: Icons.search,
+            icon: LucideIcons.search,
             onTap: onSearchPressed,
           ),
           const SizedBox(width: 8),
@@ -79,7 +80,7 @@ class MenuSearchHeader extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               _HeaderIconButton(
-                icon: Icons.notifications_none_rounded,
+                icon: LucideIcons.bell,
                 onTap: onNotificationsPressed,
               ),
               Positioned(

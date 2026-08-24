@@ -1,5 +1,6 @@
 /// Mock data for testing UI without backend
 /// Use this when backend is not available
+library;
 
 class MockData {
   // Sample patient account

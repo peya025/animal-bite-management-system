@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/app_theme.dart';
 import '../../models/appointment_summary.dart';
@@ -58,7 +59,7 @@ class _ScheduleSectionState extends State<ScheduleSection> {
               style: TextStyle(
                 color: Color(0xFF9CA3AF),
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
             ),
@@ -73,8 +74,8 @@ class _ScheduleSectionState extends State<ScheduleSection> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.calendar_month_outlined, size: 13, color: AppColors.primary),
-                          SizedBox(width: 3),
+                          Icon(LucideIcons.calendar, size: 13, color: AppColors.primary),
+                          SizedBox(width: 4),
                           Text(
                             'Calendar',
                             style: TextStyle(
@@ -129,7 +130,7 @@ class _ScheduleSectionState extends State<ScheduleSection> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
-                    Icons.event_available_outlined,
+                    LucideIcons.calendarCheck,
                     color: AppColors.primary,
                     size: 20,
                   ),
@@ -147,7 +148,7 @@ class _ScheduleSectionState extends State<ScheduleSection> {
                         style: const TextStyle(
                           color: Color(0xFF111827),
                           fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -166,9 +167,9 @@ class _ScheduleSectionState extends State<ScheduleSection> {
                 ),
                 const SizedBox(width: 8),
                 const Icon(
-                  Icons.chevron_right_rounded,
+                  LucideIcons.chevronRight,
                   color: Color(0xFF9CA3AF),
-                  size: 20,
+                  size: 16,
                 ),
               ],
             ),

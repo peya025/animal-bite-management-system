@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/app_theme.dart';
 
@@ -15,7 +16,7 @@ class InformationPanels extends StatelessWidget {
           style: TextStyle(
             color: Color(0xFF9CA3AF),
             fontSize: 12,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
         ),
@@ -35,14 +36,18 @@ class InformationPanels extends StatelessWidget {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.schedule_rounded, color: AppColors.primary, size: 22),
+                    Icon(
+                      LucideIcons.clock,
+                      color: AppColors.primary,
+                      size: 22,
+                    ),
                     Spacer(),
                     Text(
                       'Working hours',
                       style: TextStyle(
                         color: Color(0xFF111827),
                         fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     SizedBox(height: 3),
@@ -71,14 +76,18 @@ class InformationPanels extends StatelessWidget {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.campaign_outlined, color: Color(0xFFE58A2B), size: 22),
+                    Icon(
+                      LucideIcons.megaphone,
+                      color: Color(0xFFE58A2B),
+                      size: 22,
+                    ),
                     Spacer(),
                     Text(
                       'Awareness hub',
                       style: TextStyle(
                         color: Color(0xFF111827),
                         fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     SizedBox(height: 3),

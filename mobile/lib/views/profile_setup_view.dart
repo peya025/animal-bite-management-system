@@ -941,8 +941,9 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                           _municipalityText.text =
                                               selectedMunicipality?.name ?? '';
                                         });
-                                        if (value != null)
+                                        if (value != null) {
                                           _loadBarangays(value);
+                                        }
                                       },
                               ),
                               _dropdownField<String>(

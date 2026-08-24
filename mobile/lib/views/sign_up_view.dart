@@ -113,9 +113,9 @@ class _SignUpViewState extends State<SignUpView> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.08),
+                          color: AppColors.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                         ),
                         child: const Row(
                           children: [

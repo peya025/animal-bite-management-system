@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
@@ -149,9 +150,9 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   /// Builds the formatted place string from selected address fields
   String? _buildBitePlace() {
     final parts = [
-      if (_optional(_purokController) != null) _optional(_purokController)!,
-      if (_selectedBarangayName != null) _selectedBarangayName!,
-      if (_selectedMunicipalityName != null) _selectedMunicipalityName!,
+      ?_optional(_purokController),
+      ?_selectedBarangayName,
+      ?_selectedMunicipalityName,
     ];
     return parts.isEmpty ? null : parts.join(', ');
   }

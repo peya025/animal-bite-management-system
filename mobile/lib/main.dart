@@ -17,11 +17,11 @@ Future<void> main() async {
   if (useMockData) {
     // Use mock data (no backend needed)
     await MockMobileApi.instance.initialize();
-    print('🎭 Running in MOCK MODE - No backend needed');
+    debugPrint('🎭 Running in MOCK MODE - No backend needed');
   } else {
     // Use real backend API
     await MobileApi.instance.initialize();
-    print('🔌 Running in REAL MODE - Backend required');
+    debugPrint('🔌 Running in REAL MODE - Backend required');
   }
   
   runApp(const AnimalCareApp());

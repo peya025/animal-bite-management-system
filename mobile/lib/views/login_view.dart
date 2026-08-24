@@ -46,6 +46,7 @@ class _LoginViewState extends State<LoginView> {
         password: _passwordController.text,
         remember: _rememberMe,
       );
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Login successful.'),
@@ -130,7 +131,8 @@ class _LoginViewState extends State<LoginView> {
                         );
                         if (!dialogContext.mounted) return;
                         Navigator.pop(dialogContext);
-                        ScaffoldMessenger.of(this.context).showSnackBar(
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(msg),
                             backgroundColor: AppColors.primary,
@@ -177,7 +179,7 @@ class _LoginViewState extends State<LoginView> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.info_outline, color: AppColors.primary, size: 28),

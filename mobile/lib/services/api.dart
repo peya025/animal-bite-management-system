@@ -1,5 +1,6 @@
 /// API Factory - Returns mock or real API based on .env configuration
 /// Use this in your app instead of importing mobile_api.dart directly
+library;
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'mobile_api.dart';

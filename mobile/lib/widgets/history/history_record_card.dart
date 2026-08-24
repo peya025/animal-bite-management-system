@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'history_filters.dart';
 
 enum HistoryStatus { completed, scheduled, missed }
@@ -41,9 +42,9 @@ class HistoryRecord {
 
     final icon = filterType == HistoryFilter.vaccinations
         ? (status == HistoryStatus.completed
-            ? Icons.vaccines_outlined
-            : Icons.calendar_today_outlined)
-        : Icons.medical_information_outlined;
+            ? LucideIcons.syringe
+            : LucideIcons.calendar)
+        : LucideIcons.contact;
 
     return HistoryRecord(
       type: filterType,

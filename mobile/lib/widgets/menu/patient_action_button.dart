@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../app/app_theme.dart';
 
 class PatientActionButton extends StatelessWidget {
   const PatientActionButton({
     super.key,
     required this.onPressed,
-    this.tooltip = 'Patient card',
+    this.tooltip = 'Digital vaccination card',
   });
 
   final VoidCallback onPressed;
@@ -42,7 +43,7 @@ class PatientActionButton extends StatelessWidget {
             customBorder: const CircleBorder(),
             child: const Center(
               child: Icon(
-                Icons.person_search,
+                LucideIcons.contact,
                 color: Colors.white,
                 size: 22,
               ),

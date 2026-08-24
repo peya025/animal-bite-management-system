@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/app_theme.dart';
 
@@ -41,7 +42,7 @@ class QuickActionsSection extends StatelessWidget {
           child: Row(
             children: [
               _QuickActionItem(
-                icon: Icons.calendar_month_rounded,
+                icon: LucideIcons.calendar,
                 label: 'Calendar',
                 isPrimary: true,
                 badgeText: 'New',
@@ -49,28 +50,28 @@ class QuickActionsSection extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               _QuickActionItem(
-                icon: Icons.add_circle_outline_rounded,
+                icon: LucideIcons.plus,
                 label: 'Book now',
                 isPrimary: false,
                 onTap: onBook,
               ),
               const SizedBox(width: 12),
               _QuickActionItem(
-                icon: Icons.qr_code_2_rounded,
+                icon: LucideIcons.qrCode,
                 label: 'Digital card',
                 isPrimary: false,
                 onTap: onPatientCard,
               ),
               const SizedBox(width: 12),
               _QuickActionItem(
-                icon: Icons.people_outline_rounded,
+                icon: LucideIcons.users,
                 label: 'Profiles',
                 isPrimary: false,
                 onTap: onProfiles,
               ),
               const SizedBox(width: 12),
               _QuickActionItem(
-                icon: Icons.history_rounded,
+                icon: LucideIcons.history,
                 label: 'Records',
                 isPrimary: false,
                 onTap: onHistory,

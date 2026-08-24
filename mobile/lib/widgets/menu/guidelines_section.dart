@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../app/app_theme.dart';
-
 class GuidelinesSection extends StatelessWidget {
   const GuidelinesSection({super.key});
+
+  // Exact matching teal color from illustration
+  static const Color guideTealBg = Color(0xFF52B6B4);
 
   @override
   Widget build(BuildContext context) {
@@ -15,55 +16,40 @@ class GuidelinesSection extends StatelessWidget {
           style: TextStyle(
             color: Color(0xFF9CA3AF),
             fontSize: 12,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
         ),
         const SizedBox(height: 10),
-        const Row(
-          children: [
-            Expanded(
-              child: _GuideCard(
-                cardBg: AppColors.primary,
-                iconBg: Color(0x33FFFFFF), // semi-transparent white
-                iconColor: Colors.white,
-                icon: Icons.water_drop_outlined,
-                title: 'Wash',
-                description: '15 mins under running water',
-                textColor: Colors.white,
-                mutedTextColor: Color(0xCCFFFFFF),
-                hasBorder: false,
+        const IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _GuideCard(
+                  imagePath: 'assets/images/guide/guide_wash.png',
+                  title: 'Wash',
+                  description: '15 mins under running water',
+                ),
               ),
-            ),
-            SizedBox(width: 8),
-            Expanded(
-              child: _GuideCard(
-                cardBg: Colors.white,
-                iconBg: Color(0xFFE1F5EE),
-                iconColor: AppColors.primary,
-                icon: Icons.medical_services_outlined,
-                title: 'Consult',
-                description: 'Visit clinic immediately',
-                textColor: Color(0xFF111827),
-                mutedTextColor: Color(0xFF6B7280),
-                hasBorder: true,
+              SizedBox(width: 10),
+              Expanded(
+                child: _GuideCard(
+                  imagePath: 'assets/images/guide/guide_consult.png',
+                  title: 'Consult',
+                  description: 'Visit clinic immediately',
+                ),
               ),
-            ),
-            SizedBox(width: 8),
-            Expanded(
-              child: _GuideCard(
-                cardBg: Colors.white,
-                iconBg: Color(0xFFEEF2FF),
-                iconColor: Color(0xFF4F46E5),
-                icon: Icons.vaccines_outlined,
-                title: 'Vaccinate',
-                description: 'Complete rabies vaccine series',
-                textColor: Color(0xFF111827),
-                mutedTextColor: Color(0xFF6B7280),
-                hasBorder: true,
+              SizedBox(width: 10),
+              Expanded(
+                child: _GuideCard(
+                  imagePath: 'assets/images/guide/guide_vaccinate.png',
+                  title: 'Vaccinate',
+                  description: 'Complete rabies vaccine series',
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -72,69 +58,88 @@ class GuidelinesSection extends StatelessWidget {
 
 class _GuideCard extends StatelessWidget {
   const _GuideCard({
-    required this.cardBg,
-    required this.iconBg,
-    required this.iconColor,
-    required this.icon,
+    required this.imagePath,
     required this.title,
     required this.description,
-    required this.textColor,
-    required this.mutedTextColor,
-    required this.hasBorder,
   });
 
-  final Color cardBg;
-  final Color iconBg;
-  final Color iconColor;
-  final IconData icon;
+  final String imagePath;
   final String title;
   final String description;
-  final Color textColor;
-  final Color mutedTextColor;
-  final bool hasBorder;
 
   @override
   Widget build(BuildContext context) {
+    const cardRadius = BorderRadius.all(Radius.circular(16));
+
     return Container(
-      constraints: const BoxConstraints(minHeight: 110),
-      padding: const EdgeInsets.all(12),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: hasBorder
-            ? Border.all(color: Colors.grey.shade200, width: 0.5)
-            : null,
+        color: GuidelinesSection.guideTealBg,
+        borderRadius: cardRadius,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14085041),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Icon box 32x32, 10px radius
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(10),
+          // 1. Prominent Aspect Ratio Illustration Box
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+            child: AspectRatio(
+              aspectRatio: 1.0,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  imagePath,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: GuidelinesSection.guideTealBg,
+                    child: const Icon(Icons.broken_image_rounded, color: Colors.white70),
+                  ),
+                ),
+              ),
             ),
-            child: Icon(icon, size: 18, color: iconColor),
           ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            description,
-            style: TextStyle(
-              color: mutedTextColor,
-              fontSize: 10,
-              fontWeight: FontWeight.w400,
-              height: 1.25,
+
+          // 2. Separation between Illustration & Text
+          const SizedBox(height: 6),
+
+          // 3. Text Zone with uniform padding and flex expansion
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      color: Color(0xFFE6F7F6),
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w500,
+                      height: 1.25,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ),
         ],

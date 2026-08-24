@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../app/app_routes.dart';
@@ -98,21 +99,20 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
 
         events.add(
           CalendarEvent(
-            id: 'app-${app.id}',
+            id: 'app_${app.id}',
             patientId: app.patientId,
             patientName: app.patientName,
             relationship: _findRelationship(app.patientId, patientsList),
             title: app.typeLabel,
-            type: app.type == 'consultation' ? 'consultation' : 'vaccination',
-            date: DateTime(date.year, date.month, date.day),
+            type: app.type,
+            date: date,
             timeSlot: 'Morning (8:00 AM - 12:00 PM)',
             status: isCompleted ? 'completed' : (isMissed ? 'missed' : 'scheduled'),
-            notes: null,
+            doseLabel: app.type == 'vaccination' ? 'Rabies Vaccine' : 'Consultation Visit',
           ),
         );
       }
 
-      // Map Vaccination Records into Events
       for (final rec in rawRecords) {
         if (rec is! Map<String, dynamic>) continue;
         final type = rec['type']?.toString();
@@ -211,7 +211,7 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
         backgroundColor: Colors.white,
         elevation: 0.5,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF111827)),
+          icon: const Icon(LucideIcons.arrowLeft, color: Color(0xFF111827)),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Column(
@@ -238,7 +238,7 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
         actions: [
           IconButton(
             tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF1D9E75)),
+            icon: const Icon(LucideIcons.refreshCw, color: Color(0xFF1D9E75), size: 18),
             onPressed: _loadData,
           ),
         ],
@@ -447,8 +447,8 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
             fontWeight: FontWeight.w700,
             color: Color(0xFF111827),
           ),
-          leftChevronIcon: const Icon(Icons.chevron_left_rounded, color: Color(0xFF374151)),
-          rightChevronIcon: const Icon(Icons.chevron_right_rounded, color: Color(0xFF374151)),
+          leftChevronIcon: const Icon(LucideIcons.chevronLeft, color: Color(0xFF374151), size: 16),
+          rightChevronIcon: const Icon(LucideIcons.chevronRight, color: Color(0xFF374151), size: 16),
         ),
         calendarStyle: CalendarStyle(
           outsideDaysVisible: false,
@@ -586,7 +586,7 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
       child: Column(
         children: [
           const Icon(
-            Icons.event_available_outlined,
+            LucideIcons.calendar,
             size: 32,
             color: Color(0xFF9CA3AF),
           ),
@@ -611,7 +611,7 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => Navigator.of(context).pushNamed(AppRoutes.booking),
-            icon: const Icon(Icons.add_rounded, size: 16),
+            icon: const Icon(LucideIcons.plus, size: 14),
             label: const Text('Book an appointment', style: TextStyle(fontSize: 12)),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF1D9E75),
@@ -633,21 +633,21 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
         text: const Color(0xFF085041),
         border: const Color(0xFFBBF7D0),
         label: 'Completed',
-        icon: Icons.check_circle_outline_rounded,
+        icon: LucideIcons.checkCircle,
       ),
       'missed' => (
         bg: const Color(0xFFFEF2F2),
         text: const Color(0xFFDC2626),
         border: const Color(0xFFFECACA),
         label: 'Missed / Cancelled',
-        icon: Icons.error_outline_rounded,
+        icon: LucideIcons.alertCircle,
       ),
       _ => (
         bg: const Color(0xFFEFF6FF),
         text: const Color(0xFF1D4ED8),
         border: const Color(0xFFBFDBFE),
         label: 'Scheduled',
-        icon: Icons.schedule_rounded,
+        icon: LucideIcons.clock,
       ),
     };
 
@@ -692,7 +692,7 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.person_outline_rounded, size: 12, color: Color(0xFF4B5563)),
+                          const Icon(LucideIcons.user, size: 12, color: Color(0xFF4B5563)),
                           const SizedBox(width: 4),
                           Text(
                             '${event.patientName} · ${event.relationship}',
@@ -745,7 +745,7 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    isVaccination ? Icons.vaccines_outlined : Icons.medical_information_outlined,
+                    isVaccination ? LucideIcons.syringe : LucideIcons.contact,
                     color: isVaccination ? const Color(0xFF1D9E75) : const Color(0xFF3B82F6),
                     size: 18,
                   ),
@@ -789,7 +789,7 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.access_time_rounded, size: 13, color: Color(0xFF6B7280)),
+                    const Icon(LucideIcons.clock, size: 13, color: Color(0xFF6B7280)),
                     const SizedBox(width: 4),
                     Text(
                       event.timeSlot,
@@ -813,7 +813,7 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
                         ),
                       ),
                       SizedBox(width: 2),
-                      Icon(Icons.chevron_right_rounded, size: 14, color: Color(0xFF1D9E75)),
+                      Icon(LucideIcons.chevronRight, size: 12, color: Color(0xFF1D9E75)),
                     ],
                   ),
               ],

@@ -5,9 +5,14 @@ import '../../models/appointment_summary.dart';
 import '../../services/api.dart';
 
 class ScheduleSection extends StatefulWidget {
-  const ScheduleSection({super.key, required this.onOpenAppointments});
+  const ScheduleSection({
+    super.key,
+    required this.onOpenAppointments,
+    this.onOpenCalendar,
+  });
 
   final VoidCallback onOpenAppointments;
+  final VoidCallback? onOpenCalendar;
 
   @override
   State<ScheduleSection> createState() => _ScheduleSectionState();
@@ -57,16 +62,47 @@ class _ScheduleSectionState extends State<ScheduleSection> {
                 letterSpacing: 0.5,
               ),
             ),
-            GestureDetector(
-              onTap: widget.onOpenAppointments,
-              child: const Text(
-                'View all',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+            Row(
+              children: [
+                if (widget.onOpenCalendar != null) ...[
+                  InkWell(
+                    onTap: widget.onOpenCalendar,
+                    borderRadius: BorderRadius.circular(6),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_month_outlined, size: 13, color: AppColors.primary),
+                          SizedBox(width: 3),
+                          Text(
+                            'Calendar',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('·', style: TextStyle(color: Color(0xFFD1D5DB))),
+                  const SizedBox(width: 8),
+                ],
+                GestureDetector(
+                  onTap: widget.onOpenAppointments,
+                  child: const Text(
+                    'View all',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),

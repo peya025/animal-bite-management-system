@@ -13,6 +13,7 @@ import '../views/notifications_view.dart';
 import '../views/patient_activation_view.dart';
 import '../views/patient_profile_view.dart';
 import '../views/profile_setup_view.dart';
+import '../views/schedule_calendar_view.dart';
 import '../views/settings_view.dart';
 import '../views/sign_up_view.dart';
 import '../views/welcome_view.dart';
@@ -58,6 +59,7 @@ abstract final class AppRouter {
             ? BiteIntakeView(args: settings.arguments! as BiteIntakeRouteArgs)
             : const BookingView(),
       AppRoutes.appointments => const AppointmentsView(),
+      AppRoutes.calendar => const ScheduleCalendarView(),
       _ => const WelcomeView(),
     };
 

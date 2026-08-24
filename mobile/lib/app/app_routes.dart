@@ -11,5 +11,6 @@ abstract final class AppRoutes {
   static const patientProfile = '/profiles/view';
   static const biteIntake = '/booking/bite-intake';
   static const appointments = '/appointments';
+  static const calendar = '/calendar';
   static const patientActivation = '/activate';
 }

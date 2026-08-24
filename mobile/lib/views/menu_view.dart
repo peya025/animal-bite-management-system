@@ -63,9 +63,15 @@ class _MenuViewState extends State<MenuView> {
                           onOpenAppointments: () => Navigator.of(
                             context,
                           ).pushNamed(AppRoutes.appointments),
+                          onOpenCalendar: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.calendar),
                         ),
                         const SizedBox(height: 20),
                         QuickActionsSection(
+                          onCalendar: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.calendar),
                           onBook: () => Navigator.of(
                             context,
                           ).pushNamed(AppRoutes.booking),
@@ -117,9 +123,14 @@ class _MenuViewState extends State<MenuView> {
 class _HomeSearchDelegate extends SearchDelegate<String?> {
   static const _items = [
     _HomeSearchItem(
+      label: 'Schedule calendar by profile',
+      route: AppRoutes.calendar,
+      icon: Icons.calendar_month_rounded,
+    ),
+    _HomeSearchItem(
       label: 'Book an appointment',
       route: AppRoutes.booking,
-      icon: Icons.calendar_month_outlined,
+      icon: Icons.edit_calendar_rounded,
     ),
     _HomeSearchItem(
       label: 'Appointment list',

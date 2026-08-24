@@ -69,11 +69,14 @@ export default function PatientList() {
 
   // Helper to distinguish online appointment patients from walk-in patients
   const isOnlinePatient = (p: Patient) => {
-    return Boolean(
-      (p as any).appointments?.some((a: any) => a.booked_by_account_id) ||
-      (p as any).bite_intakes?.length ||
-      ((p as any).accounts && (p as any).accounts.length > 0)
+    const biteIntakes = (p as any).bite_intakes || (p as any).biteIntakes || [];
+    const hasIntake = Boolean(biteIntakes.length > 0);
+    const hasConfirmedBooking = Boolean(
+      (p as any).appointments?.some((a: any) => a.booked_by_account_id && a.status !== 'cancelled')
     );
+    const isMobileRegistered = p.registration_source === 'mobile' || Boolean((p as any).accounts && (p as any).accounts.length > 0);
+
+    return hasIntake || hasConfirmedBooking || (isMobileRegistered && Boolean((p as any).appointments && (p as any).appointments.length > 0));
   };
 
   // Debounce search input (wait 400ms after user stops typing)

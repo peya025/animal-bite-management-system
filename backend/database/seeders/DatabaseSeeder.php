@@ -28,7 +28,6 @@ class DatabaseSeeder extends Seeder
             $this->call([
                 DefaultClinicSeeder::class,
                 DefaultClinicConfigSeeder::class,
-                VaccineInventorySeeder::class,
             ]);
         } else {
             $this->command->warn('⚠️  SEED_DEFAULT_CLINIC is false - skipping clinic creation');

@@ -136,17 +136,41 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     setFieldErrors(newFieldErrors);
 
     if (Object.keys(newFieldErrors).length > 0) {
-      setError('Please fill in all required fields highlighted in red below.');
+      const errorList = Object.values(newFieldErrors);
+      setError(`Required: ${errorList.slice(0, 3).join(' • ')}${errorList.length > 3 ? ` (+${errorList.length - 3} more)` : ''}`);
 
-      const fieldOrder = ['last_name', 'first_name', 'sex', 'date_of_birth', 'visit_type', 'follow_up_date', 'queue_priority_group', 'queue_priority_level', 'address', 'contact_number', 'emergency_contact_phone', 'philhealth_no'];
-      const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
+      const fieldOrder = [
+        'last_name',
+        'first_name',
+        'sex',
+        'date_of_birth',
+        'visit_type',
+        'follow_up_date',
+        'queue_priority_group',
+        'queue_priority_level',
+        'address',
+        'contact_number',
+        'emergency_contact_phone',
+        'philhealth_no',
+        'other_membership_no',
+        'pwd_id',
+      ];
+      const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]) || Object.keys(newFieldErrors)[0];
 
       if (firstErrorKey) {
         setTimeout(() => {
           const el = document.getElementById(`field-${firstErrorKey}`);
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            const focusable = el.querySelector('input, select') as HTMLElement;
+            const scrollParent = el.closest('[class*="Body"]') || el.closest('.fm-body');
+            if (scrollParent) {
+              const rect = el.getBoundingClientRect();
+              const parentRect = scrollParent.getBoundingClientRect();
+              if (rect.top < parentRect.top || rect.bottom > parentRect.bottom) {
+                scrollParent.scrollBy({ top: rect.top - parentRect.top - 40, behavior: 'smooth' });
+              }
+            }
+            const focusable = el.querySelector('input, select, textarea') as HTMLElement;
             if (focusable) {
               focusable.focus({ preventScroll: true });
             }
@@ -186,7 +210,25 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
       maxWidth={850}
       footer={
         <>
-          {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
+          {error && (
+            <p
+              style={{
+                flex: 1,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: '#dc2626',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                margin: '0 12px 0 0',
+                alignSelf: 'center',
+                lineHeight: 1.4,
+              }}
+            >
+              ⚠ {error}
+            </p>
+          )}
           <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>Cancel</button>
           <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
             {saving ? 'Saving…' : 'Save Patient Record'}
@@ -197,9 +239,9 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
       <PatientFormContent>
         <PatientInfoSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} showQueueFields={isRegistrationStaff} />
         <AddressSection loc={loc} errors={fieldErrors} />
-        <ContactSection data={enrolment} onChange={handleFieldChange} />
+        <ContactSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} />
         <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
-        <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} />
+        <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} errors={fieldErrors} />
       </PatientFormContent>
     </FormModal>
   );

@@ -7,6 +7,7 @@ interface GovProgramsSectionProps {
   data: EnrolmentFormData;
   onChange: (key: keyof EnrolmentFormData) => (ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   onDirectChange: (key: keyof EnrolmentFormData, value: any) => void;
+  errors?: Record<string, string>;
 }
 
 const PROGRAM_OPTIONS = [
@@ -19,7 +20,7 @@ const PROGRAM_OPTIONS = [
   { value: 'others', label: 'Others (Specify)' },
 ];
 
-export function GovProgramsSection({ data, onChange, onDirectChange }: GovProgramsSectionProps) {
+export function GovProgramsSection({ data, onChange, onDirectChange, errors = {} }: GovProgramsSectionProps) {
   // Derive current list of selected programs from data
   const getSelectedListFromData = (): string[] => {
     const list: string[] = [];
@@ -309,8 +310,20 @@ export function GovProgramsSection({ data, onChange, onDirectChange }: GovProgra
                             <option value="dependent">Dependent</option>
                           </select>
                         </FormField>
-                        <FormField label="PhilHealth No.">
-                          <input className="fm-input" value={data.philhealth_no} onChange={onChange('philhealth_no')} maxLength={14} placeholder="XX-XXXXXXXXX-X" />
+                        <FormField
+                          id="field-philhealth_no"
+                          label="PhilHealth No."
+                          error={!!errors.philhealth_no}
+                          errorText={errors.philhealth_no}
+                        >
+                          <input
+                            className="fm-input"
+                            value={data.philhealth_no}
+                            onChange={onChange('philhealth_no')}
+                            maxLength={14}
+                            placeholder="XX-XXXXXXXXX-X"
+                            style={errors.philhealth_no ? { borderColor: '#ef4444' } : undefined}
+                          />
                         </FormField>
                       </div>
                       <FormField label="Category">
@@ -380,7 +393,12 @@ export function GovProgramsSection({ data, onChange, onDirectChange }: GovProgra
 
                 {selectedProgram === 'pwd' && (
                   <div style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
-                    <FormField label="PWD ID No.">
+                    <FormField
+                      id="field-pwd_id"
+                      label="PWD ID No."
+                      error={!!errors.pwd_id || !!errors.other_membership_no}
+                      errorText={errors.pwd_id || errors.other_membership_no}
+                    >
                       <input
                         className="fm-input"
                         value={data.pwd_id}
@@ -390,6 +408,7 @@ export function GovProgramsSection({ data, onChange, onDirectChange }: GovProgra
                         }}
                         maxLength={23}
                         placeholder="XX-XXXX-XXXXXXXXXX-XXXXX"
+                        style={(errors.pwd_id || errors.other_membership_no) ? { borderColor: '#ef4444' } : undefined}
                       />
                     </FormField>
                   </div>

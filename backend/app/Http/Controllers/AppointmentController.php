@@ -225,14 +225,20 @@ class AppointmentController extends Controller
                     break;
 
                 case 'online':
-                    // Patients with online/mobile bookings or submitted intakes
+                    // Patients with submitted bite intake OR confirmed booking from mobile
                     $query->where(function ($q) {
-                        $q->whereHas('appointments', function ($app) {
-                            $app->whereNotNull('booked_by_account_id');
-                        })->orWhereHas('biteIntakes')->orWhereHas('accounts');
+                        $q->whereHas('biteIntakes')
+                          ->orWhereHas('appointments', function ($app) {
+                              $app->whereNotNull('booked_by_account_id')
+                                  ->where('status', '!=', 'cancelled');
+                          })
+                          ->orWhere(function ($sub) {
+                              $sub->where('registration_source', 'mobile')
+                                  ->whereHas('appointments');
+                          });
                     })->with([
                         'appointments' => function ($app) {
-                            $app->latest('scheduled_date');
+                            $app->whereNotNull('booked_by_account_id')->latest('scheduled_date');
                         },
                         'biteIntakes' => function ($bi) {
                             $bi->latest();
@@ -335,9 +341,15 @@ class AppointmentController extends Controller
             })->count();
 
             $onlineCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
-                $q->whereHas('appointments', function ($app) {
-                    $app->whereNotNull('booked_by_account_id');
-                })->orWhereHas('biteIntakes')->orWhereHas('accounts');
+                $q->whereHas('biteIntakes')
+                  ->orWhereHas('appointments', function ($app) {
+                      $app->whereNotNull('booked_by_account_id')
+                          ->where('status', '!=', 'cancelled');
+                  })
+                  ->orWhere(function ($sub) {
+                      $sub->where('registration_source', 'mobile')
+                          ->whereHas('appointments');
+                  });
             })->count();
 
             $upcomingCount = Patient::where('clinic_id', $clinicId)->whereHas('appointments', function ($q) {

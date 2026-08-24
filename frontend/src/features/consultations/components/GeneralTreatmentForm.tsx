@@ -475,7 +475,8 @@ export default function GeneralTreatmentForm({
     setFieldErrors(newFieldErrors);
 
     if (Object.keys(newFieldErrors).length > 0) {
-      setError('Please fill in the required field(s) highlighted in red.');
+      const errorList = Object.values(newFieldErrors);
+      setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = ['nature_of_visit', 'consultation_types', 'chief_complaints'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
@@ -485,6 +486,14 @@ export default function GeneralTreatmentForm({
           const el = document.getElementById(`field-${firstErrorKey}`);
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const scrollParent = el.closest('[class*="Body"]') || el.closest('.fm-body');
+            if (scrollParent) {
+              const rect = el.getBoundingClientRect();
+              const parentRect = scrollParent.getBoundingClientRect();
+              if (rect.top < parentRect.top || rect.bottom > parentRect.bottom) {
+                scrollParent.scrollBy({ top: rect.top - parentRect.top - 40, behavior: 'smooth' });
+              }
+            }
             const focusable = el.querySelector('input, textarea, select') as HTMLElement;
             if (focusable) {
               focusable.focus({ preventScroll: true });

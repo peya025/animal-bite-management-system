@@ -9,6 +9,44 @@ import '../services/api.dart';
 import '../services/psgc_service.dart';
 import '../widgets/common/app_page_header.dart';
 
+class PhilHealthNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    final digitsOnly = text.replaceAll(RegExp(r'\D'), '');
+    final limitedDigits = digitsOnly.length > 12
+        ? digitsOnly.substring(0, 12)
+        : digitsOnly;
+
+    final buffer = StringBuffer();
+    for (int i = 0; i < limitedDigits.length; i++) {
+      if (i == 2 || i == 11) {
+        buffer.write('-');
+      }
+      buffer.write(limitedDigits[i]);
+    }
+
+    final formattedText = buffer.toString();
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
+  }
+}
+
+String formatPhilHealthNumber(String? value) {
+  if (value == null || value.trim().isEmpty) return '';
+  final digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 11) {
+    return '${digits.substring(0, 2)}-${digits.substring(2)}';
+  }
+  return '${digits.substring(0, 2)}-${digits.substring(2, 11)}-${digits.substring(11, digits.length > 12 ? 12 : digits.length)}';
+}
+
 class ProfileSetupView extends StatefulWidget {
   const ProfileSetupView({
     super.key,
@@ -304,8 +342,9 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     _purok.text = details?.addressPurok ?? '';
     _municipalityText.text = details?.addressMunicipality ?? '';
     _barangayText.text = details?.addressBarangay ?? '';
-    _philhealthNo.text =
-        philhealth?.membershipIdNo ?? details?.philhealthNo ?? '';
+    _philhealthNo.text = formatPhilHealthNumber(
+      philhealth?.membershipIdNo ?? details?.philhealthNo ?? '',
+    );
     _seniorCitizenId.text = senior?.membershipIdNo ?? '';
     _pwdId.text = pwd?.membershipIdNo ?? '';
     _indigenousTribe.text = indigenous?.extraValue ?? '';
@@ -496,7 +535,8 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
           _philhealthNo.text.replaceAll(RegExp(r'\D'), '').length != 12) {
         setState(() {
           _isLoading = false;
-          _error = 'PhilHealth number must contain exactly 12 digits.';
+          _error =
+              'PhilHealth number must contain exactly 12 digits (XX-XXXXXXXXX-X).';
         });
         return;
       }
@@ -1105,8 +1145,8 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                 _inputField(
                                   'PhilHealth ID number',
                                   _philhealthNo,
-                                  hint: '12-digit PhilHealth ID',
-                                  phone: true,
+                                  hint: 'XX-XXXXXXXXX-X',
+                                  philhealth: true,
                                 ),
                               ],
                               _chipSelector<String>(
@@ -1517,6 +1557,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     bool required = false,
     bool phone = false,
     bool email = false,
+    bool philhealth = false,
     Widget? suffixIcon,
     VoidCallback? onTap,
     bool readOnly = false,
@@ -1532,15 +1573,17 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
             enabled: !_isLoading,
             readOnly: readOnly,
             onTap: onTap,
-            keyboardType: phone
+            keyboardType: (phone || philhealth)
                 ? TextInputType.phone
                 : email
                 ? TextInputType.emailAddress
                 : TextInputType.name,
-            textCapitalization: phone || email
+            textCapitalization: (phone || email || philhealth)
                 ? TextCapitalization.none
                 : TextCapitalization.words,
-            inputFormatters: phone
+            inputFormatters: philhealth
+                ? [PhilHealthNumberFormatter()]
+                : phone
                 ? [
                     FilteringTextInputFormatter.digitsOnly,
                     LengthLimitingTextInputFormatter(11),
@@ -1583,6 +1626,12 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
               }
               if (phone && trimmed.isNotEmpty && trimmed.length != 11) {
                 return 'Phone number must be 11 digits';
+              }
+              if (philhealth && trimmed.isNotEmpty) {
+                final digits = trimmed.replaceAll(RegExp(r'\D'), '');
+                if (digits.length != 12) {
+                  return 'PhilHealth number must be 12 digits (XX-XXXXXXXXX-X)';
+                }
               }
               final emailPattern = RegExp("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$");
               if (email &&

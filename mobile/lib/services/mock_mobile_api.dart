@@ -339,6 +339,139 @@ class MockMobileApi {
     ];
   }
 
+  Future<Map<String, dynamic>> history({int? patientId}) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    return {
+      'summary': {
+        'total_visits': 3,
+        'total_vaccinations': 2,
+        'active_cases': 1,
+      },
+      'active_case': {
+        'case_number': 'Case BC-2026-0018',
+        'next_dose_text': 'Next: Day 7 dose · March 17, 2026',
+        'due_badge_text': 'Due in 4 days',
+      },
+      'records': [
+        {
+          'id': 'app-1',
+          'type': 'appointments',
+          'title': 'Bite consultation',
+          'date_time': 'March 10, 2026 · 9:30 AM',
+          'case_number': 'BC-2026-0018',
+          'status': 'completed',
+        },
+        {
+          'id': 'vac-1',
+          'type': 'vaccinations',
+          'title': 'Anti-rabies vaccine · Day 3',
+          'date_time': 'March 13, 2026 · 10:00 AM',
+          'status': 'completed',
+          'completed_doses': 2,
+          'total_doses': 4,
+          'dose_label': '2 of 4 done',
+        },
+        {
+          'id': 'vac-2',
+          'type': 'vaccinations',
+          'title': 'Anti-rabies vaccine · Day 7',
+          'date_time': 'March 17, 2026 · 10:00 AM',
+          'status': 'scheduled',
+          'completed_doses': 2,
+          'total_doses': 4,
+          'dose_label': '3 of 4 · upcoming',
+        },
+      ],
+    };
+  }
+
+  Future<Map<String, dynamic>> vaccinationCard(int patientId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final patient = _patients.firstWhere(
+      (p) => p['id'] == patientId,
+      orElse: () => _patients.isNotEmpty ? _patients.first : {'id': patientId, 'name': 'Juan Dela Cruz', 'patient_number': 'P-2026-0042'},
+    );
+
+    return {
+      'clinic': {
+        'name': 'TAGOLOAN ANIMAL BITE TREATMENT CENTER',
+        'doh_accreditation_no': '2022-10-037',
+        'philhealth_accreditation_no': 'B10034377',
+      },
+      'patient': {
+        'patient_id': patient['id'],
+        'patient_number': patient['patient_number'] ?? 'P-2026-0042',
+        'full_name': patient['name'] ?? 'Juan Dela Cruz',
+        'age': 28,
+        'gender': 'Male',
+        'philhealth_no': '12-345678901-2',
+      },
+      'card': {
+        'registry_no': 'REG-2026-0018',
+        'hospital_no': 'HOSP-9821',
+        'exposure_category': 'III',
+        'animal_type': 'Dog',
+        'date_of_exposure': 'March 10, 2026',
+        'place_of_exposure': 'Poblacion, Tagoloan',
+      },
+      'card_token': 'vc_demo_token_123',
+      'qr_payload': 'https://clinic.gov.ph/verify/card/vc_demo_token_123',
+      'status': 'ACTIVE',
+      'progress': {
+        'completed_doses': 2,
+        'total_doses': 4,
+        'dose_label': '2 of 4 doses',
+        'next_dose': {
+          'name': 'Day 7',
+          'scheduled_date': 'March 17, 2026',
+          'due_text': 'Due in 4 days',
+        },
+      },
+      'doses': [
+        {
+          'period': 'Day 0',
+          'dose_number': 0,
+          'scheduled_date': 'March 10, 2026',
+          'administered_date': 'March 10, 2026',
+          'vaccine_brand': 'Speeda (PVRV)',
+          'batch_no': 'SP-2026-08',
+          'route': 'ID',
+          'status': 'completed',
+        },
+        {
+          'period': 'Day 3',
+          'dose_number': 3,
+          'scheduled_date': 'March 13, 2026',
+          'administered_date': 'March 13, 2026',
+          'vaccine_brand': 'Speeda (PVRV)',
+          'batch_no': 'SP-2026-08',
+          'route': 'ID',
+          'status': 'completed',
+        },
+        {
+          'period': 'Day 7',
+          'dose_number': 7,
+          'scheduled_date': 'March 17, 2026',
+          'administered_date': null,
+          'vaccine_brand': 'Speeda (PVRV)',
+          'batch_no': '—',
+          'route': 'ID',
+          'status': 'scheduled',
+        },
+        {
+          'period': 'Day 28',
+          'dose_number': 28,
+          'scheduled_date': 'April 7, 2026',
+          'administered_date': null,
+          'vaccine_brand': 'Speeda (PVRV)',
+          'batch_no': '—',
+          'route': 'ID',
+          'status': 'scheduled',
+        },
+      ],
+    };
+  }
+
   String _resolveString(
     Map<String, dynamic> profile,
     Map<String, dynamic>? existing,

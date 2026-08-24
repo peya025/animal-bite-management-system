@@ -132,9 +132,59 @@ class TreatmentRecordController extends Controller
             'administered_by' => $request->user()->id,
         ]);
 
+        // ── Auto-advance queue: move patient from Triage/Doctor → Treatment/Vaccination station ──
+        $todayQueue = null;
+        if (!empty($validated['queue_id'])) {
+            $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)
+                ->where('queue_id', $validated['queue_id'])
+                ->whereNull('deleted_at')
+                ->first();
+        }
+
+        if (!$todayQueue) {
+            $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->where('queue_date', Carbon::today()->toDateString())
+                ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
+                ->whereIn('visit_type', ['new_case', 'follow_up', 'observation', 'consultation'])
+                ->whereNull('deleted_at')
+                ->latest('queue_id')
+                ->first();
+        }
+
+        if ($todayQueue) {
+            $transferNotes = 'Doctor/Triage completed Form 2 — referred to Treatment.';
+            
+            \App\Models\QueueHistory::create([
+                'queue_id'     => $todayQueue->queue_id,
+                'clinic_id'    => $todayQueue->clinic_id,
+                'patient_id'   => $todayQueue->patient_id,
+                'action'       => 'transferred_to_treatment',
+                'from_status'  => $todayQueue->status,
+                'to_status'    => 'waiting',
+                'call_count'   => $todayQueue->call_count ?? 0,
+                'performed_by' => $request->user()->id,
+                'notes'        => $transferNotes,
+                'occurred_at'  => now(),
+            ]);
+
+            $todayQueue->update([
+                'visit_type'         => 'vaccination',
+                'status'             => 'waiting',
+                'called_at'          => null,
+                'serving_at'         => null,
+                'completed_at'       => null,
+                'consultation_notes' => $transferNotes,
+                'recall_stage'       => null,
+            ]);
+
+            \Illuminate\Support\Facades\Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+        }
+
         return response()->json([
             'message' => 'Treatment record saved successfully',
             'treatment_record' => $treatmentRecord->load('patient'),
+            'queue' => $todayQueue?->fresh(),
         ], 201);
     }
 

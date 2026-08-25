@@ -8,13 +8,35 @@ class MenuSearchHeader extends StatelessWidget {
     super.key,
     required this.onSearchPressed,
     required this.onNotificationsPressed,
+    this.userName,
+    this.greeting,
   });
 
   final VoidCallback onSearchPressed;
   final VoidCallback onNotificationsPressed;
+  final String? userName;
+  final String? greeting;
+
+  String _getGreeting() {
+    if (greeting != null && greeting!.trim().isNotEmpty) {
+      return greeting!.trim();
+    }
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good morning';
+    } else if (hour < 17) {
+      return 'Good afternoon';
+    } else {
+      return 'Good evening';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final displayName = (userName != null && userName!.trim().isNotEmpty)
+        ? userName!.trim()
+        : 'User';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -40,26 +62,26 @@ class MenuSearchHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Center: Greeting and Clinic Name
-          const Expanded(
+          // Center: Greeting and User Name
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Good morning',
-                  style: TextStyle(
+                  _getGreeting(),
+                  style: const TextStyle(
                     color: Color(0xFF9CA3AF),
                     fontSize: 11,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Animal Bite Center',
+                  displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Color(0xFF111827),
                     fontSize: 15,
                     fontWeight: FontWeight.w600,

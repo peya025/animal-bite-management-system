@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
+import '../models/patient_account_profile.dart';
+import '../services/api.dart';
 import '../widgets/menu/campaign_banner.dart';
 import '../widgets/menu/guidelines_section.dart';
 import '../widgets/menu/information_panels.dart';
@@ -21,6 +23,36 @@ class MenuView extends StatefulWidget {
 
 class _MenuViewState extends State<MenuView> {
   int _selectedIndex = 0;
+  String? _userName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    try {
+      final account = await api.account() as PatientAccountProfile;
+      if (mounted) {
+        final selfProfile = account.patients
+            .where((p) => p.relationship.toLowerCase() == 'self')
+            .firstOrNull;
+
+        final resolvedName = selfProfile != null && selfProfile.name.trim().isNotEmpty
+            ? selfProfile.name.trim()
+            : account.name.trim();
+
+        if (resolvedName.isNotEmpty) {
+          setState(() {
+            _userName = resolvedName;
+          });
+        }
+      }
+    } catch (_) {
+      // Keep default fallback
+    }
+  }
 
   void _openPatientCard() {
     showDigitalVaccinationCard(context);
@@ -46,6 +78,7 @@ class _MenuViewState extends State<MenuView> {
             child: Column(
               children: [
                 MenuSearchHeader(
+                  userName: _userName,
                   onSearchPressed: _openSearch,
                   onNotificationsPressed: () => Navigator.of(
                     context,
@@ -75,9 +108,12 @@ class _MenuViewState extends State<MenuView> {
                           onBook: () => Navigator.of(
                             context,
                           ).pushNamed(AppRoutes.booking),
-                          onProfiles: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.settings),
+                          onProfiles: () async {
+                            await Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.settings);
+                            if (mounted) _loadUser();
+                          },
                           onPatientCard: _openPatientCard,
                           onHistory: () => Navigator.of(
                             context,

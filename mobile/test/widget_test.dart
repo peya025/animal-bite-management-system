@@ -13,6 +13,7 @@ import 'package:mobile/views/menu_view.dart';
 import 'package:mobile/views/notifications_view.dart';
 import 'package:mobile/views/settings_view.dart';
 import 'package:mobile/widgets/appointments/appointment_card.dart';
+import 'package:mobile/widgets/menu/search_header.dart';
 import 'package:mobile/widgets/notifications/notification_card.dart';
 import 'package:flutter/material.dart';
 
@@ -102,7 +103,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Animal Bite Center'), findsOneWidget);
+    expect(find.text('User'), findsOneWidget);
     expect(find.text('Bite care guide'), findsOneWidget);
     expect(find.text('Upcoming schedules'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -332,5 +333,41 @@ void main() {
     await tester.tap(find.text('Vaccination reminder'));
     expect(tapped, isTrue);
     expect(find.textContaining('Juan Dela Cruz'), findsOneWidget);
+  });
+
+  testWidgets('MenuSearchHeader displays user name and default fallback', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MenuSearchHeader(
+            userName: 'Maria Santos',
+            greeting: 'Good morning',
+            onSearchPressed: () {},
+            onNotificationsPressed: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Maria Santos'), findsOneWidget);
+    expect(find.text('Good morning'), findsOneWidget);
+    expect(find.text('Animal Bite Center'), findsNothing);
+
+    // Test with default/fallback
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MenuSearchHeader(
+            onSearchPressed: () {},
+            onNotificationsPressed: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('User'), findsOneWidget);
+    expect(find.text('Animal Bite Center'), findsNothing);
   });
 }

@@ -17,10 +17,20 @@ class MobileNotificationController extends Controller
         // Cache for 2 minutes (notifications update frequently)
         return response()->json(
             Cache::remember($cacheKey, 120, function () use ($request) {
-                return $request->user()->notifications()
+                $paginated = $request->user()->notifications()
                     ->with('patient')
                     ->latest()
                     ->paginate(20);
+
+                $patients = $request->user()->patients()->get()->keyBy('patient_id');
+
+                $paginated->getCollection()->transform(function ($n) use ($patients) {
+                    $p = $patients->get($n->patient_id);
+                    $n->relationship = $p ? ($p->pivot->relationship ?? 'self') : 'self';
+                    return $n;
+                });
+
+                return $paginated;
             })
         );
     }

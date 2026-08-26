@@ -94,22 +94,24 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
 
       // Map Appointments into Events
       for (final app in appointments) {
-        final date = app.scheduledDate;
+        final date = DateTime(app.scheduledDate.year, app.scheduledDate.month, app.scheduledDate.day);
         final isCompleted = app.status == 'completed';
         final isMissed = app.status == 'missed' || app.status == 'cancelled';
+        final isVac = app.type == 'vaccination' || app.type == 'follow_up_vaccination';
 
         events.add(
           CalendarEvent(
             id: 'app_${app.id}',
             patientId: app.patientId,
             patientName: app.patientName,
-            relationship: _findRelationship(app.patientId, patientsList),
+            relationship: app.relationship ?? _findRelationship(app.patientId, patientsList),
             title: app.typeLabel,
-            type: app.type,
+            type: isVac ? 'vaccination' : 'consultation',
             date: date,
             timeSlot: 'Morning (8:00 AM - 12:00 PM)',
             status: isCompleted ? 'completed' : (isMissed ? 'missed' : 'scheduled'),
-            doseLabel: app.type == 'vaccination' ? 'Rabies Vaccine' : 'Consultation Visit',
+            doseLabel: isVac ? (app.doseName ?? 'Rabies Vaccine') : 'Consultation Visit',
+            notes: app.notes,
           ),
         );
       }
@@ -128,23 +130,25 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
           if (parsedDate == null) continue;
 
           final statusStr = rec['status']?.toString() ?? 'scheduled';
-          final pid = _findPatientIdByName(rec['patient_name']?.toString() ?? '', patientsList);
+          final pid = (rec['patient_id'] as int?) ?? _findPatientIdByName(rec['patient_name']?.toString() ?? '', patientsList);
+          final pName = rec['patient_name']?.toString() ?? 'Patient';
+          final normalizedDate = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
 
           // Avoid duplicate entry if appointment already exists on that date
           final exists = events.any((e) =>
-              e.patientName == rec['patient_name'] &&
-              isSameDay(e.date, parsedDate!));
+              e.patientId == pid &&
+              isSameDay(e.date, normalizedDate));
 
           if (!exists) {
             events.add(
               CalendarEvent(
                 id: rec['id']?.toString() ?? 'vac-${events.length}',
                 patientId: pid,
-                patientName: rec['patient_name']?.toString() ?? 'Patient',
-                relationship: _findRelationship(pid, patientsList),
+                patientName: pName,
+                relationship: rec['relationship']?.toString() ?? _findRelationship(pid, patientsList),
                 title: rec['title']?.toString() ?? 'Anti-Rabies Vaccine',
                 type: 'vaccination',
-                date: DateTime(parsedDate.year, parsedDate.month, parsedDate.day),
+                date: normalizedDate,
                 timeSlot: '10:00 AM',
                 status: statusStr,
                 caseNumber: rec['case_number']?.toString(),
@@ -426,8 +430,8 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TableCalendar<CalendarEvent>(
-            firstDay: DateTime.utc(2025, 1, 1),
-            lastDay: DateTime.utc(2030, 12, 31),
+            firstDay: DateTime.utc(2024, 1, 1),
+            lastDay: DateTime.utc(2035, 12, 31),
             focusedDay: _focusedDay,
             selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
             calendarFormat: _calendarFormat,
@@ -517,7 +521,9 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
               });
             },
             onPageChanged: (focusedDay) {
-              _focusedDay = focusedDay;
+              setState(() {
+                _focusedDay = focusedDay;
+              });
             },
           ),
           const SizedBox(height: 8),
@@ -725,6 +731,10 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
 
     return InkWell(
       onTap: () {
+        setState(() {
+          _selectedDay = event.date;
+          _focusedDay = event.date;
+        });
         if (isVaccination) {
           showDigitalVaccinationCard(context, initialPatientId: event.patientId);
         }

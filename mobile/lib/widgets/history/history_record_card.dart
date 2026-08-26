@@ -15,6 +15,11 @@ class HistoryRecord {
     this.completedDoses,
     this.totalDoses = 4,
     this.doseLabel,
+    this.patientId,
+    this.patientName,
+    this.relationship,
+    this.sortTimestamp,
+    this.createdTimestamp,
   });
 
   final HistoryFilter type;
@@ -26,6 +31,11 @@ class HistoryRecord {
   final int? completedDoses;
   final int totalDoses;
   final String? doseLabel;
+  final int? patientId;
+  final String? patientName;
+  final String? relationship;
+  final int? sortTimestamp;
+  final int? createdTimestamp;
 
   factory HistoryRecord.fromJson(Map<String, dynamic> json) {
     final typeStr = json['type'] as String? ?? 'appointments';
@@ -56,6 +66,11 @@ class HistoryRecord {
       completedDoses: json['completed_doses'] as int?,
       totalDoses: json['total_doses'] as int? ?? 4,
       doseLabel: json['dose_label'] as String?,
+      patientId: json['patient_id'] as int?,
+      patientName: json['patient_name'] as String?,
+      relationship: json['relationship'] as String? ?? 'self',
+      sortTimestamp: json['sort_timestamp'] as int?,
+      createdTimestamp: json['created_timestamp'] as int?,
     );
   }
 }
@@ -159,7 +174,13 @@ class HistoryTimelineItem extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header row: Title + Status badge
+                        if (record.patientName != null && record.patientName!.isNotEmpty) ...[
+                          ProfileRecipientBadge(
+                            name: record.patientName!,
+                            relationship: record.relationship,
+                          ),
+                          const SizedBox(height: 6),
+                        ],
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -168,7 +189,7 @@ class HistoryTimelineItem extends StatelessWidget {
                                 record.title,
                                 style: const TextStyle(
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                   color: Color(0xFF111827),
                                   height: 1.2,
                                 ),
@@ -179,8 +200,6 @@ class HistoryTimelineItem extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 3),
-
-                        // Date / Time
                         Text(
                           record.dateTime,
                           style: const TextStyle(
@@ -189,8 +208,6 @@ class HistoryTimelineItem extends StatelessWidget {
                             height: 1.5,
                           ),
                         ),
-
-                        // Consultation cards only: Case Number Chip
                         if (record.caseNumber != null) ...[
                           const SizedBox(height: 5),
                           Container(
@@ -218,33 +235,29 @@ class HistoryTimelineItem extends StatelessWidget {
                                   style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xFF1D9E75),
+                                    color: Color(0xFF085041),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ],
-
-                        // Vaccination cards only: Dose progress section
-                        if (record.completedDoses != null) ...[
+                        if (record.doseLabel != null && record.completedDoses != null) ...[
                           const SizedBox(height: 8),
                           Container(
-                            padding: const EdgeInsets.only(top: 8),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                top: BorderSide(
-                                  color: Color(0xFFF3F4F6),
-                                  width: 0.5,
-                                ),
-                              ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9FAFB),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Label row: "Dose progress" left + "2 of 4 done" right
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
                                       'Dose progress',
@@ -254,37 +267,27 @@ class HistoryTimelineItem extends StatelessWidget {
                                       ),
                                     ),
                                     Text(
-                                      record.doseLabel ??
-                                          '${record.completedDoses} of ${record.totalDoses} done',
+                                      record.doseLabel!,
                                       style: const TextStyle(
                                         fontSize: 10,
-                                        color: Color(0xFF9CA3AF),
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF6B7280),
                                       ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 5),
-
-                                // Progress bar: Row of equal segments
                                 Row(
                                   children: [
-                                    for (var i = 0;
-                                        i < record.totalDoses;
-                                        i++) ...[
+                                    for (int i = 0; i < record.totalDoses; i++) ...[
                                       Expanded(
                                         child: Container(
                                           height: 4,
                                           decoration: BoxDecoration(
                                             color: i < record.completedDoses!
                                                 ? const Color(0xFF1D9E75)
-                                                : (i == record.completedDoses &&
-                                                        record.status ==
-                                                            HistoryStatus
-                                                                .scheduled)
-                                                    ? const Color(0xFFBBF7D0)
-                                                    : const Color(0xFFE5E7EB),
-                                            borderRadius:
-                                                BorderRadius.circular(2),
+                                                : const Color(0xFFE5E7EB),
+                                            borderRadius: BorderRadius.circular(2),
                                           ),
                                         ),
                                       ),
@@ -305,6 +308,95 @@ class HistoryTimelineItem extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class ProfileRecipientBadge extends StatelessWidget {
+  const ProfileRecipientBadge({
+    super.key,
+    required this.name,
+    this.relationship = 'self',
+    this.isCompact = false,
+  });
+
+  final String name;
+  final String? relationship;
+  final bool isCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    final rel = (relationship ?? 'self').toLowerCase();
+    final isSelf = rel == 'self';
+
+    final relLabel = switch (rel) {
+      'self' => 'Self',
+      'child' => 'Child',
+      'spouse' => 'Spouse',
+      'parent' => 'Parent',
+      'sibling' => 'Sibling',
+      _ => 'Dependent',
+    };
+
+    final (bgColor, borderColor, textColor, icon) = switch (rel) {
+      'self' => (
+        const Color(0xFFE6F7F2),
+        const Color(0xFFB8E4DB),
+        const Color(0xFF0F766E),
+        Icons.person_rounded,
+      ),
+      'child' => (
+        const Color(0xFFEEF2FF),
+        const Color(0xFFC7D2FE),
+        const Color(0xFF4338CA),
+        Icons.child_care_rounded,
+      ),
+      'spouse' => (
+        const Color(0xFFFDF2F8),
+        const Color(0xFFFBCFE8),
+        const Color(0xFFBE185D),
+        Icons.favorite_rounded,
+      ),
+      _ => (
+        const Color(0xFFF3F4F6),
+        const Color(0xFFE5E7EB),
+        const Color(0xFF374151),
+        Icons.group_rounded,
+      ),
+    };
+
+    final displayName = isSelf ? '$name (Self)' : '$name ($relLabel)';
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 6 : 8,
+        vertical: isCompact ? 2 : 3.5,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: borderColor, width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: isCompact ? 11 : 12, color: textColor),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: textColor,
+                fontSize: isCompact ? 9.5 : 10.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

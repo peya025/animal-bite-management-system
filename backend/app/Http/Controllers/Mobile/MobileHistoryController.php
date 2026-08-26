@@ -38,20 +38,30 @@ class MobileHistoryController extends Controller
             ]);
         }
 
-        // 1. Fetch Appointments
+        // 1. Fetch Appointments: History only includes past appointments or completed/missed/cancelled ones
         $appointments = Appointment::where(function ($q) use ($patientIds, $user) {
             $q->whereIn('patient_id', $patientIds)
               ->orWhere('booked_by_account_id', $user->id);
         })
+        ->where(function ($q) {
+            $q->whereIn('status', ['completed', 'missed', 'cancelled'])
+              ->orWhereDate('scheduled_date', '<', Carbon::today())
+              ->orWhereDate('appointment_date', '<', Carbon::today());
+        })
         ->with('patient')
-        ->orderBy('scheduled_date', 'desc')
+        ->orderByRaw('COALESCE(scheduled_date, appointment_date) desc')
         ->get();
 
-        // 2. Fetch Vaccination Treatment Records
+        // 2. Fetch Vaccination Treatment Records: History only includes administered vaccinations or past dates
         $vaccinations = TreatmentRecord::whereIn('patient_id', $patientIds)
             ->whereNotNull('dose_number')
+            ->where(function ($q) {
+                $q->whereIn('status', ['completed', 'administered'])
+                  ->orWhereNotNull('treatment_date')
+                  ->orWhereDate('scheduled_date', '<', Carbon::today());
+            })
             ->with(['patient', 'biteIncident'])
-            ->orderBy('scheduled_date', 'desc')
+            ->orderByRaw('COALESCE(treatment_date, scheduled_date) desc')
             ->get();
 
         // Dose mapping helper
@@ -65,14 +75,34 @@ class MobileHistoryController extends Controller
             365 => 'Booster 2',
         ];
 
+        // Build patient profile map with relationships
+        $patientMap = [];
+        foreach ($patients as $p) {
+            $patientMap[$p->patient_id] = [
+                'id' => $p->patient_id,
+                'name' => "{$p->first_name} {$p->last_name}",
+                'relationship' => $p->pivot->relationship ?? 'self',
+            ];
+        }
+
         // Format Appointments as History Records
-        $formattedAppointments = $appointments->map(function ($app) {
-            $date = $app->scheduled_date ? Carbon::parse($app->scheduled_date) : Carbon::today();
+        $formattedAppointments = $appointments->map(function ($app) use ($patientMap) {
+            $rawDate = $app->scheduled_date ?? $app->appointment_date ?? Carbon::today();
+            $dateOnly = Carbon::parse($rawDate)->format('Y-m-d');
+
             $timeSlotText = match ($app->time_slot) {
                 'afternoon' => '1:00 PM',
                 'morning'   => '9:00 AM',
-                default     => '9:30 AM',
+                default     => ($app->appointment_time ? Carbon::parse($app->appointment_time)->format('g:i A') : '9:30 AM'),
             };
+
+            $timeStr = match ($app->time_slot) {
+                'afternoon' => '13:00:00',
+                'morning'   => '09:00:00',
+                default     => ($app->appointment_time ? Carbon::parse($app->appointment_time)->format('H:i:s') : '09:30:00'),
+            };
+
+            $eventDateTime = Carbon::parse("{$dateOnly} {$timeStr}");
 
             $status = match ($app->status) {
                 'completed'   => 'completed',
@@ -81,21 +111,38 @@ class MobileHistoryController extends Controller
                 default       => 'scheduled',
             };
 
-            $title = $app->appointment_type === 'vaccination'
-                ? 'Vaccination appointment'
-                : 'Bite consultation';
+            $isVaccination = str_contains($app->appointment_type ?? '', 'vaccination');
+            $doseName = null;
+            if ($app->dose_number !== null && isset($doseNameMap[$app->dose_number])) {
+                $doseName = $doseNameMap[$app->dose_number];
+            } elseif (preg_match('/(Day \d+|Booster \d+)/i', $app->notes ?? '', $matches)) {
+                $doseName = $matches[1];
+            }
+
+            if ($isVaccination) {
+                $title = $doseName ? "Anti-rabies vaccine · {$doseName}" : 'Vaccination appointment';
+            } else {
+                $title = 'Bite consultation';
+            }
+
+            $pInfo = $patientMap[$app->patient_id] ?? null;
+            $pName = $pInfo ? $pInfo['name'] : ($app->patient ? "{$app->patient->first_name} {$app->patient->last_name}" : 'Patient');
+            $pRel = $pInfo ? $pInfo['relationship'] : 'self';
 
             return [
                 'id' => 'app-' . $app->appointment_id,
-                'type' => 'appointments',
+                'type' => $isVaccination ? 'vaccinations' : 'appointments',
                 'title' => $title,
-                'date_time' => $date->format('F j, Y') . ' · ' . $timeSlotText,
-                'raw_date' => $date->format('Y-m-d') . ' ' . $timeSlotText,
+                'date_time' => $eventDateTime->format('F j, Y') . ' · ' . $timeSlotText,
+                'raw_date' => $eventDateTime->format('Y-m-d') . ' ' . $timeSlotText,
                 'case_number' => null,
                 'status' => $status,
-                'patient_name' => $app->patient ? "{$app->patient->first_name} {$app->patient->last_name}" : null,
+                'patient_id' => $app->patient_id,
+                'patient_name' => $pName,
+                'relationship' => $pRel,
                 'notes' => $app->notes,
-                'sort_timestamp' => $date->timestamp,
+                'sort_timestamp' => $eventDateTime->timestamp,
+                'created_timestamp' => $app->created_at ? Carbon::parse($app->created_at)->timestamp : $eventDateTime->timestamp,
             ];
         });
 
@@ -115,14 +162,16 @@ class MobileHistoryController extends Controller
         }
 
         // Format Vaccinations as History Records
-        $formattedVaccinations = $vaccinations->map(function ($vac) use ($doseNameMap, $patientVaccinationCounts) {
-            $effectiveDate = $vac->treatment_date ? Carbon::parse($vac->treatment_date) : ($vac->scheduled_date ? Carbon::parse($vac->scheduled_date) : Carbon::today());
+        $formattedVaccinations = $vaccinations->map(function ($vac) use ($doseNameMap, $patientVaccinationCounts, $patientMap) {
+            $rawVacDate = $vac->treatment_date ?: ($vac->scheduled_date ?: Carbon::today());
+            $vacDateOnly = Carbon::parse($rawVacDate)->format('Y-m-d');
+            $eventDateTime = Carbon::parse("{$vacDateOnly} 10:00:00");
             $doseName = $doseNameMap[$vac->dose_number] ?? "Dose {$vac->dose_number}";
             
             $status = match ($vac->status) {
                 'completed' => 'completed',
                 'missed'    => 'missed',
-                default     => ($effectiveDate->isPast() && !$effectiveDate->isToday()) ? 'missed' : 'scheduled',
+                default     => ($eventDateTime->isPast() && !$eventDateTime->isToday()) ? 'missed' : 'scheduled',
             };
 
             $completedCount = $patientVaccinationCounts[$vac->patient_id]['completed'] ?? 1;
@@ -141,27 +190,44 @@ class MobileHistoryController extends Controller
 
             $caseNo = $vac->biteIncident?->case_number ?? null;
 
+            $pInfo = $patientMap[$vac->patient_id] ?? null;
+            $pName = $pInfo ? $pInfo['name'] : ($vac->patient ? "{$vac->patient->first_name} {$vac->patient->last_name}" : 'Patient');
+            $pRel = $pInfo ? $pInfo['relationship'] : 'self';
+
             return [
                 'id' => 'vac-' . $vac->treatment_id,
                 'type' => 'vaccinations',
                 'title' => "Anti-rabies vaccine · {$doseName}",
-                'date_time' => $effectiveDate->format('F j, Y') . ' · 10:00 AM',
-                'raw_date' => $effectiveDate->format('Y-m-d'),
+                'date_time' => $eventDateTime->format('F j, Y') . ' · 10:00 AM',
+                'raw_date' => $eventDateTime->format('Y-m-d'),
                 'case_number' => $caseNo,
                 'status' => $status,
-                'patient_name' => $vac->patient ? "{$vac->patient->first_name} {$vac->patient->last_name}" : null,
+                'patient_id' => $vac->patient_id,
+                'patient_name' => $pName,
+                'relationship' => $pRel,
                 'vaccine_brand' => $vac->vaccine_brand ?? 'Anti-Rabies Vaccine',
                 'completed_doses' => $completedCount,
                 'total_doses' => $totalCount,
                 'dose_label' => $doseLabel,
-                'sort_timestamp' => $effectiveDate->timestamp,
+                'sort_timestamp' => $eventDateTime->timestamp,
+                'created_timestamp' => $vac->created_at ? $vac->created_at->timestamp : $eventDateTime->timestamp,
             ];
         });
 
-        // Merge & Sort all timeline records descending
+        // Merge & Sort all timeline records descending (Newest to Oldest)
         $allRecords = $formattedAppointments
             ->concat($formattedVaccinations)
-            ->sortByDesc('sort_timestamp')
+            ->sort(function ($a, $b) {
+                if ($b['sort_timestamp'] !== $a['sort_timestamp']) {
+                    return $b['sort_timestamp'] <=> $a['sort_timestamp'];
+                }
+                $bCreated = $b['created_timestamp'] ?? $b['sort_timestamp'];
+                $aCreated = $a['created_timestamp'] ?? $a['sort_timestamp'];
+                if ($bCreated !== $aCreated) {
+                    return $bCreated <=> $aCreated;
+                }
+                return strcmp($b['id'], $a['id']);
+            })
             ->values()
             ->all();
 
@@ -177,11 +243,17 @@ class MobileHistoryController extends Controller
             ->orderBy('scheduled_date', 'asc')
             ->first();
 
-        $nextScheduledApp = Appointment::whereIn('patient_id', $patientIds)
-            ->where('status', 'scheduled')
-            ->whereDate('scheduled_date', '>=', Carbon::today())
-            ->orderBy('scheduled_date', 'asc')
-            ->first();
+        $nextScheduledApp = Appointment::where(function ($q) use ($patientIds, $user) {
+            $q->whereIn('patient_id', $patientIds)
+              ->orWhere('booked_by_account_id', $user->id);
+        })
+        ->where('status', 'scheduled')
+        ->where(function ($q) {
+            $q->whereDate('scheduled_date', '>=', Carbon::today())
+              ->orWhereDate('appointment_date', '>=', Carbon::today());
+        })
+        ->orderByRaw('COALESCE(scheduled_date, appointment_date) asc')
+        ->first();
 
         $activeCase = null;
         if ($latestBite || $nextScheduledDose || $nextScheduledApp) {
@@ -195,8 +267,16 @@ class MobileHistoryController extends Controller
                 $nextDoseDate = Carbon::parse($nextScheduledDose->scheduled_date);
                 $nextDoseName = ($doseNameMap[$nextScheduledDose->dose_number] ?? 'Dose') . ' dose';
             } elseif ($nextScheduledApp) {
-                $nextDoseDate = Carbon::parse($nextScheduledApp->scheduled_date);
-                $nextDoseName = ($nextScheduledApp->appointment_type === 'vaccination' ? 'Vaccination' : 'Consultation');
+                $rawNext = $nextScheduledApp->scheduled_date ?? $nextScheduledApp->appointment_date;
+                $nextDoseDate = Carbon::parse($rawNext);
+                $nextDoseDoseNo = $nextScheduledApp->dose_number;
+                if ($nextDoseDoseNo !== null && isset($doseNameMap[$nextDoseDoseNo])) {
+                    $nextDoseName = $doseNameMap[$nextDoseDoseNo] . ' dose';
+                } elseif (str_contains($nextScheduledApp->appointment_type ?? '', 'vaccination')) {
+                    $nextDoseName = 'Vaccination';
+                } else {
+                    $nextDoseName = 'Consultation';
+                }
             }
 
             $dueBadgeText = 'Active';
@@ -231,6 +311,7 @@ class MobileHistoryController extends Controller
                 'total_visits' => $completedVisits > 0 ? $completedVisits : count($allRecords),
                 'total_vaccinations' => $completedVaccinations,
                 'active_cases' => $activeCasesCount,
+                'patients' => array_values($patientMap),
             ],
             'active_case' => $activeCase,
             'records' => $allRecords,

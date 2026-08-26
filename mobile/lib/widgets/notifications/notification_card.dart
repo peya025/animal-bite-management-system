@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
 import '../../models/app_notification.dart';
+import '../history/history_record_card.dart';
 
 class NotificationCard extends StatelessWidget {
   const NotificationCard({
@@ -51,6 +52,16 @@ class NotificationCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Profile recipient pill
+                    if (notification.patientName.isNotEmpty) ...[
+                      ProfileRecipientBadge(
+                        name: notification.patientName,
+                        relationship: notification.relationship,
+                        isCompact: true,
+                      ),
+                      const SizedBox(height: 5),
+                    ],
+
                     Row(
                       children: [
                         Expanded(
@@ -87,11 +98,11 @@ class NotificationCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 7),
                     Text(
-                      '${notification.patientName}  |  ${notification.relativeTime}',
+                      notification.relativeTime,
                       style: const TextStyle(
                         color: AppColors.gray500,
                         fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],

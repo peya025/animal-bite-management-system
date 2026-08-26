@@ -15,18 +15,73 @@ class MobileAppointmentController extends Controller
 {
     public function index(Request $request)
     {
-        $accountId = $request->user()->id;
-        $cacheKey = "mobile:appointments:account:{$accountId}";
+        $user = $request->user();
+        $patientIds = $user->patients()->pluck('patients.patient_id')->toArray();
+        $patients = $user->patients()->get()->keyBy('patient_id');
 
-        // Cache for 5 minutes
-        return response()->json(
-            Cache::remember($cacheKey, 300, function () use ($request) {
-                return $request->user()->appointments()
-                    ->with('patient')
-                    ->latest('scheduled_date')
-                    ->get();
-            })
-        );
+        $doseNameMap = [
+            0   => 'Day 0',
+            3   => 'Day 3',
+            7   => 'Day 7',
+            14  => 'Day 14',
+            28  => 'Day 28',
+            90  => 'Booster 1',
+            365 => 'Booster 2',
+        ];
+
+        $appointments = Appointment::where(function ($q) use ($patientIds, $user) {
+            $q->whereIn('patient_id', $patientIds)
+              ->orWhere('booked_by_account_id', $user->id);
+        })
+        ->with(['patient', 'biteIncident'])
+        ->orderByRaw('COALESCE(scheduled_date, appointment_date) asc')
+        ->get();
+
+        $formatted = $appointments->map(function ($app) use ($patients, $doseNameMap) {
+            $p = $app->patient;
+            $pivot = $patients->get($app->patient_id);
+            $rel = $pivot ? ($pivot->pivot->relationship ?? 'self') : 'self';
+            $pName = $p ? "{$p->first_name} {$p->last_name}" : 'Patient';
+
+            $date = $app->scheduled_date ?? $app->appointment_date;
+            $dateStr = $date ? \Carbon\Carbon::parse($date)->format('Y-m-d') : \Carbon\Carbon::today()->format('Y-m-d');
+
+            $doseName = null;
+            if ($app->dose_number !== null && isset($doseNameMap[$app->dose_number])) {
+                $doseName = $doseNameMap[$app->dose_number];
+            } elseif (preg_match('/(Day \d+|Booster \d+)/i', $app->notes ?? '', $m)) {
+                $doseName = $m[1];
+            }
+
+            $isVac = str_contains($app->appointment_type ?? '', 'vaccination');
+
+            return [
+                'appointment_id' => $app->appointment_id,
+                'patient_id' => $app->patient_id,
+                'patient_name' => $pName,
+                'relationship' => $rel,
+                'appointment_type' => $app->appointment_type,
+                'type' => $isVac ? 'vaccination' : 'consultation',
+                'type_label' => $doseName ? "Anti-rabies vaccine · {$doseName}" : ($isVac ? 'Vaccination' : 'Bite consultation'),
+                'dose_name' => $doseName,
+                'dose_number' => $app->dose_number,
+                'scheduled_date' => $dateStr,
+                'appointment_date' => $dateStr,
+                'time_slot' => $app->time_slot ?? 'morning',
+                'status' => $app->status,
+                'notes' => $app->notes,
+                'cancellation_reason' => $app->cancellation_reason,
+                'patient' => [
+                    'patient_id' => $app->patient_id,
+                    'name' => $pName,
+                    'first_name' => $p?->first_name,
+                    'last_name' => $p?->last_name,
+                    'relationship' => $rel,
+                ],
+            ];
+        });
+
+        return response()->json($formatted);
     }
 
     public function store(Request $request)

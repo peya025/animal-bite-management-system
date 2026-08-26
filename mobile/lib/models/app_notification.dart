@@ -12,6 +12,8 @@ class AppNotification {
     required this.status,
     required this.createdAt,
     required this.patientName,
+    this.patientId,
+    this.relationship = 'self',
   });
 
   final int id;
@@ -20,6 +22,8 @@ class AppNotification {
   final String status;
   final DateTime createdAt;
   final String patientName;
+  final int? patientId;
+  final String? relationship;
 
   bool get isRead => status == 'read';
 
@@ -52,13 +56,16 @@ class AppNotification {
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     final patient = json['patient'] as Map<String, dynamic>?;
+    final rel = json['relationship'] as String? ?? 'self';
     return AppNotification(
       id: json['notification_id'] as int,
       type: json['type'] as String,
       message: json['message'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
-      patientName: patient?['name'] as String? ?? 'Patient',
+      patientName: patient?['name'] as String? ?? (patient?['first_name'] != null ? '${patient!['first_name']} ${patient['last_name'] ?? ''}'.trim() : 'Patient'),
+      patientId: json['patient_id'] as int? ?? patient?['patient_id'] as int?,
+      relationship: rel,
     );
   }
 
@@ -70,6 +77,8 @@ class AppNotification {
       status: status ?? this.status,
       createdAt: createdAt,
       patientName: patientName,
+      patientId: patientId,
+      relationship: relationship,
     );
   }
 }

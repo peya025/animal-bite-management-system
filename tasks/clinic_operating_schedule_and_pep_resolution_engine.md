@@ -345,7 +345,7 @@ Located under **Clinic Setup $\rightarrow$ Operating Schedule & Exceptions** (`/
 
 ---
 
-## 📱 6. Multi-Platform UI Transparency
+## 📱 6. Multi-Platform UI Transparency & Multi-Profile Integration
 
 ### 1. Web Form 3 & Nurse Treatment Table
 * When `scheduled_date !== ideal_date`:
@@ -362,7 +362,18 @@ Located under **Clinic Setup $\rightarrow$ Operating Schedule & Exceptions** (`/
 * If booking Day 0 on a closed date, the app renders the **Urgent Emergency Banner**:
   `🚨 Clinic closed today: For immediate Day 0 rabies PEP, proceed to ER Triage or call (088) 856-4147.`
 
-### 3. Mobile Digital Vaccination Passport
+### 3. Mobile Schedule Calendar & Upcoming Timeline (`schedule_calendar_view.dart`)
+* Displays all future auto-scheduled PEP doses (Day 3, Day 7, Day 28, Boosters) across all months (2024–2035) with flexible Month / 2-Weeks / Week switching.
+* Each event card and marker renders the resolved open date alongside the ideal date drift notice and the **`ProfileRecipientBadge`** (e.g. `[ 👧 Hazel (Child) ]`).
+* Tapping an upcoming dose card auto-scrolls and focuses the calendar on that specific month and day.
+
+### 4. Mobile History View & Active Case Banner (`history_view.dart`)
+* **Strict Past-Only Medical History**: History exclusively displays past completed/missed visits and administered vaccinations in reverse chronological order (newest to oldest).
+* **Active Case Banner**: Top summary banner displays the resolved next upcoming dose with drift transparency:
+  `Next: Day 3 dose · Mon, Aug 31 (Ideal: Sun, Aug 30 • Sunday Closed)`
+* **Multi-Profile Carousel**: Lets parents filter history and notifications by specific dependent (`Danny (Self)`, `Hazel (Child)`, `Kirara (Child)`).
+
+### 5. Mobile Digital Vaccination Passport (`digital_vaccination_card.dart`)
 * Each dose card renders the true protocol alignment:
   `Day 3 Dose: Aug 31, 2026 (Ideal: Aug 30 • Sunday adjustment)`
 
@@ -380,16 +391,22 @@ Located under **Clinic Setup $\rightarrow$ Operating Schedule & Exceptions** (`/
 | **Eloquent Model** | `backend/app/Models/ClinicScheduleException.php` | `NEW` | Model with date casting |
 | **Core Service** | `backend/app/Services/ClinicScheduleService.php` | `NEW` | PEP date resolution engine |
 | **API Controller** | `backend/app/Http/Controllers/ClinicScheduleController.php` | `NEW` | CRUD endpoints for admin schedule |
-| **API Controller** | `backend/app/Http/Controllers/VaccinationRecordController.php` | `MODIFY` | Integrate `ClinicScheduleService` |
-| **API Controller** | `backend/app/Http/Controllers/Mobile/MobileAppointmentController.php` | `MODIFY` | Enforce schedule & Day-0 checks |
+| **API Controller** | `backend/app/Http/Controllers/VaccinationRecordController.php` | `MODIFY` | Integrate `ClinicScheduleService` for auto-scheduling |
+| **API Controller** | `backend/app/Http/Controllers/Mobile/MobileAppointmentController.php` | `MODIFY` | Return all linked patient appointments with `ideal_date` & drift info |
+| **API Controller** | `backend/app/Http/Controllers/Mobile/MobileHistoryController.php` | `MODIFY` | Filter past-only history, newest-to-oldest sorting, active banner drift |
+| **API Controller** | `backend/app/Http/Controllers/Mobile/MobileNotificationController.php` | `MODIFY` | Attach patient profile & relationship to schedule change notifications |
 | **Routes** | `backend/routes/api.php` | `MODIFY` | Register schedule API endpoints |
 | **Admin View** | `frontend/src/features/clinic-setup/pages/ClinicOperatingSchedulePage.tsx` | `NEW` | Full admin operating schedule UI |
 | **Web Form 3** | `frontend/src/features/vaccinations/components/VaccinationRecordForm.tsx` | `MODIFY` | Display ideal vs scheduled chip |
 | **Nurse Table** | `frontend/src/features/patients/pages/NursePatientListPage.tsx` | `MODIFY` | Render drift explanation tooltip |
 | **Navigation** | `frontend/src/shared/config/navigationConfig.ts` | `MODIFY` | Add Operating Schedule sidebar link |
 | **App Router** | `frontend/src/App.tsx` | `MODIFY` | Register `/setup/schedule` route |
+| **Mobile Model** | `mobile/lib/models/appointment_summary.dart` | `MODIFY` | Add `idealDate`, `scheduleDriftDays`, `scheduleAdjustmentReason` |
 | **Mobile Widget** | `mobile/lib/widgets/booking/date_selector.dart` | `MODIFY` | Dynamically disable closed days |
 | **Mobile View** | `mobile/lib/views/booking_view.dart` | `MODIFY` | Render Day-0 urgent advisory banner |
+| **Mobile View** | `mobile/lib/views/schedule_calendar_view.dart` | `MODIFY` | Render open dates, schedule drift notices, and profile badges |
+| **Mobile View** | `mobile/lib/views/history_view.dart` | `MODIFY` | Render active case drift notice & multi-profile carousel |
+| **Mobile Widget** | `mobile/lib/widgets/history/history_record_card.dart` | `MODIFY` | `ProfileRecipientBadge` & drift chip integration |
 | **Mobile Card** | `mobile/lib/widgets/vaccination/digital_vaccination_card.dart` | `MODIFY` | Display ideal vs scheduled date note |
 
 ---
@@ -405,7 +422,7 @@ Located under **Clinic Setup $\rightarrow$ Operating Schedule & Exceptions** (`/
 1. Implement `ClinicScheduleService.php` with resolution algorithm, exception checks, and drift calculations.
 2. Build `ClinicScheduleController.php` supporting GET/PUT schedule, GET/POST/DELETE exceptions, and GET available dates.
 3. Update `VaccinationRecordController.php` to use `ClinicScheduleService` and store `ideal_date` and `schedule_drift_days`.
-4. Update `MobileAppointmentController.php` to validate open dates and handle Day-0 urgent policies.
+4. Update `MobileAppointmentController.php` and `MobileHistoryController.php` to handle multi-profile appointments, past-only history filtering, and schedule drift transparency.
 
 ### Phase 3: Admin Operating Schedule UI
 1. Build `ClinicOperatingSchedulePage.tsx` with Material-UI / Tailwind styling and Hugeicons.
@@ -416,7 +433,7 @@ Located under **Clinic Setup $\rightarrow$ Operating Schedule & Exceptions** (`/
 1. Update `VaccinationRecordForm.tsx` and `NursePatientListPage.tsx` to render ideal date vs scheduled date chips.
 2. Update mobile `date_selector.dart` to fetch schedule and disable closed dates.
 3. Update mobile `booking_view.dart` with the Day-0 urgent referral banner.
-4. Update `digital_vaccination_card.dart` to show drift notes.
+4. Update `schedule_calendar_view.dart`, `history_view.dart`, and `digital_vaccination_card.dart` with drift notes and `ProfileRecipientBadge`.
 
 ---
 
@@ -426,7 +443,7 @@ Located under **Clinic Setup $\rightarrow$ Operating Schedule & Exceptions** (`/
 - [ ] Recording Day 0 on Thursday in a Mon/Thu clinic resolves Day 3 to Monday (+1 day drift) with `ideal_date` (Sunday) preserved.
 - [ ] Adding a holiday exception overrides the weekly pattern and shifts appointments accordingly.
 - [ ] Day 0 bookings on closed days trigger the configured urgent walk-in or referral advisory.
-- [ ] All web and mobile views display schedule adjustments with clear reasons.
+- [ ] All web and mobile views display schedule adjustments with clear reasons and profile recipient badges.
 - [ ] Automated tests pass: `npx tsc --noEmit` (0 errors) and `flutter analyze` (0 issues).
 
 ---
@@ -469,6 +486,14 @@ To prevent regressions, broken states, or service interruptions during rollout, 
 │ 7. Infinite Date Search on  │ Clinic marked closed 7 days a week;    │ • Max search bound of 30 days; │
 │    All-Closed Clinic        │ while-loop runs indefinitely           │   throws clear ValidationEx    │
 │                             │                                        │   before entering loop         │
+├─────────────────────────────┼────────────────────────────────────────┼────────────────────────────────┤
+│ 8. Multi-Profile Schedule   │ Parent managing multiple children views│ • Every calendar card, history │
+│    Misattribution           │ shifted doses and confuses which       │   item, and notification binds │
+│                             │ child's appointment was adjusted       │   ProfileRecipientBadge        │
+├─────────────────────────────┼────────────────────────────────────────┼────────────────────────────────┤
+│ 9. History vs Calendar      │ Auto-scheduled future PEP doses appear │ • MobileHistoryController      │
+│    Timeline Contamination   │ in Medical History before administration│   strictly filters past-only;  │
+│                             │ confusing completed vs future visits   │   Calendar handles future doses│
 └─────────────────────────────┴────────────────────────────────────────┴────────────────────────────────┘
 ```
 

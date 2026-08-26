@@ -13,6 +13,8 @@ import '../widgets/notifications/notification_card.dart';
 import '../widgets/notifications/notification_filter.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
 
+import '../models/patient_profile.dart';
+
 class NotificationsView extends StatefulWidget {
   const NotificationsView({super.key});
 
@@ -22,7 +24,9 @@ class NotificationsView extends StatefulWidget {
 
 class _NotificationsViewState extends State<NotificationsView> {
   NotificationFilter _filter = NotificationFilter.all;
+  int? _selectedPatientId;
   List<AppNotification> _notifications = const [];
+  List<PatientProfile> _patients = const [];
   bool _loading = true;
   bool _markingAll = false;
   String? _error;
@@ -37,10 +41,14 @@ class _NotificationsViewState extends State<NotificationsView> {
       _notifications.where((notification) => !notification.isRead).length;
 
   Iterable<AppNotification> get _visibleNotifications {
-    if (_filter == NotificationFilter.unread) {
-      return _notifications.where((notification) => !notification.isRead);
+    var items = _notifications;
+    if (_selectedPatientId != null) {
+      items = items.where((n) => n.patientId == _selectedPatientId).toList();
     }
-    return _notifications;
+    if (_filter == NotificationFilter.unread) {
+      return items.where((notification) => !notification.isRead);
+    }
+    return items;
   }
 
   Future<void> _load() async {
@@ -49,8 +57,16 @@ class _NotificationsViewState extends State<NotificationsView> {
       _error = null;
     });
     try {
-      final notifications = await api.notifications() as List<AppNotification>;
-      if (mounted) setState(() => _notifications = notifications);
+      final notifsFuture = api.notifications();
+      final patientsFuture = api.patients();
+      final notifications = (await notifsFuture) as List<AppNotification>;
+      final rawPatients = (await patientsFuture) as List<PatientProfile>;
+      if (mounted) {
+        setState(() {
+          _notifications = notifications;
+          _patients = rawPatients.where((p) => p.isActive).toList();
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -115,6 +131,127 @@ class _NotificationsViewState extends State<NotificationsView> {
     if (route != null) Navigator.of(context).pushReplacementNamed(route);
   }
 
+  Widget _buildProfileFilterBar() {
+    if (_patients.length <= 1) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      height: 36,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        children: [
+          _buildProfileFilterChip(
+            id: null,
+            name: 'All Profiles',
+            relationship: null,
+            count: _notifications.length,
+            isSelected: _selectedPatientId == null,
+          ),
+          const SizedBox(width: 8),
+          for (final p in _patients) ...[
+            _buildProfileFilterChip(
+              id: p.id,
+              name: p.name,
+              relationship: p.relationship,
+              count: _notifications.where((n) => n.patientId == p.id).length,
+              isSelected: _selectedPatientId == p.id,
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileFilterChip({
+    required int? id,
+    required String name,
+    required String? relationship,
+    required int count,
+    required bool isSelected,
+  }) {
+    final rel = (relationship ?? '').toLowerCase();
+    final isSelf = rel == 'self';
+
+    final label = id == null
+        ? 'All Profiles'
+        : (isSelf
+            ? '$name (Self)'
+            : '$name (${rel == 'child' ? 'Child' : (rel.isNotEmpty ? rel[0].toUpperCase() + rel.substring(1) : 'Dependent')})');
+
+    final icon = id == null
+        ? Icons.people_outline_rounded
+        : (isSelf
+            ? Icons.person_outline_rounded
+            : (rel == 'child' ? Icons.child_care_rounded : Icons.group_outlined));
+
+    return InkWell(
+      onTap: () => setState(() => _selectedPatientId = id),
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1D9E75) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF1D9E75) : const Color(0xFFE5E7EB),
+            width: isSelected ? 1.2 : 0.8,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF1D9E75).withValues(alpha: 0.2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: isSelected ? Colors.white : const Color(0xFF6B7280),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? Colors.white : const Color(0xFF374151),
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.25)
+                      : const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? Colors.white : const Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final visible = _visibleNotifications.toList();
@@ -153,7 +290,11 @@ class _NotificationsViewState extends State<NotificationsView> {
                             label: const Text('Read all'),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
+
+                        // Profile Carousel Filter (Shown if managing multiple family members)
+                        _buildProfileFilterBar(),
+
                         NotificationFilterControl(
                           selected: _filter,
                           unreadCount: _unreadCount,

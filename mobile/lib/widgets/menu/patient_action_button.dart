@@ -43,7 +43,7 @@ class PatientActionButton extends StatelessWidget {
             customBorder: const CircleBorder(),
             child: const Center(
               child: Icon(
-                LucideIcons.contact,
+                LucideIcons.qrCode,
                 color: Colors.white,
                 size: 22,
               ),

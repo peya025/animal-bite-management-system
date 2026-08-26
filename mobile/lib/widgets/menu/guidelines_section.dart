@@ -5,9 +5,6 @@ import '../../l10n/app_localizations.dart';
 class GuidelinesSection extends StatelessWidget {
   const GuidelinesSection({super.key});
 
-  // Accessible dark teal background passing WCAG AA (> 4.5:1 contrast against white text)
-  static const Color guideTealBg = Color(0xFF0C5A52);
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -84,11 +81,11 @@ class _GuideCard extends StatelessWidget {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: const BoxDecoration(
-          color: GuidelinesSection.guideTealBg,
+          color: AppColors.guideTeal,
           borderRadius: cardRadius,
           boxShadow: [
             BoxShadow(
-              color: Color(0x1A085041),
+              color: Color(0x14085041),
               blurRadius: 8,
               offset: Offset(0, 3),
             ),
@@ -97,23 +94,23 @@ class _GuideCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. Prominent Aspect Ratio Illustration Box
+            // 1. Prominent Aspect Ratio Illustration Box with isolated ClipRRect
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
               child: AspectRatio(
                 aspectRatio: 1.0,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   child: Image.asset(
                     imagePath,
                     fit: BoxFit.cover,
                     alignment: Alignment.center,
                     semanticLabel: semanticLabel,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: GuidelinesSection.guideTealBg,
+                      color: AppColors.guideTeal,
                       child: const Icon(
                         Icons.broken_image_rounded,
-                        color: Colors.white70,
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -124,10 +121,10 @@ class _GuideCard extends StatelessWidget {
             // 2. Vertical separation
             const SizedBox(height: 6),
 
-            // 3. Text Zone with accessible typography (fontSize >= 11px and WCAG AA contrast)
+            // 3. Text Zone with WCAG AA compliant contrast and accessible font size
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -135,20 +132,24 @@ class _GuideCard extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 0.2,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       description,
                       style: const TextStyle(
-                        color: Color(0xFFD1F2EB),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                        fontSize: 11.0,
+                        fontWeight: FontWeight.w600,
                         height: 1.25,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),

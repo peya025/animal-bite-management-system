@@ -6,14 +6,9 @@ import {
   Button,
   Chip,
   CircularProgress,
-  FormControl,
-  Grid,
   IconButton,
   InputAdornment,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   Snackbar,
   Stack,
   Tab,
@@ -22,16 +17,20 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Refresh as RefreshIcon,
-  Healing as VaccinationIcon,
-  Warning as OverdueIcon,
-  Schedule as UpcomingIcon,
-  CheckCircle as CompletedIcon,
-  Visibility as ViewIcon,
-  Search as SearchIcon,
-  EventNote as CalendarIcon,
-} from '@mui/icons-material';
+  Clock01Icon,
+  SmartPhone01Icon,
+  Calendar03Icon,
+  AlertCircleIcon,
+  UserMultiple02Icon,
+  CheckmarkCircle02Icon,
+  Medicine01Icon,
+  Search01Icon,
+  RefreshIcon,
+  ViewIcon,
+  Stethoscope02Icon,
+} from '@hugeicons/core-free-icons';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import StatCard from '../../../components/common/StatCard/StatCard';
@@ -173,7 +172,9 @@ export default function NursePatientListPage() {
 
   const getDoseStatus = (patient: Patient) => {
     const record = patient.latest_treatment_record;
-    if (!record || !record.dose_number) return { label: 'No doses', bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' };
+    if (!record || record.dose_number === null || record.dose_number === undefined) {
+      return { label: 'No doses', bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' };
+    }
     
     const doseMap: Record<number, string> = {
       0: 'Day 0 (Initial)',
@@ -195,25 +196,50 @@ export default function NursePatientListPage() {
 
   const getNextAppointment = (patient: Patient) => {
     if (!patient.appointments || patient.appointments.length === 0) return null;
-    const upcoming = patient.appointments.find((a: any) => a.status === 'scheduled');
-    return upcoming;
+    const scheduledAppts = patient.appointments.filter((a: any) => a.status === 'scheduled');
+    if (scheduledAppts.length === 0) return null;
+    // Prefer the soonest upcoming scheduled appointment (e.g. today or future)
+    scheduledAppts.sort((a: any, b: any) => {
+      const dateA = new Date(a.appointment_date || a.scheduled_date || 0).getTime();
+      const dateB = new Date(b.appointment_date || b.scheduled_date || 0).getTime();
+      return dateA - dateB;
+    });
+    return scheduledAppts[0];
   };
 
   const getVaccinationStatus = (patient: Patient) => {
     const activeQueue = (patient as any).queues?.[0];
+    const appt = getNextAppointment(patient);
     if (activeQueue) {
+      const apptDate = appt ? new Date(appt.appointment_date || appt.scheduled_date) : null;
+      const todayDate = new Date();
+      const isPastAppt = apptDate && apptDate < todayDate && apptDate.toDateString() !== todayDate.toDateString();
+      const lateDays = isPastAppt ? Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
       if (activeQueue.status === 'waiting') {
+        if (isPastAppt) {
+          return { label: `In Queue (Waiting · ${lateDays}d Late)`, color: '#92400e', bg: '#fef3c7', border: '#fde68a' };
+        }
         return { label: 'In Queue (Waiting)', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
       }
-      if (activeQueue.status === 'in_consultation') {
+      if (activeQueue.status === 'in_consultation' || activeQueue.status === 'called' || activeQueue.status === 'serving') {
+        if (isPastAppt) {
+          return { label: `In Triage (${lateDays}d Late)`, color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' };
+        }
         return { label: 'In Consultation', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' };
       }
     }
 
     const record = patient.latest_treatment_record;
-    const appt = getNextAppointment(patient);
 
-    if (!record || !record.dose_number) {
+    if (!record || record.dose_number === null || record.dose_number === undefined) {
+      if (appt) {
+        const apptDate = new Date(appt.appointment_date || appt.scheduled_date);
+        const today = new Date();
+        if (apptDate < today && apptDate.toDateString() !== today.toDateString()) {
+          return { label: 'Missed Booking', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' };
+        }
+      }
       return { label: 'Registered', color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' };
     }
 
@@ -348,6 +374,7 @@ export default function NursePatientListPage() {
         const isPast = apptDate < todayDate && !isToday;
 
         const doseMap: Record<number, string> = {
+          0: 'Day 0 (Initial)',
           3: 'Day 3 (Dose 1)',
           7: 'Day 7 (Dose 2)',
           14: 'Day 14 (Dose 3)',
@@ -356,16 +383,38 @@ export default function NursePatientListPage() {
           365: 'Booster 2',
         };
 
+        const appointmentTitle = appt.dose_number !== undefined && appt.dose_number !== null && doseMap[appt.dose_number]
+          ? doseMap[appt.dose_number]
+          : (appt.appointment_type === 'consultation' ? 'Initial Consultation' : 'Initial Consultation / Day 0');
+
+        const activeQueue = (patient as any).queues?.[0];
+        const isCurrentlyInClinic = activeQueue && ['waiting', 'called', 'serving', 'in_consultation'].includes(activeQueue.status);
+
+        if (isCurrentlyInClinic) {
+          return (
+            <Box>
+              <Typography sx={{ fontSize: 13, fontWeight: 600, color: isPast ? '#b45309' : '#047857' }}>
+                {appointmentTitle}
+              </Typography>
+              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: isPast ? '#d97706' : '#059669' }}>
+                {isPast 
+                  ? `In Clinic Today (Queue #${activeQueue.queue_number || ''} · ${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))}d Late Arrival)` 
+                  : `In Clinic Today (Queue #${activeQueue.queue_number || ''})`}
+              </Typography>
+            </Box>
+          );
+        }
+
         return (
           <Box>
             <Typography sx={{ fontSize: 13, fontWeight: 600, color: isPast ? '#991b1b' : isToday ? '#047857' : '#111827' }}>
-              {doseMap[appt.dose_number] || (appt.appointment_type === 'consultation' ? 'Initial Consultation' : `Dose ${appt.dose_number || '1'}`)}
+              {appointmentTitle}
             </Typography>
             <Typography sx={{ fontSize: 11.5, fontWeight: isToday || isPast ? 700 : 400, color: isPast ? '#dc2626' : isToday ? '#059669' : '#6b7280' }}>
               {isToday
                 ? `Scheduled Today (${appt.time_slot || 'regular'})`
                 : isPast
-                ? `${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))} days overdue`
+                ? `Missed / No Show (${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))}d ago)`
                 : apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </Typography>
           </Box>
@@ -411,7 +460,7 @@ export default function NursePatientListPage() {
                 setSelectedPatient(patient);
                 setShowForm3(true);
               }}
-              startIcon={<VaccinationIcon fontSize="small" />}
+              startIcon={<HugeiconsIcon icon={Medicine01Icon} size={15} />}
               sx={{
                 fontSize: 12,
                 py: 0.4,
@@ -436,7 +485,7 @@ export default function NursePatientListPage() {
                 }}
                 sx={{ color: '#6b7280', bgcolor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#eff6ff', color: '#2563eb' } }}
               >
-                <ViewIcon sx={{ fontSize: 16 }} />
+                <HugeiconsIcon icon={ViewIcon} size={15} />
               </IconButton>
             </Tooltip>
           </Stack>
@@ -445,16 +494,7 @@ export default function NursePatientListPage() {
     },
   ];
 
-  // Filter shown list by optional status filter dropdown
-  const filteredPatients = patients.filter((p) => {
-    if (!statusFilter) return true;
-    const st = getVaccinationStatus(p);
-    if (statusFilter === 'waiting') return st.label.includes('Waiting');
-    if (statusFilter === 'in_progress') return st.label === 'In Progress' || st.label === 'In Consultation';
-    if (statusFilter === 'overdue') return st.label === 'Overdue';
-    if (statusFilter === 'completed') return st.label === 'Completed';
-    return true;
-  });
+  const filteredPatients = patients;
 
   return (
     <Box sx={{ px: 3 }}>
@@ -463,13 +503,13 @@ export default function NursePatientListPage() {
         <Box>
           <Typography
             component="h1"
+            variant="h4"
             sx={{
-              fontWeight: 600,
-              fontSize: '25px',
-              lineHeight: 1.2,
-              letterSpacing: '-0.5px',
+              fontSize: '24px',
+              fontWeight: 700,
               color: 'var(--text-h)',
-              margin: '0 0 4px 0',
+              letterSpacing: '-0.02em',
+              mb: 0.5,
             }}
           >
             Treatment Patient List
@@ -477,23 +517,12 @@ export default function NursePatientListPage() {
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
             {today} · Track vaccination schedules, online appointments, doses, and follow-ups
           </Typography>
-          {/* Breadcrumb */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
-            <button
-              onClick={() => { window.location.href = '/dashboard'; }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
-            >
-              Dashboard
-            </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Nurse Patients</span>
-          </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
           <Tooltip title="Refresh Patients List">
             <IconButton onClick={loadPatients} disabled={loading} sx={{ bgcolor: '#ffffff', border: '1px solid #e0eae3', borderRadius: 2 }}>
-              <RefreshIcon sx={{ fontSize: 20, color: 'var(--primary)' }} />
+              <HugeiconsIcon icon={RefreshIcon} size={18} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -536,7 +565,7 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="due_today"
-            icon={<UpcomingIcon fontSize="small" />}
+            icon={<HugeiconsIcon icon={Clock01Icon} size={17} />}
             iconPosition="start"
           />
           <Tab
@@ -549,7 +578,7 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="online"
-            icon={<CalendarIcon fontSize="small" />}
+            icon={<HugeiconsIcon icon={SmartPhone01Icon} size={17} />}
             iconPosition="start"
           />
           <Tab
@@ -562,7 +591,7 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="upcoming"
-            icon={<CalendarIcon fontSize="small" />}
+            icon={<HugeiconsIcon icon={Calendar03Icon} size={17} />}
             iconPosition="start"
           />
           <Tab
@@ -575,7 +604,7 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="overdue"
-            icon={<OverdueIcon fontSize="small" />}
+            icon={<HugeiconsIcon icon={AlertCircleIcon} size={17} />}
             iconPosition="start"
           />
           <Tab
@@ -588,7 +617,7 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="all"
-            icon={<CompletedIcon fontSize="small" />}
+            icon={<HugeiconsIcon icon={UserMultiple02Icon} size={17} />}
             iconPosition="start"
           />
         </Tabs>
@@ -596,54 +625,35 @@ export default function NursePatientListPage() {
 
       {/* ── Patient Table Container ── */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
-        {/* Search & Filter Bar */}
-        <Grid container spacing={2} sx={{ mb: 3, alignItems: 'center' }}>
-          <Grid size={{ xs: 12, sm: 8 }}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Search by name, patient number, or contact phone..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" sx={{ color: '#9ca3af' }} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  bgcolor: '#f9fafb',
-                  borderRadius: 2,
-                  fontSize: 13,
-                  '& fieldset': { borderColor: '#e5e7eb' },
-                  '&:hover fieldset': { borderColor: '#9ca3af' },
-                  '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '1.5px' },
-                },
-              }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: 13 }}>Status Filter</InputLabel>
-              <Select
-                label="Status Filter"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                sx={{ bgcolor: '#f9fafb', borderRadius: 2, fontSize: 13, '& fieldset': { borderColor: '#e5e7eb' } }}
-              >
-                <MenuItem value="">All Statuses</MenuItem>
-                <MenuItem value="waiting">In Queue (Waiting)</MenuItem>
-                <MenuItem value="in_progress">In Progress</MenuItem>
-                <MenuItem value="overdue">Overdue</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
+        {/* Search Bar */}
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search by name, patient number, or contact phone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <HugeiconsIcon icon={Search01Icon} size={16} color="#9ca3af" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                bgcolor: '#f9fafb',
+                borderRadius: 2,
+                fontSize: 13,
+                '& fieldset': { borderColor: '#e5e7eb' },
+                '&:hover fieldset': { borderColor: '#9ca3af' },
+                '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '1.5px' },
+              },
+            }}
+          />
+        </Box>
 
         <DataTable
           columns={columns}
@@ -651,7 +661,7 @@ export default function NursePatientListPage() {
           loading={loading}
           skeletonRows={rowsPerPage}
           rowKey={(p) => p.patient_id}
-          emptyIcon={<VaccinationIcon sx={{ fontSize: 36, color: '#d1d5db' }} />}
+          emptyIcon={<HugeiconsIcon icon={Medicine01Icon} size={36} color="#d1d5db" />}
           emptyTitle="No patients found"
           emptySubtitle={tab === 'due_today' ? 'No patients scheduled for dose administration today' : 'Try adjusting your search or filters'}
         />

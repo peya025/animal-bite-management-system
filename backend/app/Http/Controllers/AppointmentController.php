@@ -238,7 +238,8 @@ class AppointmentController extends Controller
                           });
                     })->with([
                         'appointments' => function ($app) {
-                            $app->whereNotNull('booked_by_account_id')->latest('scheduled_date');
+                            $app->where('status', '!=', 'cancelled')
+                                ->orderBy('appointment_date', 'asc');
                         },
                         'biteIntakes' => function ($bi) {
                             $bi->latest();

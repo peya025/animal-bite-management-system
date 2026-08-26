@@ -410,6 +410,23 @@ class VaccinationRecordController extends Controller
                 Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
             }
 
+            // ──────────────────────────────────────────────────────────────
+            // ✨ AUTO-COMPLETE ANY PENDING INITIAL/TODAY'S APPOINTMENT
+            // ──────────────────────────────────────────────────────────────
+            Appointment::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
+                ->where(function ($q) {
+                    $q->whereNull('dose_number')
+                      ->orWhere('dose_number', 0)
+                      ->orWhere('appointment_type', 'consultation')
+                      ->orWhereDate('appointment_date', '<=', Carbon::today())
+                      ->orWhereDate('scheduled_date', '<=', Carbon::today());
+                })
+                ->update([
+                    'status' => 'completed',
+                ]);
+
             Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
 
             DB::commit();
@@ -553,7 +570,7 @@ class VaccinationRecordController extends Controller
             }
 
             // Create appointment
-            \App\Models\Appointment::create([
+            $appt = \App\Models\Appointment::create([
                 'clinic_id' => $clinicId,
                 'patient_id' => $patientId,
                 'bite_id' => $biteId,
@@ -565,6 +582,25 @@ class VaccinationRecordController extends Controller
                 'notes' => "Auto-scheduled: {$followUp['period']} dose",
                 'created_by' => $userId,
             ]);
+
+            // ✨ Create in-app notification for linked mobile accounts
+            $patient = \App\Models\Patient::with('accounts')->find($patientId);
+            if ($patient && $patient->accounts->isNotEmpty()) {
+                foreach ($patient->accounts as $account) {
+                    $accId = $account->patient_account_id ?? $account->id;
+                    \App\Models\Notification::create([
+                        'patient_id' => $patientId,
+                        'patient_account_id' => $accId,
+                        'appointment_id' => $appt->appointment_id,
+                        'type' => 'vaccination_reminder',
+                        'message' => "{$followUp['period']} vaccination scheduled for {$patient->name} on " . $appointmentDate->format('M d, Y') . ".",
+                        'status' => 'pending',
+                        'send_time' => now(),
+                    ]);
+
+                    \Illuminate\Support\Facades\Cache::forget("mobile:notifications:account:{$accId}:page:1");
+                }
+            }
 
             \Log::info("Created follow-up appointment for Patient #{$patientId}: {$followUp['period']} on {$appointmentDate->toDateString()}");
         }

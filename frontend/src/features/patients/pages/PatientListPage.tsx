@@ -9,6 +9,15 @@ import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import api from '../../../shared/services/api';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Clock01Icon,
+  Stethoscope02Icon,
+  Calendar03Icon,
+  AlertCircleIcon,
+  CheckmarkCircle02Icon,
+  UserMultiple02Icon,
+} from '@hugeicons/core-free-icons';
 
 // ─── Types ───────────────────────────────────────────────────
 import type { Patient } from '../types';
@@ -209,29 +218,48 @@ export default function PatientList() {
     }
   };
 
-  const getLiveStatus = (p: Patient) => {
+  const getLiveStatus = (p: Patient): { label: string; icon?: any; bg: string; color: string } => {
     const activeQueue = (p as any).queues?.[0];
+    const appt = (p as any).appointments?.[0];
+
     if (activeQueue) {
+      const apptDate = appt ? new Date(appt.scheduled_date || appt.appointment_date) : null;
+      const todayDate = new Date();
+      const isPastAppt = apptDate && apptDate < todayDate && apptDate.toDateString() !== todayDate.toDateString();
+      const lateDays = isPastAppt ? Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
       if (activeQueue.status === 'waiting') {
-        return { label: `Queue #${activeQueue.queue_number || ''} (Waiting)`, bg: '#d1fae5', color: '#065f46' };
+        if (isPastAppt) {
+          return { label: `Queue #${activeQueue.queue_number || ''} (Waiting · ${lateDays}d Late)`, icon: Clock01Icon, bg: '#fef3c7', color: '#92400e' };
+        }
+        return { label: `Queue #${activeQueue.queue_number || ''} (Waiting)`, icon: Clock01Icon, bg: '#d1fae5', color: '#065f46' };
       }
-      if (activeQueue.status === 'in_consultation') {
-        return { label: `Queue #${activeQueue.queue_number || ''} (In Consultation)`, bg: '#eff6ff', color: '#2563eb' };
+      if (activeQueue.status === 'in_consultation' || activeQueue.status === 'called' || activeQueue.status === 'serving') {
+        if (isPastAppt) {
+          return { label: `Queue #${activeQueue.queue_number || ''} (In Triage · ${lateDays}d Late)`, icon: Stethoscope02Icon, bg: '#eff6ff', color: '#1d4ed8' };
+        }
+        return { label: `Queue #${activeQueue.queue_number || ''} (In Triage/Exam)`, icon: Stethoscope02Icon, bg: '#eff6ff', color: '#1d4ed8' };
       }
     }
-    const appt = (p as any).appointments?.[0];
     if (appt && appt.status === 'scheduled') {
       const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
-      const isToday = apptDate.toDateString() === new Date().toDateString();
+      const todayDate = new Date();
+      const isToday = apptDate.toDateString() === todayDate.toDateString();
+      const isPast = apptDate < todayDate && !isToday;
       if (isToday) {
-        return { label: `Appt Today (${appt.time_slot || 'scheduled'})`, bg: '#fef3c7', color: '#92400e' };
+        return { label: `Appt Today (${appt.time_slot || 'regular'})`, icon: Clock01Icon, bg: '#fef3c7', color: '#92400e' };
       }
+      if (isPast) {
+        return { label: `Missed Booking (${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))}d ago)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#991b1b' };
+      }
+      return { label: `Next Appt: ${apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`, icon: Calendar03Icon, bg: '#f0fdf4', color: '#166534' };
     }
     const record = (p as any).latest_treatment_record;
     if (record?.dose_number !== undefined && record?.dose_number !== null) {
-      return { label: `Dose ${record.dose_number} Done`, bg: '#ecfdf5', color: '#059669' };
+      const doseName = record.dose_number === 0 ? 'Day 0 (Initial) Done' : (record.dose_number >= 28 ? 'Regimen Completed' : `Day ${record.dose_number} Done`);
+      return { label: doseName, icon: CheckmarkCircle02Icon, bg: '#ecfdf5', color: '#059669' };
     }
-    return { label: (p.status ?? 'Active').charAt(0).toUpperCase() + (p.status ?? 'Active').slice(1), bg: '#f3f4f6', color: '#374151' };
+    return { label: 'Registered (No Dose)', icon: UserMultiple02Icon, bg: '#f3f4f6', color: '#4b5563' };
   };
   
   // Memoize statistics to avoid recalculating on every render
@@ -565,8 +593,11 @@ export default function PatientList() {
                             fontWeight: 600,
                             backgroundColor: statusInfo.bg,
                             color: statusInfo.color,
-                            display: 'inline-block',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
                           }}>
+                            {statusInfo.icon && <HugeiconsIcon icon={statusInfo.icon} size={13} strokeWidth={2} />}
                             {statusInfo.label}
                           </span>
                         </td>

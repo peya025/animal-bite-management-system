@@ -33,6 +33,7 @@ class _LoginViewState extends State<LoginView> {
   }
 
   Future<void> _submit() async {
+    if (_isLoading) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() {

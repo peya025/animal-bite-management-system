@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../services/api.dart';
+import '../utils/app_validators.dart';
 import '../widgets/auth_mode_selector.dart';
 import '../widgets/buttons/account_login_prompt.dart';
 import '../widgets/buttons/primary_action_button.dart';
 import '../widgets/forms/app_text_field.dart';
 import '../widgets/forms/form_error_banner.dart';
+import '../widgets/forms/ph_phone_prefix.dart';
 
 class SignUpView extends StatefulWidget {
   const SignUpView({super.key});
@@ -42,6 +43,7 @@ class _SignUpViewState extends State<SignUpView> {
   }
 
   Future<void> _register() async {
+    if (_isLoading) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() {
@@ -53,7 +55,7 @@ class _SignUpViewState extends State<SignUpView> {
         name:
             '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
         email: _emailController.text.trim(),
-        phone: _phoneController.text.trim(),
+        phone: AppValidators.normalizePhMobile(_phoneController.text),
         password: _passwordController.text,
         passwordConfirmation: _passwordConfirmationController.text,
       );
@@ -193,23 +195,14 @@ class _SignUpViewState extends State<SignUpView> {
                         label: 'MOBILE NUMBER',
                         controller: _phoneController,
                         enabled: !_isLoading,
-                        hintText: '09171234567',
-                        prefixIcon: Icons.phone_outlined,
+                        hintText: '9XX XXX XXXX',
+                        prefixWidget: const PhPhonePrefixPill(prefix: '+63'),
                         keyboardType: TextInputType.phone,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.telephoneNumber],
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(11),
-                        ],
-                        validator: (value) {
-                          final phone = value?.trim() ?? '';
-                          if (phone.isEmpty) return 'Mobile number is required';
-                          if (phone.length != 11) {
-                            return 'Enter a valid 11-digit mobile number';
-                          }
-                          return null;
-                        },
+                        inputFormatters: const [PhPhoneNumberFormatter()],
+                        validator: (value) =>
+                            AppValidators.phMobile(value, required: true),
                       ),
                       const SizedBox(height: 18),
                       AppTextField(

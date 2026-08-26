@@ -16,11 +16,11 @@ const Map<String, String> cebTranslations = {
   // Bite Care Guide
   'guide_section_title': 'GIYA SA PAG-ATIMAN SA PAAK',
   'guide_wash_title': 'Hugasi',
-  'guide_wash_desc': '15 minutos ubos sa naga-agas nga tubig',
+  'guide_wash_desc': '15 minutos sa naga-agas nga tubig',
   'guide_consult_title': 'Pakonsulta',
-  'guide_consult_desc': 'Adto dayon sa pinakaduol nga klinika',
+  'guide_consult_desc': 'Adto dayon sa klinika',
   'guide_vaccinate_title': 'Pabakuna',
-  'guide_vaccinate_desc': 'Kompletuha ang serye sa bakuna batok rabies',
+  'guide_vaccinate_desc': 'Kompletuha ang bakuna sa rabies',
 
   // Settings
   'settings_title': 'Mga Setting',

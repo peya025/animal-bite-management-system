@@ -1,5 +1,5 @@
-// @ts-nocheck
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -38,6 +38,20 @@ interface User {
   role: Role;
   is_active: boolean;
 }
+interface LinkedPatientProfile {
+  id: number;
+  patient_number: string;
+  first_name: string;
+  middle_name?: string;
+  last_name: string;
+  relationship: string;
+  gender: string;
+  date_of_birth: string;
+  address?: string;
+  contact_number?: string;
+  status?: string;
+  has_active_case: boolean;
+}
 interface PatientAccount {
   id: number;
   name: string;
@@ -45,6 +59,7 @@ interface PatientAccount {
   phone?: string;
   is_active: boolean;
   patients_count: number;
+  patients?: LinkedPatientProfile[];
   last_login_at: string | null;
   created_at: string;
 }
@@ -130,6 +145,7 @@ function SoftActionButton({ label, variant, onClick }: { label: string; variant:
 }
 
 export default function UserListPage() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -141,6 +157,7 @@ export default function UserListPage() {
   const [patientAccounts, setPatientAccounts] = useState<PatientAccount[]>([]);
   const [patientAccountsLoading, setPatientAccountsLoading] = useState(false);
   const [togglePatientTarget, setTogglePatientTarget] = useState<PatientAccount | null>(null);
+  const [viewingProfilesAccount, setViewingProfilesAccount] = useState<PatientAccount | null>(null);
 
   // Pagination — staff tab
   const [staffPage, setStaffPage] = useState(0);
@@ -366,7 +383,9 @@ export default function UserListPage() {
         <Chip
           size="small"
           icon={<PersonOutlined fontSize="small" style={{ color: a.patients_count > 0 ? '#047857' : '#6b7280' }} />}
-          label={`${a.patients_count} patient${a.patients_count !== 1 ? 's' : ''}`}
+          label={`${a.patients_count} profile${a.patients_count !== 1 ? 's' : ''}`}
+          onClick={() => setViewingProfilesAccount(a)}
+          title="Click to view linked pre-registered profiles"
           sx={{
             bgcolor: a.patients_count > 0 ? '#ecfdf5' : '#f3f4f6',
             color: a.patients_count > 0 ? '#047857' : '#4b5563',
@@ -374,6 +393,8 @@ export default function UserListPage() {
             fontWeight: 600,
             fontSize: '11.5px',
             height: '24px',
+            cursor: 'pointer',
+            '&:hover': { bgcolor: '#dcfce7' },
           }}
         />
       ),
@@ -399,11 +420,18 @@ export default function UserListPage() {
       label: 'Actions',
       align: 'right',
       render: (a) => (
-        <SoftActionButton
-          label={a.is_active ? 'Deactivate' : 'Activate'}
-          variant={a.is_active ? 'deactivate' : 'activate'}
-          onClick={() => setTogglePatientTarget(a)}
-        />
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+          <SoftActionButton
+            label="Profiles"
+            variant="edit"
+            onClick={() => setViewingProfilesAccount(a)}
+          />
+          <SoftActionButton
+            label={a.is_active ? 'Deactivate' : 'Activate'}
+            variant={a.is_active ? 'deactivate' : 'activate'}
+            onClick={() => setTogglePatientTarget(a)}
+          />
+        </Stack>
       ),
     },
   ];
@@ -979,6 +1007,119 @@ export default function UserListPage() {
           onCancel={() => setTogglePatientTarget(null)}
         />
       )}
+
+      {/* ========== PRE-REGISTERED PROFILES MODAL ========== */}
+      <Dialog
+        open={!!viewingProfilesAccount}
+        onClose={() => setViewingProfilesAccount(null)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PersonOutlined color="primary" />
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              Pre-Registered Profiles — {viewingProfilesAccount?.name}
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 2, border: '1px solid #e5e7eb' }}>
+            <Typography sx={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>Account Owner Details</Typography>
+            <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+              Email: {viewingProfilesAccount?.email} · Phone: {viewingProfilesAccount?.phone || '—'} · Registered on: {viewingProfilesAccount ? new Date(viewingProfilesAccount.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+            </Typography>
+          </Box>
+
+          {(!viewingProfilesAccount?.patients || viewingProfilesAccount.patients.length === 0) ? (
+            <Box sx={{ p: 4, textAlign: 'center', color: '#6b7280' }}>
+              <Typography sx={{ fontSize: 14 }}>No patient profiles registered under this mobile account yet.</Typography>
+            </Box>
+          ) : (
+            <Stack spacing={1.5}>
+              {viewingProfilesAccount.patients.map((p) => (
+                <Box
+                  key={`linked-patient-${p.id}`}
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    border: '1px solid #e5e7eb',
+                    bgcolor: '#ffffff',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                  }}
+                >
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>
+                        {[p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ')}
+                      </Typography>
+                      <Chip
+                        size="small"
+                        label={p.relationship ? p.relationship.toUpperCase() : 'SELF'}
+                        sx={{ fontSize: '10px', height: '20px', fontWeight: 700, bgcolor: '#e0e7ff', color: '#3730a3' }}
+                      />
+                      {p.has_active_case ? (
+                        <Chip
+                          size="small"
+                          label="🟢 In Treatment"
+                          sx={{ fontSize: '10px', height: '20px', fontWeight: 700, bgcolor: '#dcfce7', color: '#166534' }}
+                        />
+                      ) : (
+                        <Chip
+                          size="small"
+                          label="📱 Pre-Registered (No Active Case)"
+                          sx={{ fontSize: '10px', height: '20px', fontWeight: 700, bgcolor: '#fef3c7', color: '#92400e' }}
+                        />
+                      )}
+                    </Box>
+                    <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+                      Patient No: <strong>{p.patient_number || 'Pending'}</strong> · Gender: {p.gender} · DOB: {p.date_of_birth ? new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </Typography>
+                    {p.address && (
+                      <Typography sx={{ fontSize: 11.5, color: '#9ca3af', mt: 0.25 }}>
+                        Address: {p.address}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <AppButton
+                      size="small"
+                      variant="outlined"
+                      onClick={() => {
+                        setViewingProfilesAccount(null);
+                        navigate(`/patients/${p.id}`);
+                      }}
+                    >
+                      View Details
+                    </AppButton>
+                    {!p.has_active_case && (
+                      <AppButton
+                        size="small"
+                        variant="primary"
+                        onClick={() => {
+                          setViewingProfilesAccount(null);
+                          navigate(`/patients/${p.id}`);
+                        }}
+                      >
+                        Start Bite Intake
+                      </AppButton>
+                    )}
+                  </Box>
+                </Box>
+              ))}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <AppButton variant="secondary" onClick={() => setViewingProfilesAccount(null)}>
+            Close
+          </AppButton>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

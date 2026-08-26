@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
+
 import 'patient_profile.dart';
 
+@immutable
 class PatientAccountProfile {
   const PatientAccountProfile({
     required this.id,

@@ -1,29 +1,27 @@
-﻿# 📋 Admin Task: Display & Management of Pre-Registered Patient Profiles
+# 📋 Admin Task: Display & Management of Pre-Registered Patient Profiles in User Management
 
-> **Target Area**: Admin Web Portal (rontend/src/features/patients/ & ackend/)  
-> **Status**: Planned / Future Task  
-> **Category**: Patient Registry & Clinic Triage Workflow  
+> **Target Area**: Admin Web Portal (`frontend/src/features/users/` & `backend/app/Http/Controllers/UserController.php`)  
+> **Status**: Completed  
+> **Category**: User Management & Clinic Walk-in Intake Workflow  
 
 ---
 
 ## 🎯 1. Overview & Purpose
 
-In the mobile app, users can register patient profiles for themselves and their dependents (children, spouse, relatives) even **before** booking an online appointment.
+In the mobile app, users create mobile accounts and register patient profiles for themselves and their dependents (children, spouse, relatives) even **before** booking an online appointment.
 
-This task outlines the implementation on the **Admin Web Portal** so clinic staff (doctors, nurses, and triage officers) can view, search, and manage all pre-registered patient profiles—even if they haven't booked an appointment yet.
+Pre-registered mobile accounts and their linked patient profiles are managed inside **User Management $\rightarrow$ Patient Accounts** tab on the Admin Web Portal. This ensures that the primary clinical Patient Directory remains dedicated to active clinical treatment cases and daily queues, while User Management allows clinic admins to inspect all registered mobile users, their linked dependents, and initiate walk-in bite intake when needed.
 
 ---
 
 ## 💡 2. Why This is Essential for Clinic Operations
 
-1. **Fast-Track Walk-In Patients**:
-   - Many animal bite victims panic and walk directly into the Animal Bite Treatment Center (ABTC) without booking an online slot.
-   - When the patient arrives, clinic staff can search their name or phone number and find their **Form 1 details, PhilHealth ID, 4Ps status, and Purok/Barangay address** already filled out.
-   - Staff click ** Start Bite Intake / Queue** without needing to manually re-enter demographic data.
+1. **Fast-Track Walk-In Patients from Mobile Accounts**:
+   - When a pre-registered mobile user arrives at the clinic without a pre-booked appointment, clinic staff can open **User Management $\rightarrow$ Patient Accounts**, click **"Profiles"**, inspect the pre-registered details (Form 1 demographics, PhilHealth ID, Purok/Barangay address), and click **"Start Bite Intake"**.
 2. **Preventing Duplicate Patient Records**:
-   - Staff won't create a redundant second paper/digital record for a patient who already created a profile on mobile.
+   - Staff can review linked patient profiles before enrolling new records, ensuring account integrity.
 3. **Household & Family Linking**:
-   - Staff can view linked dependents under a parent's mobile account for faster pediatric verification.
+   - Staff can inspect all family members linked to a parent's mobile account in one place.
 4. **Verification & Audit Compliance**:
    - Staff can verify patient identity documents (PhilHealth card, 4Ps ID) and update patient status from pending to erified.
 

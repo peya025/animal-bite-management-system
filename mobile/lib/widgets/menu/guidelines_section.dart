@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../app/app_theme.dart';
 import '../../l10n/app_localizations.dart';
 
 class GuidelinesSection extends StatelessWidget {
   const GuidelinesSection({super.key});
-
-  // Exact matching teal color from illustration
-  static const Color guideTealBg = Color(0xFF52B6B4);
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +19,7 @@ class GuidelinesSection extends StatelessWidget {
             letterSpacing: 0.5,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -31,22 +29,25 @@ class GuidelinesSection extends StatelessWidget {
                   imagePath: 'assets/images/guide/guide_wash.png',
                   title: context.tr('guide_wash_title'),
                   description: context.tr('guide_wash_desc'),
+                  stepNumber: '1',
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: _GuideCard(
                   imagePath: 'assets/images/guide/guide_consult.png',
                   title: context.tr('guide_consult_title'),
                   description: context.tr('guide_consult_desc'),
+                  stepNumber: '2',
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: _GuideCard(
                   imagePath: 'assets/images/guide/guide_vaccinate.png',
                   title: context.tr('guide_vaccinate_title'),
                   description: context.tr('guide_vaccinate_desc'),
+                  stepNumber: '3',
                 ),
               ),
             ],
@@ -62,88 +63,100 @@ class _GuideCard extends StatelessWidget {
     required this.imagePath,
     required this.title,
     required this.description,
+    required this.stepNumber,
   });
 
   final String imagePath;
   final String title;
   final String description;
+  final String stepNumber;
 
   @override
   Widget build(BuildContext context) {
     const cardRadius = BorderRadius.all(Radius.circular(16));
 
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: GuidelinesSection.guideTealBg,
-        borderRadius: cardRadius,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14085041),
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Prominent Aspect Ratio Illustration Box
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
-            child: AspectRatio(
-              aspectRatio: 1.0,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  imagePath,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: GuidelinesSection.guideTealBg,
-                    child: const Icon(Icons.broken_image_rounded, color: Colors.white70),
+    return Semantics(
+      label: 'Step $stepNumber: $title. $description',
+      container: true,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppColors.guideTeal,
+          borderRadius: cardRadius,
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14085041),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Prominent Aspect Ratio Illustration Box with isolated ClipRRect
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+              child: AspectRatio(
+                aspectRatio: 1.0,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset(
+                    imagePath,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    semanticLabel: '$title illustration',
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.guideTeal,
+                      child: const Icon(
+                        Icons.broken_image_rounded,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
 
-          // 2. Separation between Illustration & Text
-          const SizedBox(height: 6),
+            // 2. Vertical separation
+            const SizedBox(height: 6),
 
-          // 3. Text Zone with uniform padding and flex expansion
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
+            // 3. Text Zone with crisp white typography
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      color: Color(0xFFE6F7F6),
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w500,
-                      height: 1.25,
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        fontSize: 11.0,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+
+@immutable
 class BiteIntakeDraft {
   const BiteIntakeDraft({
     required this.biteDate,

@@ -16,6 +16,7 @@ class AppTextField extends StatelessWidget {
     this.autofillHints,
     this.obscureText = false,
     this.prefixIcon,
+    this.prefixWidget,
     this.suffixIcon,
     this.validator,
     this.onFieldSubmitted,
@@ -35,6 +36,7 @@ class AppTextField extends StatelessWidget {
   final Iterable<String>? autofillHints;
   final bool obscureText;
   final IconData? prefixIcon;
+  final Widget? prefixWidget;
   final Widget? suffixIcon;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onFieldSubmitted;
@@ -78,9 +80,10 @@ class AppTextField extends StatelessWidget {
           ),
           decoration: InputDecoration(
             hintText: hintText,
-            prefixIcon: prefixIcon == null
-                ? null
-                : Icon(prefixIcon, color: AppColors.gray500, size: 21),
+            prefixIcon: prefixWidget ??
+                (prefixIcon == null
+                    ? null
+                    : Icon(prefixIcon, color: AppColors.gray500, size: 21)),
             suffixIcon: suffixIcon,
           ),
         ),

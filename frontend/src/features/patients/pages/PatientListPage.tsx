@@ -868,7 +868,7 @@ export default function PatientList() {
       {/* ── Bulk Portal Invite Confirmation Modal ── */}
       {showBulkConfirm && (
         <ConfirmationDialog
-          variant="primary"
+          variant="confirm"
           title="Send Portal Invitations"
           message={
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

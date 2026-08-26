@@ -161,7 +161,8 @@ class UserController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $accounts = \App\Models\PatientAccount::withCount('patients')
+        $accounts = \App\Models\PatientAccount::with(['patients.biteIntakes', 'patients.appointments'])
+            ->withCount('patients')
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(fn($a) => [
@@ -171,6 +172,20 @@ class UserController extends Controller
                 'phone'          => $a->phone,
                 'is_active'      => $a->is_active,
                 'patients_count' => $a->patients_count,
+                'patients'       => $a->patients->map(fn($p) => [
+                    'id'              => $p->id,
+                    'patient_number'  => $p->patient_number,
+                    'first_name'      => $p->first_name,
+                    'middle_name'     => $p->middle_name,
+                    'last_name'       => $p->last_name,
+                    'relationship'    => $p->pivot->relationship ?? 'self',
+                    'gender'          => $p->gender,
+                    'date_of_birth'   => $p->date_of_birth,
+                    'address'         => $p->address,
+                    'contact_number'  => $p->contact_number,
+                    'status'          => $p->status,
+                    'has_active_case' => $p->biteIntakes->isNotEmpty() || $p->appointments->where('status', 'scheduled')->isNotEmpty(),
+                ]),
                 'last_login_at'  => $a->last_login_at,
                 'created_at'     => $a->created_at,
             ]);

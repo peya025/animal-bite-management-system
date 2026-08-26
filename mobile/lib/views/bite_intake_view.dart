@@ -173,6 +173,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final today = DateUtils.dateOnly(DateTime.now());

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -337,22 +338,40 @@ class MobileApi {
     try {
       response = await request.timeout(_requestTimeout);
     } on TimeoutException {
-      throw ApiException(
-        'Server timed out. Make sure Laravel is running on $_baseUrl',
+      throw const ApiException(
+        'Connection timed out. Please check your network or try again later.',
+      );
+    } on SocketException {
+      throw const ApiException(
+        'No internet connection. Please verify your Wi-Fi or cellular data.',
       );
     } on http.ClientException {
-      throw ApiException(
-        'Could not reach the server at $_baseUrl\n'
-        'Check that:\n'
-        '• Laravel is running (php artisan serve --host=0.0.0.0)\n'
-        '• Your device is on the same Wi-Fi network\n'
-        '• Port 8000 is allowed through Windows Firewall',
+      throw const ApiException(
+        'Unable to connect to the clinic server. Please verify your connection.',
       );
     }
 
     final decoded = response.body.isEmpty ? null : jsonDecode(response.body);
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return decoded;
+    }
+
+    if (response.statusCode == 401) {
+      _token = null;
+      await _storage.delete(key: _tokenKey);
+      throw const ApiException('Session expired. Please log in again.');
+    }
+
+    if (response.statusCode == 403) {
+      throw const ApiException('You do not have permission to perform this action.');
+    }
+
+    if (response.statusCode == 404) {
+      throw const ApiException('The requested clinic resource was not found.');
+    }
+
+    if (response.statusCode >= 500) {
+      throw const ApiException('Clinic server is temporarily unavailable. Please try again later.');
     }
 
     if (decoded is Map<String, dynamic>) {
@@ -366,6 +385,6 @@ class MobileApi {
       throw ApiException(decoded['message']?.toString() ?? 'Request failed.');
     }
 
-    throw const ApiException('Could not connect to the clinic server.');
+    throw const ApiException('Could not complete request with the clinic server.');
   }
 }

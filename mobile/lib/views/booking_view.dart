@@ -200,6 +200,7 @@ class _BookingViewState extends State<BookingView> {
   }
 
   Future<void> _continueBooking() async {
+    if (_booking) return;
     final patient = _selectedPatient;
     if (patient == null) {
       await _addDependent();

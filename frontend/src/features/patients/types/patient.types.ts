@@ -29,6 +29,8 @@ export interface Patient {
   contact_number?: string;
   phone?: string;
   email?: string;
+  age?: number;
+  registration_source?: string;
   details?: Record<string, unknown>;
   memberships?: PatientMembership[];
   created_at: string;

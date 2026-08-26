@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 enum BookingService { consultation, vaccination }
 
 extension BookingServiceLabel on BookingService {
@@ -21,6 +23,7 @@ extension BookingTimeSlotLabel on BookingTimeSlot {
   };
 }
 
+@immutable
 class BookingDraft {
   const BookingDraft({
     required this.service,

@@ -32,6 +32,10 @@ abstract final class AppColors {
   static const errorDark = Color(0xFFB91C1C);
   static const success = Color(0xFF159A68);
   static const warning = Color(0xFFE58A2B);
+
+  // Guide Card Palette
+  static const guideTeal = Color(0xFF52B6B4); // Artwork matching teal
+  static const guideTealDark = Color(0xFF0C3837); // High-contrast deep teal for text and backdrops
 }
 
 abstract final class AppTheme {

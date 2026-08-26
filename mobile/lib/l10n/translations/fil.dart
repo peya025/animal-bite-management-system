@@ -16,11 +16,11 @@ const Map<String, String> filTranslations = {
   // Bite Care Guide
   'guide_section_title': 'GABAY SA PAG-ALAGA NG KAGAT',
   'guide_wash_title': 'Hugasan',
-  'guide_wash_desc': '15 minuto sa ilalim ng tumatakbong tubig',
+  'guide_wash_desc': '15 minuto sa tumatakbong tubig',
   'guide_consult_title': 'Magpakonsulta',
-  'guide_consult_desc': 'Pumunta agad sa pinakamalapit na klinika',
+  'guide_consult_desc': 'Pumunta agad sa klinika',
   'guide_vaccinate_title': 'Magpabakuna',
-  'guide_vaccinate_desc': 'Kumpletuhin ang serye ng bakuna sa rabies',
+  'guide_vaccinate_desc': 'Kumpletuhin ang bakuna sa rabies',
 
   // Settings
   'settings_title': 'Mga Setting',

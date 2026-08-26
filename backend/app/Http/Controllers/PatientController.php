@@ -77,6 +77,14 @@ class PatientController extends Controller
                 });
                 break;
 
+            case 'pre_registered':
+                $query->where(function ($q) {
+                    $q->where('registration_source', 'mobile')
+                      ->orWhereHas('accounts');
+                })->whereDoesntHave('biteIntakes')
+                  ->whereDoesntHave('appointments');
+                break;
+
             case 'all':
             default:
                 // No specific tab constraint
@@ -150,11 +158,19 @@ class PatientController extends Controller
             })->whereIn('status', ['scheduled', 'missed']);
         })->count();
 
+        $preRegisteredCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
+            $q->where('registration_source', 'mobile')
+              ->orWhereHas('accounts');
+        })->whereDoesntHave('biteIntakes')
+          ->whereDoesntHave('appointments')
+          ->count();
+
         $res = $paginated->toArray();
         $res['all_count'] = $allCount;
         $res['today_queue_count'] = $todayQueueCount;
         $res['online_count'] = $onlineCount;
         $res['overdue_count'] = $overdueCount;
+        $res['pre_registered_count'] = $preRegisteredCount;
 
         return response()->json($res);
     }

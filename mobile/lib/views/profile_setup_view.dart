@@ -7,7 +7,9 @@ import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import '../services/api.dart';
 import '../services/psgc_service.dart';
+import '../utils/app_validators.dart';
 import '../widgets/common/app_page_header.dart';
+import '../widgets/forms/ph_phone_prefix.dart';
 
 class PhilHealthNumberFormatter extends TextInputFormatter {
   @override
@@ -451,12 +453,23 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
 
     if (_currentStep == 0) {
       // Validate Step 1: Basic info
-      if (_firstName.text.trim().isEmpty || _lastName.text.trim().isEmpty) {
-        setState(() => _error = 'Please enter first name and last name.');
+      final fnError = AppValidators.name(_firstName.text, 'First name');
+      if (fnError != null) {
+        setState(() => _error = fnError);
+        return;
+      }
+      final lnError = AppValidators.name(_lastName.text, 'Last name');
+      if (lnError != null) {
+        setState(() => _error = lnError);
         return;
       }
       if (_gender == null) {
         setState(() => _error = 'Please select a gender.');
+        return;
+      }
+      final dobError = AppValidators.dateOfBirth(_selectedBirthDate, required: false);
+      if (dobError != null) {
+        setState(() => _error = dobError);
         return;
       }
       setState(() => _currentStep = 1);
@@ -476,16 +489,21 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         }
       }
 
-      final contact = _contactNumber.text.trim();
-      if (contact.isNotEmpty && contact.length != 11) {
-        setState(() => _error = 'Contact number must be exactly 11 digits.');
+      final contactError = AppValidators.phMobile(_contactNumber.text, required: false);
+      if (contactError != null) {
+        setState(() => _error = contactError);
         return;
       }
 
-      final emailVal = _email.text.trim();
-      final emailPattern = RegExp("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$");
-      if (emailVal.isNotEmpty && !emailPattern.hasMatch(emailVal)) {
-        setState(() => _error = 'Please enter a valid email address.');
+      final emailError = AppValidators.email(_email.text, required: false);
+      if (emailError != null) {
+        setState(() => _error = emailError);
+        return;
+      }
+
+      final emgContactError = AppValidators.phMobile(_emergencyContactNumber.text, required: false);
+      if (emgContactError != null) {
+        setState(() => _error = 'Emergency contact: $emgContactError');
         return;
       }
 
@@ -505,6 +523,8 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   }
 
   Future<void> _save() async {
+    if (_isLoading) return;
+
     if (!_formKey.currentState!.validate()) {
       setState(() => _error = 'Please resolve highlighted form errors.');
       return;
@@ -513,6 +533,14 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     if (_gender == null) {
       setState(() => _error = 'Gender is required.');
       return;
+    }
+
+    if (_philhealthMember == 'yes') {
+      final phError = AppValidators.philHealth(_philhealthNo.text, isMember: true);
+      if (phError != null) {
+        setState(() => _error = phError);
+        return;
+      }
     }
 
     setState(() {
@@ -586,10 +614,14 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         'suffix': _optional(_suffix),
         'gender': _gender,
         'date_of_birth': _selectedBirthDate?.toIso8601String().split('T').first,
-        'contact_number': _optional(_contactNumber),
+        'contact_number': _contactNumber.text.trim().isNotEmpty
+            ? AppValidators.normalizePhMobile(_contactNumber.text)
+            : null,
         'email': _optional(_email),
         'emergency_contact_name': _optional(_emergencyContactName),
-        'emergency_contact_number': _optional(_emergencyContactNumber),
+        'emergency_contact_number': _emergencyContactNumber.text.trim().isNotEmpty
+            ? AppValidators.normalizePhMobile(_emergencyContactNumber.text)
+            : null,
         'blood_type': _bloodType,
         'mother_maiden_name': _optional(_motherMaidenName),
         'civil_status': _civilStatus,
@@ -993,7 +1025,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                             _inputField(
                               'Contact number',
                               _contactNumber,
-                              hint: '09XXXXXXXXX',
+                              hint: '9XX XXX XXXX',
                               phone: true,
                             ),
                             _inputField(
@@ -1585,18 +1617,16 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
             inputFormatters: philhealth
                 ? [PhilHealthNumberFormatter()]
                 : phone
-                ? [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(11),
-                  ]
+                ? const [PhPhoneNumberFormatter()]
                 : null,
             style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
             decoration: InputDecoration(
-              hintText: hint,
+              hintText: phone ? (hint ?? '9XX XXX XXXX') : hint,
               hintStyle: const TextStyle(
                 fontSize: 12,
                 color: Color(0xFF9CA3AF),
               ),
+              prefixIcon: phone ? const PhPhonePrefixPill(prefix: '+63') : null,
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -1625,20 +1655,14 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
               if (required && trimmed.isEmpty) {
                 return '$label is required';
               }
-              if (phone && trimmed.isNotEmpty && trimmed.length != 11) {
-                return 'Phone number must be 11 digits';
+              if (phone && trimmed.isNotEmpty) {
+                return AppValidators.phMobile(trimmed, required: required);
               }
               if (philhealth && trimmed.isNotEmpty) {
-                final digits = trimmed.replaceAll(RegExp(r'\D'), '');
-                if (digits.length != 12) {
-                  return 'PhilHealth number must be 12 digits (XX-XXXXXXXXX-X)';
-                }
+                return AppValidators.philHealth(trimmed, isMember: _philhealthMember == 'yes');
               }
-              final emailPattern = RegExp("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$");
-              if (email &&
-                  trimmed.isNotEmpty &&
-                  !emailPattern.hasMatch(trimmed)) {
-                return 'Please enter a valid email address';
+              if (email && trimmed.isNotEmpty) {
+                return AppValidators.email(trimmed, required: required);
               }
               return null;
             },

@@ -8,9 +8,10 @@ interface Props {
   onClose: () => void;
   patientId: number | null;
   onSaved?: () => void;
+  initialExposureCategory?: 'I' | 'II' | 'III' | '';
 }
 
-export default function TagoloanTreatmentCardModal({ open, onClose, patientId, onSaved }: Props) {
+export default function TagoloanTreatmentCardModal({ open, onClose, patientId, onSaved, initialExposureCategory = '' }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cardData, setCardData] = useState<any>(null);
@@ -19,7 +20,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
   const [registryNo, setRegistryNo] = useState('');
   const [hospitalNo, setHospitalNo] = useState('');
   const [referredBy, setReferredBy] = useState('');
-  const [exposureCategory, setExposureCategory] = useState<'I' | 'II' | 'III' | ''>('II');
+  const [exposureCategory, setExposureCategory] = useState<'I' | 'II' | 'III' | ''>(initialExposureCategory);
   const [modeOfExposure, setModeOfExposure] = useState<string>('transdermal_bite');
   const [bodyPartExposed, setBodyPartExposed] = useState<string>('other_parts');
   const [animalType, setAnimalType] = useState('Dog');
@@ -32,6 +33,8 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
 
   useEffect(() => {
     if (open && patientId) {
+      // Reset to prop value first, then loadCardData will override if a saved card exists
+      setExposureCategory(initialExposureCategory);
       loadCardData();
     }
   }, [open, patientId]);
@@ -47,10 +50,12 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         setRegistryNo(existing.registry_no || '');
         setHospitalNo(existing.hospital_no || res.data.patient?.hospital_no || '');
         setReferredBy(existing.referred_by || res.data.bite_incident?.referred_from || '');
-        setExposureCategory(existing.exposure_category || 'II');
+        setExposureCategory(existing.exposure_category || '');
         setModeOfExposure(existing.mode_of_exposure || 'transdermal_bite');
         setBodyPartExposed(existing.body_part_exposed || 'other_parts');
-        setAnimalType(existing.animal_type || 'Dog');
+        // Normalize animal_type to 'Dog' or 'Others' regardless of case stored in DB
+        const storedAnimal = (existing.animal_type || '').toLowerCase();
+        setAnimalType(storedAnimal === 'dog' ? 'Dog' : 'Others');
         setAnimalTypeOthers(existing.animal_type_others || '');
         setPastBiteHistory(Boolean(existing.past_bite_history));
         setPastBiteDates(existing.past_bite_dates || '');
@@ -61,10 +66,13 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         setHospitalNo(res.data.patient?.hospital_no || '');
         setReferredBy(res.data.bite_incident?.referred_from || '');
         if (res.data.bite_incident?.case_number) setRegistryNo(res.data.bite_incident.case_number);
+        if (res.data.bite_incident?.exposure_category) setExposureCategory(res.data.bite_incident.exposure_category);
+        else if (initialExposureCategory) setExposureCategory(initialExposureCategory);
         if (res.data.bite_incident?.mode_of_exposure) setModeOfExposure(res.data.bite_incident.mode_of_exposure);
         if (res.data.bite_incident?.body_part_exposed) setBodyPartExposed(res.data.bite_incident.body_part_exposed);
         if (res.data.bite_incident?.animal_type) {
-          if (res.data.bite_incident.animal_type === 'Dog') {
+          const biteAnimal = (res.data.bite_incident.animal_type || '').toLowerCase();
+          if (biteAnimal === 'dog') {
             setAnimalType('Dog');
             setAnimalTypeOthers('');
           } else {
@@ -194,24 +202,6 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
-              onClick={handlePrint}
-              style={{
-                background: '#ffffff',
-                color: 'var(--primary)',
-                border: 'none',
-                padding: '0.4rem 0.85rem',
-                borderRadius: '6px',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-              }}
-            >
-              🖨️ Print Form
-            </button>
-            <button
               onClick={onClose}
               style={{
                 background: 'transparent',
@@ -237,6 +227,36 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
             fontFamily: 'Arial, sans-serif',
           }}
         >
+          {/* Visible Print Button inside content area */}
+          {!loading && (
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+              <button
+                onClick={handlePrint}
+                style={{
+                  background: '#10b981',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 24px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '15px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  boxShadow: '0 4px 14px rgba(16,185,129,0.4)',
+                  letterSpacing: '0.3px',
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 6 2 18 2 18 9"/>
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                  <rect x="6" y="14" width="12" height="8"/>
+                </svg>
+                🖨 Print This Form
+              </button>
+            </div>
+          )}
           {loading ? (
             <p style={{ textAlign: 'center', color: 'var(--primary)', padding: '3rem' }}>
               Loading official Tagoloan treatment card...

@@ -1359,9 +1359,11 @@ export default function GeneralTreatmentForm({
                   Cancel
                 </button>
               )}
-              <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
-                {saving ? 'Saving…' : hasExistingRecord ? '✓ Save Changes' : '✓ Save Record'}
-              </button>
+              {!readOnly && (
+                <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
+                  {saving ? 'Saving…' : hasExistingRecord ? '✓ Save Changes' : '✓ Save Record'}
+                </button>
+              )}
             </>
           )}
         </div>

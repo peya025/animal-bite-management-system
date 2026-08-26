@@ -1,4 +1,4 @@
-﻿# UI Audit & Improvement Plan: GuidelinesSection / _GuideCard
+# UI Audit & Improvement Plan: GuidelinesSection / _GuideCard
 
 > **Target Component**: mobile/lib/widgets/menu/guidelines_section.dart (Wash, Consult, Vaccinate)  
 > **Status**: Planned Task Backlog  
@@ -16,7 +16,7 @@ This audit addresses known visual glitches, substandard accessibility metrics (m
 
 ## 2. Bugs (must fix)
 
-- [ ] **Fix image corner clipping on Wash, Consult, and Vaccinate cards**
+- [x] **Fix image corner clipping on Wash, Consult, and Vaccinate cards**
   - *Why it matters*: The outer Container uses 16px borderRadius with Clip.antiAlias, but the inner image Padding was originally less than the corner radius, slicing off the top-right image bounding box.
   - *Fix*: Wrap the Image.asset in its own ClipRRect with an 8px-12px radius or ensure outer padding is uniformly set so the aspect-ratio box never intersects the outer 16px clip.
 
@@ -24,23 +24,23 @@ This audit addresses known visual glitches, substandard accessibility metrics (m
 
 ## 3. Accessibility Issues (must fix before ship)
 
-- [ ] **Increase description font size above platform minimums**
+- [x] **Increase description font size above platform minimums**
   - *Why it matters*: Current 9.5px is below iOS HIG platform minimums (>= 11pt) and Material Guidelines (>= 12sp), making critical emergency steps unreadable for users with mild visual impairments.
   - *Fix*: Bump text size to at least 11px-12px; do not rely on maxLines: 2 or ellipsis to compensate for inadequate text boxes.
 
-- [ ] **Resolve low contrast ratio between guideTealBg (card) and white text**
+- [x] **Resolve low contrast ratio between guideTealBg (card) and white text**
   - *Why it matters*: guideTealBg (#52B6B4) vs Colors.white has a contrast ratio of only ~2.43:1, and vs #E6F7F6 is ~2.18:1 - both fail WCAG AA (minimum 4.5:1 for normal text, 3:1 for large text).
   - *Fix*: Use a dark text color (e.g. #111827 / #193B40) on a light text pocket, or darken the card text background zone to pass WCAG AA.
 
-- [ ] **Add Semantics / semanticLabel to all _GuideCard illustrations**
+- [x] **Add Semantics / semanticLabel to all _GuideCard illustrations**
   - *Why it matters*: Screen readers (TalkBack/VoiceOver) currently announce illustrations as mundane unlabeled images or skip them entirely.
   - *Fix*: Add descriptive labels like semanticLabel: 'Washing bite wound under water'.
 
-- [ ] **Support system font scaling (MediaQuery.textScaler)**
+- [x] **Support system font scaling (MediaQuery.textScaler)**
   - *Why it matters*: Users who enable large/accessibility fonts in system settings will experience text overflow or clipping if the card's height and line-counts are rigid.
   - *Fix*: Test with maximum text scaling (e.g. 2.0x) and adapt flex spacing to prevent red bottom overflow bars.
 
-- [ ] **Ensure tap targets exceed >= 44x44pt (iOS) / 48x48dp (Android) if tappable**
+- [x] **Ensure tap targets exceed >= 44x44pt (iOS) / 48x48dp (Android) if tappable**
   - *Why it matters*: If cards are later wired to open detailed guide sheets, sub-minimum touch targets would cause unresponsive fumbling for panicked patients.
   - *Fix*: Apply kMinInteractiveDimension metrics such as MinimumInteractiveComponentSize.
 

@@ -66,8 +66,8 @@ export default function PatientList() {
   const printedBy  = userData   ? (JSON.parse(userData)?.name  ?? 'Unknown') : 'Unknown';
   const clinicName = clinicData ? (JSON.parse(clinicData)?.name ?? 'Animal Bite Treatment Center') : 'Animal Bite Treatment Center';
 
-  const [tab,                  setTab]                  = useState<'all' | 'today_queue' | 'online' | 'overdue'>('all');
-  const [tabCounts,            setTabCounts]            = useState({ all: 0, today_queue: 0, online: 0, overdue: 0 });
+  const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'overdue'>('today_queue');
+  const [tabCounts,            setTabCounts]            = useState({ today_queue: 0, all: 0, online: 0, overdue: 0 });
   const [checkingInId,         setCheckingInId]         = useState<number | null>(null);
 
   // Bulk walk-in portal invite state
@@ -360,18 +360,18 @@ export default function PatientList() {
           {/* Unified Filter Tabs */}
           <div className="pm-tabs">
             <button
-              className={`pm-tab-btn ${tab === 'all' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('all')}
-            >
-              All Patients
-              <span className="pm-tab-badge">{tabCounts.all || total}</span>
-            </button>
-            <button
               className={`pm-tab-btn ${tab === 'today_queue' ? 'pm-tab-btn--active' : ''}`}
               onClick={() => setTab('today_queue')}
             >
               Today's Queue
               <span className="pm-tab-badge">{tabCounts.today_queue}</span>
+            </button>
+            <button
+              className={`pm-tab-btn ${tab === 'all' ? 'pm-tab-btn--active' : ''}`}
+              onClick={() => setTab('all')}
+            >
+              All Patients
+              <span className="pm-tab-badge">{tabCounts.all || total}</span>
             </button>
             <button
               className={`pm-tab-btn ${tab === 'online' ? 'pm-tab-btn--active' : ''}`}

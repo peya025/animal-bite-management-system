@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
 import { formatPhilHealthNumber } from '../../../shared/utils';
-import ReferralLocationSelector from '../../consultations/components/ReferralLocationSelector';
 import {
   getNextFifoBatch,
   getVaccineNames,
@@ -66,6 +65,9 @@ interface VaccinationDose {
   period: string;
   route: 'ID' | 'IM' | '';
   date: string;
+  ideal_date?: string;
+  schedule_drift_days?: number;
+  schedule_adjustment_reason?: string;
   given_by: string;
   signature: string;
   vaccine_type: string;
@@ -337,13 +339,16 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       setDoses(prevDoses => {
         return prevDoses.map(dose => {
           const doseNumber = PERIOD_TO_DOSE_NUMBER[dose.period];
-          const appointment = appointments.find((a: { dose_number?: number; appointment_date?: string }) => a.dose_number === doseNumber);
+          const appointment = appointments.find((a: { dose_number?: number; appointment_date?: string; scheduled_date?: string; ideal_date?: string; schedule_drift_days?: number; schedule_adjustment_reason?: string }) => a.dose_number === doseNumber);
 
           if (appointment && !dose.date) {
-            // Pre-fill with scheduled date (but keep it editable)
+            // Pre-fill with scheduled date and preserve clinical drift info
             return {
               ...dose,
-              date: formatDateForInput(appointment.appointment_date),
+              date: formatDateForInput(appointment.appointment_date || appointment.scheduled_date),
+              ideal_date: appointment.ideal_date ? formatDateForInput(appointment.ideal_date) : undefined,
+              schedule_drift_days: appointment.schedule_drift_days,
+              schedule_adjustment_reason: appointment.schedule_adjustment_reason,
             };
           }
 
@@ -923,6 +928,30 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                           color: '#0f172a',
                         }}
                       />
+                      {dose.schedule_drift_days !== undefined && dose.schedule_drift_days !== 0 && (
+                        <div
+                          title={dose.schedule_adjustment_reason || 'Operating schedule adjustment'}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3,
+                            marginTop: 4,
+                            padding: '2px 6px',
+                            backgroundColor: '#fffbeb',
+                            border: '1px solid #fde68a',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            color: '#b45309',
+                            fontWeight: 600,
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          <span>ℹ️</span>
+                          <span>
+                            Ideal: {dose.ideal_date || 'Standard'} ({dose.schedule_drift_days > 0 ? `+${dose.schedule_drift_days}d` : `${dose.schedule_drift_days}d`})
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* 4. Vaccine Type Selection */}

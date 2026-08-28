@@ -103,6 +103,7 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     roles: ['admin'],
     submenu: [
       { label: 'Clinic Information', path: ROUTES.CLINIC_SETUP.INFO },
+      { label: 'Operating Schedule', path: ROUTES.CLINIC_SETUP.SCHEDULE },
       { label: 'Module Configuration', path: ROUTES.CLINIC_SETUP.MODULES },
       { label: 'Staff Assignments', path: ROUTES.CLINIC_SETUP.STAFF_ASSIGNMENTS },
       { label: 'Staff Activity Monitor', path: ROUTES.AUDIT.ACTIVITY },
@@ -112,8 +113,9 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
   {
     label: 'Developer Tools',
     icon: GLOBAL_NAV_ICONS['Developer Settings'],
-    roles: ['developer'],
+    roles: ['developer', 'admin'],
     submenu: [
+      { label: 'Appointment Bug Catcher', path: ROUTES.APPOINTMENT_DIAGNOSTICS },
       { label: 'Landing & Footer Settings', path: ROUTES.DEVELOPER_SETTINGS },
       { label: 'Database Explorer (XAMPP)', path: ROUTES.DATABASE_EXPLORER },
     ],

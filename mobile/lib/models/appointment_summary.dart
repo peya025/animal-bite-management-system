@@ -12,6 +12,9 @@ class AppointmentSummary {
     this.doseNumber,
     this.relationship,
     this.notes,
+    this.idealDate,
+    this.scheduleDriftDays,
+    this.scheduleAdjustmentReason,
   });
 
   final int id;
@@ -26,6 +29,9 @@ class AppointmentSummary {
   final int? doseNumber;
   final String? relationship;
   final String? notes;
+  final String? idealDate;
+  final int? scheduleDriftDays;
+  final String? scheduleAdjustmentReason;
 
   bool get canCancel => status == 'scheduled';
 
@@ -76,6 +82,9 @@ class AppointmentSummary {
       doseNumber: json['dose_number'] as int?,
       relationship: rel,
       notes: json['notes'] as String?,
+      idealDate: json['ideal_date'] as String?,
+      scheduleDriftDays: json['schedule_drift_days'] as int?,
+      scheduleAdjustmentReason: json['schedule_adjustment_reason'] as String?,
     );
   }
 }

@@ -24,6 +24,9 @@ class Appointment extends Model
         'status',
         'notes',
         'created_by',
+        'ideal_date',
+        'schedule_drift_days',
+        'schedule_adjustment_reason',
         // Legacy fields for mobile compatibility
         'booked_by_account_id',
         'staff_id',
@@ -36,6 +39,8 @@ class Appointment extends Model
     protected $casts = [
         'appointment_date' => 'date',
         'scheduled_date' => 'datetime',
+        'ideal_date' => 'date',
+        'schedule_drift_days' => 'integer',
         'appointment_time' => 'datetime:H:i',
         'queue_number' => 'integer',
         'dose_number' => 'integer',

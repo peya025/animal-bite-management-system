@@ -10,6 +10,7 @@ use App\Models\BiteIncident;
 use App\Models\Patient;
 use App\Models\Clinic;
 use App\Services\VaccineInventoryUsageService;
+use App\Services\ClinicScheduleService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
@@ -523,10 +524,8 @@ class VaccinationRecordController extends Controller
             return; // No Day 0 recorded, skip appointment creation
         }
 
-        // Get clinic schedule information
+        $scheduleService = app(ClinicScheduleService::class);
         $clinic = \App\Models\Clinic::find($clinicId);
-        $workingDays = $clinic->working_days ?? [1, 2, 3, 4, 5]; // Default Mon-Fri
-        $holidays = $clinic->holiday_dates ?? [];
 
         // Define follow-up schedule (WHO Essen Regimen)
         $schedule = [
@@ -551,12 +550,10 @@ class VaccinationRecordController extends Controller
                 continue; // Skip if dose already given
             }
 
-            // Calculate appointment date (skip weekends and holidays)
-            $appointmentDate = $this->calculateNextWorkingDay(
-                $day0Date->copy()->addDays($followUp['days_after']),
-                $workingDays,
-                $holidays
-            );
+            // Calculate appointment date using ClinicScheduleService
+            $idealDate = $day0Date->copy()->addDays($followUp['days_after']);
+            $resolution = $scheduleService->resolveScheduleDate($clinicId, $idealDate, $followUp['dose_number']);
+            $resolvedDate = $resolution['scheduled_date'];
 
             // Check if appointment already exists
             $existing = \App\Models\Appointment::where('clinic_id', $clinicId)
@@ -569,17 +566,25 @@ class VaccinationRecordController extends Controller
                 continue; // Skip if appointment already exists
             }
 
+            $noteText = $resolution['drift_days'] !== 0
+                ? "Auto-scheduled: {$followUp['period']} dose ({$resolution['adjustment_reason']})"
+                : "Auto-scheduled: {$followUp['period']} dose";
+
             // Create appointment
             $appt = \App\Models\Appointment::create([
                 'clinic_id' => $clinicId,
                 'patient_id' => $patientId,
                 'bite_id' => $biteId,
-                'appointment_date' => $appointmentDate->toDateString(),
+                'appointment_date' => $resolvedDate->toDateString(),
+                'scheduled_date' => $resolvedDate->toDateString(),
+                'ideal_date' => $idealDate->toDateString(),
+                'schedule_drift_days' => $resolution['drift_days'],
+                'schedule_adjustment_reason' => $resolution['adjustment_reason'],
                 'appointment_time' => $clinic->opening_time ?? '08:00:00',
                 'appointment_type' => 'follow_up_vaccination',
                 'dose_number' => $followUp['dose_number'],
                 'status' => 'scheduled',
-                'notes' => "Auto-scheduled: {$followUp['period']} dose",
+                'notes' => $noteText,
                 'created_by' => $userId,
             ]);
 
@@ -588,12 +593,16 @@ class VaccinationRecordController extends Controller
             if ($patient && $patient->accounts->isNotEmpty()) {
                 foreach ($patient->accounts as $account) {
                     $accId = $account->patient_account_id ?? $account->id;
+                    $msg = $resolution['drift_days'] !== 0
+                        ? "{$followUp['period']} vaccination scheduled for {$patient->name} on " . $resolvedDate->format('M d, Y') . " ({$resolution['adjustment_reason']})."
+                        : "{$followUp['period']} vaccination scheduled for {$patient->name} on " . $resolvedDate->format('M d, Y') . ".";
+
                     \App\Models\Notification::create([
                         'patient_id' => $patientId,
                         'patient_account_id' => $accId,
                         'appointment_id' => $appt->appointment_id,
                         'type' => 'vaccination_reminder',
-                        'message' => "{$followUp['period']} vaccination scheduled for {$patient->name} on " . $appointmentDate->format('M d, Y') . ".",
+                        'message' => $msg,
                         'status' => 'pending',
                         'send_time' => now(),
                     ]);
@@ -602,7 +611,7 @@ class VaccinationRecordController extends Controller
                 }
             }
 
-            \Log::info("Created follow-up appointment for Patient #{$patientId}: {$followUp['period']} on {$appointmentDate->toDateString()}");
+            \Log::info("Created follow-up appointment for Patient #{$patientId}: {$followUp['period']} on {$resolvedDate->toDateString()} (Ideal: {$idealDate->toDateString()}, Drift: {$resolution['drift_days']})");
         }
     }
 

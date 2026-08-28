@@ -54,6 +54,7 @@ class MobileAppointmentController extends Controller
             }
 
             $isVac = str_contains($app->appointment_type ?? '', 'vaccination');
+            $idealDate = $app->ideal_date ? \Carbon\Carbon::parse($app->ideal_date)->format('Y-m-d') : $dateStr;
 
             return [
                 'appointment_id' => $app->appointment_id,
@@ -67,6 +68,9 @@ class MobileAppointmentController extends Controller
                 'dose_number' => $app->dose_number,
                 'scheduled_date' => $dateStr,
                 'appointment_date' => $dateStr,
+                'ideal_date' => $idealDate,
+                'schedule_drift_days' => (int) ($app->schedule_drift_days ?? 0),
+                'schedule_adjustment_reason' => $app->schedule_adjustment_reason,
                 'time_slot' => $app->time_slot ?? 'morning',
                 'status' => $app->status,
                 'notes' => $app->notes,

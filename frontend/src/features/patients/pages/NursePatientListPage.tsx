@@ -29,7 +29,6 @@ import {
   Search01Icon,
   RefreshIcon,
   ViewIcon,
-  Stethoscope02Icon,
 } from '@hugeicons/core-free-icons';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
@@ -64,7 +63,6 @@ export default function NursePatientListPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(15);
   const [totalCount, setTotalCount] = useState(0);
@@ -417,6 +415,13 @@ export default function NursePatientListPage() {
                 ? `Missed / No Show (${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))}d ago)`
                 : apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </Typography>
+            {appt.schedule_drift_days && appt.schedule_drift_days !== 0 ? (
+              <Tooltip title={appt.schedule_adjustment_reason || 'Schedule adjusted for clinic operating hours'}>
+                <Typography component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, fontSize: 10, bgcolor: '#fef3c7', color: '#92400e', px: 0.7, py: 0.1, borderRadius: 1, fontWeight: 700, mt: 0.3 }}>
+                  ℹ️ {appt.schedule_drift_days > 0 ? `+${appt.schedule_drift_days}d` : `${appt.schedule_drift_days}d`} drift
+                </Typography>
+              </Tooltip>
+            ) : null}
           </Box>
         );
       },

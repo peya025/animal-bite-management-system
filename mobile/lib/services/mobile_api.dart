@@ -309,6 +309,27 @@ class MobileApi {
     }
   }
 
+  Future<Map<String, dynamic>> scheduleSummary([int? id]) async {
+    final targetId = id ?? clinicId;
+    final rootUrl = _baseUrl.replaceAll('/api/mobile', '/api');
+    try {
+      final response = await http.get(
+        Uri.parse('$rootUrl/clinics/$targetId/schedule-summary'),
+        headers: {'Accept': 'application/json'},
+      ).timeout(_requestTimeout);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return <String, dynamic>{
+      'open_days_of_week': [1, 2, 3, 4, 5],
+      'exceptions': <String, dynamic>{},
+      'urgent_policy': <String, dynamic>{
+        'urgent_access_policy': 'walk_ins_accepted_outside_hours',
+      },
+    };
+  }
+
   Future<dynamic> _send(
     String method,
     String path, {

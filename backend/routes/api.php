@@ -25,6 +25,7 @@ use App\Http\Controllers\VaccinationRecordController;
 use App\Http\Controllers\VaccineInventoryController;
 use App\Http\Controllers\PrintController;
 use App\Http\Controllers\LandingPageSettingsController;
+use App\Http\Controllers\ClinicScheduleController;
 use Illuminate\Support\Facades\Route;
 
 // Test route - check if API is working
@@ -55,6 +56,7 @@ Route::get('/setup/check-needed', function () {
 });
 
 use App\Http\Controllers\DeveloperDatabaseExplorerController;
+use App\Http\Controllers\Developer\AppointmentDiagnosticController;
 
 Route::middleware(['auth:sanctum', 'role:developer,admin'])->group(function () {
     Route::post('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
@@ -63,6 +65,11 @@ Route::middleware(['auth:sanctum', 'role:developer,admin'])->group(function () {
     // Developer Database Explorer Routes (XAMPP / phpMyAdmin Style)
     Route::get('/developer/database/tables', [DeveloperDatabaseExplorerController::class, 'getTables']);
     Route::get('/developer/database/tables/{tableName}', [DeveloperDatabaseExplorerController::class, 'getTableDetails']);
+
+    // Developer Appointment & Scheduling Bug Catcher / Diagnostics
+    Route::get('/developer/diagnostics/appointments', [AppointmentDiagnosticController::class, 'scan']);
+    Route::post('/developer/diagnostics/appointments/repair-all', [AppointmentDiagnosticController::class, 'repairAll']);
+    Route::post('/developer/diagnostics/appointments/repair-single', [AppointmentDiagnosticController::class, 'repairSingle']);
 });
 
 Route::prefix('mobile')->group(function () {
@@ -140,6 +147,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/clinic', [ClinicSetupController::class, 'updateClinic']);
         Route::post('/complete', [ClinicSetupController::class, 'completeSetup']);
     });
+
+    // Clinic Operating Schedule & Policies (admin only)
+    Route::middleware(['role:admin'])->prefix('clinics/schedule')->group(function () {
+        Route::get('/', [ClinicScheduleController::class, 'getSchedule']);
+        Route::put('/weekly', [ClinicScheduleController::class, 'updateWeeklySchedule']);
+        Route::get('/exceptions', [ClinicScheduleController::class, 'getExceptions']);
+        Route::post('/exceptions', [ClinicScheduleController::class, 'storeException']);
+        Route::delete('/exceptions/{id}', [ClinicScheduleController::class, 'deleteException']);
+        Route::put('/policies', [ClinicScheduleController::class, 'updatePolicies']);
+        Route::post('/recalculate', [ClinicScheduleController::class, 'recalculate']);
+    });
+
+    // Public / Mobile Schedule Availability Summary
+    Route::get('/clinics/{id}/schedule-summary', [ClinicScheduleController::class, 'getScheduleSummary']);
+    Route::get('/clinics/schedule-summary', [ClinicScheduleController::class, 'getScheduleSummary']);
 
     // User Management (admin only)
     Route::middleware('role:admin')->group(function () {

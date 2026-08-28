@@ -32,6 +32,9 @@ class _BookingViewState extends State<BookingView> {
   bool _loadingPatients = true;
   bool _booking = false;
   String? _profileError;
+  List<int> _openDaysOfWeek = const [1, 2, 3, 4, 5];
+  Map<String, dynamic> _scheduleExceptions = const {};
+  Map<String, dynamic>? _urgentPolicy;
 
   @override
   void initState() {
@@ -39,6 +42,25 @@ class _BookingViewState extends State<BookingView> {
     // Always initialise to today when screen opens — avoids stale date if app ran past midnight
     _selectedDate = DateUtils.dateOnly(DateTime.now());
     _loadPatients();
+    _loadScheduleSummary();
+  }
+
+  Future<void> _loadScheduleSummary() async {
+    try {
+      final summary = await api.scheduleSummary() as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        if (summary['open_days_of_week'] is List) {
+          _openDaysOfWeek = (summary['open_days_of_week'] as List).cast<int>();
+        }
+        if (summary['exceptions'] is Map) {
+          _scheduleExceptions = summary['exceptions'] as Map<String, dynamic>;
+        }
+        if (summary['urgent_policy'] is Map) {
+          _urgentPolicy = summary['urgent_policy'] as Map<String, dynamic>;
+        }
+      });
+    } catch (_) {}
   }
 
   @override
@@ -500,11 +522,59 @@ class _BookingViewState extends State<BookingView> {
                         },
                       ),
 
+                      if (_service == BookingService.consultation && _urgentPolicy != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFFDE68A), width: 0.8),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('🚨', style: TextStyle(fontSize: 16)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'URGENT DAY 0 EXPOSURE ADVISORY',
+                                      style: TextStyle(
+                                        color: Color(0xFF92400E),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _urgentPolicy!['urgent_access_policy'] == 'refer_to_alternate_facility'
+                                          ? 'Animal bite exposure is an emergency. For immediate Day-0 rabies PEP outside operating hours, proceed directly to ${_urgentPolicy!['facility_name'] ?? 'the nearest Emergency Hospital'}${_urgentPolicy!['facility_contact'] != null ? ' (${_urgentPolicy!['facility_contact']})' : ''}.'
+                                          : 'Animal bite exposure is an emergency. Emergency walk-ins are accepted 24/7 at the ER Triage counter outside regular clinic hours.',
+                                      style: const TextStyle(
+                                        color: Color(0xFF78350F),
+                                        fontSize: 11.5,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 20),
 
                       // ─── 4. DATE PICKER SECTION ───
                       DateSelector(
                         selectedDate: _selectedDate,
+                        openDaysOfWeek: _openDaysOfWeek,
+                        exceptions: _scheduleExceptions,
                         onSelected: (date) {
                           setState(() => _selectedDate = date);
                         },

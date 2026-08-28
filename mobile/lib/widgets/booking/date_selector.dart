@@ -8,10 +8,14 @@ class DateSelector extends StatefulWidget {
     super.key,
     required this.selectedDate,
     required this.onSelected,
+    this.openDaysOfWeek,
+    this.exceptions,
   });
 
   final DateTime selectedDate;
   final ValueChanged<DateTime> onSelected;
+  final List<int>? openDaysOfWeek; // 0=Sun..6=Sat
+  final Map<String, dynamic>? exceptions;
 
   static DateTime get firstDate => DateUtils.dateOnly(DateTime.now());
   static DateTime get lastDate => DateUtils.dateOnly(DateTime.now()).add(const Duration(days: 365));
@@ -159,7 +163,23 @@ class _DateSelectorState extends State<DateSelector> {
                     isSameDay(day, widget.selectedDate),
                 enabledDayPredicate: (day) {
                   final cleanDay = DateTime(day.year, day.month, day.day);
-                  return !cleanDay.isBefore(today);
+                  if (cleanDay.isBefore(today)) return false;
+
+                  final dateKey = "${cleanDay.year.toString().padLeft(4, '0')}-${cleanDay.month.toString().padLeft(2, '0')}-${cleanDay.day.toString().padLeft(2, '0')}";
+                  if (widget.exceptions != null && widget.exceptions!.containsKey(dateKey)) {
+                    final exc = widget.exceptions![dateKey];
+                    if (exc is Map && exc.containsKey('is_open')) {
+                      return exc['is_open'] == true;
+                    }
+                    if (exc is bool) return exc;
+                  }
+
+                  if (widget.openDaysOfWeek != null && widget.openDaysOfWeek!.isNotEmpty) {
+                    final dow = day.weekday == 7 ? 0 : day.weekday;
+                    return widget.openDaysOfWeek!.contains(dow);
+                  }
+
+                  return true;
                 },
                 onDaySelected: (selectedDay, focusedDay) {
                   final cleanSelected = DateTime(

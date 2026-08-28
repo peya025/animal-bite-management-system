@@ -294,10 +294,23 @@ class MobileHistoryController extends Controller
                 $nextDoseText = "Next: {$nextDoseName} · {$nextDoseDate->format('F j, Y')}";
             }
 
+            $driftDays = 0;
+            $driftReason = null;
+            $idealDateStr = null;
+
+            if ($nextScheduledApp) {
+                $driftDays = (int) ($nextScheduledApp->schedule_drift_days ?? 0);
+                $driftReason = $nextScheduledApp->schedule_adjustment_reason;
+                $idealDateStr = $nextScheduledApp->ideal_date ? Carbon::parse($nextScheduledApp->ideal_date)->format('M d, Y') : null;
+            }
+
             $activeCase = [
                 'case_number' => $caseNumber,
                 'next_dose_text' => $nextDoseText,
                 'due_badge_text' => $dueBadgeText,
+                'schedule_drift_days' => $driftDays,
+                'schedule_adjustment_reason' => $driftReason,
+                'ideal_date' => $idealDateStr,
             ];
         }
 

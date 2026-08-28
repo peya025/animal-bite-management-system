@@ -69,6 +69,7 @@ export const ROUTES = {
   CLINIC_SETUP: {
     ROOT:              '/setup/clinic-info',
     INFO:              '/setup/clinic-info',
+    SCHEDULE:          '/setup/schedule',
     MODULES:           '/setup/modules',
     STAFF_ASSIGNMENTS: '/setup/staff-assignments',
     TEMPLATES:         '/setup/templates',
@@ -77,6 +78,7 @@ export const ROUTES = {
   PROFILE: '/profile',
   DEVELOPER_SETTINGS: '/developer/landing-settings',
   DATABASE_EXPLORER: '/developer/database-explorer',
+  APPOINTMENT_DIAGNOSTICS: '/developer/appointment-diagnostics',
 } as const;
 
 /** Helper: build a concrete path by replacing :params */

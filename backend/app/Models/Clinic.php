@@ -30,6 +30,13 @@ class Clinic extends Model
         'working_days',
         'holiday_dates',
         'schedule_notes',
+        'schedule_drift_policy',
+        'backward_max_days',
+        'urgent_access_policy',
+        'urgent_referral_facility_name',
+        'urgent_referral_facility_address',
+        'urgent_referral_facility_contact',
+        'urgent_referral_instructions',
     ];
 
     protected $casts = [
@@ -41,6 +48,7 @@ class Clinic extends Model
         'closing_time' => 'datetime:H:i',
         'working_days' => 'array',
         'holiday_dates' => 'array',
+        'backward_max_days' => 'integer',
     ];
 
     /**
@@ -113,5 +121,21 @@ class Clinic extends Model
     public function moduleConfig()
     {
         return $this->hasOne(ClinicModuleConfig::class, 'clinic_id', 'id');
+    }
+
+    /**
+     * Get weekly operating schedules
+     */
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(ClinicSchedule::class, 'clinic_id', 'id');
+    }
+
+    /**
+     * Get schedule exceptions (holidays, special closures/openings)
+     */
+    public function scheduleExceptions(): HasMany
+    {
+        return $this->hasMany(ClinicScheduleException::class, 'clinic_id', 'id');
     }
 }

@@ -16,6 +16,7 @@ import BiteCaseRiskDashboard from './features/bite-cases/pages/BiteCaseRiskDashb
 import BiteCaseListPage from './features/bite-cases/pages/BiteCaseListPage';
 import BiteMapPage from './features/bite-cases/pages/BiteMapPage';
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
+import ClinicOperatingSchedulePage from './features/clinic-setup/pages/ClinicOperatingSchedulePage';
 import ModuleConfigPage from './features/clinic-setup/pages/ModuleConfigPage';
 import StaffAssignmentPage from './features/clinic-setup/pages/StaffAssignmentPage';
 import VaccinationSchedulePage from './features/vaccinations/pages/VaccinationSchedulePage';
@@ -29,6 +30,7 @@ const ReportsDashboardPage = lazy(() => import('./features/reports/pages/Reports
 const TreatmentRecordsPage = lazy(() => import('./features/treatment-records/pages/TreatmentRecordsPage'));
 const DeveloperLandingSettingsPage = lazy(() => import('./features/developer/pages/DeveloperLandingSettingsPage'));
 const DeveloperDatabaseExplorerPage = lazy(() => import('./features/developer/pages/DeveloperDatabaseExplorerPage'));
+const AppointmentDiagnosticsPage = lazy(() => import('./features/developer/pages/AppointmentDiagnosticsPage'));
 
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
 import { ROUTES } from './shared/config/routes';
@@ -93,7 +95,9 @@ function App() {
           <Route path="/profile" element={<ProtectedRoute><AppLayout title="My Profile"><UserProfilePage /></AppLayout></ProtectedRoute>} />
           <Route path="/developer/landing-settings" element={<ProtectedRoute><AppLayout title="Developer Landing Settings"><DeveloperLandingSettingsPage /></AppLayout></ProtectedRoute>} />
           <Route path="/developer/database-explorer" element={<ProtectedRoute><AppLayout title="Database Explorer (XAMPP)"><DeveloperDatabaseExplorerPage /></AppLayout></ProtectedRoute>} />
+          <Route path="/developer/appointment-diagnostics" element={<ProtectedRoute><AppLayout title="Appointment Diagnostics & Bug Catcher"><AppointmentDiagnosticsPage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/clinic-info" element={<ProtectedRoute><AppLayout title="Clinic Information"><ClinicInformation /></AppLayout></ProtectedRoute>} />
+          <Route path="/setup/schedule" element={<ProtectedRoute><AppLayout title="Operating Schedule & Regimen Engine"><ClinicOperatingSchedulePage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/modules" element={<ProtectedRoute><AppLayout title="Module Configuration"><ModuleConfigPage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/staff-assignments" element={<ProtectedRoute><AppLayout title="Staff Module Assignments"><StaffAssignmentPage /></AppLayout></ProtectedRoute>} />
         </Routes>

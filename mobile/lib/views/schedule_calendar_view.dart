@@ -23,6 +23,9 @@ class CalendarEvent {
     this.caseNumber,
     this.doseLabel,
     this.notes,
+    this.idealDate,
+    this.scheduleDriftDays,
+    this.scheduleAdjustmentReason,
   });
 
   final String id;
@@ -37,6 +40,9 @@ class CalendarEvent {
   final String? caseNumber;
   final String? doseLabel;
   final String? notes;
+  final String? idealDate;
+  final int? scheduleDriftDays;
+  final String? scheduleAdjustmentReason;
 }
 
 class ScheduleCalendarView extends StatefulWidget {
@@ -112,6 +118,9 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
             status: isCompleted ? 'completed' : (isMissed ? 'missed' : 'scheduled'),
             doseLabel: isVac ? (app.doseName ?? 'Rabies Vaccine') : 'Consultation Visit',
             notes: app.notes,
+            idealDate: app.idealDate,
+            scheduleDriftDays: app.scheduleDriftDays,
+            scheduleAdjustmentReason: app.scheduleAdjustmentReason,
           ),
         );
       }
@@ -851,6 +860,25 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
                             fontSize: 11,
                             color: Color(0xFF6B7280),
                             fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                      if (event.scheduleDriftDays != null && event.scheduleDriftDays != 0) ...[
+                        const SizedBox(height: 3),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFFDE68A), width: 0.5),
+                          ),
+                          child: Text(
+                            'ℹ️ Standard Date: ${event.idealDate ?? 'Day window'} (${event.scheduleAdjustmentReason ?? 'Operating schedule adjustment'})',
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF92400E),
+                            ),
                           ),
                         ),
                       ],

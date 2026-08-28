@@ -492,6 +492,18 @@ class MockMobileApi {
     };
   }
 
+  Future<Map<String, dynamic>> scheduleSummary([int? id]) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return {
+      'open_days_of_week': [1, 2, 3, 4, 5],
+      'exceptions': <String, dynamic>{},
+      'urgent_policy': {
+        'urgent_access_policy': 'walk_ins_accepted_outside_hours',
+        'facility_name': 'Tagoloan Animal Bite Treatment Center',
+      },
+    };
+  }
+
   String _resolveString(
     Map<String, dynamic> profile,
     Map<String, dynamic>? existing,

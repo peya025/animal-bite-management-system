@@ -230,11 +230,24 @@ class ClinicScheduleService
             ])
             ->toArray();
 
+        $clinic = Clinic::find($clinicId);
+
         return [
             'open_days_of_week' => $openDays,
             'schedules' => $schedules,
             'exceptions' => $exceptions,
             'urgent_policy' => $this->getUrgentAccessInfo($clinicId),
+            'clinic_info' => [
+                'id' => $clinic?->id ?? 1,
+                'name' => $clinic?->name ?? 'Tagoloan Animal Bite Treatment Center',
+                'address' => $clinic?->address ?? 'Poblacion, Tagoloan, Misamis Oriental',
+                'municipality' => $clinic?->municipality ?? 'Tagoloan',
+                'province' => $clinic?->province ?? 'Misamis Oriental',
+                'phone' => $clinic?->phone ?? '09123456789',
+                'email' => $clinic?->email ?? 'info@animalbitecenter.com',
+                'doh_accreditation_no' => $clinic?->doh_accreditation_no ?? '2022-10-037',
+                'philhealth_accreditation_no' => $clinic?->philhealth_accreditation_no ?? 'B10034377',
+            ],
         ];
     }
 

@@ -27,6 +27,9 @@ class PatientController extends Controller
                 'memberships',
                 'latestTreatmentRecord',
                 'upcomingAppointment',
+                'biteIncidents' => function ($bi) {
+                    $bi->latest('bite_date');
+                },
                 'appointments' => function ($app) {
                     $app->latest('scheduled_date');
                 },
@@ -35,7 +38,9 @@ class PatientController extends Controller
                 },
                 'accounts',
                 'queues' => function ($q) {
-                    $q->whereIn('status', ['waiting', 'in_consultation'])->latest();
+                    $q->whereDate('created_at', \Carbon\Carbon::today())
+                      ->whereIn('status', ['waiting', 'in_consultation', 'serving', 'called'])
+                      ->latest();
                 }
             ]);
 

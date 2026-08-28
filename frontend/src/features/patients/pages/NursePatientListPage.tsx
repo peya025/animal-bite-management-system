@@ -229,6 +229,15 @@ export default function NursePatientListPage() {
     }
 
     const record = patient.latest_treatment_record;
+    const hasCompletedTriage = Boolean(
+      (patient as any).bite_incidents?.length ||
+      (patient as any).biteIncidents?.length ||
+      record
+    );
+
+    if (!hasCompletedTriage) {
+      return { label: 'Awaiting Triage (Form 2)', color: '#b45309', bg: '#fef3c7', border: '#fde68a' };
+    }
 
     if (!record || record.dose_number === null || record.dose_number === undefined) {
       if (appt) {
@@ -238,7 +247,7 @@ export default function NursePatientListPage() {
           return { label: 'Missed Booking', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' };
         }
       }
-      return { label: 'Registered', color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' };
+      return { label: 'Ready for Dose 1 (Day 0)', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
     }
 
     if (record.dose_number >= 28 && !appt) {
@@ -433,7 +442,12 @@ export default function NursePatientListPage() {
       render: (patient) => {
         const activeQueue = (patient as any).queues?.[0];
         const appt = (patient as any).appointments?.[0];
-        const canCheckIn = !activeQueue && appt?.status === 'scheduled';
+        const hasCompletedTriage = Boolean(
+          (patient as any).bite_incidents?.length ||
+          (patient as any).biteIncidents?.length ||
+          patient.latest_treatment_record
+        );
+        const canCheckIn = hasCompletedTriage && !activeQueue && appt?.status === 'scheduled';
 
         return (
           <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
@@ -458,29 +472,57 @@ export default function NursePatientListPage() {
                 {checkingInId === patient.patient_id ? 'Checking in...' : 'Check In'}
               </Button>
             )}
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => {
-                setSelectedPatient(patient);
-                setShowForm3(true);
-              }}
-              startIcon={<HugeiconsIcon icon={Medicine01Icon} size={15} />}
-              sx={{
-                fontSize: 12,
-                py: 0.4,
-                px: 1.5,
-                textTransform: 'none',
-                fontWeight: 600,
-                borderRadius: '6px',
-                borderColor: '#bbf7d0',
-                color: '#166534',
-                bgcolor: '#f0fdf4',
-                '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
-              }}
-            >
-              Record Dose (Form 3)
-            </Button>
+
+            {hasCompletedTriage ? (
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => {
+                  setSelectedPatient(patient);
+                  setShowForm3(true);
+                }}
+                startIcon={<HugeiconsIcon icon={Medicine01Icon} size={15} />}
+                sx={{
+                  fontSize: 12,
+                  py: 0.4,
+                  px: 1.5,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  borderColor: '#bbf7d0',
+                  color: '#166534',
+                  bgcolor: '#f0fdf4',
+                  '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
+                }}
+              >
+                Record Dose (Form 3)
+              </Button>
+            ) : (
+              <Tooltip title="Patient must complete Doctor Assessment & Form 2 before initial Dose 1 can be recorded">
+                <span>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled
+                    startIcon={<HugeiconsIcon icon={Medicine01Icon} size={15} />}
+                    sx={{
+                      fontSize: 12,
+                      py: 0.4,
+                      px: 1.5,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      color: '#9ca3af',
+                      borderColor: '#e5e7eb',
+                      bgcolor: '#f9fafb',
+                    }}
+                  >
+                    Awaiting Triage
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
+
             <Tooltip title="View Treatment Record Card">
               <IconButton
                 size="small"

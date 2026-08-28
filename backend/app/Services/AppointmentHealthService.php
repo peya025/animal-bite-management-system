@@ -230,6 +230,35 @@ class AppointmentHealthService
             ];
         }
 
+        // Check walk-in patients registered > 1 day ago who never proceeded to Doctor Triage (0 bite incidents & 0 treatments)
+        $unassessedWalkins = Patient::where('clinic_id', $clinicId)
+            ->whereDate('created_at', '<', $today)
+            ->whereDoesntHave('biteIncidents')
+            ->whereDoesntHave('treatmentRecords')
+            ->get();
+
+        foreach ($unassessedWalkins as $uWalkin) {
+            $pName = "{$uWalkin->first_name} {$uWalkin->last_name}";
+            $regDate = Carbon::parse($uWalkin->created_at);
+            $daysAgo = abs((int) $today->diffInDays($regDate));
+
+            $anomalies[] = [
+                'id' => "reg_unassessed_{$uWalkin->patient_id}",
+                'appointment_id' => null,
+                'patient_id' => $uWalkin->patient_id,
+                'patient_name' => $pName,
+                'role_stage' => 'registration',
+                'rule_code' => 'UNASSESSED_WALKIN_PATIENT',
+                'severity' => 'warning',
+                'title' => 'Walk-In Registered but Never Proceeded to Doctor Triage',
+                'description' => "Patient registered on {$regDate->format('M j, Y')} ({$daysAgo} days ago) but has no Doctor Form 2 assessment or consultation record.",
+                'clinical_impact' => 'Potential untreated rabies exposure victim who registered but walked away before doctor triage.',
+                'current_value' => 'Registered with 0 Triage Records',
+                'recommended_value' => 'Queue for Doctor Triage & Form 2 Assessment',
+                'can_auto_fix' => false,
+            ];
+        }
+
         return $anomalies;
     }
 

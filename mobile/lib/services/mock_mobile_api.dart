@@ -495,7 +495,13 @@ class MockMobileApi {
   Future<Map<String, dynamic>> scheduleSummary([int? id]) async {
     await Future.delayed(const Duration(milliseconds: 200));
     return {
-      'open_days_of_week': [1, 2, 3, 4, 5],
+      'open_days_of_week': [2, 3, 4, 5],
+      'schedules': {
+        '2': {'day_of_week': 2, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
+        '3': {'day_of_week': 3, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
+        '4': {'day_of_week': 4, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
+        '5': {'day_of_week': 5, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
+      },
       'exceptions': <String, dynamic>{},
       'urgent_policy': {
         'urgent_access_policy': 'walk_ins_accepted_outside_hours',

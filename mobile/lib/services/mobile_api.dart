@@ -310,6 +310,13 @@ class MobileApi {
   }
 
   Future<Map<String, dynamic>> scheduleSummary([int? id]) async {
+    try {
+      final res = await _send('GET', '/schedule-summary');
+      if (res is Map<String, dynamic>) {
+        return res;
+      }
+    } catch (_) {}
+
     final targetId = id ?? clinicId;
     final rootUrl = _baseUrl.replaceAll('/api/mobile', '/api');
     try {

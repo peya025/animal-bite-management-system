@@ -34,6 +34,7 @@ class _BookingViewState extends State<BookingView> {
   String? _profileError;
   List<int> _openDaysOfWeek = const [1, 2, 3, 4, 5];
   Map<String, dynamic> _scheduleExceptions = const {};
+  Map<String, dynamic> _clinicSchedules = const {};
   Map<String, dynamic>? _urgentPolicy;
 
   @override
@@ -45,6 +46,37 @@ class _BookingViewState extends State<BookingView> {
     _loadScheduleSummary();
   }
 
+  DateTime _findNextOpenDate(DateTime start, List<int> openDays, Map<String, dynamic> exceptions) {
+    var current = DateUtils.dateOnly(start);
+    for (var i = 0; i < 365; i++) {
+      final dow = current.weekday == 7 ? 0 : current.weekday;
+      final dateKey = "${current.year.toString().padLeft(4, '0')}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}";
+      if (exceptions.containsKey(dateKey)) {
+        final exc = exceptions[dateKey];
+        if (exc is Map && exc['is_open'] == true) return current;
+        if (exc is bool && exc) return current;
+      } else if (openDays.contains(dow)) {
+        return current;
+      }
+      current = current.add(const Duration(days: 1));
+    }
+    return start;
+  }
+
+  String get _morningSlotLabel {
+    final dow = _selectedDate.weekday == 7 ? 0 : _selectedDate.weekday;
+    final sched = _clinicSchedules[dow.toString()];
+    final openTime = sched is Map ? (sched['open_time_label'] ?? '8:00 AM') : '8:00 AM';
+    return 'Morning ($openTime – 12:00 PM)';
+  }
+
+  String get _afternoonSlotLabel {
+    final dow = _selectedDate.weekday == 7 ? 0 : _selectedDate.weekday;
+    final sched = _clinicSchedules[dow.toString()];
+    final closeTime = sched is Map ? (sched['close_time_label'] ?? '5:00 PM') : '5:00 PM';
+    return 'Afternoon (1:00 PM – $closeTime)';
+  }
+
   Future<void> _loadScheduleSummary() async {
     try {
       final summary = await api.scheduleSummary() as Map<String, dynamic>;
@@ -53,12 +85,24 @@ class _BookingViewState extends State<BookingView> {
         if (summary['open_days_of_week'] is List) {
           _openDaysOfWeek = (summary['open_days_of_week'] as List).cast<int>();
         }
+        if (summary['schedules'] is Map) {
+          _clinicSchedules = summary['schedules'] as Map<String, dynamic>;
+        } else if (summary['schedules'] is List) {
+          _clinicSchedules = {
+            for (var s in summary['schedules'])
+              if (s is Map && s.containsKey('day_of_week'))
+                s['day_of_week'].toString(): s,
+          };
+        }
         if (summary['exceptions'] is Map) {
           _scheduleExceptions = summary['exceptions'] as Map<String, dynamic>;
         }
         if (summary['urgent_policy'] is Map) {
           _urgentPolicy = summary['urgent_policy'] as Map<String, dynamic>;
         }
+
+        // Auto-select the first valid open date if current is closed
+        _selectedDate = _findNextOpenDate(_selectedDate, _openDaysOfWeek, _scheduleExceptions);
       });
     } catch (_) {}
   }
@@ -597,7 +641,7 @@ class _BookingViewState extends State<BookingView> {
                         children: [
                           Expanded(
                             child: _TimeSlotChip(
-                              label: 'Morning (8 AM – 12 PM)',
+                              label: _morningSlotLabel,
                               isSelected: _timeSlot == BookingTimeSlot.morning,
                               onTap: () => setState(() => _timeSlot = BookingTimeSlot.morning),
                             ),
@@ -605,7 +649,7 @@ class _BookingViewState extends State<BookingView> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: _TimeSlotChip(
-                              label: 'Afternoon (1 PM – 5 PM)',
+                              label: _afternoonSlotLabel,
                               isSelected: _timeSlot == BookingTimeSlot.afternoon,
                               onTap: () => setState(() => _timeSlot = BookingTimeSlot.afternoon),
                             ),

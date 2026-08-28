@@ -216,8 +216,23 @@ class ClinicScheduleService
             ])
             ->toArray();
 
+        $schedules = ClinicSchedule::where('clinic_id', $clinicId)
+            ->orderBy('day_of_week')
+            ->get()
+            ->keyBy(fn($s) => (string) $s->day_of_week)
+            ->map(fn($s) => [
+                'day_of_week' => (int) $s->day_of_week,
+                'is_open' => (bool) $s->is_open,
+                'open_time' => $s->open_time ? Carbon::parse($s->open_time)->format('H:i') : null,
+                'close_time' => $s->close_time ? Carbon::parse($s->close_time)->format('H:i') : null,
+                'open_time_label' => $s->open_time ? Carbon::parse($s->open_time)->format('g:i A') : '8:00 AM',
+                'close_time_label' => $s->close_time ? Carbon::parse($s->close_time)->format('g:i A') : '5:00 PM',
+            ])
+            ->toArray();
+
         return [
             'open_days_of_week' => $openDays,
+            'schedules' => $schedules,
             'exceptions' => $exceptions,
             'urgent_policy' => $this->getUrgentAccessInfo($clinicId),
         ];

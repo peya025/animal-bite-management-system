@@ -41,7 +41,26 @@ An Animal Bite Treatment Center (ABTC) handles two fundamentally different patie
 
 ---
 
-## 🏛️ 2. Station-by-Station Responsibilities & UI Gating
+## 👥 2. Treatment Desk Staffing Models (Solo Nurse vs Dual Staff)
+
+The system is designed to support both small rural health units (RHUs) with a single nurse and high-volume city ABTC centers with multi-person vaccination stations:
+
+### 🅰️ Model A: Solo Nurse Operation (1 Nurse Desk)
+* **Setup**: 1 Nurse on duty in the Treatment room.
+* **How it works**:
+  - The nurse keeps the **`/nurse/patients`** desk open on the computer/tablet.
+  - When the patient enters the room, the nurse clicks **`[ Record Dose (Form 3) ]`** directly.
+  - Submitting Form 3 **automatically completes check-in and logs the administered dose in a single 30-second step** (eliminating double clicks and saving time).
+
+### 🅱️ Model B: Dual Staff / High-Volume Operation (2 Staff Stations)
+* **Setup**: 1 Intake Assistant / Triage Nurse + 1 Vaccinator Nurse.
+* **How it works**:
+  - **Staff 1 (Intake / Check-In)**: Greets arriving follow-up patients at the doorway, scans their Mobile QR Card or searches patient number, and clicks **`[ Check In ]`**. This assigns the patient their official **FIFO arrival queue ticket**.
+  - **Staff 2 (Vaccinator Nurse)**: Calls the next queue number, administers the vaccine, decrements the opened vial batch (FIFO), and submits **Form 3**.
+
+---
+
+## 🏛️ 3. Station-by-Station Responsibilities & UI Gating
 
 ### 🏢 Station 1: Registration Desk (`/patients`)
 
@@ -101,7 +120,23 @@ The Treatment Desk is responsible for **biological administration, inventory bat
 
 ---
 
-## ⚠️ 3. Overdue & Missed Schedule Protocol
+## ⚡ 4. Daily Queue Refresh & True FIFO Sequencing
+
+### A. Daily Queue Ticket Expiration
+- Queue numbers are strictly **single-day tokens** (`queue_date = today`).
+- At midnight (00:00), any unserved ticket from yesterday automatically expires as `cancelled / no-show`.
+- When the clinic opens at 8:00 AM, the queue starts fresh from **Queue #1**.
+
+### B. "Expected Today" vs "Active Queue" (No Ghost Queuing)
+To avoid calling empty seats and maintain strict FIFO fairness:
+1. **Scheduled Patients**: Appear in the **"Expected Today"** counter and list, but are **NOT** inserted into the active calling queue until they physically arrive.
+2. **Physical Arrival Check-In**:
+   - The exact moment a patient arrives and is checked in (via Nurse desk or QR scan), they receive the **next available FIFO queue number**.
+   - This prevents patients sitting at home from blocking patients who are already waiting in the clinic.
+
+---
+
+## ⚠️ 5. Overdue, Missed Schedule & Catch-Up Protocol
 
 ```
                                   APPOINTMENT DATE PASSES
@@ -124,16 +159,26 @@ The Treatment Desk is responsible for **biological administration, inventory bat
               OR Nurse clicks                             - 📱 SMS Urgent Reminder
               [ Record Dose ] (Follow-up)                 - 📧 Email Medical Warning
             • Generates fresh queue ticket                - 🔔 Mobile App Push Notification
+            • Auto-shifts subsequent doses
 ```
 
-### Daily Queue Ticket Expiration:
-- Queue numbers are strictly **single-day tokens**.
-- If a patient is queued on Monday but never called or never showed up, the ticket **auto-expires at midnight**.
-- When the patient walks in on a subsequent day, staff issues a **fresh queue number for today** instead of retaining stale 4-day-old queue tickets.
+### A. Catch-Up Dose Administration & Regimen Date Recalculation:
+When an overdue patient arrives (e.g. Day 3 was scheduled for Monday, but patient arrives on Friday):
+1. Nurse clicks **`[ Check In Today ]`** $\rightarrow$ issues today's FIFO queue ticket.
+2. When the catch-up dose is administered in Form 3:
+   - The actual date of administration is recorded.
+   - In accordance with DOH/WHO minimum immunological spacing rules, the system **automatically shifts subsequent doses (Day 7, Day 28)** forward from the actual administration date, ensuring the patient receives proper rabies antibody protection!
+
+### B. Multi-Channel Missed Recall Alerts:
+For patients who have not returned:
+- Registration & Nurse staff can dispatch **1-Click Multi-Channel Recall Alerts**:
+  - **SMS**: Urgent reminder sent to patient's registered mobile phone.
+  - **Email**: Notification with clinical risk explanation.
+  - **Mobile App**: Push notification with quick reschedule action.
 
 ---
 
-## 🐛 4. Admin Bug Catcher & Integrity Diagnostics
+## 🐛 6. Admin Bug Catcher & Integrity Diagnostics
 
 Located at `/developer/appointment-diagnostics`, the automated health auditor runs continuous integrity checks across all 3 stations:
 
@@ -147,7 +192,7 @@ Located at `/developer/appointment-diagnostics`, the automated health auditor ru
 
 ---
 
-## 📊 5. Summary Matrix of Station Behaviors
+## 📊 7. Summary Matrix of Station Behaviors
 
 ```
 ┌────────────────────────┬───────────────────────────────┬───────────────────────────────┬───────────────────────────────┐
@@ -164,6 +209,8 @@ Located at `/developer/appointment-diagnostics`, the automated health auditor ru
 │ Follow-Up (Day 7)      │ Badge: "Direct to Treatment"  │ Bypassed (Not in Queue)       │ [ Record Dose (Form 3) ]      │
 ├────────────────────────┼───────────────────────────────┼───────────────────────────────┼───────────────────────────────┤
 │ Follow-Up (Day 28)     │ Badge: "Direct to Treatment"  │ Bypassed (Not in Queue)       │ [ Record Dose (Form 3) ]      │
+├────────────────────────┼───────────────────────────────┼───────────────────────────────┼───────────────────────────────┤
+│ Overdue / Catch-up     │ Badge: "Direct to Treatment"  │ Bypassed (Not in Queue)       │ [ Check In Today ] & Record   │
 ├────────────────────────┼───────────────────────────────┼───────────────────────────────┼───────────────────────────────┤
 │ Booster Doses          │ Badge: "Direct to Treatment"  │ Bypassed (Not in Queue)       │ [ Record Dose (Form 3) ]      │
 └────────────────────────┴───────────────────────────────┴───────────────────────────────┴───────────────────────────────┘

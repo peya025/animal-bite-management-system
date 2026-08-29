@@ -37,9 +37,9 @@ class Appointment extends Model
     ];
 
     protected $casts = [
-        'appointment_date' => 'date',
+        'appointment_date' => 'date:Y-m-d',
         'scheduled_date' => 'datetime',
-        'ideal_date' => 'date',
+        'ideal_date' => 'date:Y-m-d',
         'schedule_drift_days' => 'integer',
         'appointment_time' => 'datetime:H:i',
         'queue_number' => 'integer',

@@ -70,12 +70,12 @@ class TreatmentRecord extends Model
     protected $casts = [
         'dose_number' => 'integer',
         'inventory_units_used' => 'integer',
-        'scheduled_date' => 'date',
-        'treatment_date' => 'datetime',
-        'expiration_date' => 'date',
+        'scheduled_date' => 'date:Y-m-d',
+        'treatment_date' => 'date:Y-m-d',
+        'expiration_date' => 'date:Y-m-d',
         'administered_at' => 'datetime',
         'dosage_ml' => 'decimal:2',
-        'consultation_date' => 'date',
+        'consultation_date' => 'date:Y-m-d',
         'consultation_types' => 'array', // Cast JSON to array
     ];
 

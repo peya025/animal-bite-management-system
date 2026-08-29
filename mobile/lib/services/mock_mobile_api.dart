@@ -432,6 +432,7 @@ class MockMobileApi {
         'exposure_category': 'III',
         'animal_type': 'Dog',
         'date_of_exposure': 'March 10, 2026',
+        'date_treatment_started': 'March 10, 2026',
         'place_of_exposure': 'Poblacion, Tagoloan',
       },
       'card_token': 'vc_demo_token_123',

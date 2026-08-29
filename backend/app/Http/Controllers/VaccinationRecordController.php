@@ -161,26 +161,13 @@ class VaccinationRecordController extends Controller
                 $existing = TreatmentRecord::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)
                     ->where('dose_number', $doseNumber)
-                    ->when($biteId, function ($query) use ($biteId) {
-                        return $query->where('bite_id', $biteId);
-                    })
+                    ->latest('treatment_id')
                     ->first();
 
+                // If already linked to an inventory batch, preserve its existing units & vaccine type
                 if ($existing && $existing->inventory_id) {
-                    $existingType = trim((string) ($existing->vaccine_brand ?? $existing->vaccine_generic ?? ''));
-                    $existingUnits = (int) ($existing->inventory_units_used ?? 0);
-
-                    if ($existingType !== '' && $existingType !== $selectedVaccineType) {
-                        throw ValidationException::withMessages([
-                            'doses' => "{$doseData['period']} is already linked to {$existingType}. Delete and recreate the dose if you need a different vaccine type.",
-                        ]);
-                    }
-
-                    if ($existingUnits >= 0 && $existingUnits !== $inventoryUnitsUsed) {
-                        throw ValidationException::withMessages([
-                            'doses' => "{$doseData['period']} is already recorded with {$existingUnits} inventory unit(s). Delete and recreate the dose to change stock usage.",
-                        ]);
-                    }
+                    $selectedVaccineType = $existing->vaccine_brand ?: $existing->vaccine_generic ?: $selectedVaccineType;
+                    $inventoryUnitsUsed = (int) ($existing->inventory_units_used ?? $inventoryUnitsUsed);
                 }
 
                 $baseRemarks = 'Given by: ' . ($doseData['given_by'] ?? '');
@@ -263,7 +250,7 @@ class VaccinationRecordController extends Controller
             $cardData = [
                 'clinic_id'          => $clinicId,
                 'patient_id'         => $patientId,
-                'card_date'          => $request->date_of_exposure ?? now()->toDateString(),
+                'card_date'          => $request->date_treatment_started ?? $request->date_of_exposure ?? now()->toDateString(),
                 'registry_no'        => $request->registry_no,
                 'hospital_no'        => $request->hospital_no,
                 'referred_by'        => $request->referred_by,
@@ -332,7 +319,7 @@ class VaccinationRecordController extends Controller
             $brgy = $patientObj?->details->address_barangay ?? $patientObj?->address_barangay ?? 'Poblacion';
             $mun = $patientObj?->details->address_municipality ?? $patientObj?->address_municipality ?? 'Tagoloan';
             $bitePlace = $request->place_of_exposure ?: "{$street}, {$brgy}, {$mun}";
-            $biteDate = $request->date_of_exposure ?: now()->toDateString();
+            $biteDate = $request->date_of_exposure ?: ($request->date_treatment_started ?: now()->toDateString());
             $animalType = $request->animal_type === 'other' ? ($request->animal_type_other ?: 'other') : ($request->animal_type ?: 'dog');
 
             $incident = BiteIncident::where('patient_id', $patientId)->first();
@@ -539,9 +526,15 @@ class VaccinationRecordController extends Controller
         foreach ($schedule as $followUp) {
             // Check if dose was already given in this submission
             $alreadyGiven = false;
+            $formSpecifiedDate = null;
+
             foreach ($request->doses as $dose) {
-                if (!empty($dose['date']) && $dose['period'] === $followUp['period']) {
-                    $alreadyGiven = true;
+                if ($dose['period'] === $followUp['period']) {
+                    if (!empty($dose['date']) && !empty($dose['vaccine_type'])) {
+                        $alreadyGiven = true;
+                    } elseif (!empty($dose['date'])) {
+                        $formSpecifiedDate = Carbon::parse($dose['date']);
+                    }
                     break;
                 }
             }
@@ -550,25 +543,34 @@ class VaccinationRecordController extends Controller
                 continue; // Skip if dose already given
             }
 
-            // Calculate appointment date using ClinicScheduleService
-            $idealDate = $day0Date->copy()->addDays($followUp['days_after']);
+            // Calculate appointment date: use form-specified date if available, else day0Date + offset
+            $idealDate = $formSpecifiedDate ?: $day0Date->copy()->addDays($followUp['days_after']);
             $resolution = $scheduleService->resolveScheduleDate($clinicId, $idealDate, $followUp['dose_number']);
-            $resolvedDate = $resolution['scheduled_date'];
+            $resolvedDate = $formSpecifiedDate ?: $resolution['scheduled_date'];
+
+            $noteText = $resolution['drift_days'] !== 0
+                ? "Auto-scheduled: {$followUp['period']} dose ({$resolution['adjustment_reason']})"
+                : "Auto-scheduled: {$followUp['period']} dose";
 
             // Check if appointment already exists
             $existing = \App\Models\Appointment::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->where('dose_number', $followUp['dose_number'])
                 ->where('status', '!=', 'cancelled')
+                ->latest('appointment_id')
                 ->first();
 
             if ($existing) {
-                continue; // Skip if appointment already exists
+                $existing->update([
+                    'appointment_date' => $resolvedDate->toDateString(),
+                    'scheduled_date' => $resolvedDate->toDateString(),
+                    'ideal_date' => $idealDate->toDateString(),
+                    'schedule_drift_days' => $resolution['drift_days'],
+                    'schedule_adjustment_reason' => $resolution['adjustment_reason'],
+                    'notes' => $noteText,
+                ]);
+                continue;
             }
-
-            $noteText = $resolution['drift_days'] !== 0
-                ? "Auto-scheduled: {$followUp['period']} dose ({$resolution['adjustment_reason']})"
-                : "Auto-scheduled: {$followUp['period']} dose";
 
             // Create appointment
             $appt = \App\Models\Appointment::create([

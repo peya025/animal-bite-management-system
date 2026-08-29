@@ -32,7 +32,7 @@ class TagoloanTreatmentCard extends Model
     ];
 
     protected $casts = [
-        'card_date' => 'date',
+        'card_date' => 'date:Y-m-d',
         'past_bite_history' => 'boolean',
         'past_pep_completed' => 'boolean',
     ];

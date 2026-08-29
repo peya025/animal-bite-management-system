@@ -456,22 +456,40 @@ class _OfficialVaccinationCard extends StatelessWidget {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       _CardDetailRow(
                         label: 'EXPOSURE CATEGORY',
                         value: exposureCategoryText,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _CardDetailRow(
+                              label: 'DATE OF EXPOSURE',
+                              value: card['date_of_exposure']?.toString() ?? '—',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _CardDetailRow(
+                              label: 'TREATMENT STARTED',
+                              value: card['date_treatment_started']?.toString() ?? '—',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
                       _CardDetailRow(
                         label: 'VACCINE BRAND',
                         value: vaccineBrand,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       _CardDetailRow(
                         label: 'DOSE PROGRESS',
                         value: progress['dose_label']?.toString() ?? '0 of 4 doses',
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       _CardDetailRow(
                         label: 'NEXT SCHEDULE',
                         value: nextScheduleText,
@@ -636,7 +654,17 @@ class _LiveDoseProgress extends StatelessWidget {
 
   bool _isDoseComplete(String name) {
     final match = doses.firstWhere(
-      (d) => d['dose_number']?.toString().toUpperCase() == name.toUpperCase(),
+      (d) {
+        final period = d['period']?.toString().toUpperCase();
+        final doseNum = d['dose_number']?.toString();
+        final target = name.toUpperCase();
+        if (period == target) return true;
+        if (target == 'DAY 0' && doseNum == '0') return true;
+        if (target == 'DAY 3' && doseNum == '3') return true;
+        if (target == 'DAY 7' && doseNum == '7') return true;
+        if (target == 'DAY 28' && doseNum == '28') return true;
+        return false;
+      },
       orElse: () => null,
     );
     return match != null && match['status']?.toString().toUpperCase() == 'COMPLETED';
@@ -644,10 +672,20 @@ class _LiveDoseProgress extends StatelessWidget {
 
   String _getDoseDate(String name) {
     final match = doses.firstWhere(
-      (d) => d['dose_number']?.toString().toUpperCase() == name.toUpperCase(),
+      (d) {
+        final period = d['period']?.toString().toUpperCase();
+        final doseNum = d['dose_number']?.toString();
+        final target = name.toUpperCase();
+        if (period == target) return true;
+        if (target == 'DAY 0' && doseNum == '0') return true;
+        if (target == 'DAY 3' && doseNum == '3') return true;
+        if (target == 'DAY 7' && doseNum == '7') return true;
+        if (target == 'DAY 28' && doseNum == '28') return true;
+        return false;
+      },
       orElse: () => null,
     );
-    return match != null ? (match['formatted_date'] ?? match['date'] ?? '') : '';
+    return match != null ? (match['administered_date'] ?? match['scheduled_date'] ?? match['formatted_date'] ?? match['date'] ?? '') : '';
   }
 
   @override
@@ -751,4 +789,5 @@ class _LiveDoseProgress extends StatelessWidget {
     );
   }
 }
+
 

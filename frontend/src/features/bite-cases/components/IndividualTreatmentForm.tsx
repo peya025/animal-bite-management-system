@@ -120,6 +120,16 @@ export default function IndividualTreatmentForm({
     if (field === 'philhealth_pin') {
       value = formatPhilHealthNumber(value);
     }
+    if (field === 'date_of_exposure') {
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      setFormData((prev) => ({
+        ...prev,
+        date_of_exposure: value,
+        date_treatment_started: (!prev.date_treatment_started || prev.date_treatment_started === prev.date_of_exposure || prev.date_treatment_started === todayStr) ? value : prev.date_treatment_started,
+      }));
+      return;
+    }
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 

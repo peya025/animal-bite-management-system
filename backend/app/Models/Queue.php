@@ -26,7 +26,7 @@ class Queue extends Model
     protected $casts = [
         'queue_number'     => 'integer',
         'call_count'       => 'integer',
-        'queue_date'       => 'date',
+        'queue_date'       => 'date:Y-m-d',
         'checked_in_at'    => 'datetime',
         'called_at'        => 'datetime',
         'completed_at'     => 'datetime',

@@ -61,7 +61,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         setPastBiteDates(existing.past_bite_dates || '');
         setPastPepCompleted(Boolean(existing.past_pep_completed));
         setIcd10Code(existing.icd10_code || 'Z20.3');
-        if (existing.card_date) setCardDate(existing.card_date);
+        if (existing.card_date) setCardDate(String(existing.card_date).slice(0, 10));
       } else {
         setHospitalNo(res.data.patient?.hospital_no || '');
         setReferredBy(res.data.bite_incident?.referred_from || '');

@@ -36,7 +36,7 @@ class BiteIncident extends Model
     ];
 
     protected $casts = [
-        'bite_date' => 'date',
+        'bite_date' => 'date:Y-m-d',
         'site_washed' => 'boolean',
         'animal_captured' => 'boolean',
     ];

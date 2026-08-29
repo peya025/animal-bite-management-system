@@ -86,6 +86,7 @@ interface ExistingVaccinationRecord {
   dose_number: number;
   route?: 'ID' | 'IM' | null;
   treatment_date?: string | null;
+  scheduled_date?: string | null;
   vaccine_brand?: string | null;
   vaccine_generic?: string | null;
   batch_no?: string | null;
@@ -116,17 +117,64 @@ const DOSE_NUMBER_TO_PERIOD: Record<number, string> = Object.fromEntries(
   Object.entries(PERIOD_TO_DOSE_NUMBER).map(([period, value]) => [value, period]),
 ) as Record<number, string>;
 
-const createInitialDoses = (): VaccinationDose[] => [
-  { period: 'Day 0', route: 'IM', date: new Date().toISOString().split('T')[0], given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
-  { period: 'Day 3', route: 'IM', date: '', given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
-  { period: 'Day 7', route: 'IM', date: '', given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
-  { period: 'Day 28', route: '', date: '', given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
-  { period: 'Booster 1', route: '', date: '', given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
-  { period: 'Booster 2', route: '', date: '', given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
+const DOSE_DAY_OFFSETS: Record<string, number> = {
+  'Day 0': 0,
+  'Day 3': 3,
+  'Day 7': 7,
+  'Day 28': 28,
+  'Booster 1': 90,
+  'Booster 2': 365,
+};
+
+const getLocalDateString = (d: Date = new Date()): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const addDaysToDate = (baseDateStr: string, days: number): string => {
+  if (!baseDateStr) return '';
+  const clean = baseDateStr.slice(0, 10);
+  const parts = clean.split('-');
+  if (parts.length !== 3) return '';
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const date = new Date(y, m, d + days);
+  if (isNaN(date.getTime())) return '';
+  const rY = date.getFullYear();
+  const rM = String(date.getMonth() + 1).padStart(2, '0');
+  const rD = String(date.getDate()).padStart(2, '0');
+  return `${rY}-${rM}-${rD}`;
+};
+
+const calculateDoseDates = (baseDateStr: string, currentDoses: VaccinationDose[]): VaccinationDose[] => {
+  if (!baseDateStr) return currentDoses;
+  return currentDoses.map((dose) => {
+    if (dose.inventory_linked) return dose;
+    const offset = DOSE_DAY_OFFSETS[dose.period];
+    if (offset !== undefined) {
+      return {
+        ...dose,
+        date: addDaysToDate(baseDateStr, offset),
+      };
+    }
+    return dose;
+  });
+};
+
+const createInitialDoses = (baseDate: string = getLocalDateString()): VaccinationDose[] => [
+  { period: 'Day 0', route: 'IM', date: baseDate, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
+  { period: 'Day 3', route: 'IM', date: addDaysToDate(baseDate, 3), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
+  { period: 'Day 7', route: 'IM', date: addDaysToDate(baseDate, 7), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
+  { period: 'Day 28', route: '', date: addDaysToDate(baseDate, 28), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
+  { period: 'Booster 1', route: '', date: addDaysToDate(baseDate, 90), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
+  { period: 'Booster 2', route: '', date: addDaysToDate(baseDate, 365), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
 ];
 
 const INITIAL_FORM_DATA: TreatmentFormData = {
-  date: new Date().toISOString().split('T')[0],
+  date: getLocalDateString(),
   registry_no: '',
   hospital_no: '',
   referred_by: '',
@@ -139,7 +187,7 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   sex: '',
   exposure_category: '',
   date_of_exposure: '',
-  date_treatment_started: new Date().toISOString().split('T')[0],
+  date_treatment_started: '',
   place_of_exposure: '',
   mode_of_exposure: {
     nibbling_uncovered: false,
@@ -159,6 +207,26 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   pep_completed: '',
 };
 
+// Helper function to format date to yyyy-MM-dd in local timezone
+const formatDateForInput = (dateString: string | null | undefined): string => {
+  if (!dateString) return '';
+  const str = String(dateString).trim();
+  if (!str) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+  try {
+    const date = new Date(str);
+    if (isNaN(date.getTime())) return str.slice(0, 10);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  } catch {
+    return str.slice(0, 10);
+  }
+};
+
 export default function VaccinationRecordForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: VaccinationRecordFormProps) {
   const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
   const [doses, setDoses] = useState<VaccinationDose[]>(createInitialDoses());
@@ -174,18 +242,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [vaccinePresets, setVaccinePresets] = useState<VaccineTypePreset[]>([]);
   const [fifoErrors, setFifoErrors] = useState<Record<string, string>>({});
   const [inventorySetupMessage, setInventorySetupMessage] = useState('');
-
-  // Helper function to format date to yyyy-MM-dd
-  const formatDateForInput = (dateString: string | null | undefined): string => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return '';
-      return date.toISOString().split('T')[0];
-    } catch {
-      return '';
-    }
-  };
 
   const isPhilHealthMember = Boolean(
     entry?.patient?.philhealth_member === 'yes' ||
@@ -223,9 +279,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       setError('');
 
       void loadInventoryOptions();
-      void loadPatientAppointments();
-      void loadPatientIncidentData();
-      void loadExistingVaccinationRecords();
+      void loadAllFormData();
     }
   }, [open, entry]);
 
@@ -251,101 +305,98 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     return administeredByName || '';
   };
 
-  const loadExistingVaccinationRecords = async () => {
+  const loadAllFormData = async () => {
     if (!entry?.patient?.patient_id) return;
 
     try {
-      const response = await api.get(`/vaccination-records/patient/${entry.patient.patient_id}`);
-      const records: ExistingVaccinationRecord[] = response.data?.vaccination_records || [];
+      const [cardRes, apptRes, vacRes] = await Promise.all([
+        api.get(`/tagoloan-treatment-cards/patient/${entry.patient.patient_id}`).catch(() => null),
+        api.get(`/appointments?patient_id=${entry.patient.patient_id}&status=scheduled`).catch(() => null),
+        api.get(`/vaccination-records/patient/${entry.patient.patient_id}`).catch(() => null),
+      ]);
 
-      setDoses((prevDoses) => prevDoses.map((dose) => {
-        const record = records.find((item) => DOSE_NUMBER_TO_PERIOD[item.dose_number] === dose.period);
-        if (!record) return dose;
+      const bite = cardRes?.data?.bite_incident;
+      const card = cardRes?.data?.existing_card;
+      const consultation = cardRes?.data?.latest_consultation;
+      const appointments = apptRes?.data?.data || [];
+      const records: ExistingVaccinationRecord[] = vacRes?.data?.vaccination_records || [];
 
-        return {
-          ...dose,
-          route: record.route || dose.route,
-          date: formatDateForInput(record.treatment_date),
-          given_by: extractGivenBy(record.remarks, record.administeredBy?.name),
-          signature: record.signature || '',
-          vaccine_type: record.vaccine_brand || record.vaccine_generic || '',
-          inventory_units_used: record.inventory_units_used ? String(record.inventory_units_used) : '1',
-          batch_number: record.batch_no || '',
-          expiration_date: record.expiration_date ? formatDateForInput(record.expiration_date) : '',
-          available_stock: undefined,
-          inventory_linked: Boolean(record.inventory_id),
-        };
+      // 1. Resolve Day 0 and Exposure dates
+      const day0Record = records.find((item) => item.dose_number === 0);
+      const day0AdministeredDate = formatDateForInput(day0Record?.treatment_date || day0Record?.scheduled_date);
+      const cardDate = formatDateForInput(card?.card_date);
+      const biteExposureDate = formatDateForInput(bite?.bite_date);
+
+      // Date of Exposure is from bite incident (or fallback to card if any)
+      const resolvedExposureDate = biteExposureDate || cardDate || '';
+
+      // Date Treatment Started is from Day 0 dose record, or saved treatment card date, or exposure date, or today for new unsaved forms
+      const treatmentStartDate = day0AdministeredDate || cardDate || biteExposureDate || (readOnly ? '' : getLocalDateString());
+
+      // 2. Set Form Metadata
+      const mode = card?.mode_of_exposure || bite?.mode_of_exposure || '';
+      const bodyPart = card?.body_part_exposed || bite?.body_part_exposed || '';
+      const animal = card?.animal_type || bite?.animal_type || '';
+      const animalOther = card?.animal_type_others || bite?.animal_type_others || '';
+      const resolvedReferredBy = consultation?.referred_by || consultation?.referred_from || card?.referred_by || bite?.referred_from || '';
+
+      setFormData(prev => ({
+        ...prev,
+        registry_no: prev.registry_no || card?.registry_no || bite?.case_number || '',
+        hospital_no: prev.hospital_no || card?.hospital_no || '',
+        referred_by: resolvedReferredBy || prev.referred_by || '',
+        exposure_category: card?.exposure_category || prev.exposure_category || '',
+        date_of_exposure: resolvedExposureDate || prev.date_of_exposure,
+        date_treatment_started: treatmentStartDate || prev.date_treatment_started,
+        place_of_exposure: bite?.bite_place || prev.place_of_exposure,
+        date: cardDate || day0AdministeredDate || prev.date || getLocalDateString(),
+        mode_of_exposure: {
+          nibbling_uncovered: mode === 'nibbling_uncovered_skin',
+          nibbling_wounded: mode === 'nibbling_broken_skin',
+          scratch_abrasion: mode === 'scratch_abrasion',
+          transdermal_bite: mode === 'transdermal_bite',
+          handling_ingestion: mode === 'handling_ingestion_raw_meat',
+        },
+        body_part_affected: {
+          head_neck: bodyPart === 'head_neck',
+          other_parts: bodyPart === 'other_parts',
+          na_ingestion: bodyPart === 'na_ingestion',
+        },
+        animal_type: animal.toLowerCase() === 'dog' ? 'dog' : animal ? 'other' : prev.animal_type,
+        animal_type_other: animalOther || (animal.toLowerCase() !== 'dog' ? animal : ''),
+        past_history_bite: card?.past_bite_history ? 'yes' : card ? 'no' : prev.past_history_bite,
+        pep_completed: card?.past_pep_completed ? 'yes' : card ? 'no' : prev.pep_completed,
       }));
-    } catch {
-      // Keep form usable even if historical records fail to load.
-    }
-  };
 
-  const loadPatientIncidentData = async () => {
-    if (!entry?.patient?.patient_id) return;
-
-    try {
-      const res = await api.get(`/tagoloan-treatment-cards/patient/${entry.patient.patient_id}`);
-      const bite = res.data?.bite_incident;
-      const card = res.data?.existing_card;
-      const consultation = res.data?.latest_consultation;
-
-      if (bite || card || consultation) {
-        const mode = card?.mode_of_exposure || bite?.mode_of_exposure || '';
-        const bodyPart = card?.body_part_exposed || bite?.body_part_exposed || '';
-        const animal = card?.animal_type || bite?.animal_type || '';
-        const animalOther = card?.animal_type_others || bite?.animal_type_others || '';
-        const resolvedReferredBy = consultation?.referred_by || consultation?.referred_from || card?.referred_by || bite?.referred_from || '';
-
-        setFormData(prev => ({
-          ...prev,
-          registry_no: prev.registry_no || card?.registry_no || bite?.case_number || '',
-          hospital_no: prev.hospital_no || card?.hospital_no || '',
-          referred_by: resolvedReferredBy || prev.referred_by || '',
-          exposure_category: card?.exposure_category || prev.exposure_category || '',
-          date_of_exposure: formatDateForInput(card?.card_date || bite?.bite_date) || prev.date_of_exposure,
-          place_of_exposure: bite?.bite_place || prev.place_of_exposure,
-          mode_of_exposure: {
-            nibbling_uncovered: mode === 'nibbling_uncovered_skin',
-            nibbling_wounded: mode === 'nibbling_broken_skin',
-            scratch_abrasion: mode === 'scratch_abrasion',
-            transdermal_bite: mode === 'transdermal_bite',
-            handling_ingestion: mode === 'handling_ingestion_raw_meat',
-          },
-          body_part_affected: {
-            head_neck: bodyPart === 'head_neck',
-            other_parts: bodyPart === 'other_parts',
-            na_ingestion: bodyPart === 'na_ingestion',
-          },
-          animal_type: animal.toLowerCase() === 'dog' ? 'dog' : animal ? 'other' : prev.animal_type,
-          animal_type_other: animalOther || (animal.toLowerCase() !== 'dog' ? animal : ''),
-          past_history_bite: card?.past_bite_history ? 'yes' : card ? 'no' : prev.past_history_bite,
-          pep_completed: card?.past_pep_completed ? 'yes' : card ? 'no' : prev.pep_completed,
-        }));
-      }
-    } catch (err) {
-      console.error('Failed to load patient incident data:', err);
-    }
-  };
-
-  const loadPatientAppointments = async () => {
-    if (!entry?.patient?.patient_id) return;
-
-    try {
-      const response = await api.get(`/appointments?patient_id=${entry.patient.patient_id}&status=scheduled`);
-      const appointments = response.data.data || [];
-
-      // Pre-fill doses with scheduled appointment dates
-      setDoses(prevDoses => {
-        return prevDoses.map(dose => {
+      // 3. Map Doses cleanly
+      const baseDoseDate = treatmentStartDate || resolvedExposureDate || getLocalDateString();
+      setDoses(() => {
+        const initialDoses = createInitialDoses(baseDoseDate);
+        return initialDoses.map(dose => {
           const doseNumber = PERIOD_TO_DOSE_NUMBER[dose.period];
-          const appointment = appointments.find((a: { dose_number?: number; appointment_date?: string; scheduled_date?: string; ideal_date?: string; schedule_drift_days?: number; schedule_adjustment_reason?: string }) => a.dose_number === doseNumber);
+          const record = records.find((item) => DOSE_NUMBER_TO_PERIOD[item.dose_number] === dose.period);
+          const appointment = appointments.find((a: any) => a.dose_number === doseNumber);
 
-          if (appointment && !dose.date) {
-            // Pre-fill with scheduled date and preserve clinical drift info
+          if (record) {
             return {
               ...dose,
-              date: formatDateForInput(appointment.appointment_date || appointment.scheduled_date),
+              route: record.route || dose.route,
+              date: formatDateForInput(record.treatment_date) || dose.date,
+              given_by: extractGivenBy(record.remarks, record.administeredBy?.name),
+              signature: record.signature || '',
+              vaccine_type: record.vaccine_brand || record.vaccine_generic || '',
+              inventory_units_used: (record.inventory_units_used !== null && record.inventory_units_used !== undefined) ? String(record.inventory_units_used) : '1',
+              batch_number: record.batch_no || '',
+              expiration_date: record.expiration_date ? formatDateForInput(record.expiration_date) : '',
+              available_stock: undefined,
+              inventory_linked: Boolean(record.inventory_id),
+            };
+          }
+
+          if (appointment) {
+            return {
+              ...dose,
+              date: formatDateForInput(appointment.appointment_date || appointment.scheduled_date) || dose.date,
               ideal_date: appointment.ideal_date ? formatDateForInput(appointment.ideal_date) : undefined,
               schedule_drift_days: appointment.schedule_drift_days,
               schedule_adjustment_reason: appointment.schedule_adjustment_reason,
@@ -355,8 +406,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           return dose;
         });
       });
-    } catch (error) {
-      console.error('Failed to load appointments:', error);
+    } catch (err) {
+      console.error('Failed to load form data:', err);
     }
   };
 
@@ -369,7 +420,30 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     if (key === 'philhealth_pin') {
       value = formatPhilHealthNumber(value);
     }
-    setFormData(prev => ({ ...prev, [key]: value }));
+
+    if (key === 'date_of_exposure') {
+      setFormData(prev => {
+        // Only set date_treatment_started if it's currently blank; do NOT overwrite existing saved or chosen date
+        const nextTreatmentDate = prev.date_treatment_started || value;
+        if (!prev.date_treatment_started && value) {
+          setDoses(d => calculateDoseDates(value, d));
+        }
+
+        return {
+          ...prev,
+          date_of_exposure: value,
+          date_treatment_started: nextTreatmentDate,
+        };
+      });
+    } else if (key === 'date_treatment_started') {
+      setFormData(prev => ({ ...prev, [key]: value }));
+      if (value) {
+        setDoses(d => calculateDoseDates(value, d));
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [key]: value }));
+    }
+
     if (fieldErrors[key]) {
       setFieldErrors(prev => {
         const next = { ...prev };
@@ -402,7 +476,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   const handleDoseChange = (index: number, field: keyof VaccinationDose, value: string | boolean) => {
-    setDoses(prev => prev.map((dose, i) => (i === index ? { ...dose, [field]: value } : dose)));
+    setDoses(prev => {
+      const updated = prev.map((dose, i) => (i === index ? { ...dose, [field]: value } : dose));
+      if (index === 0 && field === 'date' && typeof value === 'string' && value) {
+        setFormData(f => ({ ...f, date_treatment_started: value }));
+        return calculateDoseDates(value, updated);
+      }
+      return updated;
+    });
   };
 
   const handleDoseVaccineTypeChange = async (index: number, vaccineType: string) => {
@@ -411,7 +492,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
     setFifoErrors(prev => ({ ...prev, [selectedDose.period]: '' }));
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const suggestedUnits = vaccineType ? getSuggestedWholeUnits(vaccineType) : '1';
 
     setDoses(prev => prev.map((dose, i) => (
@@ -518,7 +599,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
 
     // Auto-fill today's date for candidate doses with vaccine type selected
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const candidateDoses = doses.map(d => {
       if (d.vaccine_type && !d.date) {
         return { ...d, date: todayStr };
@@ -753,15 +834,47 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             borderRadius: '8px',
             backgroundColor: fieldErrors.date_of_exposure ? '#fef2f2' : 'transparent',
           }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.date_of_exposure ? '#dc2626' : '#374151', marginBottom: 6 }}>Date of Exposure <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="date" value={formData.date_of_exposure} onChange={handleFieldChange('date_of_exposure')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.date_of_exposure ? '#dc2626' : '#374151', marginBottom: 6 }}>
+              Date of Exposure <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <input 
+              type="date" 
+              value={formData.date_of_exposure} 
+              onChange={handleFieldChange('date_of_exposure')} 
+              disabled={readOnly} 
+              style={{ 
+                width: '100%', 
+                padding: '8px 12px', 
+                border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : '1px solid #d1d5db', 
+                borderRadius: 6, 
+                fontSize: 13, 
+                backgroundColor: readOnly ? '#f3f4f6' : undefined,
+                cursor: readOnly ? 'not-allowed' : undefined,
+              }} 
+            />
             {fieldErrors.date_of_exposure && (
               <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.date_of_exposure}</div>
             )}
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date Treatment Started</label>
-            <input type="date" value={formData.date_treatment_started} onChange={handleFieldChange('date_treatment_started')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+              Date Treatment Started
+            </label>
+            <input 
+              type="date" 
+              value={formData.date_treatment_started} 
+              onChange={handleFieldChange('date_treatment_started')} 
+              disabled={readOnly} 
+              style={{ 
+                width: '100%', 
+                padding: '8px 12px', 
+                border: '1px solid #d1d5db', 
+                borderRadius: 6, 
+                fontSize: 13, 
+                backgroundColor: readOnly ? '#f3f4f6' : undefined,
+                cursor: readOnly ? 'not-allowed' : undefined,
+              }} 
+            />
           </div>
         </div>
         <div>

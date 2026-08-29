@@ -359,12 +359,13 @@ class VaccinationRecordController extends Controller
                 $card->update(['bite_id' => $incident->bite_id]);
             }
 
+            $todayQueue = null; // initialize before the conditional block
+
             // ──────────────────────────────────────────────────────────────
             // ✨ AUTO-COMPLETE TODAY'S ACTIVE QUEUE FOR TREATMENT NURSE
             // Only mark complete when Day 0 (the initial dose) is recorded
             // ──────────────────────────────────────────────────────────────
             if (in_array(0, $savedDoseNumbers)) {
-                $todayQueue = null;
                 if (!empty($request->queue_id)) {
                     $todayQueue = Queue::where('clinic_id', $clinicId)
                         ->where('queue_id', $request->queue_id)

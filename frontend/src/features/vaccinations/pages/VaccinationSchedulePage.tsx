@@ -42,17 +42,41 @@ interface Vaccination {
   treatment_id: number;
   dose_number: number;
   scheduled_date: string;
+  treatment_date?: string | null;  // set only when dose was actually administered
+  administered_at?: string | null;
   status: Status;
   vaccine_brand?: string;
   patient: { name: string; patient_number?: string };
   bite_incident?: { case_number?: string };
 }
-interface Stats {
-  completed: number;
-  pending: number;
-  today_count: number;
-  overdue_count: number;
+
+// Derive the display status:
+// - "Completed" only when actually administered: treatment_date set AND scheduled_date is today or past
+// - "Ongoing Vaccination" for scheduled rows OR rows where scheduled_date is still in the future
+// - otherwise use the raw status label
+function getDisplayStatus(r: Vaccination): { label: string; color: 'success' | 'info' | 'error' | 'warning' | 'default' | 'primary' } {
+  // A dose is truly completed only if it was administered on or before today
+  const isActuallyAdministered = (r.treatment_date || r.administered_at) &&
+    r.scheduled_date &&
+    new Date(`${r.scheduled_date}T00:00:00`) <= new Date();
+
+  if (r.status === 'completed' && isActuallyAdministered) {
+    return { label: 'Completed', color: 'success' };
+  }
+
+  // scheduled rows, future rows, or wrongly-completed rows → Ongoing Vaccination
+  if (r.status === 'scheduled' || r.status === 'completed') {
+    return { label: 'Ongoing Vaccination', color: 'primary' };
+  }
+
+  const colorMap: Record<string, 'success' | 'info' | 'error' | 'warning' | 'default' | 'primary'> = {
+    missed:      'error',
+    rescheduled: 'warning',
+    cancelled:   'default',
+  };
+  return { label: r.status.charAt(0).toUpperCase() + r.status.slice(1), color: colorMap[r.status] ?? 'default' };
 }
+
 const statusColor = {
   scheduled: 'info',
   completed: 'success',
@@ -60,6 +84,13 @@ const statusColor = {
   rescheduled: 'warning',
   cancelled: 'default',
 } as const;
+
+interface Stats {
+  completed: number;
+  pending: number;
+  today_count: number;
+  overdue_count: number;
+}
 
 interface Patient {
   id: number;
@@ -223,21 +254,27 @@ export default function VaccinationSchedulePage() {
       label: 'Scheduled date',
       render: (r) => (
         <Typography sx={{ fontSize: 13 }}>
-          {new Date(`${r.scheduled_date}T00:00:00`).toLocaleDateString()}
+          {r.scheduled_date
+            ? new Date(`${r.scheduled_date}T00:00:00`).toLocaleDateString()
+            : '—'}
         </Typography>
       ),
     },
     {
       key: 'status',
       label: 'Status',
-      render: (r) => (
-        <Chip
-          size="small"
-          label={r.status}
-          color={statusColor[r.status]}
-          sx={{ textTransform: 'capitalize' }}
-        />
-      ),
+      align: 'center',
+      render: (r) => {
+        const { label, color } = getDisplayStatus(r);
+        return (
+          <Chip
+            size="small"
+            label={label}
+            color={color}
+            sx={{ textTransform: 'capitalize', fontWeight: 600 }}
+          />
+        );
+      },
     },
     {
       key: 'actions',

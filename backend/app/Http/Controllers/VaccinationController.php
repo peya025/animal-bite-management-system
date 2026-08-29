@@ -17,6 +17,8 @@ class VaccinationController extends Controller
     {
         $clinicId = $request->user()->clinic_id;
         $query = VaccinationSchedule::where('clinic_id', $clinicId)
+            ->whereNotNull('scheduled_date')  // exclude Form 3 direct-save rows with no schedule date
+            ->whereNotNull('dose_number')     // exclude general consultation records
             ->with(['patient', 'biteIncident', 'administeredBy']);
 
         // Filter by status
@@ -296,16 +298,20 @@ class VaccinationController extends Controller
         // Cache for 3 minutes
         return response()->json(
             Cache::remember($cacheKey, 180, function () use ($clinicId) {
+                // Base scope: only proper scheduled rows (not direct Form 3 saves)
+                $base = VaccinationSchedule::where('clinic_id', $clinicId)
+                    ->whereNotNull('scheduled_date')
+                    ->whereNotNull('dose_number');
                 return [
-                    'total_scheduled' => VaccinationSchedule::where('clinic_id', $clinicId)->count(),
-                    'completed' => VaccinationSchedule::where('clinic_id', $clinicId)->where('status', 'completed')->count(),
-                    'pending' => VaccinationSchedule::where('clinic_id', $clinicId)->where('status', 'scheduled')->count(),
-                    'missed' => VaccinationSchedule::where('clinic_id', $clinicId)->where('status', 'missed')->count(),
-                    'today_count' => VaccinationSchedule::where('clinic_id', $clinicId)
+                    'total_scheduled' => (clone $base)->count(),
+                    'completed'       => (clone $base)->where('status', 'completed')->count(),
+                    'pending'         => (clone $base)->where('status', 'scheduled')->count(),
+                    'missed'          => (clone $base)->where('status', 'missed')->count(),
+                    'today_count'     => (clone $base)
                         ->where('scheduled_date', Carbon::today())
                         ->whereIn('status', ['scheduled', 'missed'])
                         ->count(),
-                    'overdue_count' => VaccinationSchedule::where('clinic_id', $clinicId)
+                    'overdue_count'   => (clone $base)
                         ->where('scheduled_date', '<', Carbon::today())
                         ->where('status', 'scheduled')
                         ->count(),

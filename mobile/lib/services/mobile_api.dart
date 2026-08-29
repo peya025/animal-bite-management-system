@@ -29,7 +29,9 @@ class MobileApi {
 
   // Load from .env file - change .env when switching networks
   static String get _baseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'http://192.168.18.53:8000/api/mobile';
+      (dotenv.env['API_BASE_URL'] ?? 'http://192.168.18.53:8000/api/mobile')
+          .trim()
+          .replaceAll(' ', '');
   static int get clinicId => int.parse(dotenv.env['CLINIC_ID'] ?? '1');
 
   static const _tokenKey = 'patient_account_token';

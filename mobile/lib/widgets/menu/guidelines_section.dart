@@ -13,7 +13,7 @@ class GuidelinesSection extends StatelessWidget {
         Text(
           context.tr('guide_section_title'),
           style: const TextStyle(
-            color: Color(0xFF9CA3AF),
+            color: AppColors.textMuted,
             fontSize: 12,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,

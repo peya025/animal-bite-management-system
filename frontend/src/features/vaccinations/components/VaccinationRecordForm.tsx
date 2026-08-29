@@ -465,6 +465,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }));
   };
 
+  const placeOfExposureOptions = Array.from(new Set([
+    formData.place_of_exposure,
+    'Home / Own Residence',
+    'Street / Public Road',
+    'Public Park / Recreational Area',
+    'Farm / Rural Setting',
+    'Workplace / Commercial Establishment',
+    'School / Playground',
+    'Wilderness / Forest',
+  ].map(value => value?.trim()).filter(Boolean))) as string[];
+
   const findPreset = (vaccineType: string) => vaccinePresets.find((preset) => preset.vaccine_name === vaccineType);
 
   const getSuggestedWholeUnits = (vaccineType: string) => {
@@ -879,7 +890,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
         <div>
           <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Place of Exposure</label>
-          <input type="text" value={formData.place_of_exposure} onChange={handleFieldChange('place_of_exposure')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+          <select
+            value={formData.place_of_exposure}
+            onChange={handleFieldChange('place_of_exposure')}
+            disabled={readOnly}
+            style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : '#ffffff' }}
+          >
+            <option value="">— Select Place of Exposure —</option>
+            {placeOfExposureOptions.map(option => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
         </div>
       </div>
 

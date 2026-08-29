@@ -360,108 +360,118 @@ export default function QueueDashboard() {
       },
     },
     {
-      key: 'visit_type', header: 'Visit type',
+      key: 'visit_type', header: 'Visit type', align: 'center',
       render: e => (
-        <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500, color: 'var(--text)' }}>
-          {VISIT_LABEL[e.visit_type] ?? e.visit_type}
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500, color: 'var(--text)' }}>
+            {VISIT_LABEL[e.visit_type] ?? e.visit_type}
+          </Box>
         </Box>
       ),
     },
     {
-      key: 'priority', header: 'Priority',
+      key: 'priority', header: 'Priority', align: 'center',
       render: e => {
         const cfg = PRIORITY_CFG[e.priority] ?? PRIORITY_CFG.normal;
         const isActive = MAIN_STATUSES.includes(e.status);
         const canEditPriority = isActive && !isRegistrationStaff;
         if (!canEditPriority) {
           return (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.35, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 11.5, fontWeight: 500 }}>
-              {e.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
-              {e.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
-              {getPriorityDisplayLabel(e.priority, e.queue_category)}
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.35, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 11.5, fontWeight: 500 }}>
+                {e.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
+                {e.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
+                {getPriorityDisplayLabel(e.priority, e.queue_category)}
+              </Box>
             </Box>
           );
         }
         return (
-          <FormControl size="small" variant="outlined">
-            <Select
-              value={e.priority}
-              onChange={ev => handlePriorityChange(e, ev.target.value as 'normal' | 'urgent' | 'emergency')}
-              renderValue={val => {
-                const c = PRIORITY_CFG[val] ?? PRIORITY_CFG.normal;
-                return (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: c.color, fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit' }}>
-                    {val === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
-                    {val === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
-                    {getPriorityDisplayLabel(val, e.queue_category)}
-                  </Box>
-                );
-              }}
-              sx={{
-                fontSize: 11.5, fontFamily: 'inherit', fontWeight: 500,
-                bgcolor: cfg.bg, color: cfg.color,
-                borderRadius: 1.5, minWidth: 105,
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: cfg.color },
-                '& .MuiSelect-select': { py: 0.35, px: 1.25, fontFamily: 'inherit' },
-              }}
-              MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontFamily: 'inherit', fontSize: 12.5 } } } } }}
-            >
-              <MenuItem value="normal">Normal</MenuItem>
-              <MenuItem value="urgent">{['priority', 'pregnant', 'senior_citizen', 'pwd'].includes(e.queue_category) ? 'Priority' : 'Urgent'}</MenuItem>
-              <MenuItem value="emergency">Emergency</MenuItem>
-            </Select>
-          </FormControl>
-        );
-      },
-    },
-    {
-      key: 'status', header: 'Status',
-      render: e => {
-        const cfg = isRegistrationStaff
-          ? getRegistrationStatusDisplay(e)
-          : (STATUS_CFG[e.status] ?? STATUS_CFG.cancelled);
-        return (
-          <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: cfg.bg, color: cfg.color, borderRadius: 1.5, fontSize: 11.5, fontWeight: 500 }}>
-            {cfg.label}
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <FormControl size="small" variant="outlined">
+              <Select
+                value={e.priority}
+                onChange={ev => handlePriorityChange(e, ev.target.value as 'normal' | 'urgent' | 'emergency')}
+                renderValue={val => {
+                  const c = PRIORITY_CFG[val] ?? PRIORITY_CFG.normal;
+                  return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: c.color, fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit' }}>
+                      {val === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
+                      {val === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
+                      {getPriorityDisplayLabel(val, e.queue_category)}
+                    </Box>
+                  );
+                }}
+                sx={{
+                  fontSize: 11.5, fontFamily: 'inherit', fontWeight: 500,
+                  bgcolor: cfg.bg, color: cfg.color,
+                  borderRadius: 1.5, minWidth: 105,
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: cfg.color },
+                  '& .MuiSelect-select': { py: 0.35, px: 1.25, fontFamily: 'inherit' },
+                }}
+                MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontFamily: 'inherit', fontSize: 12.5 } } } } }}
+              >
+                <MenuItem value="normal">Normal</MenuItem>
+                <MenuItem value="urgent">{['priority', 'pregnant', 'senior_citizen', 'pwd'].includes(e.queue_category) ? 'Priority' : 'Urgent'}</MenuItem>
+                <MenuItem value="emergency">Emergency</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
         );
       },
     },
     {
-      key: 'wait_time', header: 'Wait time',
+      key: 'status', header: 'Status', align: 'center',
       render: e => {
-        const active = MAIN_STATUSES.includes(e.status);
-        return active
-          ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <WaitIcon sx={{ fontSize: 13, color: 'var(--text-secondary)' }} />
-              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>{waitTime(e.checked_in_at)}</Typography>
+        const cfg = isRegistrationStaff
+          ? getRegistrationStatusDisplay(e)
+          : (STATUS_CFG[e.status] ?? STATUS_CFG.cancelled);
+        return (
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: cfg.bg, color: cfg.color, borderRadius: 1.5, fontSize: 11.5, fontWeight: 500 }}>
+              {cfg.label}
             </Box>
-          : <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography>;
+          </Box>
+        );
       },
     },
     {
-      key: 'view', header: 'View', align: 'right' as const, width: '85px',
+      key: 'wait_time', header: 'Wait time', align: 'center',
+      render: e => {
+        const active = MAIN_STATUSES.includes(e.status);
+        return active
+          ? <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+              <WaitIcon sx={{ fontSize: 13, color: 'var(--text-secondary)' }} />
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>{waitTime(e.checked_in_at)}</Typography>
+            </Box>
+          : <Box sx={{ display: 'flex', justifyContent: 'center' }}><Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography></Box>;
+      },
+    },
+    {
+      key: 'view', header: 'View', align: 'center' as const, width: '85px',
       render: e => (
-        <Tooltip title="View Patient Details & Forms">
-          <button
-            onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: e.queue_id }))}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '4px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0',
-              borderRadius: 6, color: '#059669', fontSize: 12, fontWeight: 500,
-              cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={el => { (el.currentTarget as HTMLElement).style.background = '#d1fae5'; }}
-            onMouseLeave={el => { (el.currentTarget as HTMLElement).style.background = '#ecfdf5'; }}
-          >
-            View <HugeiconsIcon icon={ArrowUpRight01Icon} size={12} strokeWidth={2.2} />
-          </button>
-        </Tooltip>
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Tooltip title="View Patient Details & Forms">
+            <button
+              onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: e.queue_id }))}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0',
+                borderRadius: 6, color: '#059669', fontSize: 12, fontWeight: 500,
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={el => { (el.currentTarget as HTMLElement).style.background = '#d1fae5'; }}
+              onMouseLeave={el => { (el.currentTarget as HTMLElement).style.background = '#ecfdf5'; }}
+            >
+              View <HugeiconsIcon icon={ArrowUpRight01Icon} size={12} strokeWidth={2.2} />
+            </button>
+          </Tooltip>
+        </Box>
       ),
     },
     {
-      key: 'queue_actions', header: 'Queue actions', align: 'right',
+      key: 'queue_actions', header: 'Queue actions', align: 'center',
       render: e => {
         const isWaiting = e.status === 'waiting';
         const isCalled  = e.status === 'called';
@@ -471,7 +481,7 @@ export default function QueueDashboard() {
         const canCancelOrTrash = !isTriageDoctor;
 
         return (
-          <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'flex-end', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', alignItems: 'center' }}>
 
             {/* Call — waiting only */}
             {isWaiting && (

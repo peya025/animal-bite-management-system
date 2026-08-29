@@ -118,21 +118,24 @@ export default function BiteCaseListPage() {
     {
       key: 'status',
       label: 'Intake Status',
+      align: 'center',
       render: (r: BiteIntake) => (
-        <Chip
-          size="small"
-          label={r.status || 'pending'}
-          color={r.status === 'completed' ? 'success' : r.status === 'reviewed' ? 'info' : 'warning'}
-          sx={{ textTransform: 'capitalize', fontWeight: 600, fontSize: 11 }}
-        />
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Chip
+            size="small"
+            label={r.status || 'pending'}
+            color={r.status === 'completed' ? 'success' : r.status === 'reviewed' ? 'info' : 'warning'}
+            sx={{ textTransform: 'capitalize', fontWeight: 600, fontSize: 11 }}
+          />
+        </Box>
       ),
     },
     {
       key: 'actions',
       label: 'Actions per Patient',
-      align: 'right',
+      align: 'center',
       render: (r: BiteIntake) => (
-        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
           <Button
             size="small"
             variant="outlined"

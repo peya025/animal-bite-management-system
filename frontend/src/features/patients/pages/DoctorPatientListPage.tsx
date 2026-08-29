@@ -95,10 +95,13 @@ export default function DoctorPatientListPage() {
     {
       key: 'patient_id',
       header: 'PATIENT #',
+      align: 'center',
       width: '100px',
       render: (patient) => (
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: 'var(--bg-secondary)', borderRadius: 1, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
-          #{patient.patient_id}
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 1.5, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: '#374151' }}>
+            #{patient.patient_id}
+          </Box>
         </Box>
       ),
     },
@@ -183,6 +186,7 @@ export default function DoctorPatientListPage() {
     {
       key: 'status',
       header: 'STATUS',
+      align: 'center',
       render: (patient) => {
         const record = getLastConsultation(patient);
         const activeQueue = (patient as any).queues?.[0];
@@ -196,22 +200,22 @@ export default function DoctorPatientListPage() {
 
         if (hasTodayConsultation) {
           if (activeQueue && activeQueue.visit_type === 'vaccination') {
-            return <Chip label="Referred to Treatment" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} />;
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Referred to Treatment" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} /></Box>;
           }
-          return <Chip label="Consultation Done" size="small" sx={{ bgcolor: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 600 }} />;
+          return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Consultation Done" size="small" sx={{ bgcolor: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 600 }} /></Box>;
         }
 
         if (activeQueue) {
           if (activeQueue.status === 'waiting') {
-            return <Chip label="In Queue (Waiting)" size="small" sx={{ bgcolor: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 600 }} />;
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="In Queue (Waiting)" size="small" sx={{ bgcolor: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 600 }} /></Box>;
           }
           if (['in_consultation', 'serving', 'called'].includes(activeQueue.status)) {
-            return <Chip label="In Consultation" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} />;
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="In Consultation" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} /></Box>;
           }
         }
 
         if (!record) {
-          return <Chip label="Registered" size="small" sx={{ bgcolor: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 600 }} />;
+          return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Registered" size="small" sx={{ bgcolor: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 600 }} /></Box>;
         }
 
         const status = record.status || 'completed';
@@ -222,15 +226,15 @@ export default function DoctorPatientListPage() {
         };
 
         const cfg = statusConfig[status] || statusConfig.completed;
-        return <Chip label={cfg.label} size="small" sx={{ bgcolor: cfg.bg, color: cfg.color, fontSize: 11, fontWeight: 600 }} />;
+        return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={cfg.label} size="small" sx={{ bgcolor: cfg.bg, color: cfg.color, fontSize: 11, fontWeight: 600 }} /></Box>;
       },
     },
     {
       key: 'actions',
       header: 'ACTIONS',
-      align: 'right',
+      align: 'center',
       render: (patient) => (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Tooltip title="View Patient Details & Forms">
             <button
               onClick={() => {

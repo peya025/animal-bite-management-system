@@ -242,9 +242,9 @@ export default function VaccinationSchedulePage() {
     {
       key: 'actions',
       label: 'Actions',
-      align: 'right',
+      align: 'center',
       render: (r) => (
-        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
           <button
             style={{
               background: '#e8f5ed',

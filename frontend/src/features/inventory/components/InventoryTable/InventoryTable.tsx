@@ -165,10 +165,11 @@ export default function InventoryTable({
     {
       key: 'batch_number',
       header: 'Batch No. / FIFO',
+      align: 'center',
       render: (item) => {
         const showPriority = item.current_quantity > 0 && deriveInventoryStatus(item) !== 'Expired';
         return (
-          <Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Typography sx={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
               {item.batch_number}
             </Typography>
@@ -193,12 +194,13 @@ export default function InventoryTable({
     {
       key: 'received_from',
       header: 'Received From',
+      align: 'center',
       render: (item) => (
-        <Box>
-          <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', textAlign: 'center' }}>
             {item.received_from || '—'}
           </Typography>
-          <Typography sx={{ fontSize: 10.5, color: '#94a3b8', mt: 0.25 }}>
+          <Typography sx={{ fontSize: 10.5, color: '#94a3b8', mt: 0.25, textAlign: 'center' }}>
             Source / supplier
           </Typography>
         </Box>
@@ -227,22 +229,24 @@ export default function InventoryTable({
         const low = item.current_quantity > 0 && item.current_quantity <= 10;
         const empty = item.current_quantity <= 0;
         return (
-          <Box
-            sx={{
-              textAlign: 'center',
-              p: 1,
-              minWidth: 92,
-              bgcolor: empty ? '#f8fafc' : low ? '#fff7ed' : '#ecfdf5',
-              borderRadius: 1.5,
-              border: `1px solid ${empty ? '#cbd5e1' : low ? '#fdba74' : '#86efac'}`,
-            }}
-          >
-            <Typography sx={{ fontWeight: 800, fontSize: 17, color: empty ? '#475569' : low ? '#c2410c' : '#047857' }}>
-              {item.current_quantity}
-            </Typography>
-            <Typography sx={{ fontSize: 10, color: '#64748b' }}>
-              units left
-            </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box
+              sx={{
+                textAlign: 'center',
+                p: 1,
+                minWidth: 92,
+                bgcolor: empty ? '#f8fafc' : low ? '#fff7ed' : '#ecfdf5',
+                borderRadius: 1.5,
+                border: `1px solid ${empty ? '#cbd5e1' : low ? '#fdba74' : '#86efac'}`,
+              }}
+            >
+              <Typography sx={{ fontWeight: 800, fontSize: 17, color: empty ? '#475569' : low ? '#c2410c' : '#047857' }}>
+                {item.current_quantity}
+              </Typography>
+              <Typography sx={{ fontSize: 10, color: '#64748b' }}>
+                units left
+              </Typography>
+            </Box>
           </Box>
         );
       },
@@ -250,6 +254,7 @@ export default function InventoryTable({
     {
       key: 'expiration',
       header: 'Expiration',
+      align: 'center',
       width: '220px',
       render: (item) => {
         const expiryVisual = getExpiryVisual(item.expiration_date);
@@ -258,61 +263,63 @@ export default function InventoryTable({
           : null;
 
         return (
-          <Box sx={{ minWidth: 190 }}>
-            <Box
-              sx={{
-                p: 1,
-                borderRadius: 1.5,
-                bgcolor: expiryVisual.bg,
-                border: `1px solid ${expiryVisual.border}`,
-              }}
-            >
-              <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 0.35 }}>
-                <CalendarIcon sx={{ fontSize: 14, color: expiryVisual.color }} />
-                <Typography sx={{ fontSize: 11, fontWeight: 800, color: expiryVisual.color }}>
-                  Batch expiration
-                </Typography>
-              </Stack>
-              <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1f2937' }}>
-                {formatDate(item.expiration_date)}
-              </Typography>
-              <Typography sx={{ fontSize: 10.5, color: expiryVisual.color, fontWeight: 700 }}>
-                {expiryVisual.detail}
-              </Typography>
-            </Box>
-
-            {openVial ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ minWidth: 190, maxWidth: 220 }}>
               <Box
                 sx={{
-                  mt: 0.9,
                   p: 1,
                   borderRadius: 1.5,
-                  bgcolor: openVial.bg,
-                  border: `1px solid ${openVial.border}`,
+                  bgcolor: expiryVisual.bg,
+                  border: `1px solid ${expiryVisual.border}`,
                 }}
               >
                 <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 0.35 }}>
-                  <OpenVialIcon sx={{ fontSize: 14, color: openVial.color }} />
-                  <Typography sx={{ fontSize: 11, fontWeight: 800, color: openVial.color }}>
-                    Open-vial discard
+                  <CalendarIcon sx={{ fontSize: 14, color: expiryVisual.color }} />
+                  <Typography sx={{ fontSize: 11, fontWeight: 800, color: expiryVisual.color }}>
+                    Batch expiration
                   </Typography>
                 </Stack>
-                <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: openVial.color }}>
-                  {openVial.label}
+                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1f2937' }}>
+                  {formatDate(item.expiration_date)}
                 </Typography>
-                <Typography sx={{ fontSize: 10.5, color: openVial.color }}>
-                  {openVial.secondary}
+                <Typography sx={{ fontSize: 10.5, color: expiryVisual.color, fontWeight: 700 }}>
+                  {expiryVisual.detail}
                 </Typography>
               </Box>
-            ) : item.open_vial_hours ? (
-              <Typography sx={{ fontSize: 10.5, color: '#64748b', mt: 0.85 }}>
-                Open-vial timer starts only after <strong>Mark Vial Opened</strong>.
-              </Typography>
-            ) : (
-              <Typography sx={{ fontSize: 10.5, color: '#64748b', mt: 0.85 }}>
-                Single-dose or no open-vial discard rule.
-              </Typography>
-            )}
+
+              {openVial ? (
+                <Box
+                  sx={{
+                    mt: 0.9,
+                    p: 1,
+                    borderRadius: 1.5,
+                    bgcolor: openVial.bg,
+                    border: `1px solid ${openVial.border}`,
+                  }}
+                >
+                  <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 0.35 }}>
+                    <OpenVialIcon sx={{ fontSize: 14, color: openVial.color }} />
+                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: openVial.color }}>
+                      Open-vial discard
+                    </Typography>
+                  </Stack>
+                  <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: openVial.color }}>
+                    {openVial.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: 10.5, color: openVial.color }}>
+                    {openVial.secondary}
+                  </Typography>
+                </Box>
+              ) : item.open_vial_hours ? (
+                <Typography sx={{ fontSize: 10.5, color: '#64748b', mt: 0.85, textAlign: 'center' }}>
+                  Open-vial timer starts only after <strong>Mark Vial Opened</strong>.
+                </Typography>
+              ) : (
+                <Typography sx={{ fontSize: 10.5, color: '#64748b', mt: 0.85, textAlign: 'center' }}>
+                  Single-dose or no open-vial discard rule.
+                </Typography>
+              )}
+            </Box>
           </Box>
         );
       },
@@ -320,25 +327,28 @@ export default function InventoryTable({
     {
       key: 'status',
       header: 'Status',
+      align: 'center',
       render: (item) => {
         const derivedStatus = deriveInventoryStatus(item);
         const visual = getStatusVisual(derivedStatus);
 
         return (
-          <Chip
-            icon={<StatusIcon status={derivedStatus} />}
-            label={visual.label}
-            size="small"
-            sx={{
-              height: 26,
-              fontSize: 11.5,
-              fontWeight: 800,
-              bgcolor: visual.bg,
-              color: visual.color,
-              border: `1px solid ${visual.border}`,
-              '& .MuiChip-icon': { color: visual.color },
-            }}
-          />
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Chip
+              icon={<StatusIcon status={derivedStatus} />}
+              label={visual.label}
+              size="small"
+              sx={{
+                height: 26,
+                fontSize: 11.5,
+                fontWeight: 800,
+                bgcolor: visual.bg,
+                color: visual.color,
+                border: `1px solid ${visual.border}`,
+                '& .MuiChip-icon': { color: visual.color },
+              }}
+            />
+          </Box>
         );
       },
     },
@@ -353,7 +363,7 @@ export default function InventoryTable({
         const hasStock = item.current_quantity > 0;
 
         return (
-          <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end', pr: 1 }}>
+          <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center' }}>
             {hasStock && canUseOpenVialTimer && !isOpened && onOpenVial && (
               <Tooltip title="Mark vial opened">
                 <IconButton

@@ -76,13 +76,15 @@ export default function PatientAccountsTab({
       ),
     },
     {
-      key: 'actions', label: 'Actions', align: 'right',
+      key: 'actions', label: 'Actions', align: 'center',
       render: a => (
-        <AppButton
-          variant={a.is_active ? 'danger' : 'primary'}
-          style={{ minHeight: 30, padding: '5px 10px' }}
-          onClick={() => onToggle(a)}
-        >{a.is_active ? 'Deactivate' : 'Activate'}</AppButton>
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <AppButton
+            variant={a.is_active ? 'danger' : 'primary'}
+            style={{ minHeight: 30, padding: '5px 10px' }}
+            onClick={() => onToggle(a)}
+          >{a.is_active ? 'Deactivate' : 'Activate'}</AppButton>
+        </Box>
       ),
     },
   ];

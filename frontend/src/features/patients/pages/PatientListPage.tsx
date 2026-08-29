@@ -539,11 +539,11 @@ export default function PatientList() {
                         />
                       )}
                     </th>
-                    <th>Patient No.</th>
+                    <th style={{ textAlign: 'center' }}>Patient No.</th>
                     <th>Patient Name</th>
-                    <th>Source</th>
-                    <th>Date Registered</th>
-                    <th>Status / Schedule</th>
+                    <th style={{ textAlign: 'center' }}>Source</th>
+                    <th style={{ textAlign: 'center' }}>Date Registered</th>
+                    <th style={{ textAlign: 'center' }}>Status / Schedule</th>
                     <th style={{ textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
@@ -576,7 +576,7 @@ export default function PatientList() {
                             <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>
                           )}
                         </td>
-                        <td><span className="pm-patient-no">{p.patient_number}</span></td>
+                        <td style={{ textAlign: 'center' }}><span className="pm-patient-no">{p.patient_number}</span></td>
                         <td>
                           <div>
                             <span className="pm-patient-name">{fullName(p)}</span>
@@ -585,7 +585,7 @@ export default function PatientList() {
                             </div>
                           </div>
                         </td>
-                        <td>
+                        <td style={{ textAlign: 'center' }}>
                           {isOnline ? (
                             <span className="pm-chip-online">
                               Online
@@ -596,8 +596,8 @@ export default function PatientList() {
                             </span>
                           )}
                         </td>
-                        <td>{formatDate(p.created_at)}</td>
-                        <td>
+                        <td style={{ textAlign: 'center' }}>{formatDate(p.created_at)}</td>
+                        <td style={{ textAlign: 'center' }}>
                           <span style={{
                             padding: '4px 10px',
                             borderRadius: '12px',

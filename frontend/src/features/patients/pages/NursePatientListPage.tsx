@@ -273,10 +273,13 @@ export default function NursePatientListPage() {
     {
       key: 'patient_id',
       header: 'PATIENT #',
+      align: 'center',
       width: '100px',
       render: (patient) => (
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 1.5, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: '#374151' }}>
-          #{patient.patient_id}
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 1.5, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: '#374151' }}>
+            #{patient.patient_id}
+          </Box>
         </Box>
       ),
     },
@@ -333,18 +336,19 @@ export default function NursePatientListPage() {
     {
       key: 'last_dose',
       header: 'LAST DOSE',
+      align: 'center',
       render: (patient) => {
         const status = getDoseStatus(patient);
         const record = patient.latest_treatment_record;
         return (
-          <Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Chip
               label={status.label}
               size="small"
               sx={{ bgcolor: status.bg, color: status.color, border: `1px solid ${status.border}`, fontSize: 11.5, fontWeight: 600, height: 24, mb: 0.25 }}
             />
             {record?.treatment_date && (
-              <Typography sx={{ fontSize: 11, color: '#6b7280', display: 'block' }}>
+              <Typography sx={{ fontSize: 11, color: '#6b7280', display: 'block', textAlign: 'center' }}>
                 Administered: {new Date(record.treatment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </Typography>
             )}
@@ -355,14 +359,17 @@ export default function NursePatientListPage() {
     {
       key: 'status',
       header: 'STATUS',
+      align: 'center',
       render: (patient) => {
         const status = getVaccinationStatus(patient);
         return (
-          <Chip
-            label={status.label}
-            size="small"
-            sx={{ bgcolor: status.bg, color: status.color, border: `1px solid ${status.border}`, fontSize: 11.5, fontWeight: 600, height: 24 }}
-          />
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Chip
+              label={status.label}
+              size="small"
+              sx={{ bgcolor: status.bg, color: status.color, border: `1px solid ${status.border}`, fontSize: 11.5, fontWeight: 600, height: 24 }}
+            />
+          </Box>
         );
       },
     },
@@ -438,7 +445,7 @@ export default function NursePatientListPage() {
     {
       key: 'actions',
       header: 'ACTIONS',
-      align: 'right',
+      align: 'center',
       render: (patient) => {
         const activeQueue = (patient as any).queues?.[0];
         const appt = (patient as any).appointments?.[0];
@@ -450,7 +457,7 @@ export default function NursePatientListPage() {
         const canCheckIn = hasCompletedTriage && !activeQueue && appt?.status === 'scheduled';
 
         return (
-          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
             {canCheckIn && (
               <Button
                 size="small"

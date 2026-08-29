@@ -73,9 +73,9 @@ export default function StaffUsersTab({
       ),
     },
     {
-      key: 'actions', label: 'Actions', align: 'right',
+      key: 'actions', label: 'Actions', align: 'center',
       render: u => (
-        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
           <AppButton
             variant="secondary"
             style={{ minHeight: 30, padding: '5px 10px' }}

@@ -237,49 +237,15 @@ class ClinicScheduleController extends Controller
      */
     public function recalculatePendingAppointments(int $clinicId): int
     {
-        $futureAppointments = \App\Models\Appointment::where('clinic_id', $clinicId)
+        $patientIds = \App\Models\Appointment::where('clinic_id', $clinicId)
             ->where('status', 'scheduled')
-            ->where(function ($q) {
-                $q->whereDate('scheduled_date', '>=', Carbon::today())
-                  ->orWhereDate('appointment_date', '>=', Carbon::today());
-            })
-            ->get();
+            ->distinct()
+            ->pluck('patient_id');
 
         $updatedCount = 0;
-        foreach ($futureAppointments as $appt) {
-            $idealDate = $appt->ideal_date
-                ? Carbon::parse($appt->ideal_date)
-                : Carbon::parse($appt->scheduled_date ?? $appt->appointment_date);
-
-            $resolution = $this->scheduleService->resolveScheduleDate(
-                $clinicId,
-                $idealDate,
-                $appt->dose_number
-            );
-
-            $newDate = $resolution['scheduled_date']->toDateString();
-            $currentDate = Carbon::parse($appt->scheduled_date ?? $appt->appointment_date)->toDateString();
-
-            $doseLabel = $appt->dose_number !== null ? "Day {$appt->dose_number}" : 'Follow-up';
-            if ($appt->dose_number === 90) $doseLabel = 'Booster 1';
-            if ($appt->dose_number === 365) $doseLabel = 'Booster 2';
-
-            $noteText = $resolution['drift_days'] !== 0
-                ? "Auto-scheduled: {$doseLabel} dose ({$resolution['adjustment_reason']})"
-                : "Auto-scheduled: {$doseLabel} dose";
-
-            $appt->update([
-                'appointment_date' => $newDate,
-                'scheduled_date' => $newDate,
-                'ideal_date' => $idealDate->toDateString(),
-                'schedule_drift_days' => $resolution['drift_days'],
-                'schedule_adjustment_reason' => $resolution['adjustment_reason'],
-                'notes' => $noteText,
-            ]);
-
-            if ($newDate !== $currentDate || $resolution['drift_days'] !== (int)$appt->schedule_drift_days) {
-                $updatedCount++;
-            }
+        foreach ($patientIds as $pId) {
+            $updated = $this->scheduleService->recalculatePatientSequentialSchedule($clinicId, $pId);
+            $updatedCount += count($updated);
         }
 
         // Clear mobile notification caches

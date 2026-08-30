@@ -8,10 +8,54 @@ use App\Models\Clinic;
 use App\Models\Notification;
 use App\Models\Patient;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class AppointmentReminderService
 {
+    /**
+     * Helper to resolve detailed clinical context for an appointment.
+     * Distinguishes whether the patient missed Doctor Triage (Day 0 / Form 2) or Nurse Treatment (Day 3/7/28).
+     */
+    protected function resolveClinicalContext(Appointment $appointment, Patient $patient): array
+    {
+        $hasBiteIncident = (bool) $appointment->bite_id || $patient->biteIncidents()->exists();
+        $doseNum = $appointment->dose_number;
+
+        $isInitialTriage = false;
+        $station = 'Treatment / Nurse Desk';
+        $doseLabel = 'Vaccine Dose';
+        $notifType = 'missed_appointment_recall';
+        $title = 'Urgent: Missed Vaccination Recall';
+
+        if ($appointment->appointment_type === 'consultation') {
+            $station = 'Doctor Consultation Desk';
+            $doseLabel = 'General Consultation';
+            $notifType = 'missed_consultation_recall';
+            $title = 'Missed Medical Consultation';
+        } elseif (!$hasBiteIncident || $doseNum === 0 || is_null($doseNum)) {
+            $isInitialTriage = true;
+            $station = 'Doctor Triage & Assessment (Form 2)';
+            $doseLabel = 'Initial Assessment & Day 0 Dose';
+            $notifType = 'missed_triage_recall';
+            $title = 'Urgent: Missed Doctor Triage & Day 0 Dose';
+        } else {
+            $station = 'Treatment / Nurse Desk (Form 3)';
+            $doseLabel = "Rabies Dose (Day {$doseNum})";
+            $notifType = 'missed_treatment_recall';
+            $title = "Urgent: Missed Rabies Dose (Day {$doseNum})";
+        }
+
+        return [
+            'is_initial_triage' => $isInitialTriage,
+            'station' => $station,
+            'dose_label' => $doseLabel,
+            'dose_number' => $doseNum ?? ($isInitialTriage ? 0 : 3),
+            'notif_type' => $notifType,
+            'title' => $title,
+        ];
+    }
+
     /**
      * Dispatch a multi-channel recall alert for a missed/overdue appointment.
      */
@@ -36,16 +80,27 @@ class AppointmentReminderService
         $clinicName = $clinic?->name ?? 'Tagoloan Animal Bite Treatment Center';
         $clinicPhone = $clinic?->phone ?? '09123456789';
         $patientName = "{$patient->first_name} {$patient->last_name}";
-        $doseName = $appointment->dose_number === 0 ? 'Initial Dose (Day 0)' : "Dose (Day {$appointment->dose_number})";
         $scheduledDate = Carbon::parse($appointment->scheduled_date ?? $appointment->appointment_date)->format('M j, Y');
+
+        $ctx = $this->resolveClinicalContext($appointment, $patient);
+        $station = $ctx['station'];
+        $doseLabel = $ctx['dose_label'];
+        $title = $ctx['title'];
+        $notifType = $ctx['notif_type'];
 
         $dispatched = [];
         $errors = [];
 
         // 1. IN-APP PUSH NOTIFICATION
         if (in_array($channel, ['all', 'in_app'])) {
-            $inAppMsg = $customMessage ?? "URGENT REMINDER: {$patientName}, you missed your scheduled Rabies Vaccination ({$doseName}) on {$scheduledDate}. Rabies is 100% fatal without complete PEP. Please visit {$clinicName} immediately for your catch-up dose.";
-            
+            if ($customMessage) {
+                $inAppMsg = $customMessage;
+            } elseif ($ctx['is_initial_triage']) {
+                $inAppMsg = "URGENT CLINICAL ADVISORY: {$patientName}, you missed your Doctor Triage & Initial Assessment (Day 0) scheduled on {$scheduledDate}. Prompt bite evaluation and immediate first dose are critical for rabies prevention. Please proceed to Doctor Triage at {$clinicName}.";
+            } else {
+                $inAppMsg = "URGENT REMINDER: {$patientName}, you missed your scheduled Rabies Vaccination ({$doseLabel}) at the {$station} on {$scheduledDate}. Rabies is 100% fatal without complete PEP. Please visit {$clinicName} immediately for your catch-up injection.";
+            }
+
             $accountId = $appointment->booked_by_account_id;
             if (!$accountId && $patient->accounts && $patient->accounts->isNotEmpty()) {
                 $accountId = $patient->accounts->first()->id;
@@ -56,14 +111,14 @@ class AppointmentReminderService
                     'patient_id' => $patient->patient_id,
                     'patient_account_id' => $accountId,
                     'appointment_id' => $appointment->appointment_id,
-                    'type' => 'missed_appointment_recall',
+                    'type' => $notifType,
                     'message' => $inAppMsg,
                     'status' => 'sent',
                     'send_time' => now(),
                 ]);
 
                 if ($accountId) {
-                    \Illuminate\Support\Facades\Cache::forget("mobile:notifications:account:{$accountId}:page:1");
+                    Cache::forget("mobile:notifications:account:{$accountId}:page:1");
                 }
 
                 AppointmentReminder::create([
@@ -72,7 +127,7 @@ class AppointmentReminderService
                     'patient_id' => $patient->patient_id,
                     'channel' => 'in_app',
                     'recipient' => $accountId ? "Account #{$accountId}" : "Patient #{$patient->patient_number}",
-                    'subject' => "Urgent: Missed Rabies {$doseName} Recall",
+                    'subject' => $title,
                     'message' => $inAppMsg,
                     'status' => 'sent',
                     'sent_by_user_id' => $senderUserId,
@@ -88,7 +143,14 @@ class AppointmentReminderService
         // 2. SMS NOTIFICATION
         if (in_array($channel, ['all', 'sms'])) {
             $phone = $patient->contact_number ?? $patient->phone;
-            $smsMsg = $customMessage ?? "ABTC ALERT: {$patientName}, you missed your Rabies {$doseName} on {$scheduledDate}. Please go to {$clinicName} immediately for catch-up dose. Hotline: {$clinicPhone}";
+
+            if ($customMessage) {
+                $smsMsg = $customMessage;
+            } elseif ($ctx['is_initial_triage']) {
+                $smsMsg = "ABTC ALERT: {$patientName}, you missed your Doctor Triage & Day 0 Dose on {$scheduledDate}. Please proceed to Doctor Triage at {$clinicName} immediately for wound evaluation & first dose. Hotline: {$clinicPhone}";
+            } else {
+                $smsMsg = "ABTC ALERT: {$patientName}, you missed your {$doseLabel} on {$scheduledDate}. Please proceed to {$clinicName} Treatment Desk immediately for catch-up dose. Hotline: {$clinicPhone}";
+            }
 
             if (!empty($phone)) {
                 try {
@@ -121,8 +183,14 @@ class AppointmentReminderService
                 $email = $patient->accounts->first()->email;
             }
 
-            $emailSubject = "CRITICAL MEDICAL ADVISORY: Missed Rabies PEP {$doseName}";
-            $emailBody = $customMessage ?? "Dear {$patientName},\n\nOur records at {$clinicName} indicate that you missed your scheduled Rabies Post-Exposure Prophylaxis ({$doseName}) appointment on {$scheduledDate}.\n\nRabies is an incurable, fatal infection once symptoms manifest, but it is 100% preventable by completing your full prescribed vaccine series on time.\n\nPlease proceed to {$clinicName} immediately for your catch-up dose. Our clinic is open to administer your delayed injection.\n\nFor inquiries or immediate assistance, contact us at {$clinicPhone}.\n\nTagoloan Animal Bite Treatment Center";
+            $emailSubject = "CRITICAL MEDICAL ADVISORY: Missed {$doseLabel} at {$station}";
+            if ($customMessage) {
+                $emailBody = $customMessage;
+            } elseif ($ctx['is_initial_triage']) {
+                $emailBody = "Dear {$patientName},\n\nOur records at {$clinicName} indicate that you missed your scheduled Doctor Triage & Initial Assessment (Day 0) on {$scheduledDate}.\n\nAnimal bite wounds carry severe rabies risk and require urgent clinical categorization, wound disinfection, and prompt initiation of Post-Exposure Prophylaxis (PEP).\n\nPlease proceed directly to Doctor Triage at {$clinicName} for your physical evaluation.\n\nClinic Hotline: {$clinicPhone}\n\nTagoloan Animal Bite Treatment Center";
+            } else {
+                $emailBody = "Dear {$patientName},\n\nOur records at {$clinicName} indicate that you missed your scheduled follow-up {$doseLabel} on {$scheduledDate}.\n\nRabies is an incurable, fatal infection once symptoms manifest, but it is 100% preventable by completing your full prescribed vaccine series without interruption.\n\nPlease proceed directly to the Treatment / Nurse Desk at {$clinicName} for your catch-up dose.\n\nClinic Hotline: {$clinicPhone}\n\nTagoloan Animal Bite Treatment Center";
+            }
 
             if (!empty($email)) {
                 try {
@@ -131,7 +199,6 @@ class AppointmentReminderService
                         'appointment_id' => $appointment->appointment_id,
                         'patient_id' => $patient->patient_id,
                         'channel' => 'email',
-                        'recipient' => $email,
                         'subject' => $emailSubject,
                         'message' => $emailBody,
                         'status' => 'sent',
@@ -162,6 +229,8 @@ class AppointmentReminderService
             'success' => !empty($dispatched),
             'appointment_id' => $appointment->appointment_id,
             'patient_name' => $patientName,
+            'station' => $station,
+            'dose_label' => $doseLabel,
             'channels_dispatched' => $dispatched,
             'errors' => $errors,
             'reminder_sent_count' => $appointment->reminder_sent_count,
@@ -219,15 +288,21 @@ class AppointmentReminderService
         $clinicName = $clinic?->name ?? 'Tagoloan Animal Bite Treatment Center';
         $clinicPhone = $clinic?->phone ?? '09123456789';
         $patientName = "{$patient->first_name} {$patient->last_name}";
-        $doseName = $appointment->dose_number === 0 ? 'Initial Dose (Day 0)' : "Dose (Day {$appointment->dose_number})";
         $scheduledDate = Carbon::parse($appointment->scheduled_date ?? $appointment->appointment_date)->format('M j, Y');
+
+        $ctx = $this->resolveClinicalContext($appointment, $patient);
+        $station = $ctx['station'];
+        $doseLabel = $ctx['dose_label'];
 
         $dispatched = [];
         $errors = [];
 
         // 1. In-App
         if (in_array($channel, ['all', 'in_app'])) {
-            $msg = "UPCOMING SCHEDULE: {$patientName}, your Rabies {$doseName} is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Please arrive on time.";
+            $msg = $ctx['is_initial_triage']
+                ? "UPCOMING SCHEDULE: {$patientName}, your Doctor Triage & Initial Bite Assessment (Day 0) is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Please proceed to Doctor Triage on arrival."
+                : "UPCOMING SCHEDULE: {$patientName}, your {$doseLabel} is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Please proceed directly to the Treatment Desk.";
+
             $accountId = $appointment->booked_by_account_id;
             if (!$accountId && $patient->accounts && $patient->accounts->isNotEmpty()) {
                 $accountId = $patient->accounts->first()->id;
@@ -244,13 +319,17 @@ class AppointmentReminderService
                     'send_time' => now(),
                 ]);
 
+                if ($accountId) {
+                    Cache::forget("mobile:notifications:account:{$accountId}:page:1");
+                }
+
                 AppointmentReminder::create([
                     'clinic_id' => $appointment->clinic_id ?? 1,
                     'appointment_id' => $appointment->appointment_id,
                     'patient_id' => $patient->patient_id,
                     'channel' => 'in_app',
                     'recipient' => $accountId ? "Account #{$accountId}" : "Patient #{$patient->patient_number}",
-                    'subject' => "Upcoming Rabies {$doseName} Tomorrow",
+                    'subject' => "Upcoming {$doseLabel} Tomorrow ({$station})",
                     'message' => $msg,
                     'status' => 'sent',
                     'sent_by_user_id' => $senderUserId,
@@ -265,7 +344,9 @@ class AppointmentReminderService
         // 2. SMS
         if (in_array($channel, ['all', 'sms'])) {
             $phone = $patient->contact_number ?? $patient->phone;
-            $msg = "ABTC REMINDER: {$patientName}, your Rabies {$doseName} is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Inquiries: {$clinicPhone}";
+            $msg = $ctx['is_initial_triage']
+                ? "ABTC REMINDER: {$patientName}, your Doctor Triage & Day 0 Dose is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Hotline: {$clinicPhone}"
+                : "ABTC REMINDER: {$patientName}, your {$doseLabel} is scheduled for TOMORROW, {$scheduledDate} at {$clinicName} Treatment Desk. Hotline: {$clinicPhone}";
 
             if (!empty($phone)) {
                 try {
@@ -296,15 +377,14 @@ class AppointmentReminderService
 
             if (!empty($email)) {
                 try {
-                    $subject = "Reminder: Your Rabies PEP {$doseName} is Scheduled for Tomorrow";
-                    $body = "Dear {$patientName},\n\nThis is a friendly reminder from {$clinicName} that your next Rabies Vaccination ({$doseName}) is scheduled for TOMORROW, {$scheduledDate}.\n\nMaintaining your vaccination schedule on time is essential for complete rabies protection.\n\nClinic Hotline: {$clinicPhone}\n\nTagoloan Animal Bite Treatment Center";
+                    $subject = "Reminder: Your {$doseLabel} is Scheduled for Tomorrow ({$station})";
+                    $body = "Dear {$patientName},\n\nThis is a friendly reminder from {$clinicName} that your appointment for {$doseLabel} is scheduled for TOMORROW, {$scheduledDate}.\n\nStation: {$station}\n\nMaintaining your vaccination schedule on time is essential for complete rabies protection.\n\nClinic Hotline: {$clinicPhone}\n\nTagoloan Animal Bite Treatment Center";
 
                     AppointmentReminder::create([
                         'clinic_id' => $appointment->clinic_id ?? 1,
                         'appointment_id' => $appointment->appointment_id,
                         'patient_id' => $patient->patient_id,
                         'channel' => 'email',
-                        'recipient' => $email,
                         'subject' => $subject,
                         'message' => $body,
                         'status' => 'sent',
@@ -327,6 +407,8 @@ class AppointmentReminderService
             'success' => !empty($dispatched),
             'appointment_id' => $appointment->appointment_id,
             'patient_name' => $patientName,
+            'station' => $station,
+            'dose_label' => $doseLabel,
             'channels_dispatched' => $dispatched,
             'errors' => $errors,
         ];
@@ -368,6 +450,7 @@ class AppointmentReminderService
                   ->whereDate('scheduled_date', '>=', $fourteenDaysAgo);
             })
             ->where(function ($q) use ($today) {
+                // Don't send more than once every 20 hours
                 $q->whereNull('last_reminded_at')
                   ->orWhere('last_reminded_at', '<', Carbon::now()->subHours(20));
             })

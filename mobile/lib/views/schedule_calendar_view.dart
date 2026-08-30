@@ -143,10 +143,23 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
           final pName = rec['patient_name']?.toString() ?? 'Patient';
           final normalizedDate = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
 
-          // Avoid duplicate entry if appointment already exists on that date
-          final exists = events.any((e) =>
-              e.patientId == pid &&
-              isSameDay(e.date, normalizedDate));
+          // Avoid duplicate entry if appointment already exists on that date or was shifted due to clinic closure
+          final exists = events.any((e) {
+            if (e.patientId != pid) return false;
+            // 1. Same exact calendar date
+            if (isSameDay(e.date, normalizedDate)) return true;
+            // 2. Same dose/title that was shifted to an open clinic day (+1d drift)
+            final recTitle = (rec['title']?.toString() ?? '').toLowerCase().replaceAll(' ', '');
+            final eventTitle = e.title.toLowerCase().replaceAll(' ', '');
+            if (recTitle.isNotEmpty && eventTitle.isNotEmpty && recTitle == eventTitle && e.status == 'scheduled' && statusStr == 'scheduled') {
+              return true;
+            }
+            // 3. Ideal date matches raw unshifted date
+            if (e.idealDate != null && rawDateStr != null && rawDateStr.length >= 10 && e.idealDate!.startsWith(rawDateStr.substring(0, 10))) {
+              return true;
+            }
+            return false;
+          });
 
           if (!exists) {
             events.add(

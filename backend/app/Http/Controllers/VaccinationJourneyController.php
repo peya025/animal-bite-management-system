@@ -123,7 +123,7 @@ class VaccinationJourneyController extends Controller
                     }
 
                     if (!$nextAppt && $appt->status === 'scheduled') {
-                        $lateDays = $isPast ? $today->diffInDays($apptDate) : 0;
+                        $lateDays = $isPast ? abs((int) $today->diffInDays($apptDate, false)) : 0;
                         $nextAppt = [
                             'appointment_id' => $appt->appointment_id,
                             'dose_number' => $doseNum,

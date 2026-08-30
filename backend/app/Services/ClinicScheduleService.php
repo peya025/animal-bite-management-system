@@ -266,4 +266,70 @@ class ClinicScheduleService
             'instructions' => $clinic?->urgent_referral_instructions,
         ];
     }
+
+    /**
+     * Recalculate patient's sequential rabies schedule ensuring proper cascade intervals
+     */
+    public function recalculatePatientSequentialSchedule(int $clinicId, int $patientId): array
+    {
+        $patient = \App\Models\Patient::with(['treatmentRecords', 'appointments'])->find($patientId);
+        if (!$patient) return [];
+
+        $day0Record = $patient->treatmentRecords->where('dose_number', 0)->first();
+        $day0Appt = $patient->appointments->where('dose_number', 0)->first();
+
+        $day0Date = $day0Record ? Carbon::parse($day0Record->treatment_date ?? $day0Record->scheduled_date) : ($day0Appt ? Carbon::parse($day0Appt->scheduled_date ?? $day0Appt->appointment_date) : null);
+        if (!$day0Date) return [];
+
+        $doseIntervals = [
+            3   => ['interval_from_prev' => 3,   'days_after_day0' => 3,   'name' => 'Day 3'],
+            7   => ['interval_from_prev' => 4,   'days_after_day0' => 7,   'name' => 'Day 7'],
+            28  => ['interval_from_prev' => 21,  'days_after_day0' => 28,  'name' => 'Day 28'],
+            90  => ['interval_from_prev' => 62,  'days_after_day0' => 90,  'name' => 'Booster 1'],
+            365 => ['interval_from_prev' => 275, 'days_after_day0' => 365, 'name' => 'Booster 2'],
+        ];
+
+        $previousResolvedDate = $day0Date->copy();
+        $updatedAppointments = [];
+
+        foreach ($doseIntervals as $doseNum => $meta) {
+            // Check if this dose is already administered
+            $administeredRecord = $patient->treatmentRecords->first(fn($r) => $r->dose_number === $doseNum && ($r->status === 'completed' || !empty($r->treatment_date)));
+            if ($administeredRecord) {
+                $previousResolvedDate = Carbon::parse($administeredRecord->treatment_date ?? $administeredRecord->scheduled_date);
+                continue;
+            }
+
+            $minFromPrev = $previousResolvedDate->copy()->addDays($meta['interval_from_prev']);
+            $standardFromDay0 = $day0Date->copy()->addDays($meta['days_after_day0']);
+            $calculatedIdeal = $minFromPrev->greaterThan($standardFromDay0) ? $minFromPrev : $standardFromDay0;
+
+            $resolution = $this->resolveScheduleDate($clinicId, $calculatedIdeal, $doseNum);
+            $resolvedDate = $resolution['scheduled_date'];
+
+            // Find scheduled appointment if exists
+            $appt = $patient->appointments->first(fn($a) => $a->dose_number === $doseNum && $a->status === 'scheduled');
+            if ($appt) {
+                $noteText = $resolution['drift_days'] !== 0
+                    ? "Auto-scheduled: {$meta['name']} dose ({$resolution['adjustment_reason']})"
+                    : "Auto-scheduled: {$meta['name']} dose";
+
+                $appt->update([
+                    'appointment_date' => $resolvedDate->toDateString(),
+                    'scheduled_date' => $resolvedDate->toDateString(),
+                    'ideal_date' => $calculatedIdeal->toDateString(),
+                    'schedule_drift_days' => $resolution['drift_days'],
+                    'schedule_adjustment_reason' => $resolution['adjustment_reason'],
+                    'notes' => $noteText,
+                ]);
+
+                $updatedAppointments[] = $appt;
+            }
+
+            $previousResolvedDate = $resolvedDate->copy();
+        }
+
+        return $updatedAppointments;
+    }
 }
+

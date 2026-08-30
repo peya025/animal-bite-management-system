@@ -559,7 +559,21 @@ class VaccinationRecordController extends Controller
             ['period' => 'Booster 2', 'days_after' => 365, 'dose_number' => 365],
         ];
 
+        $doseIntervals = [
+            3   => 3,   // 3 days after Day 0
+            7   => 4,   // 4 days after Day 3
+            28  => 21,  // 21 days after Day 7
+            90  => 62,  // 62 days after Day 28 (Booster 1)
+            365 => 275, // 275 days after Day 90 (Booster 2)
+        ];
+
+        $previousResolvedDate = $day0Date->copy();
+
         foreach ($schedule as $followUp) {
+            $doseNum = $followUp['dose_number'];
+            $daysAfterDay0 = $followUp['days_after'];
+            $intervalFromPrev = $doseIntervals[$doseNum] ?? 3;
+
             // Check if dose was already given in this submission
             $alreadyGiven = false;
             $formSpecifiedDate = null;
@@ -568,6 +582,7 @@ class VaccinationRecordController extends Controller
                 if ($dose['period'] === $followUp['period']) {
                     if (!empty($dose['date']) && !empty($dose['vaccine_type'])) {
                         $alreadyGiven = true;
+                        $previousResolvedDate = Carbon::parse($dose['date']);
                     } elseif (!empty($dose['date'])) {
                         $formSpecifiedDate = Carbon::parse($dose['date']);
                     }
@@ -579,10 +594,17 @@ class VaccinationRecordController extends Controller
                 continue; // Skip if dose already given
             }
 
-            // Calculate appointment date: use form-specified date if available, else day0Date + offset
-            $idealDate = $formSpecifiedDate ?: $day0Date->copy()->addDays($followUp['days_after']);
-            $resolution = $scheduleService->resolveScheduleDate($clinicId, $idealDate, $followUp['dose_number']);
+            // Ideal Date must respect both standard cumulative offset and minimum interval from previous dose
+            $standardDay0Ideal = $day0Date->copy()->addDays($daysAfterDay0);
+            $minIntervalIdeal = $previousResolvedDate->copy()->addDays($intervalFromPrev);
+            $calculatedIdeal = $minIntervalIdeal->greaterThan($standardDay0Ideal) ? $minIntervalIdeal : $standardDay0Ideal;
+
+            $idealDate = $formSpecifiedDate ?: $calculatedIdeal;
+            $resolution = $scheduleService->resolveScheduleDate($clinicId, $idealDate, $doseNum);
             $resolvedDate = $formSpecifiedDate ?: $resolution['scheduled_date'];
+
+            // Update tracker for next iteration
+            $previousResolvedDate = $resolvedDate->copy();
 
             $noteText = $resolution['drift_days'] !== 0
                 ? "Auto-scheduled: {$followUp['period']} dose ({$resolution['adjustment_reason']})"
@@ -591,7 +613,7 @@ class VaccinationRecordController extends Controller
             // Check if appointment already exists
             $existing = \App\Models\Appointment::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
-                ->where('dose_number', $followUp['dose_number'])
+                ->where('dose_number', $doseNum)
                 ->where('status', '!=', 'cancelled')
                 ->latest('appointment_id')
                 ->first();

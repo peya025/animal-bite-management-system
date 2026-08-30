@@ -30,9 +30,13 @@ class AppNotification {
   AppNotificationKind get kind => switch (type) {
     'vaccination_reminder' ||
     'missed_appointment_recall' ||
+    'missed_triage_recall' ||
+    'missed_treatment_recall' ||
     'upcoming_appointment_reminder' =>
       AppNotificationKind.vaccination,
-    'booking_confirmation' || 'booking_cancelled' =>
+    'booking_confirmation' ||
+    'booking_cancelled' ||
+    'missed_consultation_recall' =>
       AppNotificationKind.appointment,
     'awareness' => AppNotificationKind.awareness,
     _ => AppNotificationKind.system,
@@ -42,7 +46,10 @@ class AppNotification {
     'booking_confirmation' => 'Appointment confirmed',
     'booking_cancelled' => 'Appointment cancelled',
     'vaccination_reminder' => 'Vaccination reminder',
-    'missed_appointment_recall' => 'Urgent: Missed Vaccination Recall',
+    'missed_triage_recall' => 'Urgent: Missed Doctor Triage & Day 0',
+    'missed_treatment_recall' => 'Urgent: Missed Follow-Up Injection',
+    'missed_consultation_recall' => 'Missed Doctor Consultation',
+    'missed_appointment_recall' => 'Urgent: Missed Appointment Recall',
     'upcoming_appointment_reminder' => 'Upcoming Vaccination Reminder',
     'digital_card_updated' => 'Vaccination card updated',
     'awareness' => 'Clinic health advisory',

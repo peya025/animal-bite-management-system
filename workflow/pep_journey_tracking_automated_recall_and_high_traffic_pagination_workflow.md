@@ -12,7 +12,7 @@
 Rabies Post-Exposure Prophylaxis (PEP) is a time-critical, multi-dose immunological regimen:
 $$\text{Day 0 (Initial)} \longrightarrow \text{Day 3} \longrightarrow \text{Day 7} \longrightarrow \text{Day 28} \quad (\pm\text{ Day 90 Booster})$$
 
-When a patient delays or misses a scheduled dose beyond the incubation safety threshold, they face an imminent risk of rabies viral breakthrough. This workflow specification outlines the end-to-end architecture built to track patient PEP adherence, separate patient intake channels, automatically recall defaulters without manual staff effort, and scale seamlessly for high-traffic clinics ($50+$ to $500+$ patients daily).
+When a patient delays or misses a scheduled dose beyond the incubation safety threshold, they face an imminent risk of rabies viral breakthrough. This workflow specification outlines the end-to-end architecture built to track patient PEP adherence, separate patient intake channels, automatically recall defaulters without manual staff effort, scale seamlessly for high-traffic clinics ($50+$ to $500+$ patients daily), and ensure that all scheduled appointments automatically respect the clinic's operating days and hours.
 
 ---
 
@@ -61,7 +61,44 @@ When a patient delays or misses a scheduled dose beyond the incubation safety th
 
 ---
 
-## 🤖 4. Automated Background Recall Engine
+## 🕒 4. Operating Hours & Date Drift Resolution Rules (Sequential Cascade)
+
+> [!IMPORTANT]
+> **Core Principle**: Vaccine schedules are strictly constrained by the operating days and hours of the clinic. When an ideal dose date falls on a closed day, the schedule is automatically moved forward to the next open clinic day, and all subsequent follow-up doses cascade forward to maintain the mandatory clinical interval.
+
+```
+       Ideal Dose 1 (Day 0)  ────────> Administered Wed, Aug 26
+               │
+               ▼ (+3 days)
+       Ideal Dose 2 (Day 3)  ────────> Aug 29 (Saturday CLOSED)
+               │                       • Closed Sat, Sun, Mon
+               ▼ (+3d drift)
+       Resolved Dose 2       ────────> Tuesday, Sep 1 (OPEN)
+               │
+               ▼ (+4 to 7 days minimum interval cascade)
+       Resolved Dose 3 (Day 7) ──────> Tuesday, Sep 8 (OPEN)  [NOT Sep 2!]
+               │
+               ▼ (+21 days minimum interval cascade)
+       Resolved Dose 4 (Day 28) ─────> Tuesday, Sep 29 (OPEN)
+```
+
+### A. Mandatory Clinical Minimum Intervals Enforced:
+1. **Day 0 $\rightarrow$ Day 3**: Minimum 3 days
+2. **Day 3 $\rightarrow$ Day 7**: **Minimum 4 to 7 days** (Prevents unsafe 1-day gaps when Day 3 is shifted)
+3. **Day 7 $\rightarrow$ Day 28**: **Minimum 14 to 21 days**
+4. **Day 28 $\rightarrow$ Booster 1 (90)**: **Minimum 62 to 90 days**
+5. **Booster 1 $\rightarrow$ Booster 2 (365)**: **Minimum 275 to 365 days**
+
+### B. Audit Trail & Explanation Reason
+Every shifted appointment stores:
+- `ideal_date`: The theoretical unshifted clinical calendar target.
+- `schedule_drift_days`: Exact number of days shifted (e.g. `+3`).
+- `schedule_adjustment_reason`: Human-readable explanation shown on the patient's digital card and mobile calendar:  
+  *`"Saturday non-operating schedule (Moved +3d to Tue, Sep 1, 2026)"`*
+
+---
+
+## 🤖 5. Automated Background Recall Engine
 
 ### A. Daily Cron Execution (`routes/console.php`)
 ```php
@@ -83,7 +120,7 @@ Schedule::command('appointments:auto-recall')->dailyAt('08:00');
 
 ---
 
-## 🚀 5. High-Traffic Anti-Overload Architecture
+## 🚀 6. High-Traffic Anti-Overload Architecture
 
 When handling **50+ to 500+ daily patients**, the following mechanisms prevent browser lag, DOM bloat, and server strain:
 
@@ -97,7 +134,7 @@ When handling **50+ to 500+ daily patients**, the following mechanisms prevent b
 
 ---
 
-## 🎨 6. UI Design System & Hugeicons Standard
+## 🎨 7. UI Design System & Hugeicons Standard
 
 - **100% Vector Icons (Emoji-Free)**:
   - All text emojis have been replaced with standard vector icons from `@hugeicons/core-free-icons` (`Medicine01Icon`, `Calendar03Icon`, `SmartPhone01Icon`, `AlertCircleIcon`, `FlashIcon`, `Megaphone01Icon`, `MailSend01Icon`, `UserMultiple02Icon`, etc.).
@@ -106,12 +143,13 @@ When handling **50+ to 500+ daily patients**, the following mechanisms prevent b
 
 ---
 
-## 📝 7. Release & Commit Summary
+## 📝 8. Release & Commit Summary
 
 ```text
 feat(vaccinations): implement PEP journey stepper matrix, automated missed recall & high-traffic pagination
 
 - Add visual 4-stage PEP dose stepper matrix (Day 0 -> Day 3 -> Day 7 -> Day 28) with live progress tracking
+- Implement sequential cascade interval scheduling ensuring vaccine appointments shift to open clinic operating days while maintaining mandatory WHO minimum gaps
 - Implement multi-channel recall engine (SMS, Email, and In-App Push) with audit logging in appointment_reminders table
 - Add automated daily background scheduler (php artisan appointments:auto-recall) running at 8:00 AM for advance reminders and missed recalls
 - Add dedicated navigation tabs: PEP Stepper Matrix, Today's Injections, Online Bookings, and Missed / Defaulter Recall

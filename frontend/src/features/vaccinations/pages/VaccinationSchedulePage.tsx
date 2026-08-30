@@ -206,11 +206,22 @@ export default function VaccinationSchedulePage() {
   const handleOpenRecall = (patient: PatientJourney) => {
     setRecallTarget(patient);
     setRecallChannel('all');
-    const doseLabel = patient.next_appointment?.label || 'Next Dose';
+    const isInitialTriage = !patient.bite_incident && (patient.next_appointment?.dose_number === 0 || !patient.next_appointment?.dose_number);
+    const doseNum = patient.next_appointment?.dose_number || 3;
+    const station = isInitialTriage
+      ? 'Doctor Triage & Bite Assessment (Day 0 Initial Dose)'
+      : `Treatment Desk (Day ${doseNum} Follow-Up Injection)`;
     const clinicName = 'Tagoloan Animal Bite Treatment Center';
-    setRecallMessage(
-      `CRITICAL REMINDER: ${patient.full_name}, you missed your scheduled Rabies ${doseLabel}. Rabies is 100% fatal without complete PEP. Please return to ${clinicName} immediately for your catch-up dose.`
-    );
+
+    if (isInitialTriage) {
+      setRecallMessage(
+        `URGENT CLINICAL ADVISORY: ${patient.full_name}, you missed your Doctor Triage & Initial Assessment (Day 0). Prompt bite wound evaluation and immediate first dose are critical for rabies prevention. Please proceed to Doctor Triage at ${clinicName}.`
+      );
+    } else {
+      setRecallMessage(
+        `URGENT REMINDER: ${patient.full_name}, you missed your scheduled ${station}. Rabies PEP requires uninterrupted on-schedule doses to maintain active immunity. Please proceed to the Treatment Desk at ${clinicName} for your catch-up injection.`
+      );
+    }
   };
 
   // Submit single recall
@@ -942,11 +953,11 @@ export default function VaccinationSchedulePage() {
                               {patient.next_appointment.label} on {patient.next_appointment.scheduled_date_formatted}
                             </strong>
                           </Typography>
-                          {isMissed && (
+                          {isMissed && patient.next_appointment && patient.next_appointment.late_days > 0 && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#dc2626' }}>
                               <HugeiconsIcon icon={AlertCircleIcon} size={13} />
                               <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                                {patient.next_appointment.late_days} days overdue
+                                {Math.abs(patient.next_appointment.late_days)} {Math.abs(patient.next_appointment.late_days) === 1 ? 'day' : 'days'} overdue
                               </Typography>
                             </Box>
                           )}

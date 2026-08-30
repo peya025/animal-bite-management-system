@@ -15,6 +15,14 @@ class BiteIncident extends Model
     protected $fillable = [
         'clinic_id',
         'patient_id',
+        'episode_number',
+        'episode_type',
+        'is_previously_vaccinated',
+        'verification_source',
+        'external_vaccine_proof_path',
+        'external_proof_reviewed_by',
+        'external_proof_reviewed_at',
+        'rig_decision_reason',
         'case_number',
         'bite_date',
         'bite_place',
@@ -28,9 +36,13 @@ class BiteIncident extends Model
         'animal_observation_status',
         'site_number',
         'wound_description',
+        'wound_condition',
         'photo_path',
         'referred_from',
         'status',
+        'transferred_to_facility',
+        'transferred_at',
+        'transfer_reason',
         'remarks',
         'created_by',
     ];
@@ -39,7 +51,30 @@ class BiteIncident extends Model
         'bite_date' => 'date:Y-m-d',
         'site_washed' => 'boolean',
         'animal_captured' => 'boolean',
+        'is_previously_vaccinated' => 'boolean',
+        'external_proof_reviewed_at' => 'datetime',
+        'transferred_at' => 'datetime',
     ];
+
+    public function isReExposure(): bool
+    {
+        return $this->episode_type === 're_exposure';
+    }
+
+    public function isPrimary(): bool
+    {
+        return $this->episode_type === 'primary';
+    }
+
+    public function isTransferredOut(): bool
+    {
+        return $this->status === 'transferred_out' || !empty($this->transferred_to_facility);
+    }
+
+    public function externalProofReviewer()
+    {
+        return $this->belongsTo(User::class, 'external_proof_reviewed_by');
+    }
 
     /**
      * Boot method - auto-generate case number

@@ -172,7 +172,14 @@ class VaccinationRecordController extends Controller
                     ->latest('treatment_id')
                     ->first();
 
+                $isExternal = !empty($doseData['is_external']);
+                $externalFacility = trim((string) ($doseData['external_facility_name'] ?? ''));
+
                 $baseRemarks = 'Given by: ' . ($doseData['given_by'] ?? '');
+                $remarks = $isExternal
+                    ? trim(($externalFacility ? "External facility: {$externalFacility} | " : "External facility | ") . $baseRemarks)
+                    : trim($baseRemarks . ' | Inventory units used: ' . $inventoryUnitsUsed . ($inventoryUnitsUsed === 0 ? ' (Shared Open Vial)' : ''));
+
                 $treatmentData = [
                     'clinic_id' => $clinicId,
                     'patient_id' => $patientId,
@@ -185,10 +192,12 @@ class VaccinationRecordController extends Controller
                     'administered_by' => $userId,
                     'administered_at' => now(),
                     'status' => 'completed',
+                    'is_external' => $isExternal,
+                    'external_facility_name' => $isExternal ? $externalFacility : null,
                     'vaccine_brand' => $selectedVaccineType,
                     'vaccine_generic' => $selectedVaccineType,
-                    'inventory_units_used' => $inventoryUnitsUsed,
-                    'remarks' => trim($baseRemarks . ' | Inventory units used: ' . $inventoryUnitsUsed . ($inventoryUnitsUsed === 0 ? ' (Shared Open Vial)' : '')),
+                    'inventory_units_used' => $isExternal ? 0 : $inventoryUnitsUsed,
+                    'remarks' => $remarks,
                 ];
 
                 // If already completed/administered, preserve its original clinical data (date, vaccine, route, staff)
@@ -205,6 +214,8 @@ class VaccinationRecordController extends Controller
                     $treatmentData['administered_at'] = $existing->administered_at ?? $treatmentData['administered_at'];
                     $treatmentData['signature'] = $existing->signature ?? $treatmentData['signature'];
                     $treatmentData['remarks'] = $existing->remarks ?? $treatmentData['remarks'];
+                    $treatmentData['is_external'] = $existing->is_external ?? $treatmentData['is_external'];
+                    $treatmentData['external_facility_name'] = $existing->external_facility_name ?? $treatmentData['external_facility_name'];
                 } elseif ($existing && $existing->inventory_id) {
                     $selectedVaccineType = $existing->vaccine_brand ?: $existing->vaccine_generic ?: $selectedVaccineType;
                     $inventoryUnitsUsed = (int) ($existing->inventory_units_used ?? $inventoryUnitsUsed);
@@ -219,7 +230,7 @@ class VaccinationRecordController extends Controller
 
                 $savedDoseNumbers[] = $doseNumber; // track saved doses
 
-                if (!$record->inventory_id) {
+                if (!$record->inventory_id && !$isExternal) {
                     $usage = $inventoryUsageService->administerDoseAutomated(
                         $clinicId,
                         $userId,
@@ -280,7 +291,7 @@ class VaccinationRecordController extends Controller
                 'exposure_category'  => $request->exposure_category,
                 'mode_of_exposure'   => $modeOfExposure,
                 'body_part_exposed'  => $bodyPartExposed,
-                'animal_type'        => $request->animal_type,
+                'animal_type'        => $request->animal_type ?: 'dog',
                 'animal_type_others' => $request->animal_type_other,
                 'past_bite_history'  => $request->past_history_bite === 'yes',
                 'past_pep_completed' => $request->pep_completed === 'yes',
@@ -345,7 +356,9 @@ class VaccinationRecordController extends Controller
             $biteDate = $request->date_of_exposure ?: ($request->date_treatment_started ?: now()->toDateString());
             $animalType = $request->animal_type === 'other' ? ($request->animal_type_other ?: 'other') : ($request->animal_type ?: 'dog');
 
-            $incident = BiteIncident::where('patient_id', $patientId)->first();
+            $incident = $biteId 
+                ? BiteIncident::where('clinic_id', $clinicId)->find($biteId)
+                : BiteIncident::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest('bite_id')->first();
             if (!$incident) {
                 $incident = BiteIncident::create([
                     'clinic_id'     => $clinicId,
@@ -376,9 +389,10 @@ class VaccinationRecordController extends Controller
 
             // ──────────────────────────────────────────────────────────────
             // ✨ AUTO-COMPLETE TODAY'S ACTIVE QUEUE FOR TREATMENT NURSE
-            // Only mark complete when Day 0 (the initial dose) is recorded
+            // Automatically marks today's active queue ticket as completed whenever
+            // ANY administered dose is recorded by the Nurse in Form 3.
             // ──────────────────────────────────────────────────────────────
-            if (in_array(0, $savedDoseNumbers)) {
+            if (!empty($savedDoseNumbers)) {
                 if (!empty($request->queue_id)) {
                     $todayQueue = Queue::where('clinic_id', $clinicId)
                         ->where('queue_id', $request->queue_id)
@@ -563,22 +577,39 @@ class VaccinationRecordController extends Controller
         $scheduleService = app(ClinicScheduleService::class);
         $clinic = \App\Models\Clinic::find($clinicId);
 
-        // Define follow-up schedule (WHO Essen Regimen)
-        $schedule = [
-            ['period' => 'Day 3', 'days_after' => 3, 'dose_number' => 3],
-            ['period' => 'Day 7', 'days_after' => 7, 'dose_number' => 7],
-            ['period' => 'Day 28', 'days_after' => 28, 'dose_number' => 28],
-            ['period' => 'Booster 1', 'days_after' => 90, 'dose_number' => 90],
-            ['period' => 'Booster 2', 'days_after' => 365, 'dose_number' => 365],
-        ];
+        $isReExposure = false;
+        if (!empty($biteId)) {
+            $incident = \App\Models\BiteIncident::find($biteId);
+            $isReExposure = $incident && $incident->isReExposure();
+        }
+        if (!$isReExposure && !empty($request->episode_type)) {
+            $isReExposure = $request->episode_type === 're_exposure';
+        }
 
-        $doseIntervals = [
-            3   => 3,   // 3 days after Day 0
-            7   => 4,   // 4 days after Day 3
-            28  => 21,  // 21 days after Day 7
-            90  => 62,  // 62 days after Day 28 (Booster 1)
-            365 => 275, // 275 days after Day 90 (Booster 2)
-        ];
+        // Define follow-up schedule (2-Dose Booster for re-exposure vs Standard PEP)
+        if ($isReExposure) {
+            $schedule = [
+                ['period' => 'Day 3', 'days_after' => 3, 'dose_number' => 3],
+            ];
+            $doseIntervals = [
+                3 => 3,
+            ];
+        } else {
+            $schedule = [
+                ['period' => 'Day 3', 'days_after' => 3, 'dose_number' => 3],
+                ['period' => 'Day 7', 'days_after' => 7, 'dose_number' => 7],
+                ['period' => 'Day 28', 'days_after' => 28, 'dose_number' => 28],
+                ['period' => 'Booster 1', 'days_after' => 90, 'dose_number' => 90],
+                ['period' => 'Booster 2', 'days_after' => 365, 'dose_number' => 365],
+            ];
+            $doseIntervals = [
+                3   => 3,   // 3 days after Day 0
+                7   => 4,   // 4 days after Day 3
+                28  => 21,  // 21 days after Day 7
+                90  => 62,  // 62 days after Day 28 (Booster 1)
+                365 => 275, // 275 days after Day 90 (Booster 2)
+            ];
+        }
 
         $previousResolvedDate = $day0Date->copy();
 
@@ -623,9 +654,12 @@ class VaccinationRecordController extends Controller
                 ? "Auto-scheduled: {$followUp['period']} dose ({$resolution['adjustment_reason']})"
                 : "Auto-scheduled: {$followUp['period']} dose";
 
-            // Check if appointment already exists
+            // Check if appointment already exists for this episode
             $existing = \App\Models\Appointment::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
+                ->when($biteId, function ($q) use ($biteId) {
+                    return $q->where('bite_id', $biteId);
+                })
                 ->where('dose_number', $doseNum)
                 ->where('status', '!=', 'cancelled')
                 ->latest('appointment_id')

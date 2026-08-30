@@ -94,16 +94,16 @@ export default function PatientList() {
     }
   }, []);
 
-  // Helper to distinguish online appointment patients from walk-in patients
+  // Helper to distinguish online appointment / mobile patients from walk-in patients
   const isOnlinePatient = (p: Patient) => {
     const biteIntakes = (p as any).bite_intakes || (p as any).biteIntakes || [];
     const hasIntake = Boolean(biteIntakes.length > 0);
     const hasConfirmedBooking = Boolean(
       (p as any).appointments?.some((a: any) => a.booked_by_account_id && a.status !== 'cancelled')
     );
-    const isMobileRegistered = p.registration_source === 'mobile' || Boolean((p as any).accounts && (p as any).accounts.length > 0);
+    const isMobileRegistered = p.registration_source === 'mobile' || p.registration_source === 'online' || Boolean((p as any).accounts && (p as any).accounts.length > 0);
 
-    return hasIntake || hasConfirmedBooking || (isMobileRegistered && Boolean((p as any).appointments && (p as any).appointments.length > 0));
+    return hasIntake || hasConfirmedBooking || isMobileRegistered;
   };
 
   // Debounce search input (wait 400ms after user stops typing)
@@ -209,13 +209,13 @@ export default function PatientList() {
     }
   };
 
-  const handleCheckIn = async (p: Patient) => {
+  const handleCheckIn = async (p: Patient, isNewBiteCase: boolean = false) => {
     const patientId = p.patient_id || p.id;
     setCheckingInId(patientId);
     try {
       const hasBiteIncident = Boolean((p as any).bite_incidents?.length || (p as any).biteIncidents?.length);
       const hasTreatmentRecord = Boolean(p.latest_treatment_record);
-      const isInitialVisit = !hasBiteIncident && !hasTreatmentRecord;
+      const isInitialVisit = isNewBiteCase || (!hasBiteIncident && !hasTreatmentRecord);
       const visitType = isInitialVisit ? 'new_case' : 'vaccination';
 
       const res = await api.post('/queue', {
@@ -242,46 +242,110 @@ export default function PatientList() {
 
   const getLiveStatus = (p: Patient): { label: string; icon?: any; bg: string; color: string; isPastAppt?: boolean } => {
     const activeQueue = (p as any).queues?.[0];
-    const appt = (p as any).appointments?.[0];
+    const appts: any[] = (p as any).appointments || [];
+    const todayDate = new Date();
+    const todayStr = todayDate.toDateString();
 
+    // 1. Active Queue Status (Highest priority)
     if (activeQueue) {
       if (activeQueue.status === 'waiting') {
-        return { label: `Queue #${activeQueue.queue_number || ''} (Waiting in Queue)`, icon: Clock01Icon, bg: '#d1fae5', color: '#065f46' };
+        const station = activeQueue.visit_type === 'new_case' ? 'Waiting in Triage' : 'Waiting in Treatment';
+        return { label: `Queue #${activeQueue.queue_number || ''} (${station})`, icon: Clock01Icon, bg: '#d1fae5', color: '#065f46' };
       }
       if (activeQueue.status === 'in_consultation' || activeQueue.status === 'called' || activeQueue.status === 'serving') {
-        return { label: `Queue #${activeQueue.queue_number || ''} (In Triage/Exam)`, icon: Stethoscope02Icon, bg: '#eff6ff', color: '#1d4ed8' };
+        const station = activeQueue.visit_type === 'new_case' ? 'In Doctor Triage' : 'In Treatment';
+        return { label: `Queue #${activeQueue.queue_number || ''} (${station})`, icon: Stethoscope02Icon, bg: '#eff6ff', color: '#1d4ed8' };
+      }
+      if (activeQueue.status === 'second_chance' || activeQueue.status === 'final_recall') {
+        return { label: `Queue #${activeQueue.queue_number || ''} (Recall at Triage)`, icon: AlertCircleIcon, bg: '#fef3c7', color: '#92400e', isPastAppt: true };
+      }
+      if (activeQueue.status === 'no_response') {
+        return { label: `Queue #${activeQueue.queue_number || ''} (No Response at Triage)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
+      }
+      if (activeQueue.status === 'absent') {
+        return { label: `Queue #${activeQueue.queue_number || ''} (Absent at Triage)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
       }
     }
 
-    if (appt && appt.status === 'scheduled') {
-      const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
-      const todayDate = new Date();
-      const isToday = apptDate.toDateString() === todayDate.toDateString();
-      const isPast = apptDate < todayDate && !isToday;
+    // 2. Check for Missed / Overdue Appointments across all appointments
+    const missedAppt = appts.find(a => {
+      if (a.status === 'missed') return true;
+      if (a.status === 'scheduled') {
+        const d = new Date(a.scheduled_date || a.appointment_date);
+        return d < todayDate && d.toDateString() !== todayStr;
+      }
+      return false;
+    });
+
+    if (missedAppt) {
+      const apptDate = new Date(missedAppt.scheduled_date || missedAppt.appointment_date);
       const lateDays = Math.max(1, Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24)));
-
-      if (isToday) {
-        return { label: `Appt Today (${appt.time_slot || 'regular'})`, icon: Clock01Icon, bg: '#fef3c7', color: '#92400e' };
-      }
-      if (isPast) {
-        return { label: `Missed Schedule (${apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${lateDays}d ago)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
-      }
-      return { label: `Next Appt: ${apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`, icon: Calendar03Icon, bg: '#f0fdf4', color: '#166534' };
+      const doseLabel = missedAppt.dose_number !== undefined ? `Day ${missedAppt.dose_number}` : 'Dose';
+      return {
+        label: `Missed ${doseLabel} (${apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${lateDays}d ago)`,
+        icon: AlertCircleIcon,
+        bg: '#fef2f2',
+        color: '#dc2626',
+        isPastAppt: true,
+      };
     }
 
+    // 3. Check for Appointments Scheduled for Today
+    const todayAppt = appts.find(a => {
+      if (a.status !== 'scheduled') return false;
+      const d = new Date(a.scheduled_date || a.appointment_date);
+      return d.toDateString() === todayStr;
+    });
+
+    if (todayAppt) {
+      const doseLabel = todayAppt.dose_number !== undefined ? `Day ${todayAppt.dose_number}` : 'Dose';
+      return {
+        label: `Appt Today: ${doseLabel} (${todayAppt.time_slot || 'regular'})`,
+        icon: Clock01Icon,
+        bg: '#fef3c7',
+        color: '#92400e',
+      };
+    }
+
+    // 4. Check for Next Upcoming Future Appointment (closest future date)
+    const upcomingAppts = appts.filter(a => {
+      if (a.status !== 'scheduled') return false;
+      const d = new Date(a.scheduled_date || a.appointment_date);
+      return d > todayDate && d.toDateString() !== todayStr;
+    });
+
+    if (upcomingAppts.length > 0) {
+      upcomingAppts.sort((a, b) => {
+        const dateA = new Date(a.scheduled_date || a.appointment_date).getTime();
+        const dateB = new Date(b.scheduled_date || b.appointment_date).getTime();
+        return dateA - dateB;
+      });
+      const nextAppt = upcomingAppts[0];
+      const apptDate = new Date(nextAppt.scheduled_date || nextAppt.appointment_date);
+      const doseLabel = nextAppt.dose_number !== undefined ? `Day ${nextAppt.dose_number}` : 'Dose';
+      return {
+        label: `Next Appt: ${doseLabel} (${apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
+        icon: Calendar03Icon,
+        bg: '#f0fdf4',
+        color: '#166534',
+      };
+    }
+
+    // 5. Administered Treatment Record Summary (when no pending appointments)
     const record = (p as any).latest_treatment_record;
     if (record?.dose_number !== undefined && record?.dose_number !== null) {
       const doseName = record.dose_number === 0 ? 'Day 0 (Initial) Done' : (record.dose_number >= 28 ? 'Regimen Completed' : `Day ${record.dose_number} Done`);
       return { label: doseName, icon: CheckmarkCircle02Icon, bg: '#ecfdf5', color: '#059669' };
     }
 
+    // 6. Pre-Triage States (No bite intake or treatment record yet)
     const hasTriage = Boolean((p as any).bite_incidents?.length || (p as any).biteIncidents?.length || record);
     if (!hasTriage) {
       if (p.registration_source === 'mobile' || Boolean((p as any).accounts?.length)) {
         return { label: 'Pre-Registered (Awaiting Intake)', icon: UserMultiple02Icon, bg: '#fef3c7', color: '#92400e' };
       }
       const regDate = new Date(p.created_at);
-      const isRegisteredToday = regDate.toDateString() === new Date().toDateString();
+      const isRegisteredToday = regDate.toDateString() === todayStr;
       if (!isRegisteredToday) {
         return { label: 'Registered (Awaiting Triage)', icon: AlertCircleIcon, bg: '#fef3c7', color: '#92400e', isPastAppt: true };
       }
@@ -371,7 +435,7 @@ export default function PatientList() {
                 <span style={{ color: '#6b7280' }}>Patients</span>
               </div>
             </div>
-            <button className="pm-add-btn" onClick={() => setShowAddModal(true)}>
+            <button className="pm-add-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowAddModal(true); }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
@@ -469,7 +533,7 @@ export default function PatientList() {
                   </button>
                 )}
               </div>
-              <button className="pm-print-btn" onClick={() => setShowPrintModal(true)} title="Print patient list">
+              <button className="pm-print-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowPrintModal(true); }} title="Print patient list">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="6 9 6 2 18 2 18 9"/>
                   <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
@@ -493,7 +557,7 @@ export default function PatientList() {
                 <button
                   className="pm-btn-bulk-send"
                   disabled={bulkInviting}
-                  onClick={() => setShowBulkConfirm(true)}
+                  onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowBulkConfirm(true); }}
                 >
                   {bulkInviting ? 'Sending Invites...' : `Send Portal Invites (${selectedWalkinIds.length})`}
                 </button>
@@ -581,13 +645,23 @@ export default function PatientList() {
                     const statusInfo = getLiveStatus(p);
                     const isOnline = isOnlinePatient(p);
                     const activeQueue = (p as any).queues?.[0];
+                    const latestRecord = p.latest_treatment_record;
+                    const hasDosesAdministered = Boolean(latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined);
                     const hasCompletedTriage = Boolean(
                       (p as any).bite_incidents?.length ||
                       (p as any).biteIncidents?.length ||
-                      p.latest_treatment_record
+                      hasDosesAdministered
                     );
-                    const isFollowUp = hasCompletedTriage;
-                    const canCheckIn = !activeQueue && !isFollowUp;
+                    const latestIncident = (p as any).bite_incidents?.[0] || (p as any).biteIncidents?.[0];
+                    const hasPendingAppointments = Boolean(
+                      (p as any).appointments?.some((a: any) => a.status === 'scheduled') ||
+                      p.upcomingAppointment
+                    );
+                    const hasActiveIncident = latestIncident && (latestIncident.status === 'active' || latestIncident.status === 'in_progress');
+                    const isOngoingTreatment = hasActiveIncident || hasPendingAppointments || (hasDosesAdministered && latestRecord.dose_number < 28);
+                    const hasCompletedAllDoses = hasDosesAdministered && latestRecord.dose_number >= 28 && !hasPendingAppointments;
+                    const isFollowUp = (hasDosesAdministered || hasCompletedTriage) && isOngoingTreatment;
+                    const canCheckIn = !activeQueue && !hasCompletedTriage;
                     const patientId = p.patient_id || p.id;
 
                     return (
@@ -643,7 +717,7 @@ export default function PatientList() {
                           </span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <div className="pm-actions" style={{ justifyContent: 'center' }}>
+                          <div className="pm-actions" style={{ justifyContent: 'center', gap: '6px' }}>
                             {canCheckIn ? (
                               <button
                                 className="pm-btn-checkin"
@@ -651,7 +725,26 @@ export default function PatientList() {
                                 disabled={checkingInId === patientId}
                                 onClick={() => handleCheckIn(p)}
                               >
-                                {checkingInId === patientId ? 'Checking in...' : (statusInfo.isPastAppt ? 'Check In to Triage' : 'Check In to Triage')}
+                                {checkingInId === patientId ? 'Checking in...' : 'Check In to Triage'}
+                              </button>
+                            ) : hasCompletedAllDoses && !activeQueue ? (
+                              <button
+                                className="pm-btn-checkin"
+                                title="Patient completed previous doses and returned with a new animal bite exposure"
+                                style={{
+                                  backgroundColor: '#0284c7',
+                                  borderColor: '#0284c7',
+                                  color: '#ffffff',
+                                  padding: '4px 9px',
+                                  fontSize: '11px',
+                                  borderRadius: '6px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                                disabled={checkingInId === patientId}
+                                onClick={() => handleCheckIn(p, true)}
+                              >
+                                {checkingInId === patientId ? 'Checking in...' : '+ New Bite (Triage)'}
                               </button>
                             ) : isFollowUp && !activeQueue ? (
                               <span
@@ -675,7 +768,8 @@ export default function PatientList() {
                               <button
                                 className="pm-btn-invite"
                                 title="Invite Walk-in Patient to Mobile Portal"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  (e.currentTarget as HTMLElement)?.blur();
                                   setSelectedInvitePatient(p);
                                   setShowInviteModal(true);
                                 }}
@@ -701,7 +795,8 @@ export default function PatientList() {
                             )}
                             <button
                               className="pm-btn-view"
-                              onClick={() => {
+                              onClick={(e) => {
+                                (e.currentTarget as HTMLElement)?.blur();
                                 setSelectedViewPatient(p);
                                 setShowViewModal(true);
                               }}

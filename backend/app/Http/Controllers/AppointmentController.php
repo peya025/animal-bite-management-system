@@ -220,6 +220,9 @@ class AppointmentController extends Controller
                         'biteIntakes' => function ($bi) {
                             $bi->latest();
                         },
+                        'biteIncidents' => function ($bi) {
+                            $bi->latest();
+                        },
                         'latestTreatmentRecord'
                     ]);
                     break;

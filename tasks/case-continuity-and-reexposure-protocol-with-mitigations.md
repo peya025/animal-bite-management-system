@@ -230,6 +230,30 @@ In the patient's mobile app under **Vaccination Card**:
 
 ---
 
+## 🏥 Part 3: Cross-Clinic Continuity (Transferred-In & Transferred-Out Protocols)
+
+### 1. Scenario A: Incoming Transfer (Patient started Day 0/3 elsewhere, continuing here)
+* **Recording External Doses in Form 3**:
+  - `is_external` (BOOLEAN default false) and `external_facility_name` (VARCHAR NULL) on `treatment_records`.
+  - **Zero Stock Deduction**: External doses do NOT deduct local clinic inventory.
+  - **Immutability**: External doses are saved and locked with a `Transferred-In` badge.
+* **Auto-Scheduling Remaining Regimen**:
+  - The scheduler detects completed external doses (e.g. Day 0 given elsewhere) and auto-generates appointments **only for the remaining required doses** (Day 3, Day 7, Day 28) aligned with clinic operating hours and mandatory intervals.
+
+### 2. Scenario B: Outgoing Transfer (Patient transferring to another clinic for Day 3/7/28)
+* **1-Click DOH Transfer & Continuity Referral Slip**:
+  - Generates printable official DOH Transfer Slip containing:
+    - Master Case # and Patient Demographics
+    - Exposure Category, Animal Status, Wound Location
+    - Complete record of doses administered locally (Dates, Brand, Lot #, Route, RIG Status)
+    - Prescribed due dates for remaining doses
+    - Secure verification token / QR Code.
+* **Status & Queue Hygiene**:
+  - Updates episode status to `transferred_out` (with destination facility and date).
+  - Cancels pending local automated reminder alarms while preserving full medical history on web and mobile.
+
+---
+
 ## 🛠️ Step-by-Step Implementation Roadmap
 
 ### Phase 1: Frontend UI & Filter Polish (Completed)

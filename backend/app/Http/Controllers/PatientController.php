@@ -31,7 +31,7 @@ class PatientController extends Controller
                     $bi->latest('bite_date');
                 },
                 'appointments' => function ($app) {
-                    $app->latest('scheduled_date');
+                    $app->orderBy('scheduled_date', 'asc');
                 },
                 'biteIntakes' => function ($bi) {
                     $bi->latest();
@@ -39,7 +39,7 @@ class PatientController extends Controller
                 'accounts',
                 'queues' => function ($q) {
                     $q->whereDate('created_at', \Carbon\Carbon::today())
-                      ->whereIn('status', ['waiting', 'in_consultation', 'serving', 'called'])
+                      ->whereIn('status', ['waiting', 'in_consultation', 'serving', 'called', 'no_response', 'absent', 'second_chance', 'final_recall'])
                       ->latest();
                 }
             ]);

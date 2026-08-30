@@ -41,6 +41,8 @@ class TreatmentRecord extends Model
         'signature',
         'outcome',
         'status',
+        'is_external',
+        'external_facility_name',
         'scheduled_by',
         // General Consultation Fields
         'mode_of_transaction',

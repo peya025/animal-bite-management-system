@@ -219,6 +219,83 @@ class Patient extends Model
     }
 
     /**
+     * Get completed PEP episodes for lifetime re-exposure decision support
+     */
+    public function completedBiteEpisodes()
+    {
+        return $this->biteIncidents()
+            ->where('status', 'completed')
+            ->orderBy('episode_number', 'desc');
+    }
+
+    /**
+     * Get summary of immunization history for Doctor Triage Form 2 decision matrix
+     */
+    public function getImmunizationHistorySummary(): array
+    {
+        // 1. Check for completed past system episodes or >= 4 completed doses
+        $totalEpisodes = $this->biteIncidents()->count();
+        $maxEpisode = $this->biteIncidents()->max('episode_number') ?? 1;
+
+        $completedPastEpisode = $this->biteIncidents()
+            ->where('episode_number', '<', $maxEpisode)
+            ->where('status', 'completed')
+            ->latest('bite_date')
+            ->first();
+
+        // Count completed doses in treatment records
+        $completedDoseCount = $this->treatmentRecords()
+            ->where('status', 'completed')
+            ->whereNotNull('dose_number')
+            ->count();
+
+        if ($completedPastEpisode || ($totalEpisodes > 1 && $completedDoseCount >= 3) || $completedDoseCount >= 4) {
+            $latestDose = $this->treatmentRecords()
+                ->where('status', 'completed')
+                ->whereNotNull('dose_number')
+                ->latest('treatment_date')
+                ->first();
+
+            return [
+                'has_history' => true,
+                'confidence' => 'system_record',
+                'confidence_label' => 'System Record — Verified (Completed Series)',
+                'completed_doses' => $completedDoseCount,
+                'last_dose_date' => $latestDose ? $latestDose->treatment_date : ($completedPastEpisode ? $completedPastEpisode->bite_date : null),
+                'episode_number' => $completedPastEpisode ? $completedPastEpisode->episode_number : 1,
+                'can_receive_booster' => true,
+                'requires_rig' => false,
+            ];
+        }
+
+        // 2. Check if details indicate past bite or vaccination
+        $details = $this->details;
+        if ($details && !empty($details->past_pep_completed)) {
+            return [
+                'has_history' => true,
+                'confidence' => 'patient_self_report_unverified',
+                'confidence_label' => 'Patient-Reported History (Unverified External)',
+                'completed_doses' => 0,
+                'last_dose_date' => null,
+                'episode_number' => null,
+                'can_receive_booster' => false, // Requires proof review first
+                'requires_rig' => true, // Conservative default
+            ];
+        }
+
+        return [
+            'has_history' => false,
+            'confidence' => null,
+            'confidence_label' => 'No Prior Immunization Record Found',
+            'completed_doses' => 0,
+            'last_dose_date' => null,
+            'episode_number' => null,
+            'can_receive_booster' => false,
+            'requires_rig' => true,
+        ];
+    }
+
+    /**
      * Helper: Get pending vaccinations (scheduled treatments)
      */
     public function pendingVaccinations()

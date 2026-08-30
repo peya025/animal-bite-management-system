@@ -307,29 +307,74 @@ export default function PatientDetailsModal({
   const [activeTab, setActiveTab] = useState('form1');
   const [fullPatient, setFullPatient] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [episodes, setEpisodes] = useState<any[]>([]);
+  const [historySummary, setHistorySummary] = useState<any>(null);
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [checkInSuccess, setCheckInSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !patient) {
       setFullPatient(null);
+      setEpisodes([]);
+      setHistorySummary(null);
+      setSelectedEpisodeId(null);
       setActiveTab('form1');
+      setCheckInSuccess(null);
       return;
     }
     const patientId = (patient as any).patient_id || (patient as any).id;
     setLoadingDetails(true);
-    api.get(`/patients/${patientId}`)
-      .then(res => setFullPatient(res.data))
-      .catch(() => setFullPatient(patient))
-      .finally(() => setLoadingDetails(false));
+    Promise.all([
+      api.get(`/patients/${patientId}`).catch(() => null),
+      api.get(`/cases/patient/${patientId}/episodes`).catch(() => null),
+    ]).then(([pRes, epRes]) => {
+      if (pRes?.data) setFullPatient(pRes.data);
+      else setFullPatient(patient);
+
+      if (epRes?.data) {
+        setEpisodes(epRes.data.episodes || []);
+        setHistorySummary(epRes.data.summary || null);
+        if (epRes.data.episodes?.length > 0) {
+          setSelectedEpisodeId(epRes.data.episodes[0].bite_id);
+        }
+      }
+    }).finally(() => setLoadingDetails(false));
   }, [open, patient]);
 
   if (!patient) return null;
 
   const p = (fullPatient || patient) as any;
+  const currentEp = episodes.find((e) => e.bite_id === selectedEpisodeId) || episodes[0] || null;
+
+  const handleCheckInNewBite = async () => {
+    const patientId = p.patient_id || p.id;
+    setCheckingIn(true);
+    try {
+      const res = await api.post('/queue', {
+        patient_id: patientId,
+        visit_type: 'new_case',
+        queue_category: 'regular',
+        priority: 'normal',
+      });
+      setCheckInSuccess(`Successfully checked in to Doctor Triage (Queue #${res.data?.queue_number || '1'}).`);
+      setTimeout(() => {
+        setCheckInSuccess(null);
+        onClose();
+      }, 1500);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to check in to triage');
+    } finally {
+      setCheckingIn(false);
+    }
+  };
 
   const fakeEntry = {
     patient: p,
     patient_id: p.patient_id || p.id,
-    bite_id: null,
+    bite_id: currentEp?.bite_id || null,
+    incident: currentEp,
+    episode_type: currentEp?.episode_type || 'primary',
     status: 'completed',
   };
 
@@ -479,32 +524,104 @@ export default function PatientDetailsModal({
 
       <TabBar active={activeTab} onSelect={setActiveTab} />
 
+      {episodes.length > 1 && (
+        <Box sx={{ px: 3, py: 1.25, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+            Episodes / Incidents:
+          </Typography>
+          {episodes.map((ep) => {
+            const isSelected = (selectedEpisodeId || episodes[0]?.bite_id) === ep.bite_id;
+            return (
+              <Chip
+                key={ep.bite_id}
+                label={`Episode #${ep.episode_number} (${ep.episode_type === 're_exposure' ? 'Re-Exposure Booster' : 'Primary PEP'} • ${ep.status})`}
+                onClick={() => setSelectedEpisodeId(ep.bite_id)}
+                color={isSelected ? 'success' : 'default'}
+                variant={isSelected ? 'filled' : 'outlined'}
+                size="small"
+                sx={{ fontWeight: isSelected ? 700 : 500, fontSize: 11.5, cursor: 'pointer' }}
+              />
+            );
+          })}
+        </Box>
+      )}
+
+      {historySummary?.has_history && episodes.length > 1 && (
+        <Box sx={{ px: 3, py: 1, bgcolor: '#ecfdf5', borderBottom: '1px solid #a7f3d0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography sx={{ fontSize: 12, color: '#065f46', fontWeight: 600 }}>
+            🛡️ <strong>Immunization History Verified</strong>: Patient has documented rabies vaccination ({historySummary.confidence_label}).
+          </Typography>
+          <Chip
+            label={historySummary.can_receive_booster ? 'Booster Eligible (RIG Withheld)' : 'Primary PEP Required'}
+            size="small"
+            sx={{ bgcolor: '#d1fae5', color: '#047857', fontWeight: 700, fontSize: 10.5, height: 20 }}
+          />
+        </Box>
+      )}
+
+      {checkInSuccess && (
+        <Box sx={{ px: 3, py: 1.5, bgcolor: '#f0fdf4', borderBottom: '1px solid #bbf7d0', color: '#166534', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+          ✓ {checkInSuccess}
+        </Box>
+      )}
+
       <DialogContent sx={{ p: 0, fontFamily: 'inherit', minHeight: 380, bgcolor: '#f9fafb' }}>
         {renderTabContent()}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fff', justifyContent: 'flex-end', gap: 1 }}>
-        {activeTab === 'form1' && (
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fff', justifyContent: 'space-between', gap: 1 }}>
+        {(() => {
+          const isCompletedSeries = episodes.length > 0 && episodes.every((e: any) => e.status === 'completed');
+          const hasActiveTreatment = episodes.some((e: any) => e.status === 'active' || e.status === 'in_progress');
+          const canCheckInNewBite = (isCompletedSeries || historySummary?.has_history) && !hasActiveTreatment;
+
+          if (!canCheckInNewBite) {
+            return <div />;
+          }
+
+          return (
+            <Button
+              variant="contained"
+              onClick={handleCheckInNewBite}
+              disabled={checkingIn}
+              sx={{
+                bgcolor: '#0284c7',
+                '&:hover': { bgcolor: '#0369a1' },
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 12.5,
+                textTransform: 'none',
+                fontFamily: 'inherit',
+              }}
+            >
+              {checkingIn ? 'Checking In…' : '+ Check In for New Bite Episode (Triage)'}
+            </Button>
+          );
+        })()}
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {activeTab === 'form1' && (
+            <Button
+              variant="outlined"
+              onClick={handleDirectPrint}
+              disabled={printing}
+              startIcon={printing ? <CircularProgress size={14} sx={{ color: '#059669' }} /> : <Icon name="print" size={15} color="#059669" />}
+              sx={{
+                borderColor: '#059669', color: '#059669', fontWeight: 600, fontSize: 13,
+                textTransform: 'none', fontFamily: 'inherit',
+                '&:hover': { bgcolor: '#f0fdf4', borderColor: '#047857' },
+              }}
+            >
+              {printing ? 'Opening Printer…' : 'Print Form 1 (Enrolment)'}
+            </Button>
+          )}
           <Button
-            variant="outlined"
-            onClick={handleDirectPrint}
-            disabled={printing}
-            startIcon={printing ? <CircularProgress size={14} sx={{ color: '#059669' }} /> : <Icon name="print" size={15} color="#059669" />}
-            sx={{
-              borderColor: '#059669', color: '#059669', fontWeight: 600, fontSize: 13,
-              textTransform: 'none', fontFamily: 'inherit',
-              '&:hover': { bgcolor: '#f0fdf4', borderColor: '#047857' },
-            }}
+            onClick={onClose}
+            sx={{ color: '#6b7280', textTransform: 'none', fontWeight: 600, fontFamily: 'inherit' }}
           >
-            {printing ? 'Opening Printer…' : 'Print Form 1 (Enrolment)'}
+            Close
           </Button>
-        )}
-        <Button
-          onClick={onClose}
-          sx={{ color: '#6b7280', textTransform: 'none', fontWeight: 600, fontFamily: 'inherit' }}
-        >
-          Close
-        </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

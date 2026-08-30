@@ -8,6 +8,7 @@ import {
   getVaccinePresets,
 } from '../../inventory/services/vaccineInventoryService';
 import type { VaccineTypePreset } from '../../inventory/types';
+import DohTransferSlipModal from './DohTransferSlipModal';
 
 type ApiError = {
   response?: {
@@ -80,6 +81,8 @@ interface VaccinationDose {
   total_doses?: number;
   inventory_linked: boolean;
   is_completed?: boolean;
+  is_external?: boolean;
+  external_facility_name?: string;
 }
 
 interface ExistingVaccinationRecord {
@@ -97,6 +100,8 @@ interface ExistingVaccinationRecord {
   signature?: string | null;
   remarks?: string | null;
   administeredBy?: { name?: string | null } | null;
+  is_external?: boolean;
+  external_facility_name?: string | null;
 }
 
 interface AdditionalMeds {
@@ -166,12 +171,12 @@ const calculateDoseDates = (baseDateStr: string, currentDoses: VaccinationDose[]
 };
 
 const createInitialDoses = (baseDate: string = getLocalDateString()): VaccinationDose[] => [
-  { period: 'Day 0', route: 'IM', date: baseDate, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
-  { period: 'Day 3', route: 'IM', date: addDaysToDate(baseDate, 3), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
-  { period: 'Day 7', route: 'IM', date: addDaysToDate(baseDate, 7), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
-  { period: 'Day 28', route: '', date: addDaysToDate(baseDate, 28), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
-  { period: 'Booster 1', route: '', date: addDaysToDate(baseDate, 90), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
-  { period: 'Booster 2', route: '', date: addDaysToDate(baseDate, 365), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false },
+  { period: 'Day 0', route: 'IM', date: baseDate, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+  { period: 'Day 3', route: 'IM', date: addDaysToDate(baseDate, 3), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+  { period: 'Day 7', route: 'IM', date: addDaysToDate(baseDate, 7), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+  { period: 'Day 28', route: '', date: addDaysToDate(baseDate, 28), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+  { period: 'Booster 1', route: '', date: addDaysToDate(baseDate, 90), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+  { period: 'Booster 2', route: '', date: addDaysToDate(baseDate, 365), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
 ];
 
 const INITIAL_FORM_DATA: TreatmentFormData = {
@@ -243,6 +248,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [vaccinePresets, setVaccinePresets] = useState<VaccineTypePreset[]>([]);
   const [fifoErrors, setFifoErrors] = useState<Record<string, string>>({});
   const [inventorySetupMessage, setInventorySetupMessage] = useState('');
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [currentIncident, setCurrentIncident] = useState<any>(null);
+  const [existingRecordsData, setExistingRecordsData] = useState<ExistingVaccinationRecord[]>([]);
 
   const isPhilHealthMember = Boolean(
     entry?.patient?.philhealth_member === 'yes' ||
@@ -316,11 +324,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         api.get(`/vaccination-records/patient/${entry.patient.patient_id}`).catch(() => null),
       ]);
 
-      const bite = cardRes?.data?.bite_incident;
+      const bite = cardRes?.data?.bite_incident || entry?.incident;
       const card = cardRes?.data?.existing_card;
       const consultation = cardRes?.data?.latest_consultation;
       const appointments = apptRes?.data?.data || [];
       const records: ExistingVaccinationRecord[] = vacRes?.data?.vaccination_records || [];
+
+      setCurrentIncident(bite || null);
+      setExistingRecordsData(records);
 
       // 1. Resolve Day 0 and Exposure dates
       const day0Record = records.find((item) => item.dose_number === 0);
@@ -378,7 +389,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           const record = records.find((item) => DOSE_NUMBER_TO_PERIOD[item.dose_number] === dose.period);
           const appointment = appointments.find((a: any) => a.dose_number === doseNumber);
 
-          if (record) {
+          const isCompletedRecord = Boolean(
+            record &&
+            (record.status === 'completed' || Boolean(record.treatment_date)) &&
+            record.status !== 'scheduled'
+          );
+
+          if (isCompletedRecord && record) {
             return {
               ...dose,
               route: record.route || dose.route,
@@ -392,16 +409,23 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               available_stock: undefined,
               inventory_linked: Boolean(record.inventory_id),
               is_completed: true,
+              is_external: Boolean(record.is_external),
+              external_facility_name: record.external_facility_name || '',
             };
           }
 
-          if (appointment) {
+          if (appointment || (record && record.status === 'scheduled')) {
+            const scheduledDate = appointment ? (appointment.appointment_date || appointment.scheduled_date) : record?.scheduled_date;
             return {
               ...dose,
-              date: formatDateForInput(appointment.appointment_date || appointment.scheduled_date) || dose.date,
-              ideal_date: appointment.ideal_date ? formatDateForInput(appointment.ideal_date) : undefined,
-              schedule_drift_days: appointment.schedule_drift_days,
-              schedule_adjustment_reason: appointment.schedule_adjustment_reason,
+              date: formatDateForInput(scheduledDate) || dose.date,
+              ideal_date: appointment?.ideal_date ? formatDateForInput(appointment.ideal_date) : undefined,
+              schedule_drift_days: appointment?.schedule_drift_days,
+              schedule_adjustment_reason: appointment?.schedule_adjustment_reason,
+              is_completed: false,
+              inventory_linked: false,
+              batch_number: '',
+              vaccine_type: '',
             };
           }
 
@@ -491,7 +515,23 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const handleDoseChange = (index: number, field: keyof VaccinationDose, value: string | boolean) => {
     if (doses[index]?.is_completed || doses[index]?.inventory_linked) return;
     setDoses(prev => {
-      const updated = prev.map((dose, i) => (i === index ? { ...dose, [field]: value } : dose));
+      const updated = prev.map((dose, i) => {
+        if (i === index) {
+          const next = { ...dose, [field]: value };
+          if (field === 'is_external') {
+            if (value === true) {
+              next.inventory_units_used = '0';
+              next.batch_number = 'External';
+            } else {
+              next.inventory_units_used = '1';
+              next.batch_number = '';
+              next.external_facility_name = '';
+            }
+          }
+          return next;
+        }
+        return dose;
+      });
       if (index === 0 && field === 'date' && typeof value === 'string' && value) {
         setFormData(f => ({ ...f, date_treatment_started: value }));
         return calculateDoseDates(value, updated);
@@ -508,6 +548,21 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
     const todayStr = getLocalDateString();
     const suggestedUnits = vaccineType ? getSuggestedWholeUnits(vaccineType) : '1';
+
+    if (selectedDose.is_external) {
+      setDoses(prev => prev.map((dose, i) => (
+        i === index
+          ? {
+              ...dose,
+              date: dose.date || (vaccineType ? todayStr : ''),
+              vaccine_type: vaccineType,
+              batch_number: 'External',
+              inventory_units_used: '0',
+            }
+          : dose
+      )));
+      return;
+    }
 
     setDoses(prev => prev.map((dose, i) => (
       i === index
@@ -660,8 +715,12 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           given_by: d.given_by || null,
           signature: d.signature || null,
           vaccine_type: d.vaccine_type,
-          inventory_units_used: parseInt(d.inventory_units_used, 10) || 0,
+          inventory_units_used: d.is_external ? 0 : (parseInt(d.inventory_units_used, 10) || 0),
+          is_external: Boolean(d.is_external),
+          external_facility_name: d.external_facility_name || null,
         })),
+        bite_id: currentIncident?.bite_id || entry?.bite_id || entry?.incident?.bite_id || null,
+        episode_type: currentIncident?.episode_type || entry?.incident?.episode_type || 'primary',
         additional_meds: additionalMeds,
         icd_code: icdCode || null,
       });
@@ -981,15 +1040,47 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       {/* SECTION 3: VACCINATION RECORD */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            PERIOD EXPOSURE VACCINATION RECORD
-          </h3>
-          <span style={{ fontSize: 12, color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-            Automatic FIFO Stock Deduction on Save
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              PERIOD EXPOSURE VACCINATION RECORD
+            </h3>
+            <span style={{ fontSize: 12, color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+              Automatic FIFO Stock Deduction on Save • Cross-Clinic Continuity Supported
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setTransferModalOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#1e293b',
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              }}
+            >
+              📄 Transfer Out / Referral Slip
+            </button>
+          </div>
         </div>
+
+        {(currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 6, color: '#065f46', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>🛡️</span>
+            <span><strong>2-Dose Booster Regimen Active (Re-Exposure Protocol)</strong>: Patient is scheduled for <strong>Day 0 & Day 3 ONLY</strong>. Doses 7 & 28 are not required per DOH/WHO re-exposure guidelines.</span>
+          </div>
+        )}
 
         {inventorySetupMessage && (
           <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, color: '#92400e', fontSize: 12 }}>
@@ -1004,7 +1095,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 85 }}>Period</th>
                 <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: '#334155', minWidth: 95 }}>Route</th>
                 <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 125 }}>Date</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 175 }}>Vaccine Type</th>
+                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 185 }}>Vaccine Type & Source</th>
                 <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 195 }}>FIFO Batch Preview</th>
                 <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: '#334155', minWidth: 105 }}>Stock Units</th>
                 <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 120 }}>Given by</th>
@@ -1013,7 +1104,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               </tr>
             </thead>
             <tbody>
-              {doses.map((dose, index) => {
+              {(currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
+                ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
+                : doses
+              ).map((dose, index) => {
                 const isFilled = Boolean(dose.date);
                 const isLinked = dose.inventory_linked;
                 const isCompleted = Boolean(dose.is_completed || isLinked);
@@ -1095,7 +1189,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                       )}
                     </td>
 
-                    {/* 4. Vaccine Type Selection */}
+                    {/* 4. Vaccine Type & Source Selection */}
                     <td style={{ padding: '8px 10px' }}>
                       <select
                         value={dose.vaccine_type}
@@ -1120,16 +1214,58 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                           </option>
                         ))}
                       </select>
+
+                      {/* Transferred-in external toggle */}
+                      <div style={{ marginTop: 4 }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#0369a1', cursor: isLocked ? 'default' : 'pointer', fontWeight: 500 }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(dose.is_external)}
+                            disabled={isLocked}
+                            onChange={(e) => handleDoseChange(index, 'is_external', e.target.checked)}
+                          />
+                          <span>Transferred-In (External Clinic)</span>
+                        </label>
+                        {dose.is_external && (
+                          <input
+                            type="text"
+                            value={dose.external_facility_name || ''}
+                            placeholder="External hospital / clinic name"
+                            disabled={isLocked}
+                            onChange={(e) => handleDoseChange(index, 'external_facility_name', e.target.value)}
+                            style={{
+                              width: '100%',
+                              marginTop: 4,
+                              padding: '3px 6px',
+                              fontSize: 10.5,
+                              borderRadius: 4,
+                              border: '1px solid #7dd3fc',
+                              backgroundColor: '#f0f9ff',
+                              color: '#0c4a6e',
+                            }}
+                          />
+                        )}
+                      </div>
+
                       {isFilled && !dose.vaccine_type && !isCompleted && (
                         <div style={{ color: '#dc2626', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
-                          Required to deduct stock
+                          Required to record dose
                         </div>
                       )}
                     </td>
 
                     {/* 5. FIFO Batch & Open-Vial Preview */}
                     <td style={{ padding: '8px 10px' }}>
-                      {isCompleted ? (
+                      {dose.is_external ? (
+                        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 2, padding: '4px 8px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1' }}>
+                            🏥 Transferred-In Dose
+                          </span>
+                          <span style={{ fontSize: 10, color: '#0284c7' }}>
+                            {dose.external_facility_name || 'External Facility'} (0 local stock deducted)
+                          </span>
+                        </div>
+                      ) : isCompleted ? (
                         <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 2, padding: '4px 8px', backgroundColor: dose.inventory_units_used === '0' ? '#ecfeff' : '#dcfce7', border: dose.inventory_units_used === '0' ? '1px solid #a5f3fc' : '1px solid #86efac', borderRadius: 6 }}>
                           <span style={{ fontSize: 11, fontWeight: 700, color: dose.inventory_units_used === '0' ? '#0e7490' : '#15803d' }}>
                             ✓ Batch: {dose.batch_number || 'Administered'} {dose.inventory_units_used === '0' ? '(Shared Vial)' : dose.inventory_units_used ? `(${dose.inventory_units_used} deducted)` : ''}
@@ -1178,7 +1314,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
                     {/* 6. Automated Stock Allocation */}
                     <td style={{ padding: '8px', textAlign: 'center' }}>
-                      {isCompleted ? (
+                      {dose.is_external ? (
+                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 6, backgroundColor: '#f0f9ff', color: '#0369a1', fontSize: 11, fontWeight: 600 }}>
+                          External (0 stock)
+                        </span>
+                      ) : isCompleted ? (
                         <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 6, backgroundColor: '#f1f5f9', color: '#475569', fontSize: 11, fontWeight: 600 }}>
                           {dose.inventory_units_used === '0' ? 'Shared Vial' : `${dose.inventory_units_used || 1} vial(s)`}
                         </span>
@@ -1245,7 +1385,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
                     {/* 9. Status Pill */}
                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                      {isCompleted ? (
+                      {dose.is_external ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: 10, fontWeight: 700 }}>
+                          🏥 External
+                        </span>
+                      ) : isCompleted ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, backgroundColor: '#dcfce7', color: '#15803d', fontSize: 10, fontWeight: 700 }}>
                           ✓ Administered
                         </span>
@@ -1309,6 +1453,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           )}
         </div>
       )}
+
+      <DohTransferSlipModal
+        open={transferModalOpen}
+        onClose={() => setTransferModalOpen(false)}
+        patient={entry?.patient}
+        incident={currentIncident || entry?.incident}
+        treatmentRecords={existingRecordsData}
+      />
     </div>
   );
 

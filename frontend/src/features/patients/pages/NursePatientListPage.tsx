@@ -288,6 +288,8 @@ export default function NursePatientListPage() {
       header: 'PATIENT NAME',
       render: (patient) => {
         const isOnline = Boolean(
+          patient.registration_source === 'mobile' ||
+          patient.registration_source === 'online' ||
           (patient as any).appointments?.some((a: any) => a.booked_by_account_id) ||
           (patient as any).bite_intakes?.length ||
           ((patient as any).accounts && (patient as any).accounts.length > 0)

@@ -115,17 +115,19 @@ class QueueController extends Controller
                             'call_count','recall_stage','clinic_id','queue_date'
                         );
 
-                    // Main queue: today active/done + active carry-overs
+                    // Auto-expire stale unserved tickets from previous days
+                    Queue::where('clinic_id', $clinicId)
+                        ->where('queue_date', '<', $date)
+                        ->whereIn('status', self::MAIN_STATUSES)
+                        ->update([
+                            'status' => 'no_response',
+                            'no_response_at' => now(),
+                            'consultation_notes' => 'Auto-expired: patient did not complete visit before clinic closed',
+                        ]);
+
+                    // Main queue: strictly today's tickets
                     $mainQueue = (clone $baseQuery)
-                        ->where(function ($q) use ($date) {
-                            $q->where(function ($inner) use ($date) {
-                                $inner->where('queue_date', $date);
-                            })->orWhere(function ($inner) use ($date) {
-                                $inner->where('queue_date', '<', $date)
-                                      ->whereIn('status', self::MAIN_STATUSES);
-                            });
-                        })
-                        ->orderBy('queue_date', 'asc')
+                        ->where('queue_date', $date)
                         ->orderBy('queue_number', 'asc')
                         ->get();
 
@@ -290,9 +292,9 @@ class QueueController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($id);
 
-            if (!in_array($queue->status, ['called', 'second_chance', 'final_recall'])) {
+            if (!in_array($queue->status, ['waiting', 'called', 'serving', 'second_chance', 'final_recall', 'in_consultation'])) {
                 return response()->json([
-                    'message' => 'Patient must be in called, second chance, or final recall status to start serving. Current: ' . $queue->status,
+                    'message' => 'Cannot serve queue ticket with status: ' . $queue->status,
                 ], 400);
             }
 
@@ -445,9 +447,9 @@ class QueueController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($id);
 
-            if (!in_array($queue->status, ['serving', 'in_consultation', 'called'])) {
+            if (!in_array($queue->status, ['waiting', 'serving', 'in_consultation', 'called', 'second_chance', 'final_recall'])) {
                 return response()->json([
-                    'message' => 'Patient must be serving/in-consultation to complete. Current: ' . $queue->status,
+                    'message' => 'Cannot complete ticket with status: ' . $queue->status,
                 ], 400);
             }
 

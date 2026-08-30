@@ -13,13 +13,15 @@
   - Added dedicated **`Pre-Registered (Mobile)`** tab filter on Patient Directory (`/patients`).
   - 1-Click **"Start Bite Intake"** action fast-tracking pre-registered mobile walk-ins directly into clinical triage.
 
-### 2. 🔄 [Case Continuity & Re-Exposure Booster Protocol with Mitigations](file:///c:/xampp/htdocs/abc/animal-bite-management-system/tasks/case-continuity-and-reexposure-protocol-with-mitigations.md)
-* **Location**: Doctor Triage Desk, Treatment Desk & Master Patient Record.
-* **Key Features**:
-  - DOH/WHO re-exposure decision matrix ($<3$ months vs $\ge 3$ months post-PEP).
-  - Day 0 & Day 3 Booster Regimen (no RIG required for previously fully immunized patients).
-  - Incident continuity linking: multiple bite incidents under a single master patient profile without data fragmentation.
-  - Clinical risk mitigations (detecting incomplete past regimens, immunocompromised status, and inverted dose chronologies).
+### 2. ✅ [Case Continuity & Re-Exposure Booster Protocol with Mitigations](file:///c:/xampp/htdocs/abc/animal-bite-management-system/tasks/case-continuity-and-reexposure-protocol-with-mitigations.md) — *COMPLETED*
+* **Location**: Doctor Triage Desk, Treatment Desk (Form 3), Master Patient Record (`<PatientDetailsModal>`) & Transfer Operations.
+* **Delivered Features**:
+  - **Multi-Episode Incident Continuity**: Returning patients keep all past bite incidents under a single master profile (`episode_number`, `episode_type`, history switcher).
+  - **Automated Immunization History Detection**: Server evaluates previous completed PEP series with confidence scoring (`system_record` vs `external_certificate_reviewed` vs `patient_self_report_unverified`).
+  - **DOH/WHO 2-Dose Booster Regimen**: Day 0 and Day 3 follow-up only (omitting Days 7 & 28; RIG safely withheld with clinical reason audit).
+  - **Historical Administered Dose Immutability**: Existing administered treatment records are strictly locked against retroactive modification or cascade date overwrites.
+  - **Cross-Clinic Continuity (Incoming Transfers)**: Support recording external doses (`is_external: true`, zero inventory stock deduction, remaining doses auto-scheduled).
+  - **Cross-Clinic Continuity (Outgoing Transfers)**: 1-Click DOH Referral & Transfer Certificate Modal (`<DohTransferSlipModal>`) with auto-cancellation of pending local appointments.
 
 ### 3. ✅ [Patient PEP Journey Tracking, Flexible Navigation & Multi-Channel Missed Recall](file:///c:/xampp/htdocs/abc/animal-bite-management-system/tasks/patient_pep_journey_tracking_and_multi_channel_missed_recall.md) — *COMPLETED*
 * **Location**: Treatment Desk (`/vaccinations`), Registration Desk & Patient Mobile Portal.

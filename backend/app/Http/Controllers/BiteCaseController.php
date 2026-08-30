@@ -89,14 +89,28 @@ class BiteCaseController extends Controller
             'referred_from' => 'nullable|string',
             'remarks' => 'nullable|string',
             'intake_id' => 'nullable|exists:bite_incident_intakes,intake_id',
+            'episode_type' => 'nullable|in:primary,re_exposure',
+            'is_previously_vaccinated' => 'nullable|boolean',
+            'verification_source' => 'nullable|in:system_record,external_certificate_reviewed,patient_self_report_unverified',
+            'rig_decision_reason' => 'nullable|string',
+            'wound_condition' => 'nullable|string|max:50',
         ]);
 
         DB::beginTransaction();
         try {
+            // Auto-compute next episode number for this patient
+            $lastEpisode = BiteIncident::where('patient_id', $request->patient_id)->max('episode_number') ?? 0;
+            $episodeNumber = $lastEpisode + 1;
+
             // Create bite incident
             $incident = BiteIncident::create([
                 'clinic_id' => $request->user()->clinic_id,
                 'patient_id' => $request->patient_id,
+                'episode_number' => $episodeNumber,
+                'episode_type' => $request->episode_type ?? ($episodeNumber > 1 ? 're_exposure' : 'primary'),
+                'is_previously_vaccinated' => $request->is_previously_vaccinated ?? ($episodeNumber > 1),
+                'verification_source' => $request->verification_source,
+                'rig_decision_reason' => $request->rig_decision_reason,
                 'bite_date' => $request->bite_date,
                 'bite_place' => $request->bite_place,
                 'site_washed' => $request->site_washed,
@@ -109,6 +123,7 @@ class BiteCaseController extends Controller
                 'animal_observation_status' => $request->animal_observation_status,
                 'site_number' => $request->site_number,
                 'wound_description' => $request->wound_description,
+                'wound_condition' => $request->wound_condition ?? 'clean',
                 'referred_from' => $request->referred_from,
                 'status' => 'active',
                 'remarks' => $request->remarks,
@@ -518,5 +533,139 @@ class BiteCaseController extends Controller
         }
 
         return array_values(array_filter(array_map('trim', explode(',', $address)), fn ($part) => $part !== ''));
+    }
+
+    /**
+     * Get all bite episodes for a patient with immunization history summary
+     * GET /api/cases/patient/{patientId}/episodes
+     */
+    public function patientEpisodes(Request $request, $patientId)
+    {
+        try {
+            $clinicId = $request->user()->clinic_id;
+
+            $patient = \App\Models\Patient::with(['details'])->findOrFail($patientId);
+
+            $episodes = BiteIncident::where('patient_id', $patientId)
+                ->with([
+                    'treatmentRecords' => function ($q) {
+                        $q->orderBy('dose_number');
+                    },
+                    'externalProofReviewer:id,name,role',
+                    'createdBy:id,name',
+                ])
+                ->orderBy('episode_number', 'desc')
+                ->get();
+
+            $historySummary = $patient->getImmunizationHistorySummary();
+
+            return response()->json([
+                'patient_id' => $patientId,
+                'patient_name' => $patient->full_name,
+                'history_summary' => $historySummary,
+                'summary' => $historySummary,
+                'episodes' => $episodes,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Fetch patient episodes error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to load patient episodes',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Record outgoing cross-clinic transfer and generate referral certificate data
+     * POST /api/cases/{id}/transfer-out
+     */
+    public function transferOut(Request $request, $id)
+    {
+        $request->validate([
+            'transferred_to_facility' => 'required|string|max:255',
+            'transfer_reason' => 'nullable|string',
+            'transfer_date' => 'nullable|date',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $clinicId = $request->user()->clinic_id;
+
+            $incident = BiteIncident::where('clinic_id', $clinicId)->findOrFail($id);
+
+            $transferDate = $request->transfer_date ? \Carbon\Carbon::parse($request->transfer_date) : now();
+
+            $incident->update([
+                'status' => 'transferred_out',
+                'transferred_to_facility' => $request->transferred_to_facility,
+                'transferred_at' => $transferDate,
+                'transfer_reason' => $request->transfer_reason,
+            ]);
+
+            // Cancel any pending future appointments for this episode at our clinic
+            \App\Models\Appointment::where('bite_id', $incident->bite_id)
+                ->where('status', 'scheduled')
+                ->where('appointment_date', '>=', $transferDate->toDateString())
+                ->update([
+                    'status' => 'cancelled',
+                    'cancellation_reason' => "Patient transferred to {$request->transferred_to_facility}",
+                ]);
+
+            DB::commit();
+
+            // Load complete referral data for the DOH Transfer Slip modal
+            $incident->load([
+                'patient.details',
+                'treatmentRecords.administeredBy',
+                'clinic',
+            ]);
+
+            return response()->json([
+                'message' => 'Patient case transferred out successfully',
+                'incident' => $incident,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Transfer out error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to transfer patient',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Review and verify external vaccination proof / certificate
+     * POST /api/cases/{id}/review-proof
+     */
+    public function reviewExternalProof(Request $request, $id)
+    {
+        $request->validate([
+            'is_verified' => 'required|boolean',
+            'remarks' => 'nullable|string',
+        ]);
+
+        try {
+            $clinicId = $request->user()->clinic_id;
+            $incident = BiteIncident::where('clinic_id', $clinicId)->findOrFail($id);
+
+            $incident->update([
+                'verification_source' => $request->is_verified ? 'external_certificate_reviewed' : 'patient_self_report_unverified',
+                'external_proof_reviewed_by' => $request->user()->id,
+                'external_proof_reviewed_at' => now(),
+                'remarks' => trim(($incident->remarks ?? '') . ' | Proof review: ' . ($request->remarks ?? ($request->is_verified ? 'Verified' : 'Rejected'))),
+            ]);
+
+            return response()->json([
+                'message' => 'External proof review recorded',
+                'incident' => $incident->fresh(['externalProofReviewer']),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Review proof error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to record proof review',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

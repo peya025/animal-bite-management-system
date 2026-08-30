@@ -207,10 +207,19 @@ export default function DoctorPatientListPage() {
 
         if (activeQueue) {
           if (activeQueue.status === 'waiting') {
-            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="In Queue (Waiting)" size="small" sx={{ bgcolor: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 600 }} /></Box>;
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (Waiting)`} size="small" sx={{ bgcolor: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 600 }} /></Box>;
           }
           if (['in_consultation', 'serving', 'called'].includes(activeQueue.status)) {
-            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="In Consultation" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} /></Box>;
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (In Consultation)`} size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} /></Box>;
+          }
+          if (activeQueue.status === 'second_chance' || activeQueue.status === 'final_recall') {
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (Recall)`} size="small" sx={{ bgcolor: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 600 }} /></Box>;
+          }
+          if (activeQueue.status === 'no_response') {
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (Called · No Response)`} size="small" sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 600 }} /></Box>;
+          }
+          if (activeQueue.status === 'absent') {
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (Absent)`} size="small" sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 600 }} /></Box>;
           }
         }
 

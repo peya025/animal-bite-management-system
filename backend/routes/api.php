@@ -226,6 +226,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [BiteCaseController::class, 'index']); // All roles
         Route::get('/statistics', [BiteCaseController::class, 'statistics']); // All roles
         Route::get('/map-data', [BiteCaseController::class, 'getMapData']); // All roles - Map visualization
+        Route::get('/patient/{patientId}/episodes', [BiteCaseController::class, 'patientEpisodes']); // All roles
         Route::get('/{id}', [BiteCaseController::class, 'show']); // All roles
         Route::get('/{id}/vaccinations', [BiteCaseController::class, 'vaccinations']); // All roles
 
@@ -233,6 +234,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::middleware('role:admin,triage')->group(function () {
             Route::post('/', [BiteCaseController::class, 'store']);
             Route::put('/{id}', [BiteCaseController::class, 'update']);
+            Route::post('/{id}/transfer-out', [BiteCaseController::class, 'transferOut']);
+            Route::post('/{id}/review-proof', [BiteCaseController::class, 'reviewExternalProof']);
         });
 
         // Delete (admin only)
@@ -271,15 +274,20 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Treatment Records (Form 2 - Individual Treatment)
-    Route::prefix('treatment-records')->middleware('role:admin,triage')->group(function () {
-        Route::get('/', [TreatmentRecordController::class, 'index']);
-        Route::get('/patient/{patientId}', [TreatmentRecordController::class, 'getByPatient']);
-        Route::post('/', [TreatmentRecordController::class, 'store']);
-        Route::get('/{id}', [TreatmentRecordController::class, 'show']);
+    Route::prefix('treatment-records')->group(function () {
+        Route::middleware('role:admin,registration,triage,treatment,doctor,nurse,staff')->group(function () {
+            Route::get('/', [TreatmentRecordController::class, 'index']);
+            Route::get('/patient/{patientId}', [TreatmentRecordController::class, 'getByPatient']);
+            Route::get('/{id}', [TreatmentRecordController::class, 'show']);
+        });
+
+        Route::middleware('role:admin,triage,doctor')->group(function () {
+            Route::post('/', [TreatmentRecordController::class, 'store']);
+        });
     });
 
     // Tagoloan RHU Official Treatment Cards
-    Route::prefix('tagoloan-treatment-cards')->group(function () {
+    Route::prefix('tagoloan-treatment-cards')->middleware('role:admin,registration,triage,treatment,doctor,nurse,staff')->group(function () {
         Route::get('/', [TagoloanTreatmentCardController::class, 'index']);
         Route::get('/patient/{patientId}', [TagoloanTreatmentCardController::class, 'getPatientCardData']);
         Route::get('/{id}', [TagoloanTreatmentCardController::class, 'show']);
@@ -353,8 +361,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Vaccination Records (Form 3)
     Route::prefix('vaccination-records')->group(function () {
-        // View vaccination records (admin, triage, treatment)
-        Route::middleware('role:admin,triage,treatment')->group(function () {
+        // View vaccination records (admin, registration, triage, treatment, nurse, doctor, staff)
+        Route::middleware('role:admin,registration,triage,treatment,nurse,doctor,staff')->group(function () {
             Route::get('/patient/{patientId}', [VaccinationRecordController::class, 'getByPatient']);
             Route::get('/queue/{queueId}', [VaccinationRecordController::class, 'getByQueue']);
             Route::get('/{id}', [VaccinationRecordController::class, 'show']);
@@ -369,8 +377,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Appointments (auto-scheduled follow-ups)
     Route::prefix('appointments')->group(function () {
-        // View appointments (admin, triage, treatment)
-        Route::middleware('role:admin,triage,treatment')->group(function () {
+        // View appointments (admin, registration, triage, treatment, nurse, doctor, staff)
+        Route::middleware('role:admin,registration,triage,treatment,nurse,doctor,staff')->group(function () {
             Route::get('/', [AppointmentController::class, 'index']);
             Route::get('/today', [AppointmentController::class, 'today']);
             Route::get('/upcoming', [AppointmentController::class, 'upcoming']);

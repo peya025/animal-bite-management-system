@@ -9,6 +9,7 @@ import '../services/api.dart';
 import '../services/psgc_service.dart';
 import '../utils/app_validators.dart';
 import '../widgets/common/app_page_header.dart';
+import '../widgets/common/app_toast.dart';
 import '../widgets/forms/ph_phone_prefix.dart';
 
 class PhilHealthNumberFormatter extends TextInputFormatter {
@@ -1391,14 +1392,9 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                               onPressed: _isLoading
                                   ? null
                                   : () {
-                                      ScaffoldMessenger.of(
+                                      AppToast.success(
                                         context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Draft saved successfully.',
-                                          ),
-                                        ),
+                                        'Draft saved successfully.',
                                       );
                                       Navigator.of(context).pop();
                                     },

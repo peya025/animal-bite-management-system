@@ -96,6 +96,29 @@ class MockMobileApi {
     });
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (newPassword.length < 8) {
+      throw 'The new password must be at least 8 characters.';
+    }
+    if (newPassword != newPasswordConfirmation) {
+      throw 'The password confirmation does not match.';
+    }
+  }
+
+  Future<void> logoutOtherDevices() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
+
+  Future<void> deleteAccount({required String password}) async {
+    await Future.delayed(const Duration(milliseconds: 800));
+    await logout();
+  }
+
   Future<List<PatientProfile>> patients() async {
     await Future.delayed(const Duration(milliseconds: 500));
     return _patients.map(PatientProfile.fromJson).toList();

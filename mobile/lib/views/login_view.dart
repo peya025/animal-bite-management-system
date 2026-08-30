@@ -6,6 +6,7 @@ import '../services/api.dart';
 import '../widgets/auth_mode_selector.dart';
 import '../widgets/buttons/primary_action_button.dart';
 import '../widgets/buttons/social_auth_button.dart';
+import '../widgets/common/app_toast.dart';
 import '../widgets/forms/app_text_field.dart';
 import '../widgets/forms/form_error_banner.dart';
 
@@ -48,12 +49,6 @@ class _LoginViewState extends State<LoginView> {
         remember: _rememberMe,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login successful.'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
       Navigator.of(context).pushNamedAndRemoveUntil(
         AppRoutes.menu,
         (route) => false,
@@ -133,21 +128,12 @@ class _LoginViewState extends State<LoginView> {
                         if (!dialogContext.mounted) return;
                         Navigator.pop(dialogContext);
                         if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(msg),
-                            backgroundColor: AppColors.primary,
-                            duration: const Duration(seconds: 4),
-                          ),
-                        );
+                        AppToast.success(context, msg);
                       } catch (e) {
                         setDialogState(() => isSubmittingReset = false);
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
-                          SnackBar(
-                            content: Text(e.toString()),
-                            backgroundColor: Colors.red.shade700,
-                          ),
-                        );
+                        if (mounted) {
+                          AppToast.error(context, e.toString());
+                        }
                       }
                     },
               child: isSubmittingReset

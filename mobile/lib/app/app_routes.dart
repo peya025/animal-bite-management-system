@@ -13,4 +13,5 @@ abstract final class AppRoutes {
   static const appointments = '/appointments';
   static const calendar = '/calendar';
   static const patientActivation = '/activate';
+  static const privacySecurity = '/privacy-security';
 }

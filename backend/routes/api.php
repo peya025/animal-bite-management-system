@@ -81,6 +81,9 @@ Route::prefix('mobile')->group(function () {
     Route::middleware(['auth:sanctum', 'patient.account'])->group(function () {
         Route::get('/me', [PatientAccountAuthController::class, 'me']);
         Route::patch('/me', [PatientAccountAuthController::class, 'update']);
+        Route::post('/change-password', [PatientAccountAuthController::class, 'changePassword']);
+        Route::post('/logout-other-devices', [PatientAccountAuthController::class, 'logoutOtherDevices']);
+        Route::delete('/me', [PatientAccountAuthController::class, 'deleteAccount']);
         Route::post('/logout', [PatientAccountAuthController::class, 'logout']);
 
         Route::get('/patients', [PatientProfileController::class, 'index']);

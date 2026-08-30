@@ -7,6 +7,7 @@ import '../utils/app_validators.dart';
 import '../widgets/auth_mode_selector.dart';
 import '../widgets/buttons/account_login_prompt.dart';
 import '../widgets/buttons/primary_action_button.dart';
+import '../widgets/common/app_toast.dart';
 import '../widgets/forms/app_text_field.dart';
 import '../widgets/forms/form_error_banner.dart';
 import '../widgets/forms/ph_phone_prefix.dart';
@@ -61,12 +62,7 @@ class _SignUpViewState extends State<SignUpView> {
       );
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Account created successfully.'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
+      AppToast.success(context, 'Account created successfully.');
       Navigator.of(
         context,
       ).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);

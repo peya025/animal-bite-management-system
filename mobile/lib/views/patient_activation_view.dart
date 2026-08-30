@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/mobile_api.dart';
+import '../widgets/common/app_toast.dart';
 
 class PatientActivationView extends StatefulWidget {
   const PatientActivationView({super.key, this.initialToken});
@@ -57,13 +58,7 @@ class _PatientActivationViewState extends State<PatientActivationView> {
       if (!mounted) return;
 
       // Show success feedback
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Account activated successfully! Welcome to Patient Portal.'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      AppToast.success(context, 'Account activated successfully! Welcome to Patient Portal.');
 
       // Navigate to Home Dashboard and replace navigation stack
       Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
@@ -78,13 +73,7 @@ class _PatientActivationViewState extends State<PatientActivationView> {
         _errorMessage = friendlyMsg;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(friendlyMsg),
-          backgroundColor: Colors.red.shade700,
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      AppToast.error(context, friendlyMsg);
     } finally {
       if (mounted) {
         setState(() {

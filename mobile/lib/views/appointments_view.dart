@@ -6,6 +6,7 @@ import '../services/api.dart';
 import '../widgets/appointments/appointment_card.dart';
 import '../widgets/appointments/appointment_filter.dart';
 import '../widgets/common/app_page_header.dart';
+import '../widgets/common/app_toast.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/forms/app_text_field.dart';
 
@@ -131,14 +132,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             .map((item) => item.id == updated.id ? updated : item)
             .toList();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Appointment cancelled.')),
-      );
+      AppToast.success(context, 'Appointment cancelled.');
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString()), backgroundColor: AppColors.error),
-        );
+        AppToast.error(context, error.toString());
       }
     } finally {
       if (mounted) setState(() => _cancellingId = null);

@@ -12,6 +12,7 @@ import '../views/menu_view.dart';
 import '../views/notifications_view.dart';
 import '../views/patient_activation_view.dart';
 import '../views/patient_profile_view.dart';
+import '../views/privacy_security_view.dart';
 import '../views/profile_setup_view.dart';
 import '../views/schedule_calendar_view.dart';
 import '../views/settings_view.dart';
@@ -32,6 +33,7 @@ abstract final class AppRouter {
       AppRoutes.booking => const BookingView(),
       AppRoutes.history => const HistoryView(),
       AppRoutes.settings => const SettingsView(),
+      AppRoutes.privacySecurity => const PrivacySecurityView(),
       AppRoutes.notifications => const NotificationsView(),
       AppRoutes.profileSetup => switch (settings.arguments) {
         PatientProfileFormArgs args => ProfileSetupView(

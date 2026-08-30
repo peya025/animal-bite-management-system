@@ -97,6 +97,77 @@ class PatientAccountAuthController extends Controller
         return response()->json(['message' => 'Successfully logged out.']);
     }
 
+    public function changePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $account = $request->user();
+
+        if (! Hash::check($validated['current_password'], $account->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The current password you entered is incorrect.'],
+            ]);
+        }
+
+        $account->update([
+            'password' => $validated['password'],
+        ]);
+
+        Cache::forget("mobile:account:me:{$account->id}");
+
+        return response()->json([
+            'message' => 'Password has been changed successfully.',
+        ]);
+    }
+
+    public function logoutOtherDevices(Request $request)
+    {
+        $user = $request->user();
+        $currentTokenId = $user->currentAccessToken()?->id;
+
+        if ($currentTokenId) {
+            $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+        } else {
+            $user->tokens()->delete();
+        }
+
+        return response()->json([
+            'message' => 'Successfully logged out of all other devices.',
+        ]);
+    }
+
+    public function deleteAccount(Request $request)
+    {
+        $validated = $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        $account = $request->user();
+
+        if (! Hash::check($validated['password'], $account->password)) {
+            throw ValidationException::withMessages([
+                'password' => ['Incorrect password. Account deletion cancelled.'],
+            ]);
+        }
+
+        // Revoke all tokens
+        $account->tokens()->delete();
+
+        // Deactivate account
+        $account->update([
+            'is_active' => false,
+        ]);
+
+        Cache::forget("mobile:account:me:{$account->id}");
+
+        return response()->json([
+            'message' => 'Your account has been deactivated successfully.',
+        ]);
+    }
+
     public function forgotPassword(Request $request)
     {
         $validated = $request->validate([

@@ -160,6 +160,31 @@ class MobileApi {
     return PatientAccountProfile.fromJson(data);
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    await _send(
+      'POST',
+      '/change-password',
+      body: {
+        'current_password': currentPassword,
+        'password': newPassword,
+        'password_confirmation': newPasswordConfirmation,
+      },
+    );
+  }
+
+  Future<void> logoutOtherDevices() async {
+    await _send('POST', '/logout-other-devices');
+  }
+
+  Future<void> deleteAccount({required String password}) async {
+    await _send('DELETE', '/me', body: {'password': password});
+    await logout();
+  }
+
   Future<List<PatientProfile>> patients() async {
     final data = await _send('GET', '/patients') as List<dynamic>;
     return data
@@ -373,7 +398,7 @@ class MobileApi {
       );
     } on SocketException {
       throw const ApiException(
-        'No internet connection. Please verify your Wi-Fi or cellular data.',
+        'Unable to reach server. Please check your connection and ensure the backend is running.',
       );
     } on http.ClientException {
       throw const ApiException(

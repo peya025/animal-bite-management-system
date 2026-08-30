@@ -468,8 +468,11 @@ class _SettingsViewState extends State<SettingsView> {
                               iconColor: const Color(0xFF7C3AED),
                               title: context.tr('settings_privacy'),
                               subtitle: context.tr('settings_privacy_desc'),
-                              onTap: () => _showDemoMessage(
-                                'Privacy settings will be added later.',
+                              onTap: () => Navigator.of(context).pushNamed(AppRoutes.privacySecurity),
+                              trailing: const Icon(
+                                LucideIcons.chevronRight,
+                                color: Color(0xFFD1D5DB),
+                                size: 16,
                               ),
                             ),
                           ],

@@ -160,6 +160,11 @@ class Patient extends Model
             ->withTimestamps();
     }
 
+    public function patientAccounts()
+    {
+        return $this->accounts();
+    }
+
     public function biteIncidents()
     {
         return $this->hasMany(BiteIncident::class, 'patient_id', 'patient_id');

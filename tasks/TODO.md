@@ -20,13 +20,13 @@
   - Incident continuity linking: multiple bite incidents under a single master patient profile without data fragmentation.
   - Clinical risk mitigations (detecting incomplete past regimens, immunocompromised status, and inverted dose chronologies).
 
-### 3. 🗺️ [Patient PEP Journey Tracking, Flexible Navigation & Multi-Channel Missed Recall](file:///c:/xampp/htdocs/abc/animal-bite-management-system/tasks/patient_pep_journey_tracking_and_multi_channel_missed_recall.md)
-* **Location**: Treatment Desk, Registration Desk & Patient Mobile Portal.
-* **Key Features**:
+### 3. ✅ [Patient PEP Journey Tracking, Flexible Navigation & Multi-Channel Missed Recall](file:///c:/xampp/htdocs/abc/animal-bite-management-system/tasks/patient_pep_journey_tracking_and_multi_channel_missed_recall.md) — *COMPLETED*
+* **Location**: Treatment Desk (`/vaccinations`), Registration Desk & Patient Mobile Portal.
+* **Delivered Features**:
   - Visual PEP Stepper Matrix (`Day 0` $\rightarrow$ `Day 3` $\rightarrow$ `Day 7` $\rightarrow$ `Day 28`) showing completed, due today, scheduled, and missed doses.
-  - Clean separation and dedicated filters for **Walk-In Queue**, **Online Scheduled Appointments**, and **Overdue / Missed Injections**.
-  - Dynamic schedule flexibility respecting admin operating hours and holiday drift.
-  - 1-Click Multi-Channel Recall Action (SMS, Email, Push Notification) with customizable clinic templates.
+  - Clean separation and dedicated tabs for **PEP Stepper Matrix**, **Today's Injections**, **Online Bookings**, and **Missed / Defaulter Recall**.
+  - 1-Click Multi-Channel Recall Engine (SMS, Email, In-App Push Notifications) with customizable clinic templates and audit logs in `appointment_reminders`.
+  - Batch recall action: `Recall All Missed (N)`.
 
 ---
 

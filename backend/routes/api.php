@@ -26,6 +26,7 @@ use App\Http\Controllers\VaccineInventoryController;
 use App\Http\Controllers\PrintController;
 use App\Http\Controllers\LandingPageSettingsController;
 use App\Http\Controllers\ClinicScheduleController;
+use App\Http\Controllers\VaccinationJourneyController;
 use Illuminate\Support\Facades\Route;
 
 // Test route - check if API is working
@@ -245,6 +246,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/upcoming', [VaccinationController::class, 'upcoming']); // All roles
         Route::get('/overdue', [VaccinationController::class, 'overdue']); // All roles
         Route::get('/statistics', [VaccinationController::class, 'statistics']); // All roles
+        Route::get('/journey-matrix', [VaccinationJourneyController::class, 'journeyMatrix']); // PEP Stepper Matrix
         Route::get('/{id}', [VaccinationController::class, 'show']); // All roles
 
         // Administration (admin, treatment only)
@@ -258,6 +260,14 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/{id}', [VaccinationController::class, 'update']);
             Route::post('/{id}/reschedule', [VaccinationController::class, 'reschedule']);
         });
+    });
+
+    // Multi-Channel Missed Recall & Reminders
+    Route::middleware('role:admin,treatment,registration')->group(function () {
+        Route::post('/appointments/{id}/recall', [VaccinationJourneyController::class, 'recallSingle']);
+        Route::post('/appointments/bulk-recall', [VaccinationJourneyController::class, 'recallBulk']);
+        Route::post('/appointments/trigger-auto-recall', [VaccinationJourneyController::class, 'triggerAutoSweep']);
+        Route::get('/appointments/{id}/reminders', [VaccinationJourneyController::class, 'reminderHistory']);
     });
 
     // Treatment Records (Form 2 - Individual Treatment)

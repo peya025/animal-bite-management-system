@@ -28,7 +28,10 @@ class AppNotification {
   bool get isRead => status == 'read';
 
   AppNotificationKind get kind => switch (type) {
-    'vaccination_reminder' => AppNotificationKind.vaccination,
+    'vaccination_reminder' ||
+    'missed_appointment_recall' ||
+    'upcoming_appointment_reminder' =>
+      AppNotificationKind.vaccination,
     'booking_confirmation' || 'booking_cancelled' =>
       AppNotificationKind.appointment,
     'awareness' => AppNotificationKind.awareness,
@@ -39,6 +42,8 @@ class AppNotification {
     'booking_confirmation' => 'Appointment confirmed',
     'booking_cancelled' => 'Appointment cancelled',
     'vaccination_reminder' => 'Vaccination reminder',
+    'missed_appointment_recall' => 'Urgent: Missed Vaccination Recall',
+    'upcoming_appointment_reminder' => 'Upcoming Vaccination Reminder',
     'digital_card_updated' => 'Vaccination card updated',
     'awareness' => 'Clinic health advisory',
     _ => 'Clinic update',

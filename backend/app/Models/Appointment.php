@@ -27,6 +27,10 @@ class Appointment extends Model
         'ideal_date',
         'schedule_drift_days',
         'schedule_adjustment_reason',
+        'booking_channel',
+        'missed_at',
+        'reminder_sent_count',
+        'last_reminded_at',
         // Legacy fields for mobile compatibility
         'booked_by_account_id',
         'staff_id',
@@ -45,7 +49,18 @@ class Appointment extends Model
         'queue_number' => 'integer',
         'dose_number' => 'integer',
         'cancelled_at' => 'datetime',
+        'missed_at' => 'datetime',
+        'last_reminded_at' => 'datetime',
+        'reminder_sent_count' => 'integer',
     ];
+
+    /**
+     * Relationship: Reminders dispatched for this appointment
+     */
+    public function reminders()
+    {
+        return $this->hasMany(AppointmentReminder::class, 'appointment_id', 'appointment_id');
+    }
 
     /**
      * Relationship: Appointment belongs to Clinic

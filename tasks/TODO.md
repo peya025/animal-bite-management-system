@@ -4,13 +4,14 @@
 
 ## 🎯 Priority Tasks for Tomorrow
 
-### 1. 👥 [Admin Patient Profiles & Pre-Registration Management](file:///c:/xampp/htdocs/abc/animal-bite-management-system/tasks/admin_patient_profiles_management.md)
-* **Location**: Admin Web Portal $\rightarrow$ **User Management** $\rightarrow$ **Patient Accounts**.
-* **Key Features**:
-  - Interactive profile inspection modal for each mobile user and all linked dependents (`self`, `child`, `spouse`, `parent`, `other`).
-  - Pre-registered demographic inspection (DOB, PhilHealth, complete address, emergency contacts).
-  - Quick-launch **"Start Bite Intake"** / **"Verify & Link to Master Record"** action for walk-ins with pre-filled demographics.
-  - Active PEP course and historical vaccination summary badges per dependent.
+### 1. ✅ [Admin Patient Profiles & Pre-Registration Management](file:///c:/xampp/htdocs/abc/animal-bite-management-system/tasks/admin_patient_profiles_management.md) — *COMPLETED*
+* **Location**: Admin Web Portal $\rightarrow$ **User Management** $\rightarrow$ **Patient Accounts** & **Patient Directory** (`/patients`).
+* **Delivered Features**:
+  - Interactive profile inspection modal for mobile accounts and all linked dependents (`self`, `child`, `spouse`, `parent`, `other`) with Hugeicons and emergency contacts.
+  - Fixed `patient_id` navigation bug so profiles and bite intakes link directly to master records without 404s.
+  - In-place `<PatientDetailsModal>` popup inspection directly from User Management.
+  - Added dedicated **`Pre-Registered (Mobile)`** tab filter on Patient Directory (`/patients`).
+  - 1-Click **"Start Bite Intake"** action fast-tracking pre-registered mobile walk-ins directly into clinical triage.
 
 ### 2. 🔄 [Case Continuity & Re-Exposure Booster Protocol with Mitigations](file:///c:/xampp/htdocs/abc/animal-bite-management-system/tasks/case-continuity-and-reexposure-protocol-with-mitigations.md)
 * **Location**: Doctor Triage Desk, Treatment Desk & Master Patient Record.

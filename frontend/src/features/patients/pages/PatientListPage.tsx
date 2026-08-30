@@ -66,8 +66,8 @@ export default function PatientList() {
   const printedBy  = userData   ? (JSON.parse(userData)?.name  ?? 'Unknown') : 'Unknown';
   const clinicName = clinicData ? (JSON.parse(clinicData)?.name ?? 'Animal Bite Treatment Center') : 'Animal Bite Treatment Center';
 
-  const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'overdue'>('today_queue');
-  const [tabCounts,            setTabCounts]            = useState({ today_queue: 0, all: 0, online: 0, overdue: 0 });
+  const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue'>('today_queue');
+  const [tabCounts,            setTabCounts]            = useState({ today_queue: 0, all: 0, online: 0, pre_registered: 0, overdue: 0 });
   const [checkingInId,         setCheckingInId]         = useState<number | null>(null);
 
   // Bulk walk-in portal invite state
@@ -75,6 +75,24 @@ export default function PatientList() {
   const [bulkInviting,         setBulkInviting]         = useState(false);
   const [bulkFeedback,         setBulkFeedback]         = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showBulkConfirm,      setShowBulkConfirm]      = useState(false);
+
+  // Handle URL query parameters on initial mount (e.g., ?openId=123 or ?tab=pre_registered)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const openId = urlParams.get('openId') || urlParams.get('patientId');
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['today_queue', 'all', 'online', 'pre_registered', 'overdue'].includes(tabParam)) {
+      setTab(tabParam as any);
+    }
+    if (openId) {
+      api.get(`/patients/${openId}`).then((res) => {
+        if (res.data) {
+          setSelectedViewPatient(res.data.patient || res.data);
+          setShowViewModal(true);
+        }
+      }).catch(() => {});
+    }
+  }, []);
 
   // Helper to distinguish online appointment patients from walk-in patients
   const isOnlinePatient = (p: Patient) => {
@@ -128,6 +146,7 @@ export default function PatientList() {
             all: json.all_count ?? 0,
             today_queue: json.today_queue_count ?? 0,
             online: json.online_count ?? 0,
+            pre_registered: json.pre_registered_count ?? 0,
             overdue: json.overdue_count ?? 0,
           });
         }
@@ -258,6 +277,9 @@ export default function PatientList() {
 
     const hasTriage = Boolean((p as any).bite_incidents?.length || (p as any).biteIncidents?.length || record);
     if (!hasTriage) {
+      if (p.registration_source === 'mobile' || Boolean((p as any).accounts?.length)) {
+        return { label: 'Pre-Registered (Awaiting Intake)', icon: UserMultiple02Icon, bg: '#fef3c7', color: '#92400e' };
+      }
       const regDate = new Date(p.created_at);
       const isRegisteredToday = regDate.toDateString() === new Date().toDateString();
       if (!isRegisteredToday) {
@@ -379,6 +401,13 @@ export default function PatientList() {
             >
               Online Appointments
               <span className="pm-tab-badge">{tabCounts.online}</span>
+            </button>
+            <button
+              className={`pm-tab-btn ${tab === 'pre_registered' ? 'pm-tab-btn--active' : ''}`}
+              onClick={() => setTab('pre_registered')}
+            >
+              Pre-Registered (Mobile)
+              <span className="pm-tab-badge">{tabCounts.pre_registered}</span>
             </button>
             <button
               className={`pm-tab-btn ${tab === 'overdue' ? 'pm-tab-btn--active' : ''}`}

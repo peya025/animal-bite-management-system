@@ -172,12 +172,6 @@ class VaccinationRecordController extends Controller
                     ->latest('treatment_id')
                     ->first();
 
-                // If already linked to an inventory batch, preserve its existing units & vaccine type
-                if ($existing && $existing->inventory_id) {
-                    $selectedVaccineType = $existing->vaccine_brand ?: $existing->vaccine_generic ?: $selectedVaccineType;
-                    $inventoryUnitsUsed = (int) ($existing->inventory_units_used ?? $inventoryUnitsUsed);
-                }
-
                 $baseRemarks = 'Given by: ' . ($doseData['given_by'] ?? '');
                 $treatmentData = [
                     'clinic_id' => $clinicId,
@@ -196,6 +190,25 @@ class VaccinationRecordController extends Controller
                     'inventory_units_used' => $inventoryUnitsUsed,
                     'remarks' => trim($baseRemarks . ' | Inventory units used: ' . $inventoryUnitsUsed . ($inventoryUnitsUsed === 0 ? ' (Shared Open Vial)' : '')),
                 ];
+
+                // If already completed/administered, preserve its original clinical data (date, vaccine, route, staff)
+                if ($existing && ($existing->status === 'completed' || !empty($existing->treatment_date))) {
+                    $selectedVaccineType = $existing->vaccine_brand ?: $existing->vaccine_generic ?: $selectedVaccineType;
+                    $inventoryUnitsUsed = (int) ($existing->inventory_units_used ?? $inventoryUnitsUsed);
+
+                    $treatmentData['treatment_date'] = $existing->treatment_date ?? $treatmentData['treatment_date'];
+                    $treatmentData['scheduled_date'] = $existing->scheduled_date ?? $treatmentData['scheduled_date'];
+                    $treatmentData['vaccine_brand'] = $existing->vaccine_brand ?? $selectedVaccineType;
+                    $treatmentData['vaccine_generic'] = $existing->vaccine_generic ?? $selectedVaccineType;
+                    $treatmentData['route'] = $existing->route ?? $treatmentData['route'];
+                    $treatmentData['administered_by'] = $existing->administered_by ?? $treatmentData['administered_by'];
+                    $treatmentData['administered_at'] = $existing->administered_at ?? $treatmentData['administered_at'];
+                    $treatmentData['signature'] = $existing->signature ?? $treatmentData['signature'];
+                    $treatmentData['remarks'] = $existing->remarks ?? $treatmentData['remarks'];
+                } elseif ($existing && $existing->inventory_id) {
+                    $selectedVaccineType = $existing->vaccine_brand ?: $existing->vaccine_generic ?: $selectedVaccineType;
+                    $inventoryUnitsUsed = (int) ($existing->inventory_units_used ?? $inventoryUnitsUsed);
+                }
 
                 $record = $existing;
                 if ($record) {

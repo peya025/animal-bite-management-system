@@ -161,34 +161,62 @@ class UserController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $accounts = \App\Models\PatientAccount::with(['patients.biteIntakes', 'patients.appointments'])
-            ->withCount('patients')
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(fn($a) => [
-                'id'             => $a->id,
-                'name'           => $a->name,
-                'email'          => $a->email,
-                'phone'          => $a->phone,
-                'is_active'      => $a->is_active,
-                'patients_count' => $a->patients_count,
-                'patients'       => $a->patients->map(fn($p) => [
-                    'id'              => $p->id,
-                    'patient_number'  => $p->patient_number,
-                    'first_name'      => $p->first_name,
-                    'middle_name'     => $p->middle_name,
-                    'last_name'       => $p->last_name,
-                    'relationship'    => $p->pivot->relationship ?? 'self',
-                    'gender'          => $p->gender,
-                    'date_of_birth'   => $p->date_of_birth,
-                    'address'         => $p->address,
-                    'contact_number'  => $p->contact_number,
-                    'status'          => $p->status,
-                    'has_active_case' => $p->biteIntakes->isNotEmpty() || $p->appointments->where('status', 'scheduled')->isNotEmpty(),
-                ]),
-                'last_login_at'  => $a->last_login_at,
-                'created_at'     => $a->created_at,
-            ]);
+        $accounts = \App\Models\PatientAccount::with([
+            'patients.biteIncidents',
+            'patients.treatmentRecords',
+            'patients.appointments' => function ($q) {
+                $q->orderBy('scheduled_date', 'asc');
+            },
+        ])
+        ->withCount('patients')
+        ->orderBy('created_at', 'desc')
+        ->get()
+        ->map(fn($a) => [
+            'id'             => $a->id,
+            'name'           => $a->name,
+            'email'          => $a->email,
+            'phone'          => $a->phone,
+            'is_active'      => (bool) $a->is_active,
+            'patients_count' => $a->patients_count,
+            'patients'       => $a->patients->map(function ($p) {
+                $hasBiteIncident = $p->biteIncidents->isNotEmpty();
+                $hasScheduledAppt = $p->appointments->where('status', 'scheduled')->isNotEmpty();
+                $hasTreatment = $p->treatmentRecords->isNotEmpty();
+
+                $latestBite = $p->biteIncidents->sortByDesc('created_at')->first();
+                $nextAppt = $p->appointments->first(fn($app) => $app->status === 'scheduled');
+
+                return [
+                    'id'                        => $p->patient_id,
+                    'patient_id'                => $p->patient_id,
+                    'patient_number'            => $p->patient_number,
+                    'first_name'                => $p->first_name,
+                    'middle_name'               => $p->middle_name,
+                    'last_name'                 => $p->last_name,
+                    'relationship'              => $p->pivot->relationship ?? 'self',
+                    'gender'                    => $p->gender,
+                    'age'                       => $p->age,
+                    'date_of_birth'             => $p->date_of_birth,
+                    'address'                   => $p->address,
+                    'contact_number'            => $p->contact_number,
+                    'emergency_contact_name'    => $p->emergency_contact_name,
+                    'emergency_contact_number'  => $p->emergency_contact_number,
+                    'status'                    => $p->status,
+                    'has_active_case'           => $hasBiteIncident || $hasScheduledAppt,
+                    'case_summary'              => $latestBite ? [
+                        'case_number' => $latestBite->case_number,
+                        'category'    => $latestBite->exposure_category ?? 'Category II',
+                        'animal'      => $latestBite->animal_type ?? 'Dog',
+                    ] : null,
+                    'next_appointment'          => $nextAppt ? [
+                        'date'  => \Carbon\Carbon::parse($nextAppt->scheduled_date ?? $nextAppt->appointment_date)->format('M j, Y'),
+                        'label' => $nextAppt->dose_number === 0 ? 'Day 0' : "Day {$nextAppt->dose_number}",
+                    ] : null,
+                ];
+            }),
+            'last_login_at'  => $a->last_login_at,
+            'created_at'     => $a->created_at,
+        ]);
 
         return response()->json($accounts);
     }

@@ -28,6 +28,18 @@ import type { Column } from '../../../components/ui/DataTable';
 import { TablePaginator } from '../../../components/data-display';
 import AppButton from '../../../components/button';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import PatientDetailsModal from '../../patients/components/PatientDetailsModal';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  UserMultiple02Icon,
+  Medicine01Icon,
+  SmartPhone01Icon,
+  Calendar03Icon,
+  CheckmarkCircle02Icon,
+  AlertCircleIcon,
+  ViewIcon,
+  Stethoscope02Icon,
+} from '@hugeicons/core-free-icons';
 
 type Role = 'admin' | 'registration' | 'triage' | 'treatment';
 interface User {
@@ -40,17 +52,23 @@ interface User {
 }
 interface LinkedPatientProfile {
   id: number;
+  patient_id?: number;
   patient_number: string;
   first_name: string;
   middle_name?: string;
   last_name: string;
   relationship: string;
   gender: string;
+  age?: number;
   date_of_birth: string;
   address?: string;
   contact_number?: string;
+  emergency_contact_name?: string;
+  emergency_contact_number?: string;
   status?: string;
   has_active_case: boolean;
+  case_summary?: { case_number: string; category: string; animal: string } | null;
+  next_appointment?: { date: string; label: string } | null;
 }
 interface PatientAccount {
   id: number;
@@ -158,6 +176,20 @@ export default function UserListPage() {
   const [patientAccountsLoading, setPatientAccountsLoading] = useState(false);
   const [togglePatientTarget, setTogglePatientTarget] = useState<PatientAccount | null>(null);
   const [viewingProfilesAccount, setViewingProfilesAccount] = useState<PatientAccount | null>(null);
+  const [selectedViewPatient, setSelectedViewPatient] = useState<any>(null);
+  const [showViewPatientModal, setShowViewPatientModal] = useState(false);
+
+  const handleViewPatientDetails = async (patientId: number) => {
+    try {
+      const res = await api.get(`/patients/${patientId}`);
+      if (res.data) {
+        setSelectedViewPatient(res.data.patient || res.data);
+        setShowViewPatientModal(true);
+      }
+    } catch {
+      navigate(`/patients?openId=${patientId}`);
+    }
+  };
 
   // Pagination — staff tab
   const [staffPage, setStaffPage] = useState(0);
@@ -1015,111 +1047,167 @@ export default function UserListPage() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <PersonOutlined color="primary" />
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              Pre-Registered Profiles — {viewingProfilesAccount?.name}
-            </Typography>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5, borderBottom: '1px solid #f1f5f9' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box sx={{ p: 0.75, borderRadius: 1.5, bgcolor: '#f0fdf4', color: '#047857', display: 'flex' }}>
+              <HugeiconsIcon icon={UserMultiple02Icon} size={22} />
+            </Box>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>
+                Pre-Registered Profiles & Household
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#64748b' }}>
+                Account Owner: <strong>{viewingProfilesAccount?.name}</strong> ({viewingProfilesAccount?.email})
+              </Typography>
+            </Box>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
-          <Box sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 2, border: '1px solid #e5e7eb' }}>
-            <Typography sx={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>Account Owner Details</Typography>
-            <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
-              Email: {viewingProfilesAccount?.email} · Phone: {viewingProfilesAccount?.phone || '—'} · Registered on: {viewingProfilesAccount ? new Date(viewingProfilesAccount.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-            </Typography>
-          </Box>
-
+        <DialogContent sx={{ p: 2.5, bgcolor: '#f8fafc' }}>
           {(!viewingProfilesAccount?.patients || viewingProfilesAccount.patients.length === 0) ? (
-            <Box sx={{ p: 4, textAlign: 'center', color: '#6b7280' }}>
-              <Typography sx={{ fontSize: 14 }}>No patient profiles registered under this mobile account yet.</Typography>
+            <Box sx={{ p: 4, textAlign: 'center', color: '#64748b' }}>
+              <HugeiconsIcon icon={SmartPhone01Icon} size={36} />
+              <Typography sx={{ fontSize: 14, mt: 1 }}>No patient profiles registered under this mobile account yet.</Typography>
             </Box>
           ) : (
-            <Stack spacing={1.5}>
-              {viewingProfilesAccount.patients.map((p) => (
-                <Box
-                  key={`linked-patient-${p.id}`}
-                  sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    border: '1px solid #e5e7eb',
-                    bgcolor: '#ffffff',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 1.5,
-                  }}
-                >
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                      <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>
-                        {[p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ')}
-                      </Typography>
-                      <Chip
-                        size="small"
-                        label={p.relationship ? p.relationship.toUpperCase() : 'SELF'}
-                        sx={{ fontSize: '10px', height: '20px', fontWeight: 700, bgcolor: '#e0e7ff', color: '#3730a3' }}
-                      />
-                      {p.has_active_case ? (
+            <Stack spacing={2}>
+              {viewingProfilesAccount.patients.map((p) => {
+                const targetPatientId = p.patient_id || p.id;
+                const relationshipUpper = (p.relationship || 'SELF').toUpperCase();
+                const relationshipBg =
+                  relationshipUpper === 'SELF' ? '#e0e7ff' :
+                  relationshipUpper === 'CHILD' ? '#fce7f3' :
+                  relationshipUpper === 'SPOUSE' ? '#fef3c7' : '#f1f5f9';
+                const relationshipColor =
+                  relationshipUpper === 'SELF' ? '#3730a3' :
+                  relationshipUpper === 'CHILD' ? '#9d174d' :
+                  relationshipUpper === 'SPOUSE' ? '#92400e' : '#475569';
+
+                return (
+                  <Box
+                    key={`linked-patient-${targetPatientId}`}
+                    sx={{
+                      p: 2.25,
+                      borderRadius: '12px',
+                      border: '1px solid #e2e8f0',
+                      bgcolor: '#ffffff',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      display: 'flex',
+                      flexDirection: { xs: 'column', md: 'row' },
+                      justifyContent: 'space-between',
+                      alignItems: { xs: 'flex-start', md: 'center' },
+                      gap: 2,
+                    }}
+                  >
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.75 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>
+                          {[p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ')}
+                        </Typography>
                         <Chip
                           size="small"
-                          label="🟢 In Treatment"
-                          sx={{ fontSize: '10px', height: '20px', fontWeight: 700, bgcolor: '#dcfce7', color: '#166534' }}
+                          label={relationshipUpper}
+                          sx={{ fontSize: '10.5px', height: '22px', fontWeight: 700, bgcolor: relationshipBg, color: relationshipColor }}
                         />
-                      ) : (
-                        <Chip
-                          size="small"
-                          label="📱 Pre-Registered (No Active Case)"
-                          sx={{ fontSize: '10px', height: '20px', fontWeight: 700, bgcolor: '#fef3c7', color: '#92400e' }}
-                        />
-                      )}
+                        {p.has_active_case ? (
+                          <Chip
+                            size="small"
+                            icon={<HugeiconsIcon icon={Medicine01Icon} size={13} />}
+                            label={p.case_summary ? `In Treatment · ${p.case_summary.category} (${p.case_summary.animal})` : 'In Treatment'}
+                            sx={{ fontSize: '11px', height: '22px', fontWeight: 700, bgcolor: '#dcfce7', color: '#166534' }}
+                          />
+                        ) : (
+                          <Chip
+                            size="small"
+                            icon={<HugeiconsIcon icon={SmartPhone01Icon} size={13} />}
+                            label="Pre-Registered (Awaiting Intake)"
+                            sx={{ fontSize: '11px', height: '22px', fontWeight: 700, bgcolor: '#fef3c7', color: '#92400e' }}
+                          />
+                        )}
+                      </Box>
+
+                      <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                            Patient No: <strong style={{ color: '#0f172a' }}>{p.patient_number || 'Pending Assignment'}</strong>
+                          </Typography>
+                          <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                            Gender & Age: <strong style={{ color: '#0f172a' }}>{p.gender} {p.age ? `(${p.age}y)` : ''}</strong> · DOB: {p.date_of_birth ? new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                          </Typography>
+                          {p.contact_number && (
+                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                              Contact: <strong style={{ color: '#0f172a' }}>{p.contact_number}</strong>
+                            </Typography>
+                          )}
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          {p.address && (
+                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                              Address: <strong style={{ color: '#0f172a' }}>{p.address}</strong>
+                            </Typography>
+                          )}
+                          {p.emergency_contact_name && (
+                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                              Emergency: <strong style={{ color: '#0f172a' }}>{p.emergency_contact_name}</strong> {p.emergency_contact_number ? `(${p.emergency_contact_number})` : ''}
+                            </Typography>
+                          )}
+                          {p.next_appointment && (
+                            <Typography sx={{ fontSize: 12, color: '#047857', fontWeight: 600 }}>
+                              Next Appointment: {p.next_appointment.label} on {p.next_appointment.date}
+                            </Typography>
+                          )}
+                        </Grid>
+                      </Grid>
                     </Box>
-                    <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
-                      Patient No: <strong>{p.patient_number || 'Pending'}</strong> · Gender: {p.gender} · DOB: {p.date_of_birth ? new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                    </Typography>
-                    {p.address && (
-                      <Typography sx={{ fontSize: 11.5, color: '#9ca3af', mt: 0.25 }}>
-                        Address: {p.address}
-                      </Typography>
-                    )}
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <AppButton
-                      size="small"
-                      variant="outlined"
-                      onClick={() => {
-                        setViewingProfilesAccount(null);
-                        navigate(`/patients/${p.id}`);
-                      }}
-                    >
-                      View Details
-                    </AppButton>
-                    {!p.has_active_case && (
+
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', alignSelf: { xs: 'stretch', md: 'center' }, justifyContent: { xs: 'flex-end', md: 'flex-start' } }}>
                       <AppButton
                         size="small"
-                        variant="primary"
-                        onClick={() => {
-                          setViewingProfilesAccount(null);
-                          navigate(`/patients/${p.id}`);
-                        }}
+                        variant="outlined"
+                        onClick={() => handleViewPatientDetails(targetPatientId)}
+                        startIcon={<HugeiconsIcon icon={ViewIcon} size={14} />}
                       >
-                        Start Bite Intake
+                        View Profile
                       </AppButton>
-                    )}
+                      {!p.has_active_case && (
+                        <AppButton
+                          size="small"
+                          variant="primary"
+                          onClick={() => {
+                            setViewingProfilesAccount(null);
+                            navigate(`/patients?openId=${targetPatientId}&tab=pre_registered`);
+                          }}
+                          startIcon={<HugeiconsIcon icon={Stethoscope02Icon} size={14} />}
+                        >
+                          Start Bite Intake
+                        </AppButton>
+                      )}
+                    </Box>
                   </Box>
-                </Box>
-              ))}
+                );
+              })}
             </Stack>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 1.5 }}>
+        <DialogActions sx={{ px: 3, py: 1.5, bgcolor: '#ffffff', borderTop: '1px solid #f1f5f9' }}>
           <AppButton variant="secondary" onClick={() => setViewingProfilesAccount(null)}>
             Close
           </AppButton>
         </DialogActions>
       </Dialog>
+
+      {/* Patient Details Modal */}
+      <PatientDetailsModal
+        open={showViewPatientModal}
+        patient={selectedViewPatient}
+        onClose={() => {
+          setShowViewPatientModal(false);
+          setSelectedViewPatient(null);
+        }}
+        onEdit={(patient) => {
+          setShowViewPatientModal(false);
+          navigate(`/patients?openId=${patient.patient_id || patient.id}`);
+        }}
+      />
 
       {/* Snackbar */}
       <Snackbar

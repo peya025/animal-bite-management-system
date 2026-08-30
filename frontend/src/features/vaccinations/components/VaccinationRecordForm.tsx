@@ -79,6 +79,7 @@ interface VaccinationDose {
   next_dose_index?: number;
   total_doses?: number;
   inventory_linked: boolean;
+  is_completed?: boolean;
 }
 
 interface ExistingVaccinationRecord {
@@ -152,7 +153,7 @@ const addDaysToDate = (baseDateStr: string, days: number): string => {
 const calculateDoseDates = (baseDateStr: string, currentDoses: VaccinationDose[]): VaccinationDose[] => {
   if (!baseDateStr) return currentDoses;
   return currentDoses.map((dose) => {
-    if (dose.inventory_linked) return dose;
+    if (dose.is_completed || dose.inventory_linked) return dose;
     const offset = DOSE_DAY_OFFSETS[dose.period];
     if (offset !== undefined) {
       return {
@@ -390,6 +391,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               expiration_date: record.expiration_date ? formatDateForInput(record.expiration_date) : '',
               available_stock: undefined,
               inventory_linked: Boolean(record.inventory_id),
+              is_completed: true,
             };
           }
 
@@ -487,6 +489,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   const handleDoseChange = (index: number, field: keyof VaccinationDose, value: string | boolean) => {
+    if (doses[index]?.is_completed || doses[index]?.inventory_linked) return;
     setDoses(prev => {
       const updated = prev.map((dose, i) => (i === index ? { ...dose, [field]: value } : dose));
       if (index === 0 && field === 'date' && typeof value === 'string' && value) {
@@ -499,7 +502,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const handleDoseVaccineTypeChange = async (index: number, vaccineType: string) => {
     const selectedDose = doses[index];
-    if (!selectedDose) return;
+    if (!selectedDose || selectedDose.is_completed || selectedDose.inventory_linked) return;
 
     setFifoErrors(prev => ({ ...prev, [selectedDose.period]: '' }));
 
@@ -1013,14 +1016,16 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               {doses.map((dose, index) => {
                 const isFilled = Boolean(dose.date);
                 const isLinked = dose.inventory_linked;
+                const isCompleted = Boolean(dose.is_completed || isLinked);
+                const isLocked = readOnly || isCompleted;
                 const hasFifoError = Boolean(fifoErrors[dose.period]);
 
                 return (
-                  <tr key={dose.period} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: isLinked ? '#f0fdf4' : isFilled ? '#f8fafc' : '#ffffff' }}>
+                  <tr key={dose.period} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: isCompleted ? '#f0fdf4' : isFilled ? '#f8fafc' : '#ffffff' }}>
                     {/* 1. Period */}
-                    <td style={{ padding: '10px 12px', fontWeight: 700, color: isLinked ? '#15803d' : '#1e293b' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 700, color: isCompleted ? '#15803d' : '#1e293b' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {isLinked && <span style={{ color: '#16a34a', fontSize: 14 }}>✓</span>}
+                        {isCompleted && <span style={{ color: '#16a34a', fontSize: 14 }}>✓</span>}
                         {dose.period}
                       </div>
                     </td>
@@ -1029,14 +1034,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     <td style={{ padding: '8px', textAlign: 'center' }}>
                       <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
                         {(['ID', 'IM'] as const).map(route => (
-                          <label key={route} style={{ display: 'inline-flex', alignItems: 'center', cursor: readOnly || isLinked ? 'default' : 'pointer', fontSize: 12, fontWeight: 500, color: '#475569' }}>
+                          <label key={route} style={{ display: 'inline-flex', alignItems: 'center', cursor: isLocked ? 'default' : 'pointer', fontSize: 12, fontWeight: 500, color: '#475569' }}>
                             <input
                               type="radio"
                               name={`route_${index}`}
                               value={route}
                               checked={dose.route === route}
                               onChange={() => handleDoseChange(index, 'route', route)}
-                              disabled={readOnly || isLinked}
+                              disabled={isLocked}
                               style={{ marginRight: 4 }}
                             />
                             {route}
@@ -1051,15 +1056,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         type="date"
                         value={dose.date}
                         onChange={(e) => handleDoseChange(index, 'date', e.target.value)}
-                        disabled={readOnly || isLinked}
+                        disabled={isLocked}
                         style={{
                           width: '100%',
                           padding: '6px 8px',
                           border: isFilled ? '1px solid #94a3b8' : '1px solid #cbd5e1',
                           borderRadius: 5,
                           fontSize: 12,
-                          backgroundColor: isLinked ? '#f1f5f9' : '#ffffff',
-                          color: '#0f172a',
+                          backgroundColor: isCompleted ? '#f1f5f9' : '#ffffff',
+                          color: isCompleted ? '#334155' : '#0f172a',
+                          cursor: isCompleted ? 'not-allowed' : 'text',
+                          fontWeight: isCompleted ? 600 : 400,
                         }}
                       />
                       {dose.schedule_drift_days !== undefined && dose.schedule_drift_days !== 0 && (
@@ -1093,16 +1100,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                       <select
                         value={dose.vaccine_type}
                         onChange={(e) => handleDoseVaccineTypeChange(index, e.target.value)}
-                        disabled={readOnly || isLinked}
+                        disabled={isLocked}
                         style={{
                           width: '100%',
                           padding: '6px 8px',
                           border: isFilled && !dose.vaccine_type ? '1px solid #ef4444' : '1px solid #cbd5e1',
                           borderRadius: 5,
                           fontSize: 12,
-                          backgroundColor: isLinked ? '#f1f5f9' : '#ffffff',
+                          backgroundColor: isCompleted ? '#f1f5f9' : '#ffffff',
                           color: dose.vaccine_type ? '#0f172a' : '#64748b',
                           fontWeight: dose.vaccine_type ? 600 : 400,
+                          cursor: isCompleted ? 'not-allowed' : 'pointer',
                         }}
                       >
                         <option value="">— Select Vaccine —</option>
@@ -1112,7 +1120,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                           </option>
                         ))}
                       </select>
-                      {isFilled && !dose.vaccine_type && !isLinked && (
+                      {isFilled && !dose.vaccine_type && !isCompleted && (
                         <div style={{ color: '#dc2626', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
                           Required to deduct stock
                         </div>
@@ -1121,10 +1129,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
                     {/* 5. FIFO Batch & Open-Vial Preview */}
                     <td style={{ padding: '8px 10px' }}>
-                      {isLinked ? (
+                      {isCompleted ? (
                         <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 2, padding: '4px 8px', backgroundColor: dose.inventory_units_used === '0' ? '#ecfeff' : '#dcfce7', border: dose.inventory_units_used === '0' ? '1px solid #a5f3fc' : '1px solid #86efac', borderRadius: 6 }}>
                           <span style={{ fontSize: 11, fontWeight: 700, color: dose.inventory_units_used === '0' ? '#0e7490' : '#15803d' }}>
-                            ✓ Batch: {dose.batch_number || 'Linked'} {dose.inventory_units_used === '0' ? '(Shared Vial)' : `(${dose.inventory_units_used} deducted)`}
+                            ✓ Batch: {dose.batch_number || 'Administered'} {dose.inventory_units_used === '0' ? '(Shared Vial)' : dose.inventory_units_used ? `(${dose.inventory_units_used} deducted)` : ''}
                           </span>
                           {dose.expiration_date && (
                             <span style={{ fontSize: 10, color: dose.inventory_units_used === '0' ? '#155e75' : '#166534' }}>
@@ -1170,9 +1178,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
                     {/* 6. Automated Stock Allocation */}
                     <td style={{ padding: '8px', textAlign: 'center' }}>
-                      {isLinked ? (
+                      {isCompleted ? (
                         <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 6, backgroundColor: '#f1f5f9', color: '#475569', fontSize: 11, fontWeight: 600 }}>
-                          {dose.inventory_units_used === '0' ? 'Shared Vial' : `${dose.inventory_units_used} vial(s)`}
+                          {dose.inventory_units_used === '0' ? 'Shared Vial' : `${dose.inventory_units_used || 1} vial(s)`}
                         </span>
                       ) : dose.vaccine_type && dose.batch_number ? (
                         dose.is_open_vial ? (
@@ -1202,14 +1210,15 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         value={dose.given_by}
                         onChange={(e) => handleDoseChange(index, 'given_by', e.target.value)}
                         placeholder="Nurse name"
-                        disabled={readOnly || isLinked}
+                        disabled={isLocked}
                         style={{
                           width: '100%',
                           padding: '6px 8px',
                           border: '1px solid #cbd5e1',
                           borderRadius: 5,
                           fontSize: 12,
-                          backgroundColor: isLinked ? '#f1f5f9' : '#ffffff',
+                          backgroundColor: isCompleted ? '#f1f5f9' : '#ffffff',
+                          cursor: isCompleted ? 'not-allowed' : 'text',
                         }}
                       />
                     </td>
@@ -1221,23 +1230,24 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         value={dose.signature}
                         onChange={(e) => handleDoseChange(index, 'signature', e.target.value)}
                         placeholder="Initial"
-                        disabled={readOnly || isLinked}
+                        disabled={isLocked}
                         style={{
                           width: '100%',
                           padding: '6px 8px',
                           border: '1px solid #cbd5e1',
                           borderRadius: 5,
                           fontSize: 12,
-                          backgroundColor: isLinked ? '#f1f5f9' : '#ffffff',
+                          backgroundColor: isCompleted ? '#f1f5f9' : '#ffffff',
+                          cursor: isCompleted ? 'not-allowed' : 'text',
                         }}
                       />
                     </td>
 
                     {/* 9. Status Pill */}
                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                      {isLinked ? (
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: dose.inventory_units_used === '0' ? '#cffafe' : '#dcfce7', color: dose.inventory_units_used === '0' ? '#0e7490' : '#15803d', fontSize: 10, fontWeight: 700 }}>
-                          {dose.inventory_units_used === '0' ? 'Shared Dose' : 'Administered'}
+                      {isCompleted ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, backgroundColor: '#dcfce7', color: '#15803d', fontSize: 10, fontWeight: 700 }}>
+                          ✓ Administered
                         </span>
                       ) : isFilled ? (
                         dose.vaccine_type && dose.batch_number ? (

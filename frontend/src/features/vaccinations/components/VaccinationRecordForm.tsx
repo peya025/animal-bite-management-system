@@ -9,6 +9,10 @@ import {
 } from '../../inventory/services/vaccineInventoryService';
 import type { VaccineTypePreset } from '../../inventory/types';
 import DohTransferSlipModal from './DohTransferSlipModal';
+import {
+  useAddressLocation,
+  MISAMIS_ORIENTAL_MUNICIPALITIES,
+} from '../../patients/hooks/useAddressLocation';
 
 type ApiError = {
   response?: {
@@ -235,6 +239,17 @@ const formatDateForInput = (dateString: string | null | undefined): string => {
 
 export default function VaccinationRecordForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: VaccinationRecordFormProps) {
   const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
+
+  // ── Place of Exposure address location (same hook as Add Patient) ──────────
+  const expLoc = useAddressLocation();
+
+  // Sync composed address string → place_of_exposure field (Municipality + Barangay only)
+  useEffect(() => {
+    const parts = [expLoc.brgyName, expLoc.munName].filter(Boolean);
+    if (parts.length > 0) {
+      setFormData(prev => ({ ...prev, place_of_exposure: parts.join(', ') }));
+    }
+  }, [expLoc.munName, expLoc.brgyName]);
   const [doses, setDoses] = useState<VaccinationDose[]>(createInitialDoses());
   const [additionalMeds, setAdditionalMeds] = useState<AdditionalMeds>({
     erig: false,
@@ -951,18 +966,119 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Place of Exposure</label>
-          <select
-            value={formData.place_of_exposure}
-            onChange={handleFieldChange('place_of_exposure')}
-            disabled={readOnly}
-            style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : '#ffffff' }}
-          >
-            <option value="">— Select Place of Exposure —</option>
-            {placeOfExposureOptions.map(option => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
+          {/* ── Label row: "Place of Exposure" label + toggle button side by side ── */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Place of Exposure</label>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => expLoc.setUseManual(!expLoc.useManual)}
+                style={{
+                  padding: '5px 12px', fontSize: 12, fontWeight: 600,
+                  background: '#f8fbff', color: '#475569',
+                  border: '1px solid #cfd8e3', borderRadius: 10,
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6,
+                  flexShrink: 0, whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {expLoc.useManual ? (
+                    <>
+                      <path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/>
+                      <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/>
+                      <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/>
+                      <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/>
+                    </>
+                  ) : (
+                    <>
+                      <path d="M12 20h9"/>
+                      <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"/>
+                    </>
+                  )}
+                </svg>
+                {expLoc.useManual ? 'Switch to Dropdown' : 'Switch to Manual Typing'}
+              </button>
+            )}
+          </div>
+
+          {/* ── Same dropdown UI as Add Patient residential address ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+            {/* API error warning */}
+            {expLoc.apiError && !expLoc.useManual && (
+              <div style={{ padding: '6px 10px', background: '#fef9c3', border: '1px solid #fcd34d', borderRadius: 6, fontSize: 12, color: '#92400e' }}>
+                ⚠ Address API unavailable. <button type="button" onClick={() => expLoc.setUseManual(true)} style={{ background: 'none', border: 'none', color: '#b45309', cursor: 'pointer', textDecoration: 'underline', fontSize: 12, padding: 0 }}>Switch to manual entry</button>
+              </div>
+            )}
+
+            {expLoc.useManual ? (
+              /* ── Manual free-text mode ── */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>City / Municipality</label>
+                  <input
+                    type="text"
+                    value={expLoc.manualMun}
+                    onChange={e => expLoc.setManualMun(e.target.value)}
+                    disabled={readOnly}
+                    placeholder="Enter municipality"
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? '#f9fafb' : '#fff' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Barangay</label>
+                  <input
+                    type="text"
+                    value={expLoc.manualBrgy}
+                    onChange={e => expLoc.setManualBrgy(e.target.value)}
+                    disabled={readOnly}
+                    placeholder="Enter barangay"
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? '#f9fafb' : '#fff' }}
+                  />
+                </div>
+              </div>
+            ) : (
+              /* ── Dropdown mode (same as Add Patient) ── */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>City / Municipality *</label>
+                  <select
+                    value={expLoc.municipality}
+                    onChange={e => expLoc.setMunicipality(e.target.value)}
+                    disabled={readOnly || expLoc.loadingMun}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : '#fff', boxSizing: 'border-box' }}
+                  >
+                    <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
+                    {expLoc.municipalities.map(m => (
+                      <option key={m.code} value={m.code}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Barangay *</label>
+                  <select
+                    value={expLoc.barangay}
+                    onChange={e => expLoc.setBarangay(e.target.value)}
+                    disabled={readOnly || !expLoc.municipality || expLoc.loadingBrgy}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: (readOnly || !expLoc.municipality) ? '#f9fafb' : '#fff', boxSizing: 'border-box' }}
+                  >
+                    <option value="">{expLoc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
+                    {expLoc.barangays.map(b => (
+                      <option key={b.code} value={b.code}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Read-only display when form is read-only and value came from bite record */}
+            {readOnly && !expLoc.full && formData.place_of_exposure && (
+              <div style={{ padding: '7px 11px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, color: '#374151' }}>
+                {formData.place_of_exposure}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

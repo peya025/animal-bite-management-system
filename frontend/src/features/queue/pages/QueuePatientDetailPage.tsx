@@ -413,18 +413,6 @@ export default function QueuePatientDetailPage() {
         onClose={() => setMenuAnchor(null)}
         slotProps={{ paper: { sx: { borderRadius: 2, minWidth: 200, boxShadow: '0 4px 20px rgba(0,0,0,0.12)' } } }}
       >
-        {/* Call — waiting only */}
-        {entry.status === 'waiting' && (
-          <MenuItem onClick={() => { setMenuAnchor(null); setCallDialog(true); }} sx={{ gap: 1.5, fontSize: 14 }}>
-            <CallIcon sx={{ fontSize: 18, color: '#2563eb' }} /> Call Patient
-          </MenuItem>
-        )}
-        {/* Serve — called/second_chance/final_recall */}
-        {['called','second_chance','final_recall'].includes(entry.status) && (
-          <MenuItem onClick={() => { setMenuAnchor(null); setServeDialog(true); }} sx={{ gap: 1.5, fontSize: 14 }}>
-            <ServeIcon sx={{ fontSize: 18, color: '#059669' }} /> Start Serving
-          </MenuItem>
-        )}
         {/* No Response — waiting or called */}
         {['waiting','called','in_consultation'].includes(entry.status) && (
           <MenuItem onClick={() => { setMenuAnchor(null); setNoRespDialog(true); }} sx={{ gap: 1.5, fontSize: 14 }}>
@@ -441,12 +429,6 @@ export default function QueuePatientDetailPage() {
         {entry.status === 'final_recall' && (
           <MenuItem onClick={() => { setMenuAnchor(null); setAbsentDialog(true); }} sx={{ gap: 1.5, fontSize: 14, color: '#dc2626' }}>
             <AbsentIcon sx={{ fontSize: 18 }} /> Mark No-Show
-          </MenuItem>
-        )}
-        {/* Complete — serving or in_consultation */}
-        {['serving','in_consultation','called'].includes(entry.status) && (
-          <MenuItem onClick={() => { setMenuAnchor(null); setCompleteDialog(true); }} sx={{ gap: 1.5, fontSize: 14 }}>
-            <CompleteIcon sx={{ fontSize: 18, color: '#10b981' }} /> {userRole === 'triage' ? 'Transfer to Treatment' : userRole === 'treatment' ? 'Complete Treatment' : 'Complete'}
           </MenuItem>
         )}
         {/* Cancel — any active */}

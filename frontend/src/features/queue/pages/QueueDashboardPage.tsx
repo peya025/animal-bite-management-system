@@ -483,36 +483,6 @@ export default function QueueDashboard() {
         return (
           <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', alignItems: 'center' }}>
 
-            {/* Call — waiting only */}
-            {isWaiting && (
-              <Tooltip title="Call Patient to Station">
-                <IconButton size="small" onClick={() => setCallTarget(e)}
-                  sx={actionBtn('#2563eb', '#eff6ff', '#bfdbfe', '#dbeafe', '#93c5fd', '#1d4ed8')}>
-                  <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
-                </IconButton>
-              </Tooltip>
-            )}
-
-            {/* Serve (patient responded) — called only */}
-            {isCalled && (
-              <Tooltip title="Patient Responded — Start Serving">
-                <IconButton size="small" onClick={() => setServeTarget(e)}
-                  sx={actionBtn('#0d9488', '#f0fdfa', '#99f6e4', '#ccfbf1', '#5eead4', '#0f766e')}>
-                  <HugeiconsIcon icon={CheckmarkBadge04Icon} size={16} strokeWidth={2} />
-                </IconButton>
-              </Tooltip>
-            )}
-
-            {/* Complete — serving only */}
-            {isServing && (
-              <Tooltip title={isTriageDoctor ? 'Transfer to Treatment' : isTreatmentNurse ? 'Complete Treatment' : 'Complete Consultation'}>
-                <IconButton size="small" onClick={() => setCompleteTarget(e)}
-                  sx={actionBtn('#059669', '#ecfdf5', '#a7f3d0', '#d1fae5', '#6ee7b7', '#047857')}>
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} strokeWidth={2} />
-                </IconButton>
-              </Tooltip>
-            )}
-
             {/* No Response — waiting or called */}
             {(isWaiting || isCalled) && (
               <Tooltip title="No Response — Move to Second Chance">

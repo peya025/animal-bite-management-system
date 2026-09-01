@@ -27,13 +27,89 @@ class _SignUpViewState extends State<SignUpView> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordConfirmationController = TextEditingController();
+
+  final _emailFocusNode = FocusNode();
+  final _lastNameFocusNode = FocusNode();
+  final _firstNameFocusNode = FocusNode();
+  final _phoneFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+  final _passwordConfirmationFocusNode = FocusNode();
+
+  bool _emailBlurred = false;
+  bool _phoneBlurred = false;
+  bool _passwordBlurred = false;
+  bool _confirmPasswordBlurred = false;
+
+  bool _emailHadFocus = false;
+  bool _phoneHadFocus = false;
+  bool _passwordHadFocus = false;
+  bool _confirmPasswordHadFocus = false;
+
+  bool _submitted = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscurePasswordConfirmation = true;
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _emailFocusNode.addListener(_onFocusChange);
+    _phoneFocusNode.addListener(_onFocusChange);
+    _passwordFocusNode.addListener(_onFocusChange);
+    _passwordConfirmationFocusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    bool changed = false;
+
+    if (_emailFocusNode.hasFocus) {
+      _emailHadFocus = true;
+    } else if (_emailHadFocus && !_emailBlurred) {
+      _emailBlurred = true;
+      changed = true;
+    }
+
+    if (_phoneFocusNode.hasFocus) {
+      _phoneHadFocus = true;
+    } else if (_phoneHadFocus && !_phoneBlurred) {
+      _phoneBlurred = true;
+      changed = true;
+    }
+
+    if (_passwordFocusNode.hasFocus) {
+      _passwordHadFocus = true;
+    } else if (_passwordHadFocus && !_passwordBlurred) {
+      _passwordBlurred = true;
+      changed = true;
+    }
+
+    if (_passwordConfirmationFocusNode.hasFocus) {
+      _confirmPasswordHadFocus = true;
+    } else if (_confirmPasswordHadFocus && !_confirmPasswordBlurred) {
+      _confirmPasswordBlurred = true;
+      changed = true;
+    }
+
+    if (changed && mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
+    _emailFocusNode.removeListener(_onFocusChange);
+    _phoneFocusNode.removeListener(_onFocusChange);
+    _passwordFocusNode.removeListener(_onFocusChange);
+    _passwordConfirmationFocusNode.removeListener(_onFocusChange);
+
+    _emailFocusNode.dispose();
+    _lastNameFocusNode.dispose();
+    _firstNameFocusNode.dispose();
+    _phoneFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    _passwordConfirmationFocusNode.dispose();
+
     _emailController.dispose();
     _lastNameController.dispose();
     _firstNameController.dispose();
@@ -45,7 +121,21 @@ class _SignUpViewState extends State<SignUpView> {
 
   Future<void> _register() async {
     if (_isLoading) return;
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() {
+      _submitted = true;
+      _emailBlurred = true;
+      _phoneBlurred = true;
+      _passwordBlurred = true;
+      _confirmPasswordBlurred = true;
+    });
+
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      setState(() {
+        _errorMessage = 'Please check the highlighted boxes and enter the required details.';
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -136,19 +226,24 @@ class _SignUpViewState extends State<SignUpView> {
                       AppTextField(
                         label: 'EMAIL',
                         controller: _emailController,
+                        focusNode: _emailFocusNode,
                         enabled: !_isLoading,
                         hintText: 'you@example.com',
                         prefixIcon: Icons.mail_outline_rounded,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.email],
-                        validator: (value) {
-                          final email = value?.trim() ?? '';
-                          if (email.isEmpty) return 'Email is required';
-                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
-                            return 'Enter a valid email address';
+                        autovalidateMode: (_emailBlurred || _submitted)
+                            ? AutovalidateMode.onUserInteraction
+                            : AutovalidateMode.disabled,
+                        onChanged: (val) {
+                          if (_emailBlurred && mounted) {
+                            setState(() {});
                           }
-                          return null;
+                        },
+                        validator: (value) {
+                          if (!_emailBlurred && !_submitted) return null;
+                          return AppValidators.email(value, required: true);
                         },
                       ),
                       const SizedBox(height: 18),
@@ -158,15 +253,20 @@ class _SignUpViewState extends State<SignUpView> {
                             child: AppTextField(
                               label: 'LAST NAME',
                               controller: _lastNameController,
+                              focusNode: _lastNameFocusNode,
                               enabled: !_isLoading,
                               hintText: 'Doe',
+                              textCapitalization: TextCapitalization.words,
                               prefixIcon: Icons.person_outline_rounded,
                               textInputAction: TextInputAction.next,
                               autofillHints: const [AutofillHints.familyName],
-                              validator: (value) =>
-                                  value == null || value.trim().isEmpty
-                                      ? 'Last name is required'
-                                      : null,
+                              autovalidateMode: _submitted
+                                  ? AutovalidateMode.onUserInteraction
+                                  : AutovalidateMode.disabled,
+                              validator: (value) {
+                                if (!_submitted) return null;
+                                return AppValidators.name(value, 'Last name', required: true);
+                              },
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -174,14 +274,19 @@ class _SignUpViewState extends State<SignUpView> {
                             child: AppTextField(
                               label: 'FIRST NAME',
                               controller: _firstNameController,
+                              focusNode: _firstNameFocusNode,
                               enabled: !_isLoading,
                               hintText: 'Jane',
+                              textCapitalization: TextCapitalization.words,
                               textInputAction: TextInputAction.next,
                               autofillHints: const [AutofillHints.givenName],
-                              validator: (value) =>
-                                  value == null || value.trim().isEmpty
-                                      ? 'First name is required'
-                                      : null,
+                              autovalidateMode: _submitted
+                                  ? AutovalidateMode.onUserInteraction
+                                  : AutovalidateMode.disabled,
+                              validator: (value) {
+                                if (!_submitted) return null;
+                                return AppValidators.name(value, 'First name', required: true);
+                              },
                             ),
                           ),
                         ],
@@ -190,6 +295,7 @@ class _SignUpViewState extends State<SignUpView> {
                       AppTextField(
                         label: 'MOBILE NUMBER',
                         controller: _phoneController,
+                        focusNode: _phoneFocusNode,
                         enabled: !_isLoading,
                         hintText: '9XX XXX XXXX',
                         prefixWidget: const PhPhonePrefixPill(prefix: '+63'),
@@ -197,19 +303,39 @@ class _SignUpViewState extends State<SignUpView> {
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.telephoneNumber],
                         inputFormatters: const [PhPhoneNumberFormatter()],
-                        validator: (value) =>
-                            AppValidators.phMobile(value, required: true),
+                        autovalidateMode: (_phoneBlurred || _submitted)
+                            ? AutovalidateMode.onUserInteraction
+                            : AutovalidateMode.disabled,
+                        onChanged: (val) {
+                          if (_phoneBlurred && mounted) {
+                            setState(() {});
+                          }
+                        },
+                        validator: (value) {
+                          if (!_phoneBlurred && !_submitted) return null;
+                          return AppValidators.phMobile(value, required: true);
+                        },
                       ),
                       const SizedBox(height: 18),
                       AppTextField(
                         label: 'PASSWORD',
                         controller: _passwordController,
+                        focusNode: _passwordFocusNode,
                         enabled: !_isLoading,
                         hintText: '••••••••',
+                        helperText: 'Must be at least 8 characters long',
                         prefixIcon: Icons.lock_outline_rounded,
                         obscureText: _obscurePassword,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.newPassword],
+                        autovalidateMode: (_passwordBlurred || _submitted)
+                            ? AutovalidateMode.onUserInteraction
+                            : AutovalidateMode.disabled,
+                        onChanged: (val) {
+                          if (_passwordBlurred && mounted) {
+                            setState(() {});
+                          }
+                        },
                         suffixIcon: IconButton(
                           onPressed: () => setState(
                             () => _obscurePassword = !_obscurePassword,
@@ -223,23 +349,29 @@ class _SignUpViewState extends State<SignUpView> {
                           ),
                         ),
                         validator: (value) {
-                          final password = value ?? '';
-                          if (password.isEmpty) return 'Password is required';
-                          if (password.length < 8) {
-                            return 'Password must be at least 8 characters';
-                          }
-                          return null;
+                          if (!_passwordBlurred && !_submitted) return null;
+                          return AppValidators.password(value, required: true, minLength: 8);
                         },
                       ),
                       const SizedBox(height: 18),
                       AppTextField(
                         label: 'CONFIRM PASSWORD',
                         controller: _passwordConfirmationController,
+                        focusNode: _passwordConfirmationFocusNode,
                         enabled: !_isLoading,
                         hintText: '••••••••',
                         prefixIcon: Icons.lock_outline_rounded,
                         obscureText: _obscurePasswordConfirmation,
                         textInputAction: TextInputAction.done,
+                        autovalidateMode: (_confirmPasswordBlurred || _submitted)
+                            ? AutovalidateMode.onUserInteraction
+                            : AutovalidateMode.disabled,
+                        onChanged: (val) {
+                          if (_confirmPasswordBlurred && mounted) {
+                            setState(() {});
+                          }
+                        },
+                        onFieldSubmitted: (_) => _register(),
                         suffixIcon: IconButton(
                           onPressed: () => setState(
                             () => _obscurePasswordConfirmation =
@@ -254,10 +386,11 @@ class _SignUpViewState extends State<SignUpView> {
                           ),
                         ),
                         validator: (value) {
-                          if (value != _passwordController.text) {
-                            return 'Passwords do not match';
-                          }
-                          return null;
+                          if (!_confirmPasswordBlurred && !_submitted) return null;
+                          return AppValidators.confirmPassword(
+                            value,
+                            _passwordController.text,
+                          );
                         },
                       ),
                       const SizedBox(height: 24),

@@ -9,16 +9,20 @@ class AppTextField extends StatelessWidget {
     required this.label,
     required this.controller,
     this.hintText,
+    this.helperText,
     this.enabled = true,
     this.keyboardType,
     this.textInputAction,
     this.textCapitalization = TextCapitalization.none,
     this.autofillHints,
     this.obscureText = false,
+    this.focusNode,
     this.prefixIcon,
     this.prefixWidget,
     this.suffixIcon,
     this.validator,
+    this.autovalidateMode,
+    this.onChanged,
     this.onFieldSubmitted,
     this.minLines,
     this.maxLines = 1,
@@ -29,16 +33,20 @@ class AppTextField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final String? hintText;
+  final String? helperText;
   final bool enabled;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final TextCapitalization textCapitalization;
   final Iterable<String>? autofillHints;
   final bool obscureText;
+  final FocusNode? focusNode;
   final IconData? prefixIcon;
   final Widget? prefixWidget;
   final Widget? suffixIcon;
   final String? Function(String?)? validator;
+  final AutovalidateMode? autovalidateMode;
+  final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onFieldSubmitted;
   final int? minLines;
   final int maxLines;
@@ -62,6 +70,7 @@ class AppTextField extends StatelessWidget {
         TextFormField(
           controller: controller,
           enabled: enabled,
+          focusNode: focusNode,
           keyboardType: keyboardType,
           textInputAction: textInputAction,
           textCapitalization: textCapitalization,
@@ -72,6 +81,8 @@ class AppTextField extends StatelessWidget {
           maxLength: maxLength,
           inputFormatters: inputFormatters,
           validator: validator,
+          autovalidateMode: autovalidateMode,
+          onChanged: onChanged,
           onFieldSubmitted: onFieldSubmitted,
           style: const TextStyle(
             color: AppColors.gray900,
@@ -80,6 +91,8 @@ class AppTextField extends StatelessWidget {
           ),
           decoration: InputDecoration(
             hintText: hintText,
+            helperText: helperText,
+            errorMaxLines: 2,
             prefixIcon: prefixWidget ??
                 (prefixIcon == null
                     ? null

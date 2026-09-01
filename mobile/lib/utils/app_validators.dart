@@ -8,11 +8,17 @@ abstract final class AppValidators {
   static String? phMobile(String? value, {bool required = true}) {
     final trimmed = value?.trim() ?? '';
     if (trimmed.isEmpty) {
-      return required ? 'Contact number is required.' : null;
+      return required ? 'Mobile number is required.' : null;
     }
     final clean = trimmed.replaceAll(RegExp(r'[\s\-]'), '');
+    if (!clean.startsWith('9') &&
+        !clean.startsWith('09') &&
+        !clean.startsWith('+639') &&
+        !clean.startsWith('639')) {
+      return 'Mobile number must start with 9 (e.g. 9XX XXX XXXX).';
+    }
     if (!_phMobileRegex.hasMatch(clean)) {
-      return 'Enter a valid 11-digit PH mobile number (e.g. 09XX XXX XXXX).';
+      return 'Enter a valid 10-digit mobile number (e.g. 9XX XXX XXXX).';
     }
     return null;
   }
@@ -36,8 +42,11 @@ abstract final class AppValidators {
     if (trimmed.isEmpty) {
       return required ? 'Email address is required.' : null;
     }
+    if (trimmed.contains(' ')) {
+      return 'Email address cannot contain spaces.';
+    }
     if (!_emailRegex.hasMatch(trimmed)) {
-      return 'Enter a valid email address.';
+      return 'Enter a valid email address (e.g. name@example.com).';
     }
     return null;
   }
@@ -59,13 +68,36 @@ abstract final class AppValidators {
   static String? name(String? value, String fieldName, {bool required = true}) {
     final trimmed = value?.trim() ?? '';
     if (trimmed.isEmpty) {
-      return required ? ' is required.' : null;
+      return required ? '$fieldName is required.' : null;
     }
     if (trimmed.length < 2) {
-      return ' must be at least 2 characters.';
+      return '$fieldName must be at least 2 characters.';
     }
     if (!_nameRegex.hasMatch(trimmed)) {
-      return ' should only contain letters, spaces, and hyphens.';
+      return '$fieldName should only contain letters, spaces, and hyphens.';
+    }
+    return null;
+  }
+
+  /// Validates password field with length caution.
+  static String? password(String? value, {bool required = true, int minLength = 8}) {
+    final pwd = value ?? '';
+    if (pwd.isEmpty) {
+      return required ? 'Password is required.' : null;
+    }
+    if (pwd.length < minLength) {
+      return 'Password must be at least $minLength characters long.';
+    }
+    return null;
+  }
+
+  /// Validates confirm password field against the primary password.
+  static String? confirmPassword(String? value, String originalPassword) {
+    if (value == null || value.isEmpty) {
+      return 'Please confirm your password.';
+    }
+    if (value != originalPassword) {
+      return 'Passwords do not match.';
     }
     return null;
   }

@@ -209,6 +209,7 @@ export default function GeneralTreatmentForm({
 
   // Medical-legal post-treatment lock: true if patient has >= 1 administered vaccine dose
   const [hasAdministeredVaccine, setHasAdministeredVaccine] = useState(false);
+  const [isReturningNewBite, setIsReturningNewBite] = useState(false);
   const [addendumNote, setAddendumNote] = useState('');
   const [savingAddendum, setSavingAddendum] = useState(false);
   const [addendumSuccess, setAddendumSuccess] = useState('');
@@ -353,7 +354,9 @@ export default function GeneralTreatmentForm({
       .then((response) => {
         const record = response.data?.latest_treatment;
         const isVaccinated = Boolean(response.data?.has_administered_vaccine);
+        const isReturning = Boolean(response.data?.is_returning_new_bite);
         setHasAdministeredVaccine(isVaccinated);
+        setIsReturningNewBite(isReturning);
 
         if (record && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
           setHasExistingRecord(true);
@@ -362,7 +365,7 @@ export default function GeneralTreatmentForm({
           populateFormFromRecord(record);
         } else {
           setHasExistingRecord(false);
-          setIsEditing(!isVaccinated); // Only editable if not vaccinated
+          setIsEditing(true); // Open and editable for new assessment
           setExistingRecord(null);
         }
       })
@@ -599,6 +602,25 @@ export default function GeneralTreatmentForm({
   const formContent = (
     <div style={{ padding: inline ? '0' : '24px 32px' }}>
       
+      {/* 🛡️ Returning Patient Banner */}
+      {isReturningNewBite && !hasAdministeredVaccine && (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', gap: 1.5,
+          px: 2.5, py: 1.75, mb: 3,
+          bgcolor: '#ecfdf5', border: '1.5px solid #a7f3d0', borderRadius: 2,
+        }}>
+          <Typography sx={{ fontSize: 20 }}>🛡️</Typography>
+          <Box>
+            <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#065f46' }}>
+              Prior Immunization History Verified — New Bite Assessment
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: '#047857', mt: 0.25 }}>
+              Patient has documented rabies vaccination on file and returned with a new animal bite exposure. Record clinical assessment and exposure details below.
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
       {/* 🔒 Medical-Legal Post-Treatment Lock Banner */}
       {hasAdministeredVaccine ? (
         <Box sx={{

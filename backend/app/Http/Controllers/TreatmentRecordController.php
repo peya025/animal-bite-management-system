@@ -20,22 +20,10 @@ class TreatmentRecordController extends Controller
             ->where('clinic_id', $clinicId)
             ->findOrFail($patientId);
 
-        // Get latest treatment record (general consultation)
-        $latestTreatment = TreatmentRecord::where('clinic_id', $clinicId)
-            ->where('patient_id', $patientId)
-            ->orderBy('consultation_date', 'desc')
-            ->orderBy('consultation_time', 'desc')
-            ->first();
+        $requestedBiteId = $request->get('bite_id');
 
-        // Get all treatment records for history
-        $treatments = TreatmentRecord::where('clinic_id', $clinicId)
-            ->where('patient_id', $patientId)
-            ->orderBy('consultation_date', 'desc')
-            ->orderBy('consultation_time', 'desc')
-            ->get();
-
-        // Check if patient already has administered vaccination records
-        $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
+        // Check if patient is returning with a new bite exposure (>90 days since last dose or completed episode)
+        $latestDose = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
             ->whereNotNull('dose_number')
             ->where(function($q) {
@@ -44,13 +32,79 @@ class TreatmentRecordController extends Controller
                       $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
                   });
             })
-            ->exists();
+            ->latest('treatment_date')
+            ->first();
+
+        $activeIncident = null;
+        if ($requestedBiteId) {
+            $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)->find($requestedBiteId);
+        } else {
+            $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('status', 'active')
+                ->latest('bite_id')
+                ->first();
+        }
+
+        $isReturningNewBite = false;
+        if ($latestDose && $latestDose->treatment_date) {
+            $daysSinceLastDose = Carbon::parse($latestDose->treatment_date)->diffInDays(now());
+            if ($daysSinceLastDose > 90) {
+                $isReturningNewBite = true;
+            }
+        }
+
+        // Get consultation record scoped to active episode if exists
+        $latestTreatment = null;
+        if ($activeIncident) {
+            $latestTreatment = TreatmentRecord::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('bite_id', $activeIncident->bite_id)
+                ->whereNull('dose_number')
+                ->latest('consultation_date')
+                ->first();
+        }
+        if (!$latestTreatment && !$isReturningNewBite) {
+            $latestTreatment = TreatmentRecord::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->whereNull('dose_number')
+                ->orderBy('consultation_date', 'desc')
+                ->orderBy('consultation_time', 'desc')
+                ->first();
+        }
+
+        // Get all treatment records for history
+        $treatments = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->orderBy('consultation_date', 'desc')
+            ->orderBy('consultation_time', 'desc')
+            ->get();
+
+        // Medical-legal lock: only applies if current episode already has administered vaccines
+        $hasAdministeredVaccine = false;
+        if ($activeIncident) {
+            $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('bite_id', $activeIncident->bite_id)
+                ->whereNotNull('dose_number')
+                ->where(function($q) {
+                    $q->where('status', 'completed')
+                      ->orWhere(function($sub) {
+                          $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
+                      });
+                })
+                ->exists();
+        } elseif (!$isReturningNewBite && $latestDose) {
+            $hasAdministeredVaccine = true;
+        }
 
         return response()->json([
             'patient' => $patient,
             'latest_treatment' => $latestTreatment,
             'treatments' => $treatments,
             'has_administered_vaccine' => $hasAdministeredVaccine,
+            'is_returning_new_bite' => $isReturningNewBite,
+            'active_bite_incident' => $activeIncident,
         ]);
     }
 
@@ -99,29 +153,46 @@ class TreatmentRecordController extends Controller
             'attending_provider' => 'nullable|string|max:255',
         ]);
 
-        // Medical-Legal Protection: If patient already has administered vaccination doses, block altering baseline diagnosis
-        $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
-            ->where('patient_id', $validated['patient_id'])
-            ->whereNotNull('dose_number')
-            ->where(function($q) {
-                $q->where('status', 'completed')
-                  ->orWhere(function($sub) {
-                      $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
-                  });
-            })
-            ->exists();
-
-        if ($hasAdministeredVaccine) {
-            $existingConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+        // Resolve active BiteIncident
+        $activeBiteId = $request->get('bite_id');
+        $activeIncident = null;
+        if ($activeBiteId) {
+            $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)->find($activeBiteId);
+        } else {
+            $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
-                ->whereNull('dose_number')
+                ->where('status', 'active')
+                ->latest('bite_id')
                 ->first();
+        }
 
-            if ($existingConsultation) {
-                return response()->json([
-                    'message' => 'Clinical assessment is locked because vaccination has already been administered for this patient. Please use the Addendum section to record additional clinical notes.',
-                    'locked' => true,
-                ], 422);
+        // Medical-Legal Protection: Check if vaccination has already been administered for THIS episode
+        if ($activeIncident) {
+            $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->where('bite_id', $activeIncident->bite_id)
+                ->whereNotNull('dose_number')
+                ->where(function($q) {
+                    $q->where('status', 'completed')
+                      ->orWhere(function($sub) {
+                          $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
+                      });
+                })
+                ->exists();
+
+            if ($hasAdministeredVaccine) {
+                $existingConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+                    ->where('patient_id', $validated['patient_id'])
+                    ->where('bite_id', $activeIncident->bite_id)
+                    ->whereNull('dose_number')
+                    ->first();
+
+                if ($existingConsultation) {
+                    return response()->json([
+                        'message' => 'Clinical assessment is locked because vaccination has already been administered for this episode. Please use the Addendum section to record additional clinical notes.',
+                        'locked' => true,
+                    ], 422);
+                }
             }
         }
 
@@ -129,6 +200,7 @@ class TreatmentRecordController extends Controller
         $treatmentRecord = TreatmentRecord::create([
             'clinic_id' => $clinicId,
             'patient_id' => $validated['patient_id'],
+            'bite_id' => $activeIncident?->bite_id,
             'treatment_date' => $validated['consultation_date'] 
                 ? Carbon::parse($validated['consultation_date']) 
                 : Carbon::now(),

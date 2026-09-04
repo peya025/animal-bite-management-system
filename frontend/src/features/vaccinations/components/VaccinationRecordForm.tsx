@@ -174,29 +174,84 @@ const addDaysToDate = (baseDateStr: string, days: number): string => {
   return `${rY}-${rM}-${rD}`;
 };
 
+/**
+ * Shifts a date string forward to the next clinic open day (Mon–Fri).
+ * Mirrors backend ClinicScheduleService: Sat → Mon (+2d), Sun → Mon (+1d).
+ * Returns the adjusted date string and how many days were drifted.
+ */
+const shiftToOpenDay = (dateStr: string): { date: string; driftDays: number } => {
+  if (!dateStr) return { date: dateStr, driftDays: 0 };
+  const clean = dateStr.slice(0, 10);
+  const parts = clean.split('-');
+  if (parts.length !== 3) return { date: dateStr, driftDays: 0 };
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const date = new Date(y, m, d);
+  if (isNaN(date.getTime())) return { date: dateStr, driftDays: 0 };
+  let drift = 0;
+  // 0 = Sunday → +1 to Monday; 6 = Saturday → +2 to Monday
+  while (date.getDay() === 0 || date.getDay() === 6) {
+    date.setDate(date.getDate() + 1);
+    drift++;
+  }
+  const rY = date.getFullYear();
+  const rM = String(date.getMonth() + 1).padStart(2, '0');
+  const rD = String(date.getDate()).padStart(2, '0');
+  return { date: `${rY}-${rM}-${rD}`, driftDays: drift };
+};
+
+/**
+ * Returns the raw ideal date (no schedule adjustment) for a dose offset.
+ */
+const idealDoseDate = (baseDateStr: string, days: number): string => addDaysToDate(baseDateStr, days);
+
+/**
+ * Returns the clinic-schedule-adjusted date for a dose offset, plus drift metadata.
+ */
+const scheduledDoseDate = (baseDateStr: string, days: number): { date: string; ideal_date: string; schedule_drift_days: number; schedule_adjustment_reason?: string } => {
+  const ideal = idealDoseDate(baseDateStr, days);
+  const { date, driftDays } = shiftToOpenDay(ideal);
+  return {
+    date,
+    ideal_date: ideal,
+    schedule_drift_days: driftDays,
+    schedule_adjustment_reason: driftDays > 0 ? `Shifted +${driftDays}d — clinic closed on weekend` : undefined,
+  };
+};
+
 const calculateDoseDates = (baseDateStr: string, currentDoses: VaccinationDose[]): VaccinationDose[] => {
   if (!baseDateStr) return currentDoses;
   return currentDoses.map((dose) => {
     if (dose.is_completed || dose.inventory_linked) return dose;
     const offset = DOSE_DAY_OFFSETS[dose.period];
     if (offset !== undefined) {
-      return {
-        ...dose,
-        date: addDaysToDate(baseDateStr, offset),
-      };
+      // Day 0 is today — no shift needed; follow-up doses get schedule drift applied
+      if (offset === 0) {
+        return { ...dose, date: baseDateStr, ideal_date: baseDateStr, schedule_drift_days: 0 };
+      }
+      const { date, ideal_date, schedule_drift_days, schedule_adjustment_reason } = scheduledDoseDate(baseDateStr, offset);
+      return { ...dose, date, ideal_date, schedule_drift_days, schedule_adjustment_reason };
     }
     return dose;
   });
 };
 
-const createInitialDoses = (baseDate: string = getLocalDateString()): VaccinationDose[] => [
-  { period: 'Day 0', route: 'IM', date: baseDate, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
-  { period: 'Day 3', route: 'IM', date: addDaysToDate(baseDate, 3), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
-  { period: 'Day 7', route: 'IM', date: addDaysToDate(baseDate, 7), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
-  { period: 'Day 28', route: '', date: addDaysToDate(baseDate, 28), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
-  { period: 'Booster 1', route: '', date: addDaysToDate(baseDate, 90), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
-  { period: 'Booster 2', route: '', date: addDaysToDate(baseDate, 365), given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
-];
+const createInitialDoses = (baseDate: string = getLocalDateString()): VaccinationDose[] => {
+  const d3 = scheduledDoseDate(baseDate, 3);
+  const d7 = scheduledDoseDate(baseDate, 7);
+  const d28 = scheduledDoseDate(baseDate, 28);
+  const b1 = scheduledDoseDate(baseDate, 90);
+  const b2 = scheduledDoseDate(baseDate, 365);
+  return [
+    { period: 'Day 0', route: 'IM', date: baseDate, ideal_date: baseDate, schedule_drift_days: 0, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+    { period: 'Day 3', route: 'IM', ...d3, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+    { period: 'Day 7', route: 'IM', ...d7, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+    { period: 'Day 28', route: '', ...d28, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+    { period: 'Booster 1', route: '', ...b1, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+    { period: 'Booster 2', route: '', ...b2, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
+  ];
+};
 
 const INITIAL_FORM_DATA: TreatmentFormData = {
   date: getLocalDateString(),
@@ -1728,12 +1783,29 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         <div>
           <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>Additional Medications</h3>
           <div style={{ display: 'flex', gap: 24 }}>
-            {(['erig', 'tt', 'ats'] as const).map(med => (
-              <label key={med} style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-                <input type="checkbox" checked={additionalMeds[med]} onChange={(e) => setAdditionalMeds(prev => ({ ...prev, [med]: e.target.checked }))} disabled={readOnly} style={{ marginRight: 8 }} />
-                <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{med.toUpperCase()}</span>
-              </label>
-            ))}
+            {(['erig', 'tt', 'ats'] as const).map(med => {
+              const isReExposure = currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure' || entry?.incident?.episode_type === 're_exposure';
+              const isErigContraindicated = med === 'erig' && isReExposure;
+              return (
+                <label
+                  key={med}
+                  title={isErigContraindicated ? 'RIG omitted — contraindicated in previously immunized patients (DOH Rabies Manual)' : undefined}
+                  style={{ display: 'flex', alignItems: 'center', cursor: isErigContraindicated || readOnly ? 'not-allowed' : 'pointer', opacity: isErigContraindicated ? 0.45 : 1 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={additionalMeds[med]}
+                    onChange={(e) => setAdditionalMeds(prev => ({ ...prev, [med]: e.target.checked }))}
+                    disabled={readOnly || isErigContraindicated}
+                    style={{ marginRight: 8 }}
+                  />
+                  <span style={{ fontSize: 13, color: isErigContraindicated ? '#9ca3af' : '#374151', fontWeight: 500 }}>
+                    {med.toUpperCase()}
+                    {isErigContraindicated && <span style={{ fontSize: 10, marginLeft: 4, color: '#6b7280' }}>(contraindicated)</span>}
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </div>
         <div>

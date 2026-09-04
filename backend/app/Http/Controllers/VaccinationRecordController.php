@@ -410,7 +410,7 @@ class VaccinationRecordController extends Controller
                         ->first();
                 }
 
-            if ($todayQueue) {
+                if ($todayQueue) {
                 $completionNotes = 'Vaccination administered (Form 3 completed by Nurse) — Visit Completed.';
                 
                 \App\Models\QueueHistory::create([
@@ -435,9 +435,9 @@ class VaccinationRecordController extends Controller
                     'recall_stage'       => null,
                 ]);
 
-                Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
-            } // end: if ($todayQueue)
-            } // end: if Day 0 was saved
+                    Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+                } // end: if ($todayQueue)
+            } // end: if any doses saved
 
             // ──────────────────────────────────────────────────────────────
             // ✨ RESET ANY FUTURE DOSE ROWS INCORRECTLY MARKED COMPLETED

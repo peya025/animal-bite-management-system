@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Patient;
+use App\Models\AuditLog;
 use App\Services\PatientMembershipService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -319,6 +320,23 @@ class PatientController extends Controller
         $patient = Patient::where('clinic_id', $request->user()->clinic_id)
             ->findOrFail($id);
 
+        $user = $request->user();
+        $isAdminOrReg = in_array($user->role, ['admin', 'registration']);
+
+        if (!$isAdminOrReg) {
+            $legalFields = ['first_name', 'last_name', 'middle_name', 'suffix', 'gender', 'date_of_birth', 'philhealth_no'];
+            foreach ($legalFields as $field) {
+                if ($request->filled($field)) {
+                    $currentVal = $patient->{$field} ?? $patient->details?->{$field};
+                    if ($request->input($field) != $currentVal) {
+                        return response()->json([
+                            'message' => "Only Administrators or Registration Staff can modify legal identity ({$field}). Regular clinical staff may only update contact and address details.",
+                        ], 403);
+                    }
+                }
+            }
+        }
+
         $membershipService = app(PatientMembershipService::class);
 
         $request->validate(array_merge([
@@ -399,6 +417,16 @@ class PatientController extends Controller
                 }
             }
         });
+
+        // Audit Trail: record editor user ID, role, and demographic update details
+        AuditLog::log('update', 'Patient', $patient->id, [
+            'description' => "Patient demographic record updated by {$user->name} ({$user->role})",
+            'new_values' => $request->only([
+                'first_name', 'last_name', 'contact_number', 'email', 'address',
+                'emergency_contact_name', 'emergency_contact_number',
+                'address_purok', 'address_barangay', 'address_municipality'
+            ]),
+        ]);
 
         // Invalidate patient list cache
         $this->clearPatientListCache($request->user()->clinic_id);

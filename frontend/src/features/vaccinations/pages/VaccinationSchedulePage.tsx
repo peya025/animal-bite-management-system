@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Paper,
@@ -43,6 +43,7 @@ import {
 import api from '../../../services/api';
 import { TablePager } from '../../../components/data-display';
 import TagoloanTreatmentCardModal from '../components/TagoloanTreatmentCardModal';
+import VaccinationRecordForm from '../components/VaccinationRecordForm';
 
 interface PepDose {
   dose_number: number;
@@ -141,6 +142,10 @@ export default function VaccinationSchedulePage() {
   // Treatment Card Modal
   const [cardModalOpen, setCardModalOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+
+  // Form 3 Vaccination Record Modal
+  const [showRecordForm, setShowRecordForm] = useState(false);
+  const [selectedRecordPatient, setSelectedRecordPatient] = useState<PatientJourney | null>(null);
 
   // Single Recall Dialog
   const [recallTarget, setRecallTarget] = useState<PatientJourney | null>(null);
@@ -993,8 +998,8 @@ export default function VaccinationSchedulePage() {
                           size="small"
                           variant="outlined"
                           onClick={() => {
-                            setSelectedPatientId(patient.patient_id);
-                            setCardModalOpen(true);
+                            setSelectedRecordPatient(patient);
+                            setShowRecordForm(true);
                           }}
                           sx={{
                             textTransform: 'none',
@@ -1015,6 +1020,29 @@ export default function VaccinationSchedulePage() {
                           <HugeiconsIcon icon={Medicine01Icon} size={14} />
                           Record Dose (Form 3)
                         </Button>
+
+                        <Tooltip title="View / Print Official Tagoloan Treatment Card">
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => {
+                              setSelectedPatientId(patient.patient_id);
+                              setCardModalOpen(true);
+                            }}
+                            sx={{
+                              textTransform: 'none',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              py: 0.5,
+                              px: 0.75,
+                              color: '#64748b',
+                              minWidth: 'auto',
+                              '&:hover': { bgcolor: '#f1f5f9', color: '#1e293b' },
+                            }}
+                          >
+                            Card
+                          </Button>
+                        </Tooltip>
                       </Box>
                     </Box>
                   </Box>
@@ -1033,6 +1061,42 @@ export default function VaccinationSchedulePage() {
             rowsPerPageOptions={[10, 25, 50]}
           />
         </Paper>
+      )}
+
+      {/* Form 3 Vaccination Record Modal */}
+      {showRecordForm && selectedRecordPatient && (
+        <VaccinationRecordForm
+          open={showRecordForm}
+          entry={{
+            patient: {
+              patient_id: selectedRecordPatient.patient_id,
+              id: selectedRecordPatient.patient_id,
+              name: selectedRecordPatient.full_name,
+              full_name: selectedRecordPatient.full_name,
+              patient_number: selectedRecordPatient.patient_number,
+              age: selectedRecordPatient.age,
+              gender: selectedRecordPatient.gender,
+              contact_number: selectedRecordPatient.contact_number,
+              email: selectedRecordPatient.email,
+            },
+            queue_id: null,
+            incident: selectedRecordPatient.bite_incident,
+            next_appointment: selectedRecordPatient.next_appointment,
+          }}
+          onClose={() => {
+            setShowRecordForm(false);
+            setSelectedRecordPatient(null);
+          }}
+          onSave={() => {
+            setShowRecordForm(false);
+            setSelectedRecordPatient(null);
+            fetchJourneyData();
+            setFeedback({
+              message: 'Vaccination dose recorded successfully!',
+              severity: 'success',
+            });
+          }}
+        />
       )}
 
       {/* Tagoloan Official Treatment Card Modal */}

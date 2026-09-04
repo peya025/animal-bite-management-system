@@ -14,6 +14,7 @@ import { LockOutlined as LockIcon } from '@mui/icons-material';
 import { Icon } from '../../../shared/components/ui/Icon';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
+import PatientEditModal from './PatientEditModal';
 import api from '../../../shared/services/api';
 import type { Patient } from '../types';
 import { getMembershipByType, getPatientMemberships } from '../utils/memberships';
@@ -23,6 +24,7 @@ interface PatientDetailsModalProps {
   patient: Patient | null;
   onClose: () => void;
   onEdit?: (patient: Patient) => void;
+  onPatientUpdated?: (patient: any) => void;
 }
 
 // ── Read-only Banner ─────────────────────────────────────────────────────────
@@ -199,7 +201,7 @@ function Form1Field({ label, value }: { label: string; value: string }) {
 
 // ── Form 1 Inline View ────────────────────────────────────────────────────────
 
-function Form1InlineView({ patient: p }: { patient: any }) {
+function Form1InlineView({ patient: p, onEdit }: { patient: any; onEdit?: () => void }) {
   const patient = toRecord(p);
   const details = toRecord(firstNonEmpty(patient.details));
   const memberships = getPatientMemberships(p);
@@ -216,13 +218,34 @@ function Form1InlineView({ patient: p }: { patient: any }) {
   return (
     <Box sx={{ bgcolor: '#fff', borderRadius: 3, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
       {/* Card header */}
-      <Box sx={{ px: 3, py: 2, bgcolor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Patient Registration — Form 1
-        </Typography>
-        <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
-          Read-only view of Form 1 — Patient Enrolment data
-        </Typography>
+      <Box sx={{ px: 3, py: 2, bgcolor: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box>
+          <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Patient Registration — Form 1
+          </Typography>
+          <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
+            Patient Enrolment & Demographic Record
+          </Typography>
+        </Box>
+        {onEdit && (
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={onEdit}
+            startIcon={<span style={{ fontSize: 13 }}>✏️</span>}
+            sx={{
+              borderColor: '#10b981',
+              color: '#059669',
+              fontWeight: 600,
+              fontSize: 12,
+              textTransform: 'none',
+              borderRadius: 1.5,
+              '&:hover': { bgcolor: '#f0fdf4', borderColor: '#047857' },
+            }}
+          >
+            Update Demographics
+          </Button>
+        )}
       </Box>
 
       <Form1Section title="I. Patient Information (Impormasyon ng Pasyente)">
@@ -302,6 +325,8 @@ export default function PatientDetailsModal({
   open,
   patient,
   onClose,
+  onEdit,
+  onPatientUpdated,
 }: PatientDetailsModalProps) {
   const [printing, setPrinting] = useState(false);
   const [activeTab, setActiveTab] = useState('form1');
@@ -312,6 +337,7 @@ export default function PatientDetailsModal({
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkInSuccess, setCheckInSuccess] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (!open || !patient) {
@@ -446,7 +472,7 @@ export default function PatientDetailsModal({
         return (
           <Box sx={{ p: 3 }}>
             <ReadOnlyBanner />
-            <Form1InlineView patient={p} />
+            <Form1InlineView patient={p} onEdit={() => setShowEditModal(true)} />
           </Box>
         );
       case 'form2':
@@ -623,6 +649,25 @@ export default function PatientDetailsModal({
           </Button>
         </Box>
       </DialogActions>
+
+      {/* ── Role-based Demographic Edit Modal ── */}
+      <PatientEditModal
+        open={showEditModal}
+        patient={p}
+        onClose={() => setShowEditModal(false)}
+        onSave={(updatedPatient) => {
+          setFullPatient((prev: any) => ({
+            ...(prev || {}),
+            ...(updatedPatient || {}),
+            details: {
+              ...((prev && prev.details) || {}),
+              ...((updatedPatient && updatedPatient.details) || {}),
+            },
+          }));
+          if (onPatientUpdated) onPatientUpdated(updatedPatient);
+          if (onEdit) onEdit(updatedPatient);
+        }}
+      />
     </Dialog>
   );
 }

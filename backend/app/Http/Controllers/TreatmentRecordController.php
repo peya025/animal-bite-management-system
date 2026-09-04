@@ -34,10 +34,23 @@ class TreatmentRecordController extends Controller
             ->orderBy('consultation_time', 'desc')
             ->get();
 
+        // Check if patient already has administered vaccination records
+        $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->whereNotNull('dose_number')
+            ->where(function($q) {
+                $q->where('status', 'completed')
+                  ->orWhere(function($sub) {
+                      $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
+                  });
+            })
+            ->exists();
+
         return response()->json([
             'patient' => $patient,
             'latest_treatment' => $latestTreatment,
             'treatments' => $treatments,
+            'has_administered_vaccine' => $hasAdministeredVaccine,
         ]);
     }
 
@@ -85,6 +98,32 @@ class TreatmentRecordController extends Controller
             'provider_name' => 'nullable|string|max:255',
             'attending_provider' => 'nullable|string|max:255',
         ]);
+
+        // Medical-Legal Protection: If patient already has administered vaccination doses, block altering baseline diagnosis
+        $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $validated['patient_id'])
+            ->whereNotNull('dose_number')
+            ->where(function($q) {
+                $q->where('status', 'completed')
+                  ->orWhere(function($sub) {
+                      $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
+                  });
+            })
+            ->exists();
+
+        if ($hasAdministeredVaccine) {
+            $existingConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->whereNull('dose_number')
+                ->first();
+
+            if ($existingConsultation) {
+                return response()->json([
+                    'message' => 'Clinical assessment is locked because vaccination has already been administered for this patient. Please use the Addendum section to record additional clinical notes.',
+                    'locked' => true,
+                ], 422);
+            }
+        }
 
         // Create general consultation treatment record
         $treatmentRecord = TreatmentRecord::create([
@@ -134,6 +173,9 @@ class TreatmentRecordController extends Controller
 
         // ── Auto-advance queue: move patient from Triage/Doctor → Treatment/Vaccination station ──
         $todayQueue = null;
+        $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral';
+        $referredToFacility = $validated['referred_to'] ?? 'External Medical Facility';
+
         if (!empty($validated['queue_id'])) {
             $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)
                 ->where('queue_id', $validated['queue_id'])
@@ -145,40 +187,107 @@ class TreatmentRecordController extends Controller
             $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
                 ->where('queue_date', Carbon::today()->toDateString())
-                ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
+                ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving', 'second_chance', 'final_recall'])
                 ->whereIn('visit_type', ['new_case', 'follow_up', 'observation', 'consultation'])
                 ->whereNull('deleted_at')
                 ->latest('queue_id')
                 ->first();
         }
 
-        if ($todayQueue) {
-            $transferNotes = 'Doctor/Triage completed Form 2 — referred to Treatment.';
-            
-            \App\Models\QueueHistory::create([
-                'queue_id'     => $todayQueue->queue_id,
-                'clinic_id'    => $todayQueue->clinic_id,
-                'patient_id'   => $todayQueue->patient_id,
-                'action'       => 'transferred_to_treatment',
-                'from_status'  => $todayQueue->status,
-                'to_status'    => 'waiting',
-                'call_count'   => $todayQueue->call_count ?? 0,
-                'performed_by' => $request->user()->id,
-                'notes'        => $transferNotes,
-                'occurred_at'  => now(),
-            ]);
+        if ($isReferralOut) {
+            // Case A: Patient referred to external hospital/facility — do not send to Treatment Queue
+            if ($todayQueue) {
+                $referralNotes = "Referred to external facility: {$referredToFacility} — Visit Completed.";
 
-            $todayQueue->update([
-                'visit_type'         => 'vaccination',
-                'status'             => 'waiting',
-                'called_at'          => null,
-                'serving_at'         => null,
-                'completed_at'       => null,
-                'consultation_notes' => $transferNotes,
-                'recall_stage'       => null,
-            ]);
+                \App\Models\QueueHistory::create([
+                    'queue_id'     => $todayQueue->queue_id,
+                    'clinic_id'    => $todayQueue->clinic_id,
+                    'patient_id'   => $todayQueue->patient_id,
+                    'action'       => 'completed',
+                    'from_status'  => $todayQueue->status,
+                    'to_status'    => 'completed',
+                    'call_count'   => $todayQueue->call_count ?? 0,
+                    'performed_by' => $request->user()->id,
+                    'notes'        => $referralNotes,
+                    'occurred_at'  => now(),
+                ]);
 
-            \Illuminate\Support\Facades\Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+                $todayQueue->update([
+                    'status'             => 'completed',
+                    'completed_at'       => now(),
+                    'consultation_notes' => $referralNotes,
+                    'recall_stage'       => null,
+                ]);
+
+                \Illuminate\Support\Facades\Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+            }
+        } else {
+            // Case B: Standard Triage → Treatment handoff
+            $transferNotes = 'Doctor completed Form 2 — referred to Treatment.';
+
+            if ($todayQueue) {
+                \App\Models\QueueHistory::create([
+                    'queue_id'     => $todayQueue->queue_id,
+                    'clinic_id'    => $todayQueue->clinic_id,
+                    'patient_id'   => $todayQueue->patient_id,
+                    'action'       => 'transferred_to_treatment',
+                    'from_status'  => $todayQueue->status,
+                    'to_status'    => 'waiting',
+                    'call_count'   => $todayQueue->call_count ?? 0,
+                    'performed_by' => $request->user()->id,
+                    'notes'        => $transferNotes,
+                    'occurred_at'  => now(),
+                ]);
+
+                $todayQueue->update([
+                    'visit_type'         => 'vaccination',
+                    'status'             => 'waiting',
+                    'called_at'          => null,
+                    'serving_at'         => null,
+                    'completed_at'       => null,
+                    'consultation_notes' => $transferNotes,
+                    'recall_stage'       => null,
+                ]);
+
+                \Illuminate\Support\Facades\Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+            } else {
+                // Patient had no prior queue ticket today — auto-generate one for Treatment Desk
+                $todayDate = Carbon::today()->toDateString();
+                $lastQueueNumber = \App\Models\Queue::where('clinic_id', $clinicId)
+                    ->where('queue_date', $todayDate)
+                    ->whereNull('deleted_at')
+                    ->max('queue_number') ?? 0;
+
+                $todayQueue = \App\Models\Queue::create([
+                    'clinic_id'          => $clinicId,
+                    'patient_id'         => $validated['patient_id'],
+                    'queue_number'       => $lastQueueNumber + 1,
+                    'queue_date'         => $todayDate,
+                    'visit_type'         => 'vaccination',
+                    'priority'           => 'normal',
+                    'queue_category'     => 'regular',
+                    'status'             => 'waiting',
+                    'checked_in_at'      => now(),
+                    'checked_in_by'      => $request->user()->id,
+                    'consultation_notes' => $transferNotes,
+                    'call_count'         => 0,
+                ]);
+
+                \App\Models\QueueHistory::create([
+                    'queue_id'     => $todayQueue->queue_id,
+                    'clinic_id'    => $todayQueue->clinic_id,
+                    'patient_id'   => $todayQueue->patient_id,
+                    'action'       => 'checked_in',
+                    'from_status'  => 'new',
+                    'to_status'    => 'waiting',
+                    'call_count'   => 0,
+                    'performed_by' => $request->user()->id,
+                    'notes'        => $transferNotes,
+                    'occurred_at'  => now(),
+                ]);
+
+                \Illuminate\Support\Facades\Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
+            }
         }
 
         return response()->json([
@@ -226,5 +335,59 @@ class TreatmentRecordController extends Controller
             ->findOrFail($id);
 
         return response()->json($record);
+    }
+
+    /**
+     * Save an addendum note for a patient's clinical assessment
+     * POST /api/treatment-records/patient/{patientId}/addendum
+     */
+    public function saveAddendum(Request $request, int $patientId)
+    {
+        $clinicId = $request->user()->clinic_id;
+
+        $validated = $request->validate([
+            'addendum_notes' => 'required|string|min:3',
+        ]);
+
+        $patient = Patient::where('clinic_id', $clinicId)->findOrFail($patientId);
+
+        // Find existing general consultation record
+        $consultation = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->whereNull('dose_number')
+            ->latest('treatment_id')
+            ->first();
+
+        $userName = $request->user()->name ?? 'Physician';
+        $timestamp = now()->format('M d, Y h:i A');
+        $formattedNote = "[{$timestamp} by {$userName}]: " . trim($validated['addendum_notes']);
+
+        if ($consultation) {
+            $existingNotes = $consultation->administration_notes ? trim($consultation->administration_notes) . "\n\n" : '';
+            $consultation->update([
+                'administration_notes' => $existingNotes . $formattedNote,
+            ]);
+            $record = $consultation;
+        } else {
+            $record = TreatmentRecord::create([
+                'clinic_id' => $clinicId,
+                'patient_id' => $patientId,
+                'treatment_date' => now(),
+                'consultation_date' => now()->toDateString(),
+                'consultation_time' => now()->format('H:i'),
+                'nature_of_visit' => 'follow_up',
+                'consultation_types' => ['general'],
+                'chief_complaints' => 'Clinical Addendum Note',
+                'administration_notes' => $formattedNote,
+                'status' => 'completed',
+                'administered_by' => $request->user()->id,
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Addendum saved successfully',
+            'treatment_record' => $record,
+            'addendum' => $formattedNote,
+        ]);
     }
 }

@@ -438,6 +438,9 @@ export default function DoctorPatientListPage() {
             setShowViewModal(false);
             setSelectedPatient(null);
           }}
+          onPatientUpdated={() => {
+            loadPatients();
+          }}
         />
       )}
 

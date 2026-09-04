@@ -11,24 +11,19 @@ import {
   Box,
   Button,
   Chip,
-  IconButton,
   Snackbar,
   Stack,
   Tab,
   Tabs,
-  Tooltip,
   Typography,
   Alert,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   LocalHospital as ClinicIcon,
-  Settings as SetupIcon,
   VerifiedUser as VerifiedIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
-import { ROUTES } from '../../../shared/config/routes';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import StatCard from '../../../components/common/StatCard';
 import AddEditInventoryDialog from '../components/AddEditInventoryDialog/AddEditInventoryDialog';
@@ -44,9 +39,7 @@ import type { InventoryItem } from '../types';
 import { deriveInventoryStatus } from '../utils/inventoryStatus';
 
 export default function VaccineInventory() {
-  const navigate = useNavigate();
   const { clinic, user } = useAuth();
-  const isAdmin = user?.role === 'admin';
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,47 +244,28 @@ export default function VaccineInventory() {
             <Tab label="FIFO Report" value="fifo" />
           </Tabs>
 
-          <Tooltip title={isAdmin ? 'Open separate Vaccine Type Setup screen' : 'Admin only: vaccine types are managed separately from stock'}>
-            <span>
-              <Button
-                variant="outlined"
-                startIcon={<SetupIcon />}
-                onClick={() => isAdmin && navigate(ROUTES.INVENTORY.TYPES)}
-                disabled={!isAdmin}
-                sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
-              >
-                Vaccine Type Setup
-              </Button>
-            </span>
-          </Tooltip>
-
-          <Tooltip title="Refresh inventory list">
-            <span>
-              <IconButton onClick={loadData} disabled={loading}>
-                <RefreshIcon />
-              </IconButton>
-            </span>
-          </Tooltip>
-
           <Button
-            variant="contained"
-            onClick={() => {
-              setInitialVaccineType('');
-              setEditItem(null);
-              setAddOpen(true);
-            }}
+            variant="outlined"
+            onClick={loadData}
+            disabled={loading}
+            startIcon={<RefreshIcon sx={{ fontSize: 16, transition: 'transform 0.4s', ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />}
             sx={{
               textTransform: 'none',
-              fontWeight: 700,
+              fontWeight: 600,
+              fontSize: 13,
               borderRadius: 2,
-              px: 2.25,
-              bgcolor: '#059669',
-              '&:hover': { bgcolor: '#047857' },
-              boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
+              px: 2,
+              borderColor: '#d1d5db',
+              color: '#374151',
+              '&:hover': { borderColor: '#10b981', color: '#10b981', bgcolor: '#f0fdf4' },
+              '&:disabled': { opacity: 0.5 },
             }}
           >
-            Add Stock Batch
+            {loading ? 'Refreshing…' : 'Refresh'}
           </Button>
+
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
         </Stack>
       </Box>
 
@@ -300,51 +274,6 @@ export default function VaccineInventory() {
 
       {view === 'table' && (
         <>
-          <Stack spacing={2} sx={{ mb: 2.5 }}>
-            <Alert
-              severity="info"
-              sx={{ border: '1px solid #dbeafe', bgcolor: '#f8fbff' }}
-            >
-              This is the day-to-day stock screen. Vaccine rules are managed separately in <strong>Vaccine Type Setup</strong>{isAdmin ? ', which keeps configuration distinct from daily operations.' : '.'}
-            </Alert>
-
-            <Box
-              sx={{
-                p: 2,
-                borderRadius: 2.5,
-                border: '1px solid #dbeafe',
-                bgcolor: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 2,
-                flexWrap: 'wrap',
-              }}
-            >
-              <Box>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>
-                  Vaccine types are separate from stock batches
-                </Typography>
-                <Typography sx={{ fontSize: 12, color: '#64748b', mt: 0.35 }}>
-                  Use <strong>Vaccine Type Setup</strong> to add or edit vaccine rules. Use <strong>Add Stock Batch</strong> for daily inventory receiving.
-                </Typography>
-              </Box>
-              <Tooltip title={isAdmin ? 'Open separate Vaccine Type Setup screen' : 'Admin only'}>
-                <span>
-                  <Button
-                    variant="contained"
-                    startIcon={<SetupIcon />}
-                    onClick={() => isAdmin && navigate(ROUTES.INVENTORY.TYPES)}
-                    disabled={!isAdmin}
-                    sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 2, bgcolor: '#2563eb', '&:hover': { bgcolor: '#1d4ed8' } }}
-                  >
-                    Go to Vaccine Type Setup
-                  </Button>
-                </span>
-              </Tooltip>
-            </Box>
-          </Stack>
-
           <Box
             sx={{
               display: 'grid',

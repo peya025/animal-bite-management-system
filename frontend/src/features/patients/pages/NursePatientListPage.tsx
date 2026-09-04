@@ -124,9 +124,13 @@ export default function NursePatientListPage() {
   const handleCheckIn = async (patient: Patient) => {
     setCheckingInId(patient.patient_id);
     try {
-      const appt = (patient as any).appointments?.[0];
-      const isConsultation = !appt || appt?.appointment_type === 'consultation' || appt?.appointment_type === 'checkup' || (patient as any).bite_intakes?.length > 0;
-      const visitType = isConsultation ? 'new_case' : 'vaccination';
+      const hasCompletedTriage = Boolean(
+        patient.latest_treatment_record ||
+        (patient as any).latest_consultation_record ||
+        ((patient as any).queues && (patient as any).queues.some((q: any) => q.visit_type === 'vaccination'))
+      );
+      // Follow-up vaccination patients always check in directly to the Nurse Treatment Desk (vaccination)
+      const visitType = hasCompletedTriage ? 'vaccination' : 'new_case';
       const res = await api.post('/queue', {
         patient_id: patient.patient_id,
         visit_type: visitType,
@@ -452,9 +456,11 @@ export default function NursePatientListPage() {
         const activeQueue = (patient as any).queues?.[0];
         const appt = (patient as any).appointments?.[0];
         const hasCompletedTriage = Boolean(
-          (patient as any).bite_incidents?.length ||
-          (patient as any).biteIncidents?.length ||
-          patient.latest_treatment_record
+          patient.latest_treatment_record ||
+          (patient as any).latest_consultation_record ||
+          (patient as any).latestConsultationRecord ||
+          activeQueue?.visit_type === 'vaccination' ||
+          activeQueue?.consultation_notes?.includes('Form 2')
         );
         const canCheckIn = hasCompletedTriage && !activeQueue && appt?.status === 'scheduled';
 

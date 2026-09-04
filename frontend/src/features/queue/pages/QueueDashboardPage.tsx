@@ -52,8 +52,8 @@ import { buildRoute, ROUTES } from '../../../shared/config/routes';
 import { useAuth } from '../../../contexts/AuthContext';
 import StockLevelIndicator from '../../inventory/components/StockLevelIndicator/StockLevelIndicator';
 
-const TRIAGE_VISIT_TYPES = ['new_case', 'follow_up', 'observation', 'consultation'];
-const TREATMENT_VISIT_TYPES = ['vaccination'];
+const TRIAGE_VISIT_TYPES = ['new_case', 'consultation'];
+const TREATMENT_VISIT_TYPES = ['vaccination', 'follow_up', 'observation'];
 
 function isPriorityQueueEntry(entry: QueueEntry): boolean {
   return ['priority', 'pregnant', 'senior_citizen', 'pwd'].includes(entry.queue_category)
@@ -215,7 +215,7 @@ export default function QueueDashboard() {
   const transferredToTreatmentEntries = isTriageDoctor
     ? queue.filter(entry =>
         entry.visit_type === 'vaccination'
-        && entry.consultation_notes?.includes('Doctor completed Form 2')
+        && (entry.consultation_notes?.includes('completed Form 2') || entry.consultation_notes?.includes('Form 2'))
       )
     : [];
   const completedTreatmentEntries = isTreatmentNurse

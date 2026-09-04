@@ -44,31 +44,31 @@
 * **Goal**: Safeguard medical-legal accountability and prevent inventory batch tampering by locking clinical diagnoses and past injections after Day 0 is administered.
 
 #### 1.1 Form 2: Doctor Triage Post-Treatment Locking (`GeneralTreatmentForm.tsx`)
-- [ ] **Lock Form 2 After Administration**:
+- [x] **Lock Form 2 After Administration**:
   - If the patient has $\ge 1$ administered dose (Day 0 on file), Form 2 automatically becomes **strictly read-only**.
   - Hide or disable the `[ ✏️ Edit Form 2 ]` button for regular staff.
-- [ ] **Visual Banner**:
+- [x] **Visual Banner**:
   - Display a prominent amber lock banner: `🔒 Clinical Assessment Locked (Post-Treatment) — Exposure diagnosis and prescriptions cannot be altered after vaccination has started.`
-- [ ] **Doctor / Admin Addendum Support**:
+- [x] **Doctor / Admin Addendum Support**:
   - Provide a clean addendum section allowing physicians to append clinical progress notes without altering the original baseline diagnosis.
 
 #### 1.2 Form 3: Vaccination Records Hybrid Locking (`VaccinationRecordForm.tsx`)
-- [ ] **Hybrid Dose-Level Immutability**:
+- [x] **Hybrid Dose-Level Immutability**:
   - **Administered Doses (e.g. Day 0)**: Injection date, vaccine brand, batch number, vial units used, and nurse signature are **permanently locked/disabled** (`isLocked = true`).
   - **Upcoming Doses (Day 3, Day 7, Day 28, Boosters)**: Remain **active, clean, and editable** for the nurse to select the opened vial batch on the day the patient arrives.
-- [ ] **Prevent False Validation Flags**:
+- [x] **Prevent False Validation Flags**:
   - Un-administered follow-up doses must not highlight as red required errors while viewing past history.
 
 #### 1.3 Form 1: Patient Demographic Edit Modal (`PatientDetailsModal.tsx` & `/patients`)
-- [ ] **Selective Field Editing**:
+- [x] **Selective Field Editing**:
   - Provide a dedicated **"Update Contact & Address"** modal.
   - **Editable by Staff**: Mobile Contact Number, Emergency Contact Name/Phone, Residential Address (Purok, Barangay, Municipality).
   - **Locked for Regular Staff (Admin Only Override)**: Legal Full Name, Date of Birth, Gender, PhilHealth / Government ID Number.
-- [ ] **Audit Trail**: Record editor user ID and timestamp on any demographic updates.
+- [x] **Audit Trail**: Record editor user ID and timestamp on any demographic updates.
 
 #### 1.4 Dead Code Cleanup (`IndividualTreatmentForm.tsx`)
-- [ ] Remove or deprecate legacy `IndividualTreatmentForm.tsx` (which called non-existent `/api/consultations` endpoints).
-- [ ] Ensure all references point cleanly to `GeneralTreatmentForm.tsx`.
+- [x] Remove or deprecate legacy `IndividualTreatmentForm.tsx` (which called non-existent `/api/consultations` endpoints).
+- [x] Ensure all references point cleanly to `GeneralTreatmentForm.tsx`.
 
 ---
 
@@ -77,20 +77,20 @@
 * **Goal**: Complete 100% automation so clinicians never need to click manual "Serving" or "Complete" buttons on queue boards.
 
 #### 2.1 Doctor Triage $\rightarrow$ Treatment Desk Auto-Handoff
-- [ ] When the Doctor clicks **"Save Record" / "Save Consultation"** on Form 2:
+- [x] When the Doctor clicks **"Save Record" / "Save Consultation"** on Form 2:
   - Triage ticket automatically transitions from `in_consultation` $\rightarrow$ `visit_type = 'vaccination'`, `status = 'waiting'` (Referred to Treatment).
   - Automatically unlocks Form 3 at the Nurse Treatment Desk.
   - Logs transition in `queue_history` with doctor user ID.
 
 #### 2.2 Nurse Treatment Desk $\rightarrow$ Auto-Completion
-- [ ] When the Nurse submits Form 3 for **ANY dose** (Day 0, Day 3, Day 7, Day 28, or Booster):
+- [x] When the Nurse submits Form 3 for **ANY dose** (Day 0, Day 3, Day 7, Day 28, or Booster):
   - Today's active queue ticket automatically marks as `completed` (`status = 'completed'`, `completed_at = now()`).
   - Auto-schedules the next follow-up appointment according to the clinic's operating schedule.
   - Ticket clears off the active calling screen.
 
 #### 2.3 Daily Queue Reset & Midnight Auto-Expiry
-- [ ] Every clinic day resets cleanly starting from **Queue #1**.
-- [ ] Past-day unserved tickets are automatically closed as `no_response (Auto-expired at end of clinic day)` to prevent ghost tickets leaking into today's queue.
+- [x] Every clinic day resets cleanly starting from **Queue #1**.
+- [x] Past-day unserved tickets are automatically closed as `no_response (Auto-expired at end of clinic day)` to prevent ghost tickets leaking into today's queue.
 
 ---
 

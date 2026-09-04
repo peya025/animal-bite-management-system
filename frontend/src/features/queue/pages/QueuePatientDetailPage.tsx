@@ -49,11 +49,35 @@ function getStoredUserRole(): string {
   }
 }
 
-function getDefaultTabForRole(userRole: string): string {
+function getDefaultTabForRole(userRole: string, visitType?: string): string {
+  if (visitType === 'vaccination' || visitType === 'follow_up') return 'form3';
   if (userRole === 'registration') return 'form1';
   if (userRole === 'triage') return 'form2';
   if (userRole === 'treatment') return 'form3';
   return 'form1';
+}
+
+function AwaitingTriageBanner() {
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1.5,
+      px: 2.5, py: 2,
+      mb: 3,
+      bgcolor: '#fffbeb',
+      border: '1px solid #fcd34d',
+      borderRadius: 2,
+    }}>
+      <LockIcon sx={{ fontSize: 18, color: '#d97706', flexShrink: 0 }} />
+      <Box>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#92400e', mb: 0.25 }}>
+          Awaiting Doctor Triage (Form 2 Required)
+        </Typography>
+        <Typography sx={{ fontSize: 12, color: '#b45309' }}>
+          This is a new bite case. The physician must complete the Form 2 clinical assessment and exposure grading before initial Dose 1 (Day 0) can be recorded.
+        </Typography>
+      </Box>
+    </Box>
+  );
 }
 
 // ─── Read-only Notice Banner ────────────────────────────────────────────────
@@ -241,6 +265,15 @@ export default function QueuePatientDetailPage() {
 
   const [userRole] = useState<string>(() => getStoredUserRole());
   const [activeTab, setActiveTab] = useState(() => getDefaultTabForRole(getStoredUserRole()));
+
+  useEffect(() => {
+    if (entry?.visit_type) {
+      if (entry.visit_type === 'vaccination' || entry.visit_type === 'follow_up') {
+        setActiveTab('form3');
+      }
+    }
+  }, [entry?.visit_type]);
+
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
@@ -343,11 +376,11 @@ export default function QueuePatientDetailPage() {
               onSave={() => {
                 if (userRole === 'triage') {
                   navigate(ROUTES.QUEUE.DASHBOARD, {
-                    state: { queueToast: { message: 'Form 2 saved successfully', severity: 'success' } },
+                    state: { queueToast: { message: 'Form 2 saved successfully · Patient referred to Treatment Queue', severity: 'success' } },
                   });
                   return;
                 }
-                toast('Form 2 saved');
+                toast('Form 2 saved · Patient referred to Treatment');
                 reload();
               }}
               readOnly={!editable}
@@ -358,9 +391,14 @@ export default function QueuePatientDetailPage() {
       }
       case 'form3': {
         const editable = canEdit(userRole, 'treatment');
+        const isNewCaseAwaitingTriage = entry.visit_type === 'new_case' && !entry.consultation_notes?.includes('Form 2');
         return (
           <Box sx={{ p: 3 }}>
-            {!editable && <ReadOnlyBanner />}
+            {isNewCaseAwaitingTriage ? (
+              <AwaitingTriageBanner />
+            ) : !editable ? (
+              <ReadOnlyBanner />
+            ) : null}
             {/* Form 3 rendered inline with read-only mode */}
             <VaccinationRecordForm
               open={true}
@@ -369,14 +407,14 @@ export default function QueuePatientDetailPage() {
               onSave={() => {
                 if (userRole === 'treatment') {
                   navigate(ROUTES.QUEUE.DASHBOARD, {
-                    state: { queueToast: { message: 'Form 3 saved successfully', severity: 'success' } },
+                    state: { queueToast: { message: 'Vaccination dose recorded successfully · Queue ticket completed', severity: 'success' } },
                   });
                   return;
                 }
-                toast('Form 3 saved');
+                toast('Vaccination dose recorded · Queue ticket completed');
                 reload();
               }}
-              readOnly={!editable}
+              readOnly={!editable || isNewCaseAwaitingTriage}
               inline={true}
             />
           </Box>

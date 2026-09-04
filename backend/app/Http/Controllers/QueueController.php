@@ -56,13 +56,13 @@ class QueueController extends Controller
         return 'patient_id,first_name,middle_name,last_name,suffix,date_of_birth,gender,contact_number';
     }
 
-    // ── Helper: find next eligible patient (priority-aware FIFO) ─────────────
-    private function getNextEligible(int $clinicId, string $date): ?Queue
+    // ── Helper: find next eligible patient (priority-aware FIFO, station-scoped) ─────
+    private function getNextEligible(int $clinicId, string $date, ?string $station = null): ?Queue
     {
         // Priority categories first, then FIFO within same category
         $categoryOrder = self::CATEGORY_ORDER;
 
-        $waiting = Queue::where('clinic_id', $clinicId)
+        $query = Queue::where('clinic_id', $clinicId)
             ->whereNull('deleted_at')
             ->where('status', 'waiting')
             ->where(function ($q) use ($date) {
@@ -71,8 +71,15 @@ class QueueController extends Controller
                       $s->where('queue_date', '<', $date)
                         ->whereIn('status', self::MAIN_STATUSES);
                   });
-            })
-            ->with(['patient:' . $this->patientFields(), 'biteIncident:bite_id,case_number,patient_id'])
+            });
+
+        if ($station === 'triage') {
+            $query->whereIn('visit_type', ['new_case', 'consultation']);
+        } elseif ($station === 'treatment') {
+            $query->whereIn('visit_type', ['vaccination', 'follow_up', 'observation']);
+        }
+
+        $waiting = $query->with(['patient:' . $this->patientFields(), 'biteIncident:bite_id,case_number,patient_id'])
             ->get();
 
         if ($waiting->isEmpty()) return null;
@@ -85,6 +92,30 @@ class QueueController extends Controller
             fn($a, $b) => ($priorityLevel[$a->priority] ?? 3) <=> ($priorityLevel[$b->priority] ?? 3),
             fn($a, $b) => $a->queue_number <=> $b->queue_number,
         ])->first();
+    }
+
+    // ── Helper: auto-expire unserved tickets from previous days ─────────────
+    public function expireStaleTickets(int $clinicId, string $date): int
+    {
+        $staleStatuses = array_merge(self::MAIN_STATUSES, self::SECOND_STATUSES);
+        $staleTickets = Queue::where('clinic_id', $clinicId)
+            ->where('queue_date', '<', $date)
+            ->whereIn('status', $staleStatuses)
+            ->whereNull('deleted_at')
+            ->get();
+
+        $count = 0;
+        foreach ($staleTickets as $ticket) {
+            $ticket->update([
+                'status'             => 'no_response',
+                'no_response_at'     => now(),
+                'consultation_notes' => 'Auto-expired: patient did not complete visit before clinic closed',
+            ]);
+            $this->logHistory($ticket, 'auto_expired', 'no_response', null, 'Auto-expired at end of clinic day');
+            $count++;
+        }
+
+        return $count;
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -115,15 +146,8 @@ class QueueController extends Controller
                             'call_count','recall_stage','clinic_id','queue_date'
                         );
 
-                    // Auto-expire stale unserved tickets from previous days
-                    Queue::where('clinic_id', $clinicId)
-                        ->where('queue_date', '<', $date)
-                        ->whereIn('status', self::MAIN_STATUSES)
-                        ->update([
-                            'status' => 'no_response',
-                            'no_response_at' => now(),
-                            'consultation_notes' => 'Auto-expired: patient did not complete visit before clinic closed',
-                        ]);
+                    // Auto-expire stale unserved tickets from previous days (both main and second-chance)
+                    $this->expireStaleTickets($clinicId, $date);
 
                     // Main queue: strictly today's tickets
                     $mainQueue = (clone $baseQuery)
@@ -131,8 +155,9 @@ class QueueController extends Controller
                         ->orderBy('queue_number', 'asc')
                         ->get();
 
-                    // Second chance queue (any date)
+                    // Second chance queue: strictly for the requested date
                     $secondQueue = (clone $baseQuery)
+                        ->where('queue_date', $date)
                         ->whereIn('status', self::SECOND_STATUSES)
                         ->orderBy('no_response_at', 'asc')
                         ->get();
@@ -166,8 +191,14 @@ class QueueController extends Controller
                         if (isset($counts[$entry->status])) $counts[$entry->status]++;
                     }
 
-                    // Priority-aware next patient
-                    $nextPatient = $this->getNextEligible($clinicId, $date);
+                    // Priority-aware next patient (supports optional station scoping)
+                    $stationParam = $request->get('station');
+                    if (!$stationParam) {
+                        $userRole = $request->user()?->role;
+                        if ($userRole === 'triage') $stationParam = 'triage';
+                        elseif ($userRole === 'treatment') $stationParam = 'treatment';
+                    }
+                    $nextPatient = $this->getNextEligible($clinicId, $date, $stationParam);
 
                     return [
                         'date'                => $date,
@@ -207,12 +238,26 @@ class QueueController extends Controller
     {
         $clinicId = $request->user()->clinic_id;
         $date     = Carbon::today()->toDateString();
+        $userRole = $request->user()->role ?? null;
+        $station  = $request->get('station');
 
-        return DB::transaction(function () use ($clinicId, $date, $request) {
-            $next = $this->getNextEligible($clinicId, $date);
+        if (!$station) {
+            if ($userRole === 'triage') {
+                $station = 'triage';
+            } elseif ($userRole === 'treatment') {
+                $station = 'treatment';
+            }
+        }
+
+        return DB::transaction(function () use ($clinicId, $date, $request, $station) {
+            // Task 2.3: Expire stale tickets before picking next
+            $this->expireStaleTickets($clinicId, $date);
+
+            $next = $this->getNextEligible($clinicId, $date, $station);
 
             if (!$next) {
-                return response()->json(['message' => 'No patients waiting in the queue'], 404);
+                $label = $station ? ucfirst($station) . ' queue' : 'queue';
+                return response()->json(['message' => "No patients waiting in the {$label}"], 404);
             }
 
             // Re-fetch with lock to prevent simultaneous calls
@@ -617,6 +662,9 @@ class QueueController extends Controller
                 ], 409);
             }
 
+            // Task 2.3: Auto-expire unserved tickets from prior days before generating today's queue
+            $this->expireStaleTickets($clinicId, $todayDate);
+
             // Task 1: Race-condition-safe queue number generation using DB lock
             $lastQueue = Queue::where('clinic_id', $clinicId)
                 ->where('queue_date', $todayDate)
@@ -634,6 +682,9 @@ class QueueController extends Controller
             $visitType = $request->visit_type;
             if ($visitType === 'consultation') {
                 $visitType = 'new_case';
+            }
+            if ($visitType === 'follow_up') {
+                $visitType = 'vaccination';
             }
 
             $queue = Queue::create([
@@ -794,7 +845,13 @@ class QueueController extends Controller
     {
         $clinicId = $request->user()->clinic_id;
         $date     = Carbon::today()->toDateString();
-        $next     = $this->getNextEligible($clinicId, $date);
+        $stationParam = $request->get('station');
+        if (!$stationParam) {
+            $userRole = $request->user()?->role;
+            if ($userRole === 'triage') $stationParam = 'triage';
+            elseif ($userRole === 'treatment') $stationParam = 'treatment';
+        }
+        $next = $this->getNextEligible($clinicId, $date, $stationParam);
         return response()->json(['next_patient' => $next]);
     }
 

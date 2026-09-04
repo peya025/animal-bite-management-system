@@ -20,8 +20,8 @@ const VISIT_LABEL: Record<string, string> = {
   observation: 'Observation',
 };
 
-// Treatment station handles vaccinations and observations; everything else goes to triage
-const TREATMENT_TYPES = new Set(['vaccination', 'observation']);
+// Treatment station handles vaccinations, follow-ups, and observations; everything else goes to triage
+const TREATMENT_TYPES = new Set(['vaccination', 'follow_up', 'observation']);
 
 function getStation(visitType: string): 'triage' | 'treatment' {
   return TREATMENT_TYPES.has(visitType) ? 'treatment' : 'triage';

@@ -44,6 +44,7 @@ import api from '../../../services/api';
 import { TablePager } from '../../../components/data-display';
 import TagoloanTreatmentCardModal from '../components/TagoloanTreatmentCardModal';
 import VaccinationRecordForm from '../components/VaccinationRecordForm';
+import { ConfirmationDialog } from '../../../components/feedback';
 
 interface PepDose {
   dose_number: number;
@@ -164,6 +165,9 @@ export default function VaccinationSchedulePage() {
   // Feedback Notification
   const [feedback, setFeedback] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
 
+  // Success Modal
+  const [successModal, setSuccessModal] = useState<{ isOpen: boolean; title: string; message: string } | null>(null);
+
   const fetchJourneyData = useCallback(async () => {
     setLoading(true);
     try {
@@ -238,12 +242,14 @@ export default function VaccinationSchedulePage() {
         channel: recallChannel,
         message: recallMessage,
       });
-      setFeedback({
-        message: res.data.message || 'Recall alert dispatched successfully.',
-        severity: 'success',
-      });
+      const patientName = recallTarget.full_name;
       setRecallTarget(null);
       fetchJourneyData();
+      setSuccessModal({
+        isOpen: true,
+        title: 'Recall Alert Dispatched',
+        message: res.data.message || `Recall alert has been successfully dispatched to ${patientName}.`,
+      });
     } catch (err: any) {
       setFeedback({
         message: err.response?.data?.message || 'Failed to dispatch recall alert.',
@@ -272,12 +278,13 @@ export default function VaccinationSchedulePage() {
         appointment_ids: overdueApptIds,
         channel: bulkChannel,
       });
-      setFeedback({
-        message: res.data.message || `Dispatched recall alerts to ${overdueApptIds.length} patients.`,
-        severity: 'success',
-      });
       setBulkRecallOpen(false);
       fetchJourneyData();
+      setSuccessModal({
+        isOpen: true,
+        title: 'Bulk Recall Dispatched',
+        message: res.data.message || `Recall alerts have been dispatched to ${overdueApptIds.length} overdue patients.`,
+      });
     } catch (err: any) {
       setFeedback({
         message: err.response?.data?.message || 'Bulk recall dispatch encountered an error.',
@@ -293,11 +300,12 @@ export default function VaccinationSchedulePage() {
     setTriggeringAuto(true);
     try {
       const res = await api.post('/appointments/trigger-auto-recall', { channel: 'all' });
-      setFeedback({
-        message: res.data.message || 'Automated recall sweep executed successfully.',
-        severity: 'success',
-      });
       fetchJourneyData();
+      setSuccessModal({
+        isOpen: true,
+        title: 'Auto-Recall Sweep Executed',
+        message: res.data.message || 'Automated recall sweep has been executed successfully.',
+      });
     } catch (err: any) {
       setFeedback({
         message: err.response?.data?.message || 'Failed to execute automated recall sweep.',
@@ -1088,12 +1096,16 @@ export default function VaccinationSchedulePage() {
             setSelectedRecordPatient(null);
           }}
           onSave={() => {
+            const patientName = selectedRecordPatient?.full_name;
             setShowRecordForm(false);
             setSelectedRecordPatient(null);
             fetchJourneyData();
-            setFeedback({
-              message: 'Vaccination dose recorded successfully!',
-              severity: 'success',
+            setSuccessModal({
+              isOpen: true,
+              title: 'Vaccination Dose Recorded',
+              message: patientName
+                ? `Vaccination dose for ${patientName} has been successfully recorded.`
+                : 'Vaccination dose has been successfully recorded.',
             });
           }}
         />
@@ -1259,7 +1271,7 @@ export default function VaccinationSchedulePage() {
         </DialogActions>
       </Dialog>
 
-      {/* Feedback Toast */}
+      {/* Feedback Toast (errors/info only) */}
       {feedback && (
         <Snackbar
           open={Boolean(feedback)}
@@ -1271,6 +1283,20 @@ export default function VaccinationSchedulePage() {
             {feedback.message}
           </Alert>
         </Snackbar>
+      )}
+
+      {/* Success Modal */}
+      {successModal?.isOpen && (
+        <ConfirmationDialog
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="Done"
+          hideCancel
+          variant="success"
+          autoClose={3500}
+          onConfirm={() => setSuccessModal(null)}
+          onClose={() => setSuccessModal(null)}
+        />
       )}
     </Box>
   );

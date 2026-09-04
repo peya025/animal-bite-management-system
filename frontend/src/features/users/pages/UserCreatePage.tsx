@@ -28,11 +28,16 @@ export default function UserCreatePage() {
     setConfirmCreate(true);
   };
 
+  const [createdUserName, setCreatedUserName] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   const createUser = async () => {
     setSaving(true);
     try {
       await api.post('/users', form);
-      setMessage('User created successfully.');
+      const name = form.name;
+      setCreatedUserName(name);
+      setShowSuccessModal(true);
       setForm({ name: '', email: '', phone: '', role: 'registration', password: '' });
     } catch {
       setMessage('Unable to create user. Ensure all fields are valid and the email is unused.');
@@ -84,9 +89,21 @@ export default function UserCreatePage() {
           onCancel={() => setConfirmCreate(false)}
         />
       )}
+      {showSuccessModal && (
+        <ConfirmationDialog
+          variant="success"
+          title="User Created Successfully"
+          message={<>Account for <strong>{createdUserName || 'the user'}</strong> has been created successfully.</>}
+          confirmLabel="View Users"
+          cancelLabel="Add Another"
+          onConfirm={() => { window.location.href = '/users'; }}
+          onCancel={() => setShowSuccessModal(false)}
+        />
+      )}
       <Snackbar open={!!message} autoHideDuration={4000} onClose={() => setMessage('')}>
         <Alert severity={message.includes('Unable') || message.includes('must be') ? 'error' : 'success'}>{message}</Alert>
       </Snackbar>
     </Box>
   );
 }
+

@@ -150,6 +150,8 @@ export default function QueueDashboard() {
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
+  const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: React.ReactNode } | null>(null);
+
   const toast = (msg: string, severity: 'success' | 'error' = 'success') =>
     setSnackbar({ open: true, message: msg, severity });
 
@@ -178,6 +180,7 @@ export default function QueueDashboard() {
   const [absentTarget,     setAbsentTarget]     = useState<QueueEntry | null>(null);
   const [trashTarget,      setTrashTarget]      = useState<QueueEntry | null>(null);
   const [showTrashBin,     setShowTrashBin]     = useState(false);
+
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -782,16 +785,41 @@ export default function QueueDashboard() {
         open={!!completeTarget}
         entry={completeTarget}
         onClose={() => setCompleteTarget(null)}
-        onDone={() => { reload(); toast(isTriageDoctor ? 'Patient transferred to treatment queue' : isTreatmentNurse ? 'Treatment completed' : 'Consultation completed'); }}
+        onDone={() => {
+          reload();
+          setSuccessModal({
+            open: true,
+            title: isTriageDoctor ? 'Transferred to Treatment' : isTreatmentNurse ? 'Treatment Completed' : 'Consultation Completed',
+            message: isTriageDoctor ? 'Patient has been transferred to the treatment queue.' : isTreatmentNurse ? 'Treatment vaccination completed.' : 'Consultation completed successfully.',
+          });
+        }}
         mode={isTriageDoctor ? 'transfer' : isTreatmentNurse ? 'treatment' : 'complete'}
       />
 
       <TrashBinModal
         open={showTrashBin}
         onClose={() => setShowTrashBin(false)}
-        onRestored={() => { reload(); toast('Entry restored to queue'); }}
+        onRestored={() => {
+          reload();
+          setSuccessModal({
+            open: true,
+            title: 'Entry Restored',
+            message: 'Queue entry has been restored from the trash.',
+          });
+        }}
       />
 
+      {/* Success Modal */}
+      {successModal && (
+        <ConfirmationDialog
+          variant="success"
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setSuccessModal(null)}
+        />
+      )}
 
       <Snackbar
         open={snackbar.open}
@@ -806,6 +834,7 @@ export default function QueueDashboard() {
     </Box>
   );
 }
+
 
 // ── Action button style helper ─────────────────────────────────────────────
 function actionBtn(

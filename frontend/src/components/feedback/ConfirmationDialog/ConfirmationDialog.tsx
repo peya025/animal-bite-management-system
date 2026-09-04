@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   Actions,
   CancelButton,
@@ -12,7 +13,7 @@ import {
   type ConfirmationVariant,
 } from './ConfirmationDialog.styles';
 
-interface ConfirmationDialogProps {
+export interface ConfirmationDialogProps {
   variant?: ConfirmationVariant;
   colorVariant?: ConfirmationVariant;
   title: string;
@@ -20,9 +21,12 @@ interface ConfirmationDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   hideCancel?: boolean;
+  hideConfirm?: boolean;
   onConfirm?: () => void;
   onCancel?: () => void;
+  onClose?: () => void;
   shakeIcon?: boolean;
+  autoClose?: number;
 }
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -74,22 +78,64 @@ export default function ConfirmationDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   hideCancel = false,
+  hideConfirm = false,
   onConfirm,
   onCancel,
+  onClose,
   shakeIcon = false,
+  autoClose,
 }: ConfirmationDialogProps) {
   const activeColorVariant = colorVariant || variant;
 
+  const handleDismiss = () => {
+    if (onClose) {
+      onClose();
+    } else if (onCancel) {
+      onCancel();
+    } else if (onConfirm) {
+      onConfirm();
+    }
+  };
+
+  const handleConfirmAction = () => {
+    if (onConfirm) {
+      onConfirm();
+    } else if (onClose) {
+      onClose();
+    } else if (onCancel) {
+      onCancel();
+    }
+  };
+
+  const handleCancelAction = () => {
+    if (onCancel) {
+      onCancel();
+    } else if (onClose) {
+      onClose();
+    }
+  };
+
+  useEffect(() => {
+    if (autoClose && autoClose > 0) {
+      const timer = window.setTimeout(() => {
+        handleDismiss();
+      }, autoClose);
+      return () => window.clearTimeout(timer);
+    }
+  }, [autoClose]);
+
+  const showActions = !hideCancel || !hideConfirm;
+
   return (
     <Overlay
-      onClick={hideCancel ? undefined : onCancel}
+      onClick={handleDismiss}
       role="dialog"
       aria-modal="true"
       aria-labelledby="cm-title"
     >
       <Modal onClick={(e) => e.stopPropagation()}>
         <Icon variant={activeColorVariant} shouldShake={shakeIcon}>
-          {ICONS[variant]}
+          {ICONS[variant] || ICONS.confirm}
         </Icon>
 
         <Title id="cm-title">{title}</Title>
@@ -101,17 +147,67 @@ export default function ConfirmationDialog({
           </LoaderWrap>
         )}
 
-        {!hideCancel && (
+        {showActions && (
           <Actions>
-            <CancelButton onClick={onCancel}>
-              {cancelLabel}
-            </CancelButton>
-            <ConfirmButton variant={activeColorVariant} onClick={onConfirm}>
-              {confirmLabel}
-            </ConfirmButton>
+            {!hideCancel && (
+              <CancelButton type="button" onClick={handleCancelAction}>
+                {cancelLabel}
+              </CancelButton>
+            )}
+            {!hideConfirm && (
+              <ConfirmButton type="button" variant={activeColorVariant} onClick={handleConfirmAction}>
+                {confirmLabel}
+              </ConfirmButton>
+            )}
           </Actions>
         )}
       </Modal>
     </Overlay>
+  );
+}
+
+export interface SuccessModalProps {
+  title?: string;
+  message: React.ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  hideCancel?: boolean;
+  hideConfirm?: boolean;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  onClose?: () => void;
+  autoClose?: number;
+  shakeIcon?: boolean;
+}
+
+export function SuccessModal({
+  title = 'Success',
+  message,
+  confirmLabel = 'OK',
+  cancelLabel,
+  hideCancel = true,
+  hideConfirm = false,
+  onConfirm,
+  onCancel,
+  onClose,
+  autoClose,
+  shakeIcon = false,
+}: SuccessModalProps) {
+  return (
+    <ConfirmationDialog
+      variant="success"
+      colorVariant="success"
+      title={title}
+      message={message}
+      confirmLabel={confirmLabel}
+      cancelLabel={cancelLabel}
+      hideCancel={hideCancel}
+      hideConfirm={hideConfirm}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+      onClose={onClose}
+      autoClose={autoClose}
+      shakeIcon={shakeIcon}
+    />
   );
 }

@@ -203,11 +203,17 @@ export default function StockCardFileManager({
   const [renameValue, setRenameValue] = useState<string>('');
   const [deleteTarget, setDeleteTarget] = useState<StockCardFile | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<{ year: number; key: string; label: string } | null>(null);
+  const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
 
   const handleConfirmDeleteFolder = () => {
     if (!deleteFolderTarget) return;
+    const label = deleteFolderTarget.label;
     setCustomFolders(prev => prev.filter(f => f.key !== deleteFolderTarget.key));
-    setToast({ open: true, message: `Deleted folder "${deleteFolderTarget.label}"`, severity: 'error' });
+    setSuccessModal({
+      open: true,
+      title: 'Folder Deleted',
+      message: `Archive folder "${label}" has been deleted.`,
+    });
     setDeleteFolderTarget(null);
   };
 
@@ -215,6 +221,7 @@ export default function StockCardFileManager({
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'success' | 'info' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
+
 
   const activeClinic = useMemo(() => {
     return {
@@ -602,9 +609,14 @@ export default function StockCardFileManager({
 
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
+    const name = deleteTarget.fileName;
     setFilesList(prev => prev.filter(f => f.id !== deleteTarget.id));
     if (selectedFile?.id === deleteTarget.id) setSelectedFile(null);
-    setToast({ open: true, message: `Deleted ${deleteTarget.fileName}`, severity: 'error' });
+    setSuccessModal({
+      open: true,
+      title: 'File Deleted',
+      message: `Stock card file "${name}" has been removed.`,
+    });
     setDeleteTarget(null);
   };
 
@@ -629,7 +641,11 @@ export default function StockCardFileManager({
     setFilesList(prev => [newFileObj, ...prev]);
     setSelectedFile(newFileObj);
     setIsAddModalOpen(false);
-    setToast({ open: true, message: `Created new file: ${newFileObj.fileName}`, severity: 'success' });
+    setSuccessModal({
+      open: true,
+      title: 'Stock Card Created',
+      message: `New stock card file "${newFileObj.fileName}" has been generated.`,
+    });
   };
 
   // 6. ADD NEW ARCHIVE FOLDER ACTION
@@ -645,8 +661,13 @@ export default function StockCardFileManager({
     ]);
     setCurrentYear(folderYear);
     setIsAddFolderModalOpen(false);
-    setToast({ open: true, message: `Created archive folder "${newFolderName.trim()}"`, severity: 'success' });
+    setSuccessModal({
+      open: true,
+      title: 'Folder Created',
+      message: `Archive folder "${newFolderName.trim()}" has been created.`,
+    });
   };
+
 
   const toggleTree = (key: string) => {
     setTreeExpanded(prev => ({ ...prev, [key]: !prev[key] }));
@@ -1683,6 +1704,18 @@ export default function StockCardFileManager({
         />
       )}
 
+      {/* Success Modal */}
+      {successModal && (
+        <ConfirmationDialog
+          variant="success"
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setSuccessModal(null)}
+        />
+      )}
+
       {/* Toast Notification */}
       <Snackbar
         open={toast.open}
@@ -1696,6 +1729,7 @@ export default function StockCardFileManager({
       </Snackbar>
     </Box>
   );
+
 
   if (!isModal) {
     return (

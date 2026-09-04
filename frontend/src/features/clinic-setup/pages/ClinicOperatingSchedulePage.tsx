@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import Loader from '../../../components/Loader';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 
 const DAY_NAMES = [
   'Sunday',
@@ -195,10 +196,10 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
         })),
       };
       await api.put('/clinics/schedule/weekly', payload);
-      setToast({
+      setSuccessModal({
         open: true,
-        message: 'Weekly operating schedule saved successfully.',
-        severity: 'success',
+        title: 'Schedule Saved',
+        message: 'Weekly operating schedule has been saved successfully.',
       });
       fetchScheduleData();
     } catch (err: any) {
@@ -217,10 +218,10 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
     try {
       setSaving(true);
       await api.put('/clinics/schedule/policies', policies);
-      setToast({
+      setSuccessModal({
         open: true,
-        message: 'PEP drift and emergency policies updated successfully.',
-        severity: 'success',
+        title: 'Policies Updated',
+        message: 'PEP drift and emergency policies have been updated successfully.',
       });
       fetchScheduleData();
     } catch (err: any) {
@@ -282,12 +283,12 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
       }
 
       await api.post('/clinics/schedule/exceptions', payload);
-      setToast({
-        open: true,
-        message: 'Calendar exception saved successfully.',
-        severity: 'success',
-      });
       setModalOpen(false);
+      setSuccessModal({
+        open: true,
+        title: 'Exception Saved',
+        message: 'Calendar exception override has been saved successfully.',
+      });
       fetchScheduleData();
     } catch (err: any) {
       setToast({
@@ -304,10 +305,10 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
     if (!window.confirm('Are you sure you want to remove this calendar exception override?')) return;
     try {
       await api.delete(`/clinics/schedule/exceptions/${id}`);
-      setToast({
+      setSuccessModal({
         open: true,
-        message: 'Calendar exception removed.',
-        severity: 'success',
+        title: 'Exception Removed',
+        message: 'Calendar exception override has been removed.',
       });
       fetchScheduleData();
     } catch (err: any) {
@@ -869,6 +870,18 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Success Modal */}
+      {successModal && (
+        <ConfirmationDialog
+          variant="success"
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setSuccessModal(null)}
+        />
+      )}
+
       {/* Snackbar */}
       <Snackbar
         open={toast.open}
@@ -883,5 +896,6 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
     </Box>
   );
 };
+
 
 export default ClinicOperatingSchedulePage;

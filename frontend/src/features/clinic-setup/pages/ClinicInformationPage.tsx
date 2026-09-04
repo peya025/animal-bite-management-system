@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { DAYS, DAY_LABELS } from '../components/WorkingHoursModal/WorkingHoursModal';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 
 
 // Clean, minimal field style matching the reference design
@@ -352,6 +353,8 @@ export default function ClinicInformation() {
     }));
   };
 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   const handleSubmit = async () => {
     setSaving(true);
     try {
@@ -364,11 +367,7 @@ export default function ClinicInformation() {
 
       await api.put('/setup/clinic', payload);
 
-      setSnackbar({
-        open: true,
-        message: 'Clinic information updated successfully',
-        severity: 'success',
-      });
+      setShowSuccessModal(true);
     } catch (error: any) {
       setSnackbar({
         open: true,
@@ -379,6 +378,7 @@ export default function ClinicInformation() {
       setSaving(false);
     }
   };
+
 
   if (loading) {
     return (
@@ -768,6 +768,18 @@ export default function ClinicInformation() {
           </Box>
         </Paper>
       </Box>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <ConfirmationDialog
+          variant="success"
+          title="Clinic Information Saved"
+          message="Clinic details and operating hours have been updated successfully."
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setShowSuccessModal(false)}
+        />
+      )}
 
       {/* Snackbar */}
       <Snackbar

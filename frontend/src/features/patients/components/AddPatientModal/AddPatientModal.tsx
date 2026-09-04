@@ -92,12 +92,6 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     if (!enrolment.date_of_birth) {
       newFieldErrors.date_of_birth = 'Date of Birth is required';
     }
-    if (isRegistrationStaff && !enrolment.visit_type) {
-      newFieldErrors.visit_type = 'Visit type is required';
-    }
-    if (isRegistrationStaff && enrolment.visit_type === 'follow_up' && !enrolment.follow_up_date) {
-      newFieldErrors.follow_up_date = 'Follow-up date is required';
-    }
     if (isRegistrationStaff && !enrolment.queue_priority_group) {
       newFieldErrors.queue_priority_group = 'Queue category is required';
     }

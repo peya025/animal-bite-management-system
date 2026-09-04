@@ -27,23 +27,65 @@ class VaccinationRecordController extends Controller
     {
         try {
             $clinicId = $request->user()->clinic_id;
+            $requestedBiteId = $request->get('bite_id');
 
-            $records = TreatmentRecord::where('clinic_id', $clinicId)
+            // Find active / latest incident
+            $activeIncident = $requestedBiteId
+                ? BiteIncident::where('clinic_id', $clinicId)->find($requestedBiteId)
+                : BiteIncident::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->where('status', '!=', 'completed')
+                    ->latest('bite_id')
+                    ->first();
+
+            // All past historical records for this patient
+            $allRecords = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->whereNotNull('dose_number')
                 ->with(['administeredBy', 'inventory'])
                 ->orderBy('dose_number')
                 ->get();
 
-            // Get Tagoloan treatment card for ICD code and additional meds
+            // Determine if patient is returning for a new exposure (last completed dose was > 90 days ago)
+            $latestDose = $allRecords->where('status', 'completed')->sortByDesc('treatment_date')->first();
+            $isReturningYearsLater = false;
+            if (!$activeIncident && $latestDose && $latestDose->treatment_date) {
+                $daysSinceLastDose = Carbon::parse($latestDose->treatment_date)->diffInDays(now());
+                if ($daysSinceLastDose > 90) {
+                    $isReturningYearsLater = true;
+                }
+            }
+
+            // For active dose form: if returning years later and no doses recorded yet for this new episode,
+            // active records should be empty so Day 0 is fresh and editable!
+            if ($activeIncident) {
+                $activeRecords = $allRecords->where('bite_id', $activeIncident->bite_id)->values();
+            } elseif ($isReturningYearsLater) {
+                $activeRecords = collect([]);
+            } else {
+                $activeRecords = $allRecords;
+            }
+
+            // Get Tagoloan treatment card
             $card = TagoloanTreatmentCard::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
+                ->when($activeIncident, fn($q) => $q->where('bite_id', $activeIncident->bite_id))
                 ->latest()
                 ->first();
 
+            if (!$card) {
+                $card = TagoloanTreatmentCard::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->latest()
+                    ->first();
+            }
+
             return response()->json([
-                'vaccination_records' => $records,
-                'tagoloan_card' => $card,
+                'vaccination_records'  => $activeRecords,
+                'past_history_records' => $allRecords,
+                'is_returning_new_bite'=> $isReturningYearsLater,
+                'active_bite_incident' => $activeIncident,
+                'tagoloan_card'        => $card,
             ]);
         } catch (\Exception $e) {
             \Log::error('Get vaccination records error: ' . $e->getMessage());
@@ -124,6 +166,64 @@ class VaccinationRecordController extends Controller
             $biteId = $request->bite_id;
             $userId = $request->user()->id;
 
+            // Resolve or create active BiteIncident for this episode
+            if (!$biteId) {
+                $activeIncident = BiteIncident::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->where('status', '!=', 'completed')
+                    ->latest('bite_id')
+                    ->first();
+
+                if ($activeIncident) {
+                    $biteId = $activeIncident->bite_id;
+                } else {
+                    $latestIncident = BiteIncident::where('clinic_id', $clinicId)
+                        ->where('patient_id', $patientId)
+                        ->latest('bite_id')
+                        ->first();
+
+                    // If returning after previous episode completed or >90 days ago, start a new episode
+                    if ($latestIncident && ($latestIncident->status === 'completed' || ($latestIncident->bite_date && Carbon::parse($latestIncident->bite_date)->diffInDays(now()) > 90))) {
+                        $prevMaxEpisode = BiteIncident::where('clinic_id', $clinicId)
+                            ->where('patient_id', $patientId)
+                            ->max('episode_number') ?? 0;
+
+                        $isReExposure = $request->episode_type === 're_exposure';
+                        $patientObj = Patient::find($patientId);
+                        if (!$isReExposure && $patientObj) {
+                            $history = $patientObj->getImmunizationHistorySummary();
+                            $isReExposure = $history['can_receive_booster'] ?? false;
+                        }
+
+                        $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
+                        $severity = $severityMap[$request->exposure_category ?? ''] ?? 'moderate';
+                        $street = $patientObj?->details->address_purok ?? $patientObj?->address_purok ?? 'Zone 1';
+                        $brgy = $patientObj?->details->address_barangay ?? $patientObj?->address_barangay ?? 'Poblacion';
+                        $mun = $patientObj?->details->address_municipality ?? $patientObj?->address_municipality ?? 'Tagoloan';
+                        $bitePlace = $request->place_of_exposure ?: "{$street}, {$brgy}, {$mun}";
+                        $biteDate = $request->date_of_exposure ?: ($request->date_treatment_started ?: now()->toDateString());
+                        $animalType = $request->animal_type === 'other' ? ($request->animal_type_other ?: 'other') : ($request->animal_type ?: 'dog');
+
+                        $newIncident = BiteIncident::create([
+                            'clinic_id'      => $clinicId,
+                            'patient_id'     => $patientId,
+                            'episode_number' => $prevMaxEpisode + 1,
+                            'episode_type'   => $isReExposure ? 're_exposure' : 'primary',
+                            'bite_date'      => $biteDate,
+                            'bite_place'     => $bitePlace,
+                            'exposure_type'  => 'bite',
+                            'severity'       => $severity,
+                            'animal_type'    => $animalType,
+                            'status'         => 'active',
+                            'created_by'     => $userId,
+                        ]);
+                        $biteId = $newIncident->bite_id;
+                    } elseif ($latestIncident) {
+                        $biteId = $latestIncident->bite_id;
+                    }
+                }
+            }
+
             // Map period names to dose numbers
             $periodMapping = [
                 'Day 0' => 0,
@@ -139,7 +239,8 @@ class VaccinationRecordController extends Controller
 
             // Process each dose
             foreach ($request->doses as $doseData) {
-                if (empty($doseData['date'])) {
+                // If this is a historical locked dose or missing vaccine type, do not touch inventory or re-insert
+                if (empty($doseData['vaccine_type']) && empty($doseData['date'])) {
                     continue;
                 }
 
@@ -161,6 +262,9 @@ class VaccinationRecordController extends Controller
 
                 $existing = TreatmentRecord::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)
+                    ->when($biteId, function ($q) use ($biteId) {
+                        return $q->where('bite_id', $biteId);
+                    })
                     ->where('dose_number', $doseNumber)
                     ->where(function ($q) {
                         // Prefer rows already linked to this dose's record,
@@ -359,17 +463,29 @@ class VaccinationRecordController extends Controller
             $incident = $biteId 
                 ? BiteIncident::where('clinic_id', $clinicId)->find($biteId)
                 : BiteIncident::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest('bite_id')->first();
+
+            $isReExposure = ($incident && $incident->isReExposure()) || $request->episode_type === 're_exposure';
+            // Determine if incident regimen is complete:
+            // For 2-Dose Booster (re-exposure): completed when Day 3 is administered
+            // For Standard PEP (primary): completed when Day 28 is administered
+            $isRegimenComplete = $isReExposure
+                ? in_array(3, $savedDoseNumbers)
+                : in_array(28, $savedDoseNumbers);
+            $incidentStatus = $isRegimenComplete ? 'completed' : 'active';
+
             if (!$incident) {
                 $incident = BiteIncident::create([
-                    'clinic_id'     => $clinicId,
-                    'patient_id'    => $patientId,
-                    'bite_date'     => $biteDate,
-                    'bite_place'    => $bitePlace,
-                    'exposure_type' => 'bite',
-                    'severity'      => $severity,
-                    'animal_type'   => $animalType,
-                    'status'        => 'completed',
-                    'created_by'    => $userId,
+                    'clinic_id'      => $clinicId,
+                    'patient_id'     => $patientId,
+                    'episode_number' => 1,
+                    'episode_type'   => $isReExposure ? 're_exposure' : 'primary',
+                    'bite_date'      => $biteDate,
+                    'bite_place'     => $bitePlace,
+                    'exposure_type'  => 'bite',
+                    'severity'       => $severity,
+                    'animal_type'    => $animalType,
+                    'status'         => $incidentStatus,
+                    'created_by'     => $userId,
                 ]);
             } else {
                 $incident->update([
@@ -377,7 +493,7 @@ class VaccinationRecordController extends Controller
                     'bite_date'     => $biteDate,
                     'bite_place'    => $bitePlace,
                     'animal_type'   => $animalType,
-                    'status'        => 'completed',
+                    'status'        => $incidentStatus,
                 ]);
             }
 
@@ -468,6 +584,9 @@ class VaccinationRecordController extends Controller
             if (!empty($savedDoseNumbers)) {
                 Appointment::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)
+                    ->when($biteId, function ($q) use ($biteId) {
+                        return $q->where('bite_id', $biteId);
+                    })
                     ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
                     ->where(function ($q) use ($savedDoseNumbers) {
                         $q->whereIn('dose_number', $savedDoseNumbers);
@@ -576,15 +695,19 @@ class VaccinationRecordController extends Controller
         if (!$hasDay0) {
             $pastDay0 = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
+                ->when($biteId, function ($q) use ($biteId) {
+                    return $q->where('bite_id', $biteId);
+                })
                 ->where('dose_number', 0)
                 ->where('status', 'completed')
                 ->whereNotNull('treatment_date')
+                ->latest('treatment_date')
                 ->first();
             if ($pastDay0) {
                 $day0Date = \Carbon\Carbon::parse($pastDay0->treatment_date);
                 $hasDay0 = true;
             } else {
-                return; // No Day 0 recorded anywhere, skip appointment creation
+                return; // No Day 0 recorded anywhere for this episode, skip appointment creation
             }
         }
 
@@ -657,6 +780,9 @@ class VaccinationRecordController extends Controller
             if (!$alreadyGiven) {
                 $completedDose = TreatmentRecord::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)
+                    ->when($biteId, function ($q) use ($biteId) {
+                        return $q->where('bite_id', $biteId);
+                    })
                     ->where('dose_number', $doseNum)
                     ->where('status', 'completed')
                     ->whereNotNull('treatment_date')

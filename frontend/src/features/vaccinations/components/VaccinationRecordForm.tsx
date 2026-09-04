@@ -281,6 +281,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [currentIncident, setCurrentIncident] = useState<any>(null);
   const [existingRecordsData, setExistingRecordsData] = useState<ExistingVaccinationRecord[]>([]);
+  const [isReturningNewBite, setIsReturningNewBite] = useState(false);
+  const [pastHistoryRecords, setPastHistoryRecords] = useState<ExistingVaccinationRecord[]>([]);
 
   const isPhilHealthMember = Boolean(
     entry?.patient?.philhealth_member === 'yes' ||
@@ -351,13 +353,19 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     if (!patientId) return;
 
     try {
+      const activeBiteId = entry?.bite_id || entry?.incident?.bite_id;
+      const biteIdParam = activeBiteId ? `?bite_id=${activeBiteId}` : '';
       const [cardRes, apptRes, vacRes] = await Promise.all([
         api.get(`/tagoloan-treatment-cards/patient/${patientId}`).catch(() => null),
         api.get(`/appointments?patient_id=${patientId}&status=scheduled`).catch(() => null),
-        api.get(`/vaccination-records/patient/${patientId}`).catch(() => null),
+        api.get(`/vaccination-records/patient/${patientId}${biteIdParam}`).catch(() => null),
       ]);
 
-      const bite = cardRes?.data?.bite_incident || entry?.incident;
+      const isReturning = Boolean(vacRes?.data?.is_returning_new_bite);
+      setIsReturningNewBite(isReturning);
+      setPastHistoryRecords(vacRes?.data?.past_history_records || []);
+
+      const bite = vacRes?.data?.active_bite_incident || cardRes?.data?.bite_incident || entry?.incident;
       const card = cardRes?.data?.existing_card;
       const consultation = cardRes?.data?.latest_consultation;
       const appointments = apptRes?.data?.data || [];
@@ -1282,6 +1290,29 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         {inventorySetupMessage && (
           <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, color: '#92400e', fontSize: 12 }}>
             ⚠ {inventorySetupMessage}
+          </div>
+        )}
+
+        {isReturningNewBite && pastHistoryRecords.length > 0 && (
+          <div style={{
+            marginBottom: 16,
+            padding: '12px 16px',
+            borderRadius: 8,
+            backgroundColor: '#ecfdf5',
+            border: '1px solid #a7f3d0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}>
+            <span style={{ fontSize: 20 }}>🛡️</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>
+                Prior Immunization History Verified ({pastHistoryRecords.filter(r => r.status === 'completed').length} completed doses on file)
+              </div>
+              <div style={{ fontSize: 12, color: '#047857', marginTop: 2 }}>
+                Patient is returning with a new animal bite exposure. A fresh vaccination regimen has been initiated — doses below are open for recording today's treatment.
+              </div>
+            </div>
           </div>
         )}
 

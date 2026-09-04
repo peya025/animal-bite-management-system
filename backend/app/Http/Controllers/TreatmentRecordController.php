@@ -173,6 +173,9 @@ class TreatmentRecordController extends Controller
 
         // ── Auto-advance queue: move patient from Triage/Doctor → Treatment/Vaccination station ──
         $todayQueue = null;
+        $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral';
+        $referredToFacility = $validated['referred_to'] ?? 'External Medical Facility';
+
         if (!empty($validated['queue_id'])) {
             $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)
                 ->where('queue_id', $validated['queue_id'])
@@ -191,33 +194,100 @@ class TreatmentRecordController extends Controller
                 ->first();
         }
 
-        if ($todayQueue) {
+        if ($isReferralOut) {
+            // Case A: Patient referred to external hospital/facility — do not send to Treatment Queue
+            if ($todayQueue) {
+                $referralNotes = "Referred to external facility: {$referredToFacility} — Visit Completed.";
+
+                \App\Models\QueueHistory::create([
+                    'queue_id'     => $todayQueue->queue_id,
+                    'clinic_id'    => $todayQueue->clinic_id,
+                    'patient_id'   => $todayQueue->patient_id,
+                    'action'       => 'completed',
+                    'from_status'  => $todayQueue->status,
+                    'to_status'    => 'completed',
+                    'call_count'   => $todayQueue->call_count ?? 0,
+                    'performed_by' => $request->user()->id,
+                    'notes'        => $referralNotes,
+                    'occurred_at'  => now(),
+                ]);
+
+                $todayQueue->update([
+                    'status'             => 'completed',
+                    'completed_at'       => now(),
+                    'consultation_notes' => $referralNotes,
+                    'recall_stage'       => null,
+                ]);
+
+                \Illuminate\Support\Facades\Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+            }
+        } else {
+            // Case B: Standard Triage → Treatment handoff
             $transferNotes = 'Doctor completed Form 2 — referred to Treatment.';
-            
-            \App\Models\QueueHistory::create([
-                'queue_id'     => $todayQueue->queue_id,
-                'clinic_id'    => $todayQueue->clinic_id,
-                'patient_id'   => $todayQueue->patient_id,
-                'action'       => 'transferred_to_treatment',
-                'from_status'  => $todayQueue->status,
-                'to_status'    => 'waiting',
-                'call_count'   => $todayQueue->call_count ?? 0,
-                'performed_by' => $request->user()->id,
-                'notes'        => $transferNotes,
-                'occurred_at'  => now(),
-            ]);
 
-            $todayQueue->update([
-                'visit_type'         => 'vaccination',
-                'status'             => 'waiting',
-                'called_at'          => null,
-                'serving_at'         => null,
-                'completed_at'       => null,
-                'consultation_notes' => $transferNotes,
-                'recall_stage'       => null,
-            ]);
+            if ($todayQueue) {
+                \App\Models\QueueHistory::create([
+                    'queue_id'     => $todayQueue->queue_id,
+                    'clinic_id'    => $todayQueue->clinic_id,
+                    'patient_id'   => $todayQueue->patient_id,
+                    'action'       => 'transferred_to_treatment',
+                    'from_status'  => $todayQueue->status,
+                    'to_status'    => 'waiting',
+                    'call_count'   => $todayQueue->call_count ?? 0,
+                    'performed_by' => $request->user()->id,
+                    'notes'        => $transferNotes,
+                    'occurred_at'  => now(),
+                ]);
 
-            \Illuminate\Support\Facades\Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+                $todayQueue->update([
+                    'visit_type'         => 'vaccination',
+                    'status'             => 'waiting',
+                    'called_at'          => null,
+                    'serving_at'         => null,
+                    'completed_at'       => null,
+                    'consultation_notes' => $transferNotes,
+                    'recall_stage'       => null,
+                ]);
+
+                \Illuminate\Support\Facades\Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+            } else {
+                // Patient had no prior queue ticket today — auto-generate one for Treatment Desk
+                $todayDate = Carbon::today()->toDateString();
+                $lastQueueNumber = \App\Models\Queue::where('clinic_id', $clinicId)
+                    ->where('queue_date', $todayDate)
+                    ->whereNull('deleted_at')
+                    ->max('queue_number') ?? 0;
+
+                $todayQueue = \App\Models\Queue::create([
+                    'clinic_id'          => $clinicId,
+                    'patient_id'         => $validated['patient_id'],
+                    'queue_number'       => $lastQueueNumber + 1,
+                    'queue_date'         => $todayDate,
+                    'visit_type'         => 'vaccination',
+                    'priority'           => 'normal',
+                    'queue_category'     => 'regular',
+                    'status'             => 'waiting',
+                    'checked_in_at'      => now(),
+                    'checked_in_by'      => $request->user()->id,
+                    'consultation_notes' => $transferNotes,
+                    'call_count'         => 0,
+                ]);
+
+                \App\Models\QueueHistory::create([
+                    'queue_id'     => $todayQueue->queue_id,
+                    'clinic_id'    => $todayQueue->clinic_id,
+                    'patient_id'   => $todayQueue->patient_id,
+                    'action'       => 'checked_in',
+                    'from_status'  => 'new',
+                    'to_status'    => 'waiting',
+                    'call_count'   => 0,
+                    'performed_by' => $request->user()->id,
+                    'notes'        => $transferNotes,
+                    'occurred_at'  => now(),
+                ]);
+
+                \Illuminate\Support\Facades\Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
+            }
         }
 
         return response()->json([

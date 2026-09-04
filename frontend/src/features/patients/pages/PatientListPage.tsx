@@ -213,9 +213,21 @@ export default function PatientList() {
     const patientId = p.patient_id || p.id;
     setCheckingInId(patientId);
     try {
-      const hasBiteIncident = Boolean((p as any).bite_incidents?.length || (p as any).biteIncidents?.length);
-      const hasTreatmentRecord = Boolean(p.latest_treatment_record);
-      const isInitialVisit = isNewBiteCase || (!hasBiteIncident && !hasTreatmentRecord);
+      // Check if patient has an active uncompleted PEP regimen or scheduled appointments within current regimen window (<= 90 days)
+      const appts: any[] = (p as any).appointments || [];
+      const hasActiveAppointment = appts.some(a => a.status === 'scheduled');
+      const latestRecordDate = p.latest_treatment_record?.treatment_date || p.latest_treatment_record?.created_at;
+      
+      let isFollowUpWithinRegimen = false;
+      if (hasActiveAppointment && latestRecordDate) {
+        const daysSinceLastDose = Math.floor((Date.now() - new Date(latestRecordDate).getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceLastDose <= 90) {
+          isFollowUpWithinRegimen = true;
+        }
+      }
+
+      // If returning years later or starting a new bite case, always route to Doctor Triage (new_case)
+      const isInitialVisit = isNewBiteCase || !isFollowUpWithinRegimen;
       const visitType = isInitialVisit ? 'new_case' : 'vaccination';
 
       const res = await api.post('/queue', {

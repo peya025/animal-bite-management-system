@@ -87,6 +87,30 @@ class QueueController extends Controller
         ])->first();
     }
 
+    // ── Helper: auto-expire unserved tickets from previous days ─────────────
+    public function expireStaleTickets(int $clinicId, string $date): int
+    {
+        $staleStatuses = array_merge(self::MAIN_STATUSES, self::SECOND_STATUSES);
+        $staleTickets = Queue::where('clinic_id', $clinicId)
+            ->where('queue_date', '<', $date)
+            ->whereIn('status', $staleStatuses)
+            ->whereNull('deleted_at')
+            ->get();
+
+        $count = 0;
+        foreach ($staleTickets as $ticket) {
+            $ticket->update([
+                'status'             => 'no_response',
+                'no_response_at'     => now(),
+                'consultation_notes' => 'Auto-expired: patient did not complete visit before clinic closed',
+            ]);
+            $this->logHistory($ticket, 'auto_expired', 'no_response', null, 'Auto-expired at end of clinic day');
+            $count++;
+        }
+
+        return $count;
+    }
+
     // ────────────────────────────────────────────────────────────────────────
     // GET /queue  —  Main + second chance queues + stats
     // ────────────────────────────────────────────────────────────────────────
@@ -115,15 +139,8 @@ class QueueController extends Controller
                             'call_count','recall_stage','clinic_id','queue_date'
                         );
 
-                    // Auto-expire stale unserved tickets from previous days
-                    Queue::where('clinic_id', $clinicId)
-                        ->where('queue_date', '<', $date)
-                        ->whereIn('status', self::MAIN_STATUSES)
-                        ->update([
-                            'status' => 'no_response',
-                            'no_response_at' => now(),
-                            'consultation_notes' => 'Auto-expired: patient did not complete visit before clinic closed',
-                        ]);
+                    // Auto-expire stale unserved tickets from previous days (both main and second-chance)
+                    $this->expireStaleTickets($clinicId, $date);
 
                     // Main queue: strictly today's tickets
                     $mainQueue = (clone $baseQuery)
@@ -131,8 +148,9 @@ class QueueController extends Controller
                         ->orderBy('queue_number', 'asc')
                         ->get();
 
-                    // Second chance queue (any date)
+                    // Second chance queue: strictly for the requested date
                     $secondQueue = (clone $baseQuery)
+                        ->where('queue_date', $date)
                         ->whereIn('status', self::SECOND_STATUSES)
                         ->orderBy('no_response_at', 'asc')
                         ->get();
@@ -617,6 +635,9 @@ class QueueController extends Controller
                 ], 409);
             }
 
+            // Task 2.3: Auto-expire unserved tickets from prior days before generating today's queue
+            $this->expireStaleTickets($clinicId, $todayDate);
+
             // Task 1: Race-condition-safe queue number generation using DB lock
             $lastQueue = Queue::where('clinic_id', $clinicId)
                 ->where('queue_date', $todayDate)
@@ -634,6 +655,9 @@ class QueueController extends Controller
             $visitType = $request->visit_type;
             if ($visitType === 'consultation') {
                 $visitType = 'new_case';
+            }
+            if ($visitType === 'follow_up') {
+                $visitType = 'vaccination';
             }
 
             $queue = Queue::create([

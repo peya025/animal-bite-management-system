@@ -452,9 +452,11 @@ export default function NursePatientListPage() {
         const activeQueue = (patient as any).queues?.[0];
         const appt = (patient as any).appointments?.[0];
         const hasCompletedTriage = Boolean(
-          (patient as any).bite_incidents?.length ||
-          (patient as any).biteIncidents?.length ||
-          patient.latest_treatment_record
+          patient.latest_treatment_record ||
+          (patient as any).latest_consultation_record ||
+          (patient as any).latestConsultationRecord ||
+          activeQueue?.visit_type === 'vaccination' ||
+          activeQueue?.consultation_notes?.includes('Form 2')
         );
         const canCheckIn = hasCompletedTriage && !activeQueue && appt?.status === 'scheduled';
 

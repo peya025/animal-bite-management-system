@@ -184,7 +184,7 @@ class TreatmentRecordController extends Controller
             $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
                 ->where('queue_date', Carbon::today()->toDateString())
-                ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
+                ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving', 'second_chance', 'final_recall'])
                 ->whereIn('visit_type', ['new_case', 'follow_up', 'observation', 'consultation'])
                 ->whereNull('deleted_at')
                 ->latest('queue_id')
@@ -192,7 +192,7 @@ class TreatmentRecordController extends Controller
         }
 
         if ($todayQueue) {
-            $transferNotes = 'Doctor/Triage completed Form 2 — referred to Treatment.';
+            $transferNotes = 'Doctor completed Form 2 — referred to Treatment.';
             
             \App\Models\QueueHistory::create([
                 'queue_id'     => $todayQueue->queue_id,

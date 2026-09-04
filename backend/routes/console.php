@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Daily Automated Rabies PEP Reminders & Missed Dose Recalls at 8:00 AM
 Schedule::command('appointments:auto-recall')->dailyAt('08:00');
+
+// Daily Midnight Queue Auto-Expiry Sweep at 23:59
+Schedule::command('queue:auto-expire')->dailyAt('23:59');

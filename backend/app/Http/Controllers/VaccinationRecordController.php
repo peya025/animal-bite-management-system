@@ -404,40 +404,40 @@ class VaccinationRecordController extends Controller
                     $todayQueue = Queue::where('clinic_id', $clinicId)
                         ->where('patient_id', $patientId)
                         ->where('queue_date', Carbon::today()->toDateString())
-                        ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
+                        ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving', 'second_chance', 'final_recall'])
                         ->whereNull('deleted_at')
                         ->latest('queue_id')
                         ->first();
                 }
 
-            if ($todayQueue) {
-                $completionNotes = 'Vaccination administered (Form 3 completed by Nurse) — Visit Completed.';
-                
-                \App\Models\QueueHistory::create([
-                    'queue_id'     => $todayQueue->queue_id,
-                    'clinic_id'    => $todayQueue->clinic_id,
-                    'patient_id'   => $todayQueue->patient_id,
-                    'action'       => 'completed',
-                    'from_status'  => $todayQueue->status,
-                    'to_status'    => 'completed',
-                    'call_count'   => $todayQueue->call_count ?? 0,
-                    'performed_by' => $userId,
-                    'notes'        => $completionNotes,
-                    'occurred_at'  => now(),
-                ]);
+                if ($todayQueue) {
+                    $completionNotes = 'Vaccination administered (Form 3 completed by Nurse) — Visit Completed.';
+                    
+                    \App\Models\QueueHistory::create([
+                        'queue_id'     => $todayQueue->queue_id,
+                        'clinic_id'    => $todayQueue->clinic_id,
+                        'patient_id'   => $todayQueue->patient_id,
+                        'action'       => 'completed',
+                        'from_status'  => $todayQueue->status,
+                        'to_status'    => 'completed',
+                        'call_count'   => $todayQueue->call_count ?? 0,
+                        'performed_by' => $userId,
+                        'notes'        => $completionNotes,
+                        'occurred_at'  => now(),
+                    ]);
 
-                $todayQueue->update([
-                    'status'             => 'completed',
-                    'completed_at'       => now(),
-                    'consultation_notes' => $todayQueue->consultation_notes 
-                        ? $todayQueue->consultation_notes . ' | ' . $completionNotes 
-                        : $completionNotes,
-                    'recall_stage'       => null,
-                ]);
+                    $todayQueue->update([
+                        'status'             => 'completed',
+                        'completed_at'       => now(),
+                        'consultation_notes' => $todayQueue->consultation_notes 
+                            ? $todayQueue->consultation_notes . ' | ' . $completionNotes 
+                            : $completionNotes,
+                        'recall_stage'       => null,
+                    ]);
 
-                Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
-            } // end: if ($todayQueue)
-            } // end: if Day 0 was saved
+                    Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+                } // end: if ($todayQueue)
+            } // end: if doses were saved
 
             // ──────────────────────────────────────────────────────────────
             // ✨ RESET ANY FUTURE DOSE ROWS INCORRECTLY MARKED COMPLETED
@@ -463,20 +463,23 @@ class VaccinationRecordController extends Controller
             }
 
             // ──────────────────────────────────────────────────────────────
-            // ✨ AUTO-COMPLETE TODAY'S INITIAL APPOINTMENT (Day 0 only)
+            // ✨ AUTO-COMPLETE APPOINTMENTS FOR ADMINISTERED DOSES (Day 0, Day 3, 7, 28)
             // ──────────────────────────────────────────────────────────────
-            Appointment::where('clinic_id', $clinicId)
-                ->where('patient_id', $patientId)
-                ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
-                ->where(function ($q) {
-                    $q->whereNull('dose_number')
-                      ->orWhere('dose_number', 0)
-                      ->orWhere('appointment_type', 'consultation');
-                })
-                ->whereDate('appointment_date', '<=', Carbon::today())
-                ->update([
-                    'status' => 'completed',
-                ]);
+            if (!empty($savedDoseNumbers)) {
+                Appointment::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
+                    ->where(function ($q) use ($savedDoseNumbers) {
+                        $q->whereIn('dose_number', $savedDoseNumbers);
+                        if (in_array(0, $savedDoseNumbers)) {
+                            $q->orWhereNull('dose_number')
+                              ->orWhere('appointment_type', 'consultation');
+                        }
+                    })
+                    ->update([
+                        'status' => 'completed',
+                    ]);
+            }
 
             Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
 
@@ -571,7 +574,18 @@ class VaccinationRecordController extends Controller
         }
 
         if (!$hasDay0) {
-            return; // No Day 0 recorded, skip appointment creation
+            $pastDay0 = TreatmentRecord::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('dose_number', 0)
+                ->where('status', 'completed')
+                ->whereNotNull('treatment_date')
+                ->first();
+            if ($pastDay0) {
+                $day0Date = \Carbon\Carbon::parse($pastDay0->treatment_date);
+                $hasDay0 = true;
+            } else {
+                return; // No Day 0 recorded anywhere, skip appointment creation
+            }
         }
 
         $scheduleService = app(ClinicScheduleService::class);
@@ -594,6 +608,12 @@ class VaccinationRecordController extends Controller
             $doseIntervals = [
                 3 => 3,
             ];
+            // Cancel any residual Days 7/28 appointments for this episode if re-exposure
+            Appointment::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->whereIn('dose_number', [7, 28, 90, 365])
+                ->where('status', 'scheduled')
+                ->update(['status' => 'cancelled', 'notes' => 'Cancelled: Re-exposure 2-Dose Booster protocol completed']);
         } else {
             $schedule = [
                 ['period' => 'Day 3', 'days_after' => 3, 'dose_number' => 3],
@@ -631,6 +651,19 @@ class VaccinationRecordController extends Controller
                         $formSpecifiedDate = Carbon::parse($dose['date']);
                     }
                     break;
+                }
+            }
+
+            if (!$alreadyGiven) {
+                $completedDose = TreatmentRecord::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->where('dose_number', $doseNum)
+                    ->where('status', 'completed')
+                    ->whereNotNull('treatment_date')
+                    ->first();
+                if ($completedDose) {
+                    $alreadyGiven = true;
+                    $previousResolvedDate = Carbon::parse($completedDose->treatment_date);
                 }
             }
 

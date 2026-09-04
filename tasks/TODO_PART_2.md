@@ -77,20 +77,20 @@
 * **Goal**: Complete 100% automation so clinicians never need to click manual "Serving" or "Complete" buttons on queue boards.
 
 #### 2.1 Doctor Triage $\rightarrow$ Treatment Desk Auto-Handoff
-- [ ] When the Doctor clicks **"Save Record" / "Save Consultation"** on Form 2:
+- [x] When the Doctor clicks **"Save Record" / "Save Consultation"** on Form 2:
   - Triage ticket automatically transitions from `in_consultation` $\rightarrow$ `visit_type = 'vaccination'`, `status = 'waiting'` (Referred to Treatment).
   - Automatically unlocks Form 3 at the Nurse Treatment Desk.
   - Logs transition in `queue_history` with doctor user ID.
 
 #### 2.2 Nurse Treatment Desk $\rightarrow$ Auto-Completion
-- [ ] When the Nurse submits Form 3 for **ANY dose** (Day 0, Day 3, Day 7, Day 28, or Booster):
+- [x] When the Nurse submits Form 3 for **ANY dose** (Day 0, Day 3, Day 7, Day 28, or Booster):
   - Today's active queue ticket automatically marks as `completed` (`status = 'completed'`, `completed_at = now()`).
   - Auto-schedules the next follow-up appointment according to the clinic's operating schedule.
   - Ticket clears off the active calling screen.
 
 #### 2.3 Daily Queue Reset & Midnight Auto-Expiry
-- [ ] Every clinic day resets cleanly starting from **Queue #1**.
-- [ ] Past-day unserved tickets are automatically closed as `no_response (Auto-expired at end of clinic day)` to prevent ghost tickets leaking into today's queue.
+- [x] Every clinic day resets cleanly starting from **Queue #1**.
+- [x] Past-day unserved tickets are automatically closed as `no_response (Auto-expired at end of clinic day)` to prevent ghost tickets leaking into today's queue.
 
 ---
 

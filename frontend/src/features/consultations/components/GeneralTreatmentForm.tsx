@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Button, Typography, Chip, Alert, TextField } from '@mui/material';
 import { LockOutlined as LockIcon } from '@mui/icons-material';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
@@ -207,6 +207,12 @@ export default function GeneralTreatmentForm({
   const [isEditing, setIsEditing] = useState(false);
   const [existingRecord, setExistingRecord] = useState<any>(null);
 
+  // Medical-legal post-treatment lock: true if patient has >= 1 administered vaccine dose
+  const [hasAdministeredVaccine, setHasAdministeredVaccine] = useState(false);
+  const [addendumNote, setAddendumNote] = useState('');
+  const [savingAddendum, setSavingAddendum] = useState(false);
+  const [addendumSuccess, setAddendumSuccess] = useState('');
+
   // Track which checklist items are checked (separate from the editable text box)
   const [checkedDiagnoses, setCheckedDiagnoses] = useState<string[]>([]);
   const [checkedMeds, setCheckedMeds] = useState<string[]>([]);
@@ -346,6 +352,9 @@ export default function GeneralTreatmentForm({
     api.get(`/treatment-records/patient/${patientId}`)
       .then((response) => {
         const record = response.data?.latest_treatment;
+        const isVaccinated = Boolean(response.data?.has_administered_vaccine);
+        setHasAdministeredVaccine(isVaccinated);
+
         if (record && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
           setHasExistingRecord(true);
           setIsEditing(false); // Read-only by default if already saved
@@ -353,7 +362,7 @@ export default function GeneralTreatmentForm({
           populateFormFromRecord(record);
         } else {
           setHasExistingRecord(false);
-          setIsEditing(true); // Editable immediately if not filled up yet
+          setIsEditing(!isVaccinated); // Only editable if not vaccinated
           setExistingRecord(null);
         }
       })
@@ -364,6 +373,31 @@ export default function GeneralTreatmentForm({
         setExistingRecord(null);
       });
   }, [open, entry?.patient?.patient_id, entry?.patient?.id]);
+
+  const handleSaveAddendum = async () => {
+    const patientId = entry?.patient?.patient_id || entry?.patient?.id;
+    if (!patientId || !addendumNote.trim()) return;
+
+    setSavingAddendum(true);
+    setAddendumSuccess('');
+    setError('');
+
+    try {
+      const res = await api.post(`/treatment-records/patient/${patientId}/addendum`, {
+        addendum_notes: addendumNote.trim(),
+      });
+      setAddendumSuccess('Clinical addendum recorded successfully.');
+      setAddendumNote('');
+      if (res.data?.treatment_record) {
+        setExistingRecord(res.data.treatment_record);
+        populateFormFromRecord(res.data.treatment_record);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save clinical addendum note');
+    } finally {
+      setSavingAddendum(false);
+    }
+  };
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -558,14 +592,40 @@ export default function GeneralTreatmentForm({
   if (!entry) return null;
 
   // Effective read-only status:
-  // If global readOnly is true, OR if an existing record exists and we are not in edit mode.
-  const isFormDisabled = readOnly || (hasExistingRecord && !isEditing);
+  // If global readOnly is true, OR if patient has already received vaccines (strictly locked),
+  // OR if an existing record exists and we are not in edit mode.
+  const isFormDisabled = readOnly || hasAdministeredVaccine || (hasExistingRecord && !isEditing);
 
   const formContent = (
     <div style={{ padding: inline ? '0' : '24px 32px' }}>
       
-      {/* Read-Only Status Banner with Edit Option */}
-      {hasExistingRecord && !isEditing && (
+      {/* 🔒 Medical-Legal Post-Treatment Lock Banner */}
+      {hasAdministeredVaccine ? (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          px: 2.5, py: 1.75, mb: 3,
+          bgcolor: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 2,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <LockIcon sx={{ fontSize: 20, color: '#d97706', flexShrink: 0 }} />
+            <Box>
+              <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#92400e' }}>
+                🔒 Clinical Assessment Locked (Post-Treatment)
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: '#b45309', mt: 0.25 }}>
+                Exposure diagnosis and clinical orders cannot be modified after vaccination has started. Use the Addendum section below to append clinical notes.
+              </Typography>
+            </Box>
+          </Box>
+          <Box sx={{
+            px: 1.5, py: 0.5, bgcolor: '#fef3c7', borderRadius: 1.5,
+            fontSize: 11, fontWeight: 700, color: '#92400e', border: '1px solid #fde68a',
+            whiteSpace: 'nowrap',
+          }}>
+            Vaccinated · Read Only
+          </Box>
+        </Box>
+      ) : hasExistingRecord && !isEditing ? (
         <Box sx={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           px: 2.5, py: 1.5, mb: 3,
@@ -597,7 +657,7 @@ export default function GeneralTreatmentForm({
             </Button>
           )}
         </Box>
-      )}
+      ) : null}
 
       {/* Edit Mode Notification Banner */}
       {hasExistingRecord && isEditing && !readOnly && (
@@ -1312,6 +1372,72 @@ export default function GeneralTreatmentForm({
         </div>
       </div>
 
+      {/* ── Section: Clinical Addenda (Doctor / Admin Post-Treatment Progress Notes) ── */}
+      {hasExistingRecord && (
+        <Box sx={{ mt: 4, mb: 3, pt: 3, borderTop: '2px dashed #e5e7eb' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+            <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Clinical Addendum & Progress Notes
+            </Typography>
+            {hasAdministeredVaccine && (
+              <Chip label="Post-Treatment Addenda Active" size="small" sx={{ bgcolor: '#ecfdf5', color: '#065f46', fontSize: 11, fontWeight: 600 }} />
+            )}
+          </Box>
+
+          {/* Display existing notes if present */}
+          {existingRecord?.administration_notes ? (
+            <Box sx={{
+              p: 2, mb: 2, bgcolor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 2,
+              fontSize: 13, color: '#374151', whiteSpace: 'pre-wrap', lineHeight: 1.6,
+            }}>
+              {existingRecord.administration_notes}
+            </Box>
+          ) : (
+            <Typography sx={{ fontSize: 12.5, color: '#9ca3af', fontStyle: 'italic', mb: 2 }}>
+              No clinical addenda recorded yet.
+            </Typography>
+          )}
+
+          {/* Addendum Entry Form */}
+          {hasAdministeredVaccine && !readOnly && (
+            <Box sx={{ bgcolor: '#f0fdf4', p: 2, borderRadius: 2, border: '1px solid #bbf7d0' }}>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#166534', mb: 1 }}>
+                ✍️ Append Clinical Addendum Note (Physician / Clinical Staff)
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                size="small"
+                placeholder="Enter clinical progress note or diagnostic update here..."
+                value={addendumNote}
+                onChange={(e) => setAddendumNote(e.target.value)}
+                sx={{ bgcolor: '#fff', mb: 1.5 }}
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handleSaveAddendum}
+                  disabled={savingAddendum || !addendumNote.trim()}
+                  sx={{
+                    bgcolor: '#10b981', color: '#fff', fontSize: 12, fontWeight: 600,
+                    textTransform: 'none', '&:hover': { bgcolor: '#059669' },
+                  }}
+                >
+                  {savingAddendum ? 'Saving Addendum...' : 'Append Addendum'}
+                </Button>
+              </Box>
+              {addendumSuccess && (
+                <Alert severity="success" sx={{ mt: 1, py: 0.25, fontSize: 12 }}>
+                  {addendumSuccess}
+                </Alert>
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
+
       <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'right', borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
         Clinic Information System | FORM 2 | Page 1
       </div>
@@ -1321,7 +1447,11 @@ export default function GeneralTreatmentForm({
         <div style={{ marginTop: 32, paddingTop: 20, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
           {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0 }}>{error}</p>}
           
-          {hasExistingRecord && !isEditing ? (
+          {hasAdministeredVaccine ? (
+            <Box sx={{ fontSize: 12.5, color: '#92400e', fontWeight: 600, bgcolor: '#fef3c7', px: 2, py: 0.75, borderRadius: 1.5 }}>
+              🔒 Assessment Locked — Baseline diagnosis cannot be edited after vaccination
+            </Box>
+          ) : hasExistingRecord && !isEditing ? (
             !readOnly && (
               <button
                 type="button"
@@ -1388,7 +1518,11 @@ export default function GeneralTreatmentForm({
               {error}
             </p>
           )}
-          {hasExistingRecord && !isEditing ? (
+          {hasAdministeredVaccine ? (
+            <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>
+              Close (Locked)
+            </button>
+          ) : hasExistingRecord && !isEditing ? (
             <>
               <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>
                 Close

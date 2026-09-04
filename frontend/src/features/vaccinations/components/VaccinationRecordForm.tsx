@@ -11,7 +11,6 @@ import type { VaccineTypePreset } from '../../inventory/types';
 import DohTransferSlipModal from './DohTransferSlipModal';
 import {
   useAddressLocation,
-  MISAMIS_ORIENTAL_MUNICIPALITIES,
 } from '../../patients/hooks/useAddressLocation';
 
 type ApiError = {
@@ -92,6 +91,7 @@ interface VaccinationDose {
 interface ExistingVaccinationRecord {
   treatment_id: number;
   dose_number: number;
+  status?: string | null;
   route?: 'ID' | 'IM' | null;
   treatment_date?: string | null;
   scheduled_date?: string | null;
@@ -142,6 +142,21 @@ const getLocalDateString = (d: Date = new Date()): string => {
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+function getLoggedInStaffInfo(): { name: string; signature: string } {
+  try {
+    const raw = localStorage.getItem('userData');
+    if (!raw) return { name: '', signature: '' };
+    const u = JSON.parse(raw);
+    const name = u.name || '';
+    const signature = name
+      ? name.split(' ').map((w: string) => w[0]).join('').toUpperCase()
+      : '';
+    return { name, signature };
+  } catch {
+    return { name: '', signature: '' };
+  }
+}
 
 const addDaysToDate = (baseDateStr: string, days: number): string => {
   if (!baseDateStr) return '';
@@ -287,14 +302,16 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       const rawPin = isMember ? (pObj.philhealth_no || dObj.philhealth_no || '') : '';
       const rawType = isMember ? (pObj.philhealth_status || dObj.philhealth_status || '') : '';
 
+      const fullName = pObj.full_name || pObj.name || [pObj.last_name, pObj.first_name].filter(Boolean).join(', ') || '';
+
       setFormData(prev => ({
         ...INITIAL_FORM_DATA,
         ...prev,
-        patient_name: `${entry.patient.last_name}, ${entry.patient.first_name} ${entry.patient.middle_name || ''}`.trim(),
+        patient_name: fullName || `${entry.patient.last_name || ''}, ${entry.patient.first_name || ''} ${entry.patient.middle_name || ''}`.trim(),
         age: String(entry.patient.age || ''),
         date_of_birth: formatDateForInput(entry.patient.date_of_birth),
         address: entry.patient.address || '',
-        sex: entry.patient.gender === 'M' ? 'male' : entry.patient.gender === 'F' ? 'female' : '',
+        sex: entry.patient.gender === 'M' || entry.patient.gender === 'male' ? 'male' : entry.patient.gender === 'F' || entry.patient.gender === 'female' ? 'female' : '',
         philhealth_pin: isMember ? formatPhilHealthNumber(rawPin) : '',
         philhealth_type: (rawType === 'member' || rawType === 'dependent') ? rawType : '',
       }));
@@ -330,13 +347,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   const loadAllFormData = async () => {
-    if (!entry?.patient?.patient_id) return;
+    const patientId = entry?.patient?.patient_id || entry?.patient?.id;
+    if (!patientId) return;
 
     try {
       const [cardRes, apptRes, vacRes] = await Promise.all([
-        api.get(`/tagoloan-treatment-cards/patient/${entry.patient.patient_id}`).catch(() => null),
-        api.get(`/appointments?patient_id=${entry.patient.patient_id}&status=scheduled`).catch(() => null),
-        api.get(`/vaccination-records/patient/${entry.patient.patient_id}`).catch(() => null),
+        api.get(`/tagoloan-treatment-cards/patient/${patientId}`).catch(() => null),
+        api.get(`/appointments?patient_id=${patientId}&status=scheduled`).catch(() => null),
+        api.get(`/vaccination-records/patient/${patientId}`).catch(() => null),
       ]);
 
       const bite = cardRes?.data?.bite_incident || entry?.incident;
@@ -396,57 +414,128 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       }));
 
       // 3. Map Doses cleanly
-      const baseDoseDate = treatmentStartDate || resolvedExposureDate || getLocalDateString();
-      setDoses(() => {
-        const initialDoses = createInitialDoses(baseDoseDate);
-        return initialDoses.map(dose => {
-          const doseNumber = PERIOD_TO_DOSE_NUMBER[dose.period];
-          const record = records.find((item) => DOSE_NUMBER_TO_PERIOD[item.dose_number] === dose.period);
-          const appointment = appointments.find((a: any) => a.dose_number === doseNumber);
+      const todayStr = getLocalDateString();
+      const baseDoseDate = treatmentStartDate || resolvedExposureDate || todayStr;
+      const initialDoses = createInitialDoses(baseDoseDate);
+      const mappedDoses = initialDoses.map(dose => {
+        const doseNumber = PERIOD_TO_DOSE_NUMBER[dose.period];
+        const record = records.find((item) => DOSE_NUMBER_TO_PERIOD[item.dose_number] === dose.period);
+        const appointment = appointments.find((a: any) => a.dose_number === doseNumber);
 
-          const isCompletedRecord = Boolean(
-            record &&
-            (record.status === 'completed' || Boolean(record.treatment_date)) &&
-            record.status !== 'scheduled'
-          );
+        const isCompletedRecord = Boolean(
+          record &&
+          (record.status === 'completed' || Boolean(record.treatment_date)) &&
+          record.status !== 'scheduled'
+        );
 
-          if (isCompletedRecord && record) {
-            return {
-              ...dose,
-              route: record.route || dose.route,
-              date: formatDateForInput(record.treatment_date) || dose.date,
-              given_by: extractGivenBy(record.remarks, record.administeredBy?.name),
-              signature: record.signature || '',
-              vaccine_type: record.vaccine_brand || record.vaccine_generic || '',
-              inventory_units_used: (record.inventory_units_used !== null && record.inventory_units_used !== undefined) ? String(record.inventory_units_used) : '1',
-              batch_number: record.batch_no || '',
-              expiration_date: record.expiration_date ? formatDateForInput(record.expiration_date) : '',
-              available_stock: undefined,
-              inventory_linked: Boolean(record.inventory_id),
-              is_completed: true,
-              is_external: Boolean(record.is_external),
-              external_facility_name: record.external_facility_name || '',
-            };
-          }
+        if (isCompletedRecord && record) {
+          return {
+            ...dose,
+            route: record.route || dose.route,
+            date: formatDateForInput(record.treatment_date) || dose.date,
+            given_by: extractGivenBy(record.remarks, record.administeredBy?.name),
+            signature: record.signature || '',
+            vaccine_type: record.vaccine_brand || record.vaccine_generic || '',
+            inventory_units_used: (record.inventory_units_used !== null && record.inventory_units_used !== undefined) ? String(record.inventory_units_used) : '1',
+            batch_number: record.batch_no || '',
+            expiration_date: record.expiration_date ? formatDateForInput(record.expiration_date) : '',
+            available_stock: undefined,
+            inventory_linked: Boolean(record.inventory_id),
+            is_completed: true,
+            is_external: Boolean(record.is_external),
+            external_facility_name: record.external_facility_name || '',
+          };
+        }
 
-          if (appointment || (record && record.status === 'scheduled')) {
-            const scheduledDate = appointment ? (appointment.appointment_date || appointment.scheduled_date) : record?.scheduled_date;
-            return {
-              ...dose,
-              date: formatDateForInput(scheduledDate) || dose.date,
-              ideal_date: appointment?.ideal_date ? formatDateForInput(appointment.ideal_date) : undefined,
-              schedule_drift_days: appointment?.schedule_drift_days,
-              schedule_adjustment_reason: appointment?.schedule_adjustment_reason,
-              is_completed: false,
-              inventory_linked: false,
-              batch_number: '',
-              vaccine_type: '',
-            };
-          }
+        if (appointment || (record && record.status === 'scheduled')) {
+          const scheduledDate = appointment ? (appointment.appointment_date || appointment.scheduled_date) : record?.scheduled_date;
+          return {
+            ...dose,
+            date: formatDateForInput(scheduledDate) || dose.date,
+            ideal_date: appointment?.ideal_date ? formatDateForInput(appointment.ideal_date) : (formatDateForInput(scheduledDate) || undefined),
+            schedule_drift_days: appointment?.schedule_drift_days,
+            schedule_adjustment_reason: appointment?.schedule_adjustment_reason,
+            is_completed: false,
+            inventory_linked: false,
+            batch_number: '',
+            vaccine_type: '',
+          };
+        }
 
-          return dose;
-        });
+        return dose;
       });
+
+      // 4. Auto-prepare active follow-up dose (either late or on time) ready to update
+      if (!readOnly) {
+        const staffInfo = getLoggedInStaffInfo();
+
+        let activeIdx = -1;
+        if (entry?.next_appointment?.dose_number !== undefined) {
+          activeIdx = mappedDoses.findIndex(d => PERIOD_TO_DOSE_NUMBER[d.period] === entry.next_appointment.dose_number);
+        }
+        if (activeIdx === -1) {
+          activeIdx = mappedDoses.findIndex(d => !d.is_completed && !d.inventory_linked);
+        }
+
+        if (activeIdx !== -1) {
+          const activeDose = mappedDoses[activeIdx];
+          const scheduledDate = activeDose.ideal_date || activeDose.date;
+          let driftDays = activeDose.schedule_drift_days ?? 0;
+
+          if (scheduledDate) {
+            const schedTime = new Date(scheduledDate.slice(0, 10)).getTime();
+            const todayTime = new Date(todayStr).getTime();
+            const calcDrift = Math.round((todayTime - schedTime) / (1000 * 60 * 60 * 24));
+            if (!isNaN(calcDrift)) driftDays = calcDrift;
+          }
+
+          // Prioritize vaccine brand from prior completed dose (e.g. Day 0)
+          const priorWithVaccine = mappedDoses.slice(0, activeIdx).reverse().find(d => Boolean(d.vaccine_type));
+          const preferredVaccine = priorWithVaccine?.vaccine_type || '';
+
+          mappedDoses[activeIdx] = {
+            ...activeDose,
+            date: todayStr, // Administration date is today!
+            ideal_date: scheduledDate || activeDose.ideal_date,
+            schedule_drift_days: driftDays,
+            given_by: activeDose.given_by || staffInfo.name,
+            signature: activeDose.signature || staffInfo.signature,
+            vaccine_type: activeDose.vaccine_type || preferredVaccine,
+          };
+
+          // If preferred vaccine is available and batch is not yet set, trigger FIFO batch fetch
+          if (preferredVaccine && !activeDose.batch_number) {
+            void (async () => {
+              try {
+                const response = await getNextFifoBatch(preferredVaccine);
+                if (response?.fifo_batch) {
+                  const fifoBatch = response.fifo_batch;
+                  const isOpenVial = Boolean(response.is_open_vial);
+                  const unitsToDeduct = response.units_to_deduct !== undefined ? String(response.units_to_deduct) : (isOpenVial ? '0' : '1');
+                  setDoses(prev => prev.map((d, idx) => (
+                    idx === activeIdx && !d.batch_number
+                      ? {
+                          ...d,
+                          batch_number: fifoBatch.batch_number,
+                          expiration_date: fifoBatch.expiration_date ? formatDateForInput(fifoBatch.expiration_date) : '',
+                          available_stock: fifoBatch.current_quantity,
+                          is_open_vial: isOpenVial,
+                          next_dose_index: response.next_dose_index ?? 1,
+                          total_doses: response.total_doses ?? 1,
+                          inventory_units_used: unitsToDeduct,
+                        }
+                      : d
+                  )));
+                }
+              } catch {
+                // Background fetch failed; user can manually select from dropdown
+              }
+            })();
+          }
+        }
+      }
+
+      setDoses(mappedDoses);
     } catch (err) {
       console.error('Failed to load form data:', err);
     }
@@ -505,17 +594,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       },
     }));
   };
-
-  const placeOfExposureOptions = Array.from(new Set([
-    formData.place_of_exposure,
-    'Home / Own Residence',
-    'Street / Public Road',
-    'Public Park / Recreational Area',
-    'Farm / Rural Setting',
-    'Workplace / Commercial Establishment',
-    'School / Playground',
-    'Wilderness / Forest',
-  ].map(value => value?.trim()).filter(Boolean))) as string[];
 
   const findPreset = (vaccineType: string) => vaccinePresets.find((preset) => preset.vaccine_name === vaccineType);
 
@@ -682,6 +760,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       return;
     }
 
+    const patientId = entry?.patient?.patient_id || entry?.patient?.id;
+
     // Auto-fill today's date for candidate doses with vaccine type selected
     const todayStr = getLocalDateString();
     const candidateDoses = doses.map(d => {
@@ -691,7 +771,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       return d;
     });
 
-    const filledDoses = candidateDoses.filter(d => d.date && d.vaccine_type);
+    // Only submit active uncompleted doses being administered today
+    const filledDoses = candidateDoses.filter(d => !d.is_completed && d.date && d.vaccine_type);
     if (filledDoses.length === 0) {
       setError("Please select a Vaccine Type for today's dose before saving.");
       return;
@@ -714,7 +795,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
     try {
       await api.post('/vaccination-records', {
-        patient_id: entry.patient.patient_id,
+        patient_id: patientId,
         queue_id: entry.queue_id,
         ...formData,
         mode_of_exposure: Object.keys(formData.mode_of_exposure).filter(
@@ -1229,14 +1310,49 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 const isCompleted = Boolean(dose.is_completed || isLinked);
                 const isLocked = readOnly || isCompleted;
                 const hasFifoError = Boolean(fifoErrors[dose.period]);
+                const isActivelyRecording = !isCompleted && Boolean(dose.given_by || dose.signature || dose.vaccine_type);
+                const showRequiredWarning = isActivelyRecording && !dose.vaccine_type;
+
+                const candidateList = currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
+                  ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
+                  : doses;
+                const activeCandidateIdx = candidateList.findIndex(d => !d.is_completed && !d.inventory_linked);
+                const isActiveFollowUp = !readOnly && !isCompleted && index === activeCandidateIdx;
 
                 return (
-                  <tr key={dose.period} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: isCompleted ? '#f0fdf4' : isFilled ? '#f8fafc' : '#ffffff' }}>
+                  <tr
+                    key={dose.period}
+                    style={{
+                      borderBottom: '1px solid #f1f5f9',
+                      backgroundColor: isCompleted ? '#f0fdf4' : isActiveFollowUp ? '#f0fdf4' : isFilled ? '#f8fafc' : '#ffffff',
+                      boxShadow: isActiveFollowUp ? 'inset 4px 0 0 #10b981' : undefined,
+                    }}
+                  >
                     {/* 1. Period */}
                     <td style={{ padding: '10px 12px', fontWeight: 700, color: isCompleted ? '#15803d' : '#1e293b' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {isCompleted && <span style={{ color: '#16a34a', fontSize: 14 }}>✓</span>}
-                        {dose.period}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {isCompleted && <span style={{ color: '#16a34a', fontSize: 14 }}>✓</span>}
+                          <span>{dose.period}</span>
+                          {isActiveFollowUp && (
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              padding: '1px 6px',
+                              borderRadius: 4,
+                              backgroundColor: '#dcfce7',
+                              color: '#15803d',
+                              border: '1px solid #86efac',
+                            }}>
+                              Ready to Administer
+                            </span>
+                          )}
+                        </div>
+                        {isActiveFollowUp && dose.schedule_drift_days !== undefined && dose.schedule_drift_days > 0 && (
+                          <span style={{ fontSize: 10.5, color: '#dc2626', fontWeight: 600 }}>
+                            ⚠️ {dose.schedule_drift_days}d overdue
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -1279,7 +1395,32 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                           fontWeight: isCompleted ? 600 : 400,
                         }}
                       />
-                      {dose.schedule_drift_days !== undefined && dose.schedule_drift_days !== 0 && (
+                      {isActiveFollowUp && dose.ideal_date && dose.ideal_date !== dose.date && (
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3,
+                            marginTop: 4,
+                            padding: '2px 6px',
+                            backgroundColor: (dose.schedule_drift_days || 0) > 0 ? '#fef2f2' : '#eff6ff',
+                            border: `1px solid ${(dose.schedule_drift_days || 0) > 0 ? '#fecaca' : '#bfdbfe'}`,
+                            borderRadius: 4,
+                            fontSize: 10,
+                            color: (dose.schedule_drift_days || 0) > 0 ? '#b91c1c' : '#1d4ed8',
+                            fontWeight: 600,
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          <span>{(dose.schedule_drift_days || 0) > 0 ? '⚠️' : 'ℹ️'}</span>
+                          <span>
+                            {(dose.schedule_drift_days || 0) > 0
+                              ? `Was scheduled: ${dose.ideal_date} (+${dose.schedule_drift_days}d late)`
+                              : `Was scheduled: ${dose.ideal_date}`}
+                          </span>
+                        </div>
+                      )}
+                      {!isActiveFollowUp && dose.schedule_drift_days !== undefined && dose.schedule_drift_days !== 0 && (
                         <div
                           title={dose.schedule_adjustment_reason || 'Operating schedule adjustment'}
                           style={{
@@ -1314,7 +1455,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         style={{
                           width: '100%',
                           padding: '6px 8px',
-                          border: isFilled && !dose.vaccine_type ? '1px solid #ef4444' : '1px solid #cbd5e1',
+                          border: showRequiredWarning ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
                           borderRadius: 5,
                           fontSize: 12,
                           backgroundColor: isCompleted ? '#f1f5f9' : '#ffffff',
@@ -1363,11 +1504,23 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         )}
                       </div>
 
-                      {isFilled && !dose.vaccine_type && !isCompleted && (
+                      {showRequiredWarning ? (
                         <div style={{ color: '#dc2626', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
                           Required to record dose
                         </div>
-                      )}
+                      ) : isActiveFollowUp && dose.vaccine_type ? (
+                        <div style={{ color: '#15803d', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
+                          ✓ Ready to record for today
+                        </div>
+                      ) : isActiveFollowUp && !dose.vaccine_type ? (
+                        <div style={{ color: '#059669', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
+                          👉 Select vaccine to record
+                        </div>
+                      ) : dose.date && !dose.vaccine_type && !isCompleted ? (
+                        <div style={{ color: '#0369a1', fontSize: 10, fontWeight: 500, marginTop: 3 }}>
+                          📅 Scheduled follow-up
+                        </div>
+                      ) : null}
                     </td>
 
                     {/* 5. FIFO Batch & Open-Vial Preview */}

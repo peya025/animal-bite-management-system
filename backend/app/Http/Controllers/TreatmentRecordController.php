@@ -34,10 +34,23 @@ class TreatmentRecordController extends Controller
             ->orderBy('consultation_time', 'desc')
             ->get();
 
+        // Check if patient already has administered vaccination records
+        $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->whereNotNull('dose_number')
+            ->where(function($q) {
+                $q->where('status', 'completed')
+                  ->orWhere(function($sub) {
+                      $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
+                  });
+            })
+            ->exists();
+
         return response()->json([
             'patient' => $patient,
             'latest_treatment' => $latestTreatment,
             'treatments' => $treatments,
+            'has_administered_vaccine' => $hasAdministeredVaccine,
         ]);
     }
 
@@ -85,6 +98,32 @@ class TreatmentRecordController extends Controller
             'provider_name' => 'nullable|string|max:255',
             'attending_provider' => 'nullable|string|max:255',
         ]);
+
+        // Medical-Legal Protection: If patient already has administered vaccination doses, block altering baseline diagnosis
+        $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $validated['patient_id'])
+            ->whereNotNull('dose_number')
+            ->where(function($q) {
+                $q->where('status', 'completed')
+                  ->orWhere(function($sub) {
+                      $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
+                  });
+            })
+            ->exists();
+
+        if ($hasAdministeredVaccine) {
+            $existingConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->whereNull('dose_number')
+                ->first();
+
+            if ($existingConsultation) {
+                return response()->json([
+                    'message' => 'Clinical assessment is locked because vaccination has already been administered for this patient. Please use the Addendum section to record additional clinical notes.',
+                    'locked' => true,
+                ], 422);
+            }
+        }
 
         // Create general consultation treatment record
         $treatmentRecord = TreatmentRecord::create([
@@ -226,5 +265,59 @@ class TreatmentRecordController extends Controller
             ->findOrFail($id);
 
         return response()->json($record);
+    }
+
+    /**
+     * Save an addendum note for a patient's clinical assessment
+     * POST /api/treatment-records/patient/{patientId}/addendum
+     */
+    public function saveAddendum(Request $request, int $patientId)
+    {
+        $clinicId = $request->user()->clinic_id;
+
+        $validated = $request->validate([
+            'addendum_notes' => 'required|string|min:3',
+        ]);
+
+        $patient = Patient::where('clinic_id', $clinicId)->findOrFail($patientId);
+
+        // Find existing general consultation record
+        $consultation = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->whereNull('dose_number')
+            ->latest('treatment_id')
+            ->first();
+
+        $userName = $request->user()->name ?? 'Physician';
+        $timestamp = now()->format('M d, Y h:i A');
+        $formattedNote = "[{$timestamp} by {$userName}]: " . trim($validated['addendum_notes']);
+
+        if ($consultation) {
+            $existingNotes = $consultation->administration_notes ? trim($consultation->administration_notes) . "\n\n" : '';
+            $consultation->update([
+                'administration_notes' => $existingNotes . $formattedNote,
+            ]);
+            $record = $consultation;
+        } else {
+            $record = TreatmentRecord::create([
+                'clinic_id' => $clinicId,
+                'patient_id' => $patientId,
+                'treatment_date' => now(),
+                'consultation_date' => now()->toDateString(),
+                'consultation_time' => now()->format('H:i'),
+                'nature_of_visit' => 'follow_up',
+                'consultation_types' => ['general'],
+                'chief_complaints' => 'Clinical Addendum Note',
+                'administration_notes' => $formattedNote,
+                'status' => 'completed',
+                'administered_by' => $request->user()->id,
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Addendum saved successfully',
+            'treatment_record' => $record,
+            'addendum' => $formattedNote,
+        ]);
     }
 }

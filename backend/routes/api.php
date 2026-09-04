@@ -194,13 +194,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/cases', [PatientController::class, 'biteCases']); // All roles
         Route::get('/{id}/vaccinations', [PatientController::class, 'vaccinations']); // All roles
 
-        // Create & Update (admin, registration only)
+        // Create (admin, registration only)
         Route::middleware('role:admin,registration')->group(function () {
             Route::post('/', [PatientController::class, 'store']);
-            Route::put('/{id}', [PatientController::class, 'update']);
             Route::post('/{patient}/accounts/{account}/verify', [PatientAccessController::class, 'verify']);
             Route::post('/{patient}/accounts/{account}/reject', [PatientAccessController::class, 'reject']);
         });
+
+        // Update (All clinical roles can update contact/address; legal identity restricted to admin/registration)
+        Route::put('/{id}', [PatientController::class, 'update'])
+            ->middleware('role:admin,registration,triage,treatment,doctor,nurse,staff');
 
         // Delete (admin only)
         Route::delete('/{id}', [PatientController::class, 'destroy'])->middleware('role:admin');
@@ -283,6 +286,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::middleware('role:admin,triage,doctor')->group(function () {
             Route::post('/', [TreatmentRecordController::class, 'store']);
+            Route::post('/patient/{patientId}/addendum', [TreatmentRecordController::class, 'saveAddendum']);
         });
     });
 

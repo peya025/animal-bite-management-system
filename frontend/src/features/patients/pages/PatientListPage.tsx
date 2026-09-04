@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AddPatientModal from '../components/AddPatientModal';
 import InvitePatientModal from '../components/InvitePatientModal';
-import EditPatientModal from '../components/EditPatientModal';
+import PatientEditModal from '../components/PatientEditModal';
 import PatientDetailsModal from '../components/PatientDetailsModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
@@ -966,14 +966,14 @@ export default function PatientList() {
       />
 
       {/* ── Edit Patient Profile Modal ── */}
-      <EditPatientModal
+      <PatientEditModal
         open={showEditModal}
         patient={selectedEditPatient}
         onClose={() => {
           setShowEditModal(false);
           setSelectedEditPatient(null);
         }}
-        onSuccess={() => {
+        onSave={() => {
           fetchPatients();
         }}
       />
@@ -985,6 +985,9 @@ export default function PatientList() {
         onClose={() => {
           setShowViewModal(false);
           setSelectedViewPatient(null);
+        }}
+        onPatientUpdated={() => {
+          fetchPatients();
         }}
         onEdit={(p) => {
           setSelectedEditPatient(p);

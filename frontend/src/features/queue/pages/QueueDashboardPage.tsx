@@ -13,16 +13,13 @@ import {
   Restore as TrashBinIcon,
   SkipNext as CallNextIcon,
 } from '@mui/icons-material';
-import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Call02Icon,
-  CheckmarkCircle02Icon,
   CancelCircleIcon,
   ArrowUpRight01Icon,
   UserBlock01Icon,
   Delete02Icon,
-  CheckmarkBadge04Icon,
 } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { DataTable, TablePager } from '../../../components/data-display';
@@ -42,13 +39,12 @@ import {
   QueueKPIStrip,
   SecondaryCountersRow,
   QueueProgressBar,
-  QueueStatsGrid,
   TrashBinModal,
   SecondChanceQueuePanel,
   TreatmentTransferArchivePanel,
   TreatmentCompletedPanel,
+  QueuePatientDetailModal,
 } from '../components';
-import { buildRoute, ROUTES } from '../../../shared/config/routes';
 import { useAuth } from '../../../contexts/AuthContext';
 import StockLevelIndicator from '../../inventory/components/StockLevelIndicator/StockLevelIndicator';
 
@@ -173,6 +169,7 @@ export default function QueueDashboard() {
   // ── Confirmation targets ────────────────────────────────────────────────────
   const [callTarget,       setCallTarget]       = useState<QueueEntry | null>(null);
   const [serveTarget,      setServeTarget]       = useState<QueueEntry | null>(null);
+  const [selectedQueueId,  setSelectedQueueId]  = useState<number | null>(null);
   const [cancelTarget,     setCancelTarget]     = useState<QueueEntry | null>(null);
   const [completeTarget,   setCompleteTarget]   = useState<QueueEntry | null>(null);
   const [noRespTarget,     setNoRespTarget]     = useState<QueueEntry | null>(null);
@@ -457,7 +454,7 @@ export default function QueueDashboard() {
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Tooltip title="View Patient Details & Forms">
             <button
-              onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: e.queue_id }))}
+              onClick={() => setSelectedQueueId(e.queue_id)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '4px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0',
@@ -830,6 +827,18 @@ export default function QueueDashboard() {
           confirmLabel="OK"
           hideCancel
           onConfirm={() => setSuccessModal(null)}
+        />
+      )}
+
+      {/* Queue Patient Details & Clinical Forms Modal */}
+      {selectedQueueId && (
+        <QueuePatientDetailModal
+          open={Boolean(selectedQueueId)}
+          queueId={selectedQueueId}
+          onClose={() => setSelectedQueueId(null)}
+          onSaved={() => {
+            reload();
+          }}
         />
       )}
 

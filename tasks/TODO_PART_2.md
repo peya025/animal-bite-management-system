@@ -92,6 +92,15 @@
 - [x] Every clinic day resets cleanly starting from **Queue #1**.
 - [x] Past-day unserved tickets are automatically closed as `no_response (Auto-expired at end of clinic day)` to prevent ghost tickets leaking into today's queue.
 
+#### 2.4 In-Place Queue Patient Detail Modal (`QueuePatientDetailModal.tsx` & `QueueDashboardPage.tsx`)
+- [x] Clicking "View" on any queue entry opens an in-place Dialog modal directly over the Queue Dashboard rather than navigating away to a separate page.
+- [x] Includes 3-tab workflow: Form 1 Demographics, Form 2 Doctor Triage, Form 3 Nurse Treatment.
+- [x] Preserves 100% of clinic operating logic:
+  - Doctor saving Form 2 auto-refers patient from Triage to Treatment Queue.
+  - Nurse saving Form 3 auto-completes the queue ticket and triggers inventory deductions.
+  - Un-administered follow-up doses remain editable; completed doses remain strictly locked.
+  - Closed clinic weekend shifts remain enforced.
+
 ---
 
 ### 🥉 PHASE 3: PEP Option A Scheduling & Re-Exposure Protocol
@@ -129,10 +138,10 @@
 - [ ] Ensure vaccine brand names in `VaccineInventory` match Form 3 dropdown options cleanly to prevent `"Insufficient stock"` 422 errors.
 
 #### 4.3 Fix False "Missing Stock Info" Badge on External Clinic Doses (`VaccinationRecordForm.tsx`)
-- [ ] Dose rows with **"Transferred-In (External Clinic)"** checked currently show a red `Missing Stock Info` status badge even though no local stock deduction is expected for those doses.
-- [ ] Fix: When `is_external = true` on a dose row, the Status column should display a neutral **`External Clinic`** badge (grey/blue) instead of the red `Missing Stock Info` badge.
-- [ ] The `Missing Stock Info` red badge should only appear for local (non-external) doses where a vaccine type has not been selected.
-- [ ] Saving the form should not block or warn on external dose rows due to missing local stock — only validate stock for locally-administered doses (`is_external = false`).
+- [x] Dose rows with **"Transferred-In (External Clinic)"** checked currently show a red `Missing Stock Info` status badge even though no local stock deduction is expected for those doses.
+- [x] Fix: When `is_external = true` on a dose row, the Status column displays a neutral **`External Clinic`** badge (grey/blue) instead of the red `Missing Stock Info` badge.
+- [x] The `Missing Stock Info` red badge only appears for local (non-external) doses where a vaccine type has not been selected for today's active dose.
+- [x] Saving the form does not block or warn on external dose rows due to missing local stock — only validates stock for locally-administered doses (`is_external = false`).
 
 ---
 

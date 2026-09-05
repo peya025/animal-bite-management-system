@@ -9,3 +9,5 @@ export * from './SecondChanceQueuePanel';
 
 export * from './TreatmentTransferArchivePanel';
 export * from './TreatmentCompletedPanel';
+export { default as QueuePatientDetailModal } from './QueuePatientDetailModal';
+export * from './QueuePatientDetailModal';

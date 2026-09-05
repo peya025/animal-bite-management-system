@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -7,12 +7,10 @@ import {
   Button,
   Box,
   Typography,
-  Divider,
-  Chip,
   IconButton,
 } from '@mui/material';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { PrinterIcon, Cancel01Icon, Share01Icon, CheckmarkCircle02Icon } from '@hugeicons/core-free-icons';
+import { PrinterIcon, Cancel01Icon, Share01Icon } from '@hugeicons/core-free-icons';
 
 interface DohTransferSlipModalProps {
   open: boolean;
@@ -52,7 +50,7 @@ export function DohTransferSlipModal({
   const transferDt = transferDate ? new Date(transferDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
       {/* Action Header - Screen Only */}
       <DialogTitle
         sx={{

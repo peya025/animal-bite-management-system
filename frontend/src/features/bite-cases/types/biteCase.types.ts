@@ -6,7 +6,13 @@ export interface BiteMapCase {
   longitude: number;
   barangay: string;
   municipality: string;
+  province?: string;
   address: string;
+  place_of_exposure?: string;
+  patient_residence?: string;
+  patient_home_barangay?: string;
+  patient_home_municipality?: string;
+  is_resident?: boolean;
   severity: 'minor' | 'moderate' | 'severe';
   animal_type: string;
   exposure_type: string;
@@ -22,6 +28,10 @@ export interface MapStatistics {
     minor: number;
     moderate: number;
     severe: number;
+  };
+  by_status?: {
+    active: number;
+    completed: number;
   };
   by_animal: Record<string, number>;
 }
@@ -50,4 +60,5 @@ export interface MapFilters {
   date_to?: string;
   municipality?: string;
   severity?: 'minor' | 'moderate' | 'severe';
+  status?: string;
 }

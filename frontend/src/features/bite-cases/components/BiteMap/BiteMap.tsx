@@ -187,14 +187,19 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                     }}
                   >
                     <Popup>
-                      <div style={{ minWidth: 180 }}>
+                      <div style={{ minWidth: 200 }}>
                         <h4 style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', display: 'inline-block', flexShrink: 0 }} />
-                          <span>Density Hotspot: {c.barangay}</span>
+                          <span>Exposure Hotspot: {c.barangay}, {c.municipality}</span>
                         </h4>
-                        <p style={{ margin: 0, fontSize: 12, color: '#4b5563' }}>
+                        <p style={{ margin: 0, fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>
                           <strong>Patient:</strong> {c.patient_name}<br />
-                          <strong>Severity:</strong> <span style={{ color, fontWeight: 600 }}>{c.severity.toUpperCase()}</span>
+                          <strong>Place of Exposure:</strong> {c.barangay ? `${c.barangay}, ` : ''}{c.municipality}<br />
+                          {c.patient_residence && (
+                            <><strong>Patient Residence:</strong> {c.patient_residence}<br /></>
+                          )}
+                          <strong>Severity:</strong> <span style={{ color, fontWeight: 600 }}>{c.severity.toUpperCase()}</span><br />
+                          <strong>Status:</strong> <span style={{ textTransform: 'capitalize', fontWeight: 600, color: c.status === 'active' ? '#f59e0b' : '#10b981' }}>{c.status}</span>
                         </p>
                       </div>
                     </Popup>
@@ -219,29 +224,52 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                 }}
               >
                 <Popup>
-                  <div style={{ minWidth: 200 }}>
-                    <h4 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600 }}>
-                      {caseData.case_number}
-                    </h4>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>
-                      <p><strong>Patient:</strong> {caseData.patient_name}</p>
-                      <p><strong>Date:</strong> {new Date(caseData.bite_date).toLocaleDateString()}</p>
-                      <p><strong>Location:</strong> {caseData.barangay}, {caseData.municipality}</p>
-                      <p><strong>Animal:</strong> {caseData.animal_type}</p>
-                      <p>
-                        <strong>Category:</strong>{' '}
+                  <div style={{ minWidth: 220 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>
+                        {caseData.case_number}
+                      </h4>
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: '2px 8px',
+                        borderRadius: 10,
+                        textTransform: 'capitalize',
+                        backgroundColor: caseData.status === 'active' ? '#fef3c7' : '#d1fae5',
+                        color: caseData.status === 'active' ? '#b45309' : '#047857',
+                        border: `1px solid ${caseData.status === 'active' ? '#fde68a' : '#a7f3d0'}`
+                      }}>
+                        {caseData.status === 'active' ? '● Active PEP' : '✓ Completed'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>
+                      <p style={{ margin: '3px 0' }}><strong>Patient:</strong> {caseData.patient_name}</p>
+                      <p style={{ margin: '3px 0' }}><strong>Date of Exposure:</strong> {new Date(caseData.bite_date).toLocaleDateString()}</p>
+                      <p style={{ margin: '3px 0' }}>
+                        <strong>Place of Exposure:</strong>{' '}
+                        <span style={{ color: '#1e40af', fontWeight: 600 }}>
+                          {caseData.barangay ? `${caseData.barangay}, ` : ''}{caseData.municipality}
+                        </span>
+                      </p>
+                      {caseData.patient_residence && (
+                        <p style={{ margin: '3px 0', color: '#6b7280' }}>
+                          <strong>Patient Residence:</strong> {caseData.patient_residence}
+                        </p>
+                      )}
+                      <p style={{ margin: '3px 0' }}><strong>Animal:</strong> {caseData.animal_type}</p>
+                      <p style={{ margin: '3px 0' }}>
+                        <strong>WHO Category:</strong>{' '}
                         <span style={{ 
                           color: getSeverityColor(caseData.severity),
                           fontWeight: 600,
                           textTransform: 'capitalize'
                         }}>
-                          {caseData.severity === 'severe' ? 'III (Severe)' : 
-                           caseData.severity === 'moderate' ? 'II (Moderate)' : 
-                           caseData.severity === 'minor' ? 'I (Minor)' :
+                          {caseData.severity === 'severe' ? 'Category III (Severe)' : 
+                           caseData.severity === 'moderate' ? 'Category II (Moderate)' : 
+                           caseData.severity === 'minor' ? 'Category I (Minor)' :
                            'Pending Assessment'}
                         </span>
                       </p>
-                      <p><strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{caseData.status}</span></p>
                     </div>
                   </div>
                 </Popup>

@@ -320,6 +320,62 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       setFormData(prev => ({ ...prev, place_of_exposure: parts.join(', ') }));
     }
   }, [expLoc.munName, expLoc.brgyName]);
+
+  // Synchronize expLoc with existing place_of_exposure or default to Tagoloan for new cases
+  useEffect(() => {
+    if (!open) {
+      expLoc.setMunicipality('');
+      expLoc.setBarangay('');
+      expLoc.setUseManual(false);
+      expLoc.setManualMun('');
+      expLoc.setManualBrgy('');
+      return;
+    }
+
+    if (expLoc.loadingMun) return;
+
+    const rawPlace = (formData.place_of_exposure || '').trim();
+
+    if (rawPlace && !expLoc.municipality && !expLoc.manualMun) {
+      const parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
+      
+      const matchedMun = expLoc.municipalities.find(m => 
+        parts.some(p => p.toLowerCase() === m.name.toLowerCase() || m.name.toLowerCase().includes(p.toLowerCase()))
+      );
+
+      if (matchedMun) {
+        expLoc.setMunicipality(matchedMun.code);
+      } else if (parts.length > 0) {
+        expLoc.setUseManual(true);
+        if (parts.length >= 2) {
+          expLoc.setManualBrgy(parts[0]);
+          expLoc.setManualMun(parts[1]);
+        } else {
+          expLoc.setManualMun(parts[0]);
+        }
+      }
+    } else if (!rawPlace && !expLoc.municipality && !expLoc.manualMun && expLoc.municipalities.length > 0) {
+      const tagoloan = expLoc.municipalities.find(m => m.name.toLowerCase() === 'tagoloan');
+      if (tagoloan) {
+        expLoc.setMunicipality(tagoloan.code);
+      }
+    }
+  }, [open, expLoc.loadingMun, expLoc.municipalities, formData.place_of_exposure]);
+
+  // When barangays finish loading for selected municipality, match the barangay from place_of_exposure
+  useEffect(() => {
+    if (!open || expLoc.useManual || !expLoc.barangays.length || expLoc.barangay) return;
+    const rawPlace = (formData.place_of_exposure || '').trim();
+    if (!rawPlace) return;
+
+    const parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
+    const matchedBrgy = expLoc.barangays.find(b => 
+      parts.some(p => p.toLowerCase() === b.name.toLowerCase() || b.name.toLowerCase().includes(p.toLowerCase()))
+    );
+    if (matchedBrgy) {
+      expLoc.setBarangay(matchedBrgy.code);
+    }
+  }, [open, expLoc.barangays, expLoc.useManual, formData.place_of_exposure]);
   const [doses, setDoses] = useState<VaccinationDose[]>(createInitialDoses());
   const [additionalMeds, setAdditionalMeds] = useState<AdditionalMeds>({
     erig: false,

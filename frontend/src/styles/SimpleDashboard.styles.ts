@@ -257,14 +257,18 @@ export const AppStyleScope = styled('div')`
   }
   .sd-filter-link:hover { background: var(--nav-item-active-bg); border-color: #10b981; color: var(--nav-item-active-color); }
 
-  @media (max-width: 1100px) {
-    .sd-cards-grid { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 1200px) {
+    .sd-top-arrangement { grid-template-columns: 1fr !important; }
+    .sd-cards-grid { grid-template-columns: repeat(2, 1fr) !important; }
   }
   @media (max-width: 900px) {
+    .sd-filters-bar-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .sd-analytics-row { grid-template-columns: 1fr !important; }
     .sd-charts-row, .sd-charts-bottom { grid-template-columns: 1fr; }
   }
   @media (max-width: 600px) {
-    .sd-cards-grid { grid-template-columns: 1fr; }
+    .sd-filters-bar-grid { grid-template-columns: 1fr !important; }
+    .sd-cards-grid { grid-template-columns: 1fr !important; }
     .sd-content { padding: 16px; }
     .sd-topbar { padding: 0 16px; }
   }

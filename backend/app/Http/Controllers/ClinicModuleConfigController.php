@@ -18,8 +18,15 @@ class ClinicModuleConfigController extends Controller
         $config = ClinicModuleConfig::firstOrCreate(
             ['clinic_id' => $clinicId],
             [
-                'triage_module_enabled' => true,
-                'field_rules' => $this->getDefaultFieldRules(),
+                'triage_module_enabled'         => true,
+                'patient_registration_enabled'  => true,
+                'address_section_enabled'       => true,
+                'socioeconomic_section_enabled' => true,
+                'gov_programs_section_enabled'  => true,
+                'bite_intake_section_enabled'   => true,
+                'triage_section_enabled'        => true,
+                'treatment_section_enabled'     => true,
+                'field_rules'                   => $this->getDefaultFieldRules(),
             ]
         );
         
@@ -104,8 +111,15 @@ class ClinicModuleConfigController extends Controller
         
         // Build dynamic validation rules
         $validationRules = [
-            'triage_module_enabled' => 'required|boolean',
-            'field_rules' => 'required|array',
+            'triage_module_enabled'         => 'required|boolean',
+            'patient_registration_enabled'  => 'nullable|boolean',
+            'address_section_enabled'       => 'nullable|boolean',
+            'socioeconomic_section_enabled' => 'nullable|boolean',
+            'gov_programs_section_enabled'  => 'nullable|boolean',
+            'bite_intake_section_enabled'   => 'nullable|boolean',
+            'triage_section_enabled'        => 'nullable|boolean',
+            'treatment_section_enabled'     => 'nullable|boolean',
+            'field_rules'                   => 'required|array',
         ];
         
         // Add validation for each field in field_rules

@@ -350,8 +350,14 @@ class BiteCaseController extends Controller
             ->with(['patient.details'])
             ->whereNotNull('bite_place')
             ->where('bite_place', '!=', '')
-            ->whereIn('severity', ['minor', 'moderate', 'severe'])
-            ->whereIn('status', ['completed', 'finished']);
+            ->whereIn('severity', ['minor', 'moderate', 'severe']);
+
+        // Filter by status (default to active, completed, finished)
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        } else {
+            $query->whereIn('status', ['active', 'completed', 'finished']);
+        }
         
         // Filter by date range
         if ($request->has('date_from')) {
@@ -367,35 +373,81 @@ class BiteCaseController extends Controller
         }
         
         $cases = $query->get()->map(function ($case) use ($geocodingService, $clinicMunicipality, $clinicProvince) {
-            // Parse location data from bite_place or fallback to patient details
+            // Parse location data from bite_place (Place of Exposure)
             $locationParts = array_map('trim', explode(',', $case->bite_place));
             $count = count($locationParts);
 
-            if ($count >= 3) {
-                $address = $locationParts[0];
-                $barangay = $locationParts[1];
-                $municipality = $locationParts[2];
-            } elseif ($count === 2) {
-                $address = '';
-                $barangay = $locationParts[0];
-                $municipality = $locationParts[1];
+            $homeBrgy = $case->patient->details->address_barangay ?? $case->patient->address_barangay ?? '';
+            $homeMun = $case->patient->details->address_municipality ?? $case->patient->address_municipality ?? '';
+            $homeProvince = $case->patient->details->province ?? $clinicProvince ?? 'Misamis Oriental';
+            $patientResidence = trim(implode(', ', array_filter([$homeBrgy, $homeMun, $homeProvince])), ', ');
+
+            $address = '';
+            $barangay = '';
+            $municipality = '';
+            $province = $clinicProvince ?: 'Misamis Oriental';
+
+            // Check if the last part is a province
+            $isLastPartProvince = false;
+            if ($count >= 2) {
+                $lastPart = end($locationParts);
+                if (stripos($lastPart, 'Misamis') !== false || stripos($lastPart, 'Oriental') !== false || stripos($lastPart, 'Bukidnon') !== false || stripos($lastPart, 'Province') !== false || (strcasecmp($lastPart, (string)$clinicProvince) === 0 && !empty($clinicProvince))) {
+                    $isLastPartProvince = true;
+                    $province = $lastPart;
+                }
+            }
+
+            if ($isLastPartProvince) {
+                if ($count >= 4) {
+                    $address = $locationParts[0];
+                    $barangay = $locationParts[1];
+                    $municipality = $locationParts[2];
+                } elseif ($count === 3) {
+                    $address = '';
+                    $barangay = $locationParts[0];
+                    $municipality = $locationParts[1];
+                } elseif ($count === 2) {
+                    $address = '';
+                    $barangay = '';
+                    $municipality = $locationParts[0];
+                }
             } else {
-                $address = $case->bite_place;
-                $barangay = $case->patient->details->address_barangay ?? $case->patient->address_barangay ?? null;
-                $municipality = $case->patient->details->address_municipality ?? $case->patient->address_municipality ?? $clinicMunicipality;
+                if ($count >= 3) {
+                    $address = $locationParts[0];
+                    $barangay = $locationParts[1];
+                    $municipality = $locationParts[2];
+                } elseif ($count === 2) {
+                    $address = '';
+                    $barangay = $locationParts[0];
+                    $municipality = $locationParts[1];
+                } else {
+                    $rawPlace = trim($case->bite_place);
+                    if (strcasecmp($rawPlace, 'home') === 0 || stripos($rawPlace, 'residence') !== false) {
+                        $address = $rawPlace;
+                        $barangay = $homeBrgy ?: 'Poblacion';
+                        $municipality = $homeMun ?: ($clinicMunicipality ?: 'Tagoloan');
+                    } else {
+                        $address = $rawPlace;
+                        $barangay = '';
+                        $municipality = $clinicMunicipality ?: 'Tagoloan';
+                    }
+                }
             }
 
             if (empty($barangay) || $barangay === 'Unknown') {
-                $barangay = $case->patient->details->address_barangay ?? $case->patient->address_barangay ?? '';
+                $barangay = $homeBrgy ?: '';
             }
             if (empty($municipality) || $municipality === 'Unknown') {
-                $municipality = $case->patient->details->address_municipality ?? $case->patient->address_municipality ?? $clinicMunicipality ?? '';
+                $municipality = $homeMun ?: ($clinicMunicipality ?: 'Tagoloan');
             }
-
-            $province = $case->patient->details->province ?? $clinicProvince;
+            if (empty($province)) {
+                $province = $homeProvince ?: 'Misamis Oriental';
+            }
             
-            // Get real coordinates using hybrid geocoding
+            // Get real coordinates using hybrid geocoding based on Place of Exposure
             $coordinates = $geocodingService->getCoordinates($barangay, $municipality, $province);
+
+            $isResident = !empty($homeMun) && !empty($clinicMunicipality) && (strcasecmp($homeMun, $clinicMunicipality) === 0);
             
             return [
                 'bite_id' => $case->bite_id,
@@ -405,7 +457,13 @@ class BiteCaseController extends Controller
                 'longitude' => $coordinates['longitude'],
                 'barangay' => $barangay,
                 'municipality' => $municipality,
+                'province' => $province,
                 'address' => $address,
+                'place_of_exposure' => $case->bite_place,
+                'patient_residence' => $patientResidence,
+                'patient_home_barangay' => $homeBrgy,
+                'patient_home_municipality' => $homeMun,
+                'is_resident' => $isResident,
                 'severity' => $case->severity,
                 'animal_type' => $case->animal_type ?? 'Unknown',
                 'exposure_type' => $case->exposure_type,
@@ -426,6 +484,10 @@ class BiteCaseController extends Controller
                 'moderate' => $cases->where('severity', 'moderate')->count(),
                 'severe' => $cases->where('severity', 'severe')->count(),
                 'unclassified' => $cases->whereIn('severity', ['unclassified', 'pending', null, ''])->count(),
+            ],
+            'by_status' => [
+                'active' => $cases->where('status', 'active')->count(),
+                'completed' => $cases->whereIn('status', ['completed', 'finished'])->count(),
             ],
             'by_animal' => $cases->groupBy('animal_type')->map->count(),
         ];

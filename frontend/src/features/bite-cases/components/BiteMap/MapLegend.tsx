@@ -86,6 +86,53 @@ export default function MapLegend() {
             </Box>
           </Box>
         </Box>
+
+        <Box sx={{ my: 1.5, height: '1px', bgcolor: 'divider' }} />
+
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, fontSize: 13 }}>
+          Case Clusters
+        </Typography>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box 
+            sx={{ 
+              width: 26, 
+              height: 26, 
+              borderRadius: '50%', 
+              background: 'conic-gradient(#ef4444 0% 50%, #f59e0b 50% 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
+              flexShrink: 0,
+            }}
+          >
+            <Box 
+              sx={{ 
+                width: 18, 
+                height: 18, 
+                borderRadius: '50%', 
+                bgcolor: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 10,
+                fontWeight: 800,
+                color: '#0f172a',
+              }}
+            >
+              2
+            </Box>
+          </Box>
+          <Box>
+            <Typography variant="body2" sx={{ fontSize: 12, fontWeight: 600 }}>
+              Mixed Categories
+            </Typography>
+            <Typography variant="caption" sx={{ fontSize: 10, color: 'text.secondary', display: 'block', lineHeight: 1.2 }}>
+              Ring colors show categories present; hover shows details
+            </Typography>
+          </Box>
+        </Box>
       </CardContent>
     </Card>
   );

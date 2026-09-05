@@ -7,6 +7,7 @@ import dashboardService from '../../../services/dashboardService';
 import type { DashboardStats } from '../../../services/dashboardService';
 import { DashboardStylesRoot } from '../styles/Dashboard.styles';
 import { ROUTES } from '../../../shared/config/routes';
+import { AdminDashboardView } from '../components/AdminDashboardView';
 
 function StyledDashboardLayout(props: React.ComponentProps<typeof DashboardLayout>) {
   return (
@@ -74,47 +75,10 @@ export default function Dashboard() {
 }
 
 /* ── Admin ── */
-function AdminDashboard({ stats }: { stats: DashboardStats | null }) {
-  const navigate = useNavigate();
+function AdminDashboard({ stats: _stats }: { stats: DashboardStats | null }) {
   return (
     <StyledDashboardLayout pageTitle="Admin Dashboard">
-      <div className="dashboard-container">
-        <div className="dashboard-header">
-          <h1>Admin Dashboard</h1>
-          <p>Complete system overview and management</p>
-        </div>
-        <div className="stats-grid">
-          <StatCard label="Total Patients"        value={stats?.total_patients || 0}        icon="👥" color="blue"   />
-          <StatCard label="Active Cases"          value={stats?.active_cases || 0}          icon="🩺" color="red"    />
-          <StatCard label="Pending Vaccinations"  value={stats?.pending_vaccinations || 0}  icon="💉" color="yellow" />
-          <StatCard label="Today's Queue"         value={stats?.today_queue || 0}           icon="📋" color="green"  />
-        </div>
-        <div className="dashboard-grid">
-          <div className="dashboard-card">
-            <h3>Recent Patients</h3>
-            <div className="patient-list">
-              {stats?.recent_patients?.length ? stats.recent_patients.map((p: any) => (
-                <div key={p.id} className="patient-item">
-                  <div className="patient-avatar">{p.first_name?.charAt(0)}</div>
-                  <div className="patient-info">
-                    <p className="patient-name">{p.first_name} {p.last_name}</p>
-                    <p className="patient-number">{p.patient_number}</p>
-                  </div>
-                </div>
-              )) : <p className="empty-state">No patients yet</p>}
-            </div>
-          </div>
-          <div className="dashboard-card">
-            <h3>Quick Actions</h3>
-            <div className="quick-actions">
-              <button className="action-btn action-primary"   onClick={() => navigate(ROUTES.USERS.LIST)}>Manage Users</button>
-              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.SETUP)}>Clinic Settings</button>
-              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.BITE_CASES.LIST)}>View Cases</button>
-              <button className="action-btn action-secondary" onClick={() => navigate(ROUTES.QUEUE.DASHBOARD)}>View Queue</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AdminDashboardView />
     </StyledDashboardLayout>
   );
 }

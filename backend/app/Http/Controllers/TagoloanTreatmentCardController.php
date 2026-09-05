@@ -174,7 +174,7 @@ class TagoloanTreatmentCardController extends Controller
 
             $street = $patient->details->address_purok ?? $patient->address_purok ?? 'Zone 1';
             $brgy = $patient->details->address_barangay ?? $patient->address_barangay ?? 'Poblacion';
-            $mun = $patient->details->address_municipality ?? $patient->address_municipality ?? 'Claveria';
+            $mun = $patient->details->address_municipality ?? $patient->address_municipality ?? 'Tagoloan';
             $bitePlace = "{$street}, {$brgy}, {$mun}";
 
             $incident = BiteIncident::where('patient_id', $validated['patient_id'])->first();

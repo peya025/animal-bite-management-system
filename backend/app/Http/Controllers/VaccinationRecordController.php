@@ -204,10 +204,19 @@ class VaccinationRecordController extends Controller
 
                         $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
                         $severity = $severityMap[$request->exposure_category ?? ''] ?? 'moderate';
-                        $street = $patientObj?->details->address_purok ?? $patientObj?->address_purok ?? 'Zone 1';
-                        $brgy = $patientObj?->details->address_barangay ?? $patientObj?->address_barangay ?? 'Poblacion';
-                        $mun = $patientObj?->details->address_municipality ?? $patientObj?->address_municipality ?? 'Tagoloan';
-                        $bitePlace = $request->place_of_exposure ?: "{$street}, {$brgy}, {$mun}";
+                        $submittedPlace = trim((string)($request->place_of_exposure ?? ''));
+                        if (!empty($submittedPlace)) {
+                            $bitePlace = $submittedPlace;
+                        } else {
+                            $street = $patientObj?->details->address_purok ?? $patientObj?->address_purok ?? '';
+                            $brgy = $patientObj?->details->address_barangay ?? $patientObj?->address_barangay ?? '';
+                            $mun = $patientObj?->details->address_municipality ?? $patientObj?->address_municipality ?? '';
+                            if (!empty($brgy) && !empty($mun)) {
+                                $bitePlace = $street ? "{$street}, {$brgy}, {$mun}" : "{$brgy}, {$mun}";
+                            } else {
+                                $bitePlace = 'Poblacion, Tagoloan';
+                            }
+                        }
                         $biteDate = $request->date_of_exposure ?: ($request->date_treatment_started ?: now()->toDateString());
                         $animalType = $request->animal_type === 'other' ? ($request->animal_type_other ?: 'other') : ($request->animal_type ?: 'dog');
 
@@ -460,16 +469,28 @@ class VaccinationRecordController extends Controller
             $severity = $severityMap[$request->exposure_category ?? ''] ?? 'moderate';
 
             $patientObj = Patient::with('details')->find($patientId);
-            $street = $patientObj?->details->address_purok ?? $patientObj?->address_purok ?? 'Zone 1';
-            $brgy = $patientObj?->details->address_barangay ?? $patientObj?->address_barangay ?? 'Poblacion';
-            $mun = $patientObj?->details->address_municipality ?? $patientObj?->address_municipality ?? 'Tagoloan';
-            $bitePlace = $request->place_of_exposure ?: "{$street}, {$brgy}, {$mun}";
-            $biteDate = $request->date_of_exposure ?: ($request->date_treatment_started ?: now()->toDateString());
-            $animalType = $request->animal_type === 'other' ? ($request->animal_type_other ?: 'other') : ($request->animal_type ?: 'dog');
 
             $incident = $biteId 
                 ? BiteIncident::where('clinic_id', $clinicId)->find($biteId)
                 : BiteIncident::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest('bite_id')->first();
+
+            $submittedPlace = trim((string)($request->place_of_exposure ?? ''));
+            if (!empty($submittedPlace)) {
+                $bitePlace = $submittedPlace;
+            } elseif ($incident && !empty($incident->bite_place)) {
+                $bitePlace = $incident->bite_place;
+            } else {
+                $street = $patientObj?->details->address_purok ?? $patientObj?->address_purok ?? '';
+                $brgy = $patientObj?->details->address_barangay ?? $patientObj?->address_barangay ?? '';
+                $mun = $patientObj?->details->address_municipality ?? $patientObj?->address_municipality ?? '';
+                if (!empty($brgy) && !empty($mun)) {
+                    $bitePlace = $street ? "{$street}, {$brgy}, {$mun}" : "{$brgy}, {$mun}";
+                } else {
+                    $bitePlace = 'Poblacion, Tagoloan';
+                }
+            }
+            $biteDate = $request->date_of_exposure ?: ($request->date_treatment_started ?: now()->toDateString());
+            $animalType = $request->animal_type === 'other' ? ($request->animal_type_other ?: 'other') : ($request->animal_type ?: 'dog');
 
             $isReExposure = ($incident && $incident->isReExposure()) || $request->episode_type === 're_exposure';
             // Determine if incident regimen is complete:

@@ -153,6 +153,33 @@ export const DashboardStylesRoot = styled('div')`
   .triage-qa-gray .tqa-icon { background: var(--bg-hover); color: var(--text-secondary); }
   .triage-qa-gray:hover { background: var(--bg-hover); }
 
+  @media (max-width: 1200px) {
+    .admin-stat-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .admin-top-section-grid {
+      grid-template-columns: 1fr !important;
+    }
+    .admin-filters-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    .admin-analytics-row {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .admin-stat-grid {
+      grid-template-columns: 1fr !important;
+    }
+    .admin-filters-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
   @media (max-width: 768px) {
     .stats-grid, .dashboard-grid { grid-template-columns: 1fr; }
     .quick-actions { grid-template-columns: 1fr; }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../../shared/services/api';
 import { ROUTES } from '../../../shared/config/routes';
 import DashboardLayout from '../../../components/Layout/DashboardLayout';
+import { AdminDashboardView } from '../components/AdminDashboardView';
 
 function isAuthenticated(): boolean {
   const token = localStorage.getItem('authToken');
@@ -206,68 +207,206 @@ export function SimpleDashboardPage() {
         </div>
       </div>
 
-      {/* ── Stat Cards - Role Specific ── */}
-      <div className="sd-cards-grid">
-        {(() => {
-          switch (user?.role) {
-            case 'admin':
-              return (
-                <>
-                  <SdCard color="purple"  label="Total Patients"      value={stats.totalPatients.toString()} sub="Registered" />
-                  <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
-                  <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
-                  <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
-                  <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
-                  <SdCard color="cyan"    label="Follow-up Patients"   value={stats.followupPatients.toString()} sub="This week" />
-                  <SdCard color="green"   label="Bite Cases"           value={stats.biteCases.toString()} sub="Total" />
-                  <SdCard color="emerald" label="New Today"            value={stats.newToday.toString()} sub="Registered" />
-                </>
-              );
-            case 'registration':
-              return (
-                <>
-                  <SdCard color="purple"  label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" />
-                  <SdCard color="teal"    label="Today's Queue"  value={stats.todayQueue.toString()} sub="Waiting" />
-                  <SdCard color="emerald" label="New Today"       value={stats.newToday.toString()} sub="Registered" />
-                </>
-              );
-            case 'triage':
-              return (
-                <>
-                  <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
-                  <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
-                  <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
-                  <SdCard color="purple"  label="Total Patients"       value={stats.totalPatients.toString()} sub="Registered" />
-                  <SdCard color="green"   label="Bite Cases"           value={stats.biteCases.toString()} sub="Total" />
-                  <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
-                </>
-              );
-            case 'treatment':
-              return (
-                <>
-                  <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
-                  <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
-                  <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
-                  <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
-                </>
-              );
-            default:
-              return (
-                <>
-                  <SdCard color="purple"  label="Total Patients"      value={stats.totalPatients.toString()} sub="Registered" />
-                  <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
-                  <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
-                  <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
-                </>
-              );
-          }
-        })()}
-      </div>
-
-      {/* ── Charts + Filters in one unified 3-column row ── */}
       {activeTab === 'overview' && (
         <>
-          <div className="sd-charts-row" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+          {/* ── TOP SECTION: Large Calendar Card (Left) + 8 Stat Cards (Right) ── */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(280px, 340px) 1fr',
+              gap: '16px',
+              marginBottom: '20px',
+              alignItems: 'start',
+            }}
+            className="sd-top-arrangement"
+          >
+            {/* Calendar Card on the Left */}
+            <SdCalendar />
+
+            {/* Cards Grid - Role Specific */}
+            <div style={{ minWidth: 0, height: '100%' }}>
+              {(() => {
+                switch (user?.role) {
+                  case 'admin':
+                    return (
+                      <div
+                        className="sd-cards-grid"
+                        style={{
+                          marginBottom: 0,
+                          gridTemplateColumns: 'repeat(4, 1fr)',
+                          gap: '14px',
+                        }}
+                      >
+                        <SdCard color="purple"  label="Total Patients"      value={stats.totalPatients.toString()} sub="Registered" />
+                        <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
+                        <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                        <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
+                        <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
+                        <SdCard color="cyan"    label="Follow-up Patients"   value={stats.followupPatients.toString()} sub="This week" />
+                        <SdCard color="green"   label="Bite Cases"           value={stats.biteCases.toString()} sub="Total" />
+                        <SdCard color="emerald" label="New Today"            value={stats.newToday.toString()} sub="Registered" />
+                      </div>
+                    );
+                  case 'registration':
+                    return (
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          gap: '14px',
+                          alignSelf: 'start',
+                        }}
+                      >
+                        <SdCard color="purple"  label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" />
+                        <SdCard color="teal"    label="Today's Queue"  value={stats.todayQueue.toString()} sub="Waiting" />
+                        <SdCard color="emerald" label="New Today"       value={stats.newToday.toString()} sub="Registered" />
+                      </div>
+                    );
+                  case 'triage':
+                    return (
+                      <div
+                        className="sd-cards-grid"
+                        style={{
+                          marginBottom: 0,
+                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          gap: '14px',
+                        }}
+                      >
+                        <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
+                        <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
+                        <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                        <SdCard color="purple"  label="Total Patients"       value={stats.totalPatients.toString()} sub="Registered" />
+                        <SdCard color="green"   label="Bite Cases"           value={stats.biteCases.toString()} sub="Total" />
+                        <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
+                      </div>
+                    );
+                  case 'treatment':
+                    return (
+                      <div
+                        className="sd-cards-grid"
+                        style={{
+                          marginBottom: 0,
+                          gridTemplateColumns: 'repeat(2, 1fr)',
+                          gap: '14px',
+                        }}
+                      >
+                        <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                        <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
+                        <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
+                        <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
+                      </div>
+                    );
+                  default:
+                    return (
+                      <div
+                        className="sd-cards-grid"
+                        style={{
+                          marginBottom: 0,
+                          gridTemplateColumns: 'repeat(2, 1fr)',
+                          gap: '14px',
+                        }}
+                      >
+                        <SdCard color="purple"  label="Total Patients"      value={stats.totalPatients.toString()} sub="Registered" />
+                        <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
+                        <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                        <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
+                      </div>
+                    );
+                }
+              })()}
+            </div>
+          </div>
+
+          {/* ── MIDDLE SECTION: Full-Width Filters Bar Directly Below Calendar and Cards ── */}
+          <div
+            className="sd-filter-card"
+            style={{
+              marginBottom: '20px',
+              padding: '16px 20px',
+            }}
+          >
+            <p className="sd-filter-title" style={{ marginBottom: '12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)' }}>
+              Filters
+            </p>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(5, 1fr)',
+                gap: '14px',
+                alignItems: 'flex-end',
+              }}
+              className="sd-filters-bar-grid"
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Role
+                </span>
+                <select className="sd-filter-select" style={{ width: '100%' }}>
+                  <option>All</option><option>Admin</option><option>Triage</option>
+                  <option>Registration</option><option>Treatment</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Status
+                </span>
+                <select className="sd-filter-select" style={{ width: '100%' }}>
+                  <option>All</option><option>Ongoing</option>
+                  <option>Completed</option><option>Abandoned</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Date Range
+                </span>
+                <select className="sd-filter-select" style={{ width: '100%' }}>
+                  <option>This Month</option><option>Last 3 Months</option>
+                  <option>Last 6 Months</option><option>This Year</option>
+                </select>
+              </div>
+
+              <div>
+                <button
+                  className="sd-filter-link"
+                  onClick={() => { navigate('/patients'); }}
+                  style={{ padding: '8px 12px', fontSize: '12.5px', justifyContent: 'center' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                  </svg>
+                  Patients
+                </button>
+              </div>
+
+              <div>
+                <button
+                  className="sd-filter-link"
+                  onClick={() => { navigate('/bite-cases'); }}
+                  style={{ padding: '8px 12px', fontSize: '12.5px', justifyContent: 'center' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                  </svg>
+                  Cases
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── BOTTOM SECTION: 2-Column Analytics Layout ── */}
+          {/* Row 1: Cases Over Time (Left) & Case Distribution (Right) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '16px',
+              marginBottom: '16px',
+            }}
+            className="sd-analytics-row"
+          >
             {/* Cases Over Time */}
             <div
               className="sd-chart-card"
@@ -319,72 +458,18 @@ export function SimpleDashboardPage() {
                 />
               </div>
             </div>
-
-            {/* Filters */}
-            <div
-              className="sd-filter-card"
-              style={{
-                background: 'var(--card-bg)',
-                borderRadius: '14px',
-                padding: '20px 24px',
-                border: '1px solid var(--card-border)',
-                boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
-                transition: 'box-shadow 0.2s',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: '220px',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
-            >
-              <p className="sd-filter-title" style={{ marginBottom: '12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)' }}>Filters</p>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Role</span>
-                  <select className="sd-filter-select" style={{ width: '100%' }}>
-                    <option>All</option><option>Admin</option><option>Triage</option>
-                    <option>Registration</option><option>Treatment</option>
-                  </select>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
-                  <select className="sd-filter-select" style={{ width: '100%' }}>
-                    <option>All</option><option>Ongoing</option>
-                    <option>Completed</option><option>Abandoned</option>
-                  </select>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Range</span>
-                  <select className="sd-filter-select" style={{ width: '100%' }}>
-                    <option>This Month</option><option>Last 3 Months</option>
-                    <option>Last 6 Months</option><option>This Year</option>
-                  </select>
-                </div>
-
-                <div style={{ marginTop: 'auto', display: 'flex', gap: '8px' }}>
-                  <button className="sd-filter-link" onClick={() => { navigate('/patients'); }} style={{ padding: '6px 12px', fontSize: '12px', flex: 1 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                      <circle cx="9" cy="7" r="4"/>
-                    </svg>
-                    Patients
-                  </button>
-                  <button className="sd-filter-link" onClick={() => { navigate('/bite-cases'); }} style={{ padding: '6px 12px', fontSize: '12px', flex: 1 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                    </svg>
-                    Cases
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Charts Row 2 */}
-          <div className="sd-charts-bottom" style={{ gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+          {/* Row 2: Vaccination Trend (Left) & Animal Bite Severity (Right) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '16px',
+            }}
+            className="sd-analytics-row"
+          >
+            {/* Vaccination Trend */}
             <div
               className="sd-chart-card"
               style={{
@@ -407,6 +492,7 @@ export function SimpleDashboardPage() {
               </div>
             </div>
 
+            {/* Animal Bite Severity */}
             <div
               className="sd-chart-card"
               style={{
@@ -549,6 +635,117 @@ export function SimpleDashboardPage() {
         </div>
       )}
     </DashboardLayout>
+  );
+}
+
+function SdCalendar() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  const today = new Date();
+
+  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+
+  const days = [];
+  for (let i = firstDay - 1; i >= 0; i--) {
+    days.push({ day: daysInPrevMonth - i, isCurrent: false, isToday: false });
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === i;
+    days.push({ day: i, isCurrent: true, isToday });
+  }
+  const remaining = (7 - (days.length % 7)) % 7;
+  for (let i = 1; i <= remaining; i++) {
+    days.push({ day: i, isCurrent: false, isToday: false });
+  }
+
+  return (
+    <div
+      className="sd-chart-card"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: '260px',
+        padding: '20px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <p className="sd-chart-title" style={{ margin: 0 }}>
+          {monthNames[month]} {year}
+        </p>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            onClick={prevMonth}
+            style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--card-border)',
+              borderRadius: '6px',
+              padding: '3px 8px',
+              cursor: 'pointer',
+              color: 'var(--text)',
+              fontSize: '12px',
+              fontWeight: 600,
+            }}
+          >
+            ‹
+          </button>
+          <button
+            onClick={nextMonth}
+            style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--card-border)',
+              borderRadius: '6px',
+              padding: '3px 8px',
+              cursor: 'pointer',
+              color: 'var(--text)',
+              fontSize: '12px',
+              fontWeight: 600,
+            }}
+          >
+            ›
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', gap: '4px', marginBottom: '8px' }}>
+        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
+          <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            {d}
+          </span>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', flex: 1, alignItems: 'center' }}>
+        {days.map((item, idx) => (
+          <div
+            key={idx}
+            style={{
+              textAlign: 'center',
+              padding: '6px 0',
+              fontSize: '12.5px',
+              borderRadius: '8px',
+              color: item.isToday ? '#ffffff' : item.isCurrent ? 'var(--text-h)' : 'var(--text-secondary)',
+              opacity: item.isCurrent ? 1 : 0.4,
+              background: item.isToday ? '#10b981' : 'transparent',
+              fontWeight: item.isToday ? 700 : 500,
+              boxShadow: item.isToday ? '0 2px 8px rgba(16, 185, 129, 0.35)' : 'none',
+              border: item.isToday ? '1px solid #059669' : '1px solid transparent',
+            }}
+          >
+            {item.day}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

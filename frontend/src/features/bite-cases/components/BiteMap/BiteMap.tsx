@@ -95,36 +95,99 @@ function createCustomIcon(severity: string) {
   });
 }
 
-// Custom cluster icon
+// Custom cluster icon with multi-category segmented donut ring & breakdown tooltip
 const createClusterCustomIcon = (cluster: any) => {
   const count = cluster.getChildCount();
-  let color = '#10b981'; // green
-  
-  if (count > 20) {
-    color = '#ef4444'; // red
-  } else if (count > 10) {
-    color = '#f59e0b'; // orange
+  const markers = cluster.getAllChildMarkers();
+
+  let cat3 = 0; // severe (Category III - red)
+  let cat2 = 0; // moderate (Category II - orange)
+  let cat1 = 0; // minor (Category I - green)
+
+  markers.forEach((m: any) => {
+    const sev = m._caseData?.severity || m.options?.title;
+    if (sev === 'severe') cat3++;
+    else if (sev === 'moderate') cat2++;
+    else if (sev === 'minor') cat1++;
+    else cat2++;
+  });
+
+  const total = cat3 + cat2 + cat1 || count || 1;
+  const p3 = (cat3 / total) * 100;
+  const p2 = (cat2 / total) * 100;
+
+  // Build conic-gradient CSS based on actual category proportions in this cluster
+  let ringBackground = '';
+  if (cat3 > 0 && cat2 === 0 && cat1 === 0) {
+    ringBackground = '#ef4444'; // 100% Category III
+  } else if (cat2 > 0 && cat3 === 0 && cat1 === 0) {
+    ringBackground = '#f59e0b'; // 100% Category II
+  } else if (cat1 > 0 && cat3 === 0 && cat2 === 0) {
+    ringBackground = '#10b981'; // 100% Category I
+  } else {
+    // Multi-category segmented gradient ring
+    const stops: string[] = [];
+    let current = 0;
+    if (cat3 > 0) {
+      const next = current + p3;
+      stops.push(`#ef4444 ${current.toFixed(1)}% ${next.toFixed(1)}%`);
+      current = next;
+    }
+    if (cat2 > 0) {
+      const next = current + p2;
+      stops.push(`#f59e0b ${current.toFixed(1)}% ${next.toFixed(1)}%`);
+      current = next;
+    }
+    if (cat1 > 0) {
+      stops.push(`#10b981 ${current.toFixed(1)}% 100%`);
+    }
+    ringBackground = `conic-gradient(${stops.join(', ')})`;
   }
-  
+
+  // Pre-calculate hover breakdown tooltip (visible before zooming in)
+  const breakdown: string[] = [];
+  if (cat3 > 0) breakdown.push(`• ${cat3} Category III (Severe)`);
+  if (cat2 > 0) breakdown.push(`• ${cat2} Category II (Moderate)`);
+  if (cat1 > 0) breakdown.push(`• ${cat1} Category I (Minor)`);
+  const tooltipText = `Area Cluster (${count} Cases):\n${breakdown.join('\n')}\nClick to zoom in`;
+
   return divIcon({
     html: `
-      <div style="
-        background-color: ${color};
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-        border: 3px solid white;
-        box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-      ">${count}</div>
+      <div 
+        title="${tooltipText}"
+        style="
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          background: ${ringBackground};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+          cursor: pointer;
+          transition: transform 0.15s ease;
+        "
+        onmouseover="this.style.transform='scale(1.1)'"
+        onmouseout="this.style.transform='scale(1)'"
+      >
+        <div style="
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #0f172a;
+          font-weight: 800;
+          font-size: 13px;
+          box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+        ">${count}</div>
+      </div>
     `,
     className: 'custom-cluster-icon',
-    iconSize: point(40, 40, true),
+    iconSize: point(42, 42, true),
+    iconAnchor: [21, 21],
   });
 };
 
@@ -187,14 +250,19 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                     }}
                   >
                     <Popup>
-                      <div style={{ minWidth: 180 }}>
+                      <div style={{ minWidth: 200 }}>
                         <h4 style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', display: 'inline-block', flexShrink: 0 }} />
-                          <span>Density Hotspot: {c.barangay}</span>
+                          <span>Exposure Hotspot: {c.barangay}, {c.municipality}</span>
                         </h4>
-                        <p style={{ margin: 0, fontSize: 12, color: '#4b5563' }}>
+                        <p style={{ margin: 0, fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>
                           <strong>Patient:</strong> {c.patient_name}<br />
-                          <strong>Severity:</strong> <span style={{ color, fontWeight: 600 }}>{c.severity.toUpperCase()}</span>
+                          <strong>Place of Exposure:</strong> {c.barangay ? `${c.barangay}, ` : ''}{c.municipality}<br />
+                          {c.patient_residence && (
+                            <><strong>Patient Residence:</strong> {c.patient_residence}<br /></>
+                          )}
+                          <strong>Severity:</strong> <span style={{ color, fontWeight: 600 }}>{c.severity.toUpperCase()}</span><br />
+                          <strong>Status:</strong> <span style={{ textTransform: 'capitalize', fontWeight: 600, color: c.status === 'active' ? '#f59e0b' : '#10b981' }}>{c.status}</span>
                         </p>
                       </div>
                     </Popup>
@@ -214,34 +282,61 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                 key={caseData.bite_id}
                 position={[caseData.latitude, caseData.longitude]}
                 icon={createCustomIcon(caseData.severity)}
+                title={caseData.severity}
                 eventHandlers={{
+                  add: (e) => {
+                    (e.target as any)._caseData = caseData;
+                  },
                   click: () => onMarkerClick?.(caseData),
                 }}
               >
                 <Popup>
-                  <div style={{ minWidth: 200 }}>
-                    <h4 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600 }}>
-                      {caseData.case_number}
-                    </h4>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>
-                      <p><strong>Patient:</strong> {caseData.patient_name}</p>
-                      <p><strong>Date:</strong> {new Date(caseData.bite_date).toLocaleDateString()}</p>
-                      <p><strong>Location:</strong> {caseData.barangay}, {caseData.municipality}</p>
-                      <p><strong>Animal:</strong> {caseData.animal_type}</p>
-                      <p>
-                        <strong>Category:</strong>{' '}
+                  <div style={{ minWidth: 220 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>
+                        {caseData.case_number}
+                      </h4>
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: '2px 8px',
+                        borderRadius: 10,
+                        textTransform: 'capitalize',
+                        backgroundColor: caseData.status === 'active' ? '#fef3c7' : '#d1fae5',
+                        color: caseData.status === 'active' ? '#b45309' : '#047857',
+                        border: `1px solid ${caseData.status === 'active' ? '#fde68a' : '#a7f3d0'}`
+                      }}>
+                        {caseData.status === 'active' ? '● Active PEP' : '✓ Completed'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>
+                      <p style={{ margin: '3px 0' }}><strong>Patient:</strong> {caseData.patient_name}</p>
+                      <p style={{ margin: '3px 0' }}><strong>Date of Exposure:</strong> {new Date(caseData.bite_date).toLocaleDateString()}</p>
+                      <p style={{ margin: '3px 0' }}>
+                        <strong>Place of Exposure:</strong>{' '}
+                        <span style={{ color: '#1e40af', fontWeight: 600 }}>
+                          {caseData.barangay ? `${caseData.barangay}, ` : ''}{caseData.municipality}
+                        </span>
+                      </p>
+                      {caseData.patient_residence && (
+                        <p style={{ margin: '3px 0', color: '#6b7280' }}>
+                          <strong>Patient Residence:</strong> {caseData.patient_residence}
+                        </p>
+                      )}
+                      <p style={{ margin: '3px 0' }}><strong>Animal:</strong> {caseData.animal_type}</p>
+                      <p style={{ margin: '3px 0' }}>
+                        <strong>WHO Category:</strong>{' '}
                         <span style={{ 
                           color: getSeverityColor(caseData.severity),
                           fontWeight: 600,
                           textTransform: 'capitalize'
                         }}>
-                          {caseData.severity === 'severe' ? 'III (Severe)' : 
-                           caseData.severity === 'moderate' ? 'II (Moderate)' : 
-                           caseData.severity === 'minor' ? 'I (Minor)' :
+                          {caseData.severity === 'severe' ? 'Category III (Severe)' : 
+                           caseData.severity === 'moderate' ? 'Category II (Moderate)' : 
+                           caseData.severity === 'minor' ? 'Category I (Minor)' :
                            'Pending Assessment'}
                         </span>
                       </p>
-                      <p><strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{caseData.status}</span></p>
                     </div>
                   </div>
                 </Popup>

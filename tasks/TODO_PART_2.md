@@ -147,6 +147,8 @@
 
 ## 📋 Verification & Testing Checklist
 
+> 📖 **Full Comprehensive Guide & Printable Tester Matrix**: See [`guide/08-phase-logs-and-testing/UI_TESTING_GUIDE_2026.md`](file:///c:/xampp/htdocs/abc/animal-bite-management-system/guide/08-phase-logs-and-testing/UI_TESTING_GUIDE_2026.md) for step-by-step instructions, test credentials, expected results, and QA sign-off sheet.
+
 - [ ] **Test 1**: Create a new bite case $\rightarrow$ Fill Form 2 $\rightarrow$ Verify ticket auto-moves to Treatment Queue.
 - [ ] **Test 2**: Administer Day 0 in Form 3 $\rightarrow$ Verify Day 0 locks, queue ticket completes, and Day 3/7/28 auto-schedule with Option A.
 - [ ] **Test 3**: Re-open Form 2 for that patient $\rightarrow$ Verify Form 2 is completely locked in read-only mode.

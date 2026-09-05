@@ -49,6 +49,23 @@ const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 
 const inputStyle: React.CSSProperties = {
   fontSize: 13, padding: '6px 10px', borderRadius: 6,
   border: '1px solid #d1d5db', outline: 'none', fontFamily: 'inherit',
+  background: '#fff',
+};
+const selectStyle: React.CSSProperties = {
+  fontSize: 13,
+  padding: '6px 32px 6px 10px',
+  borderRadius: 6,
+  border: '1px solid #d1d5db',
+  outline: 'none',
+  fontFamily: 'inherit',
+  background: '#fff url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%236b7280\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 10px center',
+  appearance: 'none',
+  WebkitAppearance: 'none',
+  MozAppearance: 'none',
+  cursor: 'pointer',
+  color: '#374151',
+  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+  transition: 'all 0.15s ease-in-out',
 };
 const tabStyle: React.CSSProperties = {
   padding: '6px 14px', fontSize: 12, fontWeight: 600, borderRadius: 6,
@@ -137,9 +154,13 @@ function InvStatusBadge({ status }: { status: string }) {
 interface PrintPreviewModalProps {
   html: string; clinicName: string; printedBy: string; printDate: string;
   dateFrom: string; dateTo: string; activeTab: string;
+  selectedVaccineType?: string; expiryFilterLabel?: string;
   onConfirm: () => void; onCancel: () => void;
 }
-function PrintPreviewModal({ html, clinicName, printedBy, printDate, dateFrom, dateTo, activeTab, onConfirm, onCancel }: PrintPreviewModalProps) {
+function PrintPreviewModal({
+  html, clinicName, printedBy, printDate, dateFrom, dateTo, activeTab,
+  selectedVaccineType, expiryFilterLabel, onConfirm, onCancel
+}: PrintPreviewModalProps) {
   const tabLabel = activeTab === 'summary' ? 'Summary Report' : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'inventory' ? 'Vaccine Inventory Report' : 'Patient Registry Report';
   return (
     <div style={overlayStyle} onClick={onCancel} role="dialog" aria-modal="true" aria-labelledby="print-title">
@@ -183,9 +204,27 @@ function PrintPreviewModal({ html, clinicName, printedBy, printDate, dateFrom, d
               <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textDecoration: 'underline' }}>{tabLabel}</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 20px', border: '1px solid #ccc', padding: '9px 12px', marginBottom: 16, fontSize: 11 }}>
-              <span style={{ color: '#444' }}>Reporting Period:</span><span style={{ fontWeight: 700 }}>{fmtDate(dateFrom)} – {fmtDate(dateTo)}</span>
-              <span style={{ color: '#444' }}>Date Generated:</span><span style={{ fontWeight: 700 }}>{printDate}</span>
-              <span style={{ color: '#444' }}>Prepared by:</span><span style={{ fontWeight: 700 }}>{printedBy}</span>
+              {activeTab === 'inventory' ? (
+                <>
+                  <span style={{ color: '#444' }}>Vaccine Type:</span>
+                  <span style={{ fontWeight: 700 }}>{selectedVaccineType || 'All Vaccine Types'}</span>
+                  <span style={{ color: '#444' }}>Expiry Filter:</span>
+                  <span style={{ fontWeight: 700 }}>{expiryFilterLabel || 'All Expiry Dates'}</span>
+                  <span style={{ color: '#444' }}>Date Generated:</span>
+                  <span style={{ fontWeight: 700 }}>{printDate}</span>
+                  <span style={{ color: '#444' }}>Prepared by:</span>
+                  <span style={{ fontWeight: 700 }}>{printedBy}</span>
+                </>
+              ) : (
+                <>
+                  <span style={{ color: '#444' }}>Reporting Period:</span>
+                  <span style={{ fontWeight: 700 }}>{fmtDate(dateFrom)} – {fmtDate(dateTo)}</span>
+                  <span style={{ color: '#444' }}>Date Generated:</span>
+                  <span style={{ fontWeight: 700 }}>{printDate}</span>
+                  <span style={{ color: '#444' }}>Prepared by:</span>
+                  <span style={{ fontWeight: 700 }}>{printedBy}</span>
+                </>
+              )}
             </div>
             <div dangerouslySetInnerHTML={{ __html: html }} />
             <div style={{ marginTop: 32, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
@@ -221,25 +260,31 @@ function PrintPreviewModal({ html, clinicName, printedBy, printDate, dateFrom, d
   );
 }
 
+
 // ─── Main Component ───────────────────────────────────────────
 export default function ReportsDashboardPage() {
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
   const todayStr = today.toISOString().split('T')[0];
 
-  const [dateFrom,       setDateFrom]   = useState(firstOfMonth);
-  const [dateTo,         setDateTo]     = useState(todayStr);
-  const [stats,          setStats]      = useState<ReportStats | null>(null);
-  const [biteCases,      setBiteCases]  = useState<BiteCase[]>([]);
-  const [patients,       setPatients]   = useState<Patient[]>([]);
-  const [loading,        setLoading]    = useState(false);
-  const [error,          setError]      = useState('');
-  const [activeTab,      setActiveTab]  = useState<'summary' | 'cases' | 'patients' | 'inventory'>('summary');
-  const [showPrintModal, setShowPrintModal] = useState(false);
-  const [printHtml,      setPrintHtml]  = useState('');
-  const [invItems,       setInvItems]   = useState<InventoryItem[]>([]);
-  const [invStats,       setInvStats]   = useState<InventoryStats | null>(null);
-  const [invLoading,     setInvLoading] = useState(false);
+  const [dateFrom,            setDateFrom]            = useState(firstOfMonth);
+  const [dateTo,              setDateTo]              = useState(todayStr);
+  const [stats,               setStats]               = useState<ReportStats | null>(null);
+  const [biteCases,           setBiteCases]           = useState<BiteCase[]>([]);
+  const [patients,            setPatients]            = useState<Patient[]>([]);
+  const [loading,             setLoading]             = useState(false);
+  const [error,               setError]               = useState('');
+  const [activeTab,           setActiveTab]           = useState<'summary' | 'cases' | 'patients' | 'inventory'>('summary');
+  const [showPrintModal,      setShowPrintModal]      = useState(false);
+  const [printHtml,           setPrintHtml]           = useState('');
+  const [invItems,            setInvItems]            = useState<InventoryItem[]>([]);
+  const [invStats,            setInvStats]            = useState<InventoryStats | null>(null);
+  const [invLoading,          setInvLoading]          = useState(false);
+  const [presetTypes,         setPresetTypes]         = useState<string[]>([]);
+  const [selectedVaccineType, setSelectedVaccineType] = useState<string>('ALL');
+  const [expiryFilter,        setExpiryFilter]        = useState<string>('ALL');
+  const [expiryDateFrom,      setExpiryDateFrom]      = useState<string>('');
+  const [expiryDateTo,        setExpiryDateTo]        = useState<string>('');
   const printRef = useRef<HTMLDivElement>(null);
 
   const clinicData = localStorage.getItem('clinicData');
@@ -249,6 +294,21 @@ export default function ReportsDashboardPage() {
   const clinicName = clinic?.name ?? 'Animal Bite Treatment Center';
   const printedBy  = user?.name  ?? 'Unknown';
   const printDate  = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
+
+  const getExpiryFilterLabel = (filter: string, from?: string, to?: string) => {
+    if (filter === 'valid') return 'Valid / Active (Not Expired)';
+    if (filter === 'expiring_30') return 'Expiring in ≤ 30 Days';
+    if (filter === 'expiring_60') return 'Expiring in ≤ 60 Days';
+    if (filter === 'expiring_90') return 'Expiring in ≤ 90 Days';
+    if (filter === 'expired') return 'Expired Batches';
+    if (filter === 'custom') {
+      if (from && to) return `Expires: ${fmtDate(from)} – ${fmtDate(to)}`;
+      if (from) return `Expires after ${fmtDate(from)}`;
+      if (to) return `Expires before ${fmtDate(to)}`;
+      return 'Custom Expiry Range';
+    }
+    return 'All Expiry Dates';
+  };
 
   const loadReports = async () => {
     setLoading(true); setError('');
@@ -264,9 +324,7 @@ export default function ReportsDashboardPage() {
 
       const casesData: BiteCase[] = (Array.isArray(casesRaw) ? casesRaw : []).map((c: any) => ({
         id:           c.id ?? c.bite_id,
-        // backend returns patient.first_name + last_name, not patient_name
         patient_name: c.patient ? `${c.patient.first_name ?? ''} ${c.patient.last_name ?? ''}`.trim() : (c.patient_name ?? '—'),
-        // backend uses 'severity' (minor/moderate/severe) not 'category'
         category:     c.severity
           ? (c.severity === 'minor' ? 'Category I' : c.severity === 'moderate' ? 'Category II' : 'Category III')
           : (c.category ?? '—'),
@@ -312,13 +370,25 @@ export default function ReportsDashboardPage() {
   const loadInventory = async () => {
     setInvLoading(true);
     try {
-      const [itemsRes, statsRes] = await Promise.all([
+      const [itemsRes, statsRes, presetsRes] = await Promise.allSettled([
         api.get('/inventory', { params: { per_page: 200 } }),
         api.get('/inventory/statistics'),
+        api.get('/inventory/presets'),
       ]);
-      const data = itemsRes.data?.data ?? itemsRes.data ?? [];
-      setInvItems(Array.isArray(data) ? data : []);
-      setInvStats(statsRes.data);
+      if (itemsRes.status === 'fulfilled') {
+        const data = itemsRes.value.data?.data ?? itemsRes.value.data ?? [];
+        setInvItems(Array.isArray(data) ? data : []);
+      }
+      if (statsRes.status === 'fulfilled') {
+        setInvStats(statsRes.value.data);
+      }
+      if (presetsRes.status === 'fulfilled') {
+        const presets = presetsRes.value.data?.data ?? presetsRes.value.data ?? [];
+        if (Array.isArray(presets)) {
+          const names = presets.map((p: any) => p.name || p.vaccine_name || p.vaccine_type).filter(Boolean);
+          setPresetTypes(names);
+        }
+      }
     } catch { /* silently fail */ }
     finally { setInvLoading(false); }
   };
@@ -327,6 +397,79 @@ export default function ReportsDashboardPage() {
   useEffect(() => {
     if (activeTab === 'inventory' && invItems.length === 0 && !invLoading) loadInventory();
   }, [activeTab]); // eslint-disable-line
+
+  // Available unique vaccine types
+  const availableVaccineTypes = Array.from(
+    new Set([
+      ...invItems.map(i => i.vaccine_type?.trim()).filter(Boolean),
+      ...presetTypes.map(p => p?.trim()).filter(Boolean),
+    ])
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Filtered inventory items
+  const filteredInvItems = invItems.filter(item => {
+    // 1. Vaccine Type Filter
+    if (selectedVaccineType !== 'ALL') {
+      if ((item.vaccine_type || '').trim().toLowerCase() !== selectedVaccineType.trim().toLowerCase()) {
+        return false;
+      }
+    }
+
+    // 2. Expiry filter
+    if (expiryFilter === 'ALL') {
+      return true;
+    }
+
+    if (!item.expiration_date) {
+      return expiryFilter === 'expired';
+    }
+
+    const expTime = new Date(item.expiration_date).getTime();
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const diffDays = Math.ceil((expTime - startOfToday) / (1000 * 60 * 60 * 24));
+
+    if (expiryFilter === 'valid') {
+      if (item.status === 'expired' || diffDays < 0) return false;
+    } else if (expiryFilter === 'expiring_30') {
+      if (item.status === 'expired' || diffDays < 0 || diffDays > 30) return false;
+    } else if (expiryFilter === 'expiring_60') {
+      if (item.status === 'expired' || diffDays < 0 || diffDays > 60) return false;
+    } else if (expiryFilter === 'expiring_90') {
+      if (item.status === 'expired' || diffDays < 0 || diffDays > 90) return false;
+    } else if (expiryFilter === 'expired') {
+      if (item.status !== 'expired' && diffDays >= 0) return false;
+    } else if (expiryFilter === 'custom') {
+      if (expiryDateFrom) {
+        const fromTime = new Date(expiryDateFrom).getTime();
+        if (expTime < fromTime) return false;
+      }
+      if (expiryDateTo) {
+        const toTime = new Date(expiryDateTo).getTime();
+        if (expTime > toTime) return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Display stats computed dynamically for filtered inventory
+  const isInvFiltered = selectedVaccineType !== 'ALL' || expiryFilter !== 'ALL' || Boolean(expiryDateFrom) || Boolean(expiryDateTo);
+  const invDisplayStats = {
+    active_batches: filteredInvItems.filter(i => i.status === 'active' && i.current_quantity > 0).length,
+    total_stock: filteredInvItems.reduce((sum, i) => sum + (Number(i.current_quantity) || 0), 0),
+    expiring_soon: filteredInvItems.filter(i => {
+      if (!i.expiration_date || i.status === 'expired' || i.current_quantity === 0) return false;
+      const diffDays = Math.ceil((new Date(i.expiration_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 60;
+    }).length,
+    depleted_batches: filteredInvItems.filter(i => i.current_quantity === 0).length,
+    expired_batches: filteredInvItems.filter(i => {
+      if (i.status === 'expired') return true;
+      if (!i.expiration_date) return false;
+      return new Date(i.expiration_date).getTime() < Date.now();
+    }).length,
+  };
 
   const handleOpenPrint = () => {
     setPrintHtml(printRef.current?.innerHTML ?? '');
@@ -374,25 +517,48 @@ export default function ReportsDashboardPage() {
         <table><thead><tr><th style="text-align:center">#</th><th>Patient Name (Last, First)</th><th style="text-align:center">Date of Birth</th><th style="text-align:center">Contact No.</th><th style="text-align:center">Registered On</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#888">No records found.</td></tr>'}</tbody></table>`;
     } else {
-      const statsRows = invStats ? `<table class="info-table">
-        <tr><td class="lbl">Active Batches</td><td class="val">${invStats.active_batches}</td><td class="lbl">Total Vials in Stock</td><td class="val">${invStats.total_stock}</td></tr>
-        <tr><td class="lbl">Expiring Soon</td><td class="val">${invStats.expiring_soon}</td><td class="lbl">Depleted Batches</td><td class="val">${invStats.depleted_batches}</td></tr>
-        <tr><td class="lbl">Expired Batches</td><td class="val">${invStats.expired_batches}</td><td class="lbl">Total Batches</td><td class="val">${invStats.total_batches}</td></tr>
-      </table>` : '';
-      const rows = invItems.map((item, i) => {
+      const statsRows = `<table class="info-table">
+        <tr><td class="lbl">Active Batches</td><td class="val">${invDisplayStats.active_batches}</td><td class="lbl">Total Vials in Stock</td><td class="val">${invDisplayStats.total_stock}</td></tr>
+        <tr><td class="lbl">Expiring Soon (≤ 60d)</td><td class="val">${invDisplayStats.expiring_soon}</td><td class="lbl">Depleted Batches</td><td class="val">${invDisplayStats.depleted_batches}</td></tr>
+        <tr><td class="lbl">Expired Batches</td><td class="val">${invDisplayStats.expired_batches}</td><td class="lbl">Total Batches Listed</td><td class="val">${filteredInvItems.length}</td></tr>
+      </table>`;
+      const rows = filteredInvItems.map((item, i) => {
         const exp = item.expiration_date ? new Date(item.expiration_date).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
         const qtyS = item.current_quantity === 0 ? 'color:#c00;font-weight:700' : '';
         return `<tr><td style="text-align:center">${i+1}</td><td style="font-weight:700">${item.vaccine_type}</td><td style="text-align:center">${item.batch_number}</td><td style="text-align:center;${qtyS}">${item.current_quantity}</td><td style="text-align:center">${exp}</td><td style="text-align:center;text-transform:capitalize">${item.status}</td></tr>`;
       }).join('');
+
+      const filterNotes = [
+        selectedVaccineType !== 'ALL' ? `Vaccine Type: <b>${selectedVaccineType}</b>` : 'Vaccine Type: <b>All Types</b>',
+        `Expiry Filter: <b>${getExpiryFilterLabel(expiryFilter, expiryDateFrom, expiryDateTo)}</b>`,
+        `Showing: <b>${filteredInvItems.length} of ${invItems.length} items</b>`,
+      ].join(' &nbsp;|&nbsp; ');
+
       bodyHtml = `
         <h3 class="sec">I. Stock Summary</h3>${statsRows}
         <h3 class="sec">II. Inventory Listing</h3>
-        <p class="note">Total Items: ${invItems.length}</p>
+        <p class="note">${filterNotes}</p>
         <table><thead><tr><th style="text-align:center;width:4%">#</th><th>Vaccine Type</th><th style="text-align:center">Batch No.</th><th style="text-align:center;width:8%">Qty</th><th style="text-align:center">Expiration Date</th><th style="text-align:center">Status</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:#888">No inventory records found.</td></tr>'}</tbody></table>`;
+        <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:#888">No inventory records matching selected filters.</td></tr>'}</tbody></table>`;
     }
 
     const CSS = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Times New Roman',Times,serif;color:#000;background:#fff;padding:40px 48px;font-size:12pt;line-height:1.5}.letterhead{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:6px}.logo{width:64px;height:64px;border:2px solid #000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;flex-shrink:0}.org{text-align:center}.org .republic{font-size:9pt;letter-spacing:1px;text-transform:uppercase}.org .dept{font-size:9pt;font-weight:700;text-transform:uppercase}.org .clinic{font-size:14pt;font-weight:700;text-transform:uppercase;margin:2px 0}.org .address{font-size:9pt;color:#333}.divider-thick{border:none;border-top:3px double #000;margin:8px 0 4px}.divider-thin{border:none;border-top:1px solid #000;margin:2px 0 16px}.doc-title{text-align:center;margin:16px 0 20px}.doc-title h2{font-size:13pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-decoration:underline}.doc-title p{font-size:10pt;margin-top:4px}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:20px;font-size:10pt;border:1px solid #ccc;padding:10px 14px}h3.sec{font-size:11pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #000;padding-bottom:3px;margin:20px 0 10px}table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10pt}th{background:#000;color:#fff;font-weight:700;padding:6px 10px;text-align:left;font-size:10pt}td{padding:5px 10px;border-bottom:1px solid #ccc}tr:nth-child(even) td{background:#f5f5f5}table.info-table td{border:1px solid #ccc;padding:5px 10px;vertical-align:top}table.info-table td.lbl{background:#f0f0f0;font-weight:700;font-size:9.5pt;width:22%}table.info-table td.val{font-size:10pt;width:28%}p.note{font-size:10pt;color:#333;margin-bottom:8px;font-style:italic}.sig-section{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px}.sig-block .line{border-top:1px solid #000;margin-top:36px;padding-top:4px}.sig-block .name{font-weight:700;font-size:11pt;text-transform:uppercase}.sig-block .position{font-size:9.5pt}.footer-bar{margin-top:40px;padding-top:8px;border-top:2px solid #000;display:flex;justify-content:space-between;font-size:8.5pt;color:#555}@media print{body{padding:20px 28px}@page{margin:1.5cm}}`;
+
+    const metaGridHtml = activeTab === 'inventory' ? `
+      <div class="meta-grid">
+        <span style="color:#444">Vaccine Type:</span><span style="font-weight:700">${selectedVaccineType === 'ALL' ? 'All Vaccine Types' : selectedVaccineType}</span>
+        <span style="color:#444">Expiry Filter:</span><span style="font-weight:700">${getExpiryFilterLabel(expiryFilter, expiryDateFrom, expiryDateTo)}</span>
+        <span style="color:#444">Date Generated:</span><span style="font-weight:700">${printDateFull}</span>
+        <span style="color:#444">Prepared by:</span><span style="font-weight:700">${printedBy}</span>
+      </div>
+    ` : `
+      <div class="meta-grid">
+        <span style="color:#444">Reporting Period:</span><span style="font-weight:700">${fmtDate(dateFrom)} – ${fmtDate(dateTo)}</span>
+        <span style="color:#444">Date Generated:</span><span style="font-weight:700">${printDateFull}</span>
+        <span style="color:#444">Time Generated:</span><span style="font-weight:700">${printTimeFull}</span>
+        <span style="color:#444">Prepared by:</span><span style="font-weight:700">${printedBy}</span>
+      </div>
+    `;
 
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) return;
@@ -400,7 +566,7 @@ export default function ReportsDashboardPage() {
       <div class="letterhead"><div class="logo">✚</div><div class="org"><div class="republic">Republic of the Philippines</div><div class="dept">Department of Health</div><div class="clinic">${clinicName}</div><div class="address">Animal Bite Treatment Center</div></div></div>
       <hr class="divider-thick"><hr class="divider-thin">
       <div class="doc-title"><h2>${tabLabel}</h2><p>Reference No.: ${refNo}</p></div>
-      <div class="meta-grid"><span style="color:#444">Reporting Period:</span><span style="font-weight:700">${fmtDate(dateFrom)} – ${fmtDate(dateTo)}</span><span style="color:#444">Date Generated:</span><span style="font-weight:700">${printDateFull}</span><span style="color:#444">Time Generated:</span><span style="font-weight:700">${printTimeFull}</span><span style="color:#444">Prepared by:</span><span style="font-weight:700">${printedBy}</span></div>
+      ${metaGridHtml}
       ${bodyHtml}
       <div class="sig-section"><div class="sig-block"><div class="line"><div class="name">${printedBy}</div><div class="position">Prepared by</div></div></div><div class="sig-block"><div class="line"><div class="name">____________________________</div><div class="position">Noted by / Authorized Signatory</div></div></div></div>
       <div class="footer-bar"><span>${clinicName} — Animal Bite Treatment Center</span><span>Ref: ${refNo} | ${printDateFull}</span></div>
@@ -441,30 +607,144 @@ export default function ReportsDashboardPage() {
         </button>
       </div>
 
-      {/* Filters */}
-      <div style={filterBarStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <label style={labelStyle}>From</label>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
-          <label style={labelStyle}>To</label>
-          <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   style={inputStyle} />
-          <button onClick={loadReports} disabled={loading} style={btnStyle('#059669', true)}>
-            {loading ? 'Loading…' : 'Apply'}
-          </button>
-          {activeTab === 'inventory' && (
-            <button onClick={loadInventory} disabled={invLoading} style={btnStyle('#6366f1', true)}>
-              {invLoading ? 'Loading…' : 'Refresh Inventory'}
+      {/* Primary Filters & Tabs Bar */}
+      <div style={{ ...filterBarStyle, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
+        {/* Row 1: Date Range & Tabs */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <label style={labelStyle}>From</label>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
+            <label style={labelStyle}>To</label>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   style={inputStyle} />
+            <button onClick={loadReports} disabled={loading} style={btnStyle('#059669', true)}>
+              {loading ? 'Loading…' : 'Apply'}
             </button>
-          )}
+            {activeTab === 'inventory' && (
+              <button onClick={loadInventory} disabled={invLoading} style={btnStyle('#6366f1', true)}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+                {invLoading ? 'Loading…' : 'Refresh Inventory'}
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {(['summary', 'cases', 'patients', 'inventory'] as const).map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                style={{ ...tabStyle, ...(activeTab === tab ? tabActiveStyle : {}) }}>
+                {tab === 'summary' ? 'Summary' : tab === 'cases' ? 'Bite Cases' : tab === 'patients' ? 'Patients' : 'Inventory'}
+              </button>
+            ))}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {(['summary', 'cases', 'patients', 'inventory'] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              style={{ ...tabStyle, ...(activeTab === tab ? tabActiveStyle : {}) }}>
-              {tab === 'summary' ? 'Summary' : tab === 'cases' ? 'Bite Cases' : tab === 'patients' ? 'Patients' : 'Inventory'}
-            </button>
-          ))}
-        </div>
+
+        {/* Row 2: Vaccine Type & Expiry Date dropdowns (Inventory tab only) */}
+        {activeTab === 'inventory' && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+            paddingTop: 10,
+            borderTop: '1px solid #e5e7eb',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              {/* Vaccine Type Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={labelStyle}>Vaccine Type</label>
+                <select
+                  value={selectedVaccineType}
+                  onChange={e => setSelectedVaccineType(e.target.value)}
+                  style={{
+                    ...selectStyle,
+                    minWidth: 170,
+                    borderColor: selectedVaccineType !== 'ALL' ? '#10b981' : '#d1d5db',
+                    background: selectedVaccineType !== 'ALL' ? '#ecfdf5 url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23059669\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 10px center' : undefined,
+                    fontWeight: selectedVaccineType !== 'ALL' ? 600 : 500,
+                    color: selectedVaccineType !== 'ALL' ? '#065f46' : '#374151',
+                  }}
+                >
+                  <option value="ALL">All Vaccine Types {availableVaccineTypes.length > 0 ? `(${availableVaccineTypes.length})` : ''}</option>
+                  {availableVaccineTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Expiry Date Filter Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={labelStyle}>Expiry Date</label>
+                <select
+                  value={expiryFilter}
+                  onChange={e => setExpiryFilter(e.target.value)}
+                  style={{
+                    ...selectStyle,
+                    minWidth: 185,
+                    borderColor: expiryFilter !== 'ALL' ? '#10b981' : '#d1d5db',
+                    background: expiryFilter !== 'ALL' ? '#ecfdf5 url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23059669\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 10px center' : undefined,
+                    fontWeight: expiryFilter !== 'ALL' ? 600 : 500,
+                    color: expiryFilter !== 'ALL' ? '#065f46' : '#374151',
+                  }}
+                >
+                  <option value="ALL">All Expiration Dates</option>
+                  <option value="valid">Valid / Active (Not Expired)</option>
+                  <option value="expiring_30">Expiring in ≤ 30 Days</option>
+                  <option value="expiring_60">Expiring in ≤ 60 Days</option>
+                  <option value="expiring_90">Expiring in ≤ 90 Days</option>
+                  <option value="expired">Expired Batches</option>
+                  <option value="custom">Custom Expiry Range…</option>
+                </select>
+              </div>
+
+              {/* Custom Expiry Date Range Inputs */}
+              {expiryFilter === 'custom' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>From</span>
+                  <input
+                    type="date"
+                    value={expiryDateFrom}
+                    onChange={e => setExpiryDateFrom(e.target.value)}
+                    style={{ ...inputStyle, fontSize: 12, padding: '4px 6px' }}
+                  />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>To</span>
+                  <input
+                    type="date"
+                    value={expiryDateTo}
+                    onChange={e => setExpiryDateTo(e.target.value)}
+                    style={{ ...inputStyle, fontSize: 12, padding: '4px 6px' }}
+                  />
+                </div>
+              )}
+
+              {/* Reset Button */}
+              {isInvFiltered && (
+                <button
+                  onClick={() => {
+                    setSelectedVaccineType('ALL');
+                    setExpiryFilter('ALL');
+                    setExpiryDateFrom('');
+                    setExpiryDateTo('');
+                  }}
+                  style={{
+                    background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6,
+                    padding: '5px 10px', fontSize: 12, fontWeight: 600, color: '#dc2626', cursor: 'pointer',
+                    fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}
+                  title="Reset filters to show all inventory"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  Reset
+                </button>
+              )}
+            </div>
+
+            <div style={{ fontSize: 12, color: '#6b7280' }}>
+              Showing <strong>{filteredInvItems.length}</strong> of <strong>{invItems.length}</strong> batches
+            </div>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -560,14 +840,23 @@ export default function ReportsDashboardPage() {
           <>
             {invStats && (
               <>
-                <div style={sectionTitleStyle}>Stock Summary</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={sectionTitleStyle}>
+                    Stock Summary
+                    {isInvFiltered && (
+                      <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 500, color: '#059669', background: '#ecfdf5', padding: '2px 8px', borderRadius: 12, border: '1px solid #a7f3d0' }}>
+                        Filtered
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
                   {[
-                    { label: 'Active Batches',  value: invStats.active_batches,   color: '#10b981' },
-                    { label: 'Total Vials',      value: invStats.total_stock,      color: '#3b82f6' },
-                    { label: 'Expiring Soon',    value: invStats.expiring_soon,    color: '#f59e0b' },
-                    { label: 'Depleted',         value: invStats.depleted_batches, color: '#ef4444' },
-                    { label: 'Expired Batches',  value: invStats.expired_batches,  color: '#6b7280' },
+                    { label: 'Active Batches',  value: invDisplayStats.active_batches,   color: '#10b981' },
+                    { label: 'Total Vials',      value: invDisplayStats.total_stock,      color: '#3b82f6' },
+                    { label: 'Expiring Soon',    value: invDisplayStats.expiring_soon,    color: '#f59e0b' },
+                    { label: 'Depleted',         value: invDisplayStats.depleted_batches, color: '#ef4444' },
+                    { label: 'Expired Batches',  value: invDisplayStats.expired_batches,  color: '#6b7280' },
                   ].map(s => (
                     <div key={s.label} style={{ background:'#fff', border:'1px solid #e5e7eb', borderRadius:10, padding:'14px 12px', textAlign:'center', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
                       <div style={{ fontSize:26, fontWeight:800, color:s.color, lineHeight:1 }}>{s.value}</div>
@@ -577,26 +866,69 @@ export default function ReportsDashboardPage() {
                 </div>
               </>
             )}
-            <div style={sectionTitleStyle}>
-              Inventory Listing
-              <span style={{ marginLeft:10, fontSize:13, fontWeight:400, color:'#6b7280' }}>({invItems.length} item{invItems.length !== 1 ? 's' : ''})</span>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              <div style={sectionTitleStyle}>
+                Inventory Listing
+                <span style={{ marginLeft: 10, fontSize: 13, fontWeight: 400, color: '#6b7280' }}>
+                  {isInvFiltered
+                    ? `(${filteredInvItems.length} of ${invItems.length} items)`
+                    : `(${invItems.length} item${invItems.length !== 1 ? 's' : ''})`}
+                </span>
+              </div>
+              {isInvFiltered && (
+                <div style={{ fontSize: 12, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 6, background: '#f3f4f6', padding: '4px 10px', borderRadius: 6 }}>
+                  <span>Filter:</span>
+                  <strong>{selectedVaccineType !== 'ALL' ? selectedVaccineType : 'All Types'}</strong>
+                  <span>•</span>
+                  <strong>{getExpiryFilterLabel(expiryFilter, expiryDateFrom, expiryDateTo)}</strong>
+                </div>
+              )}
             </div>
+
             <div style={tableWrapStyle}>
               <table style={tableStyle}>
                 <thead><tr>{['#','Vaccine Type','Batch Number','Qty','Expiration Date','Status'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {invLoading ? <tr><td colSpan={6} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>Loading…</td></tr>
-                  : invItems.length === 0 ? <tr><td colSpan={6} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>No inventory records found.</td></tr>
-                  : invItems.map((item, i) => (
-                    <tr key={item.inventory_id} style={i % 2 !== 0 ? { background:'#f9fafb' } : {}}>
-                      <td style={tdStyle}>{i+1}</td>
-                      <td style={{ ...tdStyle, fontWeight:600 }}>{item.vaccine_type}</td>
-                      <td style={tdStyle}>{item.batch_number}</td>
-                      <td style={{ ...tdStyle, fontWeight:700, color: item.current_quantity === 0 ? '#ef4444' : 'var(--text-h)' }}>{item.current_quantity}</td>
-                      <td style={tdStyle}>{fmtDate(item.expiration_date)}</td>
-                      <td style={tdStyle}><InvStatusBadge status={item.status} /></td>
+                  {invLoading ? (
+                    <tr><td colSpan={6} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>Loading…</td></tr>
+                  ) : filteredInvItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign:'center', padding:32, color:'#6b7280' }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4, color: '#374151' }}>No inventory records match the selected filters.</div>
+                        <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 12 }}>
+                          Try selecting a different vaccine type or clearing the expiry filter.
+                        </div>
+                        {isInvFiltered && (
+                          <button
+                            onClick={() => {
+                              setSelectedVaccineType('ALL');
+                              setExpiryFilter('ALL');
+                              setExpiryDateFrom('');
+                              setExpiryDateTo('');
+                            }}
+                            style={{
+                              background: '#10b981', color: '#fff', border: 'none', borderRadius: 6,
+                              padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit'
+                            }}
+                          >
+                            Show All Inventory
+                          </button>
+                        )}
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredInvItems.map((item, i) => (
+                      <tr key={item.inventory_id} style={i % 2 !== 0 ? { background:'#f9fafb' } : {}}>
+                        <td style={tdStyle}>{i+1}</td>
+                        <td style={{ ...tdStyle, fontWeight:600 }}>{item.vaccine_type}</td>
+                        <td style={tdStyle}>{item.batch_number}</td>
+                        <td style={{ ...tdStyle, fontWeight:700, color: item.current_quantity === 0 ? '#ef4444' : 'var(--text-h)' }}>{item.current_quantity}</td>
+                        <td style={tdStyle}>{fmtDate(item.expiration_date)}</td>
+                        <td style={tdStyle}><InvStatusBadge status={item.status} /></td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -609,10 +941,14 @@ export default function ReportsDashboardPage() {
         <PrintPreviewModal
           html={printHtml} clinicName={clinicName} printedBy={printedBy}
           printDate={printDate} dateFrom={dateFrom} dateTo={dateTo}
-          activeTab={activeTab} onConfirm={handleConfirmPrint}
+          activeTab={activeTab}
+          selectedVaccineType={selectedVaccineType !== 'ALL' ? selectedVaccineType : undefined}
+          expiryFilterLabel={getExpiryFilterLabel(expiryFilter, expiryDateFrom, expiryDateTo)}
+          onConfirm={handleConfirmPrint}
           onCancel={() => setShowPrintModal(false)}
         />
       )}
     </div>
   );
 }
+

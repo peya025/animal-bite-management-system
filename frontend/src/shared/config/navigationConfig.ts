@@ -68,16 +68,13 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     roles: ['developer', 'admin', 'registration', 'triage', 'treatment'],
   },
   {
-    label: 'Vaccine Inventory',
-    path: ROUTES.INVENTORY.LIST,
-    icon: GLOBAL_NAV_ICONS['Vaccine Inventory'],
-    roles: ['treatment', 'admin'],
-  },
-  {
-    label: 'Vaccine Type Setup',
-    path: ROUTES.INVENTORY.TYPES,
-    icon: GLOBAL_NAV_ICONS['Vaccine Type Setup'],
-    roles: ['admin'],
+    label: 'Vaccine Stock Management',
+    icon: GLOBAL_NAV_ICONS['Vaccine Stock Management'],
+    roles: ['admin', 'treatment'],
+    submenu: [
+      { label: 'Vaccine Inventory', path: ROUTES.INVENTORY.LIST, roles: ['admin', 'treatment'] },
+      { label: 'Vaccine Setup', path: ROUTES.INVENTORY.TYPES, roles: ['admin'] },
+    ],
   },
   {
     label: 'Vaccination Schedule',

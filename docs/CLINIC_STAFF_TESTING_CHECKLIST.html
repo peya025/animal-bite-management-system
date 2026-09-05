@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Clinic Staff Testing Checklist - Google Docs Ready</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.5;
+      color: #0f172a;
+      max-width: 850px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    .banner {
+      background: #ecfdf5;
+      border: 1px solid #10b981;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .copy-btn {
+      background: #059669;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .copy-btn:hover {
+      background: #047857;
+    }
+    h1 {
+      color: #059669;
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      color: #64748b;
+      font-size: 13px;
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+    h2 {
+      color: #059669;
+      font-size: 16px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 6px;
+      margin-top: 28px;
+    }
+    .goal {
+      font-style: italic;
+      color: #64748b;
+      font-size: 13px;
+      margin-top: -6px;
+      margin-bottom: 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 24px 0;
+      font-size: 13px;
+    }
+    th {
+      background: #059669;
+      color: white;
+      text-align: left;
+      padding: 8px 12px;
+      border: 1px solid #047857;
+    }
+    th.red {
+      background: #b91c1c;
+      border: 1px solid #991b1b;
+    }
+    td {
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+    }
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+    .task {
+      margin-bottom: 14px;
+    }
+    .task-title {
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    ul {
+      margin: 4px 0 6px 20px;
+      padding: 0;
+      font-size: 13px;
+    }
+    li {
+      margin-bottom: 3px;
+    }
+    .expected {
+      color: #047857;
+      font-weight: 500;
+      font-size: 13px;
+      margin-left: 20px;
+    }
+    .badge-amber {
+      background: #fef3c7;
+      color: #92400e;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .badge-green {
+      background: #d1fae5;
+      color: #065f46;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="banner">
+    <div>
+      <strong>Ready for Google Docs!</strong><br>
+      <span style="font-size: 12px; color: #047857;">Click the button on the right to copy this formatted checklist, then paste (Ctrl+V) into a blank Google Doc.</span>
+    </div>
+    <button class="copy-btn" onclick="copyDocument()">📋 Copy All to Clipboard</button>
+  </div>
+
+  <div id="docs-content">
+    <h1>🏥 Clinic Staff Testing Checklist</h1>
+    <p class="subtitle">Animal Bite Treatment Center (ABTC / RHU) — Easy Step-by-Step Testing Guide<br>
+    <em>Designed for Doctors, Nurses, Registration Clerks & QA Testers • System URL: http://localhost:5173</em></p>
+
+    <h2>🔑 Step 0: Who to Log In As (Login Credentials)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Staff Desk</th>
+          <th>Login Email</th>
+          <th>Password</th>
+          <th>What This Role Tests</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Clinic Admin</strong></td>
+          <td><code>admin@clinic.com</code></td>
+          <td><code>password123</code></td>
+          <td>Sets clinic open days & checks vaccine stock.</td>
+        </tr>
+        <tr>
+          <td><strong>Registration Clerk</strong></td>
+          <td><code>registration@clinic.com</code></td>
+          <td><code>password123</code></td>
+          <td>Enrolls walk-in bite victims & issues queue ticket.</td>
+        </tr>
+        <tr>
+          <td><strong>Doctor (Triage)</strong></td>
+          <td><code>triage@clinic.com</code></td>
+          <td><code>password123</code></td>
+          <td>Examines bite, grades rabies risk & auto-refers.</td>
+        </tr>
+        <tr>
+          <td><strong>Nurse (Treatment)</strong></td>
+          <td><code>treatment@clinic.com</code></td>
+          <td><code>password123</code></td>
+          <td>Injects Day 0, records batch & checks return dates.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>STAGE 1: Clinic Administrator (Schedule & Vaccine Setup)</h2>
+    <p class="goal">Goal: Verify clinic opening days and ensure rabies vaccine vials are in stock.</p>
+
+    <div class="task">
+      <div class="task-title">☐ Step 1.1: Sign In as Clinic Admin</div>
+      <ul>
+        <li>Go to <code>http://localhost:5173/login</code></li>
+        <li>Type <code>admin@clinic.com</code> and <code>password123</code>. Click Sign In.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Admin dashboard loads successfully.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 1.2: Verify Clinic Operating Days</div>
+      <ul>
+        <li>In the left sidebar, click <strong>Clinic Setup</strong> &rarr; <strong>Operating Schedule</strong> (or <code>/setup/schedule</code>).</li>
+        <li>Verify <strong>Tuesday to Saturday</strong> are marked <span class="badge-green">OPEN</span>.</li>
+        <li>Verify <strong>Sunday and Monday</strong> are marked <span class="badge-amber">CLOSED</span>.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: The clinic operates Tue-Sat; system will NEVER book follow-ups on Sun/Mon.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 1.3: Check Vaccine Inventory Stock</div>
+      <ul>
+        <li>In the left sidebar, click <strong>Inventory</strong> (<code>/inventory</code>).</li>
+        <li>Verify at least one brand (e.g. <strong>Speeda</strong> or <strong>Verorab</strong>) shows available stock.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Stock badge displays Green or Active vials.</div>
+    </div>
+
+    <h2>STAGE 2: Registration Desk (Patient Arrival & Form 1)</h2>
+    <p class="goal">Goal: Encode a walk-in bite victim and issue their automated queue ticket.</p>
+
+    <div class="task">
+      <div class="task-title">☐ Step 2.1: Sign In as Registration Staff</div>
+      <ul>
+        <li>Go to <code>http://localhost:5173/login</code></li>
+        <li>Type <code>registration@clinic.com</code> and <code>password123</code>. Click Sign In.</li>
+      </ul>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 2.2: Add New Bite Patient</div>
+      <ul>
+        <li>Click <strong>Patients</strong> in the left menu, then click the green <strong>"+ Add Patient"</strong> button.</li>
+        <li>First Name: <code>Juan</code> | Last Name: <code>Dela Cruz</code> | Sex: <code>Male</code></li>
+        <li>Date of Birth: <code>1995-05-15</code> (Verify Age auto-calculates to 31)</li>
+        <li>Mobile Number: <code>09171234567</code> (11 digits) | Emergency Contact: <code>Maria Dela Cruz</code> / <code>09181234567</code></li>
+        <li>Address: Tagoloan, Poblacion, Zone 2</li>
+        <li>Queue Category: <code>Regular</code> (or Senior/Pregnant/PWD) | Priority: <code>Normal</code></li>
+        <li>Click <strong>"Save Patient Record"</strong>.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Green notification: "Patient enrolled successfully". Juan Dela Cruz appears in Patients list.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 2.3: Verify Automatic Queue Ticket</div>
+      <ul>
+        <li>Click <strong>Queue Dashboard</strong> in the sidebar (<code>/queue</code>).</li>
+        <li>Verify Juan Dela Cruz appears on the board with Ticket # (e.g. #1).</li>
+        <li>Type: <strong>New Case</strong> | Status: <strong>Waiting</strong>.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Ticket is actively counting waiting time on the triage queue screen.</div>
+    </div>
+
+    <h2>STAGE 3: Doctor Triage Desk (Examine Wound & Prescribe Form 2)</h2>
+    <p class="goal">Goal: Examine wound, assign exposure Category (I-III), prescribe PEP, and trigger automated handoff.</p>
+
+    <div class="task">
+      <div class="task-title">☐ Step 3.1: Sign In as Doctor & Open Patient</div>
+      <ul>
+        <li>Log in as <code>triage@clinic.com</code> / <code>password123</code>.</li>
+        <li>Go to <strong>Queue Dashboard</strong> (<code>/queue</code>). Find Juan Dela Cruz.</li>
+        <li>Click the green <strong>"View"</strong> button on his row.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Pop-up window opens right over the queue board WITHOUT leaving or reloading the page!</div>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 3.2: Verify Protection Between Desks</div>
+      <ul>
+        <li>Tab 1 (Demographics): Shows Juan's personal details in read-only format.</li>
+        <li>Tab 3 (Nurse Treatment): Displays amber lock: <code>🔒 Awaiting Doctor Triage (Form 2 Required)</code>.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Nurse is blocked from injecting vaccine until physician completes clinical assessment.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 3.3: Fill Form 2 & Save Consultation</div>
+      <ul>
+        <li>Click <strong>Tab 2 (Form 2 Doctor Triage)</strong>.</li>
+        <li>Weight: <code>65 kg</code> | History: <em>Dog bite on right forearm 2 hours ago</em>.</li>
+        <li>Animal: <code>Dog</code> | Animal Status: <code>Alive / Under Observation</code> | Bite Type: <code>Bite</code></li>
+        <li>Exposure Category: <strong>Category III</strong> (Severe bite) | Washed with soap: <code>Yes</code></li>
+        <li>Tetanus Toxoid: <code>Given</code> | Vaccine Regimen: <code>Intradermal (ID) - Option A</code></li>
+        <li>ERIG (Anti-Rabies Serum): <code>Prescribed</code> (Calculates 65 kg x 40 IU = 2600 IU).</li>
+        <li>Click <strong>"Save Consultation" / "Save Record"</strong>.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Green toast: "Consultation record saved successfully. Patient referred to Treatment."</div>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 3.4: Verify Automated Handoff (The Magic!)</div>
+      <ul>
+        <li>Look at Juan's row on the Queue Dashboard.</li>
+        <li>Ticket automatically changed Type: <strong>New Case &rarr; Vaccination</strong>!</li>
+        <li>Status reset to <strong>Waiting</strong> for the nurse.</li>
+        <li>Notes state: <em>"Doctor completed Form 2 — referred to Treatment."</em></li>
+      </ul>
+      <div class="expected">✔ Expected Result: Doctor completed referral with ZERO manual queue transfer clicks!</div>
+    </div>
+
+    <h2>STAGE 4: Nurse Treatment Desk (Day 0 Shot & Option A Calendar)</h2>
+    <p class="goal">Goal: Inject Day 0, deduct stock, complete queue ticket, and verify auto-scheduled return dates.</p>
+
+    <div class="task">
+      <div class="task-title">☐ Step 4.1: Sign In as Nurse & Open Patient Record</div>
+      <ul>
+        <li>Log in as <code>treatment@clinic.com</code> / <code>password123</code>.</li>
+        <li>Go to <strong>Queue Dashboard</strong> (<code>/queue</code>). Locate Juan Dela Cruz under Treatment Queue.</li>
+        <li>Click the green <strong>"View"</strong> button.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: In-place window opens. Tab 2 (Doctor Triage) is locked to prevent tampering.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 4.2: Administer Day 0 Shot</div>
+      <ul>
+        <li>Click <strong>Tab 3 (Nurse Treatment)</strong>. Lock is gone!</li>
+        <li>Dose 0 (Day 0) row has emerald badge: <span class="badge-green">🟢 Ready to Administer</span>.</li>
+        <li>Select Vaccine Brand: <code>Speeda</code> (or active brand) | Pick Batch Number.</li>
+        <li>Route: <code>ID (Intradermal)</code> | Site: <code>Left Deltoid (0.1mL)</code> & <code>Right Deltoid (0.1mL)</code>.</li>
+        <li>ERIG section: Check <code>Administered</code> (if prescribed).</li>
+        <li>Click <strong>"Save Vaccination Record"</strong>.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Dose 0 immediately turns into "✅ Administered" and becomes PERMANENTLY LOCKED.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 4.3: Verify Ticket Completion & Stock Deduction</div>
+      <ul>
+        <li>Check Queue Dashboard: Juan's ticket is marked <strong>"Completed"</strong> and archived.</li>
+        <li>Check Inventory (<code>/inventory</code>): 1 vial of vaccine is subtracted from stock.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Ticket clears off active board and inventory count decrements accurately.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 4.4: Verify Weekend Shift Rule (Option A Resolution)</div>
+      <ul>
+        <li>Go to <strong>Vaccination Schedule</strong> in sidebar (<code>/vaccinations/schedule</code>). Find Juan Dela Cruz.</li>
+        <li>Day 0: Completed (Green dot) | Day 3: Scheduled (+3 days from Day 0).</li>
+        <li><strong>CRITICAL CHECK</strong>: If Day 3 lands on a closed Sun/Mon, verify amber tag: <span class="badge-amber">⚠️ Shifted +1d/+2d — clinic closed on weekend</span> and shifts date to Tuesday!</li>
+        <li>Day 7 (+7d) and Day 28 (+28d) are auto-scheduled.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Zero appointments booked on closed clinic days!</div>
+    </div>
+
+    <h2>STAGE 5: Routine Follow-Up Visit (Day 3 Return)</h2>
+    <p class="goal">Goal: Returning follow-up patient checks in directly at Nurse Desk, and past shots cannot be modified.</p>
+
+    <div class="task">
+      <div class="task-title">☐ Step 5.1: Direct Nurse Station Check-In</div>
+      <ul>
+        <li>Patient arrives on Day 3.</li>
+        <li>Nurse opens <strong>Nurse Desk</strong> (<code>/nurse/patients</code>) &rarr; clicks <strong>"Due Today"</strong> tab.</li>
+        <li>Finds Juan Dela Cruz &rarr; clicks <strong>"Check In"</strong> button and confirms.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Patient gets ticket directly for Treatment Desk. Completely bypasses Registration and Doctor!</div>
+    </div>
+
+    <div class="task">
+      <div class="task-title">☐ Step 5.2: Record Day 3 Shot (Hybrid Immutability)</div>
+      <ul>
+        <li>Click <strong>"Record Dose"</strong> (or open on <code>/queue</code>).</li>
+        <li>Day 0 row is <strong>DISABLED/LOCKED</strong> (brand, batch, date cannot be altered).</li>
+        <li>Day 3 row is <strong>ACTIVE</strong> with <span class="badge-green">🟢 Ready to Administer</span> badge.</li>
+        <li>Future doses (Day 7, 28) show "Pending" without false red stock errors.</li>
+        <li>Brand automatically pre-selects <code>Speeda</code> to match Day 0.</li>
+        <li>Select Day 3 Batch Number, enter Site, and click <strong>"Save Vaccination Record"</strong>.</li>
+      </ul>
+      <div class="expected">✔ Expected Result: Day 3 is saved and locked. Ticket completes automatically. Day 7 is next active dose.</div>
+    </div>
+
+    <h2>STAGE 6: Special Clinical Cases to Test</h2>
+    <div class="task">
+      <div class="task-title">☐ Case 6.1: Priority Patients (Seniors, Pregnant, PWD)</div>
+      <ul>
+        <li>Register patient with Category: Senior Citizen, Pregnant, or PWD.</li>
+        <li>Check on Queue Dashboard: Shows colored badge and ranks ahead of regular tickets.</li>
+      </ul>
+    </div>
+    <div class="task">
+      <div class="task-title">☐ Case 6.2: Patient Does Not Hear Name (Second Chance Queue)</div>
+      <ul>
+        <li>On <code>/queue</code>, click the purple UserBlock icon ("No Response").</li>
+        <li>Ticket moves into Second Chance Queue with 10-minute timer.</li>
+        <li>Click "Recall" to call them again, or "Mark Absent" if they left.</li>
+      </ul>
+    </div>
+    <div class="task">
+      <div class="task-title">☐ Case 6.3: Booster Protocol (Patient Bit Years Later)</div>
+      <ul>
+        <li>Doctor checks "Prior Immunization Verified" and selects "2-Dose Booster".</li>
+        <li>Verify ERIG checkbox is DISABLED with notice: <code>🚫 Contraindicated: Prior immunization verified</code>.</li>
+        <li>Verify Form 3 creates Day 0 and Day 3 ONLY (Days 7 and 28 are omitted).</li>
+        <li>Administer Day 3 &rarr; Episode marks "Regimen Completed".</li>
+      </ul>
+    </div>
+    <div class="task">
+      <div class="task-title">☐ Case 6.4: Dose Given at Another Hospital (Transferred-In)</div>
+      <ul>
+        <li>In Form 3 on Day 0, check "Transferred-In (External Clinic)".</li>
+        <li>Enter hospital name (e.g. Provincial Hospital).</li>
+        <li>Status displays neutral "🏥 External Clinic" badge (NOT red Missing Stock Info error).</li>
+        <li>Saving form does NOT fail or deduct local stock for Day 0.</li>
+      </ul>
+    </div>
+
+    <h2>STAGE 7: Clinical Safety Red Flags (What Must Be Blocked)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th class="red">Clinical Hazard to Block</th>
+          <th class="red">How to Test</th>
+          <th class="red">Expected Protection</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Tampering with Doctor Diagnosis</strong></td>
+          <td>Open Form 2 after Day 0 is injected.</td>
+          <td>All fields locked/read-only. Doctors can only add progress addendums.</td>
+        </tr>
+        <tr>
+          <td><strong>Overwriting Administered Shots</strong></td>
+          <td>Open Form 3 for patient with Day 0 on file.</td>
+          <td>Day 0 brand, batch, date, and nurse initials are completely disabled.</td>
+        </tr>
+        <tr>
+          <td><strong>Booking on Closed Weekend Days</strong></td>
+          <td>Check appointments on <code>/vaccinations/schedule</code>.</td>
+          <td>Zero appointments on Sunday or Monday; shifted forward to Tuesday.</td>
+        </tr>
+        <tr>
+          <td><strong>Giving ERIG to Booster Patient</strong></td>
+          <td>Select 2-Dose Booster regimen in Form 2.</td>
+          <td>ERIG checkbox is disabled and flagged contraindicated.</td>
+        </tr>
+        <tr>
+          <td><strong>Non-Admin Altering Legal Name</strong></td>
+          <td>Open demographic edit modal as Nurse or Clerk.</td>
+          <td>Legal Name and Birthdate are locked with padlock icons (Admin only).</td>
+        </tr>
+        <tr>
+          <td><strong>Losing Queue Screen on View</strong></td>
+          <td>Click "View" on any row in Queue Dashboard.</td>
+          <td>Opens in-place dialog window; stays on <code>/queue</code> URL.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>✍️ Tester Sign-Off Sheet</h2>
+    <p>
+      <strong>Tester Name:</strong> _________________________________________<br>
+      <strong>Date Tested:</strong> _________________________________________<br>
+      <strong>Browser Used:</strong> [ &nbsp; ] Google Chrome &nbsp;&nbsp;&nbsp; [ &nbsp; ] Microsoft Edge &nbsp;&nbsp;&nbsp; [ &nbsp; ] Firefox<br>
+      <strong>Overall Result:</strong> [ &nbsp; ] ALL TESTS PASSED &nbsp;&nbsp;&nbsp; [ &nbsp; ] ISSUES FOUND
+    </p>
+    <ul>
+      <li>☐ Registration created patient and issued sequential queue ticket.</li>
+      <li>☐ Doctor triage saved Form 2 and auto-referred ticket to Treatment Desk.</li>
+      <li>☐ Nurse administered Day 0 and auto-completed queue ticket.</li>
+      <li>☐ Vaccine stock decremented accurately in Inventory.</li>
+      <li>☐ PEP Option A appointments generated without landing on closed days.</li>
+      <li>☐ Returning follow-up patient checked in directly at Nurse Desk.</li>
+      <li>☐ Past administered doses remained completely immutable.</li>
+      <li>☐ Queue patient details opened smoothly in the in-place modal dialog.</li>
+    </ul>
+  </div>
+
+  <script>
+    function copyDocument() {
+      const content = document.getElementById('docs-content');
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(content);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      try {
+        document.execCommand('copy');
+        selection.removeAllRanges();
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = '✔ Copied! Open Google Docs & Press Ctrl+V';
+        btn.style.background = '#047857';
+        setTimeout(() => {
+          btn.textContent = '📋 Copy All to Clipboard';
+          btn.style.background = '#059669';
+        }, 4000);
+      } catch (err) {
+        alert('Please press Ctrl+A then Ctrl+C to copy all content.');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -37,6 +37,7 @@ export default function BiteMapPage() {
   const [loading, setLoading] = useState(true);
   const [datePreset, setDatePreset] = useState<string>('all');
   const [selectedSeverity, setSelectedSeverity] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'pins' | 'heatmap'>('pins');
 
   const computeDateRange = (preset: string): { date_from?: string; date_to?: string } => {
@@ -65,6 +66,7 @@ export default function BiteMapPage() {
       const filters: MapFilters = {
         ...dateRange,
         severity: selectedSeverity !== 'all' ? (selectedSeverity as any) : undefined,
+        status: selectedStatus !== 'all' ? selectedStatus : undefined,
       };
       const mapData = await biteCaseService.getMapData(filters);
       setData(mapData);
@@ -78,7 +80,7 @@ export default function BiteMapPage() {
   useEffect(() => {
     loadMapData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [datePreset, selectedSeverity]);
+  }, [datePreset, selectedSeverity, selectedStatus]);
 
   const todayStr = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -151,7 +153,11 @@ export default function BiteMapPage() {
               <Icon name="activity" size={16} color="var(--primary)" />
             </div>
             <div className="db-kpi-value">{data.statistics.total_cases}</div>
-            <div className="db-kpi-sub">All Categories Logged</div>
+            <div className="db-kpi-sub">
+              {data.statistics.by_status 
+                ? `${data.statistics.by_status.active} Active · ${data.statistics.by_status.completed} Completed` 
+                : 'All Categories Logged'}
+            </div>
           </div>
 
           <div className="db-kpi-card">
@@ -435,6 +441,88 @@ export default function BiteMapPage() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
                   <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
                   <span style={{ fontSize: '13px' }}>Category I (Minor)</span>
+                </Box>
+              </MenuItem>
+            </Select>
+
+            <Select
+              size="small"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              renderValue={(value) => {
+                const statusMap: Record<string, { label: string; dotColor: string }> = {
+                  all: { label: 'All Cases (Active + Done)', dotColor: '#3b82f6' },
+                  active: { label: 'Active PEP Only', dotColor: '#f59e0b' },
+                  completed: { label: 'Completed Only', dotColor: '#10b981' },
+                };
+                const opt = statusMap[String(value)] ?? statusMap.all;
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, overflow: 'hidden' }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: opt.dotColor, flexShrink: 0 }} />
+                    <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {opt.label}
+                    </Box>
+                  </Box>
+                );
+              }}
+              sx={{
+                width: 195,
+                bgcolor: '#ffffff',
+                color: '#6f879d',
+                borderRadius: 2.5,
+                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+                '& .MuiSelect-select': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  py: 1,
+                  pl: 1.5,
+                  pr: 4.5,
+                },
+                '& .MuiSelect-icon': {
+                  color: '#8aa0b3',
+                  fontSize: 18,
+                  right: 10,
+                  top: 'calc(50% - 9px)',
+                },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e9eef3' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee', borderWidth: '1px' },
+              }}
+              MenuProps={{
+                disableScrollLock: true,
+                slotProps: {
+                  paper: {
+                    sx: {
+                      width: 195,
+                      minWidth: 195,
+                      maxWidth: 195,
+                      mt: 0.5,
+                      borderRadius: 2.5,
+                      overflow: 'hidden',
+                    },
+                  },
+                  list: { p: 0.5 },
+                },
+              }}
+            >
+              <MenuItem value="all" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#3b82f6' }} />
+                  <span style={{ fontSize: '13px' }}>All Cases (Active + Done)</span>
+                </Box>
+              </MenuItem>
+              <MenuItem value="active" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b' }} />
+                  <span style={{ fontSize: '13px' }}>Active PEP Only</span>
+                </Box>
+              </MenuItem>
+              <MenuItem value="completed" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
+                  <span style={{ fontSize: '13px' }}>Completed Only</span>
                 </Box>
               </MenuItem>
             </Select>

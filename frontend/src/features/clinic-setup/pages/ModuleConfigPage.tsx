@@ -126,6 +126,28 @@ export default function ModuleConfigPage() {
   const [triageEnabled, setTriageEnabled] = useState(true);
   const [fieldRules, setFieldRules] = useState<Record<string, FieldRuleValue>>({});
 
+  // Section enabled state — maps section title → DB key → state
+  const [sectionEnabled, setSectionEnabled] = useState<Record<string, boolean>>({
+    'Patient Registration':      true,
+    'Address Information':       true,
+    'Socioeconomic Information': true,
+    'Government Programs':       true,
+    'Bite Incident Intake':      true,
+    'Triage & Assessment':       true,
+    'Treatment & Vaccination':   true,
+  });
+
+  // Map section title → DB field name
+  const SECTION_DB_KEY: Record<string, string> = {
+    'Patient Registration':      'patient_registration_enabled',
+    'Address Information':       'address_section_enabled',
+    'Socioeconomic Information': 'socioeconomic_section_enabled',
+    'Government Programs':       'gov_programs_section_enabled',
+    'Bite Incident Intake':      'bite_intake_section_enabled',
+    'Triage & Assessment':       'triage_section_enabled',
+    'Treatment & Vaccination':   'treatment_section_enabled',
+  };
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
@@ -140,6 +162,15 @@ export default function ModuleConfigPage() {
       setConfig(data);
       setTriageEnabled(data.triage_module_enabled);
       setFieldRules(data.field_rules);
+      setSectionEnabled({
+        'Patient Registration':      data.patient_registration_enabled  ?? true,
+        'Address Information':       data.address_section_enabled       ?? true,
+        'Socioeconomic Information': data.socioeconomic_section_enabled ?? true,
+        'Government Programs':       data.gov_programs_section_enabled  ?? true,
+        'Bite Incident Intake':      data.bite_intake_section_enabled   ?? true,
+        'Triage & Assessment':       data.triage_section_enabled        ?? true,
+        'Treatment & Vaccination':   data.treatment_section_enabled     ?? true,
+      });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load module configuration');
     } finally {
@@ -154,7 +185,14 @@ export default function ModuleConfigPage() {
 
     try {
       const updatedConfig = await clinicConfigApi.updateModuleConfig({
-        triage_module_enabled: triageEnabled,
+        triage_module_enabled:         triageEnabled,
+        patient_registration_enabled:  sectionEnabled['Patient Registration'],
+        address_section_enabled:       sectionEnabled['Address Information'],
+        socioeconomic_section_enabled: sectionEnabled['Socioeconomic Information'],
+        gov_programs_section_enabled:  sectionEnabled['Government Programs'],
+        bite_intake_section_enabled:   sectionEnabled['Bite Incident Intake'],
+        triage_section_enabled:        sectionEnabled['Triage & Assessment'],
+        treatment_section_enabled:     sectionEnabled['Treatment & Vaccination'],
         field_rules: fieldRules as any,
       });
 
@@ -396,7 +434,7 @@ export default function ModuleConfigPage() {
                       width: '44px',
                       height: '24px',
                       appearance: 'none',
-                      background: triageEnabled ? 'var(--primary)' : '#cbd5e1',
+                      background: triageEnabled ? '#10b981' : '#cbd5e1',
                       borderRadius: '12px',
                       position: 'relative',
                       cursor: 'pointer',
@@ -492,7 +530,13 @@ export default function ModuleConfigPage() {
               </div>
             </div>
 
-            {/* Sections */}
+            {/* Sections — 2-column responsive grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '1rem',
+              alignItems: 'start',
+            }}>
             {FIELD_SECTIONS.map((section) => {
               const isExpanded = expandedSections.includes(section.title);
               const stats = getSectionStats(section);
@@ -501,10 +545,13 @@ export default function ModuleConfigPage() {
                 <div
                   key={section.title}
                   style={{
-                    marginBottom: '1rem',
                     border: '1px solid #e8ede9',
-                    borderRadius: '10px',
+                    borderRadius: '12px',
                     overflow: 'hidden',
+                    background: '#ffffff',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
                   }}
                 >
                   {/* Section Header */}
@@ -515,54 +562,92 @@ export default function ModuleConfigPage() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '1rem',
+                      padding: '0.875rem 1rem',
                       background: isExpanded ? '#f8fafb' : '#ffffff',
                       border: 'none',
+                      borderBottom: isExpanded ? '1px solid #f0f4f1' : 'none',
                       cursor: 'pointer',
                       transition: 'background 0.2s',
+                      minHeight: '72px',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-                      <Icon name={section.icon as any} size={18} color="var(--primary)" />
-                      <div style={{ textAlign: 'left' }}>
-                        <div
-                          style={{
-                            fontSize: '0.875rem',
-                            fontWeight: 600,
-                            color: '#1e293b',
-                            marginBottom: '0.15rem',
-                          }}
-                        >
+                    {/* Left: icon + title + description */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flex: 1, minWidth: 0, textAlign: 'left' }}>
+                      <div style={{ flexShrink: 0 }}>
+                        <Icon name={section.icon as any} size={16} color={sectionEnabled[section.title] !== false ? 'var(--primary)' : '#cbd5e1'} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: sectionEnabled[section.title] !== false ? '#1e293b' : '#94a3b8', lineHeight: '1.3', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {section.title}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>
+                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 400, marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {section.description}
                         </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', marginRight: '0.5rem' }}>
+
+                    {/* Right: toggle + label + stats + chevron */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, marginLeft: '0.75rem' }}>
+                      {/* Toggle */}
+                      <div
+                        onClick={e => e.stopPropagation()}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}
+                      >
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type="checkbox"
+                            checked={sectionEnabled[section.title] !== false}
+                            onChange={e => setSectionEnabled(prev => ({ ...prev, [section.title]: e.target.checked }))}
+                            style={{
+                              width: '38px',
+                              height: '22px',
+                              appearance: 'none',
+                              background: sectionEnabled[section.title] !== false ? '#10b981' : '#cbd5e1',
+                              borderRadius: '11px',
+                              cursor: 'pointer',
+                              transition: 'background 0.2s',
+                              outline: 'none',
+                            }}
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            top: '2px',
+                            left: sectionEnabled[section.title] !== false ? '18px' : '2px',
+                            width: '18px',
+                            height: '18px',
+                            background: '#ffffff',
+                            borderRadius: '50%',
+                            transition: 'left 0.2s',
+                            pointerEvents: 'none',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                          }} />
+                        </div>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: sectionEnabled[section.title] !== false ? '#10b981' : '#94a3b8',
+                          userSelect: 'none',
+                          minWidth: '46px',
+                        }}>
+                          {sectionEnabled[section.title] !== false ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+
+                      {/* Stats */}
+                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', borderLeft: '1px solid #e8ede9', paddingLeft: '0.5rem' }}>
                         {stats.required}R · {stats.optional}O · {stats.hidden}H
                       </div>
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#64748b"
-                        strokeWidth="2"
-                        style={{
-                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                          transition: 'transform 0.2s',
-                        }}
-                      >
+
+                      {/* Chevron */}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5"
+                        style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
                         <polyline points="6 9 12 15 18 9" />
                       </svg>
                     </div>
                   </button>
 
-                  {/* Section Fields */}
-                  {isExpanded && (
+                  {/* Section Fields — hidden when section is disabled */}
+                  {isExpanded && sectionEnabled[section.title] !== false && (
                     <div style={{ padding: '0 1rem 1rem 1rem' }}>
                       {section.fields.map((field) => (
                         <div
@@ -621,9 +706,31 @@ export default function ModuleConfigPage() {
                       ))}
                     </div>
                   )}
+
+                  {/* Disabled notice — shown when section is disabled but header is expanded */}
+                  {isExpanded && sectionEnabled[section.title] === false && (
+                    <div style={{
+                      margin: '0 1rem 1rem',
+                      padding: '0.75rem 1rem',
+                      background: '#f8fafc',
+                      border: '1px dashed #cbd5e1',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      color: '#94a3b8',
+                      fontSize: '0.8125rem',
+                    }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                      </svg>
+                      This section is <strong style={{ color: '#64748b', marginLeft: 4 }}>Disabled</strong>. Toggle it on to configure its fields.
+                    </div>
+                  )}
                 </div>
               );
             })}
+            </div>
           </div>
 
           {/* Action Buttons */}

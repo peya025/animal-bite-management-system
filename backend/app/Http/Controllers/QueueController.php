@@ -128,92 +128,91 @@ class QueueController extends Controller
             $date     = $request->get('date', Carbon::today()->toDateString());
             $cacheKey = "web:queue:clinic:{$clinicId}:date:{$date}";
 
-            return response()->json(
-                Cache::remember($cacheKey, 30, function () use ($clinicId, $date) {
+            $stationParam = $request->get('station');
+            if (!$stationParam) {
+                $userRole = $request->user()?->role;
+                if ($userRole === 'triage') $stationParam = 'triage';
+                elseif ($userRole === 'treatment') $stationParam = 'treatment';
+            }
 
-                    $baseQuery = Queue::where('clinic_id', $clinicId)
-                        ->whereNull('deleted_at')
-                        ->with([
-                            'patient:' . $this->patientFields(),
-                            'biteIncident:bite_id,case_number,patient_id',
-                        ])
-                        ->select(
-                            'queue_id','queue_number','queue_category','patient_id','bite_id',
-                            'visit_type','priority','status','checked_in_at','called_at',
-                            'completed_at','cancelled_at','serving_at','second_chance_at',
-                            'final_recall_at','absent_at','no_response_at',
-                            'checked_in_by','handled_by','check_in_notes','consultation_notes',
-                            'call_count','recall_stage','clinic_id','queue_date'
-                        );
+            $data = Cache::remember($cacheKey, 30, function () use ($clinicId, $date) {
 
-                    // Auto-expire stale unserved tickets from previous days (both main and second-chance)
-                    $this->expireStaleTickets($clinicId, $date);
+                $baseQuery = Queue::where('clinic_id', $clinicId)
+                    ->whereNull('deleted_at')
+                    ->with([
+                        'patient:' . $this->patientFields(),
+                        'biteIncident:bite_id,case_number,patient_id',
+                    ])
+                    ->select(
+                        'queue_id','queue_number','queue_category','patient_id','bite_id',
+                        'visit_type','priority','status','checked_in_at','called_at',
+                        'completed_at','cancelled_at','serving_at','second_chance_at',
+                        'final_recall_at','absent_at','no_response_at',
+                        'checked_in_by','handled_by','check_in_notes','consultation_notes',
+                        'call_count','recall_stage','clinic_id','queue_date'
+                    );
 
-                    // Main queue: strictly today's tickets
-                    $mainQueue = (clone $baseQuery)
-                        ->where('queue_date', $date)
-                        ->orderBy('queue_number', 'asc')
-                        ->get();
+                // Auto-expire stale unserved tickets from previous days (both main and second-chance)
+                $this->expireStaleTickets($clinicId, $date);
 
-                    // Second chance queue: strictly for the requested date
-                    $secondQueue = (clone $baseQuery)
-                        ->where('queue_date', $date)
-                        ->whereIn('status', self::SECOND_STATUSES)
-                        ->orderBy('no_response_at', 'asc')
-                        ->get();
+                // Main queue: strictly today's tickets
+                $mainQueue = (clone $baseQuery)
+                    ->where('queue_date', $date)
+                    ->orderBy('queue_number', 'asc')
+                    ->get();
 
-                    // Carry-over flags
-                    foreach ($mainQueue as $entry) {
-                        $entry->is_carry_over = $entry->queue_date &&
-                            $entry->queue_date->toDateString() < $date &&
-                            in_array($entry->status, self::MAIN_STATUSES);
-                    }
-                    foreach ($secondQueue as $entry) {
-                        $entry->is_carry_over = false;
-                    }
+                // Second chance queue: strictly for the requested date
+                $secondQueue = (clone $baseQuery)
+                    ->where('queue_date', $date)
+                    ->whereIn('status', self::SECOND_STATUSES)
+                    ->orderBy('no_response_at', 'asc')
+                    ->get();
 
-                    // Stats
-                    $counts = array_fill_keys([
-                        'waiting','called','in_consultation','serving',
-                        'completed','cancelled','no_response',
-                        'second_chance','final_recall','absent',
-                    ], 0);
-                    $visitTypeCounts     = [];
-                    $categoryTypeCounts  = [];
-                    $nextPatient         = null;
+                // Carry-over flags
+                foreach ($mainQueue as $entry) {
+                    $entry->is_carry_over = $entry->queue_date &&
+                        $entry->queue_date->toDateString() < $date &&
+                        in_array($entry->status, self::MAIN_STATUSES);
+                }
+                foreach ($secondQueue as $entry) {
+                    $entry->is_carry_over = false;
+                }
 
-                    foreach ($mainQueue as $entry) {
-                        if (isset($counts[$entry->status])) $counts[$entry->status]++;
-                        $visitTypeCounts[$entry->visit_type]         = ($visitTypeCounts[$entry->visit_type]         ?? 0) + 1;
-                        $categoryTypeCounts[$entry->queue_category]  = ($categoryTypeCounts[$entry->queue_category]  ?? 0) + 1;
-                    }
-                    foreach ($secondQueue as $entry) {
-                        if (isset($counts[$entry->status])) $counts[$entry->status]++;
-                    }
+                // Stats
+                $counts = array_fill_keys([
+                    'waiting','called','in_consultation','serving',
+                    'completed','cancelled','no_response',
+                    'second_chance','final_recall','absent',
+                ], 0);
+                $visitTypeCounts     = [];
+                $categoryTypeCounts  = [];
 
-                    // Priority-aware next patient (supports optional station scoping)
-                    $stationParam = $request->get('station');
-                    if (!$stationParam) {
-                        $userRole = $request->user()?->role;
-                        if ($userRole === 'triage') $stationParam = 'triage';
-                        elseif ($userRole === 'treatment') $stationParam = 'treatment';
-                    }
-                    $nextPatient = $this->getNextEligible($clinicId, $date, $stationParam);
+                foreach ($mainQueue as $entry) {
+                    if (isset($counts[$entry->status])) $counts[$entry->status]++;
+                    $visitTypeCounts[$entry->visit_type]         = ($visitTypeCounts[$entry->visit_type]         ?? 0) + 1;
+                    $categoryTypeCounts[$entry->queue_category]  = ($categoryTypeCounts[$entry->queue_category]  ?? 0) + 1;
+                }
+                foreach ($secondQueue as $entry) {
+                    if (isset($counts[$entry->status])) $counts[$entry->status]++;
+                }
 
-                    return [
-                        'date'                => $date,
-                        'queue'               => $mainQueue,
-                        'second_chance_queue' => $secondQueue,
-                        'next_patient'        => $nextPatient,
-                        'stats'               => array_merge($counts, [
-                            'date'            => $date,
-                            'total'           => $mainQueue->count() + $secondQueue->count(),
-                            'by_visit_type'   => $visitTypeCounts,
-                            'by_category'     => $categoryTypeCounts,
-                        ]),
-                    ];
-                })
-            );
+                return [
+                    'date'                => $date,
+                    'queue'               => $mainQueue,
+                    'second_chance_queue' => $secondQueue,
+                    'stats'               => array_merge($counts, [
+                        'date'            => $date,
+                        'total'           => $mainQueue->count() + $secondQueue->count(),
+                        'by_visit_type'   => $visitTypeCounts,
+                        'by_category'     => $categoryTypeCounts,
+                    ]),
+                ];
+            });
+
+            // Priority-aware next patient (computed per station/user role dynamically)
+            $data['next_patient'] = $this->getNextEligible($clinicId, $date, $stationParam);
+
+            return response()->json($data);
         } catch (\Exception $e) {
             \Log::error('Queue index error: ' . $e->getMessage());
             return response()->json([

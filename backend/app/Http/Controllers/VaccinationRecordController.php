@@ -59,7 +59,14 @@ class VaccinationRecordController extends Controller
             // For active dose form: if returning years later and no doses recorded yet for this new episode,
             // active records should be empty so Day 0 is fresh and editable!
             if ($activeIncident) {
-                $activeRecords = $allRecords->where('bite_id', $activeIncident->bite_id)->values();
+                $activeRecords = $allRecords->filter(function ($r) use ($activeIncident) {
+                    if ($r->bite_id === $activeIncident->bite_id) return true;
+                    // Preserve legacy records where bite_id is null on primary episode
+                    if (is_null($r->bite_id) && ((int) ($activeIncident->episode_number ?? 1) === 1)) {
+                        return true;
+                    }
+                    return false;
+                })->values();
             } elseif ($isReturningYearsLater) {
                 $activeRecords = collect([]);
             } else {
@@ -527,22 +534,6 @@ class VaccinationRecordController extends Controller
                 }
 
                 if ($todayQueue) {
-<<<<<<< HEAD
-                $completionNotes = 'Vaccination administered (Form 3 completed by Nurse) — Visit Completed.';
-                
-                \App\Models\QueueHistory::create([
-                    'queue_id'     => $todayQueue->queue_id,
-                    'clinic_id'    => $todayQueue->clinic_id,
-                    'patient_id'   => $todayQueue->patient_id,
-                    'action'       => 'completed',
-                    'from_status'  => $todayQueue->status,
-                    'to_status'    => 'completed',
-                    'call_count'   => $todayQueue->call_count ?? 0,
-                    'performed_by' => $userId,
-                    'notes'        => $completionNotes,
-                    'occurred_at'  => now(),
-                ]);
-=======
                     $completionNotes = 'Vaccination administered (Form 3 completed by Nurse) — Visit Completed.';
                     
                     \App\Models\QueueHistory::create([
@@ -557,7 +548,6 @@ class VaccinationRecordController extends Controller
                         'notes'        => $completionNotes,
                         'occurred_at'  => now(),
                     ]);
->>>>>>> 58be4ddd09e2324b8618fb6a3560fa38e3f026c0
 
                     $todayQueue->update([
                         'status'             => 'completed',
@@ -570,11 +560,7 @@ class VaccinationRecordController extends Controller
 
                     Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
                 } // end: if ($todayQueue)
-<<<<<<< HEAD
-            } // end: if any doses saved
-=======
             } // end: if doses were saved
->>>>>>> 58be4ddd09e2324b8618fb6a3560fa38e3f026c0
 
             // ──────────────────────────────────────────────────────────────
             // ✨ RESET ANY FUTURE DOSE ROWS INCORRECTLY MARKED COMPLETED

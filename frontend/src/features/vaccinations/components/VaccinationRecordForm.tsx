@@ -1396,8 +1396,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 const isCompleted = Boolean(dose.is_completed || isLinked);
                 const isLocked = readOnly || isCompleted;
                 const hasFifoError = Boolean(fifoErrors[dose.period]);
-                const isActivelyRecording = !isCompleted && Boolean(dose.given_by || dose.signature || dose.vaccine_type);
-                const showRequiredWarning = isActivelyRecording && !dose.vaccine_type;
+                const isActivelyRecording = !isCompleted && Boolean(dose.given_by || dose.signature || dose.vaccine_type || dose.is_external);
+                const showRequiredWarning = isActivelyRecording && !dose.is_external && !dose.vaccine_type;
 
                 const candidateList = currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
                   ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
@@ -1748,7 +1748,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, backgroundColor: '#dcfce7', color: '#15803d', fontSize: 10, fontWeight: 700 }}>
                           ✓ Administered
                         </span>
-                      ) : isFilled ? (
+                      ) : (isActiveFollowUp || isActivelyRecording) ? (
                         dose.vaccine_type && dose.batch_number ? (
                           dose.is_open_vial ? (
                             <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: '#cffafe', color: '#0891b2', fontSize: 10, fontWeight: 700 }}>

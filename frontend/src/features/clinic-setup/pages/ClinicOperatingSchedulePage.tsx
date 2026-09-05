@@ -22,7 +22,6 @@ import {
   DialogActions,
   Snackbar,
   Alert,
-  Divider,
   Grid,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -104,6 +103,12 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
     message: '',
     severity: 'success',
   });
+
+  const [successModal, setSuccessModal] = useState<{
+    open?: boolean;
+    title: string;
+    message: string;
+  } | null>(null);
 
   // Modal State for Exception Add/Edit
   const [modalOpen, setModalOpen] = useState(false);
@@ -446,7 +451,6 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {schedules.map((item) => {
                 const dayName = DAY_NAMES[item.day_of_week] || `Day ${item.day_of_week}`;
-                const isWeekend = item.day_of_week === 0 || item.day_of_week === 6;
 
                 return (
                   <Paper
@@ -745,7 +749,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                     Emergency Referral Facility Details
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <TextField
                         fullWidth
                         size="small"
@@ -755,7 +759,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                         placeholder="e.g. Northern Mindanao Medical Center ABTC"
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <TextField
                         fullWidth
                         size="small"
@@ -765,7 +769,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                         placeholder="e.g. (088) 856-4147 / 911"
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                       <TextField
                         fullWidth
                         size="small"
@@ -775,7 +779,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                         placeholder="e.g. Capitol Compound, Cagayan de Oro City"
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                       <TextField
                         fullWidth
                         multiline
@@ -822,7 +826,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
           <TextField
             type="date"
             label="Override Date"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             fullWidth
             size="small"
             value={exceptionForm.exception_date}

@@ -95,36 +95,99 @@ function createCustomIcon(severity: string) {
   });
 }
 
-// Custom cluster icon
+// Custom cluster icon with multi-category segmented donut ring & breakdown tooltip
 const createClusterCustomIcon = (cluster: any) => {
   const count = cluster.getChildCount();
-  let color = '#10b981'; // green
-  
-  if (count > 20) {
-    color = '#ef4444'; // red
-  } else if (count > 10) {
-    color = '#f59e0b'; // orange
+  const markers = cluster.getAllChildMarkers();
+
+  let cat3 = 0; // severe (Category III - red)
+  let cat2 = 0; // moderate (Category II - orange)
+  let cat1 = 0; // minor (Category I - green)
+
+  markers.forEach((m: any) => {
+    const sev = m._caseData?.severity || m.options?.title;
+    if (sev === 'severe') cat3++;
+    else if (sev === 'moderate') cat2++;
+    else if (sev === 'minor') cat1++;
+    else cat2++;
+  });
+
+  const total = cat3 + cat2 + cat1 || count || 1;
+  const p3 = (cat3 / total) * 100;
+  const p2 = (cat2 / total) * 100;
+
+  // Build conic-gradient CSS based on actual category proportions in this cluster
+  let ringBackground = '';
+  if (cat3 > 0 && cat2 === 0 && cat1 === 0) {
+    ringBackground = '#ef4444'; // 100% Category III
+  } else if (cat2 > 0 && cat3 === 0 && cat1 === 0) {
+    ringBackground = '#f59e0b'; // 100% Category II
+  } else if (cat1 > 0 && cat3 === 0 && cat2 === 0) {
+    ringBackground = '#10b981'; // 100% Category I
+  } else {
+    // Multi-category segmented gradient ring
+    const stops: string[] = [];
+    let current = 0;
+    if (cat3 > 0) {
+      const next = current + p3;
+      stops.push(`#ef4444 ${current.toFixed(1)}% ${next.toFixed(1)}%`);
+      current = next;
+    }
+    if (cat2 > 0) {
+      const next = current + p2;
+      stops.push(`#f59e0b ${current.toFixed(1)}% ${next.toFixed(1)}%`);
+      current = next;
+    }
+    if (cat1 > 0) {
+      stops.push(`#10b981 ${current.toFixed(1)}% 100%`);
+    }
+    ringBackground = `conic-gradient(${stops.join(', ')})`;
   }
-  
+
+  // Pre-calculate hover breakdown tooltip (visible before zooming in)
+  const breakdown: string[] = [];
+  if (cat3 > 0) breakdown.push(`• ${cat3} Category III (Severe)`);
+  if (cat2 > 0) breakdown.push(`• ${cat2} Category II (Moderate)`);
+  if (cat1 > 0) breakdown.push(`• ${cat1} Category I (Minor)`);
+  const tooltipText = `Area Cluster (${count} Cases):\n${breakdown.join('\n')}\nClick to zoom in`;
+
   return divIcon({
     html: `
-      <div style="
-        background-color: ${color};
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-        border: 3px solid white;
-        box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-      ">${count}</div>
+      <div 
+        title="${tooltipText}"
+        style="
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          background: ${ringBackground};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+          cursor: pointer;
+          transition: transform 0.15s ease;
+        "
+        onmouseover="this.style.transform='scale(1.1)'"
+        onmouseout="this.style.transform='scale(1)'"
+      >
+        <div style="
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #0f172a;
+          font-weight: 800;
+          font-size: 13px;
+          box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+        ">${count}</div>
+      </div>
     `,
     className: 'custom-cluster-icon',
-    iconSize: point(40, 40, true),
+    iconSize: point(42, 42, true),
+    iconAnchor: [21, 21],
   });
 };
 
@@ -219,7 +282,11 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                 key={caseData.bite_id}
                 position={[caseData.latitude, caseData.longitude]}
                 icon={createCustomIcon(caseData.severity)}
+                title={caseData.severity}
                 eventHandlers={{
+                  add: (e) => {
+                    (e.target as any)._caseData = caseData;
+                  },
                   click: () => onMarkerClick?.(caseData),
                 }}
               >

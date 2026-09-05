@@ -13,7 +13,6 @@ import {
   Snackbar,
   TextField,
   Typography,
-  Switch,
 } from '@mui/material';
 import Loader from '../../../components/Loader';
 import {
@@ -24,13 +23,12 @@ import {
   LocationOn as LocationOnIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
-  AccessTime as AccessTimeIcon,
   Settings as SettingsIcon,
   Edit as EditIcon,
   Place as PlaceIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
-import { DAYS, DAY_LABELS } from '../components/WorkingHoursModal/WorkingHoursModal';
+import { DAYS } from '../components/WorkingHoursModal/WorkingHoursModal';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 
 
@@ -55,27 +53,6 @@ const cleanFieldSx = {
     padding: '10px 14px',
     fontSize: '14px',
     color: '#374151',
-  },
-};
-
-const timeFieldSx = {
-  '& .MuiOutlinedInput-root': {
-    bgcolor: '#fff',
-    fontSize: '13px',
-    '& fieldset': {
-      borderColor: '#d7e3da',
-    },
-    '&:hover fieldset': {
-      borderColor: '#9fc5ad',
-    },
-    '&.Mui-focused fieldset': {
-      borderColor: '#277a4b',
-      borderWidth: '1.5px',
-    },
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: '8px 10px',
-    fontSize: '13px',
   },
 };
 
@@ -449,8 +426,8 @@ export default function ClinicInformation() {
         </Box>
       </Box>
 
-      {/* Two Column Layout */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 3 }}>
+      {/* Full-width layout */}
+      <Box>
         {/* Left Column - Clinic Information */}
         <Paper
           elevation={0}
@@ -462,11 +439,11 @@ export default function ClinicInformation() {
           }}
         >
           <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            I. CLINIC INFORMATION
+            CLINIC INFORMATION
           </Typography>
           <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
             {/* Clinic Name */}
             <Box>
               <FieldLabel required>Clinic Name</FieldLabel>
@@ -511,8 +488,8 @@ export default function ClinicInformation() {
               />
             </Box>
 
-            {/* Address */}
-            <Box>
+            {/* Address — full width */}
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
                 <FieldLabel>Clinic Address</FieldLabel>
                 <Button
@@ -668,103 +645,6 @@ export default function ClinicInformation() {
                 }}
               />
             </Box>
-          </Box>
-        </Paper>
-
-        {/* Right Column - Working Hours */}
-        <Paper
-          elevation={0}
-          sx={{
-            border: '1px solid #e0eae3',
-            borderRadius: 2,
-            p: 3,
-            bgcolor: '#fff',
-          }}
-        >
-          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            II. WORKING HOURS
-          </Typography>
-          <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {DAYS.map(day => {
-              const hours = clinic.opening_hours[day];
-              const isOpen = hours?.is_open;
-              return (
-                <Box 
-                  key={day}
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: '140px 1fr',
-                    gap: 2,
-                    alignItems: 'center',
-                    pb: 2,
-                    borderBottom: day !== 'saturday' ? '1px solid #f3f4f6' : 'none',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Switch
-                      size="small"
-                      checked={isOpen}
-                      onChange={(e) => handleHoursChange(day, 'is_open', e.target.checked)}
-                      sx={{
-                        '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#10b981',
-                        },
-                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#10b981',
-                        },
-                      }}
-                    />
-                    <Typography sx={{ fontSize: '14px', fontWeight: 500, color: isOpen ? '#374151' : '#9ca3af' }}>
-                      {DAY_LABELS[day]}
-                    </Typography>
-                  </Box>
-
-                  {isOpen ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TextField
-                        type="time"
-                        size="small"
-                        value={hours.open}
-                        onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
-                        sx={{ ...timeFieldSx, flex: 1 }}
-                        slotProps={{
-                          input: {
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <AccessTimeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                              </InputAdornment>
-                            ),
-                          },
-                        }}
-                      />
-                      <Typography sx={{ fontSize: '13px', color: '#9ca3af', fontWeight: 500 }}>to</Typography>
-                      <TextField
-                        type="time"
-                        size="small"
-                        value={hours.close}
-                        onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
-                        sx={{ ...timeFieldSx, flex: 1 }}
-                        slotProps={{
-                          input: {
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <AccessTimeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                              </InputAdornment>
-                            ),
-                          },
-                        }}
-                      />
-                    </Box>
-                  ) : (
-                    <Typography sx={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic' }}>
-                      Closed
-                    </Typography>
-                  )}
-                </Box>
-              );
-            })}
           </Box>
         </Paper>
       </Box>

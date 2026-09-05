@@ -24,7 +24,6 @@ import {
   Calendar03Icon,
   AlertCircleIcon,
   UserMultiple02Icon,
-  CheckmarkCircle02Icon,
   Medicine01Icon,
   Search01Icon,
   RefreshIcon,
@@ -50,6 +49,7 @@ interface Patient {
   address?: string;
   emergency_contact?: string;
   membership_type?: string;
+  registration_source?: string;
   created_at: string;
   status: string;
   appointments?: any[];
@@ -198,12 +198,12 @@ export default function NursePatientListPage() {
 
   const getNextAppointment = (patient: Patient) => {
     if (!patient.appointments || patient.appointments.length === 0) return null;
-    const scheduledAppts = patient.appointments.filter((a: any) => a.status === 'scheduled');
+    const scheduledAppts = patient.appointments.filter((a: any) => a.status === 'scheduled' || a.status === 'missed');
     if (scheduledAppts.length === 0) return null;
-    // Prefer the soonest upcoming scheduled appointment (e.g. today or future)
+    // Prefer the soonest scheduled appointment (e.g. earliest scheduled_date or appointment_date)
     scheduledAppts.sort((a: any, b: any) => {
-      const dateA = new Date(a.appointment_date || a.scheduled_date || 0).getTime();
-      const dateB = new Date(b.appointment_date || b.scheduled_date || 0).getTime();
+      const dateA = new Date(a.scheduled_date || a.appointment_date || 0).getTime();
+      const dateB = new Date(b.scheduled_date || b.appointment_date || 0).getTime();
       return dateA - dateB;
     });
     return scheduledAppts[0];
@@ -213,7 +213,7 @@ export default function NursePatientListPage() {
     const activeQueue = (patient as any).queues?.[0];
     const appt = getNextAppointment(patient);
     if (activeQueue) {
-      const apptDate = appt ? new Date(appt.appointment_date || appt.scheduled_date) : null;
+      const apptDate = appt ? new Date(appt.scheduled_date || appt.appointment_date) : null;
       const todayDate = new Date();
       const isPastAppt = apptDate && apptDate < todayDate && apptDate.toDateString() !== todayDate.toDateString();
       const lateDays = isPastAppt ? Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
@@ -245,7 +245,7 @@ export default function NursePatientListPage() {
 
     if (!record || record.dose_number === null || record.dose_number === undefined) {
       if (appt) {
-        const apptDate = new Date(appt.appointment_date || appt.scheduled_date);
+        const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
         const today = new Date();
         if (apptDate < today && apptDate.toDateString() !== today.toDateString()) {
           return { label: 'Missed Booking', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' };
@@ -259,7 +259,7 @@ export default function NursePatientListPage() {
     }
 
     if (appt) {
-      const apptDate = new Date(appt.appointment_date);
+      const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
       const today = new Date();
       if (apptDate < today && apptDate.toDateString() !== today.toDateString()) {
         return { label: 'Overdue', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' };
@@ -454,7 +454,7 @@ export default function NursePatientListPage() {
       align: 'center',
       render: (patient) => {
         const activeQueue = (patient as any).queues?.[0];
-        const appt = (patient as any).appointments?.[0];
+        const appt = getNextAppointment(patient);
         const hasCompletedTriage = Boolean(
           patient.latest_treatment_record ||
           (patient as any).latest_consultation_record ||
@@ -462,7 +462,7 @@ export default function NursePatientListPage() {
           activeQueue?.visit_type === 'vaccination' ||
           activeQueue?.consultation_notes?.includes('Form 2')
         );
-        const canCheckIn = hasCompletedTriage && !activeQueue && appt?.status === 'scheduled';
+        const canCheckIn = hasCompletedTriage && !activeQueue && (appt?.status === 'scheduled' || appt?.status === 'missed');
 
         return (
           <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>

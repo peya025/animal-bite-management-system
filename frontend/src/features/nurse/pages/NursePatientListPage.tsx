@@ -220,8 +220,10 @@ export default function NursePatientListPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             fullWidth
-            InputProps={{
-              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#9ca3af', fontSize: 18 }} /></InputAdornment>,
+            slotProps={{
+              input: {
+                startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#9ca3af', fontSize: 18 }} /></InputAdornment>,
+              },
             }}
             sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
           />

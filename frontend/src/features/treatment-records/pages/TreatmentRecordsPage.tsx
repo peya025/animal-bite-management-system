@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { formatPhilHealthNumber } from '../../../shared/utils';
+import { ConfirmationDialog } from '../../../components/feedback';
 
 // ─── Types ────────────────────────────────────────────────────
 interface VaccinationRow {
@@ -434,6 +435,7 @@ export default function TreatmentRecordsPage() {
   const [search, setSearch] = useState('');
   const [showDeleteId, setShowDeleteId] = useState<string | null>(null);
   const [patientCopyRec, setPatientCopyRec] = useState<TreatmentRecord | null>(null);
+  const [successModal, setSuccessModal] = useState<{ isOpen: boolean; title: string; message: string } | null>(null);
 
   // Persist to localStorage whenever records change
   const saveRecords = (updated: TreatmentRecord[]) => {
@@ -459,6 +461,7 @@ export default function TreatmentRecordsPage() {
       alert('PhilHealth PIN must be exactly 12 digits.');
       return;
     }
+    const isEdit = Boolean(editRecord);
     if (editRecord) {
       saveRecords(records.map(r => r.id === editRecord.id ? { ...formData, id: editRecord.id, createdAt: editRecord.createdAt } : r));
     } else {
@@ -470,11 +473,26 @@ export default function TreatmentRecordsPage() {
       saveRecords([newRec, ...records]);
     }
     setShowModal(false);
+    setSuccessModal({
+      isOpen: true,
+      title: isEdit ? 'Treatment Record Updated' : 'Treatment Record Created',
+      message: isEdit
+        ? `Treatment record for "${formData.patientName}" has been successfully updated.`
+        : `New treatment record for "${formData.patientName}" has been successfully saved.`
+    });
   };
 
   const handleDelete = (id: string) => {
+    const targetRec = records.find(r => r.id === id);
     saveRecords(records.filter(r => r.id !== id));
     setShowDeleteId(null);
+    setSuccessModal({
+      isOpen: true,
+      title: 'Treatment Record Deleted',
+      message: targetRec
+        ? `Treatment record for "${targetRec.patientName}" has been removed.`
+        : 'Treatment record has been successfully deleted.'
+    });
   };
 
   const filtered = records.filter(r =>
@@ -690,19 +708,31 @@ export default function TreatmentRecordsPage() {
         </div>
       )}
 
-      {/* Delete confirm */}
+      {/* Delete confirmation dialog */}
       {showDeleteId && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
-          onClick={()=>setShowDeleteId(null)}>
-          <div style={{ background:'#fff', borderRadius:12, padding:'28px 32px', maxWidth:400, width:'100%', margin:20, boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }} onClick={e=>e.stopPropagation()}>
-            <h3 style={{ margin:'0 0 10px', color:'#111827' }}>Delete this record?</h3>
-            <p style={{ fontSize:13, color:'#6b7280', margin:'0 0 20px' }}>This action cannot be undone.</p>
-            <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
-              <button onClick={()=>setShowDeleteId(null)} style={{ padding:'8px 18px', borderRadius:8, border:'1px solid #d1d5db', background:'#fff', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:600 }}>Cancel</button>
-              <button onClick={()=>handleDelete(showDeleteId)} style={{ ...btn('#ef4444'), padding:'8px 18px' }}>Delete</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmationDialog
+          title="Delete Treatment Record"
+          message="Are you sure you want to delete this treatment record? This action cannot be undone."
+          confirmLabel="Delete Record"
+          cancelLabel="Cancel"
+          variant="danger"
+          onConfirm={() => showDeleteId && handleDelete(showDeleteId)}
+          onCancel={() => setShowDeleteId(null)}
+        />
+      )}
+
+      {/* Success Modal */}
+      {successModal?.isOpen && (
+        <ConfirmationDialog
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="Done"
+          hideCancel
+          variant="success"
+          autoClose={3500}
+          onConfirm={() => setSuccessModal(null)}
+          onClose={() => setSuccessModal(null)}
+        />
       )}
     </div>
   );

@@ -13,6 +13,7 @@ import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import PatientDetailsModal from '../components/PatientDetailsModal';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import api from '../../../shared/services/api';
 
 interface Patient {
@@ -39,10 +40,12 @@ export default function DoctorPatientListPage() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showForm2, setShowForm2] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
+
   const toast = (message: string, severity: 'success' | 'error' = 'success') =>
     setSnackbar({ open: true, message, severity });
 
@@ -421,7 +424,11 @@ export default function DoctorPatientListPage() {
             setSelectedPatient(null);
           }}
           onSave={() => {
-            toast('Treatment record saved successfully');
+            setSuccessModal({
+              open: true,
+              title: 'Treatment Record Saved',
+              message: 'General treatment consultation record has been saved successfully.',
+            });
             loadPatients();
             setShowForm2(false);
             setSelectedPatient(null);
@@ -444,6 +451,18 @@ export default function DoctorPatientListPage() {
         />
       )}
 
+      {/* Success Modal */}
+      {successModal && (
+        <ConfirmationDialog
+          variant="success"
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setSuccessModal(null)}
+        />
+      )}
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
@@ -457,3 +476,4 @@ export default function DoctorPatientListPage() {
     </Box>
   );
 }
+

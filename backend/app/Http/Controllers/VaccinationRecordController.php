@@ -621,6 +621,19 @@ class VaccinationRecordController extends Controller
                     ]);
             }
 
+            // Task 3.2: Transition BiteIncident to 'completed' if regimen finished
+            if ($biteId) {
+                $incident = BiteIncident::find($biteId);
+                if ($incident && $incident->status !== 'completed') {
+                    $isBooster = $incident->isReExposure() || $request->episode_type === 're_exposure';
+                    if ($isBooster && in_array(3, $savedDoseNumbers)) {
+                        $incident->update(['status' => 'completed']);
+                    } elseif (!$isBooster && in_array(28, $savedDoseNumbers)) {
+                        $incident->update(['status' => 'completed']);
+                    }
+                }
+            }
+
             Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
 
             DB::commit();
@@ -825,7 +838,7 @@ class VaccinationRecordController extends Controller
 
             $idealDate = $formSpecifiedDate ?: $calculatedIdeal;
             $resolution = $scheduleService->resolveScheduleDate($clinicId, $idealDate, $doseNum);
-            $resolvedDate = $formSpecifiedDate ?: $resolution['scheduled_date'];
+            $resolvedDate = $resolution['scheduled_date'];
 
             // Update tracker for next iteration
             $previousResolvedDate = $resolvedDate->copy();

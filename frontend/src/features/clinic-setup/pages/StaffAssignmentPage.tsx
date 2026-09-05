@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { staffApi } from '../../../services/staffApi';
 import { ROUTES } from '../../../shared/config/routes';
 import type { StaffUser, AssignedModule } from '../../../types';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 
 const MODULE_OPTIONS: { value: AssignedModule; label: string; color: string }[] = [
   { value: 'all', label: 'All Modules', color: '#6366f1' },
@@ -30,6 +31,7 @@ export default function StaffAssignmentPage() {
     type: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: React.ReactNode } | null>(null);
 
   useEffect(() => {
     loadStaff();
@@ -57,13 +59,20 @@ export default function StaffAssignmentPage() {
         prev.map(s => (s.id === userId ? { ...s, assigned_module: updatedUser.assigned_module } : s))
       );
       
-      showNotification('success', 'Module assignment updated successfully');
+      const member = staff.find(s => s.id === userId);
+      const moduleName = MODULE_OPTIONS.find(m => m.value === newModule)?.label || newModule;
+      setSuccessModal({
+        open: true,
+        title: 'Assignment Saved',
+        message: <>Module access for <strong>{member?.name || 'staff member'}</strong> updated to <strong>{moduleName}</strong>.</>,
+      });
     } catch (error: any) {
       showNotification('error', error.response?.data?.message || 'Failed to update module assignment');
     } finally {
       setSaving(null);
     }
   };
+
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -308,9 +317,22 @@ export default function StaffAssignmentPage() {
           </button>
         </div>
       )}
+
+      {/* Success Modal */}
+      {successModal && (
+        <ConfirmationDialog
+          variant="success"
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setSuccessModal(null)}
+        />
+      )}
     </div>
   );
 }
+
 
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (

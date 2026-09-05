@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import api from '../../../shared/services/api';
 import type { Patient } from '../types';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 
 // ─── Local Error Boundary Component ───────────────────────────
 interface ErrorBoundaryProps {
@@ -116,6 +117,7 @@ function InvitePatientModalContent({
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [invitation, setInvitation] = useState<any>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     if (patient) {
@@ -151,7 +153,7 @@ function InvitePatientModalContent({
 
       const invData = response.data?.invitation;
       setInvitation(invData);
-      setSuccessMsg('SMS invitation code sent successfully!');
+      setShowSuccessModal(true);
       if (onSuccess) onSuccess();
     } catch (e: any) {
       setError(e.response?.data?.message || 'Failed to send portal invitation.');
@@ -169,13 +171,14 @@ function InvitePatientModalContent({
     try {
       const response = await api.post(`/patient-invitations/${invitation.id}/resend`);
       setInvitation(response.data?.invitation);
-      setSuccessMsg('Invitation activation code resent successfully!');
+      setShowSuccessModal(true);
     } catch (e: any) {
       setError(e.response?.data?.message || 'Failed to resend activation code.');
     } finally {
       setSending(false);
     }
   };
+
 
   const handleCopyCode = () => {
     if (invitation?.token) {
@@ -435,6 +438,19 @@ function InvitePatientModalContent({
           </Button>
         )}
       </DialogActions>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <ConfirmationDialog
+          variant="success"
+          title="Invitation Sent"
+          message={<>Mobile Portal invitation token has been dispatched to <strong>{patientFullName}</strong> ({contactPhone}).</>}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setShowSuccessModal(false)}
+        />
+      )}
     </>
   );
 }
+

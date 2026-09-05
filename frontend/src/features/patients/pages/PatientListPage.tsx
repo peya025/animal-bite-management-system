@@ -184,6 +184,8 @@ export default function PatientList() {
     );
   };
 
+  const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: React.ReactNode } | null>(null);
+
   const handleConfirmBulkInvite = async () => {
     if (selectedWalkinIds.length === 0) return;
     setBulkInviting(true);
@@ -193,9 +195,10 @@ export default function PatientList() {
       const res = await api.post('/patient-invitations/bulk', {
         patient_ids: selectedWalkinIds,
       });
-      setBulkFeedback({
+      setSuccessModal({
+        open: true,
+        title: 'Invitations Sent',
         message: res.data?.message || `Successfully sent ${selectedWalkinIds.length} portal invitation(s).`,
-        type: 'success',
       });
       setSelectedWalkinIds([]);
       fetchPatients();
@@ -208,6 +211,7 @@ export default function PatientList() {
       setBulkInviting(false);
     }
   };
+
 
   const handleCheckIn = async (p: Patient, isNewBiteCase: boolean = false) => {
     const patientId = p.patient_id || p.id;
@@ -914,7 +918,15 @@ export default function PatientList() {
         <AddPatientModal
           role={userRole}
           onClose={() => setShowAddModal(false)}
-          onSuccess={() => { setShowAddModal(false); fetchPatients(); }}
+          onSuccess={() => {
+            setShowAddModal(false);
+            fetchPatients();
+            setSuccessModal({
+              open: true,
+              title: 'Patient Registered',
+              message: 'Patient enrolment record has been saved successfully.',
+            });
+          }}
         />
       )}
 
@@ -974,10 +986,14 @@ export default function PatientList() {
         }}
         onSuccess={() => {
           fetchPatients();
+          setSuccessModal({
+            open: true,
+            title: 'Invitation Sent',
+            message: 'Patient portal invitation sent successfully!',
+          });
         }}
       />
 
-      {/* ── Edit Patient Profile Modal ── */}
       <PatientEditModal
         open={showEditModal}
         patient={selectedEditPatient}
@@ -987,8 +1003,14 @@ export default function PatientList() {
         }}
         onSave={() => {
           fetchPatients();
+          setSuccessModal({
+            open: true,
+            title: 'Patient Updated',
+            message: 'Patient profile has been updated successfully.',
+          });
         }}
       />
+
 
       {/* ── View Patient Profile Modal ── */}
       <PatientDetailsModal
@@ -1086,6 +1108,19 @@ export default function PatientList() {
           onCancel={() => setShowBulkConfirm(false)}
         />
       )}
+
+      {/* ── Success Modal ── */}
+      {successModal && (
+        <ConfirmationDialog
+          variant="success"
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setSuccessModal(null)}
+        />
+      )}
     </PatientListRoot>
   );
 }
+

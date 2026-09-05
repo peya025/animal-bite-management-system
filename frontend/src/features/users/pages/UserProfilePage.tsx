@@ -34,6 +34,8 @@ export default function UserProfilePage() {
     setConfirmSave(true);
   };
 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   const saveProfile = async () => {
     setSaving(true);
     try {
@@ -41,7 +43,7 @@ export default function UserProfilePage() {
       const { data } = await api.put('/me', { name, phone, ...(password ? { current_password, password, password_confirmation } : {}) });
       localStorage.setItem('userData', JSON.stringify(data.user));
       setForm(f => ({ ...f, current_password: '', password: '', password_confirmation: '' }));
-      setMessage('Profile updated successfully.');
+      setShowSuccessModal(true);
     } catch {
       setMessage('Unable to update profile. Check your current password and try again.');
     } finally {
@@ -85,6 +87,16 @@ export default function UserProfilePage() {
           cancelLabel="Go back"
           onConfirm={() => { setConfirmSave(false); saveProfile(); }}
           onCancel={() => setConfirmSave(false)}
+        />
+      )}
+      {showSuccessModal && (
+        <ConfirmationDialog
+          variant="success"
+          title="Profile Updated Successfully"
+          message="Your profile details and credentials have been updated."
+          confirmLabel="Done"
+          hideCancel
+          onConfirm={() => setShowSuccessModal(false)}
         />
       )}
       <Snackbar open={!!message} autoHideDuration={4000} onClose={() => setMessage('')}>

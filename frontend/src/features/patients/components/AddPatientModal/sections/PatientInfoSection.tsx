@@ -71,16 +71,7 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
       </div>
 
       {showQueueFields && (
-        <div className="fm-grid fm-grid--4" style={{ marginBottom: 14 }}>
-          <FormField id="field-visit_type" label="Visit Type" required error={!!errors.visit_type} errorText={errors.visit_type}>
-            <select className="fm-select" value={data.visit_type} onChange={onChange('visit_type')} style={errors.visit_type ? { borderColor: '#ef4444' } : undefined}>
-              <option value="new_case">New Case</option>
-              <option value="follow_up">Follow Up</option>
-            </select>
-          </FormField>
-          <FormField id="field-follow_up_date" label="Follow-up Date" required={data.visit_type === 'follow_up'} error={!!errors.follow_up_date} errorText={errors.follow_up_date}>
-            <input className="fm-input" type="date" value={data.follow_up_date} onChange={onChange('follow_up_date')} disabled={data.visit_type !== 'follow_up'} style={errors.follow_up_date ? { borderColor: '#ef4444' } : undefined} />
-          </FormField>
+        <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
           <FormField id="field-queue_priority_group" label="Queue Category" required error={!!errors.queue_priority_group} errorText={errors.queue_priority_group}>
             <select className="fm-select" value={data.queue_priority_group} onChange={onChange('queue_priority_group')} style={errors.queue_priority_group ? { borderColor: '#ef4444' } : undefined}>
               <option value="normal">Normal</option>

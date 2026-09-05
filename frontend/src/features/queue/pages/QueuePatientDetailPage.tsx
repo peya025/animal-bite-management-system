@@ -277,6 +277,8 @@ export default function QueuePatientDetailPage() {
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
+  const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: string; onConfirm?: () => void } | null>(null);
+
   const toast = (message: string, severity: 'success' | 'error' = 'success') =>
     setSnackbar({ open: true, message, severity });
 
@@ -293,28 +295,73 @@ export default function QueuePatientDetailPage() {
   // No longer need modal states - forms are rendered inline
 
   const handleCall = async () => {
-    try { await callQueuePatient(Number(queueId)); toast(`Called Queue #${entry?.queue_number}`); reload(); }
-    catch { toast('Failed to call patient', 'error'); }
+    try {
+      await callQueuePatient(Number(queueId));
+      setSuccessModal({
+        open: true,
+        title: 'Patient Called',
+        message: `Queue #${entry?.queue_number} has been called to the station.`,
+      });
+      reload();
+    } catch {
+      toast('Failed to call patient', 'error');
+    }
   };
 
   const handleServe = async () => {
-    try { await serveQueuePatient(Number(queueId)); toast('Patient is now being served'); reload(); }
-    catch { toast('Failed to start serving', 'error'); }
+    try {
+      await serveQueuePatient(Number(queueId));
+      setSuccessModal({
+        open: true,
+        title: 'Serving Patient',
+        message: `Queue #${entry?.queue_number} is now being served.`,
+      });
+      reload();
+    } catch {
+      toast('Failed to start serving', 'error');
+    }
   };
 
   const handleNoResponse = async () => {
-    try { await markNoResponse(Number(queueId)); toast('Patient moved to Second Chance Queue'); reload(); }
-    catch { toast('Failed to mark no response', 'error'); }
+    try {
+      await markNoResponse(Number(queueId));
+      setSuccessModal({
+        open: true,
+        title: 'No Response Recorded',
+        message: `Queue #${entry?.queue_number} moved to the Second Chance Queue.`,
+      });
+      reload();
+    } catch {
+      toast('Failed to mark no response', 'error');
+    }
   };
 
   const handleRecall = async () => {
-    try { await recallQueuePatient(Number(queueId)); toast('Patient recalled'); reload(); }
-    catch { toast('Failed to recall patient', 'error'); }
+    try {
+      await recallQueuePatient(Number(queueId));
+      setSuccessModal({
+        open: true,
+        title: 'Patient Recalled',
+        message: `Queue #${entry?.queue_number} has been recalled.`,
+      });
+      reload();
+    } catch {
+      toast('Failed to recall patient', 'error');
+    }
   };
 
   const handleAbsent = async () => {
-    try { await markAbsent(Number(queueId)); toast('Patient marked as No-Show'); reload(); }
-    catch { toast('Failed to mark absent', 'error'); }
+    try {
+      await markAbsent(Number(queueId));
+      setSuccessModal({
+        open: true,
+        title: 'Marked Absent',
+        message: `Queue #${entry?.queue_number} has been marked as No-Show.`,
+      });
+      reload();
+    } catch {
+      toast('Failed to mark absent', 'error');
+    }
   };
 
   const handleCancel = async () => {
@@ -324,6 +371,7 @@ export default function QueuePatientDetailPage() {
       navigate(ROUTES.QUEUE.DASHBOARD);
     } catch { toast('Failed to cancel queue entry', 'error'); }
   };
+
 
   // Loading state
   if (loading) {
@@ -526,11 +574,28 @@ export default function QueuePatientDetailPage() {
         entry={entry}
         onClose={() => setCompleteDialog(false)}
         onDone={() => {
-          toast(userRole === 'triage' ? 'Patient transferred to treatment queue' : userRole === 'treatment' ? 'Treatment completed' : 'Consultation completed');
-          navigate(ROUTES.QUEUE.DASHBOARD);
+          navigate(ROUTES.QUEUE.DASHBOARD, {
+            state: { queueToast: { message: userRole === 'triage' ? 'Patient transferred to treatment queue' : userRole === 'treatment' ? 'Treatment completed' : 'Consultation completed', severity: 'success' } },
+          });
         }}
         mode={userRole === 'triage' ? 'transfer' : userRole === 'treatment' ? 'treatment' : 'complete'}
       />
+
+      {/* Success Modal */}
+      {successModal && (
+        <ConfirmationDialog
+          variant="success"
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => {
+            const cb = successModal.onConfirm;
+            setSuccessModal(null);
+            if (cb) cb();
+          }}
+        />
+      )}
 
       {/* ── Toast ── */}
       <Snackbar
@@ -546,6 +611,7 @@ export default function QueuePatientDetailPage() {
     </Box>
   );
 }
+
 
 // ─── Form 1 Inline View (full patient registration fields) ─────────────────
 const CIVIL_STATUS_LABELS: Record<string, string> = {

@@ -69,6 +69,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
   const [selectedPreset, setSelectedPreset] = useState<VaccineTypePreset | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VaccineTypePreset | null>(null);
   const [alert, setAlert] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
+  const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
 
   const loadPresets = async () => {
     setLoading(true);
@@ -104,7 +105,12 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
 
     try {
       await deleteVaccinePreset(deleteTarget.id);
-      setAlert({ message: `Vaccine type "${deleteTarget.vaccine_name}" deleted successfully.`, severity: 'success' });
+      const name = deleteTarget.vaccine_name;
+      setSuccessModal({
+        open: true,
+        title: 'Vaccine Type Deleted',
+        message: `Vaccine type "${name}" has been removed from the catalog.`,
+      });
       loadPresets();
     } catch (err: unknown) {
       const apiError = err as ApiError;
@@ -113,6 +119,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
       setDeleteTarget(null);
     }
   };
+
 
   return (
     <Box>
@@ -425,7 +432,11 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
         preset={selectedPreset}
         onClose={() => setDialogOpen(false)}
         onSaved={(saved) => {
-          setAlert({ message: `Vaccine type "${saved.vaccine_name}" saved successfully.`, severity: 'success' });
+          setSuccessModal({
+            open: true,
+            title: selectedPreset ? 'Vaccine Type Updated' : 'Vaccine Type Created',
+            message: `Vaccine type "${saved.vaccine_name}" has been saved successfully.`,
+          });
           loadPresets();
         }}
       />
@@ -441,6 +452,19 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+
+      {/* Success Modal */}
+      {successModal && (
+        <ConfirmationDialog
+          variant="success"
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setSuccessModal(null)}
+        />
+      )}
     </Box>
   );
 }
+

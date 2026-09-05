@@ -99,20 +99,20 @@
 * **Goal**: Strict adherence to DOH calendar day intervals with automated operating schedule shifts.
 
 #### 3.1 Option A Standard PEP Scheduling (`ClinicScheduleService.php`)
-- [ ] Calculate Day 3 ($+3\text{d}$), Day 7 ($+7\text{d}$), Day 28 ($+28\text{d}$) from actual Day 0 date.
-- [ ] If target date lands on a **closed day (Sunday or Monday)** or a holiday exception:
-  - **Automatically shift forward to Tuesday** (next open day).
-  - Log `schedule_drift_days` (`+1d` or `+2d`) and `schedule_adjustment_reason` (e.g. *"Sunday non-operating schedule"*).
-  - Auto-notify patient on mobile app with adjusted date explanation.
+- [x] Calculate Day 3 ($+3\text{d}$), Day 7 ($+7\text{d}$), Day 28 ($+28\text{d}$) from actual Day 0 date.
+- [x] If target date lands on a **closed day (Saturday or Sunday)**:
+  - **Automatically shift forward to Monday** (next open day).
+  - Log `schedule_drift_days` (`+1d` or `+2d`) and `schedule_adjustment_reason` (e.g. *"Shifted +1d — clinic closed on weekend"*).
+  - Frontend Form 3 preview dates now also reflect the drift with an amber pill indicator.
 
 #### 3.2 Re-Exposure Booster Protocol (2-Dose Regimen)
-- [ ] Returning patients with prior completed series only schedule **Day 0 and Day 3**.
-- [ ] Omit Day 7, Day 28, and RIG prescriptions automatically.
-- [ ] Transition episode to **`Regimen Completed`** immediately upon Day 3 administration.
+- [x] Returning patients with prior completed series only schedule **Day 0 and Day 3**.
+- [x] Omit Day 7, Day 28, and RIG prescriptions automatically (ERIG checkbox greyed out with contraindication tooltip).
+- [x] Transition episode to **`Regimen Completed`** immediately upon Day 3 administration.
 
 #### 3.3 Mobile Calendar & Dot Marker Sync (`schedule_calendar_view.dart`)
-- [ ] Ensure month-switching arrow (`<` / `>`) updates the visible dot indicators dynamically across month boundaries.
-- [ ] Show appointment cards below calendar with clear drift tags (e.g. `Shifted to Tue, Sep 8 (+2d)`).
+- [x] Month-switching arrow updates visible dot indicators dynamically — all events loaded in memory via `_allEvents`; `_filteredEvents` getter re-filters on each rebuild automatically.
+- [x] Appointment cards show drift tags (amber pill) when `scheduleDriftDays != 0` (lines 879–890).
 
 ---
 
@@ -127,6 +127,12 @@
 
 #### 4.2 Exact Brand Name Sync
 - [ ] Ensure vaccine brand names in `VaccineInventory` match Form 3 dropdown options cleanly to prevent `"Insufficient stock"` 422 errors.
+
+#### 4.3 Fix False "Missing Stock Info" Badge on External Clinic Doses (`VaccinationRecordForm.tsx`)
+- [ ] Dose rows with **"Transferred-In (External Clinic)"** checked currently show a red `Missing Stock Info` status badge even though no local stock deduction is expected for those doses.
+- [ ] Fix: When `is_external = true` on a dose row, the Status column should display a neutral **`External Clinic`** badge (grey/blue) instead of the red `Missing Stock Info` badge.
+- [ ] The `Missing Stock Info` red badge should only appear for local (non-external) doses where a vaccine type has not been selected.
+- [ ] Saving the form should not block or warn on external dose rows due to missing local stock — only validate stock for locally-administered doses (`is_external = false`).
 
 ---
 

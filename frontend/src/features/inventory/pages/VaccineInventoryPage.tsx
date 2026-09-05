@@ -149,10 +149,13 @@ export default function VaccineInventory() {
     };
   }, [items]);
 
-  const showSuccess = (message: string) => {
-    setSnackbar({ open: true, message, severity: 'success' });
+  const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
+
+  const showSuccess = (message: string, title: string = 'Success') => {
+    setSuccessModal({ open: true, title, message });
     loadData();
   };
+
 
   const handleConfirmOpenVial = async () => {
     if (!openVialTarget) return;
@@ -424,6 +427,18 @@ export default function VaccineInventory() {
         />
       )}
 
+      {/* Success Modal */}
+      {successModal && (
+        <ConfirmationDialog
+          variant="success"
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setSuccessModal(null)}
+        />
+      )}
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3500}
@@ -436,3 +451,4 @@ export default function VaccineInventory() {
     </Box>
   );
 }
+

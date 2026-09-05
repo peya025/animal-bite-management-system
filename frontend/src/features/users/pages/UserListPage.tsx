@@ -227,6 +227,7 @@ export default function UserListPage() {
   const [toggleTarget, setToggleTarget] = useState<User | null>(null);
 
   const [notice, setNotice] = useState('');
+  const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: React.ReactNode } | null>(null);
 
   const currentUserId = JSON.parse(localStorage.getItem('userData') || '{}').id;
 
@@ -264,7 +265,11 @@ export default function UserListPage() {
   const toggle = async (user: User) => {
     try {
       await api.put(`/users/${user.id}`, { is_active: !user.is_active });
-      setNotice(`User ${user.is_active ? 'deactivated' : 'activated'}.`);
+      setSuccessModal({
+        open: true,
+        title: user.is_active ? 'User Deactivated' : 'User Activated',
+        message: <>User <strong>{user.name}</strong> has been {user.is_active ? 'deactivated' : 'activated'} successfully.</>,
+      });
       load();
     } catch {
       setNotice('Unable to update user.');
@@ -281,8 +286,13 @@ export default function UserListPage() {
     }
     try {
       await api.put(`/users/${id}`, { name, email, phone, role, is_active });
+      const updatedName = name;
       setEditing(null);
-      setNotice('User updated successfully.');
+      setSuccessModal({
+        open: true,
+        title: 'User Updated',
+        message: <>Account details for <strong>{updatedName}</strong> have been updated successfully.</>,
+      });
       load();
     } catch {
       setNotice('Unable to update user.');
@@ -302,9 +312,14 @@ export default function UserListPage() {
     setCreating(true);
     try {
       await api.post('/users', newUser);
+      const createdName = newUser.name;
       setCreateModalOpen(false);
       setNewUser({ name: '', email: '', phone: '', role: 'registration', is_active: true });
-      setNotice('User created successfully.');
+      setSuccessModal({
+        open: true,
+        title: 'User Created',
+        message: <>Staff account for <strong>{createdName}</strong> has been created successfully.</>,
+      });
       load();
     } catch {
       setNotice('Unable to create user.');
@@ -323,7 +338,11 @@ export default function UserListPage() {
     try {
       const response = await api.post('/staff-invitations', inviteData);
       setInviteLink(response.data.invitation_link);
-      setNotice('Invitation sent successfully!');
+      setSuccessModal({
+        open: true,
+        title: 'Invitation Sent',
+        message: <>Staff invitation email has been dispatched to <strong>{inviteData.email}</strong>.</>,
+      });
       load();
     } catch (error: any) {
       setNotice(error.response?.data?.message || 'Unable to send invitation.');
@@ -331,6 +350,7 @@ export default function UserListPage() {
       setInviting(false);
     }
   };
+
 
   // Table columns
   const columns: Column<User>[] = [
@@ -384,12 +404,17 @@ export default function UserListPage() {
   const togglePatientAccount = async (account: PatientAccount) => {
     try {
       await api.put(`/patient-accounts/${account.id}/toggle`, {});
-      setNotice(`Patient account ${account.is_active ? 'deactivated' : 'activated'}.`);
+      setSuccessModal({
+        open: true,
+        title: account.is_active ? 'Patient Account Deactivated' : 'Patient Account Activated',
+        message: <>Account for <strong>{account.name}</strong> has been {account.is_active ? 'deactivated' : 'activated'} successfully.</>,
+      });
       loadPatientAccounts();
     } catch {
       setNotice('Unable to update patient account.');
     }
   };
+
 
   // Patient account columns
   const patientColumns: Column<PatientAccount>[] = [
@@ -1208,6 +1233,18 @@ export default function UserListPage() {
           navigate(`/patients?openId=${patient.patient_id || patient.id}`);
         }}
       />
+
+      {/* Success Modal */}
+      {successModal && (
+        <ConfirmationDialog
+          variant="success"
+          title={successModal.title}
+          message={successModal.message}
+          confirmLabel="OK"
+          hideCancel
+          onConfirm={() => setSuccessModal(null)}
+        />
+      )}
 
       {/* Snackbar */}
       <Snackbar

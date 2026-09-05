@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { clinicConfigApi } from '../../../services/clinicConfigApi';
@@ -6,6 +5,7 @@ import { ROUTES } from '../../../shared/config/routes';
 import { Icon } from '../../../shared/components/ui/Icon';
 import type { ClinicModuleConfig, FieldRuleValue } from '../../../types';
 import '../../developer/styles/DeveloperDatabaseExplorer.css';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 
 interface FieldConfig {
   key: keyof ClinicModuleConfig['field_rules'];
@@ -126,6 +126,8 @@ export default function ModuleConfigPage() {
   const [triageEnabled, setTriageEnabled] = useState(true);
   const [fieldRules, setFieldRules] = useState<Record<string, FieldRuleValue>>({});
 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   useEffect(() => {
     loadConfig();
   }, []);
@@ -157,15 +159,14 @@ export default function ModuleConfigPage() {
       });
 
       setConfig(updatedConfig);
-      setSuccess('Module configuration updated successfully!');
-
-      setTimeout(() => setSuccess(''), 3000);
+      setShowSuccessModal(true);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to update configuration');
     } finally {
       setSaving(false);
     }
   };
+
 
   const handleFieldRuleChange = (fieldKey: string, value: FieldRuleValue) => {
     setFieldRules((prev) => ({
@@ -688,8 +689,20 @@ export default function ModuleConfigPage() {
               )}
             </button>
           </div>
+          {/* Success Modal */}
+          {showSuccessModal && (
+            <ConfirmationDialog
+              variant="success"
+              title="Configuration Saved"
+              message="Clinic module configurations and form field rules have been updated successfully."
+              confirmLabel="OK"
+              hideCancel
+              onConfirm={() => setShowSuccessModal(false)}
+            />
+          )}
         </>
       )}
     </div>
   );
 }
+

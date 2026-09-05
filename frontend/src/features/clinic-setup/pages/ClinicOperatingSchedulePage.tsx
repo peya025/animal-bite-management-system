@@ -25,6 +25,7 @@ import {
   Divider,
   Grid,
 } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import {
   CalendarMonth as CalendarIcon,
   EventBusy as ExceptionIcon,
@@ -80,6 +81,7 @@ interface ClinicPolicy {
 }
 
 export const ClinicOperatingSchedulePage: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -359,6 +361,19 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
           <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
             Configure recurring weekly operating days, special holiday overrides, and PEP vaccination date resolution rules.
           </Typography>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Clinic Setup</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Operating Schedule</span>
+          </div>
         </Box>
         <Button
           variant="outlined"

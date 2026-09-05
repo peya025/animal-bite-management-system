@@ -542,6 +542,18 @@ export default function QueueDashboard() {
               {today} · Auto-refreshes every 30s
             </Typography>
           </Box>
+
+          {/* Breadcrumb — same style as Patient Management page */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Patient Queue</span>
+          </div>
         </Box>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>

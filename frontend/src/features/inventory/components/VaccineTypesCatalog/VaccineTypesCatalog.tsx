@@ -37,8 +37,8 @@ import {
   AcUnit as ColdChainIcon,
   Medication as RegimenIcon,
   AddShoppingCart as AddStockIcon,
-  Settings as SetupIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../shared/contexts/AuthContext';
 import { getVaccinePresets, deleteVaccinePreset } from '../../services/vaccineInventoryService';
 import VaccineTypeDialog from '../VaccineTypeDialog/VaccineTypeDialog';
@@ -59,6 +59,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; color: string; border: strin
 export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalogProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const navigate = useNavigate();
 
   const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,6 +144,18 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
           <Typography sx={{ fontSize: 13, color: 'var(--text-secondary, #64748b)', mt: 0.5, maxWidth: 720 }}>
             Configure master vaccine definitions, default shelf-life durations, open-vial discard rules, and clinical regimens.
           </Typography>
+
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Vaccine Type Setup</span>
+          </div>
         </Box>
 
         <Tooltip title={isAdmin ? 'Add a new vaccine profile to the catalog' : 'Admin only'}>

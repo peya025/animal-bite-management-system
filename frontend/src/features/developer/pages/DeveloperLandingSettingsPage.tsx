@@ -166,6 +166,8 @@ export default function DeveloperLandingSettingsPage() {
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
             >Dashboard</button>
             <span>›</span>
+            <span style={{ color: '#6b7280' }}>Developer Tools</span>
+            <span>›</span>
             <span style={{ color: '#6b7280' }}>Developer Settings</span>
           </div>
         </div>

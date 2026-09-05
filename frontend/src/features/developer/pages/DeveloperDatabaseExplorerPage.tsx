@@ -156,6 +156,8 @@ export default function DeveloperDatabaseExplorerPage() {
               Dashboard
             </button>
             <span>›</span>
+            <span style={{ color: '#6b7280' }}>Developer Tools</span>
+            <span>›</span>
             <span style={{ color: '#6b7280' }}>Developer Database Inspector</span>
           </div>
         </div>

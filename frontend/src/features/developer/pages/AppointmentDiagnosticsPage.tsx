@@ -37,6 +37,7 @@ import {
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import Loader from '../../../components/Loader';
+import { useNavigate } from 'react-router-dom';
 
 interface Anomaly {
   id: string;
@@ -72,6 +73,7 @@ interface DiagnosticResults {
 }
 
 export const AppointmentDiagnosticsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [repairing, setRepairing] = useState(false);
@@ -211,6 +213,19 @@ export const AppointmentDiagnosticsPage: React.FC = () => {
           <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
             Automated integrity auditor detecting schedule violations, PEP sequence conflicts, and role status desync across Registration, Doctor, and Treatment desks.
           </Typography>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Developer Tools</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Appointment Bug Catcher</span>
+          </div>
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>

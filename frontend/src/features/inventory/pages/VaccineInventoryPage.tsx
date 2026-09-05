@@ -215,6 +215,18 @@ export default function VaccineInventory() {
             Add stock, monitor expiry, and manage opened-vial discard timers from one operational view.
           </Typography>
 
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+            <button
+              onClick={() => { window.location.href = '/dashboard'; }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Vaccine Inventory</span>
+          </div>
+
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.25, mt: 1.25, px: 1.5, py: 0.75, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 2, flexWrap: 'wrap' }}>
             <ClinicIcon sx={{ color: '#059669', fontSize: 18 }} />
             <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#166534' }}>

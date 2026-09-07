@@ -616,6 +616,108 @@ class VaccineInventoryController extends Controller
     }
 
     /**
+     * Inventory Report — stock received, used, expired, and remaining per vaccine type
+     * GET /api/inventory/report?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD&vaccine_type=xxx
+     */
+    public function inventoryReport(Request $request)
+    {
+        $clinicId  = $request->user()->clinic_id;
+        $fromDate  = $request->input('from_date') ? Carbon::parse($request->input('from_date'))->startOfDay() : null;
+        $toDate    = $request->input('to_date')   ? Carbon::parse($request->input('to_date'))->endOfDay()     : null;
+        $vaccineFilter = $request->input('vaccine_type');
+
+        // Base batch query
+        $batchQuery = VaccineInventory::where('clinic_id', $clinicId);
+        if ($vaccineFilter) {
+            $batchQuery->where('vaccine_type', $vaccineFilter);
+        }
+        $batches = $batchQuery->orderBy('vaccine_type')->orderBy('expiration_date')->get();
+
+        // Aggregate per-batch transaction totals (optionally scoped to date range)
+        $report = [];
+
+        foreach ($batches as $batch) {
+            $txQuery = InventoryTransaction::where('inventory_id', $batch->inventory_id);
+            if ($fromDate) $txQuery->where('transaction_date', '>=', $fromDate);
+            if ($toDate)   $txQuery->where('transaction_date', '<=', $toDate);
+            $transactions = $txQuery->get();
+
+            $received  = $transactions->whereIn('transaction_type', ['received'])->sum('quantity');
+            $used      = $transactions->whereIn('transaction_type', ['used'])->sum('quantity');
+            $adjusted  = $transactions->where('transaction_type', 'adjusted')->sum('quantity');
+            $expired   = $transactions->whereIn('transaction_type', ['expired'])->sum('quantity');
+            $disposed  = $transactions->whereIn('transaction_type', ['disposed'])->sum('quantity');
+
+            // All-time totals (for remaining calculation)
+            $allTxReceived = InventoryTransaction::where('inventory_id', $batch->inventory_id)
+                ->whereIn('transaction_type', ['received'])->sum('quantity');
+            $allTxUsed = InventoryTransaction::where('inventory_id', $batch->inventory_id)
+                ->whereIn('transaction_type', ['used'])->sum('quantity');
+            $allTxExpired = InventoryTransaction::where('inventory_id', $batch->inventory_id)
+                ->whereIn('transaction_type', ['expired', 'disposed'])->sum('quantity');
+
+            $report[$batch->vaccine_type][] = [
+                'inventory_id'   => $batch->inventory_id,
+                'batch_number'   => $batch->batch_number,
+                'received_from'  => $batch->received_from ?? '—',
+                'expiration_date'=> $batch->expiration_date ? $batch->expiration_date->toDateString() : null,
+                'status'         => $batch->status,
+                // Period-scoped transaction totals
+                'period_received' => (int) $received,
+                'period_used'     => (int) $used,
+                'period_adjusted' => (int) $adjusted,
+                'period_expired'  => (int) ($expired + $disposed),
+                // All-time / current
+                'all_time_received' => (int) $allTxReceived,
+                'all_time_used'     => (int) $allTxUsed,
+                'all_time_expired'  => (int) $allTxExpired,
+                'remaining_vials'   => (int) $batch->current_quantity,
+            ];
+        }
+
+        // Build per-vaccine-type summary
+        $summary = [];
+        foreach ($report as $vaccineType => $batchRows) {
+            $summary[] = [
+                'vaccine_type'       => $vaccineType,
+                'total_batches'      => count($batchRows),
+                'active_batches'     => collect($batchRows)->where('status', 'active')->count(),
+                'period_received'    => collect($batchRows)->sum('period_received'),
+                'period_used'        => collect($batchRows)->sum('period_used'),
+                'period_adjusted'    => collect($batchRows)->sum('period_adjusted'),
+                'period_expired'     => collect($batchRows)->sum('period_expired'),
+                'all_time_received'  => collect($batchRows)->sum('all_time_received'),
+                'all_time_used'      => collect($batchRows)->sum('all_time_used'),
+                'all_time_expired'   => collect($batchRows)->sum('all_time_expired'),
+                'remaining_vials'    => collect($batchRows)->sum('remaining_vials'),
+                'batches'            => $batchRows,
+            ];
+        }
+
+        // Grand totals
+        $grandTotals = [
+            'period_received'   => collect($summary)->sum('period_received'),
+            'period_used'       => collect($summary)->sum('period_used'),
+            'period_adjusted'   => collect($summary)->sum('period_adjusted'),
+            'period_expired'    => collect($summary)->sum('period_expired'),
+            'all_time_received' => collect($summary)->sum('all_time_received'),
+            'all_time_used'     => collect($summary)->sum('all_time_used'),
+            'all_time_expired'  => collect($summary)->sum('all_time_expired'),
+            'remaining_vials'   => collect($summary)->sum('remaining_vials'),
+            'total_batches'     => collect($summary)->sum('total_batches'),
+            'active_batches'    => collect($summary)->sum('active_batches'),
+        ];
+
+        return response()->json([
+            'from_date'    => $fromDate ? $fromDate->toDateString() : null,
+            'to_date'      => $toDate   ? $toDate->toDateString()   : null,
+            'vaccine_filter' => $vaccineFilter,
+            'summary'      => $summary,
+            'grand_totals' => $grandTotals,
+        ]);
+    }
+
+    /**
      * Get inventory statistics for the clinic (admin only)
      */
     public function statistics(Request $request)

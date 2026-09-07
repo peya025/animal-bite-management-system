@@ -27,6 +27,30 @@ interface InventoryStats {
   expired_batches: number; total_stock: number; expiring_soon: number; low_stock: number;
 }
 
+// ─── Inventory Report types ───────────────────────────────────
+interface InvReportBatch {
+  inventory_id: number; batch_number: string; received_from: string;
+  expiration_date: string | null; status: string;
+  period_received: number; period_used: number; period_adjusted: number; period_expired: number;
+  all_time_received: number; all_time_used: number; all_time_expired: number;
+  remaining_vials: number;
+}
+interface InvReportRow {
+  vaccine_type: string; total_batches: number; active_batches: number;
+  period_received: number; period_used: number; period_adjusted: number; period_expired: number;
+  all_time_received: number; all_time_used: number; all_time_expired: number;
+  remaining_vials: number; batches: InvReportBatch[];
+}
+interface InvReportGrand {
+  period_received: number; period_used: number; period_adjusted: number; period_expired: number;
+  all_time_received: number; all_time_used: number; all_time_expired: number;
+  remaining_vials: number; total_batches: number; active_batches: number;
+}
+interface InvReport {
+  from_date: string | null; to_date: string | null;
+  summary: InvReportRow[]; grand_totals: InvReportGrand;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────
 const fmt = (n?: number) => n != null ? n.toLocaleString() : '—';
 const pct = (n?: number) => n != null ? `${Math.round(n)}%` : '—';
@@ -161,7 +185,7 @@ function PrintPreviewModal({
   html, clinicName, printedBy, printDate, dateFrom, dateTo, activeTab,
   selectedVaccineType, expiryFilterLabel, onConfirm, onCancel
 }: PrintPreviewModalProps) {
-  const tabLabel = activeTab === 'summary' ? 'Summary Report' : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'inventory' ? 'Vaccine Inventory Report' : 'Patient Registry Report';
+  const tabLabel = activeTab === 'summary' ? 'Summary Report' : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'inventory' ? 'Vaccine Inventory Report' : activeTab === 'inv_report' ? 'Vaccine Inventory Movement Report' : 'Patient Registry Report';
   return (
     <div style={overlayStyle} onClick={onCancel} role="dialog" aria-modal="true" aria-labelledby="print-title">
       <div style={modalStyle} onClick={e => e.stopPropagation()}>
@@ -274,7 +298,7 @@ export default function ReportsDashboardPage() {
   const [patients,            setPatients]            = useState<Patient[]>([]);
   const [loading,             setLoading]             = useState(false);
   const [error,               setError]               = useState('');
-  const [activeTab,           setActiveTab]           = useState<'summary' | 'cases' | 'patients' | 'inventory'>('summary');
+  const [activeTab,           setActiveTab]           = useState<'summary' | 'cases' | 'patients' | 'inventory' | 'inv_report'>('summary');
   const [showPrintModal,      setShowPrintModal]      = useState(false);
   const [printHtml,           setPrintHtml]           = useState('');
   const [invItems,            setInvItems]            = useState<InventoryItem[]>([]);
@@ -285,6 +309,11 @@ export default function ReportsDashboardPage() {
   const [expiryFilter,        setExpiryFilter]        = useState<string>('ALL');
   const [expiryDateFrom,      setExpiryDateFrom]      = useState<string>('');
   const [expiryDateTo,        setExpiryDateTo]        = useState<string>('');
+  // Inventory Report state
+  const [invReport,           setInvReport]           = useState<InvReport | null>(null);
+  const [invReportLoading,    setInvReportLoading]    = useState(false);
+  const [invReportVaccine,    setInvReportVaccine]    = useState<string>('');
+  const [expandedVaccine,     setExpandedVaccine]     = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const clinicData = localStorage.getItem('clinicData');
@@ -393,9 +422,24 @@ export default function ReportsDashboardPage() {
     finally { setInvLoading(false); }
   };
 
+  const loadInvReport = async (fromD = dateFrom, toD = dateTo, vaccine = invReportVaccine) => {
+    setInvReportLoading(true);
+    try {
+      const params: Record<string, string> = { from_date: fromD, to_date: toD };
+      if (vaccine) params.vaccine_type = vaccine;
+      const res = await api.get('/inventory/report', { params });
+      setInvReport(res.data);
+    } catch { /* silently fail */ }
+    finally { setInvReportLoading(false); }
+  };
+
   useEffect(() => { loadReports(); }, []); // eslint-disable-line
   useEffect(() => {
     if (activeTab === 'inventory' && invItems.length === 0 && !invLoading) loadInventory();
+    if (activeTab === 'inv_report') {
+      if (invItems.length === 0 && !invLoading) loadInventory(); // populate vaccine type dropdown
+      if (!invReport && !invReportLoading) loadInvReport();
+    }
   }, [activeTab]); // eslint-disable-line
 
   // Available unique vaccine types
@@ -481,7 +525,7 @@ export default function ReportsDashboardPage() {
     const refNo = `ABTC-RPT-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
     const printDateFull = now.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     const printTimeFull = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
-    const tabLabel = activeTab === 'summary' ? 'Summary Report' : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'patients' ? 'Patient Registry Report' : 'Vaccine Inventory Report';
+    const tabLabel = activeTab === 'summary' ? 'Summary Report' : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'patients' ? 'Patient Registry Report' : activeTab === 'inv_report' ? 'Vaccine Inventory Movement Report' : 'Vaccine Inventory Report';
 
     let bodyHtml = '';
     if (activeTab === 'summary' && stats) {
@@ -516,6 +560,41 @@ export default function ReportsDashboardPage() {
         <p class="note">Reporting Period: ${fmtDate(dateFrom)} to ${fmtDate(dateTo)} | Total Records: ${patients.length}</p>
         <table><thead><tr><th style="text-align:center">#</th><th>Patient Name (Last, First)</th><th style="text-align:center">Date of Birth</th><th style="text-align:center">Contact No.</th><th style="text-align:center">Registered On</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#888">No records found.</td></tr>'}</tbody></table>`;
+    } else if (activeTab === 'inv_report' && invReport) {
+      const gt = invReport.grand_totals;
+      const summaryRows = invReport.summary.map((row) =>
+        `<tr><td style="font-weight:700">${row.vaccine_type}</td>
+         <td style="text-align:center">${row.total_batches}</td>
+         <td style="text-align:center;color:#10b981;font-weight:700">${row.period_received}</td>
+         <td style="text-align:center;color:#1d4ed8;font-weight:700">${row.period_used}</td>
+         <td style="text-align:center">${row.period_adjusted}</td>
+         <td style="text-align:center;color:#d97706">${row.period_expired}</td>
+         <td style="text-align:center;color:#4f46e5;font-weight:800">${row.remaining_vials}</td></tr>`
+      ).join('');
+      bodyHtml = `
+        <h3 class="sec">I. Movement Summary (${fmtDate(invReport.from_date ?? dateFrom)} – ${fmtDate(invReport.to_date ?? dateTo)})</h3>
+        <table class="info-table">
+          <tr><td class="lbl">Total Received</td><td class="val">${gt.period_received}</td><td class="lbl">Total Used / Dispensed</td><td class="val">${gt.period_used}</td></tr>
+          <tr><td class="lbl">Total Adjusted</td><td class="val">${gt.period_adjusted}</td><td class="lbl">Total Expired / Disposed</td><td class="val">${gt.period_expired}</td></tr>
+          <tr><td class="lbl">Remaining Vials</td><td class="val" style="font-weight:800;color:#4f46e5">${gt.remaining_vials}</td><td class="lbl">Active Batches</td><td class="val">${gt.active_batches} / ${gt.total_batches}</td></tr>
+        </table>
+        <h3 class="sec">II. Per-Vaccine Breakdown</h3>
+        <table>
+          <thead><tr>
+            <th>Vaccine Type</th><th style="text-align:center">Batches</th>
+            <th style="text-align:right">Received</th><th style="text-align:right">Used</th>
+            <th style="text-align:right">Adjusted</th><th style="text-align:right">Expired</th>
+            <th style="text-align:right">Remaining</th>
+          </tr></thead>
+          <tbody>${summaryRows}
+            <tr style="background:#eee;font-weight:800">
+              <td>GRAND TOTAL</td><td style="text-align:center">${gt.total_batches}</td>
+              <td style="text-align:right">${gt.period_received}</td><td style="text-align:right">${gt.period_used}</td>
+              <td style="text-align:right">${gt.period_adjusted}</td><td style="text-align:right">${gt.period_expired}</td>
+              <td style="text-align:right">${gt.remaining_vials}</td>
+            </tr>
+          </tbody>
+        </table>`;
     } else {
       const statsRows = `<table class="info-table">
         <tr><td class="lbl">Active Batches</td><td class="val">${invDisplayStats.active_batches}</td><td class="lbl">Total Vials in Stock</td><td class="val">${invDisplayStats.total_stock}</td></tr>
@@ -551,6 +630,13 @@ export default function ReportsDashboardPage() {
         <span style="color:#444">Date Generated:</span><span style="font-weight:700">${printDateFull}</span>
         <span style="color:#444">Prepared by:</span><span style="font-weight:700">${printedBy}</span>
       </div>
+    ` : activeTab === 'inv_report' ? `
+      <div class="meta-grid">
+        <span style="color:#444">Reporting Period:</span><span style="font-weight:700">${fmtDate(invReport?.from_date ?? dateFrom)} – ${fmtDate(invReport?.to_date ?? dateTo)}</span>
+        <span style="color:#444">Vaccine Filter:</span><span style="font-weight:700">${invReportVaccine || 'All Vaccine Types'}</span>
+        <span style="color:#444">Date Generated:</span><span style="font-weight:700">${printDateFull}</span>
+        <span style="color:#444">Prepared by:</span><span style="font-weight:700">${printedBy}</span>
+      </div>
     ` : `
       <div class="meta-grid">
         <span style="color:#444">Reporting Period:</span><span style="font-weight:700">${fmtDate(dateFrom)} – ${fmtDate(dateTo)}</span>
@@ -578,6 +664,7 @@ export default function ReportsDashboardPage() {
 
   return (
     <div style={{ padding: '0 24px 32px' }}>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         <div>
@@ -596,7 +683,7 @@ export default function ReportsDashboardPage() {
           </div>
         </div>
         <button onClick={handleOpenPrint}
-          disabled={loading || (activeTab !== 'inventory' && !stats) || (activeTab === 'inventory' && invLoading)}
+          disabled={loading || (activeTab !== 'inventory' && activeTab !== 'inv_report' && !stats) || (activeTab === 'inventory' && invLoading) || (activeTab === 'inv_report' && invReportLoading)}
           style={btnStyle('#10b981')}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="6 9 6 2 18 2 18 9"/>
@@ -630,14 +717,43 @@ export default function ReportsDashboardPage() {
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {(['summary', 'cases', 'patients', 'inventory'] as const).map(tab => (
+            {(['summary', 'cases', 'patients', 'inventory', 'inv_report'] as const).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 style={{ ...tabStyle, ...(activeTab === tab ? tabActiveStyle : {}) }}>
-                {tab === 'summary' ? 'Summary' : tab === 'cases' ? 'Bite Cases' : tab === 'patients' ? 'Patients' : 'Inventory'}
+                {tab === 'summary' ? 'Summary' : tab === 'cases' ? 'Bite Cases' : tab === 'patients' ? 'Patients' : tab === 'inventory' ? 'Inventory' : '📊 Inv. Report'}
               </button>
             ))}
           </div>
         </div>
+
+        {/* Row 2a: Inv. Report filter (inv_report tab only) */}
+        {activeTab === 'inv_report' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', paddingTop: 10, borderTop: '1px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <label style={labelStyle}>Vaccine Type</label>
+              <select
+                value={invReportVaccine}
+                onChange={e => setInvReportVaccine(e.target.value)}
+                style={{ ...selectStyle, minWidth: 170 }}
+              >
+                <option value="">All Vaccine Types</option>
+                {availableVaccineTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <button
+              onClick={() => loadInvReport(dateFrom, dateTo, invReportVaccine)}
+              disabled={invReportLoading}
+              style={btnStyle('#8b5cf6', true)}
+            >
+              {invReportLoading ? 'Loading…' : 'Run Report'}
+            </button>
+            {invReport && (
+              <span style={{ fontSize: 12, color: '#6b7280' }}>
+                Last run: {fmtDate(invReport.from_date ?? dateFrom)} – {fmtDate(invReport.to_date ?? dateTo)}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Row 2: Vaccine Type & Expiry Date dropdowns (Inventory tab only) */}
         {activeTab === 'inventory' && (
@@ -932,6 +1048,179 @@ export default function ReportsDashboardPage() {
                 </tbody>
               </table>
             </div>
+          </>
+        )}
+
+        {/* INVENTORY REPORT */}
+        {activeTab === 'inv_report' && (
+          <>
+            {/* Grand totals bar */}
+            {invReport && (
+              <>
+                <div style={sectionTitleStyle}>Inventory Movement — {fmtDate(invReport.from_date ?? dateFrom)} to {fmtDate(invReport.to_date ?? dateTo)}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+                  {[
+                    { label: 'Received',       value: invReport.grand_totals.period_received,  color: '#10b981', sub: 'Period additions' },
+                    { label: 'Used / Dispensed', value: invReport.grand_totals.period_used,    color: '#3b82f6', sub: 'Period usage' },
+                    { label: 'Expired / Disposed', value: invReport.grand_totals.period_expired, color: '#f59e0b', sub: 'Period wastage' },
+                    { label: 'Remaining Vials', value: invReport.grand_totals.remaining_vials, color: '#6366f1', sub: 'Current stock' },
+                    { label: 'Active Batches',  value: invReport.grand_totals.active_batches,  color: '#059669', sub: 'With stock' },
+                    { label: 'Total Batches',   value: invReport.grand_totals.total_batches,   color: '#6b7280', sub: 'All statuses' },
+                  ].map(s => (
+                    <div key={s.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 12px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                      <div style={{ fontSize: 26, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value.toLocaleString()}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 5 }}>{s.label}</div>
+                      <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{s.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Per-vaccine breakdown */}
+                <div style={sectionTitleStyle}>Per-Vaccine Summary</div>
+                {invReport.summary.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 32, color: '#6b7280', background: '#f9fafb', borderRadius: 10, border: '1px solid #e5e7eb' }}>
+                    No inventory data found for the selected period and filters.
+                  </div>
+                ) : invReport.summary.map(row => (
+                  <div key={row.vaccine_type} style={{ marginBottom: 16, border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                    {/* Vaccine header row */}
+                    <div
+                      onClick={() => setExpandedVaccine(expandedVaccine === row.vaccine_type ? null : row.vaccine_type)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '14px 18px', background: '#f0fdf4', cursor: 'pointer', userSelect: 'none', borderBottom: expandedVaccine === row.vaccine_type ? '1px solid #d1fae5' : 'none' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#065f46' }}>{row.vaccine_type}</span>
+                        <span style={{ fontSize: 11, background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{row.active_batches} active / {row.total_batches} total batches</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {[
+                          { label: 'Received',  value: row.period_received,  color: '#10b981' },
+                          { label: 'Used',      value: row.period_used,      color: '#3b82f6' },
+                          { label: 'Expired',   value: row.period_expired,   color: '#f59e0b' },
+                          { label: 'Remaining', value: row.remaining_vials,  color: '#6366f1' },
+                        ].map(m => (
+                          <div key={m.label} style={{ textAlign: 'center', minWidth: 52 }}>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: m.color, lineHeight: 1 }}>{m.value.toLocaleString()}</div>
+                            <div style={{ fontSize: 9, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginTop: 2 }}>{m.label}</div>
+                          </div>
+                        ))}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5"
+                          style={{ transform: expandedVaccine === row.vaccine_type ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                          <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                      </div>
+                    </div>
+
+                    {/* Expanded batch detail table */}
+                    {expandedVaccine === row.vaccine_type && (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ ...tableStyle, fontSize: 12 }}>
+                          <thead>
+                            <tr>
+                              {[
+                                { h: 'Batch No.',    align: 'left'   },
+                                { h: 'Received From', align: 'left'  },
+                                { h: 'Expiry Date',  align: 'left'   },
+                                { h: 'Status',       align: 'center' },
+                                { h: 'Received',     align: 'center' },
+                                { h: 'Used',         align: 'center' },
+                                { h: 'Adjusted',     align: 'center' },
+                                { h: 'Expired',      align: 'center' },
+                                { h: 'Remaining',    align: 'center' },
+                              ].map(({ h, align }) => (
+                                <th key={h} style={{ ...thStyle, fontSize: 11, padding: '8px 12px', whiteSpace: 'nowrap', textAlign: align as any }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {row.batches.map((b, i) => {
+                              const isExpired = b.status === 'expired' || (b.expiration_date && new Date(b.expiration_date) < new Date());
+                              const isDepleted = b.remaining_vials === 0;
+                              return (
+                                <tr key={b.inventory_id} style={{ background: i % 2 !== 0 ? '#f9fafb' : '#fff' }}>
+                                  <td style={{ ...tdStyle, fontWeight: 600, fontFamily: 'monospace' }}>{b.batch_number}</td>
+                                  <td style={tdStyle}>{b.received_from}</td>
+                                  <td style={{ ...tdStyle, color: isExpired ? '#dc2626' : '#374151' }}>{fmtDate(b.expiration_date)}</td>
+                                  <td style={{ ...tdStyle, textAlign: 'center' }}>
+                                    <span style={{
+                                      background: b.status === 'active' ? '#d1fae5' : b.status === 'expired' ? '#fee2e2' : '#f3f4f6',
+                                      color: b.status === 'active' ? '#065f46' : b.status === 'expired' ? '#991b1b' : '#374151',
+                                      padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600
+                                    }}>{b.status}</span>
+                                  </td>
+                                  <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 600, color: '#10b981' }}>{b.period_received.toLocaleString()}</td>
+                                  <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 600, color: '#3b82f6' }}>{b.period_used.toLocaleString()}</td>
+                                  <td style={{ ...tdStyle, textAlign: 'center', color: '#6b7280' }}>{b.period_adjusted.toLocaleString()}</td>
+                                  <td style={{ ...tdStyle, textAlign: 'center', color: '#f59e0b' }}>{b.period_expired.toLocaleString()}</td>
+                                  <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700, color: isDepleted ? '#ef4444' : '#6366f1' }}>{b.remaining_vials.toLocaleString()}</td>
+                                </tr>
+                              );
+                            })}
+                            {/* Vaccine sub-total row */}
+                            <tr style={{ background: '#f0fdf4', fontWeight: 700 }}>
+                              <td style={{ ...tdStyle, fontWeight: 700 }} colSpan={4}>Subtotal — {row.vaccine_type}</td>
+                              <td style={{ ...tdStyle, textAlign: 'center', color: '#10b981', fontWeight: 700 }}>{row.period_received.toLocaleString()}</td>
+                              <td style={{ ...tdStyle, textAlign: 'center', color: '#3b82f6', fontWeight: 700 }}>{row.period_used.toLocaleString()}</td>
+                              <td style={{ ...tdStyle, textAlign: 'center', color: '#6b7280', fontWeight: 700 }}>{row.period_adjusted.toLocaleString()}</td>
+                              <td style={{ ...tdStyle, textAlign: 'center', color: '#f59e0b', fontWeight: 700 }}>{row.period_expired.toLocaleString()}</td>
+                              <td style={{ ...tdStyle, textAlign: 'center', color: '#6366f1', fontWeight: 700 }}>{row.remaining_vials.toLocaleString()}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Grand total table footer */}
+                <div style={{ ...tableWrapStyle, marginTop: 8 }}>
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr>
+                        {[
+                          { h: 'GRAND TOTAL',        align: 'left'  },
+                          { h: 'Received',           align: 'center' },
+                          { h: 'Used / Dispensed',   align: 'center' },
+                          { h: 'Adjusted',           align: 'center' },
+                          { h: 'Expired / Disposed', align: 'center' },
+                          { h: 'Remaining Vials',    align: 'center' },
+                        ].map(({ h, align }) => (
+                          <th key={h} style={{ ...thStyle, background: '#065f46', fontSize: 12, textAlign: align as any }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ background: '#f0fdf4' }}>
+                        <td style={{ ...tdStyle, fontWeight: 700, color: '#065f46' }}>All Vaccine Types ({invReport.summary.length})</td>
+                        <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 800, fontSize: 15, color: '#10b981' }}>{invReport.grand_totals.period_received.toLocaleString()}</td>
+                        <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 800, fontSize: 15, color: '#3b82f6' }}>{invReport.grand_totals.period_used.toLocaleString()}</td>
+                        <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700, color: '#6b7280' }}>{invReport.grand_totals.period_adjusted.toLocaleString()}</td>
+                        <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 800, fontSize: 15, color: '#f59e0b' }}>{invReport.grand_totals.period_expired.toLocaleString()}</td>
+                        <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 800, fontSize: 15, color: '#6366f1' }}>{invReport.grand_totals.remaining_vials.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            {invReportLoading && (
+              <div style={{ textAlign: 'center', padding: 48, color: '#6b7280' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" style={{ animation: 'spin 1s linear infinite' }}>
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/>
+                </svg>
+                <div style={{ marginTop: 8, fontSize: 13 }}>Running inventory report…</div>
+              </div>
+            )}
+
+            {!invReport && !invReportLoading && (
+              <div style={{ textAlign: 'center', padding: 48, color: '#6b7280', background: '#f9fafb', borderRadius: 12, border: '1px dashed #d1d5db' }}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>📊</div>
+                <div style={{ fontWeight: 600, color: '#374151', marginBottom: 4 }}>No report generated yet</div>
+                <div style={{ fontSize: 13, marginBottom: 16 }}>Select a date range and click <strong>Run Report</strong> to view vaccine stock movement.</div>
+                <button onClick={() => loadInvReport()} style={btnStyle('#8b5cf6')}>Run Report</button>
+              </div>
+            )}
           </>
         )}
 

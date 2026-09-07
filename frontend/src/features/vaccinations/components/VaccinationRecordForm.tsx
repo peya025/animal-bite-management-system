@@ -394,6 +394,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [existingRecordsData, setExistingRecordsData] = useState<ExistingVaccinationRecord[]>([]);
   const [isReturningNewBite, setIsReturningNewBite] = useState(false);
   const [pastHistoryRecords, setPastHistoryRecords] = useState<ExistingVaccinationRecord[]>([]);
+  // Doctor's prescribed vaccine from Form 2 — hard-locks nurse's vaccine dropdown
+  const [prescribedVaccineType, setPrescribedVaccineType] = useState('');
 
   const isPhilHealthMember = Boolean(
     entry?.patient?.philhealth_member === 'yes' ||
@@ -484,6 +486,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       setCurrentIncident(bite || null);
       setExistingRecordsData(records);
+
+      // Read doctor's prescribed vaccine from treatment record (Form 2 → hard-locks Form 3)
+      const doctorPrescribed = consultation?.prescribed_vaccine_type || '';
+      setPrescribedVaccineType(doctorPrescribed);
 
       // 1. Resolve Day 0 and Exposure dates
       const day0Record = records.find((item) => item.dose_number === 0);
@@ -608,9 +614,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             if (!isNaN(calcDrift)) driftDays = calcDrift;
           }
 
-          // Prioritize vaccine brand from prior completed dose (e.g. Day 0)
+          // Prioritize: 1) Doctor's prescription from Form 2, 2) prior dose brand, 3) blank
           const priorWithVaccine = mappedDoses.slice(0, activeIdx).reverse().find(d => Boolean(d.vaccine_type));
-          const preferredVaccine = priorWithVaccine?.vaccine_type || '';
+          const preferredVaccine = doctorPrescribed || priorWithVaccine?.vaccine_type || '';
 
           mappedDoses[activeIdx] = {
             ...activeDose,
@@ -1590,20 +1596,26 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
                     {/* 4. Vaccine Type & Source Selection */}
                     <td style={{ padding: '8px 10px' }}>
+                      {/* Doctor's Order badge — shown when vaccine is prescribed */}
+                      {prescribedVaccineType && !isCompleted && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4, fontSize: 10, fontWeight: 700, color: '#166534', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 99, padding: '2px 8px', width: 'fit-content' }}>
+                          🩺 Doctor's Order: {prescribedVaccineType}
+                        </div>
+                      )}
                       <select
                         value={dose.vaccine_type}
                         onChange={(e) => handleDoseVaccineTypeChange(index, e.target.value)}
-                        disabled={isLocked}
+                        disabled={isLocked || Boolean(prescribedVaccineType && !isCompleted)}
                         style={{
                           width: '100%',
                           padding: '6px 8px',
-                          border: showRequiredWarning ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
+                          border: showRequiredWarning ? '1.5px solid #ef4444' : prescribedVaccineType && !isCompleted ? '1.5px solid #86efac' : '1px solid #cbd5e1',
                           borderRadius: 5,
                           fontSize: 12,
-                          backgroundColor: isCompleted ? '#f1f5f9' : '#ffffff',
-                          color: dose.vaccine_type ? '#0f172a' : '#64748b',
-                          fontWeight: dose.vaccine_type ? 600 : 400,
-                          cursor: isCompleted ? 'not-allowed' : 'pointer',
+                          backgroundColor: isCompleted ? '#f1f5f9' : prescribedVaccineType && !isCompleted ? '#f0fdf4' : '#ffffff',
+                          color: dose.vaccine_type ? '#166534' : '#64748b',
+                          fontWeight: dose.vaccine_type ? 700 : 400,
+                          cursor: (isCompleted || Boolean(prescribedVaccineType && !isCompleted)) ? 'not-allowed' : 'pointer',
                         }}
                       >
                         <option value="">— Select Vaccine —</option>

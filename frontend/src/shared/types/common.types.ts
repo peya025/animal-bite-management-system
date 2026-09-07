@@ -209,6 +209,8 @@ export interface InventoryItem {
   opened_at?: string;
   open_vial_discard_at?: string;
   open_vial_status?: 'unopened' | 'opened' | 'discarded' | 'depleted';
+  open_vial_doses_used?: number;
+  doses_per_vial?: number;
 }
 
 export interface InventoryStats {

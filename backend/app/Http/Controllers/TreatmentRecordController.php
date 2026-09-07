@@ -145,6 +145,7 @@ class TreatmentRecordController extends Controller
             'chief_complaints' => 'required|string',
             'diagnosis' => 'nullable|string',
             'medication_treatment' => 'nullable|string',
+            'prescribed_vaccine_type' => 'nullable|string|max:100',
             'laboratory_findings' => 'nullable|string',
             'performed_lab_test' => 'nullable|string',
             
@@ -232,6 +233,7 @@ class TreatmentRecordController extends Controller
             'chief_complaints' => $validated['chief_complaints'],
             'diagnosis' => $validated['diagnosis'] ?? null,
             'medication_treatment' => $validated['medication_treatment'] ?? null,
+            'prescribed_vaccine_type' => $validated['prescribed_vaccine_type'] ?? null,
             'laboratory_findings' => $validated['laboratory_findings'] ?? null,
             'performed_lab_test' => $validated['performed_lab_test'] ?? null,
             

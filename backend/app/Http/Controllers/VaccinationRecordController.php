@@ -126,6 +126,173 @@ class VaccinationRecordController extends Controller
     }
 
     /**
+     * Get list of all administered vaccinations (Nurse Vaccine List)
+     * GET /api/vaccination-records/administrations
+     */
+    public function getAdministrationList(Request $request)
+    {
+        try {
+            $clinicId = $request->user()->clinic_id;
+
+            $query = TreatmentRecord::where('treatment_records.clinic_id', $clinicId)
+                ->whereNotNull('treatment_records.dose_number')
+                ->where(function ($q) {
+                    $q->where('treatment_records.status', 'completed')
+                      ->orWhereNotNull('treatment_records.treatment_date')
+                      ->orWhereNotNull('treatment_records.administered_at');
+                })
+                ->with([
+                    'patient.details',
+                    'administeredBy:id,name',
+                    'inventory:inventory_id,batch_number,vaccine_type,doses_per_vial',
+                    'biteIncident:bite_id,case_number,bite_date,severity,bite_category,diagnosis,exposure_type',
+                ]);
+
+            // Filter by patient search (name, ID, or case number)
+            if ($request->filled('search')) {
+                $search = trim($request->search);
+                $query->where(function ($q) use ($search) {
+                    $q->whereHas('patient', function ($pq) use ($search) {
+                        $pq->where('first_name', 'like', "%{$search}%")
+                           ->orWhere('last_name', 'like', "%{$search}%")
+                           ->orWhere('patient_id', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('biteIncident', function ($bq) use ($search) {
+                        $bq->where('case_number', 'like', "%{$search}%");
+                    })
+                    ->orWhere('treatment_records.batch_no', 'like', "%{$search}%");
+                });
+            }
+
+            // Filter by vaccine brand or generic
+            if ($request->filled('vaccine')) {
+                $vaccine = trim($request->vaccine);
+                $query->where(function ($q) use ($vaccine) {
+                    $q->where('treatment_records.vaccine_brand', 'like', "%{$vaccine}%")
+                      ->orWhere('treatment_records.vaccine_generic', 'like', "%{$vaccine}%");
+                });
+            }
+
+            // Filter by dose number
+            if ($request->filled('dose') && $request->dose !== 'all') {
+                $query->where('treatment_records.dose_number', (int) $request->dose);
+            }
+
+            // Filter by exact date
+            if ($request->filled('date')) {
+                $query->whereDate('treatment_records.treatment_date', $request->date);
+            }
+
+            // Filter by date range
+            if ($request->filled('date_from')) {
+                $query->whereDate('treatment_records.treatment_date', '>=', $request->date_from);
+            }
+            if ($request->filled('date_to')) {
+                $query->whereDate('treatment_records.treatment_date', '<=', $request->date_to);
+            }
+
+            // Sort order: latest administration first
+            $query->orderByDesc('treatment_records.treatment_date')
+                  ->orderByDesc('treatment_records.administered_at')
+                  ->orderByDesc('treatment_records.treatment_id');
+
+            $perPage = min(100, max(5, (int) $request->input('per_page', 15)));
+            $paginated = $query->paginate($perPage);
+
+            // Compute usage details & format output
+            $transformed = $paginated->getCollection()->map(function ($r) {
+                $dpv = (int) ($r->inventory?->doses_per_vial ?? 3);
+                if ($dpv <= 0) $dpv = 3;
+                $units = (int) ($r->inventory_units_used ?? 0);
+                $isExternal = (bool) $r->is_external;
+                $isShared = ($units === 0 && !$isExternal);
+
+                // Dose label (e.g. Day 0, Day 3, Booster 1)
+                $doseMap = [0 => 'Day 0', 3 => 'Day 3', 7 => 'Day 7', 28 => 'Day 28', 90 => 'Booster 1', 365 => 'Booster 2'];
+                $doseLabel = $doseMap[$r->dose_number] ?? "Dose {$r->dose_number}";
+
+                // Extract dose index from notes if available (e.g. Dose 1 of 3)
+                $doseIndex = 1;
+                if (preg_match('/Dose\s+(\d+)\s+of\s+(\d+)/i', (string) ($r->administration_notes ?? $r->remarks), $matches)) {
+                    $doseIndex = (int) $matches[1];
+                } elseif ($isShared) {
+                    $doseIndex = 2; // general shared
+                }
+
+                // Fraction string (e.g. "1/3 vial used")
+                $fractionText = $isExternal 
+                    ? 'External Clinic (0 vials)'
+                    : ($dpv > 1 ? "1/{$dpv} vial" : '1 vial');
+
+                // Severity / Diagnosis category
+                $diagnosisCategory = $r->biteIncident?->bite_category 
+                    ?: ($r->biteIncident?->severity ? ucfirst($r->biteIncident->severity) : 'Category II');
+
+                $patient = $r->patient;
+                $patientName = $patient 
+                    ? trim("{$patient->last_name}, {$patient->first_name} " . ($patient->middle_name ?? ''))
+                    : 'Unknown Patient';
+
+                return [
+                    'treatment_id' => $r->treatment_id,
+                    'patient_id' => $r->patient_id,
+                    'patient_name' => $patientName,
+                    'patient_age' => $patient?->age ?? $patient?->details?->age,
+                    'patient_gender' => $patient?->gender ?? $patient?->details?->gender,
+                    'case_number' => $r->biteIncident?->case_number,
+                    'vaccine_brand' => $r->vaccine_brand ?: ($r->vaccine_generic ?: 'Anti-Rabies Vaccine'),
+                    'batch_no' => $r->batch_no ?: $r->inventory?->batch_number,
+                    'dose_number' => $r->dose_number,
+                    'dose_label' => $doseLabel,
+                    'route' => $r->route ?: 'ID',
+                    'injection_site' => $r->injection_site,
+                    'treatment_date' => $r->treatment_date ? Carbon::parse($r->treatment_date)->format('Y-m-d') : null,
+                    'administered_at' => $r->administered_at ? Carbon::parse($r->administered_at)->format('Y-m-d H:i:s') : null,
+                    'administered_by_id' => $r->administered_by,
+                    'administered_by_name' => $r->administeredBy?->name ?: 'Staff',
+                    'is_external' => $isExternal,
+                    'external_facility_name' => $r->external_facility_name,
+                    'doses_per_vial' => $dpv,
+                    'inventory_units_used' => $units,
+                    'is_shared' => $isShared,
+                    'dose_index' => $doseIndex,
+                    'fraction_used' => $fractionText,
+                    'usage_badge' => $isExternal ? 'External' : ($isShared ? 'Shared Open Vial (0 deducted)' : 'New Vial Opened (1 deducted)'),
+                    'diagnosis_category' => $diagnosisCategory,
+                    'diagnosis_notes' => $r->biteIncident?->diagnosis,
+                    'remarks' => $r->remarks,
+                    'administration_notes' => $r->administration_notes,
+                ];
+            });
+
+            // Summary stats for clinic
+            $today = Carbon::today()->toDateString();
+            $totalCount = TreatmentRecord::where('clinic_id', $clinicId)->whereNotNull('dose_number')->count();
+            $todayCount = TreatmentRecord::where('clinic_id', $clinicId)->whereNotNull('dose_number')->whereDate('treatment_date', $today)->count();
+            $uniquePatients = TreatmentRecord::where('clinic_id', $clinicId)->whereNotNull('dose_number')->distinct('patient_id')->count('patient_id');
+
+            return response()->json([
+                'data' => $transformed,
+                'total' => $paginated->total(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'stats' => [
+                    'total_administrations' => $totalCount,
+                    'today_administrations' => $todayCount,
+                    'unique_patients' => $uniquePatients,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Get administration list error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to load administration list',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Store/Update vaccination records (Form 3)
      * POST /api/vaccination-records
      */

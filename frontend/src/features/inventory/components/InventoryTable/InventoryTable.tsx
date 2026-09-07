@@ -228,6 +228,8 @@ export default function InventoryTable({
       render: (item) => {
         const low = item.current_quantity > 0 && item.current_quantity <= 10;
         const empty = item.current_quantity <= 0;
+        const dpv = Number(item.doses_per_vial || 1);
+        const capacity = item.current_quantity * dpv;
         return (
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <Box
@@ -244,8 +246,18 @@ export default function InventoryTable({
                 {item.current_quantity}
               </Typography>
               <Typography sx={{ fontSize: 10, color: '#64748b' }}>
-                units left
+                vial{item.current_quantity === 1 ? '' : 's'}
               </Typography>
+              {dpv > 1 && !empty && (
+                <Typography sx={{ fontSize: 10, color: '#0284c7', fontWeight: 600, mt: 0.25 }}>
+                  ≈{capacity} patients
+                </Typography>
+              )}
+              {item.open_vial_status === 'opened' && dpv > 1 && (
+                <Typography sx={{ fontSize: 9.5, color: '#0e7490', fontWeight: 700, mt: 0.5, bgcolor: '#ecfeff', px: 0.5, py: 0.2, borderRadius: 0.5, border: '1px solid #a5f3fc' }}>
+                  Open: {item.open_vial_doses_used ?? 0}/{dpv} used ({Math.max(0, dpv - (item.open_vial_doses_used ?? 0))}/{dpv} left)
+                </Typography>
+              )}
             </Box>
           </Box>
         );
@@ -261,6 +273,7 @@ export default function InventoryTable({
         const openVial = item.open_vial_status === 'opened'
           ? describeOpenVialCountdown(item.open_vial_discard_at)
           : null;
+        const dpv = Number(item.doses_per_vial || 1);
 
         return (
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
@@ -309,6 +322,11 @@ export default function InventoryTable({
                   <Typography sx={{ fontSize: 10.5, color: openVial.color }}>
                     {openVial.secondary}
                   </Typography>
+                  {dpv > 1 && (
+                    <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#0369a1', mt: 0.35 }}>
+                      Doses: {item.open_vial_doses_used ?? 0}/{dpv} used ({Math.max(0, dpv - (item.open_vial_doses_used ?? 0))}/{dpv} left)
+                    </Typography>
+                  )}
                 </Box>
               ) : item.open_vial_hours ? (
                 <Typography sx={{ fontSize: 10.5, color: '#64748b', mt: 0.85, textAlign: 'center' }}>

@@ -121,6 +121,7 @@ interface TreatmentFormData {
   chief_complaints: string;
   diagnosis: string;           // saved as free text (checklist selections auto-fill this)
   medication_treatment: string; // saved as free text (inventory checklist auto-fills this)
+  prescribed_vaccine_type: string; // doctor's structured PEP vaccine prescription (drives nurse Form 3)
 
   name_of_provider: string;
   laboratory_findings: string;
@@ -169,6 +170,7 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   chief_complaints: '',
   diagnosis: '',
   medication_treatment: '',
+  prescribed_vaccine_type: '',
   name_of_provider: '',
   laboratory_findings: '',
   performed_lab_test: '',
@@ -199,6 +201,22 @@ export default function GeneralTreatmentForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [vaccineNames, setVaccineNames] = useState<string[]>([]);
+  // Map of vaccine_type → { total_stock, doses_per_vial, patient_capacity, open_vials_count, open_doses_used, open_doses_remaining, open_fraction_used, open_fraction_remaining } for inline stock chip
+  const [vaccineStockMap, setVaccineStockMap] = useState<
+    Record<
+      string,
+      {
+        total_stock: number;
+        doses_per_vial: number;
+        patient_capacity: number;
+        open_vials_count: number;
+        open_doses_used: number;
+        open_doses_remaining: number;
+        open_fraction_used?: string;
+        open_fraction_remaining?: string;
+      }
+    >
+  >({});
   const [currentUserName] = useState<string>(() => getCurrentUserName());
 
   // Track if a record has already been saved for this patient
@@ -219,7 +237,7 @@ export default function GeneralTreatmentForm({
   const [checkedMeds, setCheckedMeds] = useState<string[]>([]);
   const [checkedHistory, setCheckedHistory] = useState<string[]>([]);
 
-  // Fetch available vaccine names from inventory
+  // Fetch available vaccine names + stock details for inline chip
   useEffect(() => {
     api.get('/inventory/vaccine-names')
       .then(res => setVaccineNames(res.data.vaccine_names || []))
@@ -237,6 +255,62 @@ export default function GeneralTreatmentForm({
           'Wound Irrigation Solution',
         ]);
       });
+    // Also fetch full inventory to build stock map for the Prescribed PEP Vaccine chip
+    api.get('/inventory', { params: { per_page: 200 } })
+      .then(res => {
+        const items: any[] = res.data?.data || res.data || [];
+        const map: Record<
+          string,
+          {
+            total_stock: number;
+            doses_per_vial: number;
+            patient_capacity: number;
+            open_vials_count: number;
+            open_doses_used: number;
+            open_doses_remaining: number;
+            open_fraction_used?: string;
+            open_fraction_remaining?: string;
+          }
+        > = {};
+        items.forEach((item) => {
+          if (item.status !== 'active') return;
+          const vType = item.vaccine_type;
+          if (!vType) return;
+          if (!map[vType]) {
+            map[vType] = {
+              total_stock: 0,
+              doses_per_vial: 1,
+              patient_capacity: 0,
+              open_vials_count: 0,
+              open_doses_used: 0,
+              open_doses_remaining: 0,
+            };
+          }
+          map[vType].total_stock += Number(item.current_quantity || 0);
+          const dpv = Number(item.doses_per_vial || 1);
+          if (dpv > map[vType].doses_per_vial) map[vType].doses_per_vial = dpv;
+          if (item.open_vial_status === 'opened') {
+            map[vType].open_vials_count += 1;
+            map[vType].open_doses_used += Number(item.open_vial_doses_used || 0);
+          }
+        });
+
+        Object.keys(map).forEach((type) => {
+          const entry = map[type];
+          const dpv = entry.doses_per_vial;
+          const totalOpenDoses = entry.open_vials_count * dpv;
+          const remaining = Math.max(0, totalOpenDoses - entry.open_doses_used);
+          entry.open_doses_remaining = remaining;
+          entry.patient_capacity = (entry.total_stock * dpv) + remaining;
+          if (entry.open_vials_count > 0) {
+            entry.open_fraction_used = `${entry.open_doses_used}/${dpv}`;
+            entry.open_fraction_remaining = `${remaining}/${dpv}`;
+          }
+        });
+
+        setVaccineStockMap(map);
+      })
+      .catch(() => { /* non-critical, chip just won't show */ });
   }, []);
 
   const asText = (val: unknown): string => {
@@ -304,6 +378,7 @@ export default function GeneralTreatmentForm({
       chief_complaints: record.chief_complaints || '',
       diagnosis: diagText,
       medication_treatment: medText,
+      prescribed_vaccine_type: record.prescribed_vaccine_type || '',
       name_of_provider: record.provider_name || currentUserName || prev.name_of_provider,
       name_of_attending_provider: record.attending_provider || '',
       laboratory_findings: record.laboratory_findings || '',
@@ -568,6 +643,7 @@ export default function GeneralTreatmentForm({
         chief_complaints: formData.chief_complaints,
         diagnosis: formData.diagnosis,
         medication_treatment: formData.medication_treatment,
+        prescribed_vaccine_type: formData.prescribed_vaccine_type || null,
         laboratory_findings: formData.laboratory_findings,
         performed_lab_test: formData.performed_lab_test,
         provider_name: formData.name_of_provider || currentUserName || null,
@@ -1277,6 +1353,78 @@ export default function GeneralTreatmentForm({
                 </button>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* ── 🩺 Prescribed PEP Vaccine (Doctor's Order → locks Nurse Form 3) ── */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: 0 }}>
+              Prescribed PEP Vaccine
+            </label>
+            <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#166534', borderRadius: 99, padding: '2px 8px', border: '1px solid #86efac' }}>
+              🩺 Rx — Doctor's Order
+            </span>
+            {isFormDisabled && formData.prescribed_vaccine_type && (
+              <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#92400e', borderRadius: 99, padding: '2px 8px', border: '1px solid #fde68a' }}>
+                🔒 Locked
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 8px 0' }}>
+            Select the vaccine to prescribe for PEP. This will pre-fill and lock the nurse's Form 3 vaccine selection.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <select
+              value={formData.prescribed_vaccine_type}
+              onChange={(e) => setFormData(prev => ({ ...prev, prescribed_vaccine_type: e.target.value }))}
+              disabled={isFormDisabled}
+              style={{
+                flex: 1,
+                padding: '9px 12px',
+                border: '1.5px solid #86efac',
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: formData.prescribed_vaccine_type ? 600 : 400,
+                backgroundColor: isFormDisabled ? '#f9fafb' : '#f0fdf4',
+                color: formData.prescribed_vaccine_type ? '#166534' : '#64748b',
+                cursor: isFormDisabled ? 'not-allowed' : 'pointer',
+                outline: 'none',
+              }}
+            >
+              <option value="">— No PEP vaccine prescribed (Category I only) —</option>
+              {vaccineNames.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+
+            {/* Inline stock chip */}
+            {formData.prescribed_vaccine_type && (() => {
+              const stock = vaccineStockMap[formData.prescribed_vaccine_type];
+              if (!stock) return null;
+              const isOut = stock.total_stock === 0 && (stock.open_doses_remaining ?? 0) === 0;
+              const isLow = stock.total_stock > 0 && stock.total_stock <= 5;
+              const chipColor = isOut ? '#dc2626' : isLow ? '#b45309' : '#166534';
+              const chipBg = isOut ? '#fef2f2' : isLow ? '#fffbeb' : '#dcfce7';
+              const chipBorder = isOut ? '#fecaca' : isLow ? '#fde68a' : '#86efac';
+              const icon = isOut ? '🔴' : isLow ? '🟡' : '🟢';
+              return (
+                <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, color: chipColor, background: chipBg, border: `1.5px solid ${chipBorder}`, borderRadius: 8, padding: '8px 12px', lineHeight: 1.5, minWidth: 170 }}>
+                  {icon} {isOut ? 'Out of Stock' : `${stock.total_stock} sealed vial${stock.total_stock === 1 ? '' : 's'}`}
+                  {!isOut && stock.doses_per_vial > 1 && (
+                    <div style={{ fontSize: 11, fontWeight: 500, color: '#0284c7', marginTop: 2 }}>
+                      ≈ {stock.patient_capacity} patients ({stock.doses_per_vial}/vial)
+                    </div>
+                  )}
+                  {stock.open_vials_count > 0 && stock.open_fraction_used && (
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: '#0e7490', marginTop: 4, background: '#ecfeff', padding: '2px 6px', borderRadius: 4, border: '1px solid #a5f3fc' }}>
+                      • Open vial: <strong>{stock.open_fraction_used} used</strong> ({stock.open_fraction_remaining} left)
+                    </div>
+                  )}
+                  {isOut && <div style={{ fontSize: 11, fontWeight: 500, marginTop: 2 }}>Notify Admin</div>}
+                </div>
+              );
+            })()}
           </div>
         </div>
 

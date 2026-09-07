@@ -62,6 +62,7 @@ class TreatmentRecord extends Model
         'chief_complaints',
         'diagnosis',
         'medication_treatment',
+        'prescribed_vaccine_type',
         'provider_name',
         'laboratory_findings',
         'performed_lab_test',

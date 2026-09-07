@@ -6,11 +6,18 @@ import { daysUntil, formatDate } from '../../../../shared/utils';
 export interface VaccineStockSummary {
   vaccine_type: string;
   total_stock: number;
+  doses_per_vial: number;
+  patient_capacity: number; // total_stock × doses_per_vial + remaining open vial doses
+  sealed_capacity: number;
   earliest_expiration: string | null;
   days_to_expiry: number | null;
   status_tier: 'green' | 'yellow' | 'red';
   status_label: string;
   open_vials_count: number;
+  open_doses_used: number;
+  open_doses_remaining: number;
+  open_fraction_used?: string; // e.g. "1/3"
+  open_fraction_remaining?: string; // e.g. "2/3"
 }
 
 export function evaluateStockLevelTier(
@@ -86,19 +93,41 @@ export default function StockLevelIndicator({ compact = false, showLegend = true
       const res = await api.get('/inventory', { params: { per_page: 200 } });
       const items: any[] = res.data?.data || res.data || [];
 
-      const groups: Record<string, { total: number; earliestExp: string | null; openCount: number }> = {};
+      const groups: Record<
+        string,
+        {
+          total: number;
+          earliestExp: string | null;
+          openCount: number;
+          dosesPerVial: number;
+          openDosesUsed: number;
+          openDosesTotal: number;
+        }
+      > = {};
 
       items.forEach((item) => {
         const vType = item.vaccine_type;
         if (!vType) return;
         if (!groups[vType]) {
-          groups[vType] = { total: 0, earliestExp: null, openCount: 0 };
+          groups[vType] = {
+            total: 0,
+            earliestExp: null,
+            openCount: 0,
+            dosesPerVial: 1,
+            openDosesUsed: 0,
+            openDosesTotal: 0,
+          };
         }
 
         if (item.status === 'active') {
           groups[vType].total += Number(item.current_quantity || 0);
+          // Use the highest doses_per_vial value encountered (multidose vials)
+          const dpv = Number(item.doses_per_vial || 1);
+          if (dpv > groups[vType].dosesPerVial) groups[vType].dosesPerVial = dpv;
           if (item.open_vial_status === 'opened') {
             groups[vType].openCount += 1;
+            groups[vType].openDosesUsed += Number(item.open_vial_doses_used || 0);
+            groups[vType].openDosesTotal += dpv;
           }
 
           if (item.expiration_date) {
@@ -113,14 +142,27 @@ export default function StockLevelIndicator({ compact = false, showLegend = true
       const summaries: VaccineStockSummary[] = Object.entries(groups).map(([type, data]) => {
         const evaluation = evaluateStockLevelTier(data.total, data.earliestExp);
         const days = data.earliestExp ? daysUntil(data.earliestExp) : null;
+        const openRemaining = Math.max(0, data.openDosesTotal - data.openDosesUsed);
+        const sealedCap = data.total * data.dosesPerVial;
+        const totalCap = sealedCap + openRemaining;
+        const usedFraction = data.openCount > 0 ? `${data.openDosesUsed}/${data.dosesPerVial}` : undefined;
+        const remainingFraction = data.openCount > 0 ? `${openRemaining}/${data.dosesPerVial}` : undefined;
+
         return {
           vaccine_type: type,
           total_stock: data.total,
+          doses_per_vial: data.dosesPerVial,
+          patient_capacity: totalCap,
+          sealed_capacity: sealedCap,
           earliest_expiration: data.earliestExp,
           days_to_expiry: days,
           status_tier: evaluation.tier,
           status_label: evaluation.badgeLabel,
           open_vials_count: data.openCount,
+          open_doses_used: data.openDosesUsed,
+          open_doses_remaining: openRemaining,
+          open_fraction_used: usedFraction,
+          open_fraction_remaining: remainingFraction,
         };
       });
 
@@ -177,19 +219,35 @@ export default function StockLevelIndicator({ compact = false, showLegend = true
               }}
             >
               {/* Left: Indicator dot + Name + Count */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 200 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 200, flexWrap: 'wrap' }}>
                 <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: visual.accent, flexShrink: 0 }} />
                 <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
                   {item.vaccine_type}
                 </Typography>
                 <Typography sx={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
-                  ({item.total_stock} vial{item.total_stock === 1 ? '' : 's'})
+                  ({item.total_stock} sealed vial{item.total_stock === 1 ? '' : 's'}
+                  {item.doses_per_vial > 1 && (
+                    <span style={{ color: '#0284c7', fontWeight: 600 }}>
+                      {' '}· ≈{item.patient_capacity} patient{item.patient_capacity === 1 ? '' : 's'}
+                    </span>
+                  )})
                 </Typography>
                 {item.open_vials_count > 0 && (
                   <Chip
-                    label={`${item.open_vials_count} open`}
+                    label={
+                      item.open_fraction_used
+                        ? `${item.open_vials_count} open: ${item.open_fraction_used} used (${item.open_fraction_remaining} left)`
+                        : `${item.open_vials_count} open`
+                    }
                     size="small"
-                    sx={{ height: 18, fontSize: 9.5, fontWeight: 600, bgcolor: '#ecfeff', color: '#0e7490', border: '1px solid #a5f3fc' }}
+                    sx={{
+                      height: 20,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      bgcolor: '#ecfeff',
+                      color: '#0e7490',
+                      border: '1px solid #a5f3fc',
+                    }}
                   />
                 )}
               </Box>
@@ -411,28 +469,52 @@ export default function StockLevelIndicator({ compact = false, showLegend = true
                   />
                 </Box>
 
-                {/* Body: Big Stock Number */}
-                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, my: 0.25 }}>
-                  <Typography
-                    sx={{
-                      fontSize: 24,
-                      fontWeight: 800,
-                      color: visual.color,
-                      lineHeight: 1,
-                      fontVariantNumeric: 'tabular-nums',
-                    }}
-                  >
-                    {item.total_stock}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: '#64748b',
-                    }}
-                  >
-                    vial{item.total_stock === 1 ? '' : 's'} available
-                  </Typography>
+                {/* Body: Big Stock Number + Patient Capacity */}
+                <Box sx={{ my: 0.25 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, flexWrap: 'wrap' }}>
+                    <Typography
+                      sx={{
+                        fontSize: 24,
+                        fontWeight: 800,
+                        color: visual.color,
+                        lineHeight: 1,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {item.total_stock}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: '#64748b',
+                      }}
+                    >
+                      sealed vial{item.total_stock === 1 ? '' : 's'}
+                    </Typography>
+                    {item.open_vials_count > 0 && item.open_fraction_remaining && (
+                      <Chip
+                        label={`+ ${item.open_fraction_remaining} open vial left`}
+                        size="small"
+                        sx={{
+                          height: 20,
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          bgcolor: '#ecfeff',
+                          color: '#0e7490',
+                          border: '1px solid #a5f3fc',
+                        }}
+                      />
+                    )}
+                  </Box>
+                  {item.doses_per_vial > 1 && (
+                    <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: '#0284c7', mt: 0.4 }}>
+                      ≈ {item.patient_capacity} patients capacity
+                      <span style={{ fontWeight: 400, color: '#64748b' }}>
+                        {' '}({item.sealed_capacity} sealed{item.open_vials_count > 0 ? ` + ${item.open_doses_remaining} in open` : ''})
+                      </span>
+                    </Typography>
+                  )}
                 </Box>
 
                 {/* Footer: Expiration & Open-Vial indicator */}
@@ -457,17 +539,45 @@ export default function StockLevelIndicator({ compact = false, showLegend = true
                   {item.open_vials_count > 0 && (
                     <Box
                       sx={{
-                        display: 'inline-flex',
+                        display: 'flex',
                         alignItems: 'center',
-                        gap: 0.5,
-                        mt: 0.2,
-                        fontSize: 10.5,
-                        fontWeight: 700,
-                        color: '#0e7490',
+                        justifyContent: 'space-between',
+                        gap: 1,
+                        mt: 0.5,
+                        px: 1,
+                        py: 0.6,
+                        borderRadius: '6px',
+                        bgcolor: '#ecfeff',
+                        border: '1px solid #a5f3fc',
                       }}
                     >
-                      <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#0891b2' }} />
-                      {item.open_vials_count} open vial active (Auto-Shared)
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#0891b2', flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#0e7490' }}>
+                          {item.open_vials_count} open vial active:{' '}
+                          {item.open_fraction_used ? (
+                            <>
+                              <span style={{ color: '#0369a1' }}>{item.open_fraction_used} used</span> ({item.open_fraction_remaining} left)
+                            </>
+                          ) : (
+                            'Auto-Shared'
+                          )}
+                        </Typography>
+                      </Box>
+                      {item.open_doses_remaining !== undefined && (
+                        <Chip
+                          label={`${item.open_doses_remaining} dose${item.open_doses_remaining === 1 ? '' : 's'} remaining`}
+                          size="small"
+                          sx={{
+                            height: 18,
+                            fontSize: 9.5,
+                            fontWeight: 700,
+                            bgcolor: '#cffafe',
+                            color: '#0891b2',
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
                     </Box>
                   )}
                 </Box>

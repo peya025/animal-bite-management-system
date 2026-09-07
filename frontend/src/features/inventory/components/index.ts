@@ -3,3 +3,4 @@ export { default as AddEditInventoryDialog } from './AddEditInventoryDialog';
 export { default as AdjustStockDialog } from './AdjustStockDialog';
 export { default as TransactionHistoryDialog } from './TransactionHistoryDialog';
 export { default as DeleteDialog } from './DeleteDialog';
+export { default as NurseVaccineList } from './NurseVaccineList';

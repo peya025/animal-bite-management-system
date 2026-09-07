@@ -145,7 +145,7 @@ class VaccinationRecordController extends Controller
                     'patient.details',
                     'administeredBy:id,name',
                     'inventory:inventory_id,batch_number,vaccine_type,doses_per_vial',
-                    'biteIncident:bite_id,case_number,bite_date,severity,bite_category,diagnosis,exposure_type',
+                    'biteIncident:bite_id,case_number,bite_date,severity,exposure_type,wound_description',
                 ]);
 
             // Filter by patient search (name, ID, or case number)
@@ -225,8 +225,9 @@ class VaccinationRecordController extends Controller
                     : ($dpv > 1 ? "1/{$dpv} vial" : '1 vial');
 
                 // Severity / Diagnosis category
-                $diagnosisCategory = $r->biteIncident?->bite_category 
-                    ?: ($r->biteIncident?->severity ? ucfirst($r->biteIncident->severity) : 'Category II');
+                $sev = strtolower((string) ($r->biteIncident?->severity ?? ''));
+                $catMap = ['minor' => 'Category I', 'moderate' => 'Category II', 'severe' => 'Category III'];
+                $diagnosisCategory = $catMap[$sev] ?? ($r->biteIncident?->severity ? ucfirst($r->biteIncident->severity) : 'Category II');
 
                 $patient = $r->patient;
                 $patientName = $patient 
@@ -259,7 +260,7 @@ class VaccinationRecordController extends Controller
                     'fraction_used' => $fractionText,
                     'usage_badge' => $isExternal ? 'External' : ($isShared ? 'Shared Open Vial (0 deducted)' : 'New Vial Opened (1 deducted)'),
                     'diagnosis_category' => $diagnosisCategory,
-                    'diagnosis_notes' => $r->biteIncident?->diagnosis,
+                    'diagnosis_notes' => $r->biteIncident?->wound_description ?: $r->biteIncident?->remarks,
                     'remarks' => $r->remarks,
                     'administration_notes' => $r->administration_notes,
                 ];

@@ -77,6 +77,7 @@ function App() {
           <Route path="/nurse/patients" element={<ProtectedRoute><AppLayout title="My Patients"><NursePatientList /></AppLayout></ProtectedRoute>} />
           <Route path="/doctor/patients" element={<ProtectedRoute><AppLayout title="My Patients"><DoctorPatientList /></AppLayout></ProtectedRoute>} />
           <Route path="/inventory" element={<ProtectedRoute><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
+          <Route path="/inventory/administrations" element={<ProtectedRoute><AppLayout title="Nurse Vaccine Administration List"><VaccineInventory initialTab="administrations" /></AppLayout></ProtectedRoute>} />
           <Route path="/inventory/types" element={<ProtectedRoute><AppLayout title="Vaccine Type Setup"><VaccineTypeManagementPage /></AppLayout></ProtectedRoute>} />
           <Route path="/queue" element={<ProtectedRoute><AppLayout title="Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
           <Route path="/queue/display" element={<ProtectedRoute><QueueDisplayPage /></ProtectedRoute>} />

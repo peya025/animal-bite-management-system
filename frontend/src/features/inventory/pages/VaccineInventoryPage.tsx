@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 type ApiError = {
   response?: {
@@ -33,13 +34,27 @@ import DeleteDialog from '../components/DeleteDialog/DeleteDialog';
 import InventoryTable from '../components/InventoryTable/InventoryTable';
 import StockCardView from '../components/StockCardView/StockCardView';
 import FifoComplianceReport from '../components/FifoComplianceReport/FifoComplianceReport';
+import NurseVaccineList from '../components/NurseVaccineList/NurseVaccineList';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import StockLevelIndicator from '../components/StockLevelIndicator/StockLevelIndicator';
 import type { InventoryItem } from '../types';
 import { deriveInventoryStatus } from '../utils/inventoryStatus';
 
-export default function VaccineInventory() {
+interface VaccineInventoryProps {
+  initialTab?: 'table' | 'stockcard' | 'fifo' | 'administrations';
+}
+
+export default function VaccineInventory({ initialTab }: VaccineInventoryProps = {}) {
   const { clinic, user } = useAuth();
+  const location = useLocation();
+
+  const searchParams = new URLSearchParams(location.search);
+  const tabParam = searchParams.get('tab');
+
+  const defaultTab = initialTab
+    || (location.pathname.includes('/administrations') ? 'administrations' : undefined)
+    || (tabParam && ['table', 'stockcard', 'fifo', 'administrations'].includes(tabParam) ? (tabParam as any) : undefined)
+    || 'table';
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +65,17 @@ export default function VaccineInventory() {
   const [batchFilter, setBatchFilter] = useState('');
   const [expiryFrom, setExpiryFrom] = useState('');
   const [expiryTo, setExpiryTo] = useState('');
-  const [view, setView] = useState<'table' | 'stockcard' | 'fifo'>('table');
+  const [view, setView] = useState<'table' | 'stockcard' | 'fifo' | 'administrations'>(defaultTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setView(initialTab);
+    } else if (location.pathname.includes('/administrations')) {
+      setView('administrations');
+    } else if (tabParam && ['table', 'stockcard', 'fifo', 'administrations'].includes(tabParam)) {
+      setView(tabParam as any);
+    }
+  }, [initialTab, location.pathname, tabParam]);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
@@ -255,6 +280,7 @@ export default function VaccineInventory() {
             }}
           >
             <Tab label="Inventory Batches" value="table" />
+            <Tab label="Nurse Vaccine List" value="administrations" />
             <Tab label="Stock Card" value="stockcard" />
             <Tab label="FIFO Report" value="fifo" />
           </Tabs>
@@ -358,6 +384,8 @@ export default function VaccineInventory() {
         />
       ) : view === 'stockcard' ? (
         <StockCardView items={items} loading={loading} />
+      ) : view === 'administrations' ? (
+        <NurseVaccineList />
       ) : (
         <FifoComplianceReport />
       )}

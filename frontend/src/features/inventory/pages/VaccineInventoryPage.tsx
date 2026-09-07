@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
+  Add as AddIcon,
   LocalHospital as ClinicIcon,
   VerifiedUser as VerifiedIcon,
 } from '@mui/icons-material';
@@ -304,6 +305,30 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           >
             {loading ? 'Refreshing…' : 'Refresh'}
           </Button>
+
+          {(user?.role === 'admin' || user?.role === 'treatment') && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setInitialVaccineType('');
+                setEditItem(null);
+                setAddOpen(true);
+              }}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: 13,
+                borderRadius: 2,
+                px: 2.25,
+                bgcolor: '#059669',
+                '&:hover': { bgcolor: '#047857' },
+                boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
+              }}
+            >
+              Add Stock Batch
+            </Button>
+          )}
 
           <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 

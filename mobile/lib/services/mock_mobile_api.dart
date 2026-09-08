@@ -3,10 +3,10 @@
 
 import 'dart:convert';
 
-import '../models/app_notification.dart';
-import '../models/appointment_summary.dart';
-import '../models/patient_account_profile.dart';
-import '../models/patient_profile.dart';
+import '../models/notifications/app_notification.dart';
+import '../models/appointments/appointment_summary.dart';
+import '../models/auth/patient_account_profile.dart';
+import '../models/patient/patient_profile.dart';
 import 'mock_data.dart';
 import 'psgc_service.dart';
 

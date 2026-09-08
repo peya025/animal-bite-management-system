@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/l10n/app_localizations.dart';
+import 'package:mobile/localization/app_localizations.dart';
 import 'package:mobile/widgets/menu/guidelines_section.dart';
 
 void main() {

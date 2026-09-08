@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/app_theme.dart';
-import '../../l10n/app_localizations.dart';
-import '../../l10n/language_controller.dart';
+import '../../localization/app_localizations.dart';
+import '../../localization/language_controller.dart';
 
 Future<void> showLanguageSelectionSheet(BuildContext context) {
   return showModalBottomSheet<void>(

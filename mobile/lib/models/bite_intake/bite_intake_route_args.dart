@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import 'booking_draft.dart';
-import 'patient_profile.dart';
+import 'package:mobile/models/booking/booking_draft.dart';
+import 'package:mobile/models/patient/patient_profile.dart';
 
 @immutable
 class BiteIntakeRouteArgs {

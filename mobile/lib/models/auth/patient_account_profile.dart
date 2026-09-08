@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import 'patient_profile.dart';
+import 'package:mobile/models/patient/patient_profile.dart';
 
 @immutable
 class PatientAccountProfile {

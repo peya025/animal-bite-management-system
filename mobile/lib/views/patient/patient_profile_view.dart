@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../app/app_routes.dart';
-import '../app/app_theme.dart';
-import '../l10n/app_localizations.dart';
-import '../models/appointment_summary.dart';
-import '../models/patient_profile.dart';
-import '../models/patient_profile_form_args.dart';
-import '../services/api.dart';
-import '../widgets/common/app_page_header.dart';
-import '../widgets/common/app_toast.dart';
-import '../widgets/common/status_chip.dart';
-import '../widgets/menu/menu_surface.dart';
+import '../../app/app_routes.dart';
+import '../../app/app_theme.dart';
+import '../../localization/app_localizations.dart';
+import '../../models/appointments/appointment_summary.dart';
+import '../../models/patient/patient_profile.dart';
+import '../../models/patient/patient_profile_form_args.dart';
+import '../../services/api.dart';
+import '../../widgets/common/app_page_header.dart';
+import '../../widgets/common/app_toast.dart';
+import '../../widgets/common/status_chip.dart';
+import '../../widgets/menu/menu_surface.dart';
 
 class PatientProfileView extends StatefulWidget {
   const PatientProfileView({super.key, required this.patient});

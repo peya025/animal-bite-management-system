@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/mobile_api.dart';
-import '../widgets/common/app_toast.dart';
+import '../../services/mobile_api.dart';
+import '../../widgets/common/app_toast.dart';
 
 class PatientActivationView extends StatefulWidget {
   const PatientActivationView({super.key, this.initialToken});

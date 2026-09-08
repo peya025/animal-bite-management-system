@@ -6,12 +6,12 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import '../models/booking_draft.dart';
-import '../models/bite_intake_draft.dart';
-import '../models/appointment_summary.dart';
-import '../models/app_notification.dart';
-import '../models/patient_profile.dart';
-import '../models/patient_account_profile.dart';
+import '../models/booking/booking_draft.dart';
+import '../models/bite_intake/bite_intake_draft.dart';
+import '../models/appointments/appointment_summary.dart';
+import '../models/notifications/app_notification.dart';
+import '../models/patient/patient_profile.dart';
+import '../models/auth/patient_account_profile.dart';
 import 'psgc_service.dart';
 
 class ApiException implements Exception {

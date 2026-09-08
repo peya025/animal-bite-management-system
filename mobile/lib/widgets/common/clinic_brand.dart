@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_theme.dart';
+import '../../app/app_theme.dart';
 
 class ClinicBrand extends StatelessWidget {
   const ClinicBrand({super.key, this.markSize = 160, this.showMark = true});

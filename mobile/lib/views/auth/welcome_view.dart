@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_routes.dart';
-import '../app/app_theme.dart';
-import '../widgets/buttons/primary_action_button.dart';
-import '../widgets/clinic_brand.dart';
+import '../../app/app_routes.dart';
+import '../../app/app_theme.dart';
+import '../../widgets/common/primary_action_button.dart';
+import '../../widgets/common/clinic_brand.dart';
 
 class WelcomeView extends StatefulWidget {
   const WelcomeView({super.key});

@@ -1,4 +1,4 @@
-import 'patient_profile.dart';
+import 'package:mobile/models/patient/patient_profile.dart';
 
 class PatientProfileFormArgs {
   const PatientProfileFormArgs({

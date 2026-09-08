@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_routes.dart';
-import '../app/app_theme.dart';
-import '../models/app_notification.dart';
-import '../services/api.dart';
-import '../widgets/common/app_page_header.dart';
-import '../widgets/common/app_toast.dart';
-import '../widgets/menu/menu_navigation.dart';
-import '../widgets/menu/menu_surface.dart';
-import '../widgets/menu/patient_action_button.dart';
-import '../widgets/notifications/notification_card.dart';
-import '../widgets/notifications/notification_filter.dart';
-import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../../app/app_routes.dart';
+import '../../app/app_theme.dart';
+import '../../models/notifications/app_notification.dart';
+import '../../services/api.dart';
+import '../../widgets/common/app_page_header.dart';
+import '../../widgets/common/app_toast.dart';
+import '../../widgets/menu/menu_navigation.dart';
+import '../../widgets/menu/menu_surface.dart';
+import '../../widgets/menu/patient_action_button.dart';
+import '../../widgets/notifications/notification_card.dart';
+import '../../widgets/notifications/notification_filter.dart';
+import '../../widgets/vaccination/digital_vaccination_card.dart';
 
-import '../models/patient_profile.dart';
+import '../../models/patient/patient_profile.dart';
 
 class NotificationsView extends StatefulWidget {
   const NotificationsView({super.key});

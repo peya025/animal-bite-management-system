@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_theme.dart';
-import '../app/app_routes.dart';
-import '../services/api.dart';
-import '../widgets/auth_mode_selector.dart';
-import '../widgets/buttons/primary_action_button.dart';
-import '../widgets/buttons/social_auth_button.dart';
-import '../widgets/common/app_toast.dart';
-import '../widgets/forms/app_text_field.dart';
-import '../widgets/forms/form_error_banner.dart';
+import '../../app/app_theme.dart';
+import '../../app/app_routes.dart';
+import '../../services/api.dart';
+import '../../widgets/auth/auth_mode_selector.dart';
+import '../../widgets/common/primary_action_button.dart';
+import '../../widgets/auth/social_auth_button.dart';
+import '../../widgets/common/app_toast.dart';
+import '../../widgets/forms/app_text_field.dart';
+import '../../widgets/forms/form_error_banner.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});

@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_routes.dart';
-import '../app/app_theme.dart';
-import '../models/patient_account_profile.dart';
-import '../services/api.dart';
-import '../widgets/menu/campaign_banner.dart';
-import '../widgets/menu/guidelines_section.dart';
-import '../widgets/menu/information_panels.dart';
-import '../widgets/menu/menu_navigation.dart';
-import '../widgets/menu/patient_action_button.dart';
-import '../widgets/menu/quick_actions_section.dart';
-import '../widgets/menu/schedule_section.dart';
-import '../widgets/menu/search_header.dart';
-import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../../app/app_routes.dart';
+import '../../app/app_theme.dart';
+import '../../models/auth/patient_account_profile.dart';
+import '../../services/api.dart';
+import '../../widgets/menu/campaign_banner.dart';
+import '../../widgets/menu/guidelines_section.dart';
+import '../../widgets/menu/information_panels.dart';
+import '../../widgets/menu/menu_navigation.dart';
+import '../../widgets/menu/patient_action_button.dart';
+import '../../widgets/menu/quick_actions_section.dart';
+import '../../widgets/menu/schedule_section.dart';
+import '../../widgets/menu/search_header.dart';
+import '../../widgets/vaccination/digital_vaccination_card.dart';
 
 class MenuView extends StatefulWidget {
   const MenuView({super.key});

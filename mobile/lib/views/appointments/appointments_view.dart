@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_theme.dart';
-import '../models/appointment_summary.dart';
-import '../services/api.dart';
-import '../widgets/appointments/appointment_card.dart';
-import '../widgets/appointments/appointment_filter.dart';
-import '../widgets/common/app_page_header.dart';
-import '../widgets/common/app_toast.dart';
-import '../widgets/common/empty_state.dart';
-import '../widgets/forms/app_text_field.dart';
+import '../../app/app_theme.dart';
+import '../../models/appointments/appointment_summary.dart';
+import '../../services/api.dart';
+import '../../widgets/appointments/appointment_card.dart';
+import '../../widgets/appointments/appointment_filter.dart';
+import '../../widgets/common/app_page_header.dart';
+import '../../widgets/common/app_toast.dart';
+import '../../widgets/common/empty_state.dart';
+import '../../widgets/forms/app_text_field.dart';
 
 class AppointmentsView extends StatefulWidget {
   const AppointmentsView({super.key});

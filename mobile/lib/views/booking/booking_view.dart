@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_routes.dart';
-import '../app/app_theme.dart';
-import '../models/bite_intake_route_args.dart';
-import '../models/booking_draft.dart';
-import '../models/patient_profile.dart';
-import '../services/api.dart';
-import '../widgets/booking/booking_header.dart';
-import '../widgets/booking/booking_summary.dart';
-import '../widgets/booking/date_selector.dart';
-import '../widgets/booking/service_selector.dart';
-import '../widgets/common/app_toast.dart';
-import '../widgets/menu/menu_navigation.dart';
-import '../widgets/menu/patient_action_button.dart';
-import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../../app/app_routes.dart';
+import '../../app/app_theme.dart';
+import '../../models/bite_intake/bite_intake_route_args.dart';
+import '../../models/booking/booking_draft.dart';
+import '../../models/patient/patient_profile.dart';
+import '../../services/api.dart';
+import '../../widgets/booking/booking_header.dart';
+import '../../widgets/booking/booking_summary.dart';
+import '../../widgets/booking/date_selector.dart';
+import '../../widgets/booking/service_selector.dart';
+import '../../widgets/common/app_toast.dart';
+import '../../widgets/menu/menu_navigation.dart';
+import '../../widgets/menu/patient_action_button.dart';
+import '../../widgets/vaccination/digital_vaccination_card.dart';
 
 class BookingView extends StatefulWidget {
   const BookingView({super.key});

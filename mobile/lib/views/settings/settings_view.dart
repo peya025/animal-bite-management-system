@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../app/app_routes.dart';
-import '../l10n/app_localizations.dart';
-import '../l10n/language_controller.dart';
-import '../models/patient_account_profile.dart';
-import '../models/patient_profile.dart';
-import '../services/api.dart';
-import '../widgets/common/app_toast.dart';
-import '../widgets/menu/menu_navigation.dart';
-import '../widgets/menu/patient_action_button.dart';
-import '../widgets/settings/edit_account_dialog.dart';
-import '../widgets/settings/language_selection_sheet.dart';
-import '../widgets/settings/profile_card.dart';
-import '../widgets/settings/settings_group.dart';
-import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../../app/app_routes.dart';
+import '../../localization/app_localizations.dart';
+import '../../localization/language_controller.dart';
+import '../../models/auth/patient_account_profile.dart';
+import '../../models/patient/patient_profile.dart';
+import '../../services/api.dart';
+import '../../widgets/common/app_toast.dart';
+import '../../widgets/menu/menu_navigation.dart';
+import '../../widgets/menu/patient_action_button.dart';
+import '../../widgets/settings/edit_account_dialog.dart';
+import '../../widgets/settings/language_selection_sheet.dart';
+import '../../widgets/settings/profile_card.dart';
+import '../../widgets/settings/settings_group.dart';
+import '../../widgets/vaccination/digital_vaccination_card.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});

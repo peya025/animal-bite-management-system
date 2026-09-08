@@ -1,601 +1,160 @@
+# 📚 Documentation & Guides Directory
 
-
-# Animal Bite Management System
-
-A clinic management system for managing animal bite cases, patient records, vaccination schedules, and treatment workflows.
-
-## Tech Stack
-
-* Backend: Laravel 12 (PHP 8.2+)
-* Frontend: React 19 + TypeScript + Vite
-* Database: SQLite (default) or MySQL
-* Mobile: Flutter 3.12.1+ (optional)
+Welcome to the comprehensive documentation directory for the **Tagoloan Animal Bite Management System**.
 
 ---
 
-# Prerequisites
-
-Before setting up the project, install the following:
-
-### Required
-
-* PHP 8.2 or higher
-* Composer
-* Node.js 18 or higher
-* npm
-* Git
-* XAMPP (recommended)
-
-### Optional (Mobile Development)
-
-* Flutter SDK 3.12.1+
-* Android Studio
-* Android SDK
-
-### Verify Installation
-
-```bash
-php --version
-composer --version
-node --version
-npm --version
-flutter doctor
-```
-
-Ensure all required tools are installed successfully before proceeding.
-
----
-
-# Project Structure
-
-```text
-animal-bite-management-system/
-├── backend/      # Laravel API
-├── frontend/     # React + TypeScript application
-├── mobile/       # Flutter application
-└── README.md
-```
-
----
-
-# Backend Setup (Laravel)
-
-## Quick Setup (Recommended for First-Time Setup)
-
-For first-time setup, you can use the automated setup script:
-
-**Windows CMD:**
-```bash
-cd backend
-quick-setup.bat
-```
-
-**PowerShell:**
-```bash
-cd backend
-.\quick-setup.ps1
-```
-
-This script will:
-- Install dependencies
-- Create .env file
-- Generate app key
-- Create database
-- Run migrations
-- Seed default data
-- Verify setup
-
-**Or follow the manual steps below:**
-
----
-
-## Manual Setup
-
-## Step 1: Navigate to Backend Directory
-
-```bash
-cd backend
-```
-
-## Step 2: Install Dependencies
-
-```bash
-composer install
-```
-
-This installs all Laravel and PHP dependencies.
-
----
-
-## Step 3: Create Environment File
-
-```bash
-copy .env.example .env
-```
-
----
-
-## Step 4: Generate Application Key
-
-```bash
-php artisan key:generate
-```
-
----
-
-## Step 5: Configure Database
-
-### Option A: SQLite (Recommended for Development)
-
-Create the database file:
-
-```bash
-type nul > database\database.sqlite
-```
-
-Update `.env`:
-
-```env
-DB_CONNECTION=sqlite
-DB_DATABASE=database/database.sqlite
-```
-
-### Option B: MySQL
-
-Create a database named:
-
-```sql
-CREATE DATABASE animal_bite_db;
-```
-
-Update `.env`:
-
-```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=animal_bite_db
-DB_USERNAME=root
-DB_PASSWORD=
-```
-
----
-
-## Step 6: Run Database Migrations
-
-```bash
-php artisan migrate
-```
-
-This creates all required database tables.
-
----
-
-## Step 7: Seed Initial Data
-
-```bash
-php artisan db:seed --class=DefaultClinicSeeder
-```
-
-This creates:
-
-* Default clinic
-* Admin account
-* Registration account
-* Triage account
-* Treatment account
-
----
-
-## Step 8: Verify Setup (Optional but Recommended)
-
-Run the setup verification script to ensure everything is configured correctly:
-
-```bash
-php verify-setup.php
-```
-
-This will check:
-- PHP version and extensions
-- File permissions
-- .env configuration
-- Database connection
-- Migrations status
-- Seeded data
-
-If all checks pass, you're ready to start the server!
-
----
-
-## Step 9: Start Laravel Server
-
-```bash
-php artisan serve
-```
-
-Backend API will be available at:
-
-```text
-http://localhost:8000
-```
-
----
-
-# Frontend Setup (React + TypeScript)
-
-Open a new terminal.
-
-## Step 1: Navigate to Frontend Directory
-
-```bash
-cd frontend
-```
-
----
-
-## Step 2: Install Dependencies
-
-```bash
-npm install
-```
-
----
-
-## Step 3: Configure API URL
-
-Create or edit:
-
-```text
-frontend/.env
-```
-
-Add:
-
-```env
-VITE_API_URL=http://localhost:8000
-```
-
----
-
-## Step 4: Start Development Server
-
-```bash
-npm run dev
-```
-
-Frontend will be available at:
-
-```text
-http://localhost:5173
-```
-
----
-
-# Mobile Setup (Optional)
-
-## Step 1: Navigate to Mobile Directory
-
-```bash
-cd mobile
-```
-
----
-
-## Step 2: Install Dependencies
-
-```bash
-flutter pub get
-```
-
----
-
-## Step 3: Configure API Endpoint
-
-Create or edit:
-
-```text
-lib/config/api_config.dart
-```
-
-For Android Emulator:
-
-```dart
-class ApiConfig {
-  static const String baseUrl = 'http://10.0.2.2:8000/api';
-}
-```
-
-For Physical Device:
-
-```dart
-class ApiConfig {
-  static const String baseUrl = 'http://YOUR_IP_ADDRESS:8000/api';
-}
-```
-
-Replace `YOUR_IP_ADDRESS` with your computer's local IP address.
-
----
-
-## Step 4: Check Available Devices
-
-```bash
-flutter devices
-```
-
----
-
-## Step 5: Run Application
-
-```bash
-flutter run
-```
-
----
-
-# Default Login Credentials
-
-After seeding the database, use the following account:
-
-### Administrator
-
-```text
-Email: admin@clinic.com
-Password: password123
-```
-You can check out the seeders file for the credentials.
----
-
-# Running the Project
-
-For daily development, run both backend and frontend.
-
-### Terminal 1 - Backend
-
-```bash
-cd backend
-php artisan serve
-```
-
-### Terminal 2 - Frontend
-
-```bash
-cd frontend
-npm run dev
-```
-
-### Terminal 3 - Mobile (Optional)
-
-```bash
-cd mobile
-flutter run
-```
-
----
-
-# Database Reset
-
-To reset the database and recreate all tables:
-
-```bash
-php artisan migrate:fresh --seed
-```
-
-Warning:
-
-* Deletes all existing data
-* Re-runs migrations
-* Recreates default accounts
-
----
-
-# Common Commands
-
-### Backend
-
-```bash
-composer install
-php artisan serve
-php artisan migrate
-php artisan migrate:fresh --seed
-php artisan db:seed --class=DefaultClinicSeeder
-php artisan route:list
-```
-
-### Frontend
-
-```bash
-npm install
-npm run dev
-npm run build
-```
-
-### Mobile
-
-```bash
-flutter pub get
-flutter run
-flutter devices
-flutter doctor
-```
-
----
-
-# Troubleshooting
-
-⚠️ **Having setup issues?** See [SETUP_TROUBLESHOOTING.md](SETUP_TROUBLESHOOTING.md) for detailed solutions to common problems.
-
-### Quick Fixes
-
-**Backend Not Starting:**
-```bash
-cd backend
-composer install
-copy .env.example .env
-php artisan key:generate
-php artisan migrate:fresh --seed
-php artisan serve
-```
-
-**Frontend Cannot Connect:**
-```bash
-# Check backend/.env has:
-FRONTEND_URL=http://localhost:5173
-
-# Check frontend/.env has:
-VITE_API_URL=http://localhost:8000
-
-# Clear backend cache:
-cd backend
-php artisan config:clear
-
-# Restart both servers
-```
-
-**Database Issues:**
-```bash
-cd backend
-# Delete and recreate database
-del database\database.sqlite
-type nul > database\database.sqlite
-php artisan migrate:fresh --seed
-```
-
-**Complete Reset:**
-```bash
-# Backend
-cd backend
-php artisan config:clear
-php artisan cache:clear
-del database\database.sqlite
-type nul > database\database.sqlite
-php artisan migrate:fresh --seed
-php artisan serve
-
-# Frontend (new terminal)
-cd frontend
-npm install
-npm run dev
-```
-
-The application should now be accessible at:
-
-Frontend: `http://localhost:5173`  
-Backend API: `http://localhost:8000`
-
-📖 **For detailed troubleshooting**, migration issues, CORS problems, and more solutions, see [SETUP_TROUBLESHOOTING.md](SETUP_TROUBLESHOOTING.md)
-
-
-## 📖 Additional Documentation
-
-### ⭐ Getting Started (Read These First)
-- **[SETUP_TROUBLESHOOTING.md](SETUP_TROUBLESHOOTING.md)** - 🆘 Common setup issues and solutions
-- **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** - 🔄 Database migration order and dependencies
-- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference card for all features
-- **[FINAL_IMPLEMENTATION.md](FINAL_IMPLEMENTATION.md)** - Complete implementation guide
-- **[IMPLEMENTATION_CHECKLIST.md](IMPLEMENTATION_CHECKLIST.md)** - Step-by-step checklist
-
-### 🔐 Authentication & Security
-- **[SANCTUM_CORS_SETUP.md](SANCTUM_CORS_SETUP.md)** - API authentication setup
-- **[TEST_AUTH.md](TEST_AUTH.md)** - Authentication testing guide
-
-### 🏗️ Architecture & Design
-- **[SYSTEM_MAP.md](SYSTEM_MAP.md)** - Visual system architecture and data flows
-- **[MVP_ARCHITECTURE.md](MVP_ARCHITECTURE.md)** - Database design and workflows  
-- **[MVP_SUMMARY.md](MVP_SUMMARY.md)** - Quick overview and phased approach
-- **[SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)** - Full system design (future features)
-
-### 🧪 Testing & Development
-- **[PHASE4_TESTING.md](PHASE4_TESTING.md)** - Complete workflow testing guide
-- **[API_REFERENCE.md](API_REFERENCE.md)** - Full API documentation with examples
-- **[WHO_PROTOCOL_IMPLEMENTATION.md](WHO_PROTOCOL_IMPLEMENTATION.md)** - WHO compliance details
-- **[PHASE2_TESTING.md](PHASE2_TESTING.md)** - User management testing
-- **[PHASE3_COMPLETE.md](PHASE3_COMPLETE.md)** - Database schema documentation
-
-### 📱 Component-Specific
-- **[frontend/README.md](frontend/README.md)** - Frontend setup instructions
-- **[mobile/README.md](mobile/README.md)** - Mobile app setup instructions
-
----
-
-## 🤝 Contributing
-
-1. Create a feature branch from `main`
-2. Make your changes with clear commit messages
-3. Test thoroughly (manual + automated tests)
-4. Submit a pull request with description
-
-### Coding Standards
-
-- **Laravel**: Follow PSR-12 coding standards
-- **React**: Use TypeScript strict mode
-- **Flutter**: Follow Dart style guide
-- Write descriptive commit messages
-- Document new features and API endpoints
-
----
-
-## � License
-
-[Your License Here]
-
----
-
-## 💡 Tips for Development
-
-### Daily Development Workflow
-
-1. Start backend: `cd backend && php artisan serve`
-2. Start frontend: `cd frontend && npm run dev`
-3. Make changes
-4. Test in browser
-5. Commit changes
-
-### Database Changes
-
-When you modify database schema:
-```bash
-# Create new migration
-php artisan make:migration description_of_change
-
-# Edit the migration file
-# Then run:
-php artisan migrate
-```
-
-### Adding New Features
-
-1. **Backend**: Create controller, model, migration, routes
-2. **Frontend**: Create components, services, pages
-3. **Update API_REFERENCE.md** with new endpoints
-4. **Test thoroughly** with all user roles
-
-### Common Commands
-
-```bash
-# Clear all caches (when things break)
-cd backend
-php artisan config:clear
-php artisan cache:clear
-php artisan route:clear
-php artisan view:clear
-
-# Reset database (fresh start)
-php artisan migrate:fresh --seed
-
-# Check routes
-php artisan route:list
-
-# Interactive Laravel shell
-php artisan tinker
-```
-
----
-
-## 📞 Support
-
-For issues, questions, or contributions:
-- Check documentation files first
-- Review PHASE4_TESTING.md for workflow guides
-- Check API_REFERENCE.md for endpoint details
-- See TROUBLESHOOTING section above for common issues
+## 🗂️ Documentation Structure
+
+### [01. Architecture & Overview](./01-architecture-and-overview/)
+System high-level design, scope alignment, navigation structures, and MVP architecture.
+- `COMPLETE_SYSTEM_STATUS.md`
+- `DESIGN_SYSTEM.md`
+- `MVP_ARCHITECTURE.md`
+- `MVP_SUMMARY.md`
+- `SCOPE_ALIGNMENT_ANALYSIS.md`
+- `STAFF_NAVIGATION_ANALYSIS.md`
+- `SYSTEM_ARCHITECTURE.md`
+- `SYSTEM_MAP.md`
+
+### [02. Setup & Deployment](./02-setup-and-deployment/)
+Environment configuration, local setup, migration guides, production deployment, and CORS.
+- `CONTRIBUTOR_SETUP.md`
+- `FIX_APPLIED_LANDING_PAGE.md`
+- `LANDING_PAGE_GUIDE.md`
+- `MIGRATION_GUIDE.md`
+- `PRODUCTION_DEPLOYMENT_SETUP.md`
+- `QUICK_REFERENCE.md`
+- `ROLE_WORKFLOW_CLARIFICATION.md`
+- `SANCTUM_CORS_SETUP.md`
+- `SETUP_CHECKLIST.md`
+
+### [03. Clinic Templates & Modules](./03-clinic-templates-and-modules/)
+Clinic module configurations and operating templates.
+
+### [04. Mobile App](./04-mobile-app/)
+Flutter mobile application documentation and API integration.
+
+### [05. Feature Implementation Guides](./05-feature-implementation-guides/)
+Core workflows including patient queue, triage doctor, nurse treatment, WHO protocols, and smart scheduling.
+- `ADD_TO_QUEUE_FEATURE.md`
+- `AUTOMATED_FOLLOWUP_COMPLETE.md`
+- `AUTOMATED_FOLLOWUP_DESIGN.md`
+- `AUTO_QUEUE_SETUP.md`
+- `BITE_MAP_IMPLEMENTATION.md`
+- `BITE_MAP_PLACEMENT.md`
+- `FINAL_IMPLEMENTATION.md`
+- `IMPLEMENTATION_CHECKLIST.md`
+- `IMPLEMENTATION_GUIDE.md`
+- `MVP_IMPLEMENTATION_GUIDE.md`
+- `QUEUE_500_ERROR_FIX.md`
+- `QUEUE_500_ERROR_FIX_COMPLETE.md`
+- `QUEUE_COMPLETE_SETUP.md`
+- `QUEUE_FORMS_VISUAL_GUIDE.md`
+- `QUEUE_PERFORMANCE_OPTIMIZATION.md`
+- `QUEUE_TESTING_GUIDE.md`
+- `QUEUE_TODO_TRIAGE_DOCTOR.md`
+- `QUEUE_WORKFLOW_IMPLEMENTATION_COMPLETE.md`
+- `QUEUE_WORKFLOW_PLAN.md`
+- `ROLE_DASHBOARD_PLANS.md`
+- `SMART_SCHEDULING_COMPLETE.md`
+- `WHO_PROTOCOL_IMPLEMENTATION.md`
+
+### [06. Database & API Reference](./06-database-and-api/)
+Full REST API endpoints, database schemas, Form 1/2/3 data storage, and query optimizations.
+- `API_REFERENCE.md`
+- `BACKEND_FORM1_COMPLETE.md`
+- `BACKEND_INVESTIGATION_RESULTS.md`
+- `CORRECT_FORMS_ARRANGEMENT.md`
+- `FORM1_DATA_STORAGE_CLARIFICATION.md`
+- `FORM2_BACKEND_COMPLETED.md`
+- `FORM2_BACKEND_CONNECTION.md`
+- `FORM2_GENERAL_TREATMENT_UPDATE.md`
+- `FORM3_ANIMAL_BITE_UPDATED.md`
+- `FORM3_BACKEND_CONNECTION_COMPLETE.md`
+- `FORM_3_TAGOLOAN_TREATMENT_CARD.md`
+- `PATIENT_REGISTRATION_FIX.md`
+- `TEST_PATIENT_REGISTRATION.md`
+- `database-optimizations/`
+- `database-schema/DATABASE_SCHEMA.md`
+
+### [07. Frontend Refactoring & Caching](./07-frontend-refactoring/)
+React frontend modularization, query caching, controller updates, and login pages.
+- `CACHING_FILES_SUMMARY.md`
+- `CACHING_IMPLEMENTED.md`
+- `CONTROLLER_UPDATE_SIMPLIFIED.md`
+- `FRONTEND_REFACTORING_PLAN.md`
+- `FRONTEND_REFACTORING_TODO.md`
+- `LOGIN_PAGES_README.md`
+- `QUERY_CACHING_COMPLETE.md`
+- `README_CACHING.md`
+- `REFACTORING_STATUS.md`
+- `REFACTORING_SUMMARY.md`
+
+### [08. Phase Logs & Testing](./08-phase-logs-and-testing/)
+Phase development milestones, bug fixes, testing checklists, and session progress logs.
+- `BUGFIXES_2026_08_03.md`
+- `COMPLETE_SYSTEM_STATUS.md`
+- `FINAL_FIXES_2026_08_04.md`
+- `IMPLEMENTATION_STATUS.md`
+- `NON_IT_STAFF_TESTING_CHECKLIST.md`
+- `PHASE2_TESTING.md`
+- `PHASE3_COMPLETE.md`
+- `PHASE4_TESTING.md`
+- `PHASE5_COMPLETE_SUMMARY.md`
+- `PHASE5_FRONTEND_SETUP.md`
+- `PHASE5_SUMMARY.md`
+- `PHASE_2_API_TESTING.md`
+- `PHASE_2_COMPLETE.md`
+- `PHASE_2_EXECUTION_PLAN.md`
+- `PHASE_2_PART_1_COMPLETE.md`
+- `PHASE_2_PART_1_TESTING.md`
+- `PHASE_3_COMPLETE.md`
+- `PHASE_3_EXECUTION_PLAN.md`
+- `PHASE_3_FRONTEND_COMPLETE.md`
+- `PHASE_3_IMPORT_FIXES.md`
+- `PHASE_3_PROGRESS.md`
+- `PHASE_4_COMPLETE.md`
+- `PHASE_4_COMPLETION_SUMMARY.md`
+- `PHASE_4_EXECUTION_PLAN.md`
+- `PHASE_4_TESTING_GUIDE.md`
+- `PHASE_5_CONTINUATION_GUIDE.md`
+- `PHASE_5_FORM_INTEGRATION_PLAN.md`
+- `QUICK_REFERENCE.md`
+- `SESSION_SUMMARY.md`
+- `TESTING_GUIDE.md`
+- `UI_TESTING_GUIDE_2026.md`
+- `WHAT_TO_DO_NOW.md`
+- `WORK_COMPLETION_SUMMARY.md`
+
+### [09. Vaccine & Inventory Management](./09-vaccine-and-inventory-management/)
+FIFO/FEFO automated stock allocation, multidose open vial tracking (1/3 vial shared tracking), stock cards, and inventory verification guides.
+- `FIFO_SYSTEM_DIAGRAM.md` - Visual diagrams for strict FIFO/FEFO rules
+- `INVENTORY_BACKEND_ALIGNMENT.md` - Backend alignment and transaction synchronization
+- `INVENTORY_TABLE_UX_RECOMMENDATIONS.md` - UX and column layout recommendations
+- `STOCK_CARD_FIELD_COMPARISON.md` - Stock card field mappings and comparison
+- `VACCINE_INVENTORY_TESTING_GUIDE.md` - Complete inventory testing guide
+- `VACCINE_MANAGEMENT_FIFO_SYSTEM.md` - Automated FIFO administration service specs
+- `VACCINE_MANAGEMENT_IMPLEMENTATION_SUMMARY.md` - Implementation overview of vaccine modules
+- `VACCINE_README.md` - General vaccine stock documentation
+- `VACCINE_SYSTEM_COMPLETE.md` - Comprehensive vaccine system documentation
+
+### [10. Geocoding & Address System (Bite Map)](./10-geocoding-and-address-system/)
+Dynamic address handling, automated geocoding coordinates, Leaflet map auto-centering, and surveillance mapping.
+- `ADDRESS_SYSTEM_ROADMAP.md` - Dynamic address system implementation roadmap
+- `AUTO_CENTER_MAP_FEATURE.md` - Auto-center and zoom features for bite locations
+- `AUTO_GEOCODE_ON_ADDRESS_CHANGE.md` - Background geocoding triggers upon address input
+- `BITE_MAP_COMPLETE_SUMMARY.md` - Bite map architecture, pins, and filters
+- `DYNAMIC_ADDRESS_SYSTEM_DESIGN.md` - Purok, barangay, and municipality address specs
+- `GEOCODING_FAQ.md` - Frequently asked questions on geocoding
+- `GEOCODING_IMPLEMENTATION_COMPLETE.md` - Complete geocoding engine integration
+- `GEOCODING_SUMMARY.md` - Overview of geocoding services and caches
+- `INSTALL_GEOCODING.md` - Installation and setup for geocoding services
+
+### [11. Security & Audits](./11-security-and-audits/)
+Security audit reports, vulnerability assessments, remediation checklists, and architectural hardening.
+- `SECURITY_AUDIT_REPORT.md` - Full system security vulnerability audit report
+- `SECURITY_AUDIT_SUMMARY.md` - High-level summary of security findings and fixes
+- `SECURITY_DOCS_README.md` - Security documentation index and instructions
+- `SECURITY_FIX_CHECKLIST.md` - Remediation checklist for security vulnerabilities
+- `SYSTEM_ARCHITECTURE_VULNERABILITIES.md` - Architecture-level threat model and analysis

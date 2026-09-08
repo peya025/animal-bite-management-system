@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_theme.dart';
+import '../../app/app_theme.dart';
 
 enum AppNotificationKind { vaccination, appointment, awareness, system }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
-import '../../models/appointment_summary.dart';
+import '../../models/appointments/appointment_summary.dart';
 import '../common/status_chip.dart';
 
 class AppointmentCard extends StatelessWidget {

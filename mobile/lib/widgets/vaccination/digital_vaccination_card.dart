@@ -3,7 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/app_theme.dart';
-import '../../models/patient_profile.dart';
+import '../../models/patient/patient_profile.dart';
 import '../../services/api.dart';
 import '../common/app_toast.dart';
 

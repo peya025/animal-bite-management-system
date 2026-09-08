@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_routes.dart';
-import '../services/api.dart';
-import '../widgets/common/app_toast.dart';
-import '../widgets/history/history_filters.dart';
-import '../widgets/history/history_record_card.dart';
-import '../widgets/history/history_summary.dart';
-import '../widgets/menu/menu_navigation.dart';
-import '../widgets/menu/patient_action_button.dart';
-import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../../app/app_routes.dart';
+import '../../services/api.dart';
+import '../../widgets/common/app_toast.dart';
+import '../../widgets/history/history_filters.dart';
+import '../../widgets/history/history_record_card.dart';
+import '../../widgets/history/history_summary.dart';
+import '../../widgets/menu/menu_navigation.dart';
+import '../../widgets/menu/patient_action_button.dart';
+import '../../widgets/vaccination/digital_vaccination_card.dart';
 
 class HistoryView extends StatefulWidget {
   const HistoryView({super.key});

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
-import '../../models/booking_draft.dart';
+import '../../models/booking/booking_draft.dart';
 
 extension BookingServiceDetails on BookingService {
   String get description => switch (this) {

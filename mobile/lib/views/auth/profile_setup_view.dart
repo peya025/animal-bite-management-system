@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../app/app_routes.dart';
-import '../app/app_theme.dart';
-import '../models/patient_account_profile.dart';
-import '../models/patient_profile.dart';
-import '../services/api.dart';
-import '../services/psgc_service.dart';
-import '../utils/app_validators.dart';
-import '../widgets/common/app_page_header.dart';
-import '../widgets/common/app_toast.dart';
-import '../widgets/forms/ph_phone_prefix.dart';
+import '../../app/app_routes.dart';
+import '../../app/app_theme.dart';
+import '../../models/auth/patient_account_profile.dart';
+import '../../models/patient/patient_profile.dart';
+import '../../services/api.dart';
+import '../../services/psgc_service.dart';
+import '../../utils/app_validators.dart';
+import '../../widgets/common/app_page_header.dart';
+import '../../widgets/common/app_toast.dart';
+import '../../widgets/forms/ph_phone_prefix.dart';
 
 class PhilHealthNumberFormatter extends TextInputFormatter {
   @override

@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:table_calendar/table_calendar.dart';
 
-import '../app/app_routes.dart';
-import '../l10n/app_localizations.dart';
-import '../models/appointment_summary.dart';
-import '../models/patient_profile.dart';
-import '../services/api.dart';
-import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../../app/app_routes.dart';
+import '../../localization/app_localizations.dart';
+import '../../models/appointments/appointment_summary.dart';
+import '../../models/patient/patient_profile.dart';
+import '../../services/api.dart';
+import '../../widgets/vaccination/digital_vaccination_card.dart';
 
 class CalendarEvent {
   const CalendarEvent({

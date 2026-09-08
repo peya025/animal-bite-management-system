@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_routes.dart';
-import '../app/app_theme.dart';
-import '../services/api.dart';
-import '../utils/app_validators.dart';
-import '../widgets/auth_mode_selector.dart';
-import '../widgets/buttons/account_login_prompt.dart';
-import '../widgets/buttons/primary_action_button.dart';
-import '../widgets/common/app_toast.dart';
-import '../widgets/forms/app_text_field.dart';
-import '../widgets/forms/form_error_banner.dart';
-import '../widgets/forms/ph_phone_prefix.dart';
+import '../../app/app_routes.dart';
+import '../../app/app_theme.dart';
+import '../../services/api.dart';
+import '../../utils/app_validators.dart';
+import '../../widgets/auth/auth_mode_selector.dart';
+import '../../widgets/auth/account_login_prompt.dart';
+import '../../widgets/common/primary_action_button.dart';
+import '../../widgets/common/app_toast.dart';
+import '../../widgets/forms/app_text_field.dart';
+import '../../widgets/forms/form_error_banner.dart';
+import '../../widgets/forms/ph_phone_prefix.dart';
 
 class SignUpView extends StatefulWidget {
   const SignUpView({super.key});

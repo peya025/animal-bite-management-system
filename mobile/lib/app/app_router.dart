@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../views/booking_view.dart';
-import '../models/bite_intake_route_args.dart';
-import '../models/patient_profile.dart';
-import '../models/patient_profile_form_args.dart';
-import '../views/bite_intake_view.dart';
-import '../views/appointments_view.dart';
-import '../views/history_view.dart';
-import '../views/login_view.dart';
-import '../views/menu_view.dart';
-import '../views/notifications_view.dart';
-import '../views/patient_activation_view.dart';
-import '../views/patient_profile_view.dart';
-import '../views/privacy_security_view.dart';
-import '../views/profile_setup_view.dart';
-import '../views/schedule_calendar_view.dart';
-import '../views/settings_view.dart';
-import '../views/sign_up_view.dart';
-import '../views/welcome_view.dart';
+import '../views/booking/booking_view.dart';
+import '../models/bite_intake/bite_intake_route_args.dart';
+import '../models/patient/patient_profile.dart';
+import '../models/patient/patient_profile_form_args.dart';
+import '../views/bite_intake/bite_intake_view.dart';
+import '../views/appointments/appointments_view.dart';
+import '../views/history/history_view.dart';
+import '../views/auth/login_view.dart';
+import '../views/home/menu_view.dart';
+import '../views/notifications/notifications_view.dart';
+import '../views/auth/patient_activation_view.dart';
+import '../views/patient/patient_profile_view.dart';
+import '../views/settings/privacy_security_view.dart';
+import '../views/auth/profile_setup_view.dart';
+import '../views/home/schedule_calendar_view.dart';
+import '../views/settings/settings_view.dart';
+import '../views/auth/sign_up_view.dart';
+import '../views/auth/welcome_view.dart';
 import 'app_routes.dart';
 
 abstract final class AppRouter {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/utils/app_validators.dart';
-import 'package:mobile/views/sign_up_view.dart';
+import 'package:mobile/views/auth/sign_up_view.dart';
 
 void main() {
   group('AppValidators cautions and rules', () {

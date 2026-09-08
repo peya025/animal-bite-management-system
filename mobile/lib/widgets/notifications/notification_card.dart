@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
-import '../../models/app_notification.dart';
+import '../../models/notifications/app_notification.dart';
 import '../history/history_record_card.dart';
 
 class NotificationCard extends StatelessWidget {

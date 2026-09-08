@@ -4,8 +4,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'app_router.dart';
 import 'app_routes.dart';
 import 'app_theme.dart';
-import '../l10n/app_localizations.dart';
-import '../l10n/language_controller.dart';
+import '../localization/app_localizations.dart';
+import '../localization/language_controller.dart';
 import '../services/api.dart';
 
 class AnimalCareApp extends StatelessWidget {

@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../app/app_routes.dart';
-import '../l10n/app_localizations.dart';
-import '../models/patient_account_profile.dart';
-import '../services/api.dart';
-import '../widgets/common/app_toast.dart';
-import '../widgets/settings/settings_group.dart';
+import '../../app/app_routes.dart';
+import '../../localization/app_localizations.dart';
+import '../../models/auth/patient_account_profile.dart';
+import '../../services/api.dart';
+import '../../widgets/common/app_toast.dart';
+import '../../widgets/settings/settings_group.dart';
 
 class PrivacySecurityView extends StatefulWidget {
   const PrivacySecurityView({super.key});

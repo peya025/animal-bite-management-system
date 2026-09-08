@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/app_theme.dart';
-import '../../models/patient_account_profile.dart';
+import '../../models/auth/patient_account_profile.dart';
 import '../forms/app_text_field.dart';
 import '../forms/form_error_banner.dart';
 

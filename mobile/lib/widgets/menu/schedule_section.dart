@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/app_theme.dart';
-import '../../models/appointment_summary.dart';
+import '../../models/appointments/appointment_summary.dart';
 import '../../services/api.dart';
 
 class ScheduleSection extends StatefulWidget {

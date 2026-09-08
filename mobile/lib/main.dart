@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'app/app.dart';
-import 'l10n/language_controller.dart';
+import 'localization/language_controller.dart';
 import 'services/mobile_api.dart';
 import 'services/mock_mobile_api.dart';
 

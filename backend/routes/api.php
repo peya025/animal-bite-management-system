@@ -314,7 +314,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Vaccine Inventory (accessible to clinic staff & admins)
     Route::prefix('inventory')->middleware('role:admin,treatment,nurse,doctor,staff,developer,triage,registration')->group(function () {
         Route::get('/statistics', [VaccineInventoryController::class, 'statistics']);
-        Route::get('/report', [VaccineInventoryController::class, 'inventoryReport']);
         Route::get('/', [VaccineInventoryController::class, 'index']);
         Route::post('/', [VaccineInventoryController::class, 'store']);
         Route::get('/{id}', [VaccineInventoryController::class, 'show']);

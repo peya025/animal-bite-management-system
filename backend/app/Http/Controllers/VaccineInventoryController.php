@@ -616,6 +616,7 @@ class VaccineInventoryController extends Controller
     }
 
     /**
+    /**
      * Get inventory statistics for the clinic (admin only)
      */
     public function statistics(Request $request)

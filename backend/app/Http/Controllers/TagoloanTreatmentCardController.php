@@ -97,6 +97,7 @@ class TagoloanTreatmentCardController extends Controller
         return response()->json([
             'clinic' => [
                 'name' => $clinic->name ?? 'TAGOLOAN ANIMAL BITE TREATMENT CENTER',
+                'hospital_no' => $clinic->hospital_no ?? null,
                 'doh_accreditation_no' => $clinic->doh_accreditation_no ?? '2022-10-037',
                 'philhealth_accreditation_no' => $clinic->philhealth_accreditation_no ?? 'B10034377',
             ],

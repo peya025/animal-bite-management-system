@@ -11,6 +11,7 @@ import {
   findActiveParentSubmenu,
   ROLE_LABELS,
 } from '../../shared/config/navigationConfig';
+import { ROUTES } from '../../shared/config/routes';
 import ThemeToggle from '../../shared/components/ThemeToggle';
 import NotificationButton from '../../shared/components/NotificationButton';
 
@@ -99,6 +100,12 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                   onClick={() => {
                     if (hasSub) {
                       toggleSubmenu(item.label);
+                      if (item.path) {
+                        navigate(item.path);
+                        if (item.path === ROUTES.INVENTORY.LIST) {
+                          window.dispatchEvent(new CustomEvent('nav-inventory-reset'));
+                        }
+                      }
                     } else if (item.path) {
                       navigate(item.path);
                     }
@@ -132,7 +139,12 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                     {item.submenu!.map((subItem) => (
                       <button
                         key={subItem.path}
-                        onClick={() => navigate(subItem.path)}
+                        onClick={() => {
+                          navigate(subItem.path);
+                          if (subItem.path === ROUTES.INVENTORY.LIST) {
+                            window.dispatchEvent(new CustomEvent('nav-inventory-reset'));
+                          }
+                        }}
                         className={`submenu-item ${isRouteActive(subItem.path, location.pathname, filteredNav) ? 'active' : ''}`}
                       >
                         <span className="submenu-dot"></span>

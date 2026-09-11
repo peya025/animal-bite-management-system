@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 type ApiError = {
   response?: {
@@ -48,6 +48,7 @@ interface VaccineInventoryProps {
 export default function VaccineInventory({ initialTab }: VaccineInventoryProps = {}) {
   const { clinic, user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const searchParams = new URLSearchParams(location.search);
   const tabParam = searchParams.get('tab');
@@ -64,19 +65,28 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
   const [expiryFrom, setExpiryFrom] = useState('');
   const [expiryTo, setExpiryTo] = useState('');
   const [view, setView] = useState<'table' | 'stockcard' | 'fifo' | 'administrations'>(defaultTab);
 
   useEffect(() => {
-    if (initialTab) {
-      setView(initialTab);
-    } else if (location.pathname.includes('/administrations')) {
+    if (location.pathname.includes('/administrations') || initialTab === 'administrations') {
       setView('administrations');
     } else if (tabParam && ['table', 'stockcard', 'fifo', 'administrations'].includes(tabParam)) {
       setView(tabParam as any);
+    } else {
+      setView('table');
     }
   }, [initialTab, location.pathname, tabParam]);
+
+  useEffect(() => {
+    const handleReset = () => {
+      setView('table');
+    };
+    window.addEventListener('nav-inventory-reset', handleReset);
+    return () => window.removeEventListener('nav-inventory-reset', handleReset);
+  }, []);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
@@ -125,14 +135,41 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
       const derivedStatus = deriveInventoryStatus(item);
       const matchesSearch = !search || item.vaccine_type.toLowerCase().includes(search.toLowerCase());
       const matchesBatch = !batchFilter || (item.batch_number || '').toLowerCase().includes(batchFilter.toLowerCase());
-      const matchesStatus = !statusFilter || derivedStatus.toLowerCase() === statusFilter.toLowerCase();
+      const matchesSource = !sourceFilter || (item.received_from || '').toLowerCase().includes(sourceFilter.toLowerCase());
+
+      let matchesStatus = true;
+      if (statusFilter) {
+        switch (statusFilter) {
+          case 'active':
+            matchesStatus = derivedStatus === 'Active';
+            break;
+          case 'low-stock':
+            matchesStatus = item.current_quantity > 0 && item.current_quantity <= 10;
+            break;
+          case 'expiring-soon':
+            matchesStatus = derivedStatus === 'Expiring';
+            break;
+          case 'expired':
+            matchesStatus = derivedStatus === 'Expired';
+            break;
+          case 'depleted':
+            matchesStatus = derivedStatus === 'Depleted';
+            break;
+          case 'discard-pending':
+            matchesStatus = derivedStatus === 'Discard-Pending';
+            break;
+          default:
+            matchesStatus = true;
+        }
+      }
+
       const expiryDate = item.expiration_date ? item.expiration_date.split('T')[0] : '';
       const matchesFrom = !expiryFrom || !expiryDate || expiryDate >= expiryFrom;
       const matchesTo = !expiryTo || !expiryDate || expiryDate <= expiryTo;
 
-      return matchesSearch && matchesBatch && matchesStatus && matchesFrom && matchesTo;
+      return matchesSearch && matchesBatch && matchesSource && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [items, search, batchFilter, statusFilter, expiryFrom, expiryTo]);
+  }, [items, search, batchFilter, sourceFilter, statusFilter, expiryFrom, expiryTo]);
 
   const pagedItems = useMemo(() => {
     const start = page * rowsPerPage;
@@ -268,7 +305,16 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Tabs
             value={view}
-            onChange={(_, newValue) => setView(newValue)}
+            onChange={(_, newValue) => {
+              setView(newValue);
+              if (newValue === 'administrations') {
+                navigate('/inventory/administrations');
+              } else if (newValue === 'table') {
+                navigate('/inventory');
+              } else {
+                navigate(`/inventory?tab=${newValue}`);
+              }
+            }}
             sx={{
               minHeight: 36,
               '& .MuiTab-root': {
@@ -368,8 +414,10 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           search={search}
           statusFilter={statusFilter}
           batchFilter={batchFilter}
+          sourceFilter={sourceFilter}
           expiryFrom={expiryFrom}
           expiryTo={expiryTo}
+          allItems={items}
           onSearchChange={(value) => {
             setSearch(value);
             setPage(0);
@@ -380,6 +428,10 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           }}
           onBatchFilterChange={(value) => {
             setBatchFilter(value);
+            setPage(0);
+          }}
+          onSourceFilterChange={(value) => {
+            setSourceFilter(value);
             setPage(0);
           }}
           onExpiryFromChange={(value) => {

@@ -512,10 +512,16 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       const animalOther = card?.animal_type_others || bite?.animal_type_others || '';
       const resolvedReferredBy = consultation?.referred_by || consultation?.referred_from || card?.referred_by || bite?.referred_from || '';
 
+      // Clinic hospital number configured in Clinic Information
+      const clinicRaw = localStorage.getItem('clinicData');
+      const clinicHospitalNo = cardRes?.data?.clinic?.hospital_no 
+        || (clinicRaw ? JSON.parse(clinicRaw)?.hospital_no : '') 
+        || '';
+
       setFormData(prev => ({
         ...prev,
         registry_no: prev.registry_no || card?.registry_no || bite?.case_number || '',
-        hospital_no: prev.hospital_no || card?.hospital_no || '',
+        hospital_no: card?.hospital_no || clinicHospitalNo || prev.hospital_no || '',
         referred_by: resolvedReferredBy || prev.referred_by || '',
         exposure_category: card?.exposure_category || prev.exposure_category || '',
         date_of_exposure: resolvedExposureDate || prev.date_of_exposure,
@@ -978,14 +984,49 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Registry No.</label>
-            <input type="text" value={formData.registry_no} onChange={handleFieldChange('registry_no')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+              Registry No. <span style={{ fontSize: 11, fontWeight: 400, color: '#6b7280' }}>(Admin / System Managed)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.registry_no || '—'}
+              readOnly
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 13,
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                fontWeight: 600,
+                cursor: 'not-allowed',
+              }}
+            />
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Hospital No.</label>
-            <input type="text" value={formData.hospital_no} onChange={handleFieldChange('hospital_no')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+              Hospital No. <span style={{ fontSize: 11, fontWeight: 400, color: '#6b7280' }}>(Admin Managed)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.hospital_no || ''}
+              placeholder="Not assigned (Managed in Admin Patient Profile)"
+              readOnly
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 13,
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                fontWeight: formData.hospital_no ? 600 : 400,
+                cursor: 'not-allowed',
+              }}
+            />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>

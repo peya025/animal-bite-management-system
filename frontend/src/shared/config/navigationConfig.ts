@@ -69,6 +69,7 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
   },
   {
     label: 'Vaccine Stock Management',
+    path: ROUTES.INVENTORY.LIST,
     icon: GLOBAL_NAV_ICONS['Vaccine Stock Management'],
     roles: ['admin', 'treatment'],
     submenu: [

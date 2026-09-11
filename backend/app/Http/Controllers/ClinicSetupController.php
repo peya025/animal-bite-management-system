@@ -136,6 +136,9 @@ class ClinicSetupController extends Controller
             'contact_number' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
             'license_number' => 'nullable|string|max:255',
+            'hospital_no' => 'nullable|string|max:100',
+            'doh_accreditation_no' => 'nullable|string|max:100',
+            'philhealth_accreditation_no' => 'nullable|string|max:100',
             'opening_hours' => 'nullable|string',
             'logo' => 'nullable|image|max:2048', // 2MB max
         ]);

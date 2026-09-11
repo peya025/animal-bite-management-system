@@ -71,6 +71,9 @@ interface ClinicData {
   contact_number: string;
   email: string;
   license_number: string;
+  hospital_no: string;
+  doh_accreditation_no: string;
+  philhealth_accreditation_no: string;
   opening_hours: {
     [key: string]: { open: string; close: string; is_open: boolean };
   };
@@ -86,6 +89,9 @@ export default function ClinicInformation() {
     contact_number: '',
     email: '',
     license_number: '',
+    hospital_no: '',
+    doh_accreditation_no: '',
+    philhealth_accreditation_no: '',
     opening_hours: {},
   });
   const [snackbar, setSnackbar] = useState<{
@@ -289,6 +295,9 @@ export default function ClinicInformation() {
         contact_number: data.contact_number || '',
         email: data.email || '',
         license_number: data.license_number || '',
+        hospital_no: data.hospital_no || '',
+        doh_accreditation_no: data.doh_accreditation_no || '',
+        philhealth_accreditation_no: data.philhealth_accreditation_no || '',
         opening_hours: defaultHours,
       });
 
@@ -342,7 +351,10 @@ export default function ClinicInformation() {
         opening_hours: JSON.stringify(clinic.opening_hours),
       };
 
-      await api.put('/setup/clinic', payload);
+      const res = await api.put('/setup/clinic', payload);
+      if (res.data?.clinic) {
+        localStorage.setItem('clinicData', JSON.stringify(res.data.clinic));
+      }
 
       setShowSuccessModal(true);
     } catch (error: any) {
@@ -475,6 +487,73 @@ export default function ClinicInformation() {
                 placeholder="Enter license number"
                 value={clinic.license_number}
                 onChange={(e) => handleInputChange('license_number', e.target.value)}
+                sx={cleanFieldSx}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            </Box>
+
+            {/* Hospital Number */}
+            <Box>
+              <FieldLabel>Hospital Number (Hospital No.)</FieldLabel>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. HOSP-9923"
+                value={clinic.hospital_no}
+                onChange={(e) => handleInputChange('hospital_no', e.target.value)}
+                sx={cleanFieldSx}
+                helperText="Official hospital identifier displayed on Form 3 treatment cards"
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            </Box>
+
+            {/* DOH Accreditation Number */}
+            <Box>
+              <FieldLabel>DOH Accreditation Number</FieldLabel>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. 2022-10-037"
+                value={clinic.doh_accreditation_no}
+                onChange={(e) => handleInputChange('doh_accreditation_no', e.target.value)}
+                sx={cleanFieldSx}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            </Box>
+
+            {/* PhilHealth Accreditation Number */}
+            <Box>
+              <FieldLabel>PhilHealth Accreditation Number</FieldLabel>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. B10034377"
+                value={clinic.philhealth_accreditation_no}
+                onChange={(e) => handleInputChange('philhealth_accreditation_no', e.target.value)}
                 sx={cleanFieldSx}
                 slotProps={{
                   input: {

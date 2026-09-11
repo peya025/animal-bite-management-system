@@ -47,10 +47,15 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
       const res = await api.get(`/tagoloan-treatment-cards/patient/${patientId}`);
       setCardData(res.data);
 
+      const clinicRaw = localStorage.getItem('clinicData');
+      const clinicHospitalNo = res.data?.clinic?.hospital_no 
+        || (clinicRaw ? JSON.parse(clinicRaw)?.hospital_no : '') 
+        || '';
+
       const existing = res.data.existing_card;
       if (existing) {
         setRegistryNo(existing.registry_no || '');
-        setHospitalNo(existing.hospital_no || res.data.patient?.hospital_no || '');
+        setHospitalNo(existing.hospital_no || clinicHospitalNo || res.data.patient?.hospital_no || '');
         setReferredBy(existing.referred_by || res.data.bite_incident?.referred_from || '');
         setExposureCategory(existing.exposure_category || '');
         setModeOfExposure(existing.mode_of_exposure || 'transdermal_bite');
@@ -76,7 +81,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         setIcd10Code(existing.icd10_code || 'Z20.3');
         if (existing.card_date) setCardDate(String(existing.card_date).slice(0, 10));
       } else {
-        setHospitalNo(res.data.patient?.hospital_no || '');
+        setHospitalNo(clinicHospitalNo || res.data?.patient?.hospital_no || '');
         setReferredBy(res.data.bite_incident?.referred_from || '');
         if (res.data.bite_incident?.case_number) setRegistryNo(res.data.bite_incident.case_number);
         if (res.data.bite_incident?.exposure_category) setExposureCategory(res.data.bite_incident.exposure_category);
@@ -297,10 +302,10 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                   <strong>Registry No:</strong>{' '}
                   <input
                     type="text"
-                    value={registryNo}
-                    onChange={(e) => setRegistryNo(e.target.value)}
-                    placeholder="e.g. REG-2026-001"
-                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', width: '60%' }}
+                    value={registryNo || '—'}
+                    readOnly
+                    title="Registry number is managed by Admin / System"
+                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', width: '60%', backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#334155', fontWeight: 600 }}
                   />
                 </div>
 
@@ -312,10 +317,11 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                   <strong>Hospital No:</strong>{' '}
                   <input
                     type="text"
-                    value={hospitalNo}
-                    onChange={(e) => setHospitalNo(e.target.value)}
-                    placeholder="e.g. HOSP-9923"
-                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', width: '60%' }}
+                    value={hospitalNo || ''}
+                    placeholder="Not assigned"
+                    readOnly
+                    title="Hospital number is managed by Admin in Patient Profile"
+                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', width: '60%', backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#334155' }}
                   />
                 </div>
 

@@ -137,7 +137,7 @@ class TagoloanTreatmentCardController extends Controller
             'referred_by' => 'nullable|string|max:255',
             'exposure_category' => 'nullable|in:I,II,III',
             'mode_of_exposure' => 'nullable|in:nibbling_uncovered_skin,nibbling_broken_skin,scratch_abrasion,transdermal_bite,handling_ingestion_raw_meat',
-            'body_part_exposed' => 'nullable|in:head_neck,other_parts,na_ingestion',
+            'body_part_exposed' => 'nullable|string|max:255',
             'animal_type' => 'nullable|string|max:100',
             'animal_type_others' => 'nullable|string|max:255',
             'past_bite_history' => 'boolean',

@@ -18,6 +18,16 @@ import {
   ArrowUpRight01Icon,
   UserBlock01Icon,
   Delete02Icon,
+  User02Icon,
+  Calendar03Icon,
+  HandHeartIcon,
+  WheelchairIcon,
+  Baby01Icon,
+  AlertCircleIcon,
+  InjectionIcon,
+  Doctor01Icon,
+  ArrowTurnBackwardIcon,
+  Clock01Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 
@@ -44,12 +54,25 @@ import {
   TreatmentTransferArchivePanel,
   TreatmentCompletedPanel,
   QueuePatientDetailModal,
+  PatientHistoryLookupModal,
 } from '../components';
 import { useAuth } from '../../../contexts/AuthContext';
 import StockLevelIndicator from '../../inventory/components/StockLevelIndicator/StockLevelIndicator';
 
 const TRIAGE_VISIT_TYPES = ['new_case', 'consultation'];
 const TREATMENT_VISIT_TYPES = ['vaccination', 'follow_up', 'observation'];
+
+function getCategoryHugeicon(cat: string) {
+  switch (cat) {
+    case 'appointment':    return Calendar03Icon;
+    case 'senior_citizen': return HandHeartIcon;
+    case 'pwd':            return WheelchairIcon;
+    case 'pregnant':       return Baby01Icon;
+    case 'priority':       return AlertCircleIcon;
+    case 'regular':
+    default:               return User02Icon;
+  }
+}
 
 function isPriorityQueueEntry(entry: QueueEntry): boolean {
   return ['priority', 'pregnant', 'senior_citizen', 'pwd'].includes(entry.queue_category)
@@ -177,6 +200,7 @@ export default function QueueDashboard() {
   const [absentTarget,     setAbsentTarget]     = useState<QueueEntry | null>(null);
   const [trashTarget,      setTrashTarget]      = useState<QueueEntry | null>(null);
   const [showTrashBin,     setShowTrashBin]     = useState(false);
+  const [showHistoryLookup, setShowHistoryLookup] = useState(false);
 
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -298,33 +322,56 @@ export default function QueueDashboard() {
       key: 'queue_number', header: 'Queue #', width: '80px',
       render: e => {
         const isHighlighted = highlightedQueueId === e.queue_id;
+        const isServing = e.status === 'serving' || e.status === 'in_consultation';
+        const isCalled  = e.status === 'called';
+
+        let boxBg = '#eff6ff';
+        let boxColor = '#2563eb';
+        let boxBorder = 'none';
+
+        if (isServing) {
+          boxBg = '#d1fae5';
+          boxColor = '#047857';
+          boxBorder = '2px solid #059669';
+        } else if (isCalled) {
+          boxBg = '#fef3c7';
+          boxColor = '#b45309';
+          boxBorder = '2px solid #d97706';
+        } else if (isHighlighted) {
+          boxBg = '#dbeafe';
+          boxColor = '#1d4ed8';
+          boxBorder = '2px solid #2563eb';
+        }
+
         return (
           <Box sx={{
             width: 38, height: 38, borderRadius: 2,
-            bgcolor: isHighlighted ? '#dbeafe' : '#eff6ff',
-            border: isHighlighted ? '2px solid #2563eb' : 'none',
+            bgcolor: boxBg,
+            border: boxBorder,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'all 0.3s ease',
           }}>
-            <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#2563eb' }}>{e.queue_number}</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: 14, color: boxColor }}>{e.queue_number}</Typography>
           </Box>
         );
       },
     },
     {
-      key: 'queue_category', header: 'Category', width: '120px',
+      key: 'queue_category', header: 'Category', width: '130px',
       render: e => {
         const cfg = CATEGORY_CFG[e.queue_category] ?? CATEGORY_CFG.regular;
         const label = CATEGORY_LABEL[e.queue_category] ?? e.queue_category;
+        const CatIcon = getCategoryHugeicon(e.queue_category);
         return (
           <Box sx={{
-            display: 'inline-flex', alignItems: 'center', gap: 0.5,
+            display: 'inline-flex', alignItems: 'center', gap: 0.6,
             px: 1.25, py: 0.35,
             bgcolor: cfg.bg, color: cfg.color,
             borderRadius: 1.5, fontSize: 11, fontWeight: 500,
             whiteSpace: 'nowrap',
           }}>
-            {cfg.icon} {label}
+            <HugeiconsIcon icon={CatIcon} size={12} strokeWidth={2.2} />
+            {label}
           </Box>
         );
       },
@@ -336,10 +383,69 @@ export default function QueueDashboard() {
         const todayStr = new Date().toISOString().split('T')[0];
         const isCarry  = e.is_carry_over || (qDate && qDate < todayStr);
         const isActive = MAIN_STATUSES.includes(e.status);
+        const isServing = e.status === 'serving' || e.status === 'in_consultation';
+
+        // Check if RIG / GI candidate
+        const bite = e.biteIncident;
+        const isRigCandidate = Boolean(
+          (bite && (bite.severity === 'severe' || bite.exposure_type === 'category_3' || bite.rig_decision_reason)) ||
+          bite?.remarks?.toLowerCase().includes('rig') ||
+          bite?.remarks?.toLowerCase().includes('gamma') ||
+          bite?.remarks?.toLowerCase().includes(' gi ') ||
+          e.check_in_notes?.toLowerCase().includes('rig') ||
+          e.check_in_notes?.toLowerCase().includes('gamma') ||
+          e.consultation_notes?.toLowerCase().includes('rig') ||
+          e.consultation_notes?.toLowerCase().includes('gamma')
+        );
+
+        // Check attending doctor / staff
+        const attending = e.handled_by_user || (typeof e.handled_by === 'object' && e.handled_by !== null ? (e.handled_by as { id: number; name: string; role: string }) : e.handledBy);
+
         return (
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontWeight: 500, fontSize: 13.5, color: 'var(--text-h)', lineHeight: 1.3 }}>{e.patient.name}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-h)', lineHeight: 1.3 }}>
+                {e.patient.name}
+              </Typography>
+
+              {/* Active patient indicator */}
+              {isServing && (
+                <Box sx={{
+                  display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                  px: 0.75, py: 0.15, bgcolor: '#dcfce7', color: '#15803d',
+                  border: '1px solid #86efac', borderRadius: 1, fontSize: 10, fontWeight: 700,
+                  letterSpacing: '0.02em', textTransform: 'uppercase',
+                }}>
+                  <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#16a34a' }} />
+                  Active
+                </Box>
+              )}
+
+              {/* RIG / GI injection candidate indicator */}
+              {isRigCandidate && (
+                <Box sx={{
+                  display: 'inline-flex', alignItems: 'center', gap: 0.4,
+                  px: 0.75, py: 0.15, bgcolor: '#fee2e2', color: '#b91c1c',
+                  border: '1px solid #fca5a5', borderRadius: 1, fontSize: 10, fontWeight: 700,
+                  letterSpacing: '0.01em',
+                }}>
+                  <HugeiconsIcon icon={InjectionIcon} size={11} strokeWidth={2.4} />
+                  RIG / GI
+                </Box>
+              )}
+
+              {/* Attending doctor / staff indicator */}
+              {attending?.name && (
+                <Box sx={{
+                  display: 'inline-flex', alignItems: 'center', gap: 0.4,
+                  px: 0.75, py: 0.15, bgcolor: '#eff6ff', color: '#1d4ed8',
+                  border: '1px solid #bfdbfe', borderRadius: 1, fontSize: 10, fontWeight: 600,
+                }}>
+                  <HugeiconsIcon icon={Doctor01Icon} size={11} strokeWidth={2.2} />
+                  Dr. {attending.name}
+                </Box>
+              )}
+
               {isCarry && isActive && (
                 <Box sx={{ px: 0.8, py: 0.15, bgcolor: '#fef3c7', color: '#92400e', borderRadius: 1, fontSize: 10, fontWeight: 600 }}>
                   Carried Over {qDate ? `(${new Date(qDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}
@@ -351,7 +457,7 @@ export default function QueueDashboard() {
                 </Box>
               )}
             </Box>
-            <Typography sx={{ fontSize: 11.5, color: 'var(--text-secondary)', mt: 0.25 }}>
+            <Typography sx={{ fontSize: 11.5, color: 'var(--text-secondary)', mt: 0.35 }}>
               {e.patient.age}y · {e.patient.gender}
               {e.biteIncident && ` · ${e.biteIncident.case_number}`}
             </Typography>
@@ -605,6 +711,26 @@ export default function QueueDashboard() {
             </button>
           </Tooltip>
 
+          {/* Patient Consultation History Lookup (Doctor / Triage / Admin) */}
+          {(isTriageDoctor || user?.role === 'admin') && (
+            <Tooltip title="Search Returning Patient Consultation History">
+              <button
+                onClick={() => setShowHistoryLookup(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', borderRadius: 8,
+                  background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                  color: '#fff', border: 'none', cursor: 'pointer',
+                  fontSize: 12.5, fontWeight: 500, fontFamily: 'inherit',
+                  boxShadow: '0 2px 6px rgba(5,150,105,0.25)', whiteSpace: 'nowrap',
+                }}
+              >
+                <HugeiconsIcon icon={Clock01Icon} size={14} strokeWidth={2.2} />
+                Patient History
+              </button>
+            </Tooltip>
+          )}
+
           {!isRegistrationStaff && (
             <Tooltip title="Trash Bin">
               <IconButton size="small" onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
@@ -666,7 +792,8 @@ export default function QueueDashboard() {
           </Box>
           {visibleSecondChanceQueue.length > 0 && (
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500 }}>
-              ↩ {visibleSecondChanceQueue.length} in Second Chance Queue
+              <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={12} strokeWidth={2} />
+              {visibleSecondChanceQueue.length} in Second Chance Queue
             </Box>
           )}
         </Box>
@@ -689,6 +816,11 @@ export default function QueueDashboard() {
           loading={loading}
           skeletonRows={rowsPerPage}
           rowKey={e => e.queue_id}
+          rowBg={e => {
+            if (e.status === 'serving' || e.status === 'in_consultation') return 'rgba(236, 253, 245, 0.75)';
+            if (e.status === 'called') return 'rgba(255, 251, 235, 0.85)';
+            return undefined;
+          }}
           emptyIcon={<WaitIcon sx={{ fontSize: 28, color: 'var(--text-secondary)' }} />}
           emptyTitle={statusFilter ? `No ${STATUS_CFG[statusFilter as keyof typeof STATUS_CFG]?.label ?? statusFilter} patients` : 'Queue is empty'}
           emptySubtitle="Patients added by registration will appear here"
@@ -841,6 +973,12 @@ export default function QueueDashboard() {
           }}
         />
       )}
+
+      {/* Quick Patient Consultation History Lookup Modal (Triage / Doctor) */}
+      <PatientHistoryLookupModal
+        open={showHistoryLookup}
+        onClose={() => setShowHistoryLookup(false)}
+      />
 
       <Snackbar
         open={snackbar.open}

@@ -11,6 +11,9 @@ import {
   Snackbar,
   Tooltip,
   Typography,
+  Stack,
+  TextField,
+  Paper,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -21,6 +24,15 @@ import {
   Replay as RecallIcon,
   PersonOff as AbsentIcon,
 } from '@mui/icons-material';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Calendar03Icon,
+  Clock01Icon,
+  Stethoscope02Icon,
+  Pulse01Icon,
+  Medicine01Icon,
+} from '@hugeicons/core-free-icons';
+import api from '../../../shared/services/api';
 import { useQueueEntry } from '../hooks';
 import { STATUS_CFG, PRIORITY_CFG, VISIT_LABEL, getPriorityDisplayLabel, waitTime, type QueueEntry } from '../types';
 import { cancelQueueEntry, markNoResponse, recallQueuePatient, markAbsent } from '../services';
@@ -210,6 +222,7 @@ const TABS = [
   { key: 'form1', label: 'Form 1', roleLabel: 'Registration', owner: 'registration' as const },
   { key: 'form2', label: 'Form 2', roleLabel: 'Doctor',       owner: 'triage'        as const },
   { key: 'form3', label: 'Form 3', roleLabel: 'Nurse',        owner: 'treatment'     as const },
+  { key: 'history', label: 'Past Consultations', roleLabel: 'History', owner: 'triage' as const },
 ];
 
 function TabBar({ active, onSelect, userRole }: {
@@ -268,6 +281,175 @@ function TabBar({ active, onSelect, userRole }: {
           </button>
         );
       })}
+    </Box>
+  );
+}
+
+// ─── Patient Consultation History Tab ───────────────────────────────────────
+function PatientConsultationHistoryTab({ patientId }: { patientId?: number }) {
+  const [loading, setLoading] = useState(false);
+  const [treatments, setTreatments] = useState<any[]>([]);
+  const [searchFilter, setSearchFilter] = useState('');
+
+  useEffect(() => {
+    if (!patientId) return;
+    setLoading(true);
+    api.get(`/treatment-records/patient/${patientId}`)
+      .then(res => {
+        setTreatments(res.data?.treatments || (res.data?.latest_treatment ? [res.data.latest_treatment] : []));
+      })
+      .catch(err => {
+        console.error('Failed to load patient history:', err);
+      })
+      .finally(() => setLoading(false));
+  }, [patientId]);
+
+  const filtered = treatments.filter(t => {
+    if (!searchFilter.trim()) return true;
+    const s = searchFilter.toLowerCase();
+    return (
+      (t.consultation_date || '').toLowerCase().includes(s) ||
+      (t.chief_complaints || '').toLowerCase().includes(s) ||
+      (t.diagnosis || '').toLowerCase().includes(s) ||
+      (t.provider_name || '').toLowerCase().includes(s)
+    );
+  });
+
+  const parseText = (val: unknown): string => {
+    if (!val) return '—';
+    if (Array.isArray(val)) return val.join(', ');
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) return parsed.join(', ');
+      } catch {
+        // use raw string
+      }
+      return val;
+    }
+    return String(val);
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 6 }}>
+        <CircularProgress size={28} />
+        <Typography sx={{ mt: 1, fontSize: 13, color: '#6b7280' }}>
+          Loading consultation history…
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (treatments.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 6, color: '#6b7280' }}>
+        <HugeiconsIcon icon={Clock01Icon} size={36} strokeWidth={1.5} />
+        <Typography sx={{ mt: 1, fontSize: 13, fontWeight: 500 }}>
+          No prior consultation records found for this patient.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
+        <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>
+          Prior Consultations ({treatments.length} record{treatments.length === 1 ? '' : 's'})
+        </Typography>
+        <TextField
+          size="small"
+          placeholder="Filter by date, symptom, or diagnosis…"
+          value={searchFilter}
+          onChange={e => setSearchFilter(e.target.value)}
+          sx={{ width: 280, '& .MuiInputBase-input': { py: 0.6, fontSize: 12.5 } }}
+        />
+      </Box>
+
+      <Stack spacing={2}>
+        {filtered.map((t, idx) => (
+          <Paper
+            key={t.treatment_id || idx}
+            elevation={0}
+            sx={{
+              p: 2,
+              border: '1px solid #e5e7eb',
+              borderRadius: 2.5,
+              bgcolor: '#ffffff',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, pb: 1, borderBottom: '1px solid #f3f4f6' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 28, height: 28, borderRadius: 1, bgcolor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <HugeiconsIcon icon={Calendar03Icon} size={14} strokeWidth={2} />
+                </Box>
+                <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#111827' }}>
+                  {t.consultation_date || 'Date not recorded'}
+                </Typography>
+                {t.consultation_time && (
+                  <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+                    ({t.consultation_time})
+                  </Typography>
+                )}
+              </Box>
+              {t.provider_name && (
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.2, bgcolor: '#f0fdf4', color: '#166534', borderRadius: 1, fontSize: 11, fontWeight: 600 }}>
+                  <HugeiconsIcon icon={Stethoscope02Icon} size={12} strokeWidth={2} />
+                  Dr. {t.provider_name}
+                </Box>
+              )}
+            </Box>
+
+            {(t.blood_pressure || t.temperature || t.weight) && (
+              <Box sx={{ display: 'flex', gap: 2, mb: 1.5, flexWrap: 'wrap', fontSize: 11.5, color: '#6b7280' }}>
+                {t.blood_pressure && <span>BP: <strong>{t.blood_pressure}</strong></span>}
+                {t.temperature && <span>Temp: <strong>{t.temperature}°C</strong></span>}
+                {t.weight && <span>Weight: <strong>{t.weight} kg</strong></span>}
+              </Box>
+            )}
+
+            <Box sx={{ mb: 1 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>
+                Chief Complaints
+              </Typography>
+              <Typography sx={{ fontSize: 12.5, color: '#1f2937', mt: 0.2 }}>
+                {t.chief_complaints || '—'}
+              </Typography>
+            </Box>
+
+            <Box sx={{ mb: 1 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>
+                Diagnosis
+              </Typography>
+              <Typography sx={{ fontSize: 12.5, color: '#065f46', fontWeight: 500, mt: 0.2 }}>
+                {parseText(t.diagnosis)}
+              </Typography>
+            </Box>
+
+            {(t.prescribed_vaccine_type || t.medication_treatment) && (
+              <Box sx={{ mt: 1.5, p: 1.25, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px solid #e2e8f0' }}>
+                {t.prescribed_vaccine_type && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+                    <HugeiconsIcon icon={Pulse01Icon} size={13} strokeWidth={2} />
+                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>
+                      Prescribed PEP: {t.prescribed_vaccine_type}
+                    </Typography>
+                  </Box>
+                )}
+                {t.medication_treatment && (
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
+                    <HugeiconsIcon icon={Medicine01Icon} size={13} strokeWidth={2} />
+                    <Typography sx={{ fontSize: 12, color: '#334155' }}>
+                      {parseText(t.medication_treatment)}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
+          </Paper>
+        ))}
+      </Stack>
     </Box>
   );
 }
@@ -401,6 +583,7 @@ export default function QueuePatientDetailModal({
               }}
               readOnly={!editable}
               inline={true}
+              hideConsultationType={true}
             />
           </Box>
         );
@@ -427,6 +610,13 @@ export default function QueuePatientDetailModal({
               readOnly={!editable || isNewCaseAwaitingTriage}
               inline={true}
             />
+          </Box>
+        );
+      }
+      case 'history': {
+        return (
+          <Box sx={{ p: 2.5 }}>
+            <PatientConsultationHistoryTab patientId={entry.patient?.patient_id} />
           </Box>
         );
       }

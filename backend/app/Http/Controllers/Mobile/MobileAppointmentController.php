@@ -118,7 +118,7 @@ class MobileAppointmentController extends Controller
                     'intake.animal_status' => ['required', 'in:owned,stray,unknown'],
                     'intake.animal_captured'    => ['nullable', 'boolean'],
                     'intake.wound_location'     => ['nullable', 'string', 'max:255'],
-                    'intake.body_part_exposed'  => ['nullable', 'in:head_neck,other_parts,na_ingestion'],
+                    'intake.body_part_exposed'  => ['nullable', 'string', 'max:255'],
                     'intake.patient_description' => ['nullable', 'string', 'max:2000'],
                 ],
                 [

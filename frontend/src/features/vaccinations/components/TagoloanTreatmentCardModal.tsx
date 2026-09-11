@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../../services/api';
 import { Icon } from '../../../shared/components/ui/Icon';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { PrinterIcon } from '@hugeicons/core-free-icons';
 
 interface Props {
   open: boolean;
@@ -53,10 +55,21 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         setExposureCategory(existing.exposure_category || '');
         setModeOfExposure(existing.mode_of_exposure || 'transdermal_bite');
         setBodyPartExposed(existing.body_part_exposed || 'other_parts');
-        // Normalize animal_type to 'Dog' or 'Others' regardless of case stored in DB
+        // Normalize animal_type to 'Dog', 'Cat', or 'Others' regardless of case stored in DB
         const storedAnimal = (existing.animal_type || '').toLowerCase();
-        setAnimalType(storedAnimal === 'dog' ? 'Dog' : 'Others');
-        setAnimalTypeOthers(existing.animal_type_others || '');
+        if (storedAnimal === 'dog') {
+          setAnimalType('Dog');
+          setAnimalTypeOthers('');
+        } else if (storedAnimal === 'cat') {
+          setAnimalType('Cat');
+          setAnimalTypeOthers('');
+        } else if (storedAnimal) {
+          setAnimalType('Others');
+          setAnimalTypeOthers(existing.animal_type_others || existing.animal_type || '');
+        } else {
+          setAnimalType('Dog');
+          setAnimalTypeOthers('');
+        }
         setPastBiteHistory(Boolean(existing.past_bite_history));
         setPastBiteDates(existing.past_bite_dates || '');
         setPastPepCompleted(Boolean(existing.past_pep_completed));
@@ -74,6 +87,9 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
           const biteAnimal = (res.data.bite_incident.animal_type || '').toLowerCase();
           if (biteAnimal === 'dog') {
             setAnimalType('Dog');
+            setAnimalTypeOthers('');
+          } else if (biteAnimal === 'cat') {
+            setAnimalType('Cat');
             setAnimalTypeOthers('');
           } else {
             setAnimalType('Others');
@@ -102,7 +118,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         mode_of_exposure: modeOfExposure || null,
         body_part_exposed: bodyPartExposed || null,
         animal_type: animalType,
-        animal_type_others: animalTypeOthers,
+        animal_type_others: animalType === 'Others' ? animalTypeOthers : null,
         past_bite_history: pastBiteHistory,
         past_bite_dates: pastBiteDates,
         past_pep_completed: pastPepCompleted,
@@ -248,12 +264,8 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                   letterSpacing: '0.3px',
                 }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 6 2 18 2 18 9"/>
-                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                  <rect x="6" y="14" width="12" height="8"/>
-                </svg>
-                🖨 Print This Form
+                <HugeiconsIcon icon={PrinterIcon} size={18} />
+                Print This Form
               </button>
             </div>
           )}
@@ -271,7 +283,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
               </div>
 
               {/* Top Form Header Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1.5rem', fontSize: '0.85rem', marginBottom: '1rem', borderBottom: '1px stroke #e2e8f0', pb: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1.5rem', fontSize: '0.85rem', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
                 <div>
                   <strong>Date:</strong>{' '}
                   <input
@@ -398,60 +410,100 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {/* 2. Body Part Affected */}
                   <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>2. Body Part Affected Exposed</strong>
-                    <label style={{ display: 'block', marginBottom: '0.2rem' }}>
-                      <input
-                        type="radio"
-                        name="body_part"
-                        checked={bodyPartExposed === 'head_neck'}
-                        onChange={() => setBodyPartExposed('head_neck')}
-                      /> ( ) Head and/or neck
-                    </label>
-                    <label style={{ display: 'block', marginBottom: '0.2rem' }}>
-                      <input
-                        type="radio"
-                        name="body_part"
-                        checked={bodyPartExposed === 'other_parts'}
-                        onChange={() => setBodyPartExposed('other_parts')}
-                      /> ( ) Other parts of the body
-                    </label>
-                    <label style={{ display: 'block' }}>
-                      <input
-                        type="radio"
-                        name="body_part"
-                        checked={bodyPartExposed === 'na_ingestion'}
-                        onChange={() => setBodyPartExposed('na_ingestion')}
-                      /> ( ) N / A if Ingestion mode
-                    </label>
+                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>2. Body Part Affected / Exposed</strong>
+                    <input
+                      type="text"
+                      value={bodyPartExposed}
+                      onChange={(e) => setBodyPartExposed(e.target.value)}
+                      placeholder="e.g. Left hand, Right lower leg, Head / Neck"
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        marginBottom: '0.4rem',
+                      }}
+                    />
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {[
+                        'Head & Neck',
+                        'Upper Extremities',
+                        'Lower Extremities',
+                        'Trunk / Torso',
+                        'Multiple Sites',
+                        'N/A (Ingestion)',
+                      ].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setBodyPartExposed((prev) => (prev ? `${prev}, ${preset}` : preset))}
+                          style={{
+                            background: '#f1f5f9',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '4px',
+                            padding: '2px 6px',
+                            fontSize: '0.72rem',
+                            color: '#475569',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          + {preset}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* 3. Type of Animal */}
                   <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
                     <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>3. Type of Animal</strong>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      <label>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                         <input
                           type="radio"
                           name="animal_type"
                           checked={animalType === 'Dog'}
-                          onChange={() => setAnimalType('Dog')}
-                        /> ( ) Dog
+                          onChange={() => {
+                            setAnimalType('Dog');
+                            setAnimalTypeOthers('');
+                          }}
+                        /> Dog
                       </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                         <input
                           type="radio"
                           name="animal_type"
-                          checked={animalType !== 'Dog'}
+                          checked={animalType === 'Cat'}
+                          onChange={() => {
+                            setAnimalType('Cat');
+                            setAnimalTypeOthers('');
+                          }}
+                        /> Cat
+                      </label>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="animal_type"
+                          checked={animalType === 'Others'}
                           onChange={() => setAnimalType('Others')}
-                        /> ( ) Others:
+                        /> Others:
+                      </label>
+                      {animalType === 'Others' && (
                         <input
                           type="text"
                           value={animalTypeOthers}
                           onChange={(e) => setAnimalTypeOthers(e.target.value)}
-                          placeholder="Cat, etc."
-                          style={{ border: '1px solid #cbd5e1', padding: '1px 4px', borderRadius: '4px', fontSize: '0.8rem' }}
+                          placeholder="Specify animal (e.g. Monkey, Bat, Rat)"
+                          style={{
+                            border: '1px solid #cbd5e1',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.8rem',
+                            flex: 1,
+                            minWidth: '140px',
+                          }}
                         />
-                      </label>
+                      )}
                     </div>
                   </div>
 

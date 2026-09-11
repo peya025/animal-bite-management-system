@@ -16,13 +16,13 @@ export const CATEGORY_LABEL: Record<QueueCategory, string> = {
   priority:       'Priority / Urgent',
 };
 
-export const CATEGORY_CFG: Record<QueueCategory, { bg: string; color: string; icon: string }> = {
-  regular:        { bg: '#f3f4f6', color: '#374151', icon: '👤' },
-  appointment:    { bg: '#eff6ff', color: '#1d4ed8', icon: '📅' },
-  senior_citizen: { bg: '#fef9c3', color: '#854d0e', icon: '👴' },
-  pwd:            { bg: '#f0fdf4', color: '#15803d', icon: '♿' },
-  pregnant:       { bg: '#fdf4ff', color: '#7e22ce', icon: '🤰' },
-  priority:       { bg: '#fee2e2', color: '#dc2626', icon: '🚨' },
+export const CATEGORY_CFG: Record<QueueCategory, { bg: string; color: string }> = {
+  regular:        { bg: '#f3f4f6', color: '#374151' },
+  appointment:    { bg: '#eff6ff', color: '#1d4ed8' },
+  senior_citizen: { bg: '#fef9c3', color: '#854d0e' },
+  pwd:            { bg: '#f0fdf4', color: '#15803d' },
+  pregnant:       { bg: '#fdf4ff', color: '#7e22ce' },
+  priority:       { bg: '#fee2e2', color: '#dc2626' },
 };
 export type QueueStatus =
   | 'waiting'
@@ -67,7 +67,29 @@ export interface QueueEntry {
     gender: string;
     contact_number: string;
   };
-  biteIncident?: { bite_id: number; case_number: string; severity: string };
+  biteIncident?: {
+    bite_id: number;
+    case_number: string;
+    severity?: string;
+    exposure_type?: string;
+    remarks?: string;
+    rig_decision_reason?: string;
+  };
+  handled_by_user?: {
+    id: number;
+    name: string;
+    role: string;
+  } | null;
+  handledBy?: {
+    id: number;
+    name: string;
+    role: string;
+  } | null;
+  handled_by?: number | {
+    id: number;
+    name: string;
+    role: string;
+  } | null;
   history?: QueueHistoryEntry[];
 }
 

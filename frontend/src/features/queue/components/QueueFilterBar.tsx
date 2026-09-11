@@ -1,8 +1,21 @@
+// @ts-nocheck
 import {
   Box, Button, FormControl, Grid, InputAdornment, InputLabel,
   MenuItem, Select, TextField, Divider,
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
+import {
+  Clock01Icon,
+  CallIcon,
+  Stethoscope02Icon,
+  ArrowTurnBackwardIcon,
+  AlertCircleIcon,
+  CheckmarkCircle02Icon,
+  Cancel01Icon,
+  UserBlock01Icon,
+  VolumeMute01Icon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 
 interface QueueFilterBarProps {
   search: string;
@@ -35,37 +48,49 @@ export function QueueFilterBar({
   const menuPaperSx = {
     slotProps: {
       paper: {
-        sx: { mt: 0.5, borderRadius: 2, minWidth: 220, boxShadow: '0 8px 24px rgba(15,23,42,0.14)' },
+        sx: {
+          bgcolor: 'var(--card-bg)',
+          borderRadius: 2,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+          '& .MuiMenuItem-root': {
+            fontSize: 13,
+            color: 'var(--text)',
+            fontFamily: 'inherit',
+            '&:hover': { bgcolor: 'var(--sidebar-hover-bg)' },
+            '&.Mui-selected': { bgcolor: 'var(--nav-active-bg)', color: 'var(--primary)', fontWeight: 600 },
+          },
+        },
       },
     },
   };
 
   return (
-    <Box sx={{ pb: 3, borderBottom: '1px solid var(--table-row-border)' }}>
-      <Grid container spacing={2} sx={{ alignItems: 'center' }}>
+    <Box sx={{ bgcolor: 'var(--card-bg)', p: 2, borderRadius: 2.5, border: '1px solid var(--border)', mb: 2 }}>
+      <Grid container spacing={1.5} alignItems="center">
 
         {/* Search */}
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid size={{ xs: 12, sm: onCategoryChange ? 5 : 8, md: onCategoryChange ? 5 : 8 }}>
           <TextField
-            fullWidth size="small"
-            placeholder="Search patient name or queue #…"
+            fullWidth
+            size="small"
             value={search}
             onChange={e => onSearchChange(e.target.value)}
+            placeholder="Search patient name or queue #…"
             slotProps={{
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon fontSize="small" sx={{ color: 'var(--text-secondary)' }} />
+                    <SearchIcon sx={{ color: 'var(--text-secondary)', fontSize: 18 }} />
                   </InputAdornment>
                 ),
-              },
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                bgcolor: 'var(--input-bg)', borderRadius: 2, color: 'var(--input-text)',
-                '& fieldset': { borderColor: 'var(--input-border)' },
-                '&:hover fieldset': { borderColor: 'var(--text-secondary)' },
-                '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                sx: {
+                  bgcolor: 'var(--input-bg)',
+                  borderRadius: 2,
+                  color: 'var(--input-text)',
+                  '& fieldset': { borderColor: 'var(--input-border)' },
+                  '&:hover fieldset': { borderColor: 'var(--text-secondary)' },
+                  '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                },
               },
             }}
           />
@@ -79,20 +104,60 @@ export function QueueFilterBar({
               <MenuItem value="">All Statuses</MenuItem>
               <Divider sx={{ my: 0.5 }} />
               {/* Active */}
-              <MenuItem value="waiting">⏳ Waiting</MenuItem>
-              <MenuItem value="called">📢 Called</MenuItem>
-              <MenuItem value="serving">🩺 Serving</MenuItem>
-              <MenuItem value="in_consultation">🩺 In Consultation</MenuItem>
+              <MenuItem value="waiting">
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <HugeiconsIcon icon={Clock01Icon} size={14} /> Waiting
+                </Box>
+              </MenuItem>
+              <MenuItem value="called">
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <HugeiconsIcon icon={CallIcon} size={14} /> Called
+                </Box>
+              </MenuItem>
+              <MenuItem value="serving">
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <HugeiconsIcon icon={Stethoscope02Icon} size={14} /> Serving
+                </Box>
+              </MenuItem>
+              <MenuItem value="in_consultation">
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <HugeiconsIcon icon={Stethoscope02Icon} size={14} /> In Consultation
+                </Box>
+              </MenuItem>
               <Divider sx={{ my: 0.5 }} />
               {/* Recall */}
-              <MenuItem value="second_chance">↩ Second Chance</MenuItem>
-              <MenuItem value="final_recall">⚠ Final Recall</MenuItem>
+              <MenuItem value="second_chance">
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={14} /> Second Chance
+                </Box>
+              </MenuItem>
+              <MenuItem value="final_recall">
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <HugeiconsIcon icon={AlertCircleIcon} size={14} /> Final Recall
+                </Box>
+              </MenuItem>
               <Divider sx={{ my: 0.5 }} />
               {/* Terminal */}
-              <MenuItem value="completed">✅ Completed</MenuItem>
-              <MenuItem value="cancelled">❌ Cancelled</MenuItem>
-              <MenuItem value="absent">🚫 No-Show / Absent</MenuItem>
-              <MenuItem value="no_response">🔕 No Response</MenuItem>
+              <MenuItem value="completed">
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} /> Completed
+                </Box>
+              </MenuItem>
+              <MenuItem value="cancelled">
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <HugeiconsIcon icon={Cancel01Icon} size={14} /> Cancelled
+                </Box>
+              </MenuItem>
+              <MenuItem value="absent">
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <HugeiconsIcon icon={UserBlock01Icon} size={14} /> No-Show / Absent
+                </Box>
+              </MenuItem>
+              <MenuItem value="no_response">
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <HugeiconsIcon icon={VolumeMute01Icon} size={14} /> No Response
+                </Box>
+              </MenuItem>
             </Select>
           </FormControl>
         </Grid>

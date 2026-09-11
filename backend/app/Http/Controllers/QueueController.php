@@ -141,7 +141,9 @@ class QueueController extends Controller
                     ->whereNull('deleted_at')
                     ->with([
                         'patient:' . $this->patientFields(),
-                        'biteIncident:bite_id,case_number,patient_id',
+                        'biteIncident:bite_id,case_number,patient_id,exposure_type,severity,remarks,rig_decision_reason',
+                        'handledBy:id,name,role',
+                        'handledByUser:id,name,role',
                     ])
                     ->select(
                         'queue_id','queue_number','queue_category','patient_id','bite_id',
@@ -155,11 +157,32 @@ class QueueController extends Controller
                 // Auto-expire stale unserved tickets from previous days (both main and second-chance)
                 $this->expireStaleTickets($clinicId, $date);
 
-                // Main queue: strictly today's tickets
+                // Main queue: strictly today's tickets sorted by: Active > Priority > FIFO
+                $categoryOrder = self::CATEGORY_ORDER;
+                $priorityLevel = ['emergency' => 1, 'urgent' => 2, 'normal' => 3];
+                $statusOrder = [
+                    'serving'         => 1,
+                    'in_consultation' => 1,
+                    'called'          => 2,
+                    'waiting'         => 3,
+                    'second_chance'   => 4,
+                    'final_recall'    => 5,
+                    'completed'       => 6,
+                    'cancelled'       => 7,
+                    'no_response'     => 8,
+                    'absent'          => 9,
+                ];
+
                 $mainQueue = (clone $baseQuery)
                     ->where('queue_date', $date)
-                    ->orderBy('queue_number', 'asc')
-                    ->get();
+                    ->get()
+                    ->sortBy([
+                        fn($a, $b) => ($statusOrder[$a->status] ?? 3) <=> ($statusOrder[$b->status] ?? 3),
+                        fn($a, $b) => ($categoryOrder[$a->queue_category] ?? 4) <=> ($categoryOrder[$b->queue_category] ?? 4),
+                        fn($a, $b) => ($priorityLevel[$a->priority] ?? 3) <=> ($priorityLevel[$b->priority] ?? 3),
+                        fn($a, $b) => $a->queue_number <=> $b->queue_number,
+                    ])
+                    ->values();
 
                 // Second chance queue: strictly for the requested date
                 $secondQueue = (clone $baseQuery)

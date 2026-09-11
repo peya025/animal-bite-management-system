@@ -65,6 +65,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
   const [expiryFrom, setExpiryFrom] = useState('');
   const [expiryTo, setExpiryTo] = useState('');
   const [view, setView] = useState<'table' | 'stockcard' | 'fifo' | 'administrations'>(defaultTab);
@@ -134,14 +135,41 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
       const derivedStatus = deriveInventoryStatus(item);
       const matchesSearch = !search || item.vaccine_type.toLowerCase().includes(search.toLowerCase());
       const matchesBatch = !batchFilter || (item.batch_number || '').toLowerCase().includes(batchFilter.toLowerCase());
-      const matchesStatus = !statusFilter || derivedStatus.toLowerCase() === statusFilter.toLowerCase();
+      const matchesSource = !sourceFilter || (item.received_from || '').toLowerCase().includes(sourceFilter.toLowerCase());
+
+      let matchesStatus = true;
+      if (statusFilter) {
+        switch (statusFilter) {
+          case 'active':
+            matchesStatus = derivedStatus === 'Active';
+            break;
+          case 'low-stock':
+            matchesStatus = item.current_quantity > 0 && item.current_quantity <= 10;
+            break;
+          case 'expiring-soon':
+            matchesStatus = derivedStatus === 'Expiring';
+            break;
+          case 'expired':
+            matchesStatus = derivedStatus === 'Expired';
+            break;
+          case 'depleted':
+            matchesStatus = derivedStatus === 'Depleted';
+            break;
+          case 'discard-pending':
+            matchesStatus = derivedStatus === 'Discard-Pending';
+            break;
+          default:
+            matchesStatus = true;
+        }
+      }
+
       const expiryDate = item.expiration_date ? item.expiration_date.split('T')[0] : '';
       const matchesFrom = !expiryFrom || !expiryDate || expiryDate >= expiryFrom;
       const matchesTo = !expiryTo || !expiryDate || expiryDate <= expiryTo;
 
-      return matchesSearch && matchesBatch && matchesStatus && matchesFrom && matchesTo;
+      return matchesSearch && matchesBatch && matchesSource && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [items, search, batchFilter, statusFilter, expiryFrom, expiryTo]);
+  }, [items, search, batchFilter, sourceFilter, statusFilter, expiryFrom, expiryTo]);
 
   const pagedItems = useMemo(() => {
     const start = page * rowsPerPage;
@@ -368,9 +396,9 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             }}
           >
             <StatCard label="Active Batches" value={stats.active_batches} color="success" loading={loading} />
-            <StatCard label="Total Balance" value={stats.total_stock} color="info" loading={loading} />
+            <StatCard label="Available Sealed Vials" value={stats.total_stock} color="info" loading={loading} />
             <StatCard label="Expiring Soon" value={stats.expiring_soon} color="warning" loading={loading} />
-            <StatCard label="Discard-Pending" value={stats.discard_pending} color="info" loading={loading} />
+            <StatCard label="Opened Vial — Dispose" value={stats.discard_pending} color="info" loading={loading} />
             <StatCard label="Depleted" value={stats.depleted_batches} color="error" loading={loading} />
           </Box>
         </>
@@ -386,8 +414,10 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           search={search}
           statusFilter={statusFilter}
           batchFilter={batchFilter}
+          sourceFilter={sourceFilter}
           expiryFrom={expiryFrom}
           expiryTo={expiryTo}
+          allItems={items}
           onSearchChange={(value) => {
             setSearch(value);
             setPage(0);
@@ -398,6 +428,10 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           }}
           onBatchFilterChange={(value) => {
             setBatchFilter(value);
+            setPage(0);
+          }}
+          onSourceFilterChange={(value) => {
+            setSourceFilter(value);
             setPage(0);
           }}
           onExpiryFromChange={(value) => {

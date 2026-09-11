@@ -8,6 +8,7 @@ class PatientDetails extends Model
 {
     protected $fillable = [
         'patient_id',
+        'hospital_no',
         'blood_type',
         'mother_maiden_name',
         'civil_status',

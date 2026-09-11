@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -48,6 +48,8 @@ import {
 
 interface InventoryTableProps {
   items: InventoryItem[];
+  /** Full unfiltered list — used to derive unique source/supplier options */
+  allItems: InventoryItem[];
   loading: boolean;
   page: number;
   rowsPerPage: number;
@@ -55,11 +57,13 @@ interface InventoryTableProps {
   search: string;
   statusFilter: string;
   batchFilter: string;
+  sourceFilter: string;
   expiryFrom: string;
   expiryTo: string;
   onSearchChange: (value: string) => void;
   onStatusFilterChange: (value: string) => void;
   onBatchFilterChange: (value: string) => void;
+  onSourceFilterChange: (value: string) => void;
   onExpiryFromChange: (value: string) => void;
   onExpiryToChange: (value: string) => void;
   onPageChange: (newPage: number) => void;
@@ -101,8 +105,21 @@ function StatusIcon({ status }: { status: ReturnType<typeof deriveInventoryStatu
   }
 }
 
+/** Plain-language label for each derived status */
+function statusPlainLabel(status: ReturnType<typeof deriveInventoryStatus>): string {
+  switch (status) {
+    case 'Discard-Pending': return 'Opened vial — dispose';
+    case 'Expired':         return 'Expired';
+    case 'Depleted':        return 'Out of Stock';
+    case 'Expiring':        return 'Expiring Soon';
+    case 'Active':
+    default:                return 'Available / Active';
+  }
+}
+
 export default function InventoryTable({
   items,
+  allItems,
   loading,
   page,
   rowsPerPage,
@@ -110,11 +127,13 @@ export default function InventoryTable({
   search,
   statusFilter,
   batchFilter,
+  sourceFilter,
   expiryFrom,
   expiryTo,
   onSearchChange,
   onStatusFilterChange,
   onBatchFilterChange,
+  onSourceFilterChange,
   onExpiryFromChange,
   onExpiryToChange,
   onPageChange,
@@ -134,6 +153,20 @@ export default function InventoryTable({
     const interval = setInterval(() => setTick((value) => value + 1), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // 6.3 — derive unique source/supplier options from the full item list
+  const sourceOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: string[] = [];
+    allItems.forEach((item) => {
+      const src = (item.received_from || '').trim();
+      if (src && !seen.has(src)) {
+        seen.add(src);
+        opts.push(src);
+      }
+    });
+    return opts.sort();
+  }, [allItems]);
 
   const columns: ColumnDef<InventoryItem>[] = useMemo(() => [
     {
@@ -223,7 +256,7 @@ export default function InventoryTable({
     },
     {
       key: 'current_quantity',
-      header: 'Balance',
+      header: 'Available Sealed Vials',
       align: 'center',
       render: (item) => {
         const low = item.current_quantity > 0 && item.current_quantity <= 10;
@@ -232,33 +265,40 @@ export default function InventoryTable({
         const capacity = item.current_quantity * dpv;
         return (
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Box
-              sx={{
-                textAlign: 'center',
-                p: 1,
-                minWidth: 92,
-                bgcolor: empty ? '#f8fafc' : low ? '#fff7ed' : '#ecfdf5',
-                borderRadius: 1.5,
-                border: `1px solid ${empty ? '#cbd5e1' : low ? '#fdba74' : '#86efac'}`,
-              }}
+            <Tooltip
+              title="1 Vial = 1 glass bottle of vaccine. In animal bite clinics, 1 vial can vaccinate multiple patients (e.g., 1 vial = up to 3 patients for intradermal rabies shots)."
+              placement="top"
+              arrow
             >
-              <Typography sx={{ fontWeight: 800, fontSize: 17, color: empty ? '#475569' : low ? '#c2410c' : '#047857' }}>
-                {item.current_quantity}
-              </Typography>
-              <Typography sx={{ fontSize: 10, color: '#64748b' }}>
-                vial{item.current_quantity === 1 ? '' : 's'}
-              </Typography>
-              {dpv > 1 && !empty && (
-                <Typography sx={{ fontSize: 10, color: '#0284c7', fontWeight: 600, mt: 0.25 }}>
-                  ≈{capacity} patients
+              <Box
+                sx={{
+                  textAlign: 'center',
+                  p: 1,
+                  minWidth: 92,
+                  bgcolor: empty ? '#f8fafc' : low ? '#fff7ed' : '#ecfdf5',
+                  borderRadius: 1.5,
+                  border: `1px solid ${empty ? '#cbd5e1' : low ? '#fdba74' : '#86efac'}`,
+                  cursor: 'help',
+                }}
+              >
+                <Typography sx={{ fontWeight: 800, fontSize: 17, color: empty ? '#475569' : low ? '#c2410c' : '#047857' }}>
+                  {item.current_quantity}
                 </Typography>
-              )}
-              {item.open_vial_status === 'opened' && dpv > 1 && (
-                <Typography sx={{ fontSize: 9.5, color: '#0e7490', fontWeight: 700, mt: 0.5, bgcolor: '#ecfeff', px: 0.5, py: 0.2, borderRadius: 0.5, border: '1px solid #a5f3fc' }}>
-                  Open: {item.open_vial_doses_used ?? 0}/{dpv} used ({Math.max(0, dpv - (item.open_vial_doses_used ?? 0))}/{dpv} left)
+                <Typography sx={{ fontSize: 10, color: '#64748b' }}>
+                  vial{item.current_quantity === 1 ? '' : 's'}
                 </Typography>
-              )}
-            </Box>
+                {dpv > 1 && !empty && (
+                  <Typography sx={{ fontSize: 10, color: '#0284c7', fontWeight: 600, mt: 0.25 }}>
+                    ≈{capacity} patients
+                  </Typography>
+                )}
+                {item.open_vial_status === 'opened' && dpv > 1 && (
+                  <Typography sx={{ fontSize: 9.5, color: '#0e7490', fontWeight: 700, mt: 0.5, bgcolor: '#ecfeff', px: 0.5, py: 0.2, borderRadius: 0.5, border: '1px solid #a5f3fc' }}>
+                    Open: {item.open_vial_doses_used ?? 0}/{dpv} used ({Math.max(0, dpv - (item.open_vial_doses_used ?? 0))}/{dpv} left)
+                  </Typography>
+                )}
+              </Box>
+            </Tooltip>
           </Box>
         );
       },
@@ -354,7 +394,7 @@ export default function InventoryTable({
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <Chip
               icon={<StatusIcon status={derivedStatus} />}
-              label={visual.label}
+              label={statusPlainLabel(derivedStatus)}
               size="small"
               sx={{
                 height: 26,
@@ -447,6 +487,8 @@ export default function InventoryTable({
     <Box>
       <Box sx={{ mb: 3, p: 2, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: 2 }}>
         <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
+          {/* Row 1: search + batch + status + source */}
+          {/* 6.1 — Vaccine type search */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <TextField
               fullWidth
@@ -467,32 +509,57 @@ export default function InventoryTable({
             />
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6, md: 2.5 }}>
+          {/* 6.1 — Batch number filter */}
+          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
             <TextField
               fullWidth
               size="small"
-              placeholder="Filter by batch number"
+              label="Batch / Lot No."
+              placeholder="e.g. VER-2025-01"
               value={batchFilter}
               onChange={(e) => onBatchFilterChange(e.target.value)}
               sx={fieldSx}
             />
           </Grid>
 
-          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+          {/* 6.2 — Stock Status filter */}
+          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
             <FormControl fullWidth size="small" sx={fieldSx}>
-              <InputLabel>Status</InputLabel>
-              <Select value={statusFilter} label="Status" onChange={(e) => onStatusFilterChange(e.target.value)}>
+              <InputLabel>Stock Status</InputLabel>
+              <Select value={statusFilter} label="Stock Status" onChange={(e) => onStatusFilterChange(e.target.value)}>
                 <MenuItem value="">All statuses</MenuItem>
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="expiring">Expiring</MenuItem>
-                <MenuItem value="discard-pending">Discard-Pending</MenuItem>
+                <MenuItem value="active">Available / Active</MenuItem>
+                <MenuItem value="low-stock">Low Stock (≤10 vials)</MenuItem>
+                <MenuItem value="expiring-soon">Expiring Soon (≤30 days)</MenuItem>
                 <MenuItem value="expired">Expired</MenuItem>
-                <MenuItem value="depleted">Depleted</MenuItem>
+                <MenuItem value="depleted">Out of Stock / Depleted</MenuItem>
+                <MenuItem value="discard-pending">Open Vial — Discard Pending</MenuItem>
               </Select>
             </FormControl>
           </Grid>
 
-          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+          {/* 6.3 — Source / Supplier filter */}
+          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+            <FormControl fullWidth size="small" sx={fieldSx}>
+              <InputLabel>Source / Supplier</InputLabel>
+              <Select
+                value={sourceFilter}
+                label="Source / Supplier"
+                onChange={(e) => onSourceFilterChange(e.target.value)}
+                renderValue={(val) => val || 'All sources'}
+              >
+                <MenuItem value="">All sources</MenuItem>
+                {sourceOptions.map((src) => (
+                  <MenuItem key={src} value={src} sx={{ fontSize: 13, whiteSpace: 'normal', maxWidth: 360 }}>
+                    {src}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Expiry range */}
+          <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
             <TextField
               fullWidth
               size="small"
@@ -501,11 +568,11 @@ export default function InventoryTable({
               value={expiryFrom}
               onChange={(e) => onExpiryFromChange(e.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
-              sx={fieldSx}
+              sx={{ ...fieldSx, minWidth: 140 }}
             />
           </Grid>
 
-          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+          <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
             <TextField
               fullWidth
               size="small"
@@ -514,17 +581,19 @@ export default function InventoryTable({
               value={expiryTo}
               onChange={(e) => onExpiryToChange(e.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
-              sx={fieldSx}
+              sx={{ ...fieldSx, minWidth: 140 }}
             />
           </Grid>
 
-          <Grid size={{ xs: 6, sm: 3, md: 0.5 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          {/* Clear all */}
+          <Grid size={{ xs: 12, sm: 12, md: 'auto' }} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
             <Button
               size="small"
               onClick={() => {
                 onSearchChange('');
                 onStatusFilterChange('');
                 onBatchFilterChange('');
+                onSourceFilterChange('');
                 onExpiryFromChange('');
                 onExpiryToChange('');
                 onPageChange(0);
@@ -558,7 +627,10 @@ export default function InventoryTable({
               Two separate clocks are shown in each row
             </Typography>
             <Typography sx={{ fontSize: 11.5, color: '#64748b' }}>
-              <strong>Batch expiration</strong> tracks the sealed stock life. <strong>Open-vial discard</strong> appears only after a vial is opened and uses its own timer style.
+              <strong>Batch expiration</strong> tracks the sealed stock life. <strong>Opened vial expired / dispose</strong> appears only after a vial is opened and uses its own timer style.
+            </Typography>
+            <Typography sx={{ fontSize: 11.5, color: '#475569', mt: 0.5 }}>
+              💡 <strong>What is a Vial?</strong> 1 Vial = 1 glass bottle of vaccine. In animal bite clinics, 1 vial can vaccinate multiple patients (e.g., 1 vial = up to 3 patients for intradermal rabies shots). Hover over any vial count for a reminder.
             </Typography>
           </Box>
         </Box>
@@ -578,11 +650,11 @@ export default function InventoryTable({
                 No vaccine batches found
               </Typography>
               <Typography sx={{ fontSize: 13, color: '#6b7280', mb: 2.5 }}>
-                {search || statusFilter || batchFilter || expiryFrom || expiryTo
+                {search || statusFilter || batchFilter || sourceFilter || expiryFrom || expiryTo
                   ? 'No inventory batches match the current filters.'
                   : 'Get started by adding the clinic’s first stock batch.'}
               </Typography>
-              {!search && !statusFilter && !batchFilter && !expiryFrom && !expiryTo && (
+              {!search && !statusFilter && !batchFilter && !sourceFilter && !expiryFrom && !expiryTo && (
                 <Button
                   variant="contained"
                   onClick={onAddFirst}

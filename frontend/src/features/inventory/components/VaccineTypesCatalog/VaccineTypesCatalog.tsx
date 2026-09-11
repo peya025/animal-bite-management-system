@@ -364,7 +364,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                               Open-Vial Discard Rule
                             </Typography>
                             <Typography sx={{ fontSize: 12.5, color: '#92400e', fontWeight: 700, bgcolor: '#fffbeb', px: 1, py: 0.25, borderRadius: 1, border: '1px solid #fde68a', display: 'inline-block', mt: 0.25 }}>
-                              Discard after {preset.default_open_vial_hours} hours
+                              Valid once opened: {preset.default_open_vial_hours} hours
                             </Typography>
                           </Box>
                         </Box>
@@ -378,7 +378,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                           </Typography>
                           <Typography sx={{ fontSize: 13, color: '#1f2937', fontWeight: 600 }}>
                             {preset.administration_route || 'Intradermal (ID) / Intramuscular (IM)'}
-                            {preset.regimen_units_per_patient ? ` • ${preset.regimen_units_per_patient} dose(s)/regimen` : ''}
+                            {preset.regimen_units_per_patient ? ` • ${preset.regimen_units_per_patient} vial(s) per treatment` : ''}
                           </Typography>
                           {preset.dosing_regimen_notes && (
                             <Typography sx={{ fontSize: 12, color: '#64748b', mt: 0.35, lineHeight: 1.4 }}>

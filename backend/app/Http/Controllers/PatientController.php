@@ -203,6 +203,7 @@ class PatientController extends Controller
             'email' => 'nullable|string|email|max:255',
             'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_number' => 'nullable|string|max:50',
+            'hospital_no' => 'nullable|string|max:100',
             // Extended Form 1 fields
             'blood_type' => 'nullable|string|max:10',
             'mother_maiden_name' => 'nullable|string|max:255',
@@ -255,6 +256,7 @@ class PatientController extends Controller
             ]);
 
             $detailsData = $request->only([
+                'hospital_no',
                 'blood_type', 'mother_maiden_name', 'civil_status', 'spouse_name',
                 'address_municipality', 'address_barangay', 'address_purok', 'province',
                 'educational_attainment', 'employment_status', 'family_member',
@@ -321,16 +323,16 @@ class PatientController extends Controller
             ->findOrFail($id);
 
         $user = $request->user();
-        $isAdminOrReg = in_array($user->role, ['admin', 'registration']);
+        $isAdminOrReg = in_array($user->role, ['admin', 'registration', 'developer']);
 
         if (!$isAdminOrReg) {
-            $legalFields = ['first_name', 'last_name', 'middle_name', 'suffix', 'gender', 'date_of_birth', 'philhealth_no'];
+            $legalFields = ['first_name', 'last_name', 'middle_name', 'suffix', 'gender', 'date_of_birth', 'philhealth_no', 'hospital_no'];
             foreach ($legalFields as $field) {
                 if ($request->filled($field)) {
                     $currentVal = $patient->{$field} ?? $patient->details?->{$field};
                     if ($request->input($field) != $currentVal) {
                         return response()->json([
-                            'message' => "Only Administrators or Registration Staff can modify legal identity ({$field}). Regular clinical staff may only update contact and address details.",
+                            'message' => "Only Administrators or Registration Staff can modify legal identity and hospital identifiers ({$field}). Regular clinical staff may only update contact and address details.",
                         ], 403);
                     }
                 }
@@ -352,6 +354,7 @@ class PatientController extends Controller
             'email' => 'nullable|string|email|max:255',
             'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_number' => 'nullable|string|max:50',
+            'hospital_no' => 'nullable|string|max:100',
             // Extended Form 1 fields
             'blood_type' => 'nullable|string|max:10',
             'mother_maiden_name' => 'nullable|string|max:255',
@@ -392,6 +395,7 @@ class PatientController extends Controller
             ]));
 
             $detailsFields = [
+                'hospital_no',
                 'blood_type', 'mother_maiden_name', 'civil_status', 'spouse_name',
                 'address_municipality', 'address_barangay', 'address_purok', 'province',
                 'educational_attainment', 'employment_status', 'family_member',

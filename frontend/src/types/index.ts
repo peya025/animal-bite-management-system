@@ -18,6 +18,10 @@ export interface Clinic {
   address?: string;
   phone?: string;
   email?: string;
+  license_number?: string;
+  hospital_no?: string;
+  doh_accreditation_no?: string;
+  philhealth_accreditation_no?: string;
   setup_completed: boolean;
   created_at: string;
   updated_at: string;

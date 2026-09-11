@@ -426,7 +426,7 @@ export default function AddEditInventoryDialog({
                         <Box>
                           <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>{preset.vaccine_name}</Typography>
                           <Typography sx={{ fontSize: 11, color: '#64748b' }}>
-                            {preset.default_shelf_life_months} month shelf-life • {preset.default_open_vial_hours ? `${preset.default_open_vial_hours}h discard-by` : 'single-dose'}
+                            {preset.default_shelf_life_months} month shelf-life • {preset.default_open_vial_hours ? `${preset.default_open_vial_hours}h valid once opened` : 'single-dose'}
                           </Typography>
                         </Box>
                       </MenuItem>
@@ -572,7 +572,7 @@ export default function AddEditInventoryDialog({
                     <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
                       <TimeIcon sx={{ fontSize: 16, color: '#c2410c', mt: 0.15 }} />
                       <Box>
-                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Discard by</Typography>
+                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Hours valid once opened</Typography>
                         <Typography sx={{ fontSize: 12.5, color: '#1f2937', fontWeight: 700 }}>
                           {selectedPreset.default_open_vial_hours ? `${selectedPreset.default_open_vial_hours} hours after opening` : 'Not used for single-dose stock'}
                         </Typography>
@@ -583,7 +583,7 @@ export default function AddEditInventoryDialog({
                     <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
                       <RegimenIcon sx={{ fontSize: 16, color: '#047857', mt: 0.15 }} />
                       <Box>
-                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Units per patient regimen</Typography>
+                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Vials needed per patient treatment</Typography>
                         <Typography sx={{ fontSize: 12.5, color: '#1f2937', fontWeight: 700 }}>
                           {selectedPreset.regimen_units_per_patient || 1}
                         </Typography>
@@ -725,8 +725,8 @@ export default function AddEditInventoryDialog({
                   </Typography>
                   <Typography sx={{ fontSize: 13, color: '#1f2937', lineHeight: 1.5 }}>
                     {selectedPreset
-                      ? `At ${selectedPreset.regimen_units_per_patient || 1} unit(s) per patient regimen, this batch covers approximately ${coverageEstimate.toFixed(1)} patient regimen(s).`
-                      : 'Select a vaccine type to show the saved regimen-unit rule.'}
+                      ? `At ${selectedPreset.regimen_units_per_patient || 1} vial(s) needed per patient treatment, this batch covers approximately ${coverageEstimate.toFixed(1)} patient treatment(s).`
+                      : 'Select a vaccine type to show the saved vials-per-treatment rule.'}
                   </Typography>
                   <Typography sx={{ fontSize: 11, color: '#64748b', mt: 0.5 }}>
                     This is for planning only. Actual automatic deduction should happen later in the patient vaccination / administration flow.

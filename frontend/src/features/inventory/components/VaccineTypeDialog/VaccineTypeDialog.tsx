@@ -96,8 +96,8 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
 
   const regimenCoverageText = useMemo(() => {
     const units = Number(form.regimen_units_per_patient || 0);
-    if (!units || units <= 0) return 'Enter a regimen coverage value.';
-    return `1 patient regimen uses ${units} stock unit${units === 1 ? '' : 's'}. This will be used later for coverage estimates, not auto-deduction on this screen.`;
+    if (!units || units <= 0) return 'Enter how many vials are needed for one full patient treatment.';
+    return `1 patient treatment uses ${units} vial${units === 1 ? '' : 's'}. Used for stock coverage estimates — not an automatic deduction.`;
   }, [form.regimen_units_per_patient]);
 
   const validate = () => {
@@ -110,13 +110,13 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
       next.default_shelf_life_months = 'Shelf-life must be at least 1 month.';
     }
     if (form.is_multidose && (!form.default_open_vial_hours || form.default_open_vial_hours < 1)) {
-      next.default_open_vial_hours = 'Enter the discard-by duration for an opened vial.';
+      next.default_open_vial_hours = 'Enter how many hours the vial stays valid once opened.';
     }
     if (form.is_multidose && (!form.doses_per_vial || form.doses_per_vial < 1)) {
-      next.doses_per_vial = 'Enter how many persons/doses can share 1 vial (at least 1).';
+      next.doses_per_vial = 'Enter how many patients can share 1 vial (at least 1).';
     }
     if (!form.regimen_units_per_patient || form.regimen_units_per_patient < 0.1) {
-      next.regimen_units_per_patient = 'Enter how many stock units are needed per patient regimen.';
+      next.regimen_units_per_patient = 'Enter how many vials are needed per patient treatment.';
     }
 
     setErrors(next);
@@ -207,7 +207,7 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
           {errors.submit && <Alert severity="error">{errors.submit}</Alert>}
 
           <Alert severity="info" icon={<VaccineIcon fontSize="inherit" />}>
-            Use real clinic language here: shelf-life for batch expiry, discard-by for opened vials, and units per patient regimen for coverage planning.
+            Use real clinic language here: shelf-life for batch expiry, hours valid once opened for multi-dose vials, and vials needed per patient treatment for coverage planning.
           </Alert>
 
           <Grid container spacing={2.25}>
@@ -268,8 +268,8 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
 
             <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>
-                  Open-vial discard timer
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
+                  Hours valid once opened
                 </Typography>
                 <FormControlLabel
                   sx={{ mr: 0 }}
@@ -307,8 +307,8 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
                 error={!!errors.default_open_vial_hours}
                 helperText={
                   !form.is_multidose
-                    ? 'Single-dose: discard-by timer is not used.'
-                    : errors.default_open_vial_hours || 'Hours valid after first reconstitution.'
+                    ? 'Single-dose: hours valid once opened is not used.'
+                    : errors.default_open_vial_hours || 'How many hours the vial stays valid after it is first opened.'
                 }
                 slotProps={{ htmlInput: { min: 1, max: 168 } }}
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
@@ -317,7 +317,7 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
 
             <Grid size={{ xs: 12, md: 4 }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                Persons / Doses per Vial
+                Patients per Vial
               </Typography>
               <TextField
                 fullWidth
@@ -332,8 +332,8 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
                 error={!!errors.doses_per_vial}
                 helperText={
                   !form.is_multidose
-                    ? '1 person per single-use vial.'
-                    : errors.doses_per_vial || 'e.g. 3 persons/vial (automated 0-deduction for 2nd & 3rd patient).'
+                    ? '1 patient per single-use vial.'
+                    : errors.doses_per_vial || 'e.g. 3 patients share 1 vial (2nd & 3rd patient are not charged an extra vial).'
                 }
                 slotProps={{ htmlInput: { min: 1, max: 20 } }}
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
@@ -342,7 +342,7 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
 
             <Grid size={{ xs: 12, md: 4 }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                Units per patient regimen
+                Vials needed per patient treatment
               </Typography>
               <TextField
                 fullWidth
@@ -399,8 +399,8 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
               <Chip icon={<CalendarIcon sx={{ fontSize: 16 }} />} label={`${form.default_shelf_life_months || 0} month shelf-life`} sx={{ fontWeight: 700, bgcolor: '#eff6ff', color: '#1d4ed8' }} />
-              <Chip icon={<TimeIcon sx={{ fontSize: 16 }} />} label={form.is_multidose ? `${form.default_open_vial_hours || 0}h discard-by after opening` : 'Single-dose, no open-vial timer'} sx={{ fontWeight: 700, bgcolor: '#fff7ed', color: '#c2410c' }} />
-              <Chip icon={<RegimenIcon sx={{ fontSize: 16 }} />} label={`${form.regimen_units_per_patient || 0} units per patient regimen`} sx={{ fontWeight: 700, bgcolor: '#ecfdf5', color: '#047857' }} />
+              <Chip icon={<TimeIcon sx={{ fontSize: 16 }} />} label={form.is_multidose ? `${form.default_open_vial_hours || 0}h valid once opened` : 'Single-dose, no open-vial timer'} sx={{ fontWeight: 700, bgcolor: '#fff7ed', color: '#c2410c' }} />
+              <Chip icon={<RegimenIcon sx={{ fontSize: 16 }} />} label={`${form.regimen_units_per_patient || 0} vial${Number(form.regimen_units_per_patient) === 1 ? '' : 's'} per patient treatment`} sx={{ fontWeight: 700, bgcolor: '#ecfdf5', color: '#047857' }} />
               {!!form.storage_temperature_notes && <Chip icon={<ColdChainIcon sx={{ fontSize: 16 }} />} label="Cold-chain note saved" sx={{ fontWeight: 700, bgcolor: '#f8fafc', color: '#475569' }} />}
             </Stack>
           </Box>

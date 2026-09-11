@@ -147,42 +147,42 @@ Phase 5: Mobile Application & Booster Flow (Secondary Enhancements)
 *Clinical governance, executive metrics, and audit-ready document export.*
 
 ### 9. Reports & Analytics – Summary Dashboard
-- [ ] **9.1 Bite Category Filtering on Dashboard**
+- [x] **9.1 Bite Category Filtering on Dashboard**
   - Add multi-category filter dropdown: `All Categories`, `Category I`, `Category II`, `Category III`.
-- [ ] **9.2 Metric Overview Cards (6 Key Counters)**
-  - [ ] **Total Patients** (Unique patient records)
-  - [ ] **Total Bite Cases** (All registered bite incidents)
-  - [ ] **New Patients** (First-time clinic registrations in selected period)
-  - [ ] **New Cases** (Incidents reported in selected period)
-  - [ ] **Completed Cases** (Patients who finished full vaccination regimen)
-  - [ ] **On-going Cases** (Patients currently undergoing active vaccination)
+- [x] **9.2 Metric Overview Cards (6 Key Counters)**
+  - [x] **Total Patients** (Unique patient records)
+  - [x] **Total Bite Cases** (All registered bite incidents)
+  - [x] **New Patients** (First-time clinic registrations in selected period)
+  - [x] **New Cases** (Incidents reported in selected period)
+  - [x] **Completed Cases** (Patients who finished full vaccination regimen)
+  - [x] **On-going Cases** (Patients currently undergoing active vaccination)
 
 ### 10. Reports & Analytics – Bite Cases Module
-- [ ] **10.1 Top-Right Patient Search Bar**
+- [x] **10.1 Top-Right Patient Search Bar**
   - Align patient search bar to the top-right header for quick incident lookup.
-- [ ] **10.2 Category Filter Dropdown**
+- [x] **10.2 Category Filter Dropdown**
   - Filter bite records by Category I, II, III.
-- [ ] **10.3 Animal Type Filter Dropdown**
+- [x] **10.3 Animal Type Filter Dropdown**
   - Filter by `Dog`, `Cat`, `Others (Free-text input)`.
-- [ ] **10.4 Case Status Filter**
+- [x] **10.4 Case Status Filter**
   - Filter by `Completed`, `On-going`, `Cancelled`.
 
 ### 11. Reports & Analytics – Patients Module
-- [ ] **11.1 Top-Right Patient Search Bar**
+- [x] **11.1 Top-Right Patient Search Bar**
   - Search patients by full name, ID, or contact number.
-- [ ] **11.2 Registration Date Filter (Month & Year)**
+- [x] **11.2 Registration Date Filter (Month & Year)**
   - Add Month (January–December) and Year dropdown selectors to filter patient intake cohorts.
 
 ### 12. Inventory Utilization & Wastage Reports
-- [ ] **12.1 Comprehensive Batch Utilization Table**
+- [x] **12.1 Comprehensive Batch Utilization Table**
   - Show: **Batch No.**, **Supplier/Source**, **Received Quantity**, **Quantity Used**, **Remaining Sealed Vials**, **Opened Vial Status** (e.g. 2/3 left), **Beyond-Use / Discarded Vials**, and **Expiry Status**.
-- [ ] **12.2 Report Filtering Controls**
+- [x] **12.2 Report Filtering Controls**
   - Filter by Supplier, Vaccine Type, Expiry Condition, and Date Range.
 
 ### 13. Print Review – Corporate & DOH Formal Layout
-- [ ] **13.1 Strict Filter Mirroring ("Musunod dapat ang filtering in the print")**
+- [x] **13.1 Strict Filter Mirroring ("Musunod dapat ang filtering in the print")**
   - The printed document must strictly print the filtered dataset active on the screen.
-- [ ] **13.2 Formal Corporate / Government DOH Styling**
+- [x] **13.2 Formal Corporate / Government DOH Styling**
   - Official clinic letterhead, republic header, generation timestamp, and active filter criteria banner.
   - Structured borders, alternating row tints, summary totals row.
   - Sign-off blocks:

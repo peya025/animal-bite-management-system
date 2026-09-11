@@ -48,24 +48,15 @@ const filterBarStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#6b7280' };
 const inputStyle: React.CSSProperties = {
   fontSize: 13, padding: '6px 10px', borderRadius: 6,
-  border: '1px solid #d1d5db', outline: 'none', fontFamily: 'inherit',
-  background: '#fff',
+  border: '1px solid #d1d5db', outline: 'none', fontFamily: 'inherit', background: '#fff',
 };
 const selectStyle: React.CSSProperties = {
-  fontSize: 13,
-  padding: '6px 32px 6px 10px',
-  borderRadius: 6,
-  border: '1px solid #d1d5db',
-  outline: 'none',
-  fontFamily: 'inherit',
+  fontSize: 13, padding: '6px 32px 6px 10px', borderRadius: 6,
+  border: '1px solid #d1d5db', outline: 'none', fontFamily: 'inherit',
   background: '#fff url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%236b7280\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 10px center',
-  appearance: 'none',
-  WebkitAppearance: 'none',
-  MozAppearance: 'none',
-  cursor: 'pointer',
-  color: '#374151',
-  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-  transition: 'all 0.15s ease-in-out',
+  appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+  cursor: 'pointer', color: '#374151',
+  boxShadow: '0 1px 2px rgba(0,0,0,0.05)', transition: 'all 0.15s ease-in-out',
 };
 const tabStyle: React.CSSProperties = {
   padding: '6px 14px', fontSize: 12, fontWeight: 600, borderRadius: 6,
@@ -165,7 +156,6 @@ function PrintPreviewModal({
   return (
     <div style={overlayStyle} onClick={onCancel} role="dialog" aria-modal="true" aria-labelledby="print-title">
       <div style={modalStyle} onClick={e => e.stopPropagation()}>
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -187,7 +177,6 @@ function PrintPreviewModal({
             </svg>
           </button>
         </div>
-        {/* Preview paper */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', background: '#f3f4f6' }}>
           <div style={{ background: '#fff', borderRadius: 8, padding: '28px 32px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', minHeight: 500, fontSize: 13 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 6 }}>
@@ -243,7 +232,6 @@ function PrintPreviewModal({
             </div>
           </div>
         </div>
-        {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px solid #e5e7eb', flexShrink: 0, background: '#fafafa', borderRadius: '0 0 16px 16px' }}>
           <button onClick={onCancel} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>Cancel</button>
           <button onClick={onConfirm} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(16,185,129,0.3)' }}>
@@ -313,7 +301,6 @@ export default function ReportsDashboardPage() {
   const loadReports = async () => {
     setLoading(true); setError('');
     try {
-      // Backend uses /cases (not /bite-cases), from_date/to_date (not date_from/date_to)
       const params = { from_date: dateFrom, to_date: dateTo };
       const [casesRes, patsRes] = await Promise.all([
         api.get('/cases',    { params: { ...params, per_page: 100 } }),
@@ -347,8 +334,8 @@ export default function ReportsDashboardPage() {
         api.get('/patients', { params: { per_page: 1 } }),
         api.get('/cases',    { params: { per_page: 1 } }),
       ]);
-      const totalPats  = gPats.status  === 'fulfilled' ? (gPats.value.data?.total   ?? patsData.length)  : patsData.length;
-      const totalCases = gCases.status === 'fulfilled' ? (gCases.value.data?.total  ?? casesData.length) : casesData.length;
+      const totalPats  = gPats.status  === 'fulfilled' ? (gPats.value.data?.total  ?? patsData.length)  : patsData.length;
+      const totalCases = gCases.status === 'fulfilled' ? (gCases.value.data?.total ?? casesData.length) : casesData.length;
 
       setStats({
         total_patients: totalPats, total_bite_cases: totalCases,
@@ -379,14 +366,11 @@ export default function ReportsDashboardPage() {
         const data = itemsRes.value.data?.data ?? itemsRes.value.data ?? [];
         setInvItems(Array.isArray(data) ? data : []);
       }
-      if (statsRes.status === 'fulfilled') {
-        setInvStats(statsRes.value.data);
-      }
+      if (statsRes.status === 'fulfilled') setInvStats(statsRes.value.data);
       if (presetsRes.status === 'fulfilled') {
         const presets = presetsRes.value.data?.data ?? presetsRes.value.data ?? [];
         if (Array.isArray(presets)) {
-          const names = presets.map((p: any) => p.name || p.vaccine_name || p.vaccine_type).filter(Boolean);
-          setPresetTypes(names);
+          setPresetTypes(presets.map((p: any) => p.name || p.vaccine_name || p.vaccine_type).filter(Boolean));
         }
       }
     } catch { /* silently fail */ }
@@ -408,67 +392,38 @@ export default function ReportsDashboardPage() {
 
   // Filtered inventory items
   const filteredInvItems = invItems.filter(item => {
-    // 1. Vaccine Type Filter
     if (selectedVaccineType !== 'ALL') {
-      if ((item.vaccine_type || '').trim().toLowerCase() !== selectedVaccineType.trim().toLowerCase()) {
-        return false;
-      }
+      if ((item.vaccine_type || '').trim().toLowerCase() !== selectedVaccineType.trim().toLowerCase()) return false;
     }
-
-    // 2. Expiry filter
-    if (expiryFilter === 'ALL') {
-      return true;
-    }
-
-    if (!item.expiration_date) {
-      return expiryFilter === 'expired';
-    }
-
+    if (expiryFilter === 'ALL') return true;
+    if (!item.expiration_date) return expiryFilter === 'expired';
     const expTime = new Date(item.expiration_date).getTime();
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const diffDays = Math.ceil((expTime - startOfToday) / (1000 * 60 * 60 * 24));
-
-    if (expiryFilter === 'valid') {
-      if (item.status === 'expired' || diffDays < 0) return false;
-    } else if (expiryFilter === 'expiring_30') {
-      if (item.status === 'expired' || diffDays < 0 || diffDays > 30) return false;
-    } else if (expiryFilter === 'expiring_60') {
-      if (item.status === 'expired' || diffDays < 0 || diffDays > 60) return false;
-    } else if (expiryFilter === 'expiring_90') {
-      if (item.status === 'expired' || diffDays < 0 || diffDays > 90) return false;
-    } else if (expiryFilter === 'expired') {
-      if (item.status !== 'expired' && diffDays >= 0) return false;
-    } else if (expiryFilter === 'custom') {
-      if (expiryDateFrom) {
-        const fromTime = new Date(expiryDateFrom).getTime();
-        if (expTime < fromTime) return false;
-      }
-      if (expiryDateTo) {
-        const toTime = new Date(expiryDateTo).getTime();
-        if (expTime > toTime) return false;
-      }
+    if (expiryFilter === 'valid')        { if (item.status === 'expired' || diffDays < 0) return false; }
+    else if (expiryFilter === 'expiring_30') { if (item.status === 'expired' || diffDays < 0 || diffDays > 30) return false; }
+    else if (expiryFilter === 'expiring_60') { if (item.status === 'expired' || diffDays < 0 || diffDays > 60) return false; }
+    else if (expiryFilter === 'expiring_90') { if (item.status === 'expired' || diffDays < 0 || diffDays > 90) return false; }
+    else if (expiryFilter === 'expired') { if (item.status !== 'expired' && diffDays >= 0) return false; }
+    else if (expiryFilter === 'custom') {
+      if (expiryDateFrom && expTime < new Date(expiryDateFrom).getTime()) return false;
+      if (expiryDateTo   && expTime > new Date(expiryDateTo).getTime())   return false;
     }
-
     return true;
   });
 
-  // Display stats computed dynamically for filtered inventory
   const isInvFiltered = selectedVaccineType !== 'ALL' || expiryFilter !== 'ALL' || Boolean(expiryDateFrom) || Boolean(expiryDateTo);
   const invDisplayStats = {
-    active_batches: filteredInvItems.filter(i => i.status === 'active' && i.current_quantity > 0).length,
-    total_stock: filteredInvItems.reduce((sum, i) => sum + (Number(i.current_quantity) || 0), 0),
-    expiring_soon: filteredInvItems.filter(i => {
+    active_batches:   filteredInvItems.filter(i => i.status === 'active' && i.current_quantity > 0).length,
+    total_stock:      filteredInvItems.reduce((s, i) => s + (Number(i.current_quantity) || 0), 0),
+    expiring_soon:    filteredInvItems.filter(i => {
       if (!i.expiration_date || i.status === 'expired' || i.current_quantity === 0) return false;
-      const diffDays = Math.ceil((new Date(i.expiration_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-      return diffDays >= 0 && diffDays <= 60;
+      const d = Math.ceil((new Date(i.expiration_date).getTime() - Date.now()) / 86400000);
+      return d >= 0 && d <= 60;
     }).length,
     depleted_batches: filteredInvItems.filter(i => i.current_quantity === 0).length,
-    expired_batches: filteredInvItems.filter(i => {
-      if (i.status === 'expired') return true;
-      if (!i.expiration_date) return false;
-      return new Date(i.expiration_date).getTime() < Date.now();
-    }).length,
+    expired_batches:  filteredInvItems.filter(i => i.status === 'expired' || (!i.expiration_date ? false : new Date(i.expiration_date).getTime() < Date.now())).length,
   };
 
   const handleOpenPrint = () => {
@@ -527,13 +482,11 @@ export default function ReportsDashboardPage() {
         const qtyS = item.current_quantity === 0 ? 'color:#c00;font-weight:700' : '';
         return `<tr><td style="text-align:center">${i+1}</td><td style="font-weight:700">${item.vaccine_type}</td><td style="text-align:center">${item.batch_number}</td><td style="text-align:center;${qtyS}">${item.current_quantity}</td><td style="text-align:center">${exp}</td><td style="text-align:center;text-transform:capitalize">${item.status}</td></tr>`;
       }).join('');
-
       const filterNotes = [
         selectedVaccineType !== 'ALL' ? `Vaccine Type: <b>${selectedVaccineType}</b>` : 'Vaccine Type: <b>All Types</b>',
         `Expiry Filter: <b>${getExpiryFilterLabel(expiryFilter, expiryDateFrom, expiryDateTo)}</b>`,
         `Showing: <b>${filteredInvItems.length} of ${invItems.length} items</b>`,
       ].join(' &nbsp;|&nbsp; ');
-
       bodyHtml = `
         <h3 class="sec">I. Stock Summary</h3>${statsRows}
         <h3 class="sec">II. Inventory Listing</h3>
@@ -585,10 +538,8 @@ export default function ReportsDashboardPage() {
           <p style={{ fontSize: 13, color: '#77877d', margin: 0 }}>Generate and print system reports for the clinic</p>
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button
-              onClick={() => { window.location.href = '/dashboard'; }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
-            >
+            <button onClick={() => { window.location.href = '/dashboard'; }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}>
               Dashboard
             </button>
             <span style={{ color: '#9ca3af' }}>›</span>
@@ -607,7 +558,7 @@ export default function ReportsDashboardPage() {
         </button>
       </div>
 
-      {/* Primary Filters & Tabs Bar */}
+      {/* Filters & Tabs Bar */}
       <div style={{ ...filterBarStyle, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
         {/* Row 1: Date Range & Tabs */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -628,7 +579,6 @@ export default function ReportsDashboardPage() {
               </button>
             )}
           </div>
-
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {(['summary', 'cases', 'patients', 'inventory'] as const).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)}
@@ -639,55 +589,22 @@ export default function ReportsDashboardPage() {
           </div>
         </div>
 
-        {/* Row 2: Vaccine Type & Expiry Date dropdowns (Inventory tab only) */}
+        {/* Row 2: Vaccine Type & Expiry filters (Inventory tab only) */}
         {activeTab === 'inventory' && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-            paddingTop: 10,
-            borderTop: '1px solid #e5e7eb',
-          }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-              {/* Vaccine Type Dropdown */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <label style={labelStyle}>Vaccine Type</label>
-                <select
-                  value={selectedVaccineType}
-                  onChange={e => setSelectedVaccineType(e.target.value)}
-                  style={{
-                    ...selectStyle,
-                    minWidth: 170,
-                    borderColor: selectedVaccineType !== 'ALL' ? '#10b981' : '#d1d5db',
-                    background: selectedVaccineType !== 'ALL' ? '#ecfdf5 url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23059669\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 10px center' : undefined,
-                    fontWeight: selectedVaccineType !== 'ALL' ? 600 : 500,
-                    color: selectedVaccineType !== 'ALL' ? '#065f46' : '#374151',
-                  }}
-                >
+                <select value={selectedVaccineType} onChange={e => setSelectedVaccineType(e.target.value)}
+                  style={{ ...selectStyle, minWidth: 170, borderColor: selectedVaccineType !== 'ALL' ? '#10b981' : '#d1d5db', fontWeight: selectedVaccineType !== 'ALL' ? 600 : 500, color: selectedVaccineType !== 'ALL' ? '#065f46' : '#374151' }}>
                   <option value="ALL">All Vaccine Types {availableVaccineTypes.length > 0 ? `(${availableVaccineTypes.length})` : ''}</option>
-                  {availableVaccineTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
+                  {availableVaccineTypes.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
-
-              {/* Expiry Date Filter Dropdown */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <label style={labelStyle}>Expiry Date</label>
-                <select
-                  value={expiryFilter}
-                  onChange={e => setExpiryFilter(e.target.value)}
-                  style={{
-                    ...selectStyle,
-                    minWidth: 185,
-                    borderColor: expiryFilter !== 'ALL' ? '#10b981' : '#d1d5db',
-                    background: expiryFilter !== 'ALL' ? '#ecfdf5 url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23059669\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 10px center' : undefined,
-                    fontWeight: expiryFilter !== 'ALL' ? 600 : 500,
-                    color: expiryFilter !== 'ALL' ? '#065f46' : '#374151',
-                  }}
-                >
+                <select value={expiryFilter} onChange={e => setExpiryFilter(e.target.value)}
+                  style={{ ...selectStyle, minWidth: 185, borderColor: expiryFilter !== 'ALL' ? '#10b981' : '#d1d5db', fontWeight: expiryFilter !== 'ALL' ? 600 : 500, color: expiryFilter !== 'ALL' ? '#065f46' : '#374151' }}>
                   <option value="ALL">All Expiration Dates</option>
                   <option value="valid">Valid / Active (Not Expired)</option>
                   <option value="expiring_30">Expiring in ≤ 30 Days</option>
@@ -697,49 +614,22 @@ export default function ReportsDashboardPage() {
                   <option value="custom">Custom Expiry Range…</option>
                 </select>
               </div>
-
-              {/* Custom Expiry Date Range Inputs */}
               {expiryFilter === 'custom' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>From</span>
-                  <input
-                    type="date"
-                    value={expiryDateFrom}
-                    onChange={e => setExpiryDateFrom(e.target.value)}
-                    style={{ ...inputStyle, fontSize: 12, padding: '4px 6px' }}
-                  />
+                  <input type="date" value={expiryDateFrom} onChange={e => setExpiryDateFrom(e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: '4px 6px' }} />
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>To</span>
-                  <input
-                    type="date"
-                    value={expiryDateTo}
-                    onChange={e => setExpiryDateTo(e.target.value)}
-                    style={{ ...inputStyle, fontSize: 12, padding: '4px 6px' }}
-                  />
+                  <input type="date" value={expiryDateTo} onChange={e => setExpiryDateTo(e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: '4px 6px' }} />
                 </div>
               )}
-
-              {/* Reset Button */}
               {isInvFiltered && (
-                <button
-                  onClick={() => {
-                    setSelectedVaccineType('ALL');
-                    setExpiryFilter('ALL');
-                    setExpiryDateFrom('');
-                    setExpiryDateTo('');
-                  }}
-                  style={{
-                    background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6,
-                    padding: '5px 10px', fontSize: 12, fontWeight: 600, color: '#dc2626', cursor: 'pointer',
-                    fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4,
-                  }}
-                  title="Reset filters to show all inventory"
-                >
+                <button onClick={() => { setSelectedVaccineType('ALL'); setExpiryFilter('ALL'); setExpiryDateFrom(''); setExpiryDateTo(''); }}
+                  style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 600, color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   Reset
                 </button>
               )}
             </div>
-
             <div style={{ fontSize: 12, color: '#6b7280' }}>
               Showing <strong>{filteredInvItems.length}</strong> of <strong>{invItems.length}</strong> batches
             </div>
@@ -866,14 +756,11 @@ export default function ReportsDashboardPage() {
                 </div>
               </>
             )}
-
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               <div style={sectionTitleStyle}>
                 Inventory Listing
                 <span style={{ marginLeft: 10, fontSize: 13, fontWeight: 400, color: '#6b7280' }}>
-                  {isInvFiltered
-                    ? `(${filteredInvItems.length} of ${invItems.length} items)`
-                    : `(${invItems.length} item${invItems.length !== 1 ? 's' : ''})`}
+                  {isInvFiltered ? `(${filteredInvItems.length} of ${invItems.length} items)` : `(${invItems.length} item${invItems.length !== 1 ? 's' : ''})`}
                 </span>
               </div>
               {isInvFiltered && (
@@ -885,7 +772,6 @@ export default function ReportsDashboardPage() {
                 </div>
               )}
             </div>
-
             <div style={tableWrapStyle}>
               <table style={tableStyle}>
                 <thead><tr>{['#','Vaccine Type','Batch Number','Qty','Expiration Date','Status'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
@@ -893,42 +779,25 @@ export default function ReportsDashboardPage() {
                   {invLoading ? (
                     <tr><td colSpan={6} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>Loading…</td></tr>
                   ) : filteredInvItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign:'center', padding:32, color:'#6b7280' }}>
-                        <div style={{ fontWeight: 600, marginBottom: 4, color: '#374151' }}>No inventory records match the selected filters.</div>
-                        <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 12 }}>
-                          Try selecting a different vaccine type or clearing the expiry filter.
-                        </div>
-                        {isInvFiltered && (
-                          <button
-                            onClick={() => {
-                              setSelectedVaccineType('ALL');
-                              setExpiryFilter('ALL');
-                              setExpiryDateFrom('');
-                              setExpiryDateTo('');
-                            }}
-                            style={{
-                              background: '#10b981', color: '#fff', border: 'none', borderRadius: 6,
-                              padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit'
-                            }}
-                          >
-                            Show All Inventory
-                          </button>
-                        )}
-                      </td>
+                    <tr><td colSpan={6} style={{ textAlign:'center', padding:32, color:'#6b7280' }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4, color: '#374151' }}>No inventory records match the selected filters.</div>
+                      {isInvFiltered && (
+                        <button onClick={() => { setSelectedVaccineType('ALL'); setExpiryFilter('ALL'); setExpiryDateFrom(''); setExpiryDateTo(''); }}
+                          style={{ marginTop: 8, background: '#10b981', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Show All Inventory
+                        </button>
+                      )}
+                    </td></tr>
+                  ) : filteredInvItems.map((item, i) => (
+                    <tr key={item.inventory_id} style={i % 2 !== 0 ? { background:'#f9fafb' } : {}}>
+                      <td style={tdStyle}>{i+1}</td>
+                      <td style={{ ...tdStyle, fontWeight:600 }}>{item.vaccine_type}</td>
+                      <td style={tdStyle}>{item.batch_number}</td>
+                      <td style={{ ...tdStyle, fontWeight:700, color: item.current_quantity === 0 ? '#ef4444' : 'var(--text-h)' }}>{item.current_quantity}</td>
+                      <td style={tdStyle}>{fmtDate(item.expiration_date)}</td>
+                      <td style={tdStyle}><InvStatusBadge status={item.status} /></td>
                     </tr>
-                  ) : (
-                    filteredInvItems.map((item, i) => (
-                      <tr key={item.inventory_id} style={i % 2 !== 0 ? { background:'#f9fafb' } : {}}>
-                        <td style={tdStyle}>{i+1}</td>
-                        <td style={{ ...tdStyle, fontWeight:600 }}>{item.vaccine_type}</td>
-                        <td style={tdStyle}>{item.batch_number}</td>
-                        <td style={{ ...tdStyle, fontWeight:700, color: item.current_quantity === 0 ? '#ef4444' : 'var(--text-h)' }}>{item.current_quantity}</td>
-                        <td style={tdStyle}>{fmtDate(item.expiration_date)}</td>
-                        <td style={tdStyle}><InvStatusBadge status={item.status} /></td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -951,4 +820,3 @@ export default function ReportsDashboardPage() {
     </div>
   );
 }
-

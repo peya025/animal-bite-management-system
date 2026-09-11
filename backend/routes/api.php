@@ -338,8 +338,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/{id}/history', [QueueController::class, 'history']);
         });
 
-        // Add / cancel / priority (admin, registration)
-        Route::middleware('role:admin,registration')->group(function () {
+        // Add / cancel / priority (admin, registration, treatment, nurse, triage, doctor, staff)
+        Route::middleware('role:admin,registration,treatment,nurse,triage,doctor,staff')->group(function () {
             Route::post('/',              [QueueController::class, 'store']);
             Route::post('/{id}/cancel',   [QueueController::class, 'cancel']);
             Route::put('/{id}/priority',  [QueueController::class, 'updatePriority']);
@@ -388,6 +388,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/today', [AppointmentController::class, 'today']);
             Route::get('/upcoming', [AppointmentController::class, 'upcoming']);
             Route::get('/overdue', [AppointmentController::class, 'overdue']);
+            Route::post('/{id}/check-in', [AppointmentController::class, 'checkIn']);
+            Route::post('/patient/{patientId}/check-in', [AppointmentController::class, 'checkInByPatient']);
         });
     });
 

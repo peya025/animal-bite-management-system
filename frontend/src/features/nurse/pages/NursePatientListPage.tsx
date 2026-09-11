@@ -30,21 +30,40 @@ interface PatientRow {
 }
 
 interface Stats {
-  dueToday: number;
-  upcoming: number;
   overdue: number;
+  dueToday: number;
+  newCases: number;
+  followUps: number;
+  upcoming: number;
   completedToday: number;
+  online: number;
   all: number;
 }
 
 // ─── Tab config ───────────────────────────────────────────────
 
-const TABS: Array<{ key: string; label: string; color: string }> = [
-  { key: 'due_today',       label: 'Due Today',        color: '#f57c00' },
-  { key: 'upcoming',        label: 'Upcoming',         color: '#1976d2' },
-  { key: 'overdue',         label: 'Overdue',          color: '#d32f2f' },
-  { key: 'completed_today', label: 'Completed Today',  color: '#10b981' },
-  { key: 'all',             label: 'All Patients',     color: '#6b7280' },
+const MAIN_TABS: Array<{ 
+  key: string; 
+  label: string; 
+  color: string; 
+  bg: string; 
+  border: string; 
+  icon: string;
+  hasSub?: boolean;
+}> = [
+  { key: 'overdue',         label: 'Overdue',        color: '#dc2626', bg: '#fef2f2', border: '#fecaca', icon: '⚠️' },
+  { key: 'due_today',       label: 'Due Today',      color: '#f59e0b', bg: '#fffbeb', border: '#fde68a', icon: '📅', hasSub: true },
+  { key: 'upcoming',        label: 'Upcoming',       color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe', icon: '📆' },
+  { key: 'completed_today', label: 'Treated Today',  color: '#10b981', bg: '#f0fdf4', border: '#bbf7d0', icon: '✅' },
+  { key: 'online',          label: 'Mobile App',     color: '#8b5cf6', bg: '#faf5ff', border: '#e9d5ff', icon: '📱' },
+  { key: 'all',             label: 'All Patients',   color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb', icon: '📋' },
+];
+
+// Sub-tabs for "Due Today"
+const TODAY_SUB_TABS: Array<{ key: string; label: string; icon: string; color: string }> = [
+  { key: 'due_today',  label: 'All Today',             icon: '📅', color: '#f59e0b' },
+  { key: 'new_case',   label: 'New Cases (Day 0)',     icon: '🆕', color: '#10b981' },
+  { key: 'follow_up',  label: 'Follow-up Visits',      icon: '🔄', color: '#3b82f6' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -89,33 +108,56 @@ function NextDose({ patient }: { patient: PatientRow }) {
 // ─── Page ─────────────────────────────────────────────────────
 
 export default function NursePatientListPage() {
-  const [activeTab, setActiveTab]   = useState(0);
-  const [patients, setPatients]     = useState<PatientRow[]>([]);
-  const [loading, setLoading]       = useState(false);
-  const [search, setSearch]         = useState('');
-  const [error, setError]           = useState<string | null>(null);
-  const [stats, setStats]           = useState<Stats>({
-    dueToday: 0, upcoming: 0, overdue: 0, completedToday: 0, all: 0,
+  const [activeMainTab, setActiveMainTab] = useState(1); // Default: "Due Today"
+  const [activeSubTab, setActiveSubTab]   = useState(0); // Default: "All Today"
+  const [patients, setPatients]           = useState<PatientRow[]>([]);
+  const [loading, setLoading]             = useState(false);
+  const [search, setSearch]               = useState('');
+  const [error, setError]                 = useState<string | null>(null);
+  const [stats, setStats]                 = useState<Stats>({
+    overdue: 0,
+    dueToday: 0,
+    newCases: 0,
+    followUps: 0,
+    upcoming: 0,
+    completedToday: 0,
+    online: 0,
+    all: 0,
   });
 
-  const loadPatients = useCallback(async (tab: string, q: string) => {
+  // Determine which backend filter to use
+  const getActiveFilter = useCallback(() => {
+    const mainTab = MAIN_TABS[activeMainTab];
+    
+    if (mainTab.key === 'due_today' && mainTab.hasSub) {
+      // Use sub-tab filter
+      return TODAY_SUB_TABS[activeSubTab].key;
+    }
+    
+    return mainTab.key;
+  }, [activeMainTab, activeSubTab]);
+
+  const loadPatients = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ tab });
-      if (q.trim()) params.set('search', q.trim());
+      const filter = getActiveFilter();
+      const params = new URLSearchParams({ tab: filter });
+      if (search.trim()) params.set('search', search.trim());
 
       const res = await api.get(`/nurse/patients?${params}`);
       setPatients(res.data.data ?? []);
 
       // Update badge counts from the extra count fields the backend returns
-      // (avoids 4 extra requests — the backend computes all counts in one call)
       setStats(prev => ({
         ...prev,
-        dueToday:       res.data.due_today_count       ?? prev.dueToday,
-        upcoming:       res.data.upcoming_count        ?? prev.upcoming,
         overdue:        res.data.overdue_count         ?? prev.overdue,
+        dueToday:       res.data.due_today_count       ?? prev.dueToday,
+        newCases:       res.data.new_case_count        ?? prev.newCases,
+        followUps:      res.data.follow_up_count       ?? prev.followUps,
+        upcoming:       res.data.upcoming_count        ?? prev.upcoming,
         completedToday: res.data.completed_today_count ?? prev.completedToday,
+        online:         res.data.online_count          ?? prev.online,
         all:            res.data.total                 ?? prev.all,
       }));
     } catch (err: any) {
@@ -125,22 +167,31 @@ export default function NursePatientListPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getActiveFilter, search]);
 
-  // Reload whenever tab or search changes
+  // Reload whenever filter or search changes
   useEffect(() => {
-    loadPatients(TABS[activeTab].key, search);
-  }, [activeTab, search, loadPatients]);
+    loadPatients();
+  }, [loadPatients]);
 
   // ── Stat cards ────────────────────────────────────────────
 
-  const STAT_CARDS = [
-    { label: 'Due Today',       value: stats.dueToday,       bg: '#fff3e0', border: '#ffe0b2', text: '#f57c00', sub: '#e65100', tab: 0 },
-    { label: 'Upcoming',        value: stats.upcoming,       bg: '#e3f2fd', border: '#bbdefb', text: '#1976d2', sub: '#0d47a1', tab: 1 },
-    { label: 'Overdue',         value: stats.overdue,        bg: '#ffebee', border: '#ffcdd2', text: '#d32f2f', sub: '#b71c1c', tab: 2 },
-    { label: 'Completed Today', value: stats.completedToday, bg: '#f0fdf4', border: '#bbf7d0', text: '#10b981', sub: '#065f46', tab: 3 },
-    { label: 'Total Tracked',   value: stats.all,            bg: '#f3f4f6', border: '#e5e7eb', text: '#6b7280', sub: '#374151', tab: 4 },
-  ];
+  const STAT_CARDS = MAIN_TABS.map((tab, idx) => ({
+    label: tab.label,
+    value: idx === 0 ? stats.overdue
+         : idx === 1 ? stats.dueToday
+         : idx === 2 ? stats.upcoming
+         : idx === 3 ? stats.completedToday
+         : idx === 4 ? stats.online
+         : stats.all,
+    bg: tab.bg,
+    border: tab.border,
+    text: tab.color,
+    icon: tab.icon,
+    tab: idx,
+  }));
+
+  const showSubTabs = MAIN_TABS[activeMainTab]?.hasSub;
 
   return (
     <Box sx={{ px: 3, py: 2 }}>
@@ -156,78 +207,85 @@ export default function NursePatientListPage() {
           </Typography>
         </Box>
         <Tooltip title="Refresh">
-          <IconButton onClick={() => loadPatients(TABS[activeTab].key, search)} disabled={loading}>
+          <IconButton onClick={loadPatients} disabled={loading}>
             <RefreshIcon />
           </IconButton>
         </Tooltip>
       </Box>
 
       {/* Stat Cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 2, mb: 3 }}>
         {STAT_CARDS.map(c => (
           <Paper
             key={c.label}
-            onClick={() => setActiveTab(c.tab)}
+            onClick={() => {
+              setActiveMainTab(c.tab);
+              if (c.tab === 1) setActiveSubTab(0); // Reset sub-tab when selecting "Due Today"
+            }}
             sx={{
               p: 2, textAlign: 'center', cursor: 'pointer',
               bgcolor: c.bg, border: `1px solid ${c.border}`,
-              transition: 'transform .15s',
-              outline: activeTab === c.tab ? `2px solid ${c.text}` : 'none',
-              '&:hover': { transform: 'translateY(-2px)' },
+              transition: 'transform .15s, box-shadow .15s',
+              outline: activeMainTab === c.tab ? `2px solid ${c.text}` : 'none',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 },
             }}
           >
+            <Box sx={{ fontSize: 28, mb: 0.5 }}>{c.icon}</Box>
             <Typography variant="h4" sx={{ fontWeight: 700, color: c.text }}>{c.value}</Typography>
-            <Typography variant="caption" sx={{ color: c.sub, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            <Typography variant="caption" sx={{ color: c.text, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
               {c.label}
             </Typography>
           </Paper>
         ))}
       </Box>
 
-      {/* Tabs + Search row */}
-      <Paper sx={{ mb: 2, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider', px: 1 }}>
-          <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ flex: 1 }}>
-            {TABS.map((t, i) => (
-              <Tab
-                key={t.key}
-                label={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                    {t.label}
-                    <Box sx={{
-                      minWidth: 20, height: 18, px: '5px', borderRadius: 9,
-                      bgcolor: activeTab === i ? t.color : '#e5e7eb',
-                      color: activeTab === i ? '#fff' : '#6b7280',
-                      fontSize: 11, fontWeight: 700,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {i === 0 ? stats.dueToday
-                        : i === 1 ? stats.upcoming
-                        : i === 2 ? stats.overdue
-                        : i === 3 ? stats.completedToday
-                        : stats.all}
-                    </Box>
-                  </Box>
-                }
-              />
-            ))}
-          </Tabs>
+      {/* Sub-tabs for "Due Today" */}
+      {showSubTabs && (
+        <Box sx={{ mb: 2 }}>
+          <Paper sx={{ p: 1.5, display: 'flex', gap: 1, bgcolor: '#f9fafb', alignItems: 'center', flexWrap: 'wrap' }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#6b7280', mr: 1 }}>
+              TODAY'S BREAKDOWN:
+            </Typography>
+            {TODAY_SUB_TABS.map((subTab, idx) => {
+              const count = idx === 0 ? stats.dueToday : idx === 1 ? stats.newCases : stats.followUps;
+              return (
+                <Chip
+                  key={subTab.key}
+                  label={`${subTab.icon} ${subTab.label} (${count})`}
+                  onClick={() => setActiveSubTab(idx)}
+                  sx={{
+                    bgcolor: activeSubTab === idx ? '#fff' : 'transparent',
+                    border: activeSubTab === idx ? `2px solid ${subTab.color}` : '1px solid #e5e7eb',
+                    fontWeight: activeSubTab === idx ? 700 : 500,
+                    fontSize: 12,
+                    transition: 'all .15s',
+                    '&:hover': {
+                      bgcolor: '#fff',
+                      borderColor: subTab.color,
+                    },
+                  }}
+                />
+              );
+            })}
+          </Paper>
         </Box>
-        <Box sx={{ p: 1.5 }}>
-          <TextField
-            size="small"
-            placeholder="Search by name, patient number, or contact phone..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            fullWidth
-            slotProps={{
-              input: {
-                startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#9ca3af', fontSize: 18 }} /></InputAdornment>,
-              },
-            }}
-            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-          />
-        </Box>
+      )}
+
+      {/* Search */}
+      <Paper sx={{ mb: 2, p: 1.5, borderRadius: 2 }}>
+        <TextField
+          size="small"
+          placeholder="Search by name, patient number, or contact phone..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          fullWidth
+          slotProps={{
+            input: {
+              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#9ca3af', fontSize: 18 }} /></InputAdornment>,
+            },
+          }}
+          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+        />
       </Paper>
 
       {/* Patient Table */}
@@ -241,10 +299,16 @@ export default function NursePatientListPage() {
             <Box sx={{ fontSize: 48, mb: 1 }}>🔍</Box>
             <Typography variant="body1" sx={{ color: '#6b7280', fontWeight: 600 }}>No patients found</Typography>
             <Typography variant="body2" sx={{ color: '#9ca3af', mt: 0.5 }}>
-              {TABS[activeTab].key === 'due_today'
+              {getActiveFilter() === 'new_case'
+                ? 'No new patients (Day 0) scheduled today'
+                : getActiveFilter() === 'follow_up'
+                ? 'No follow-up patients scheduled today'
+                : getActiveFilter() === 'due_today'
                 ? 'No patients scheduled for dose administration today'
-                : TABS[activeTab].key === 'completed_today'
+                : getActiveFilter() === 'completed_today'
                 ? 'No treatment records saved today yet'
+                : getActiveFilter() === 'online'
+                ? 'No patients registered via mobile app'
                 : 'No matching patients'}
             </Typography>
           </Box>

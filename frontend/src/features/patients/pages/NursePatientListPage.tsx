@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import {
   Alert,
   Box,
@@ -33,7 +33,7 @@ import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import StatCard from '../../../components/common/StatCard/StatCard';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
-import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+
 import api from '../../../shared/services/api';
 
 interface Patient {
@@ -58,7 +58,7 @@ interface Patient {
 }
 
 export default function NursePatientListPage() {
-  const navigate = useNavigate();
+
   const [tab, setTab] = useState<'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('due_today');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,12 +70,7 @@ export default function NursePatientListPage() {
   const [showForm3, setShowForm3] = useState(false);
   const [checkingInId, setCheckingInId] = useState<number | null>(null);
 
-  const [checkInModalData, setCheckInModalData] = useState<{
-    patientName: string;
-    patientNumber: string;
-    queueNumber: number | string;
-    station: string;
-  } | null>(null);
+
 
   // Stats for top summary cards
   const [kpiStats, setKpiStats] = useState({
@@ -124,29 +119,13 @@ export default function NursePatientListPage() {
   const handleCheckIn = async (patient: Patient) => {
     setCheckingInId(patient.patient_id);
     try {
-      const hasCompletedTriage = Boolean(
-        patient.latest_treatment_record ||
-        (patient as any).latest_consultation_record ||
-        ((patient as any).queues && (patient as any).queues.some((q: any) => q.visit_type === 'vaccination'))
-      );
-      // Follow-up vaccination patients always check in directly to the Nurse Treatment Desk (vaccination)
-      const visitType = hasCompletedTriage ? 'vaccination' : 'new_case';
-      const res = await api.post('/queue', {
-        patient_id: patient.patient_id,
-        visit_type: visitType,
-        queue_category: 'appointment',
-        priority: 'normal',
-      });
-      const station = visitType === 'new_case' ? 'Triage Queue (Doctor Assessment)' : 'Treatment Queue (Vaccination)';
-      setCheckInModalData({
-        patientName: `${patient.last_name}, ${patient.first_name}`,
-        patientNumber: patient.patient_number,
-        queueNumber: res.data?.queue_number || '1',
-        station,
-      });
+      // Use patient-level check-in endpoint to confirm appointment without adding to queue
+      await api.post(`/appointments/patient/${patient.patient_id}/check-in`);
+      toast('Patient checked in successfully', 'success');
+      // Reload patients to reflect updated status
       loadPatients();
     } catch (err: any) {
-      toast(err.response?.data?.message || 'Failed to add patient to queue', 'error');
+      toast(err.response?.data?.message || 'Failed to check in patient', 'error');
     } finally {
       setCheckingInId(null);
     }
@@ -198,7 +177,7 @@ export default function NursePatientListPage() {
 
   const getNextAppointment = (patient: Patient) => {
     if (!patient.appointments || patient.appointments.length === 0) return null;
-    const scheduledAppts = patient.appointments.filter((a: any) => a.status === 'scheduled' || a.status === 'missed');
+    const scheduledAppts = patient.appointments.filter((a: any) => a.status === 'scheduled' || a.status === 'missed' || a.status === 'confirmed');
     if (scheduledAppts.length === 0) return null;
     // Prefer the soonest scheduled appointment (e.g. earliest scheduled_date or appointment_date)
     scheduledAppts.sort((a: any, b: any) => {
@@ -251,6 +230,9 @@ export default function NursePatientListPage() {
           return { label: 'Missed Booking', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' };
         }
       }
+      if (appt?.status === 'confirmed') {
+        return { label: 'Checked In', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+      }
       return { label: 'Ready for Dose 1 (Day 0)', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
     }
 
@@ -264,6 +246,10 @@ export default function NursePatientListPage() {
       if (apptDate < today && apptDate.toDateString() !== today.toDateString()) {
         return { label: 'Overdue', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' };
       }
+    }
+
+    if (appt?.status === 'confirmed') {
+      return { label: 'Checked In / Ready for Dose', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
     }
 
     return { label: 'In Progress', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' };
@@ -407,6 +393,19 @@ export default function NursePatientListPage() {
           ? doseMap[appt.dose_number]
           : (appt.appointment_type === 'consultation' ? 'Initial Consultation' : 'Initial Consultation / Day 0');
 
+        if (appt.status === 'confirmed') {
+          return (
+            <Box>
+              <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#047857' }}>
+                {appointmentTitle}
+              </Typography>
+              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#059669' }}>
+                Checked In / Ready for Dose
+              </Typography>
+            </Box>
+          );
+        }
+
         const activeQueue = (patient as any).queues?.[0];
         const isCurrentlyInClinic = activeQueue && ['waiting', 'called', 'serving', 'in_consultation'].includes(activeQueue.status);
 
@@ -462,11 +461,12 @@ export default function NursePatientListPage() {
           activeQueue?.visit_type === 'vaccination' ||
           activeQueue?.consultation_notes?.includes('Form 2')
         );
-        const canCheckIn = hasCompletedTriage && !activeQueue && (appt?.status === 'scheduled' || appt?.status === 'missed');
+        const isCheckedIn = appt?.status === 'confirmed';
+        const needsCheckIn = hasCompletedTriage && !isCheckedIn && (appt?.status === 'scheduled' || appt?.status === 'missed');
 
         return (
           <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
-            {canCheckIn && (
+            {needsCheckIn && (
               <Button
                 size="small"
                 variant="contained"
@@ -488,7 +488,7 @@ export default function NursePatientListPage() {
               </Button>
             )}
 
-            {hasCompletedTriage ? (
+            {!needsCheckIn && hasCompletedTriage ? (
               <Button
                 size="small"
                 variant="outlined"
@@ -512,7 +512,7 @@ export default function NursePatientListPage() {
               >
                 Record Dose (Form 3)
               </Button>
-            ) : (
+            ) : !hasCompletedTriage ? (
               <Tooltip title="Patient must complete Doctor Assessment & Form 2 before initial Dose 1 can be recorded">
                 <span>
                   <Button
@@ -536,7 +536,7 @@ export default function NursePatientListPage() {
                   </Button>
                 </span>
               </Tooltip>
-            )}
+            ) : null}
 
             <Tooltip title="View Treatment Record Card">
               <IconButton
@@ -767,50 +767,7 @@ export default function NursePatientListPage() {
         />
       )}
 
-      {/* ── Check-In Success Modal (Modern Notification) ── */}
-      {checkInModalData && (
-        <ConfirmationDialog
-          variant="success"
-          title="Patient Checked In"
-          message={
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'center', marginTop: '6px' }}>
-              <div style={{
-                background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-                border: '1.5px solid #86efac',
-                borderRadius: '14px',
-                padding: '16px 24px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '4px',
-                width: '100%',
-                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.12)',
-              }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                  Live Queue Number
-                </span>
-                <span style={{ fontSize: '36px', fontWeight: 800, color: '#047857', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>
-                  #{String(checkInModalData.queueNumber).padStart(3, '0')}
-                </span>
-                <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#059669', background: '#ffffff', padding: '2px 10px', borderRadius: '999px', border: '1px solid #a7f3d0' }}>
-                  {checkInModalData.station}
-                </span>
-              </div>
 
-              <div style={{ fontSize: '13.5px', color: '#4b5563', textAlign: 'center', lineHeight: 1.5 }}>
-                <strong style={{ color: '#111827' }}>{checkInModalData.patientName}</strong> has been successfully placed in the active queue.
-              </div>
-            </div>
-          }
-          confirmLabel="Go to Queue"
-          cancelLabel="Done"
-          onConfirm={() => {
-            setCheckInModalData(null);
-            navigate('/queue');
-          }}
-          onCancel={() => setCheckInModalData(null)}
-        />
-      )}
 
       <Snackbar
         open={snackbar.open}

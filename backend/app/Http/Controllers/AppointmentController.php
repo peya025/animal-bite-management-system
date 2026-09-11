@@ -171,7 +171,7 @@ class AppointmentController extends Controller
             $query = Patient::where('clinic_id', $clinicId);
 
             // Auto-complete any appointments where the corresponding dose was already administered in treatment_records
-            Appointment::whereIn('status', ['scheduled', 'missed'])
+            Appointment::whereIn('status', ['scheduled', 'confirmed', 'missed'])
                 ->whereExists(function ($sub) {
                     $sub->select(\DB::raw(1))
                         ->from('treatment_records')
@@ -181,6 +181,59 @@ class AppointmentController extends Controller
                 ->update(['status' => 'completed']);
 
             switch ($tab) {
+                case 'new_case':
+                    // New cases: patients currently in queue today for initial consultation (Day 0 / no prior dose)
+                    $query->where(function ($q) {
+                        $q->whereHas('queues', function ($qu) {
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                               ->whereDate('queue_date', Carbon::today());
+                        });
+                    })->whereDoesntHave('treatmentRecords', function ($tr) {
+                        $tr->whereNotNull('dose_number');
+                    })->with([
+                        'appointments' => function ($app) {
+                            $app->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                                ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC');
+                        },
+                        'biteIntakes' => function ($bi) {
+                            $bi->latest();
+                        },
+                        'latestTreatmentRecord',
+                        'queues' => function ($qu) {
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                               ->whereDate('queue_date', Carbon::today())
+                               ->latest();
+                        }
+                    ]);
+                    break;
+
+                case 'follow_up':
+                    // Follow-up returnees: patients with existing treatment records and a scheduled/confirmed follow-up appointment (dose_number > 0) due today or overdue
+                    $query->whereHas('treatmentRecords', function ($tr) {
+                        $tr->whereNotNull('dose_number');
+                    })->whereHas('appointments', function ($app) {
+                        $app->where(function ($d) {
+                            $d->whereDate('appointment_date', '<=', Carbon::today())
+                              ->orWhereDate('scheduled_date', '<=', Carbon::today());
+                        })->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                          ->where('dose_number', '>', 0);
+                    })->with([
+                        'appointments' => function ($app) {
+                            $app->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                                ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC');
+                        },
+                        'biteIntakes' => function ($bi) {
+                            $bi->latest();
+                        },
+                        'latestTreatmentRecord',
+                        'queues' => function ($qu) {
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                               ->whereDate('queue_date', Carbon::today())
+                               ->latest();
+                        }
+                    ]);
+                    break;
+
                 case 'due_today':
                     // Patients with appointments today OR currently active in queue (any non-terminal status)
                     $query->where(function ($q) {
@@ -188,14 +241,14 @@ class AppointmentController extends Controller
                             $app->where(function ($d) {
                                 $d->whereDate('appointment_date', Carbon::today())
                                   ->orWhereDate('scheduled_date', Carbon::today());
-                            })->where('status', 'scheduled');
+                            })->whereIn('status', ['scheduled', 'confirmed']);
                         })->orWhereHas('queues', function ($qu) {
                             $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
                                ->whereDate('queue_date', Carbon::today());
                         });
                     })->with([
                         'appointments' => function ($app) {
-                            $app->whereIn('status', ['scheduled', 'missed'])
+                            $app->whereIn('status', ['scheduled', 'confirmed', 'missed'])
                                 ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC');
                         },
                         'biteIntakes' => function ($bi) {
@@ -346,7 +399,7 @@ class AppointmentController extends Controller
                     $app->where(function ($d) {
                         $d->whereDate('appointment_date', Carbon::today())
                           ->orWhereDate('scheduled_date', Carbon::today());
-                    })->where('status', 'scheduled');
+                    })->whereIn('status', ['scheduled', 'confirmed']);
                 })->orWhereHas('queues', function ($qu) {
                     $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
                        ->whereDate('queue_date', Carbon::today());
@@ -389,8 +442,37 @@ class AppointmentController extends Controller
                   ->whereDate('treatment_date', Carbon::today());
             })->count();
 
+            // NEW: New case count (Day 0 patients)
+            $newCaseCount = Patient::where('clinic_id', $clinicId)
+                ->where(function ($q) {
+                    $q->whereHas('queues', function ($qu) {
+                        $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                           ->whereDate('queue_date', Carbon::today());
+                    });
+                })
+                ->whereDoesntHave('treatmentRecords', function ($tr) {
+                    $tr->whereNotNull('dose_number');
+                })
+                ->count();
+
+            // NEW: Follow-up count (returning patients for doses > 0)
+            $followUpCount = Patient::where('clinic_id', $clinicId)
+                ->whereHas('treatmentRecords', function ($tr) {
+                    $tr->whereNotNull('dose_number');
+                })
+                ->whereHas('appointments', function ($app) {
+                    $app->where(function ($d) {
+                        $d->whereDate('appointment_date', '<=', Carbon::today())
+                          ->orWhereDate('scheduled_date', '<=', Carbon::today());
+                    })->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                      ->where('dose_number', '>', 0);
+                })
+                ->count();
+
             $res = $patients->toArray();
             $res['due_today_count']      = $dueTodayCount;
+            $res['new_case_count']       = $newCaseCount;        // ← NEW
+            $res['follow_up_count']      = $followUpCount;       // ← NEW
             $res['online_count']         = $onlineCount;
             $res['upcoming_count']       = $upcomingCount;
             $res['overdue_count']        = $overdueCount;
@@ -486,6 +568,78 @@ class AppointmentController extends Controller
             \Log::error('Get doctor patients error: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Failed to load patient list',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Check in an appointment at the nurse desk (confirms arrival without adding to queue)
+     * POST /api/appointments/{id}/check-in
+     */
+    public function checkIn(Request $request, $id)
+    {
+        try {
+            $clinicId = $request->user()->clinic_id;
+            $appointment = Appointment::where('clinic_id', $clinicId)->findOrFail($id);
+
+            $appointment->update([
+                'status' => 'confirmed',
+            ]);
+
+            return response()->json([
+                'message' => 'Patient checked in successfully at Treatment Desk',
+                'appointment' => $appointment->fresh(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Appointment check-in error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to check in appointment',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Check in by patient ID at the nurse desk (confirms today's scheduled appointment without adding to queue)
+     * POST /api/appointments/patient/{patientId}/check-in
+     */
+    public function checkInByPatient(Request $request, $patientId)
+    {
+        try {
+            $clinicId = $request->user()->clinic_id;
+            $today = Carbon::today()->toDateString();
+
+            $appointment = Appointment::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where(function ($d) use ($today) {
+                    $d->whereDate('appointment_date', $today)
+                      ->orWhereDate('scheduled_date', $today);
+                })
+                ->whereIn('status', ['scheduled', 'missed'])
+                ->first();
+
+            if (!$appointment) {
+                // Check if any scheduled/missed appointment exists
+                $appointment = Appointment::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->whereIn('status', ['scheduled', 'missed'])
+                    ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC')
+                    ->first();
+            }
+
+            if ($appointment) {
+                $appointment->update(['status' => 'confirmed']);
+            }
+
+            return response()->json([
+                'message' => 'Patient checked in successfully at Treatment Desk',
+                'appointment' => $appointment ? $appointment->fresh() : null,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Appointment check-in by patient error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to check in appointment',
                 'error' => $e->getMessage(),
             ], 500);
         }

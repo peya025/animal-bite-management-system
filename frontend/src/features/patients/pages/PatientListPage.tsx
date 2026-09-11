@@ -220,10 +220,14 @@ export default function PatientList() {
       // Check if patient has an active uncompleted PEP regimen or scheduled appointments within current regimen window (<= 90 days)
       const appts: any[] = (p as any).appointments || [];
       const hasActiveAppointment = appts.some(a => a.status === 'scheduled');
-      const latestRecordDate = p.latest_treatment_record?.treatment_date || p.latest_treatment_record?.created_at;
+      const hasFollowUpDoseScheduled = appts.some(a => a.status === 'scheduled' && ((a.dose_number !== undefined && a.dose_number !== null && a.dose_number > 0) || a.appointment_type === 'vaccination'));
+      const latestRecord = (p as any).latest_treatment_record || (p as any).latestTreatmentRecord;
+      const latestRecordDate = latestRecord?.treatment_date || latestRecord?.created_at;
       
       let isFollowUpWithinRegimen = false;
-      if (hasActiveAppointment && latestRecordDate) {
+      if (hasFollowUpDoseScheduled) {
+        isFollowUpWithinRegimen = true;
+      } else if (hasActiveAppointment && latestRecordDate) {
         const daysSinceLastDose = Math.floor((Date.now() - new Date(latestRecordDate).getTime()) / (1000 * 60 * 60 * 24));
         if (daysSinceLastDose <= 90) {
           isFollowUpWithinRegimen = true;

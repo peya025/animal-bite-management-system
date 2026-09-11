@@ -396,9 +396,9 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             }}
           >
             <StatCard label="Active Batches" value={stats.active_batches} color="success" loading={loading} />
-            <StatCard label="Total Balance" value={stats.total_stock} color="info" loading={loading} />
+            <StatCard label="Available Sealed Vials" value={stats.total_stock} color="info" loading={loading} />
             <StatCard label="Expiring Soon" value={stats.expiring_soon} color="warning" loading={loading} />
-            <StatCard label="Discard-Pending" value={stats.discard_pending} color="info" loading={loading} />
+            <StatCard label="Opened Vial — Dispose" value={stats.discard_pending} color="info" loading={loading} />
             <StatCard label="Depleted" value={stats.depleted_batches} color="error" loading={loading} />
           </Box>
         </>

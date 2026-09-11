@@ -105,6 +105,18 @@ function StatusIcon({ status }: { status: ReturnType<typeof deriveInventoryStatu
   }
 }
 
+/** Plain-language label for each derived status */
+function statusPlainLabel(status: ReturnType<typeof deriveInventoryStatus>): string {
+  switch (status) {
+    case 'Discard-Pending': return 'Opened vial — dispose';
+    case 'Expired':         return 'Expired';
+    case 'Depleted':        return 'Out of Stock';
+    case 'Expiring':        return 'Expiring Soon';
+    case 'Active':
+    default:                return 'Available / Active';
+  }
+}
+
 export default function InventoryTable({
   items,
   allItems,
@@ -244,7 +256,7 @@ export default function InventoryTable({
     },
     {
       key: 'current_quantity',
-      header: 'Balance',
+      header: 'Available Sealed Vials',
       align: 'center',
       render: (item) => {
         const low = item.current_quantity > 0 && item.current_quantity <= 10;
@@ -253,33 +265,40 @@ export default function InventoryTable({
         const capacity = item.current_quantity * dpv;
         return (
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Box
-              sx={{
-                textAlign: 'center',
-                p: 1,
-                minWidth: 92,
-                bgcolor: empty ? '#f8fafc' : low ? '#fff7ed' : '#ecfdf5',
-                borderRadius: 1.5,
-                border: `1px solid ${empty ? '#cbd5e1' : low ? '#fdba74' : '#86efac'}`,
-              }}
+            <Tooltip
+              title="1 Vial = 1 glass bottle of vaccine. In animal bite clinics, 1 vial can vaccinate multiple patients (e.g., 1 vial = up to 3 patients for intradermal rabies shots)."
+              placement="top"
+              arrow
             >
-              <Typography sx={{ fontWeight: 800, fontSize: 17, color: empty ? '#475569' : low ? '#c2410c' : '#047857' }}>
-                {item.current_quantity}
-              </Typography>
-              <Typography sx={{ fontSize: 10, color: '#64748b' }}>
-                vial{item.current_quantity === 1 ? '' : 's'}
-              </Typography>
-              {dpv > 1 && !empty && (
-                <Typography sx={{ fontSize: 10, color: '#0284c7', fontWeight: 600, mt: 0.25 }}>
-                  ≈{capacity} patients
+              <Box
+                sx={{
+                  textAlign: 'center',
+                  p: 1,
+                  minWidth: 92,
+                  bgcolor: empty ? '#f8fafc' : low ? '#fff7ed' : '#ecfdf5',
+                  borderRadius: 1.5,
+                  border: `1px solid ${empty ? '#cbd5e1' : low ? '#fdba74' : '#86efac'}`,
+                  cursor: 'help',
+                }}
+              >
+                <Typography sx={{ fontWeight: 800, fontSize: 17, color: empty ? '#475569' : low ? '#c2410c' : '#047857' }}>
+                  {item.current_quantity}
                 </Typography>
-              )}
-              {item.open_vial_status === 'opened' && dpv > 1 && (
-                <Typography sx={{ fontSize: 9.5, color: '#0e7490', fontWeight: 700, mt: 0.5, bgcolor: '#ecfeff', px: 0.5, py: 0.2, borderRadius: 0.5, border: '1px solid #a5f3fc' }}>
-                  Open: {item.open_vial_doses_used ?? 0}/{dpv} used ({Math.max(0, dpv - (item.open_vial_doses_used ?? 0))}/{dpv} left)
+                <Typography sx={{ fontSize: 10, color: '#64748b' }}>
+                  vial{item.current_quantity === 1 ? '' : 's'}
                 </Typography>
-              )}
-            </Box>
+                {dpv > 1 && !empty && (
+                  <Typography sx={{ fontSize: 10, color: '#0284c7', fontWeight: 600, mt: 0.25 }}>
+                    ≈{capacity} patients
+                  </Typography>
+                )}
+                {item.open_vial_status === 'opened' && dpv > 1 && (
+                  <Typography sx={{ fontSize: 9.5, color: '#0e7490', fontWeight: 700, mt: 0.5, bgcolor: '#ecfeff', px: 0.5, py: 0.2, borderRadius: 0.5, border: '1px solid #a5f3fc' }}>
+                    Open: {item.open_vial_doses_used ?? 0}/{dpv} used ({Math.max(0, dpv - (item.open_vial_doses_used ?? 0))}/{dpv} left)
+                  </Typography>
+                )}
+              </Box>
+            </Tooltip>
           </Box>
         );
       },
@@ -375,7 +394,7 @@ export default function InventoryTable({
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <Chip
               icon={<StatusIcon status={derivedStatus} />}
-              label={visual.label}
+              label={statusPlainLabel(derivedStatus)}
               size="small"
               sx={{
                 height: 26,
@@ -608,7 +627,10 @@ export default function InventoryTable({
               Two separate clocks are shown in each row
             </Typography>
             <Typography sx={{ fontSize: 11.5, color: '#64748b' }}>
-              <strong>Batch expiration</strong> tracks the sealed stock life. <strong>Open-vial discard</strong> appears only after a vial is opened and uses its own timer style.
+              <strong>Batch expiration</strong> tracks the sealed stock life. <strong>Opened vial expired / dispose</strong> appears only after a vial is opened and uses its own timer style.
+            </Typography>
+            <Typography sx={{ fontSize: 11.5, color: '#475569', mt: 0.5 }}>
+              💡 <strong>What is a Vial?</strong> 1 Vial = 1 glass bottle of vaccine. In animal bite clinics, 1 vial can vaccinate multiple patients (e.g., 1 vial = up to 3 patients for intradermal rabies shots). Hover over any vial count for a reminder.
             </Typography>
           </Box>
         </Box>

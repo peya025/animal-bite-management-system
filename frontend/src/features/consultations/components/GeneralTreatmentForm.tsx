@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Box, Button, Typography, Chip, Alert, TextField } from '@mui/material';
 import { LockOutlined as LockIcon } from '@mui/icons-material';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  AlertCircleIcon,
+  Stethoscope02Icon,
+  LockIcon as HugeLockIcon,
+} from '@hugeicons/core-free-icons';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
 import { HEALTH_FACILITY_GROUPS, ALL_HEALTH_FACILITIES } from '../../../shared/constants/healthFacilities';
@@ -61,6 +67,37 @@ const PERTINENT_HISTORY_OPTIONS = [
   'Weakness/Fatigue',
   'Elevated blood pressure',
   'High blood sugar',
+  'Allergies (Food / Drugs)',
+  'Bleeding disorder',
+  'Cancer / Malignancy',
+  'Previous Rabies Vaccination',
+  'Previous Tetanus Vaccination',
+  'Immunocompromised state',
+  'Pregnant / Lactating',
+  'Smoker',
+  'Alcohol drinker',
+  'No known pertinent illness',
+];
+
+const COMMON_CHIEF_COMPLAINTS = [
+  'Animal bite (Dog)',
+  'Animal bite (Cat)',
+  'Animal scratch',
+  'Animal exposure — saliva contact',
+  'Bleeding from bite wound',
+  'Pain at bite site',
+  'Swelling at wound area',
+  'Fever post-exposure',
+  'Previous bite follow-up',
+  'General consultation',
+  'Hypertension follow-up',
+  'Diabetes follow-up',
+  'Upper respiratory symptoms',
+  'Migraine',
+  'Gastritis/Ulcer',
+  'Fever',
+  'Cough',
+  'Difficulty breathing',
 ];
 
 interface GeneralTreatmentFormProps {
@@ -70,6 +107,7 @@ interface GeneralTreatmentFormProps {
   onSave: () => void;
   readOnly?: boolean;
   inline?: boolean;
+  hideConsultationType?: boolean;
 }
 
 interface TreatmentFormData {
@@ -189,6 +227,17 @@ function getCurrentUserName(): string {
   }
 }
 
+function getCurrentUserRole(): string {
+  try {
+    const raw = localStorage.getItem('userData');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.role === 'string' ? parsed.role.trim().toLowerCase() : '';
+  } catch {
+    return '';
+  }
+}
+
 export default function GeneralTreatmentForm({
   open,
   entry,
@@ -196,7 +245,11 @@ export default function GeneralTreatmentForm({
   onSave,
   readOnly = false,
   inline = false,
+  hideConsultationType,
 }: GeneralTreatmentFormProps) {
+  const userRole = getCurrentUserRole();
+  const shouldHideConsultationType = hideConsultationType ?? (userRole === 'triage' || userRole === 'doctor');
+
   const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -327,9 +380,9 @@ export default function GeneralTreatmentForm({
     return String(val);
   };
 
-  const populateFormFromRecord = (record: any) => {
+  const populateFormFromRecord = (record: any, preserveEmptyMeds: boolean = false) => {
     const diagText = asText(record.diagnosis);
-    const medText = asText(record.medication_treatment);
+    const medText = preserveEmptyMeds ? '' : asText(record.medication_treatment);
 
     // Parse consultation types
     let cTypes: string[] = [];
@@ -392,9 +445,11 @@ export default function GeneralTreatmentForm({
     const histText = asText(record.pertinent_history);
     setCheckedHistory(PERTINENT_HISTORY_OPTIONS.filter(h => histText.includes(h)));
 
-    if (vaccineNames.length > 0) {
+    if (!preserveEmptyMeds && vaccineNames.length > 0) {
       const matchedMeds = vaccineNames.filter(v => medText.includes(v));
       setCheckedMeds(matchedMeds);
+    } else {
+      setCheckedMeds([]);
     }
   };
 
@@ -411,6 +466,7 @@ export default function GeneralTreatmentForm({
       age: String(entry.patient.age || ''),
       address: entry.patient.address || 'Misamis Oriental',
       name_of_provider: currentUserName || '',
+      medication_treatment: '',
     }));
     setCheckedDiagnoses([]);
     setCheckedMeds([]);
@@ -434,10 +490,12 @@ export default function GeneralTreatmentForm({
         setIsReturningNewBite(isReturning);
 
         if (record && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
+          // If returning patient or new consultation session, do NOT auto-fill old medication
+          const isNewSession = entry?.visit_type === 'new_case' || entry?.visit_type === 'consultation' || isReturning;
           setHasExistingRecord(true);
           setIsEditing(false); // Read-only by default if already saved
           setExistingRecord(record);
-          populateFormFromRecord(record);
+          populateFormFromRecord(record, isNewSession);
         } else {
           setHasExistingRecord(false);
           setIsEditing(true); // Open and editable for new assessment
@@ -577,7 +635,11 @@ export default function GeneralTreatmentForm({
 
     const hasConsultationType = Object.values(formData.consultation_types).some((v) => v);
     if (!hasConsultationType) {
-      newFieldErrors.consultation_types = 'Please select at least one Type of Consultation';
+      if (shouldHideConsultationType) {
+        formData.consultation_types.injury = true;
+      } else {
+        newFieldErrors.consultation_types = 'Please select at least one Type of Consultation';
+      }
     }
 
     if (!formData.chief_complaints.trim()) {
@@ -590,7 +652,9 @@ export default function GeneralTreatmentForm({
       const errorList = Object.values(newFieldErrors);
       setError(`Required: ${errorList.join(' • ')}`);
 
-      const fieldOrder = ['nature_of_visit', 'consultation_types', 'chief_complaints'];
+      const fieldOrder = shouldHideConsultationType
+        ? ['nature_of_visit', 'chief_complaints']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -1170,61 +1234,63 @@ export default function GeneralTreatmentForm({
         </div>
         {fieldErrors.nature_of_visit && (
           <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span>⚠</span> {fieldErrors.nature_of_visit}
+            <HugeiconsIcon icon={AlertCircleIcon} size={14} strokeWidth={2} /> {fieldErrors.nature_of_visit}
           </div>
         )}
       </div>
 
-      {/* Type of Consultation */}
-      <div
-        id="field-consultation_types"
-        style={{
-          marginBottom: 32,
-          padding: fieldErrors.consultation_types ? '16px' : '0px',
-          border: fieldErrors.consultation_types ? '2px solid #ef4444' : 'none',
-          borderRadius: '10px',
-          backgroundColor: fieldErrors.consultation_types ? '#fef2f2' : 'transparent',
-          boxShadow: fieldErrors.consultation_types ? '0 0 0 4px rgba(239, 68, 68, 0.12)' : 'none',
-          transition: 'all 0.25s ease',
-        }}
-      >
-        <h3 style={{ color: fieldErrors.consultation_types ? '#dc2626' : '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Type of Consultation / Purpose of Visit <span style={{ color: '#ef4444' }}>*</span>
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 24px' }}>
-          {[
-            { key: 'general', label: 'General' },
-            { key: 'family_planning', label: 'Family Planning' },
-            { key: 'prenatal', label: 'Prenatal' },
-            { key: 'postpartum', label: 'Postpartum' },
-            { key: 'dental_care', label: 'Dental Care' },
-            { key: 'tuberculosis', label: 'Tuberculosis' },
-            { key: 'child_care', label: 'Child Care' },
-            { key: 'child_immunization', label: 'Child Immunization' },
-            { key: 'child_nutrition', label: 'Child Nutrition' },
-            { key: 'sick_children', label: 'Sick Children' },
-            { key: 'injury', label: 'Injury' },
-            { key: 'firecracker_injury', label: 'Firecracker Injury' },
-            { key: 'adult_immunization', label: 'Adult Immunization' },
-          ].map((type) => (
-            <label key={type.key} style={{ display: 'flex', alignItems: 'center', cursor: isFormDisabled ? 'default' : 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={formData.consultation_types[type.key as keyof typeof formData.consultation_types]}
-                onChange={handleCheckboxChange(type.key as keyof typeof formData.consultation_types)}
-                disabled={isFormDisabled}
-                style={{ marginRight: 8, accentColor: fieldErrors.consultation_types ? '#ef4444' : undefined }}
-              />
-              <span style={{ fontSize: 13, color: fieldErrors.consultation_types ? '#991b1b' : '#374151' }}>{type.label}</span>
-            </label>
-          ))}
-        </div>
-        {fieldErrors.consultation_types && (
-          <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span>⚠</span> {fieldErrors.consultation_types}
+      {/* Type of Consultation (Hidden in Doctor/Triage view per clinical workflow) */}
+      {!shouldHideConsultationType && (
+        <div
+          id="field-consultation_types"
+          style={{
+            marginBottom: 32,
+            padding: fieldErrors.consultation_types ? '16px' : '0px',
+            border: fieldErrors.consultation_types ? '2px solid #ef4444' : 'none',
+            borderRadius: '10px',
+            backgroundColor: fieldErrors.consultation_types ? '#fef2f2' : 'transparent',
+            boxShadow: fieldErrors.consultation_types ? '0 0 0 4px rgba(239, 68, 68, 0.12)' : 'none',
+            transition: 'all 0.25s ease',
+          }}
+        >
+          <h3 style={{ color: fieldErrors.consultation_types ? '#dc2626' : '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Type of Consultation / Purpose of Visit <span style={{ color: '#ef4444' }}>*</span>
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 24px' }}>
+            {[
+              { key: 'general', label: 'General' },
+              { key: 'family_planning', label: 'Family Planning' },
+              { key: 'prenatal', label: 'Prenatal' },
+              { key: 'postpartum', label: 'Postpartum' },
+              { key: 'dental_care', label: 'Dental Care' },
+              { key: 'tuberculosis', label: 'Tuberculosis' },
+              { key: 'child_care', label: 'Child Care' },
+              { key: 'child_immunization', label: 'Child Immunization' },
+              { key: 'child_nutrition', label: 'Child Nutrition' },
+              { key: 'sick_children', label: 'Sick Children' },
+              { key: 'injury', label: 'Injury' },
+              { key: 'firecracker_injury', label: 'Firecracker Injury' },
+              { key: 'adult_immunization', label: 'Adult Immunization' },
+            ].map((type) => (
+              <label key={type.key} style={{ display: 'flex', alignItems: 'center', cursor: isFormDisabled ? 'default' : 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={formData.consultation_types[type.key as keyof typeof formData.consultation_types]}
+                  onChange={handleCheckboxChange(type.key as keyof typeof formData.consultation_types)}
+                  disabled={isFormDisabled}
+                  style={{ marginRight: 8, accentColor: fieldErrors.consultation_types ? '#ef4444' : undefined }}
+                />
+                <span style={{ fontSize: 13, color: fieldErrors.consultation_types ? '#991b1b' : '#374151' }}>{type.label}</span>
+              </label>
+            ))}
           </div>
-        )}
-      </div>
+          {fieldErrors.consultation_types && (
+            <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <HugeiconsIcon icon={AlertCircleIcon} size={14} strokeWidth={2} /> {fieldErrors.consultation_types}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Clinical Notes */}
       <div style={{ marginBottom: 32 }}>
@@ -1362,12 +1428,12 @@ export default function GeneralTreatmentForm({
             <label style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: 0 }}>
               Prescribed PEP Vaccine
             </label>
-            <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#166534', borderRadius: 99, padding: '2px 8px', border: '1px solid #86efac' }}>
-              🩺 Rx — Doctor's Order
+            <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#166534', borderRadius: 99, padding: '2px 8px', border: '1px solid #86efac', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <HugeiconsIcon icon={Stethoscope02Icon} size={11} strokeWidth={2.2} /> Rx — Doctor's Order
             </span>
             {isFormDisabled && formData.prescribed_vaccine_type && (
-              <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#92400e', borderRadius: 99, padding: '2px 8px', border: '1px solid #fde68a' }}>
-                🔒 Locked
+              <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#92400e', borderRadius: 99, padding: '2px 8px', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <HugeiconsIcon icon={HugeLockIcon} size={11} strokeWidth={2.2} /> Locked
               </span>
             )}
           </div>
@@ -1407,10 +1473,10 @@ export default function GeneralTreatmentForm({
               const chipColor = isOut ? '#dc2626' : isLow ? '#b45309' : '#166534';
               const chipBg = isOut ? '#fef2f2' : isLow ? '#fffbeb' : '#dcfce7';
               const chipBorder = isOut ? '#fecaca' : isLow ? '#fde68a' : '#86efac';
-              const icon = isOut ? '🔴' : isLow ? '🟡' : '🟢';
               return (
                 <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, color: chipColor, background: chipBg, border: `1.5px solid ${chipBorder}`, borderRadius: 8, padding: '8px 12px', lineHeight: 1.5, minWidth: 170 }}>
-                  {icon} {isOut ? 'Out of Stock' : `${stock.total_stock} sealed vial${stock.total_stock === 1 ? '' : 's'}`}
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', display: 'inline-block', marginRight: 6, backgroundColor: chipColor }} />
+                  {isOut ? 'Out of Stock' : `${stock.total_stock} sealed vial${stock.total_stock === 1 ? '' : 's'}`}
                   {!isOut && stock.doses_per_vial > 1 && (
                     <div style={{ fontSize: 11, fontWeight: 500, color: '#0284c7', marginTop: 2 }}>
                       ≈ {stock.patient_capacity} patients ({stock.doses_per_vial}/vial)

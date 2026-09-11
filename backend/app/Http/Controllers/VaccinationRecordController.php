@@ -558,7 +558,9 @@ class VaccinationRecordController extends Controller
                 'other_parts'  => 'other_parts',
                 'na_ingestion' => 'na_ingestion',
             ];
-            $rawBody = is_array($request->body_part_affected) ? ($request->body_part_affected[0] ?? null) : $request->body_part_affected;
+            $rawBody = is_array($request->body_part_affected)
+                ? implode(', ', array_filter($request->body_part_affected))
+                : ($request->body_part_affected ?? $request->body_part_exposed);
             $bodyPartExposed = $bodyMap[$rawBody] ?? $rawBody;
 
             $card = TagoloanTreatmentCard::where('clinic_id', $clinicId)

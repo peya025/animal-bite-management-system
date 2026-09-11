@@ -42,34 +42,34 @@ Phase 5: Mobile Application & Booster Flow (Secondary Enhancements)
 ## 🔥 Tier 1: Urgent Clinical & Doctor Consultation Workflow (Phase 1)
 
 ### 1. Triage Queue – Visual Indicators & Real-Time Status
-- [ ] **1.1 Highlight Active Patient in Queue Table**
+- [x] **1.1 Highlight Active Patient in Queue Table**
   - Add prominent row styling (soft emerald `#ecfdf5` background, vibrant left border) for patients currently in consultation (`status: 'serving'`).
   - Add active consultation indicator badge: `● IN CONSULTATION`.
-- [ ] **1.2 Distinct Visual Highlight for Gamma Globulin / RIG (GI) Injections**
+- [x] **1.2 Distinct Visual Highlight for Gamma Globulin / RIG (GI) Injections**
   - Detect if the patient has a Category III bite or is prescribed RIG / Gamma Globulin.
-  - Add a high-visibility badge or row tag: `💉 RIG / GI CANDIDATE` or `⚠️ CATEGORY III - RIG`.
-- [ ] **1.3 Priority-Based Queue Ordering (Emergency & Priority on Top)**
+  - Add a high-visibility badge or row tag: `RIG / GI CANDIDATE` or `CATEGORY III - RIG` using Hugeicons (`InjectionIcon`).
+- [x] **1.3 Priority-Based Queue Ordering (Emergency & Priority on Top)**
   - Ensure the waiting queue sorts strictly by priority:
     $$\text{Emergency (Severe Bite)} \longrightarrow \text{Priority (Senior, PWD, Pregnant)} \longrightarrow \text{Appointments} \longrightarrow \text{Regular}$$
   - Within each priority band, order by FIFO (ticket arrival time).
-- [ ] **1.4 Multiple Doctor Support**
+- [x] **1.4 Multiple Doctor Support**
   - Track and display which doctor / room is currently serving each patient (`handled_by`).
   - Prevent doctor collisions when clicking **"Call Next"** by locking and auto-selecting the next unassigned eligible ticket.
   - Update TV Queue Display (`QueueDisplayPage`) to show room/doctor stations (e.g., *Room 1: Dr. Santos → #012*, *Room 2: Dr. Cruz → #014*).
 
 ### 2. Triage Queue – Doctor View & Patient History
-- [ ] **2.1 Hide "Form 2 Consultation Type" Selection in Doctor Triage View**
+- [x] **2.1 Hide "Form 2 Consultation Type" Selection in Doctor Triage View**
   - Streamline doctor intake: remove or hide the redundant Form 2 consultation type selector in the doctor triage interface.
-- [ ] **2.2 Fast Patient History Lookup for Returning Consultations**
+- [x] **2.2 Fast Patient History Lookup for Returning Consultations**
   - Add a dedicated patient name/ID search bar in the consultation workspace.
   - Instantly load past bite incidents, previous vaccine doses, tetanus prophylaxis, and adverse reaction logs for returning patients.
 
 ### 3. Doctor Form 2 – Form Field Customizations
-- [ ] **3.1 Disable Automatic Pre-filling of Medication Treatment Fields**
+- [x] **3.1 Disable Automatic Pre-filling of Medication Treatment Fields**
   - Turn off medication autofill so doctors manually write or select verified prescriptions per clinical evaluation.
-- [ ] **3.2 Free-Text Body Parts Selection**
+- [x] **3.2 Free-Text Body Parts Selection**
   - Replace rigid checkboxes/dropdowns with a clean, flexible free-text input allowing precise anatomical notes (e.g., *"Right distal index finger volar aspect"*).
-- [ ] **3.3 Animal Type Dropdown with "Others" Free-Text Input**
+- [x] **3.3 Animal Type Dropdown with "Others" Free-Text Input**
   - Set default dropdown options to: **Dog** and **Cat**.
   - Add an **"Others"** option.
   - When **"Others"** is selected, reveal a clean free-text input directly underneath (e.g., *Monkey, Bat, Pig, Stray Rat*).

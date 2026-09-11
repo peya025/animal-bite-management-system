@@ -59,7 +59,8 @@ interface TreatmentFormData {
     other_parts: boolean;
     na_ingestion: boolean;
   };
-  animal_type: 'dog' | 'other' | '';
+  body_part_affected_text: string;
+  animal_type: 'dog' | 'cat' | 'other' | '';
   animal_type_other: string;
   past_history_bite: 'yes' | 'no' | '';
   pep_completed: 'yes' | 'no' | '';
@@ -281,6 +282,7 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
     other_parts: false,
     na_ingestion: false,
   },
+  body_part_affected_text: '',
   animal_type: '',
   animal_type_other: '',
   past_history_bite: '',
@@ -532,8 +534,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           other_parts: bodyPart === 'other_parts',
           na_ingestion: bodyPart === 'na_ingestion',
         },
-        animal_type: animal.toLowerCase() === 'dog' ? 'dog' : animal ? 'other' : prev.animal_type,
-        animal_type_other: animalOther || (animal.toLowerCase() !== 'dog' ? animal : ''),
+        body_part_affected_text: bodyPart === 'head_neck' ? 'Head and/or neck' : bodyPart === 'other_parts' ? 'Other parts of the body' : bodyPart === 'na_ingestion' ? 'N/A if Ingestion mode' : (bodyPart || ''),
+        animal_type: animal.toLowerCase() === 'dog' ? 'dog' : animal.toLowerCase() === 'cat' ? 'cat' : animal ? 'other' : prev.animal_type,
+        animal_type_other: animalOther || (animal && !['dog', 'cat'].includes(animal.toLowerCase()) ? animal : ''),
         past_history_bite: card?.past_bite_history ? 'yes' : card ? 'no' : prev.past_history_bite,
         pep_completed: card?.past_pep_completed ? 'yes' : card ? 'no' : prev.pep_completed,
       }));
@@ -926,9 +929,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         mode_of_exposure: Object.keys(formData.mode_of_exposure).filter(
           key => formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]
         ),
-        body_part_affected: Object.keys(formData.body_part_affected).filter(
-          key => formData.body_part_affected[key as keyof typeof formData.body_part_affected]
-        ),
+        body_part_affected: formData.body_part_affected_text
+          ? [formData.body_part_affected_text]
+          : Object.keys(formData.body_part_affected).filter(
+              key => formData.body_part_affected[key as keyof typeof formData.body_part_affected]
+            ),
+        body_part_exposed: formData.body_part_affected_text || undefined,
+        animal_type: formData.animal_type || 'dog',
+        animal_type_other: formData.animal_type === 'other' ? formData.animal_type_other : '',
         doses: filledDoses.map(d => ({
           period: d.period,
           route: d.route || null,
@@ -1310,27 +1318,115 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             </div>
           </div>
           <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>2. Body Part Affected Exposed</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-              {[
-                ['head_neck', 'Head and/or neck'],
-                ['other_parts', 'Other parts of the body'],
-                ['na_ingestion', 'N/A if Ingestion mode'],
-              ].map(([key, label]) => (
-                <label key={key} style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-                  <input type="checkbox" checked={formData.body_part_affected[key as keyof typeof formData.body_part_affected]} onChange={handleCheckboxChange('body_part_affected', key as any)} disabled={readOnly} style={{ marginRight: 8 }} />
-                  <span style={{ fontSize: 13, color: '#374151' }}>{label}</span>
-                </label>
-              ))}
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>2. Body Part Affected / Exposed</p>
+            <div style={{ marginBottom: 16 }}>
+              <input
+                type="text"
+                value={formData.body_part_affected_text}
+                onChange={handleFieldChange('body_part_affected_text')}
+                placeholder="e.g. Left hand, Right lower leg, Head / Neck"
+                disabled={readOnly}
+                style={{
+                  width: '100%',
+                  padding: '7px 10px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 4,
+                  fontSize: 13,
+                  backgroundColor: readOnly ? '#f9fafb' : '#ffffff',
+                  marginBottom: 6,
+                }}
+              />
+              {!readOnly && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {[
+                    'Head & Neck',
+                    'Upper Extremities (Arm/Hand)',
+                    'Lower Extremities (Leg/Foot)',
+                    'Trunk / Torso',
+                    'Multiple Sites',
+                    'N/A (Ingestion)',
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          body_part_affected_text: prev.body_part_affected_text
+                            ? `${prev.body_part_affected_text}, ${preset}`
+                            : preset,
+                        }))
+                      }
+                      style={{
+                        background: '#f3f4f6',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 4,
+                        padding: '2px 8px',
+                        fontSize: 11,
+                        color: '#4b5563',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>3. Type of Animal</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>3. Type of Animal</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-                <input type="checkbox" checked={formData.animal_type === 'dog'} onChange={(e) => setFormData(prev => ({ ...prev, animal_type: e.target.checked ? 'dog' : '' }))} disabled={readOnly} style={{ marginRight: 6 }} />
+                <input
+                  type="radio"
+                  name="vr_animal_type"
+                  checked={formData.animal_type === 'dog'}
+                  onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'dog', animal_type_other: '' }))}
+                  disabled={readOnly}
+                  style={{ marginRight: 6 }}
+                />
                 <span style={{ fontSize: 13, color: '#374151' }}>Dog</span>
               </label>
-              <span style={{ fontSize: 13, color: '#6b7280' }}>Others:</span>
-              <input type="text" value={formData.animal_type_other} onChange={handleFieldChange('animal_type_other')} onFocus={() => setFormData(prev => ({ ...prev, animal_type: 'other' }))} disabled={readOnly} style={{ flex: 1, padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+              <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
+                <input
+                  type="radio"
+                  name="vr_animal_type"
+                  checked={formData.animal_type === 'cat'}
+                  onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'cat', animal_type_other: '' }))}
+                  disabled={readOnly}
+                  style={{ marginRight: 6 }}
+                />
+                <span style={{ fontSize: 13, color: '#374151' }}>Cat</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
+                <input
+                  type="radio"
+                  name="vr_animal_type"
+                  checked={formData.animal_type === 'other'}
+                  onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'other' }))}
+                  disabled={readOnly}
+                  style={{ marginRight: 6 }}
+                />
+                <span style={{ fontSize: 13, color: '#374151' }}>Others:</span>
+              </label>
+              {formData.animal_type === 'other' && (
+                <input
+                  type="text"
+                  value={formData.animal_type_other}
+                  onChange={handleFieldChange('animal_type_other')}
+                  placeholder="Specify animal (e.g. Monkey, Bat, Rat)"
+                  disabled={readOnly}
+                  style={{
+                    flex: 1,
+                    minWidth: 160,
+                    padding: '6px 10px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 4,
+                    fontSize: 13,
+                    backgroundColor: readOnly ? '#f9fafb' : undefined,
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>

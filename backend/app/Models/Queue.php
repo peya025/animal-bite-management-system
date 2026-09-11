@@ -87,6 +87,11 @@ class Queue extends Model
         return $this->belongsTo(User::class, 'handled_by', 'id');
     }
 
+    public function handledByUser()
+    {
+        return $this->belongsTo(User::class, 'handled_by', 'id');
+    }
+
     /**
      * Relationship: Queue belongs to BiteIncident
      */

@@ -379,6 +379,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
   }, [open, expLoc.barangays, expLoc.useManual, formData.place_of_exposure]);
   const [doses, setDoses] = useState<VaccinationDose[]>(createInitialDoses());
+  const [showFullSchedule, setShowFullSchedule] = useState(false); // 8.1: expand to show Day 28 + Boosters
   const [additionalMeds, setAdditionalMeds] = useState<AdditionalMeds>({
     erig: false,
     tt: false,
@@ -395,6 +396,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [currentIncident, setCurrentIncident] = useState<any>(null);
   const [existingRecordsData, setExistingRecordsData] = useState<ExistingVaccinationRecord[]>([]);
   const [isReturningNewBite, setIsReturningNewBite] = useState(false);
+  const [manualReExposure, setManualReExposure] = useState(false); // 8.2: staff-flagged re-bite
   const [pastHistoryRecords, setPastHistoryRecords] = useState<ExistingVaccinationRecord[]>([]);
   // Doctor's prescribed vaccine from Form 2 — hard-locks nurse's vaccine dropdown
   const [prescribedVaccineType, setPrescribedVaccineType] = useState('');
@@ -949,7 +951,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           external_facility_name: d.external_facility_name || null,
         })),
         bite_id: currentIncident?.bite_id || entry?.bite_id || entry?.incident?.bite_id || null,
-        episode_type: currentIncident?.episode_type || entry?.incident?.episode_type || 'primary',
+        episode_type: manualReExposure ? 're_exposure' : (currentIncident?.episode_type || entry?.incident?.episode_type || 'primary'),
         additional_meds: additionalMeds,
         icd_code: icdCode || null,
       });
@@ -1470,6 +1472,29 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* 8.2 — Re-Exposure / Re-Bite toggle */}
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => {
+                  setManualReExposure(v => !v);
+                  // Reset show full schedule when switching modes
+                  setShowFullSchedule(false);
+                }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px',
+                  backgroundColor: manualReExposure ? '#fef3c7' : '#ffffff',
+                  border: `1px solid ${manualReExposure ? '#f59e0b' : '#cbd5e1'}`,
+                  borderRadius: 6, fontSize: 12, fontWeight: 700,
+                  color: manualReExposure ? '#92400e' : '#64748b',
+                  cursor: 'pointer',
+                }}
+                title="Toggle if this is a new bite on a previously vaccinated patient (DOH 2-dose booster protocol)"
+              >
+                {manualReExposure ? '🔄 Re-Bite Active' : '🔄 Re-Bite / Re-Exposure?'}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setTransferModalOpen(true)}
@@ -1493,7 +1518,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
         </div>
 
-        {(currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
+        {(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
           <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 6, color: '#065f46', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>🛡️</span>
             <span><strong>2-Dose Booster Regimen Active (Re-Exposure Protocol)</strong>: Patient is scheduled for <strong>Day 0 & Day 3 ONLY</strong>. Doses 7 & 28 are not required per DOH/WHO re-exposure guidelines.</span>
@@ -1545,9 +1570,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               </tr>
             </thead>
             <tbody>
-              {(currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
+              {(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
                 ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
-                : doses
+                : showFullSchedule
+                  ? doses
+                  : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period))
               ).map((dose, index) => {
                 const isFilled = Boolean(dose.date);
                 const isLinked = dose.inventory_linked;
@@ -1557,9 +1584,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 const isActivelyRecording = !isCompleted && Boolean(dose.given_by || dose.signature || dose.vaccine_type || dose.is_external);
                 const showRequiredWarning = isActivelyRecording && !dose.is_external && !dose.vaccine_type;
 
-                const candidateList = currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
+                const candidateList = manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
                   ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
-                  : doses;
+                  : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period));
                 const activeCandidateIdx = candidateList.findIndex(d => !d.is_completed && !d.inventory_linked);
                 const isActiveFollowUp = !readOnly && !isCompleted && index === activeCandidateIdx;
 
@@ -1939,6 +1966,29 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               })}
             </tbody>
           </table>
+
+          {/* 8.1 — Expand / Collapse Day 28 + Booster rows (primary regimen only) */}
+          {!(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && !readOnly && (
+            <div style={{ textAlign: 'center', marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowFullSchedule(v => !v)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '6px 16px',
+                  background: showFullSchedule ? '#f1f5f9' : '#f0fdf4',
+                  border: `1px solid ${showFullSchedule ? '#cbd5e1' : '#a7f3d0'}`,
+                  borderRadius: 20, fontSize: 12, fontWeight: 600,
+                  color: showFullSchedule ? '#475569' : '#065f46',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+              >
+                {showFullSchedule
+                  ? '▲ Hide Day 28 & Booster Doses'
+                  : '▼ Show Day 28 & Booster 1 / Booster 2 (optional follow-up)'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1948,7 +1998,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>Additional Medications</h3>
           <div style={{ display: 'flex', gap: 24 }}>
             {(['erig', 'tt', 'ats'] as const).map(med => {
-              const isReExposure = currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure' || entry?.incident?.episode_type === 're_exposure';
+              const isReExposure = manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure' || entry?.incident?.episode_type === 're_exposure';
               const isErigContraindicated = med === 'erig' && isReExposure;
               return (
                 <label

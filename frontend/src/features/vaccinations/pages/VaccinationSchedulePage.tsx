@@ -130,6 +130,7 @@ export default function VaccinationSchedulePage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState<'all' | 'walk_in' | 'online'>('all');
+  const [doseFilter, setDoseFilter] = useState<'all' | 'Day 0' | 'Day 3' | 'Day 7' | 'Booster 1' | 'Booster 2'>('all'); // 8.3
 
   // Debounce search input by 300ms
   useEffect(() => {
@@ -209,6 +210,7 @@ export default function VaccinationSchedulePage() {
   const handleTabChange = (newTab: 'matrix' | 'today' | 'online' | 'missed') => {
     setActiveTab(newTab);
     setPage(0);
+    setDoseFilter('all'); // 8.3: reset dose filter on tab switch
   };
 
   // Open single recall modal
@@ -649,109 +651,40 @@ export default function VaccinationSchedulePage() {
         </Paper>
       </Box>
 
-      {/* Tabs & Filter Bar */}
+      {/* Filters & Search Bar — 8.3: Status dropdown + Dose dropdown + Search */}
       <Paper sx={{ p: 2, borderRadius: '14px', border: '1px solid #e2e8f0', bgcolor: '#fff', mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-          {/* Segmented Tabs */}
-          <Box sx={{ display: 'flex', gap: 1, bgcolor: '#f1f5f9', p: 0.5, borderRadius: '10px', flexWrap: 'wrap' }}>
-            <Button
-              size="small"
-              onClick={() => handleTabChange('matrix')}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '12.5px',
-                borderRadius: '8px',
-                px: 2,
-                py: 0.75,
-                bgcolor: activeTab === 'matrix' ? '#047857' : 'transparent',
-                color: activeTab === 'matrix' ? '#fff' : '#64748b',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-                '&:hover': { bgcolor: activeTab === 'matrix' ? '#047857' : '#e2e8f0' },
-              }}
-            >
-              <HugeiconsIcon icon={Medicine01Icon} size={16} />
-              PEP Journey Stepper ({kpi.total_patients})
-            </Button>
 
-            <Button
-              size="small"
-              onClick={() => handleTabChange('today')}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '12.5px',
-                borderRadius: '8px',
-                px: 2,
-                py: 0.75,
-                bgcolor: activeTab === 'today' ? '#047857' : 'transparent',
-                color: activeTab === 'today' ? '#fff' : '#64748b',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-                '&:hover': { bgcolor: activeTab === 'today' ? '#047857' : '#e2e8f0' },
-              }}
-            >
-              <HugeiconsIcon icon={Calendar03Icon} size={16} />
-              Today's Injections ({kpi.due_today})
-            </Button>
+          {/* Left: Status + Channel + Dose dropdowns */}
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
 
-            <Button
-              size="small"
-              onClick={() => handleTabChange('online')}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '12.5px',
-                borderRadius: '8px',
-                px: 2,
-                py: 0.75,
-                bgcolor: activeTab === 'online' ? '#047857' : 'transparent',
-                color: activeTab === 'online' ? '#fff' : '#64748b',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-                '&:hover': { bgcolor: activeTab === 'online' ? '#047857' : '#e2e8f0' },
-              }}
-            >
-              <HugeiconsIcon icon={SmartPhone01Icon} size={16} />
-              Online Bookings ({kpi.online_count})
-            </Button>
+            {/* Status dropdown (replaces 4 tab buttons) */}
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <Select
+                value={activeTab}
+                onChange={(e) => { handleTabChange(e.target.value as any); }}
+                sx={{ borderRadius: '8px', fontSize: '13px', fontWeight: 600, bgcolor: '#f0fdf4',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#a7f3d0' } }}
+                renderValue={(val) => {
+                  const labels: Record<string, string> = {
+                    matrix: `All Patients (${kpi.total_patients})`,
+                    today:  `Due Today (${kpi.due_today})`,
+                    online: `Online Bookings (${kpi.online_count})`,
+                    missed: `Missed / Recall (${kpi.overdue_missed})`,
+                  };
+                  return labels[val as string] ?? val;
+                }}
+              >
+                <MenuItem value="matrix">All Patients ({kpi.total_patients})</MenuItem>
+                <MenuItem value="today">Today's Injections ({kpi.due_today})</MenuItem>
+              </Select>
+            </FormControl>
 
-            <Button
-              size="small"
-              onClick={() => handleTabChange('missed')}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '12.5px',
-                borderRadius: '8px',
-                px: 2,
-                py: 0.75,
-                bgcolor: activeTab === 'missed' ? '#dc2626' : 'transparent',
-                color: activeTab === 'missed' ? '#fff' : '#991b1b',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-                '&:hover': { bgcolor: activeTab === 'missed' ? '#dc2626' : '#fee2e2' },
-              }}
-            >
-              <HugeiconsIcon icon={AlertCircleIcon} size={16} />
-              Missed / Defaulter Recall ({kpi.overdue_missed})
-            </Button>
-          </Box>
-
-          {/* Search and Channel Controls */}
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-            <FormControl size="small" sx={{ minWidth: 140 }}>
+            {/* Channel dropdown */}
+            <FormControl size="small" sx={{ minWidth: 155 }}>
               <Select
                 value={channelFilter}
-                onChange={(e) => {
-                  setChannelFilter(e.target.value as any);
-                  setPage(0);
-                }}
+                onChange={(e) => { setChannelFilter(e.target.value as any); setPage(0); }}
                 sx={{ borderRadius: '8px', fontSize: '13px', bgcolor: '#fff' }}
               >
                 <MenuItem value="all">All Channels</MenuItem>
@@ -760,23 +693,40 @@ export default function VaccinationSchedulePage() {
               </Select>
             </FormControl>
 
-            <TextField
-              size="small"
-              placeholder="Search patient name, ID..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <HugeiconsIcon icon={Search01Icon} size={18} color="#94a3b8" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ width: 220, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-            />
+            {/* Dose filter dropdown — 8.3 */}
+            <FormControl size="small" sx={{ minWidth: 155 }}>
+              <Select
+                value={doseFilter}
+                onChange={(e) => { setDoseFilter(e.target.value as any); setPage(0); }}
+                sx={{ borderRadius: '8px', fontSize: '13px', bgcolor: '#fff',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: doseFilter !== 'all' ? '#10b981' : undefined } }}
+                renderValue={(val) => val === 'all' ? 'All Doses' : `Dose: ${val}`}
+              >
+                <MenuItem value="all">All Doses</MenuItem>
+                <MenuItem value="Day 0">Day 0 (Initial)</MenuItem>
+                <MenuItem value="Day 3">Day 3</MenuItem>
+                <MenuItem value="Day 7">Day 7</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
+
+          {/* Right: Search */}
+          <TextField
+            size="small"
+            placeholder="Search patient name, ID..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <HugeiconsIcon icon={Search01Icon} size={18} color="#94a3b8" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ width: 240, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+          />
         </Box>
       </Paper>
 
@@ -802,7 +752,16 @@ export default function VaccinationSchedulePage() {
       ) : (
         <Paper sx={{ p: 2, borderRadius: '14px', border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
           <Stack spacing={2}>
-            {patients.map((patient) => {
+            {patients
+              .filter(patient => {
+                if (doseFilter === 'all') return true;
+                // Map dose label to dose_number
+                const doseMap: Record<string, number> = { 'Day 0': 0, 'Day 3': 3, 'Day 7': 7, 'Booster 1': 90, 'Booster 2': 365 };
+                const targetNum = doseMap[doseFilter];
+                // Show patient if their next pending dose matches, or any dose in their schedule matches
+                return patient.doses?.some(d => d.dose_number === targetNum);
+              })
+              .map((patient) => {
               const isMissed = patient.compliance_status === 'overdue_missed';
               const isDueToday = patient.compliance_status === 'due_today';
 
@@ -899,16 +858,22 @@ export default function VaccinationSchedulePage() {
                     {/* Middle Column: PEP Dose Stepper Matrix */}
                     <Box
                       sx={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(4, 1fr)',
+                        display: 'flex',
                         gap: 1,
                         bgcolor: '#f8fafc',
-                        p: 1.25,
+                        p: '8px 10px',
                         borderRadius: '10px',
                         border: '1px solid #e2e8f0',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        alignSelf: 'center',
+                        width: 'fit-content',
+                        mx: 'auto',
                       }}
                     >
-                      {patient.doses.map((dose) => {
+                      {patient.doses
+                        .filter(dose => dose.dose_number !== 28) // hide Day 28
+                        .map((dose) => {
                         const style = getDoseBadgeStyle(dose.status);
                         const IconComponent = style.icon;
 
@@ -916,41 +881,40 @@ export default function VaccinationSchedulePage() {
                           <Box
                             key={`p-${patient.patient_id}-dose-${dose.dose_number}`}
                             sx={{
-                              p: 1,
+                              px: 1.5, py: 0.75,
                               borderRadius: '8px',
                               bgcolor: style.bg,
                               border: `1px solid ${style.border}`,
-                              textAlign: 'center',
+                              display: 'flex', alignItems: 'center', gap: 0.75,
+                              whiteSpace: 'nowrap',
                             }}
                           >
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, mb: 0.5 }}>
-                              <Box sx={{ color: style.color, display: 'flex', alignItems: 'center' }}>
-                                <HugeiconsIcon icon={IconComponent} size={13} />
-                              </Box>
-                              <Typography variant="caption" sx={{ fontWeight: 700, color: style.color, fontSize: '11px' }}>
+                            <Box sx={{ color: style.color, display: 'flex', alignItems: 'center' }}>
+                              <HugeiconsIcon icon={IconComponent} size={13} />
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" sx={{ fontWeight: 700, color: style.color, fontSize: '11px', display: 'block', lineHeight: 1.2 }}>
                                 {dose.label}
                               </Typography>
-                            </Box>
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                display: 'block',
-                                fontSize: '10px',
-                                color: style.color,
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {dose.status === 'completed'
-                                ? dose.administered_date || 'Done'
-                                : dose.status === 'due_today'
-                                ? 'Due Today'
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  display: 'block',
+                                  fontSize: '10px',
+                                  color: style.color,
+                                  fontWeight: 600,
+                                  opacity: 0.85,
+                                }}
+                              >
+                                {dose.status === 'completed'
+                                  ? dose.administered_date || 'Done'
+                                  : dose.status === 'due_today'
+                                  ? 'Due Today'
                                 : dose.status === 'missed'
                                 ? 'Missed'
                                 : dose.scheduled_date || 'Pending'}
-                            </Typography>
+                              </Typography>
+                            </Box>
                           </Box>
                         );
                       })}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 type ApiError = {
   response?: {
@@ -48,6 +48,7 @@ interface VaccineInventoryProps {
 export default function VaccineInventory({ initialTab }: VaccineInventoryProps = {}) {
   const { clinic, user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const searchParams = new URLSearchParams(location.search);
   const tabParam = searchParams.get('tab');
@@ -69,14 +70,22 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [view, setView] = useState<'table' | 'stockcard' | 'fifo' | 'administrations'>(defaultTab);
 
   useEffect(() => {
-    if (initialTab) {
-      setView(initialTab);
-    } else if (location.pathname.includes('/administrations')) {
+    if (location.pathname.includes('/administrations') || initialTab === 'administrations') {
       setView('administrations');
     } else if (tabParam && ['table', 'stockcard', 'fifo', 'administrations'].includes(tabParam)) {
       setView(tabParam as any);
+    } else {
+      setView('table');
     }
   }, [initialTab, location.pathname, tabParam]);
+
+  useEffect(() => {
+    const handleReset = () => {
+      setView('table');
+    };
+    window.addEventListener('nav-inventory-reset', handleReset);
+    return () => window.removeEventListener('nav-inventory-reset', handleReset);
+  }, []);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
@@ -268,7 +277,16 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Tabs
             value={view}
-            onChange={(_, newValue) => setView(newValue)}
+            onChange={(_, newValue) => {
+              setView(newValue);
+              if (newValue === 'administrations') {
+                navigate('/inventory/administrations');
+              } else if (newValue === 'table') {
+                navigate('/inventory');
+              } else {
+                navigate(`/inventory?tab=${newValue}`);
+              }
+            }}
             sx={{
               minHeight: 36,
               '& .MuiTab-root': {

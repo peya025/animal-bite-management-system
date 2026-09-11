@@ -75,8 +75,8 @@ class VaccineInventoryController extends Controller
                 ->first();
 
             $item->received_from = $lastReceived 
-                ? ($lastReceived->received_from ?? $lastReceived->remarks ?? 'DOH Central Supply')
-                : 'DOH Central Supply';
+                ? ($lastReceived->received_from ?? $lastReceived->remarks ?? 'DOH Central Supply (National Rabies Prevention Program)')
+                : 'DOH Central Supply (National Rabies Prevention Program)';
 
             return $item;
         });
@@ -462,7 +462,7 @@ class VaccineInventoryController extends Controller
             'batch_number'      => 'required|string|max:100',
             'quantity'          => 'required|integer|min:1',
             'expiration_date'   => 'required|date|after:today',
-            'received_from'     => 'nullable|string|max:255',
+            'received_from'     => 'nullable|string|max:500',
             'manufactured_date' => 'nullable|date',
             'shelf_life_months' => 'nullable|integer|min:1',
             'open_vial_hours'   => 'nullable|integer|min:1|max:168',
@@ -476,7 +476,7 @@ class VaccineInventoryController extends Controller
             'clinic_id'          => $clinicId,
             'vaccine_type'       => $request->vaccine_type,
             'batch_number'       => $request->batch_number,
-            'received_from'      => $request->received_from ?? 'DOH Central Supply',
+            'received_from'      => $request->received_from ?? 'DOH Central Supply (National Rabies Prevention Program)',
             'manufactured_date'  => $request->manufactured_date,
             'shelf_life_months'  => $request->shelf_life_months,
             'open_vial_hours'    => $request->open_vial_hours,
@@ -494,7 +494,7 @@ class VaccineInventoryController extends Controller
             'transaction_type' => 'received',
             'quantity'         => $request->quantity,
             'quantity_received'=> $request->quantity,
-            'received_from'    => $request->received_from ?? 'DOH Central Supply',
+            'received_from'    => $request->received_from ?? 'DOH Central Supply (National Rabies Prevention Program)',
             'balanced'         => $request->quantity,
             'transaction_date' => now(),
             'remarks'          => $request->remarks ?? 'Initial stock received',
@@ -529,7 +529,7 @@ class VaccineInventoryController extends Controller
         $request->validate([
             'vaccine_type'      => 'sometimes|string|max:100',
             'batch_number'      => 'sometimes|string|max:100',
-            'received_from'     => 'nullable|string|max:255',
+            'received_from'     => 'nullable|string|max:500',
             'manufactured_date' => 'nullable|date',
             'shelf_life_months' => 'nullable|integer|min:1',
             'open_vial_hours'   => 'nullable|integer|min:1|max:168',

@@ -9,6 +9,7 @@ type ApiError = {
 };
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -17,6 +18,7 @@ import {
   DialogActions,
   DialogContent,
   FormControl,
+  FormHelperText,
   Grid,
   IconButton,
   InputLabel,
@@ -65,12 +67,61 @@ interface AddEditInventoryDialogProps {
   onSaved: () => void;
 }
 
-const COMMON_SUPPLIERS = [
-  'DOH Central Supply',
-  'Regional Health Office X',
-  'Provincial Medical Depot',
-  'City Health Office',
-  'Direct Procurement / Hospital Pharmacy',
+/** Official Source of Supply options per DOH/LGU audit standards */
+const SOURCE_OF_SUPPLY_OPTIONS = [
+  'DOH Central Supply (National Rabies Prevention Program)',
+  'PHO - Provincial Health Office',
+  'CHO / MHO - City/Municipal Health Office',
+  'LGU Local Procurement',
+  'Hospital Pharmacy / Direct Purchase',
+  'Donation / NGO',
+  'Other (Specify)',
+] as const;
+
+type SourceOfSupply = (typeof SOURCE_OF_SUPPLY_OPTIONS)[number];
+const OTHER_SPECIFY = 'Other (Specify)' satisfies SourceOfSupply;
+
+/**
+ * 4.2 Supplier Catalog — curated names for consistent DOH audit naming.
+ * Used as Autocomplete suggestions when the user picks "Other (Specify)".
+ */
+const SUPPLIER_CATALOG = [
+  // DOH / National
+  'DOH - National Rabies Prevention and Control Program (NRPCP)',
+  'DOH Central Office - Vaccine Depot',
+  'DOH Region X - Regional Vaccine Depot',
+  'DOH Region VII - Vaccine Depot',
+  'DOH Region XI - Vaccine Depot',
+  // PHO
+  'Misamis Oriental Provincial Health Office',
+  'Bukidnon Provincial Health Office',
+  'Lanao del Norte Provincial Health Office',
+  'Davao del Norte Provincial Health Office',
+  // CHO / MHO
+  'Cagayan de Oro City Health Office',
+  'Iligan City Health Office',
+  'Davao City Health Office',
+  'Cebu City Health Department',
+  'Tagoloan Municipal Health Office',
+  'Villanueva Municipal Health Office',
+  'Jasaan Municipal Health Office',
+  // LGU Procurement
+  'LGU Cagayan de Oro - Bids and Awards Committee',
+  'LGU Tagoloan - Municipal Bids and Awards',
+  // Hospital / Pharmacy
+  'Northern Mindanao Medical Center (NMMC) Pharmacy',
+  'Cagayan de Oro Medical Center (COMC)',
+  'Polymedic General Hospital',
+  'Metro Tagoloan Community Hospital',
+  'Mercury Drug - Direct Account',
+  'Rose Pharmacy - Institutional',
+  'Generika Pharmacy',
+  // NGO / Donations
+  'World Health Organization (WHO) - Philippines',
+  'UNICEF Philippines',
+  'Philippine Red Cross',
+  'Gawad Kalinga Health Program',
+  'Rotary Club Health Donation',
 ];
 
 export default function AddEditInventoryDialog({
@@ -88,7 +139,7 @@ export default function AddEditInventoryDialog({
     clinic_id: 1,
     vaccine_type: '',
     batch_number: '',
-    received_from: 'DOH Central Supply',
+    received_from: 'DOH Central Supply (National Rabies Prevention Program)',
     quantity: '',
     manufactured_date: '',
     expiration_date: '',
@@ -97,6 +148,10 @@ export default function AddEditInventoryDialog({
     cold_chain_notes: '',
     remarks: '',
   });
+  // Tracks which Source of Supply option is selected in the dropdown
+  const [sourceOfSupply, setSourceOfSupply] = useState<SourceOfSupply>('DOH Central Supply (National Rabies Prevention Program)');
+  // Free-text supplier name when "Other (Specify)" is chosen
+  const [supplierOther, setSupplierOther] = useState('');
   const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<VaccineTypePreset | null>(null);
   const [saving, setSaving] = useState(false);
@@ -138,13 +193,21 @@ export default function AddEditInventoryDialog({
       const autoExpiration = manufacturedDate ? addMonthsToDate(manufacturedDate, shelfLife) : '';
       const nextMode = manufacturedDate && expirationDate && autoExpiration && autoExpiration !== expirationDate ? 'manual' : 'auto';
 
+      const incomingSource = editItem?.received_from || 'DOH Central Supply (National Rabies Prevention Program)';
+      // Detect if the stored value matches one of the standard options; otherwise restore as "Other"
+      const matchedSource = SOURCE_OF_SUPPLY_OPTIONS.find((opt) => opt !== OTHER_SPECIFY && opt === incomingSource);
+      const restoredSource: SourceOfSupply = matchedSource ?? OTHER_SPECIFY;
+      const restoredOther = restoredSource === OTHER_SPECIFY ? incomingSource : '';
+
+      setSourceOfSupply(restoredSource);
+      setSupplierOther(restoredOther);
       setSelectedPreset(matchedPreset);
       setExpirationMode(nextMode);
       setForm({
         clinic_id: editItem?.clinic_id || 1,
         vaccine_type: baseType,
         batch_number: editItem?.batch_number || '',
-        received_from: editItem?.received_from || 'DOH Central Supply',
+        received_from: incomingSource,
         quantity: editItem ? String(editItem.current_quantity) : '',
         manufactured_date: manufacturedDate,
         expiration_date: expirationDate,
@@ -206,20 +269,22 @@ export default function AddEditInventoryDialog({
     if (presets.length === 0) return 'Add a Vaccine Type first in the separate Vaccine Type Setup screen.';
     if (!form.vaccine_type.trim()) return 'Select a vaccine type first.';
     if (!form.batch_number.trim()) return 'Enter the batch / lot number.';
-    if (!form.received_from.trim()) return 'Enter who the stock was received from.';
+    if (!form.received_from.trim()) return 'Select a Source of Supply.';
+    if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim()) return 'Specify the supplier name for "Other".';
     if (!form.quantity || Number(form.quantity) < 1) {
       return isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
     }
     if (!form.expiration_date) return 'Provide an expiration date or a manufactured date to auto-calculate it.';
     if (!isEdit && expiryDays !== null && expiryDays <= 0) return 'New stock must have a future expiration date.';
     return '';
-  }, [expiryDays, form.batch_number, form.expiration_date, form.quantity, form.received_from, form.vaccine_type, isEdit, presets.length]);
+  }, [expiryDays, form.batch_number, form.expiration_date, form.quantity, form.received_from, form.vaccine_type, isEdit, presets.length, sourceOfSupply, supplierOther]);
 
   const validate = () => {
     const next: Record<string, string> = {};
     if (!form.vaccine_type.trim()) next.vaccine_type = 'Select a vaccine type.';
     if (!form.batch_number.trim()) next.batch_number = 'Batch / lot number is required.';
-    if (!form.received_from.trim()) next.received_from = 'Received From is required.';
+    if (!form.received_from.trim()) next.received_from = 'Source of Supply is required.';
+    if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim()) next.supplier_other = 'Please specify the supplier name.';
     if (!form.quantity || Number(form.quantity) < 1) next.quantity = isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
     if (!form.expiration_date) next.expiration_date = 'Expiration date is required.';
     if (!isEdit && expiryDays !== null && expiryDays <= 0) next.expiration_date = 'New stock must have a future expiration date.';
@@ -390,19 +455,76 @@ export default function AddEditInventoryDialog({
               </Grid>
 
               <Grid size={{ xs: 12, md: 3.5 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Received From"
-                  value={form.received_from}
-                  onChange={(e) => {
-                    setForm((prev) => ({ ...prev, received_from: e.target.value }));
-                    setErrors((prev) => ({ ...prev, received_from: '' }));
-                  }}
-                  error={!!errors.received_from}
-                  helperText={errors.received_from || 'Use the same wording staff use for the source or depot.'}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-                />
+                <FormControl fullWidth size="small" error={!!errors.received_from}>
+                  <InputLabel id="source-of-supply-label">Source of Supply</InputLabel>
+                  <Select
+                    labelId="source-of-supply-label"
+                    label="Source of Supply"
+                    value={sourceOfSupply}
+                    onChange={(e) => {
+                      const val = e.target.value as SourceOfSupply;
+                      setSourceOfSupply(val);
+                      setSupplierOther('');
+                      setErrors((prev) => ({ ...prev, received_from: '', supplier_other: '' }));
+                      if (val !== OTHER_SPECIFY) {
+                        setForm((prev) => ({ ...prev, received_from: val }));
+                      } else {
+                        setForm((prev) => ({ ...prev, received_from: '' }));
+                      }
+                    }}
+                    sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
+                  >
+                    {SOURCE_OF_SUPPLY_OPTIONS.map((opt) => (
+                      <MenuItem key={opt} value={opt}>
+                        <Typography sx={{ fontSize: 13 }}>{opt}</Typography>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {errors.received_from && (
+                    <FormHelperText>{errors.received_from}</FormHelperText>
+                  )}
+                  {!errors.received_from && (
+                    <FormHelperText>
+                      Official DOH/LGU source — required for audit compliance.
+                    </FormHelperText>
+                  )}
+                </FormControl>
+
+                {/* 4.2 Supplier Catalog — shown only when "Other (Specify)" is selected */}
+                {sourceOfSupply === OTHER_SPECIFY && (
+                  <Box sx={{ mt: 1.25 }}>
+                    <Autocomplete
+                      freeSolo
+                      options={SUPPLIER_CATALOG}
+                      value={supplierOther}
+                      onInputChange={(_e, val) => {
+                        setSupplierOther(val);
+                        setForm((prev) => ({ ...prev, received_from: val }));
+                        setErrors((prev) => ({ ...prev, supplier_other: '' }));
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          size="small"
+                          label="Specify Supplier"
+                          placeholder="Type or select from catalog…"
+                          error={!!errors.supplier_other}
+                          helperText={
+                            errors.supplier_other ||
+                            'Select from the catalog or type a consistent name for DOH records.'
+                          }
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fffbeb' } }}
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <li {...props} key={option}>
+                          <Typography sx={{ fontSize: 13 }}>{option}</Typography>
+                        </li>
+                      )}
+                      ListboxProps={{ style: { maxHeight: 220 } }}
+                    />
+                  </Box>
+                )}
               </Grid>
 
               <Grid size={{ xs: 6, md: 1 }}>
@@ -613,27 +735,7 @@ export default function AddEditInventoryDialog({
               </Grid>
             </Grid>
 
-            <Box>
-              <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a', mb: 1.25 }}>
-                Quick source shortcuts
-              </Typography>
-              <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', gap: 0.75 }}>
-                {COMMON_SUPPLIERS.map((supplier) => (
-                  <Chip
-                    key={supplier}
-                    label={supplier}
-                    clickable
-                    onClick={() => setForm((prev) => ({ ...prev, received_from: supplier }))}
-                    sx={{
-                      fontWeight: form.received_from === supplier ? 700 : 500,
-                      bgcolor: form.received_from === supplier ? '#dcfce7' : '#f8fafc',
-                      color: form.received_from === supplier ? '#166534' : '#475569',
-                      border: form.received_from === supplier ? '1px solid #86efac' : '1px solid #e2e8f0',
-                    }}
-                  />
-                ))}
-              </Stack>
-            </Box>
+
 
             <Box sx={{ p: 2, borderRadius: 2.5, bgcolor: '#f8fafc', border: '1px solid #dbe3ec' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>

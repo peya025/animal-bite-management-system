@@ -355,3 +355,87 @@ Phase 8: Human-Computer Interaction (HCI) Form Layout & Validation UX Refactorin
   - Refactor modal layout into compact uniform 2-column pairs (`xs={6}`) with blur validation and live error recovery.
 - [ ] **24.4 User Creation & Account Setup Refactoring (`UserCreatePage.tsx`, `SetupWizardPage.tsx`)**
   - Apply graceful validation lifecycles and uniform 2-column field pairing.
+
+---
+
+## 🔑 Tier 9: Identity Federation & Google OAuth Single Sign-On (Phase 9 — NEW)
+*Implements Google API / OAuth login, user authentication, secure token exchange, auto-linking of user credentials, and admin-side module configuration.*
+
+### 25. Identity Federation & Google OAuth Login
+> **Assigned Development**: Identity Federation & Login  
+> **Main Tasks**: Implement Google API/OAuth login, user authentication, and secure access for system users.
+
+- [ ] **25.1 Admin Side Module Configuration (Step-by-Step Setup)**
+  - **Step 1: Google Cloud Console Setup**
+    - Navigate to Google Cloud Console $\rightarrow$ APIs & Services $\rightarrow$ Credentials.
+    - Create OAuth 2.0 Client ID (Web Application).
+    - Configure Authorized JavaScript origins (e.g. `http://localhost:5173`, `https://your-clinic-domain.com`).
+    - Configure Authorized redirect URIs (e.g. `http://localhost:8000/api/auth/google/callback`, `http://localhost:5173/auth/google/callback`).
+    - Obtain `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+  - **Step 2: Admin System Settings Configuration Page (`AdminOAuthSettingsPage.tsx`)**
+    - In Admin Dashboard $\rightarrow$ System Settings $\rightarrow$ Identity & Authentication tab:
+      - Add field for **Google Client ID** (stored in system settings database/env).
+      - Add field for **Google Client Secret** (stored encrypted).
+      - Add toggle: **Enable Google Single Sign-On (SSO)**.
+      - Add dropdown/checkbox group: **Allowed Google SSO Roles** (`Patient`, `Nurse`, `Doctor`, `Staff`, `Admin`).
+      - Add domain filter setting: **Restrict to Domain** (optional domain white-labeling, e.g. `@doh.gov.ph` or `@clinic.com`).
+  - **Step 3: Backend API Configuration & Integration (`config/services.php`, `AuthController.php`)**
+    - Configure `config/services.php` for Laravel Socialite / Google API client.
+    - Implement `GET /api/auth/google/redirect` to generate Google Auth URL.
+    - Implement `POST /api/auth/google/callback` to verify Google ID token / authorization code.
+    - Implement automatic account matching by email address:
+      - If email exists in `users` table: link `google_id`, set `email_verified_at`, generate Sanctum API bearer token, return user session.
+      - If email does not exist: auto-provision new Patient account (or return registration request if domain restricted).
+- [ ] **25.2 Frontend Google OAuth Integration (`LoginPage.tsx`, `GoogleSignInButton.tsx`)**
+  - Render "Sign in with Google" button on web login (`LoginPage.tsx`) and mobile login screens.
+  - Implement pop-up or redirect OAuth flow using `@react-oauth/google` or Google Identity Services SDK.
+  - Store issued API token securely in HTTP-only cookies / encrypted local storage upon login success.
+- [ ] **25.3 Mobile App Identity Federation (`mobile/lib/screens/login_screen.dart`)**
+  - Integrate `google_sign_in` Flutter package.
+  - Obtain Google ID Token from mobile device and transmit to backend `/api/auth/google/callback`.
+
+---
+
+## 🛡️ Tier 10: Security Policies, Standards, Procedures & DOH Guidelines (Phase 10 — NEW)
+*Implements enterprise access policies across all roles, password security standards, patient record protection, and standard operating procedures for registration, treatment, and data handling.*
+
+### 26. Security Policies (Role-Based Authorization Policies)
+> **Assigned Development**: Security Policies  
+> **Main Tasks**: Implement access policies for Admin, Doctor, Nurse, Staff, and Patient.
+
+- [ ] **26.1 Enterprise Role-Based Access Control (RBAC) Matrix**
+  - **Admin**: Full access to System Settings, User Management, Audit Logs, Inventory Setup, Master Analytics.
+  - **Doctor**: Read/Write Patient Treatment Form 2 (Diagnosis, Category III Assessment, PEP Prescription, Rabies Risk Assessment), View Medical History, Queue Management.
+  - **Nurse**: Read/Write Patient Form 3 (PEP Vaccine Dose Administration, Route/Site Selection, Batch Tracking, Open Vial Timer), Queue Call/Skip.
+  - **Staff/Receptionist**: Patient Registration (Form 1), Check-In, Queue Ticket Generation, Appointment Scheduling.
+  - **Patient**: View personal appointment schedule, view own vaccination card summary, view clinic announcements.
+- [ ] **26.2 Backend Laravel Authorization Policies (`app/Policies/`)**
+  - Implement `PatientPolicy`, `TreatmentRecordPolicy`, `VaccinationRecordPolicy`, `InventoryPolicy`, and `QueuePolicy`.
+  - Attach middleware `can:authorize` to all sensitive API endpoints in `routes/api.php`.
+
+### 27. Security Standards & Data Protection
+> **Assigned Development**: Security Standards  
+> **Main Tasks**: Implement password requirements, authentication standards, and protection of patient records.
+
+- [ ] **27.1 Password Standards & Authentication Hardening**
+  - Enforce password complexity policy: Minimum 12 characters, requiring uppercase, lowercase, numeric, and special character (`Password::min(12)->mixedCase()->numbers()->symbols()`).
+  - Implement rate-limiting / brute-force protection: Max 5 failed login attempts per minute per IP (`ThrottleRequests`).
+  - Enforce automatic session timeout after 15 minutes of inactivity on clinical workstations.
+- [ ] **27.2 Patient Records Data Protection & Encryption**
+  - Encrypt Personally Identifiable Information (PII) and Sensitive Personal Info (SPI) at rest (PhilHealth ID, Contact Number, Address, Clinical Assessment Notes) using AES-256 (`Crypt::encrypt`).
+  - Enforce SSL/TLS encryption for all HTTP communications in transit (`FORCE_HTTPS=true`).
+  - Implement immutable Audit Logging (`audit_logs` table) recording user ID, action, model, IP address, and timestamp for all patient record views, updates, and exports.
+
+### 28. Standard Operating Procedures (SOP) & Clinical Guidelines
+> **Assigned Development**: Procedures & Guidelines  
+> **Main Tasks**: Develop procedures and guidelines for registration, treatment records, account usage, and secure handling of patient information.
+
+- [ ] **28.1 Patient Registration Procedure Guidelines**
+  - Embed inline operational guidance in Form 1: Standardized intake procedures for bite incidence reporting, PhilHealth validation, and emergency triage prioritization.
+- [ ] **28.2 Clinical Treatment Records Handling Guidelines**
+  - Document & enforce DOH National Rabies Prevention and Control Program (NRPCP) protocols within Form 2 (Doctor Assessment) and Form 3 (Nurse Vaccination).
+  - Guidelines for Day 0, Day 3, Day 7, Day 14, Day 28 PEP schedule compliance and RIG (Rabies Immunoglobulin) weight-based dosage calculations.
+- [ ] **28.3 Account Usage & Secure Data Handling Guidelines**
+  - Admin SOP for user account lifecycle management (onboarding, role assignment, prompt deactivation upon staff offboarding).
+  - Data privacy guidelines complying with Republic Act 10173 (Data Privacy Act of 2012) for handling patient rabies surveillance records and report generation.
+

@@ -33,6 +33,7 @@ import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import StatCard from '../../../components/common/StatCard/StatCard';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
+import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
 
 import api from '../../../shared/services/api';
 
@@ -68,6 +69,8 @@ export default function NursePatientListPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showForm3, setShowForm3] = useState(false);
+  const [selectedCardPatientId, setSelectedCardPatientId] = useState<number | null>(null);
+  const [showTreatmentCardModal, setShowTreatmentCardModal] = useState(false);
   const [checkingInId, setCheckingInId] = useState<number | null>(null);
 
 
@@ -389,9 +392,10 @@ export default function NursePatientListPage() {
           365: 'Booster 2',
         };
 
+        const isBoosterAppt = appt.appointment_type === 'booster' || appt.notes?.toLowerCase()?.includes('booster');
         const appointmentTitle = appt.dose_number !== undefined && appt.dose_number !== null && doseMap[appt.dose_number]
           ? doseMap[appt.dose_number]
-          : (appt.appointment_type === 'consultation' ? 'Initial Consultation' : 'Initial Consultation / Day 0');
+          : (isBoosterAppt ? 'Booster Vaccination' : (appt.appointment_type === 'consultation' ? 'Initial Consultation' : 'Initial Consultation / Day 0'));
 
         if (appt.status === 'confirmed') {
           return (
@@ -454,11 +458,15 @@ export default function NursePatientListPage() {
       render: (patient) => {
         const activeQueue = (patient as any).queues?.[0];
         const appt = getNextAppointment(patient);
+        const isBoosterAppt = appt?.appointment_type === 'booster' || appt?.notes?.toLowerCase()?.includes('booster');
         const hasCompletedTriage = Boolean(
           patient.latest_treatment_record ||
+          (patient as any).latestTreatmentRecord ||
           (patient as any).latest_consultation_record ||
           (patient as any).latestConsultationRecord ||
+          isBoosterAppt ||
           activeQueue?.visit_type === 'vaccination' ||
+          activeQueue?.visit_type === 'booster' ||
           activeQueue?.consultation_notes?.includes('Form 2')
         );
         const isCheckedIn = appt?.status === 'confirmed';
@@ -538,14 +546,22 @@ export default function NursePatientListPage() {
               </Tooltip>
             ) : null}
 
-            <Tooltip title="View Treatment Record Card">
+            <Tooltip title="View Treatment Record Card (Printable)">
               <IconButton
                 size="small"
                 onClick={() => {
-                  setSelectedPatient(patient);
-                  setShowForm3(true);
+                  setSelectedCardPatientId(patient.patient_id);
+                  setShowTreatmentCardModal(true);
                 }}
-                sx={{ color: '#6b7280', bgcolor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 1.5, width: 32, height: 32, '&:hover': { bgcolor: '#eff6ff', color: '#2563eb' } }}
+                sx={{
+                  color: '#4b5563',
+                  bgcolor: '#f3f4f6',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 1.5,
+                  width: 32,
+                  height: 32,
+                  '&:hover': { bgcolor: '#e5e7eb', color: '#111827' },
+                }}
               >
                 <HugeiconsIcon icon={ViewIcon} size={15} />
               </IconButton>
@@ -767,7 +783,17 @@ export default function NursePatientListPage() {
         />
       )}
 
-
+      {/* Tagoloan Treatment Card (View / Printable) */}
+      {showTreatmentCardModal && selectedCardPatientId && (
+        <TagoloanTreatmentCardModal
+          open={showTreatmentCardModal}
+          patientId={selectedCardPatientId}
+          onClose={() => {
+            setShowTreatmentCardModal(false);
+            setSelectedCardPatientId(null);
+          }}
+        />
+      )}
 
       <Snackbar
         open={snackbar.open}

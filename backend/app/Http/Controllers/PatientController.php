@@ -53,9 +53,11 @@ class PatientController extends Controller
                         $qu->whereIn('status', ['waiting', 'in_consultation']);
                     })->orWhereHas('appointments', function ($app) {
                         $app->where(function ($d) {
-                            $d->whereDate('appointment_date', \Carbon\Carbon::today())
-                              ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
-                        })->where('status', 'scheduled');
+                            $d->where(function ($sub) {
+                                $sub->whereDate('appointment_date', \Carbon\Carbon::today())
+                                    ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
+                            })->whereIn('status', ['scheduled', 'confirmed']);
+                        })->orWhere('status', 'confirmed');
                     });
                 });
                 break;
@@ -139,9 +141,11 @@ class PatientController extends Controller
                 $qu->whereIn('status', ['waiting', 'in_consultation']);
             })->orWhereHas('appointments', function ($app) {
                 $app->where(function ($d) {
-                    $d->whereDate('appointment_date', \Carbon\Carbon::today())
-                      ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
-                })->where('status', 'scheduled');
+                    $d->where(function ($sub) {
+                        $sub->whereDate('appointment_date', \Carbon\Carbon::today())
+                            ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
+                    })->whereIn('status', ['scheduled', 'confirmed']);
+                })->orWhere('status', 'confirmed');
             });
         })->count();
 

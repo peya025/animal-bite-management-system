@@ -751,6 +751,28 @@ class VaccinationRecordController extends Controller
 
                     Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
                 } // end: if ($todayQueue)
+
+                // Mark any scheduled or confirmed appointment for these doses as completed
+                Appointment::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                    ->where(function ($q) use ($savedDoseNumbers) {
+                        $q->whereIn('dose_number', $savedDoseNumbers)
+                          ->orWhere(function ($sub) use ($savedDoseNumbers) {
+                              $hasBoosterDose = in_array(90, $savedDoseNumbers) || in_array(365, $savedDoseNumbers) || in_array(100, $savedDoseNumbers) || in_array(101, $savedDoseNumbers);
+                              if ($hasBoosterDose) {
+                                  $sub->whereDate('scheduled_date', '<=', Carbon::today())
+                                      ->where(function ($type) {
+                                          $type->where('appointment_type', 'booster')
+                                               ->orWhere('notes', 'like', '%booster%');
+                                      });
+                              } else {
+                                  $sub->whereRaw('0 = 1');
+                              }
+                          })
+                          ->orWhereNull('dose_number');
+                    })
+                    ->update(['status' => 'completed']);
             } // end: if doses were saved
 
             // ──────────────────────────────────────────────────────────────

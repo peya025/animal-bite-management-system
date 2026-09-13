@@ -74,7 +74,7 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     roles: ['admin', 'treatment'],
     submenu: [
       { label: 'Vaccine Inventory', path: ROUTES.INVENTORY.LIST, roles: ['admin', 'treatment'] },
-      { label: 'Nurse Vaccine List', path: ROUTES.INVENTORY.ADMINISTRATIONS, roles: ['admin', 'treatment'] },
+      { label: 'Inventory Transaction', path: ROUTES.INVENTORY.ADMINISTRATIONS, roles: ['admin', 'treatment'] },
       { label: 'Vaccine Setup', path: ROUTES.INVENTORY.TYPES, roles: ['admin'] },
     ],
   },

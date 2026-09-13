@@ -1,10 +1,10 @@
 # 📌 Project Tasks & Roadmap — Part 4 (Clinical Workflow, Inventory & Analytics)
 
 > **System**: Animal Bite Management System (ABTC / RHU)  
-> **Modules**: Triage Queue, Doctor Consultation (Form 2), Vaccine Inventory, Vaccination Schedule, Reports & Analytics, Mobile Booster Experience  
-> **Standards Compliance**: DOH National Rabies Prevention and Control Program (NRPCP), Clinical Triage Protocols, FIFO/FEFO Vaccine Standards  
+> **Modules**: Triage Queue, Doctor Consultation (Form 2), Vaccine Inventory, Vaccination Schedule, Reports & Analytics, Mobile Booster Experience, Admin Module Configuration, Patient Check-In, HCI Form Layouts  
+> **Standards Compliance**: DOH National Rabies Prevention and Control Program (NRPCP), Clinical Triage Protocols, FIFO/FEFO Vaccine Standards, HCI Form & Validation UX Guidelines  
 > **Date**: September 2026  
-> **Status**: Ready for Execution  
+> **Status**: In Audit & Remediation  
 
 ---
 
@@ -13,32 +13,43 @@
 ```
 Phase 1: Urgent Clinical & Doctor Consultation Workflow
   ├── 1. Triage Queue Visuals (Active Patient & RIG/GI Highlight)
-  ├── 2. Multiple Doctor Support & Priority Sorting (Emergency/Senior/PWD on top)
-  ├── 3. Doctor Triage Form Customizations (Free-text body parts, Animal type Dog/Cat/Others, Disable med autofill)
-  └── 4. Patient History Lookup & Hide Form 2 Consultation Type Selection
+  ├── 2. Multiple Doctor Support & Priority Sorting (Emergency Severe Bites on top)
+  └── 3. Doctor Triage Form Customizations (Free-text body parts, Animal type Dog/Cat/Others, Disable med autofill)
 
 Phase 2: Vaccine & Supplies Inventory Overhaul
-  ├── 5. Add Stock Batch: Standardized Source of Supply / Supplier Dropdown (DOH, PHO, LGU)
-  ├── 6. Inventory Table & Cards: Merged Count per Vaccine Type with Collapsible Batch Breakdown
-  ├── 7. Advanced Inventory Filtering (Batch No., Status, Source/Supplier)
-  └── 8. Jargon Simplification: Clear Vial Definitions & Human-Friendly Terminology
+  ├── 4. Add Stock Batch: Standardized Source of Supply / Supplier Dropdown (DOH, PHO, LGU)
+  ├── 5. Inventory Table & Cards: Merged Count per Vaccine Type with Collapsible Batch Breakdown
+  ├── 6. Advanced Inventory Filtering (Batch No., Status, Source/Supplier)
+  └── 7. Jargon Simplification: Clear Vial Definitions & Human-Friendly Terminology
 
 Phase 3: Vaccination Schedule & Re-Bite Episode Management
-  ├── 9. Clean 3-Dose Primary Post-Exposure View (Hide unneeded booster boxes)
-  ├── 10. Re-Exposure / Re-Bite Episode Handling (Full history logging)
-  └── 11. Unified Schedule Filter & Patient Search Bar
+  ├── 8. Clean 3-Dose Primary Post-Exposure View (Hide unneeded booster boxes)
+  ├── 9. Re-Exposure / Re-Bite Episode Handling (Full history logging)
+  └── 10. Unified Schedule Filter & Patient Search Bar
 
 Phase 4: Reports, Analytics & Corporate Print Review
-  ├── 12. Summary Dashboard: Bite Category Filtering & 6 Metric Overview Cards
-  ├── 13. Bite Cases Module: Top-Right Search, Category Filter, Animal Type Filter, Status Filter
-  ├── 14. Patients Module: Top-Right Search & Month/Year Registration Date Filter
-  ├── 15. Comprehensive Batch Inventory & Wastage Report (Used, Unused, Expired, Beyond-Use)
-  └── 16. Formal Corporate / DOH Print Layout (Strictly mirroring active table filters)
+  ├── 11. Summary Dashboard: Bite Category Filtering & 6 Metric Overview Cards
+  ├── 12. Bite Cases Module: Top-Right Search, Category Filter, Animal Type Filter, Status Filter
+  ├── 13. Patients Module: Top-Right Search & Month/Year Registration Date Filter
+  ├── 14. Comprehensive Batch Inventory & Wastage Report (Used, Unused, Expired, Beyond-Use)
+  └── 15. Formal Corporate / DOH Print Layout (Strictly mirroring active table filters)
 
 Phase 5: Mobile Application & Booster Flow (Secondary Enhancements)
-  ├── 17. Digital Vaccination Card: Conditionally Hide Boosters
-  ├── 18. Direct Booster Guidance & Educational Landing Page
-  └── 19. Dedicated Booster Appointment Request Flow & Web Queue Sync
+  ├── 16. Digital Vaccination Card: Conditionally Hide Boosters
+  ├── 17. Direct Booster Guidance & Educational Landing Page
+  └── 18. Dedicated Booster Appointment Request Flow & Web Queue Sync
+
+Phase 6: Discovered Frontend Security, RBAC & Admin Module Hardening (NEW)
+  ├── 19. Admin Side Module Configuration (Step-by-Step Enablement & Field Rules)
+  └── 20. 10 Discovered Frontend Loopholes & System Hardening (RBAC, Priority Sorting Fix, Debounce, etc.)
+
+Phase 7: Backend API Exception, Check-In & Dose Lock Remediation (NEW)
+  ├── 21. Fix Patient Check-In 500 Internal Server Error (AppointmentController missing methods)
+  └── 22. Form 3 Dose Sequence & Prerequisite Lock (Lock Day 7 until Day 3 is administered)
+
+Phase 8: Human-Computer Interaction (HCI) Form Layout & Validation UX Refactoring (NEW)
+  ├── 23. Core HCI Principles & Form UX Guidelines (Blur-first validation, live recovery, balanced 2-column pairing)
+  └── 24. HCI Form & Validation Refactoring across Clinical Forms (Form 2, Form 3, Inventory Dialog, User Create)
 ```
 
 ---
@@ -52,14 +63,13 @@ Phase 5: Mobile Application & Booster Flow (Secondary Enhancements)
   - Add active consultation indicator badge: `● IN CONSULTATION`.
 - [x] **1.2 Distinct Visual Highlight for Gamma Globulin / RIG (GI) Injections**
   - Detect if the patient has a Category III bite or is prescribed RIG / Gamma Globulin.
-  - Add a high-visibility badge or row tag: `RIG / GI CANDIDATE` or `CATEGORY III - RIG` using Hugeicons (`InjectionIcon`).
-- [x] **1.3 Priority-Based Queue Ordering (Emergency & Priority on Top)**
+  - Add a high-visibility badge or row tag: `💉 RIG / GI CANDIDATE` or `⚠️ CATEGORY III - RIG` using Hugeicons (`InjectionIcon`).
+- [ ] **1.3 Priority-Based Queue Ordering (Emergency & Priority on Top)**
   - Ensure the waiting queue sorts strictly by priority:
     $$\text{Emergency (Severe Bite)} \longrightarrow \text{Priority (Senior, PWD, Pregnant)} \longrightarrow \text{Appointments} \longrightarrow \text{Regular}$$
   - Within each priority band, order by FIFO (ticket arrival time).
-- [x] **1.4 Multiple Doctor Support**
+- [ ] **1.4 Multiple Doctor Support & Call-Next Concurrency Guard**
   - Track and display which doctor / room is currently serving each patient (`handled_by`).
-  - Prevent doctor collisions when clicking **"Call Next"** by locking and auto-selecting the next unassigned eligible ticket.
   - Update TV Queue Display (`QueueDisplayPage`) to show room/doctor stations (e.g., *Room 1: Dr. Santos → #012*, *Room 2: Dr. Cruz → #014*).
 
 ### 2. Triage Queue – Doctor View & Patient History
@@ -180,9 +190,9 @@ Phase 5: Mobile Application & Booster Flow (Secondary Enhancements)
   - Filter by Supplier, Vaccine Type, Expiry Condition, and Date Range.
 
 ### 13. Print Review – Corporate & DOH Formal Layout
-- [x] **13.1 Strict Filter Mirroring ("Musunod dapat ang filtering in the print")**
-  - The printed document must strictly print the filtered dataset active on the screen.
-- [x] **13.2 Formal Corporate / Government DOH Styling**
+- [ ] **13.1 Strict Filter Mirroring ("Musunod dapat ang filtering in the print")**
+  - The printed document must strictly print the filtered dataset active on the screen (date range, category, animal type, status).
+- [ ] **13.2 Formal Corporate / Government DOH Styling & Sign-off Blocks**
   - Official clinic letterhead, republic header, generation timestamp, and active filter criteria banner.
   - Structured borders, alternating row tints, summary totals row.
   - Sign-off blocks:
@@ -210,3 +220,138 @@ Phase 5: Mobile Application & Booster Flow (Secondary Enhancements)
   - Distinct appointment request flow separated from initial bite registration: selects previous bite record, verifies prior vaccination date, and requests Booster Day 0 & Day 3 dates.
 - [ ] **16.2 Real-Time Sync with Web Appointment Queue**
   - Automatically tag incoming requests as `visit_type: 'booster'` in the clinic web triage queue for nurse/doctor verification.
+
+---
+
+## 🛡️ Tier 6: Discovered Frontend Security, RBAC & Admin Module Hardening (Phase 6 — NEW)
+*Remediates codebase loopholes, enforces strict route RBAC, and details step-by-step admin module configuration.*
+
+### 19. Admin Side Module Configuration (Step-by-Step Enablement & Field Rules)
+> **Goal**: Configure module section toggles and field rules in the Admin workspace (`ModuleConfigPage.tsx`) to enable smooth clinical intake.
+
+- [ ] **19.1 Step 1 — Admin Module Configuration Access**
+  - Log in with an `admin` or `developer` account.
+  - In the left sidebar navigation, expand **Clinic Setup** and click **Module Configuration** (`/setup/modules`).
+- [ ] **19.2 Step 2 — Enable Core Clinical Sections**
+  - Toggle all 7 core clinic sections to `ENABLED`:
+    - `Patient Registration` (`patient_registration_enabled = true`)
+    - `Address Information` (`address_section_enabled = true`)
+    - `Socioeconomic Information` (`socioeconomic_section_enabled = true`)
+    - `Government Programs` (`gov_programs_section_enabled = true`)
+    - `Bite Incident Intake` (`bite_intake_section_enabled = true`)
+    - `Triage & Assessment` (`triage_section_enabled = true`)
+    - `Treatment & Vaccination` (`treatment_section_enabled = true`)
+- [ ] **19.3 Step 3 — Set Required Clinical Field Rules**
+  - Under **Triage & Assessment**:
+    - Set `exposure_category` (WHO Category I, II, III) $\rightarrow$ `REQUIRED`
+    - Set `bite_site` (Anatomical location) $\rightarrow$ `REQUIRED`
+    - Set `animal_observation_status` $\rightarrow$ `REQUIRED`
+  - Under **Treatment & Vaccination**:
+    - Set `protocol_type` (Standard, Accelerated, Booster) $\rightarrow$ `REQUIRED`
+    - Set `route` (Intradermal ID / Intramuscular IM) $\rightarrow$ `REQUIRED`
+    - Set `vaccine_brand` & `batch_no` $\rightarrow$ `REQUIRED`
+- [ ] **19.4 Step 4 — Save & Verify Configuration**
+  - Click **"Save Module Configuration"** at top-right.
+  - Verify API PUT request to `/api/clinic-config` succeeds and toast reads *"Clinic module configuration saved successfully"*.
+- [ ] **19.5 Step 5 — Staff Station Assignment**
+  - Navigate to **Staff Assignments** (`/setup/staff-assignments`).
+  - Assign physicians to **Triage / Consultation Station**.
+  - Assign clinic nurses to **Treatment / Vaccination Station**.
+- [ ] **19.6 Step 6 — Dynamic Form Runtime Binding**
+  - Connect `GeneralTreatmentForm.tsx` (Doctor Form 2) and `VaccinationRecordForm.tsx` (Form 3) to `useClinicModuleConfig()` hook to dynamically enforce configured field rules.
+
+### 20. Itemized 10 Discovered Frontend Loopholes & System Hardening
+> **Goal**: Step-by-step remediation of all 10 frontend loopholes identified during system audit.
+
+- [ ] **20.1 Loophole 1: Missing Route-Level RBAC Protection (`App.tsx`)**
+  - **Defect**: `ProtectedRoute` checks only `authToken` in `localStorage` without verifying `user.role`. Low-privilege users can manually type `/developer/*`, `/users/*`, `/setup/*` in URL.
+  - **Fix**: Implement `RoleProtectedRoute` component with `allowedRoles` array prop, redirecting unauthorized roles to `/dashboard`.
+- [ ] **20.2 Loophole 2: Severe Emergency Priority Sorting Inversion (`QueueDashboardPage.tsx`)**
+  - **Defect**: `sortQueueForDisplay` evaluates `priorityCategoryRank` (Senior/PWD/Pregnant) **before** `priorityLevelRank` (Emergency = 0). Emergency severe head/neck bite patients are placed **below** normal priority seniors.
+  - **Fix**: Update `sortQueueForDisplay` to evaluate `priorityLevelRank(a) - priorityLevelRank(b)` FIRST so Emergency patients take top precedence.
+- [ ] **20.3 Loophole 3: Multi-Doctor Parallel Room Ticket Collision (`QueueDashboardPage.tsx`)**
+  - **Defect**: Clicking "Call Next" sends a generic call request without station/room binding or optimistic locking. Parallel doctors call and serve the same ticket.
+  - **Fix**: Include `room_id`/`station_id` in call payload, optimistically lock ticket in local state, and handle 409 Conflict API errors with doctor station toast notifications.
+- [ ] **20.4 Loophole 4: Action Button Double-Submit & Multi-Click Vulnerability**
+  - **Defect**: Form submit buttons lack debouncing and remain active during pending API calls, causing duplicate patient records, double stock deductions, or duplicate queue tickets.
+  - **Fix**: Add `isSubmitting` state guard, disable submit buttons on click, and apply 500ms debounce throttling on queue action buttons.
+- [ ] **20.5 Loophole 5: Client LocalStorage State Tampering for Admin Controls (`InventoryTable.tsx`)**
+  - **Defect**: Admin buttons (`Delete Batch`, `Adjust Stock`) rely purely on client `user?.role === 'admin'`. Overwriting `localStorage` `userData` reveals all admin buttons.
+  - **Fix**: Enforce server-side authorization check on submit and handle 403 Forbidden responses by resetting client state safely.
+- [ ] **20.6 Loophole 6: Unsanitized Open-Vial Discard Timer Bounds (`AddEditInventoryDialog.tsx`)**
+  - **Defect**: Form allows arbitrary open vial hours (e.g. 168 hours) without enforcing WHO/DOH cold-chain limits (max 8h for reconstituted vaccines, max 48h for RIG).
+  - **Fix**: Enforce input bounds `min={1}` and `max={48}` with cold-chain preset tooltips.
+- [ ] **20.7 Loophole 7: Search Input Regex Special Character Crash**
+  - **Defect**: Search fields with regex special characters (`(`, `[`, `*`, `\`, `?`) crash client JS rendering when parsed with `new RegExp(search)`.
+  - **Fix**: Escape regex special characters with `search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')` and use `String.prototype.includes()`.
+- [ ] **20.8 Loophole 8: Unhandled API Failure & Infinite Spinner Deadlocks**
+  - **Defect**: API 500 errors or network dropouts trap tables in perpetual `loading: true` state without error banners or retry actions.
+  - **Fix**: Ensure `finally { setLoading(false); }` runs on all data hooks and render error fallback banners with "Tap to Retry" buttons.
+- [ ] **20.9 Loophole 9: Print Filter Desynchronization & Missing DOH Sign-Off Blocks (`ReportsDashboardPage.tsx`)**
+  - **Defect**: Clicking "Print" outputs static/unfiltered data rather than mirroring active UI filters, and lacks formal government sign-off signature blocks (*Prepared by Nurse*, *Approved by Doctor*).
+  - **Fix**: Pass active `filteredItems` to print window, adding clinic letterhead, generated timestamp, filter criteria banner, and formal sign-off signature blocks.
+- [ ] **20.10 Loophole 10: Mobile Application Mock Mode Release Build Leak (`mobile/.env`)**
+  - **Defect**: Flutter app contains mock mode flags (`MOCK_MODE=true`) that bypass real backend JWT login if left enabled in release builds.
+  - **Fix**: Add build assertion in Flutter `main.dart` raising an error if `MOCK_MODE=true` is set in `--release` build mode.
+
+---
+
+## 🚨 Tier 7: Backend API Exception, Check-In & Dose Lock Remediation (Phase 7 — NEW)
+*Fixes 500 Internal Server Errors on check-in routes and enforces strict chronological PEP dose sequence locking.*
+
+### 21. Fix Patient Check-In 500 Internal Server Error (`AppointmentController.php`)
+> **Problem**: Invoking `POST /api/appointments/patient/5/check-in` or `POST /api/appointments/patient/7/check-in` returns HTTP 500 Internal Server Error because `checkIn($id)` and `checkInByPatient($patientId)` methods are missing in `AppointmentController.php` despite being defined in `routes/api.php`.
+
+- [ ] **21.1 Implement `checkIn($id)` in `AppointmentController.php`**
+  - Find appointment by ID. Verify clinic ownership.
+  - Create new `patient_queues` record for today (`status: 'waiting'`, `visit_type: 'vaccination'`).
+  - Update appointment status to `checked_in`.
+  - Return `200 OK` JSON response.
+- [ ] **21.2 Implement `checkInByPatient($patientId)` in `AppointmentController.php`**
+  - Find active appointment for patient ID today.
+  - Invoke check-in workflow or issue walk-in queue ticket for today.
+- [ ] **21.3 Non-500 Defensive Exception Handling**
+  - Catch invalid patient/appointment IDs and return clean `404 Not Found` JSON.
+  - Prevent duplicate check-in tickets today by returning `422 Unprocessable Entity` if patient is already waiting in active queue.
+
+### 22. Form 3 Chronological Dose Sequence & Prerequisite Lock (`VaccinationRecordForm.tsx`)
+> **Problem**: Nurses can record future doses out of chronological order (e.g. attempting to edit/record Day 7 when Day 3 has not yet been administered), violating DOH clinical safety protocols.
+
+- [ ] **22.1 Prerequisite Dose Lock in Frontend UI (`VaccinationRecordForm.tsx`)**
+  - Disable input fields, batch selectors, and action buttons for future doses (e.g. Day 7) if the preceding mandatory dose (Day 3) is not yet administered/completed.
+  - Display UI warning tooltip on locked rows: *"Prerequisite dose (Day 3) must be administered before Day 7 can be recorded."*
+- [ ] **22.2 Backend Dose Sequence Validation (`VaccinationRecordController.php`)**
+  - Add backend validation rule in `store` & `update` preventing out-of-order dose administration.
+  - Return `422 Unprocessable Entity` (`"Prerequisite dose [Day X] missing"`) if an out-of-sequence dose payload is submitted.
+
+---
+
+## 🎨 Tier 8: Human-Computer Interaction (HCI) Form Layout & Validation UX Refactoring (Phase 8 — NEW)
+*Refactors clinical forms to follow HCI visual scanning paths, graceful validation lifecycles (blur-triggered validation, live error recovery), balanced uniform 2-column pairings for compact layout, and strict preservation of all existing field contracts.*
+
+### 23. Core HCI Principles & Form UX Guidelines
+> **Core Principle**: *"People read forms top to bottom. A single column keeps label $\rightarrow$ field $\rightarrow$ helper $\rightarrow$ action in one path, so eyes never zigzag across the page."*
+
+- [ ] **23.1 Graceful Validation Lifecycle (No Premature Keystroke Errors)**
+  - Do NOT trigger live error messages while the user is typing in a field for the first time ("Keystroke validation shouts before the user finishes").
+  - Trigger initial inline validation on field `blur` (when focus leaves the field) to catch missing/invalid fields early.
+  - Once an error is visible, clear/update the error on live input (`onChange`) as the user fixes the value (error recovery mode).
+  - Full form submit retains complete validation safety net for all required fields.
+- [ ] **23.2 Balanced Uniform Layout (Prevent Overly Long Forms)**
+  - Do NOT make forms excessively long or scroll-heavy.
+  - Use single-column vertical stacks for sequential workflow sections.
+  - For closely paired/tight fields (e.g. `First Name` + `Last Name`, `City` + `Province`, `Protocol` + `Route`), use clean, uniform 2-column grid pairs (`xs={6}`) to keep forms compact and easy to scan without cluttering.
+- [ ] **23.3 Strict Preservation of Existing Fields, Labels & Options**
+  - **Do NOT change, delete, or rename any existing field keys, labels, helper text, or options** during UI refactoring.
+- [ ] **23.4 Primary Action Button In-Line Placement**
+  - Place primary form submission buttons directly in line with the vertical reading path (left-aligned or full-width at the bottom of the form stack), avoiding floating or right-disconnected buttons.
+
+### 24. HCI Form & Validation Refactoring across Clinical Forms
+- [ ] **24.1 Doctor Assessment (Form 2) Refactoring (`GeneralTreatmentForm.tsx`)**
+  - Apply blur-first validation, live error recovery, and uniform 2-column field pairing while preserving all existing clinical fields/labels.
+- [ ] **24.2 Nurse Vaccination Card (Form 3) Refactoring (`VaccinationRecordForm.tsx`)**
+  - Implement blur validation on dose rows and balanced uniform 2-column layout for dose route/brand selectors.
+- [ ] **24.3 Add/Edit Vaccine Inventory Dialog Refactoring (`AddEditInventoryDialog.tsx`)**
+  - Refactor modal layout into compact uniform 2-column pairs (`xs={6}`) with blur validation and live error recovery.
+- [ ] **24.4 User Creation & Account Setup Refactoring (`UserCreatePage.tsx`, `SetupWizardPage.tsx`)**
+  - Apply graceful validation lifecycles and uniform 2-column field pairing.

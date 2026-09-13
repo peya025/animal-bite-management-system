@@ -75,6 +75,42 @@ const fmtDate = (iso?: string) => {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+const toYMD = (dateInput: string | Date | undefined): string | null => {
+  if (!dateInput) return null;
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const getPeriodBounds = (period: 'today' | 'this_week' | 'this_month') => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const todayYmd = `${year}-${month}-${day}`;
+
+  if (period === 'today') {
+    return { from: todayYmd, to: todayYmd };
+  }
+  if (period === 'this_week') {
+    const dayOfWeek = now.getDay();
+    const diff = (dayOfWeek + 6) % 7;
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - diff);
+    const sYear = startOfWeek.getFullYear();
+    const sMonth = String(startOfWeek.getMonth() + 1).padStart(2, '0');
+    const sDay = String(startOfWeek.getDate()).padStart(2, '0');
+    return { from: `${sYear}-${sMonth}-${sDay}`, to: todayYmd };
+  }
+  if (period === 'this_month') {
+    return { from: `${year}-${month}-01`, to: todayYmd };
+  }
+  return { from: '', to: '' };
+};
+
 // ─── Restored Emerald UI Styles ──────────────────────────────
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: 14,
@@ -705,12 +741,14 @@ export default function ReportsDashboardPage() {
   const [expiryDateFrom,      setExpiryDateFrom]      = useState<string>('');
   const [expiryDateTo,        setExpiryDateTo]        = useState<string>('');
 
-  // Summary Category & Card selection filters (Task 9)
+  // Summary Category, Period & Card selection filters (Task 9)
+  const [summaryPeriodFilter, setSummaryPeriodFilter] = useState<'ALL' | 'today' | 'this_week' | 'this_month'>('ALL');
   const [summaryCatFilter,    setSummaryCatFilter]    = useState<string>('ALL');
   const [selectedCard,        setSelectedCard]        = useState<string | null>(null);
 
   // Bite Cases module filters & search (Task 10)
   const [caseSearch,          setCaseSearch]          = useState<string>('');
+  const [casePeriodFilter,    setCasePeriodFilter]    = useState<'ALL' | 'today' | 'this_week' | 'this_month'>('ALL');
   const [caseCatFilter,       setCaseCatFilter]       = useState<string>('ALL');
   const [caseAnimalFilter,    setCaseAnimalFilter]    = useState<string>('ALL');
   const [caseAnimalOtherText, setCaseAnimalOtherText] = useState<string>('');
@@ -718,6 +756,7 @@ export default function ReportsDashboardPage() {
 
   // Patients module search & registration date filter (Task 11)
   const [patientSearch,       setPatientSearch]       = useState<string>('');
+  const [patientPeriodFilter, setPatientPeriodFilter] = useState<'ALL' | 'today' | 'this_week' | 'this_month'>('ALL');
   const [patientMonthFilter,  setPatientMonthFilter]  = useState<string>('ALL');
   const [patientYearFilter,   setPatientYearFilter]   = useState<string>('ALL');
 
@@ -747,10 +786,9 @@ export default function ReportsDashboardPage() {
   const loadReports = async () => {
     setLoading(true); setError('');
     try {
-      const params = { from_date: dateFrom, to_date: dateTo };
       const [casesRes, patsRes] = await Promise.all([
-        api.get('/cases',    { params: { ...params, per_page: 200 } }),
-        api.get('/patients', { params: { per_page: 200 } }),
+        api.get('/cases',    { params: { per_page: 500 } }),
+        api.get('/patients', { params: { per_page: 500 } }),
       ]);
       const casesRaw = casesRes.data?.data ?? casesRes.data ?? [];
       const patsRaw  = patsRes.data?.data  ?? patsRes.data  ?? [];
@@ -857,16 +895,30 @@ export default function ReportsDashboardPage() {
 
   // Filtered Summary Cases (Task 9.1)
   const filteredSummaryCases = biteCases.filter(c => {
+    if (summaryPeriodFilter !== 'ALL') {
+      const bounds = getPeriodBounds(summaryPeriodFilter);
+      const ymd = toYMD(c.created_at);
+      if (!ymd || ymd < bounds.from || ymd > bounds.to) return false;
+    }
     if (summaryCatFilter !== 'ALL' && c.category !== summaryCatFilter) return false;
+    return true;
+  });
+
+  const filteredPeriodPatients = patients.filter(p => {
+    if (summaryPeriodFilter !== 'ALL') {
+      const bounds = getPeriodBounds(summaryPeriodFilter);
+      const ymd = toYMD(p.created_at);
+      if (!ymd || ymd < bounds.from || ymd > bounds.to) return false;
+    }
     return true;
   });
 
   // Dynamic 6 Metric Counters for Summary Dashboard (Task 9.2)
   const summaryMetrics = {
-    totalPatients: stats?.total_patients ?? 0,
-    totalBiteCases: stats?.total_bite_cases ?? 0,
-    newPatients: stats?.new_patients_period ?? 0,
-    newCases: summaryCatFilter !== 'ALL' ? filteredSummaryCases.length : (stats?.new_cases_period ?? 0),
+    totalPatients: stats?.total_patients ?? patients.length,
+    totalBiteCases: stats?.total_bite_cases ?? biteCases.length,
+    newPatients: summaryPeriodFilter !== 'ALL' ? filteredPeriodPatients.length : patients.length,
+    newCases: filteredSummaryCases.length,
     completedCases: filteredSummaryCases.filter(c => c.status === 'completed').length,
     ongoingCases: filteredSummaryCases.filter(c => c.status === 'ongoing' || c.status === 'active').length,
   };
@@ -874,17 +926,18 @@ export default function ReportsDashboardPage() {
   // Card Drilldown Data Resolution (Clickable Summary Cards)
   const getSelectedCardData = () => {
     if (!selectedCard) return null;
+    const pLabel = summaryPeriodFilter === 'today' ? 'Today' : summaryPeriodFilter === 'this_week' ? 'This Week' : summaryPeriodFilter === 'this_month' ? 'This Month' : 'All Time';
     if (selectedCard === 'total_patients') {
       return { type: 'patients' as const, title: 'Total Registered Patients (All Time)', records: patients };
     }
     if (selectedCard === 'new_patients') {
-      return { type: 'patients' as const, title: `New Patients Registered (${fmtDate(dateFrom)} – ${fmtDate(dateTo)})`, records: patients };
+      return { type: 'patients' as const, title: `Patients Registered (${pLabel})`, records: filteredPeriodPatients };
     }
     if (selectedCard === 'total_bite_cases') {
       return { type: 'cases' as const, title: 'Total Bite Cases (All Time)', records: biteCases };
     }
     if (selectedCard === 'new_cases') {
-      return { type: 'cases' as const, title: `New Incident Cases (${fmtDate(dateFrom)} – ${fmtDate(dateTo)})`, records: filteredSummaryCases };
+      return { type: 'cases' as const, title: `Incident Cases (${pLabel})`, records: filteredSummaryCases };
     }
     if (selectedCard === 'completed_cases') {
       return { type: 'cases' as const, title: 'Completed Vaccination Treatment Cases', records: filteredSummaryCases.filter(c => c.status === 'completed') };
@@ -899,6 +952,11 @@ export default function ReportsDashboardPage() {
 
   // Filtered Bite Cases (Task 10)
   const filteredBiteCases = biteCases.filter(c => {
+    if (casePeriodFilter !== 'ALL') {
+      const bounds = getPeriodBounds(casePeriodFilter);
+      const ymd = toYMD(c.created_at);
+      if (!ymd || ymd < bounds.from || ymd > bounds.to) return false;
+    }
     if (caseSearch.trim()) {
       const q = caseSearch.toLowerCase().trim();
       const matchName = (c.patient_name || '').toLowerCase().includes(q);
@@ -930,6 +988,11 @@ export default function ReportsDashboardPage() {
 
   // Filtered Patients (Task 11)
   const filteredPatients = patients.filter(p => {
+    if (patientPeriodFilter !== 'ALL') {
+      const bounds = getPeriodBounds(patientPeriodFilter);
+      const ymd = toYMD(p.created_at);
+      if (!ymd || ymd < bounds.from || ymd > bounds.to) return false;
+    }
     if (patientSearch.trim()) {
       const q = patientSearch.toLowerCase().trim();
       const matchName = `${p.first_name || ''} ${p.last_name || ''}`.toLowerCase().includes(q);
@@ -990,9 +1053,17 @@ export default function ReportsDashboardPage() {
   const getActiveFiltersSummaryText = (): string => {
     const list: string[] = [];
     if (activeTab === 'summary') {
+      if (summaryPeriodFilter !== 'ALL') {
+        const pLabel = summaryPeriodFilter === 'today' ? 'Today' : summaryPeriodFilter === 'this_week' ? 'This Week' : 'This Month';
+        list.push(`Period: ${pLabel}`);
+      }
       if (selectedCard && cardData) list.push(`Card Selected: ${cardData.title}`);
       else if (summaryCatFilter !== 'ALL') list.push(`Category: ${summaryCatFilter}`);
     } else if (activeTab === 'cases') {
+      if (casePeriodFilter !== 'ALL') {
+        const pLabel = casePeriodFilter === 'today' ? 'Today' : casePeriodFilter === 'this_week' ? 'This Week' : 'This Month';
+        list.push(`Period: ${pLabel}`);
+      }
       if (caseSearch) list.push(`Search: "${caseSearch}"`);
       if (caseCatFilter !== 'ALL') list.push(`Category: ${caseCatFilter}`);
       if (caseAnimalFilter !== 'ALL') {
@@ -1004,6 +1075,10 @@ export default function ReportsDashboardPage() {
       }
       if (caseStatusFilter !== 'ALL') list.push(`Status: ${caseStatusFilter}`);
     } else if (activeTab === 'patients') {
+      if (patientPeriodFilter !== 'ALL') {
+        const pLabel = patientPeriodFilter === 'today' ? 'Today' : patientPeriodFilter === 'this_week' ? 'This Week' : 'This Month';
+        list.push(`Period: ${pLabel}`);
+      }
       if (patientSearch) list.push(`Search: "${patientSearch}"`);
       if (patientMonthFilter !== 'ALL') {
         const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1151,20 +1226,43 @@ export default function ReportsDashboardPage() {
         </div>
 
         {/* Row 2: Contextual Module Filters */}
-        {/* 1. Summary Category Filter */}
+        {/* 1. Summary Category & Period Filter */}
         {activeTab === 'summary' && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid #e5e7eb' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <label style={labelStyle}>Filter Summary by Category:</label>
-              <select value={summaryCatFilter} onChange={e => setSummaryCatFilter(e.target.value)} style={selectStyle}>
-                <option value="ALL">All Bite Categories</option>
-                <option value="Category I">Category I (Minor)</option>
-                <option value="Category II">Category II (Moderate)</option>
-                <option value="Category III">Category III (Severe)</option>
-              </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={labelStyle}>Period</label>
+                <select value={summaryPeriodFilter} onChange={e => setSummaryPeriodFilter(e.target.value as any)}
+                  style={{ ...selectStyle, minWidth: 140, borderColor: summaryPeriodFilter !== 'ALL' ? '#10b981' : '#d1d5db', fontWeight: summaryPeriodFilter !== 'ALL' ? 600 : 500 }}>
+                  <option value="ALL">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="this_week">This Week</option>
+                  <option value="this_month">This Month</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={labelStyle}>Category</label>
+                <select value={summaryCatFilter} onChange={e => setSummaryCatFilter(e.target.value)}
+                  style={{ ...selectStyle, minWidth: 180, borderColor: summaryCatFilter !== 'ALL' ? '#10b981' : '#d1d5db', fontWeight: summaryCatFilter !== 'ALL' ? 600 : 500 }}>
+                  <option value="ALL">All Bite Categories</option>
+                  <option value="Category I">Category I (Minor)</option>
+                  <option value="Category II">Category II (Moderate)</option>
+                  <option value="Category III">Category III (Severe)</option>
+                </select>
+              </div>
+              {(summaryPeriodFilter !== 'ALL' || summaryCatFilter !== 'ALL' || selectedCard !== null) && (
+                <button
+                  onClick={() => { setSummaryPeriodFilter('ALL'); setSummaryCatFilter('ALL'); setSelectedCard(null); }}
+                  style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 600, color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  Reset Filters
+                </button>
+              )}
             </div>
             <div style={{ fontSize: 12, color: '#6b7280' }}>
-              Showing overview for <strong>{summaryCatFilter}</strong>
+              Showing overview for <strong>{summaryCatFilter !== 'ALL' ? summaryCatFilter : 'All Categories'}</strong>
+              {summaryPeriodFilter !== 'ALL' && <span> • <strong>{summaryPeriodFilter === 'today' ? 'Today' : summaryPeriodFilter === 'this_week' ? 'This Week' : 'This Month'}</strong></span>}
             </div>
           </div>
         )}
@@ -1173,6 +1271,16 @@ export default function ReportsDashboardPage() {
         {activeTab === 'cases' && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={labelStyle}>Period</label>
+                <select value={casePeriodFilter} onChange={e => setCasePeriodFilter(e.target.value as any)}
+                  style={{ ...selectStyle, minWidth: 140, borderColor: casePeriodFilter !== 'ALL' ? '#10b981' : '#d1d5db', fontWeight: casePeriodFilter !== 'ALL' ? 600 : 500 }}>
+                  <option value="ALL">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="this_week">This Week</option>
+                  <option value="this_month">This Month</option>
+                </select>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <label style={labelStyle}>Category</label>
                 <select value={caseCatFilter} onChange={e => setCaseCatFilter(e.target.value)} style={selectStyle}>
@@ -1212,6 +1320,15 @@ export default function ReportsDashboardPage() {
                   <option value="cancelled">Cancelled / Abandoned</option>
                 </select>
               </div>
+              {(casePeriodFilter !== 'ALL' || caseCatFilter !== 'ALL' || caseAnimalFilter !== 'ALL' || caseStatusFilter !== 'ALL' || caseSearch !== '') && (
+                <button
+                  onClick={() => { setCasePeriodFilter('ALL'); setCaseCatFilter('ALL'); setCaseAnimalFilter('ALL'); setCaseAnimalOtherText(''); setCaseStatusFilter('ALL'); setCaseSearch(''); }}
+                  style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 600, color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  Reset Filters
+                </button>
+              )}
             </div>
 
             {/* Top-Right Patient Search Bar */}
@@ -1244,6 +1361,16 @@ export default function ReportsDashboardPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={labelStyle}>Period</label>
+                <select value={patientPeriodFilter} onChange={e => setPatientPeriodFilter(e.target.value as any)}
+                  style={{ ...selectStyle, minWidth: 140, borderColor: patientPeriodFilter !== 'ALL' ? '#10b981' : '#d1d5db', fontWeight: patientPeriodFilter !== 'ALL' ? 600 : 500 }}>
+                  <option value="ALL">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="this_week">This Week</option>
+                  <option value="this_month">This Month</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <label style={labelStyle}>Reg. Month</label>
                 <select value={patientMonthFilter} onChange={e => setPatientMonthFilter(e.target.value)} style={selectStyle}>
                   <option value="ALL">All Months</option>
@@ -1261,6 +1388,15 @@ export default function ReportsDashboardPage() {
                   <option value="2024">2024</option>
                 </select>
               </div>
+              {(patientPeriodFilter !== 'ALL' || patientMonthFilter !== 'ALL' || patientYearFilter !== 'ALL' || patientSearch !== '') && (
+                <button
+                  onClick={() => { setPatientPeriodFilter('ALL'); setPatientMonthFilter('ALL'); setPatientYearFilter('ALL'); setPatientSearch(''); }}
+                  style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 600, color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  Reset Filters
+                </button>
+              )}
             </div>
 
             {/* Top-Right Patient Search Bar */}

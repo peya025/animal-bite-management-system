@@ -1,7 +1,7 @@
 # 📌 Project Tasks & Roadmap — Part 4 (Clinical Workflow, Inventory & Analytics)
 
 > **System**: Animal Bite Management System (ABTC / RHU)  
-> **Modules**: Triage Queue, Doctor Consultation (Form 2), Vaccine Inventory, Vaccination Schedule, Reports & Analytics, Mobile Booster Experience, Admin Module Configuration, Patient Check-In, HCI Form Layouts  
+> **Modules**: Triage Queue, Doctor Consultation (Form 2), Vaccine Inventory, Vaccination Schedule, Reports & Analytics, Mobile Booster Experience, Admin Module Configuration, Patient Check-In, HCI Form Layouts, Identity Federation (Google OAuth SSO), Security Policies & DOH Protocols  
 > **Standards Compliance**: DOH National Rabies Prevention and Control Program (NRPCP), Clinical Triage Protocols, FIFO/FEFO Vaccine Standards, HCI Form & Validation UX Guidelines  
 > **Date**: September 2026  
 > **Status**: In Audit & Remediation  
@@ -50,6 +50,16 @@ Phase 7: Backend API Exception, Check-In & Dose Lock Remediation (NEW)
 Phase 8: Human-Computer Interaction (HCI) Form Layout & Validation UX Refactoring (NEW)
   ├── 23. Core HCI Principles & Form UX Guidelines (Blur-first validation, live recovery, balanced 2-column pairing)
   └── 24. HCI Form & Validation Refactoring across Clinical Forms (Form 2, Form 3, Inventory Dialog, User Create)
+
+Phase 9: Identity Federation & Google OAuth Single Sign-On (Phase 9 — NEW)
+  ├── 25. Google Cloud Console Setup & Admin Module SSO Configuration
+  ├── 26. Web Staff Google OAuth Integration (Strict Existing Account Verification & Clinic Isolation)
+  └── 27. Mobile Patient Google Identity Federation & Account Linking (PatientAccount & Invitations)
+
+Phase 10: Security Policies, Standards, Procedures & DOH Guidelines (Phase 10 — NEW)
+  ├── 28. Enterprise RBAC Policy Matrix (Aligned with DB Roles & Dual-Stream Flow)
+  ├── 29. Multi-Tenant Clinic Data Isolation Policies & RA 10173 Protection
+  └── 30. Standard Operating Procedures (SOP) & DOH NRPCP 2026 Clinical Protocols
 ```
 
 ---
@@ -359,83 +369,184 @@ Phase 8: Human-Computer Interaction (HCI) Form Layout & Validation UX Refactorin
 ---
 
 ## 🔑 Tier 9: Identity Federation & Google OAuth Single Sign-On (Phase 9 — NEW)
-*Implements Google API / OAuth login, user authentication, secure token exchange, auto-linking of user credentials, and admin-side module configuration.*
+*Implements dual-portal Google OAuth authentication, separating Web Clinical Staff authentication from Mobile Patient authentication, with strict clinic multi-tenancy, staff verification, and admin module configuration.*
 
-### 25. Identity Federation & Google OAuth Login
-> **Assigned Development**: Identity Federation & Login  
-> **Main Tasks**: Implement Google API/OAuth login, user authentication, and secure access for system users.
+### 25. Google Cloud Console Setup & Admin Module SSO Configuration
+> **Assigned Development**: Identity Federation & Admin Configuration  
+> **Main Tasks**: Set up Google Cloud Platform OAuth 2.0 credentials and integrate SSO configuration toggles into Clinic Module Configuration.
 
-- [ ] **25.1 Admin Side Module Configuration (Step-by-Step Setup)**
-  - **Step 1: Google Cloud Console Setup**
-    - Navigate to Google Cloud Console $\rightarrow$ APIs & Services $\rightarrow$ Credentials.
-    - Create OAuth 2.0 Client ID (Web Application).
-    - Configure Authorized JavaScript origins (e.g. `http://localhost:5173`, `https://your-clinic-domain.com`).
-    - Configure Authorized redirect URIs (e.g. `http://localhost:8000/api/auth/google/callback`, `http://localhost:5173/auth/google/callback`).
-    - Obtain `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-  - **Step 2: Admin System Settings Configuration Page (`AdminOAuthSettingsPage.tsx`)**
-    - In Admin Dashboard $\rightarrow$ System Settings $\rightarrow$ Identity & Authentication tab:
-      - Add field for **Google Client ID** (stored in system settings database/env).
-      - Add field for **Google Client Secret** (stored encrypted).
-      - Add toggle: **Enable Google Single Sign-On (SSO)**.
-      - Add dropdown/checkbox group: **Allowed Google SSO Roles** (`Patient`, `Nurse`, `Doctor`, `Staff`, `Admin`).
-      - Add domain filter setting: **Restrict to Domain** (optional domain white-labeling, e.g. `@doh.gov.ph` or `@clinic.com`).
-  - **Step 3: Backend API Configuration & Integration (`config/services.php`, `AuthController.php`)**
-    - Configure `config/services.php` for Laravel Socialite / Google API client.
-    - Implement `GET /api/auth/google/redirect` to generate Google Auth URL.
-    - Implement `POST /api/auth/google/callback` to verify Google ID token / authorization code.
-    - Implement automatic account matching by email address:
-      - If email exists in `users` table: link `google_id`, set `email_verified_at`, generate Sanctum API bearer token, return user session.
-      - If email does not exist: auto-provision new Patient account (or return registration request if domain restricted).
-- [ ] **25.2 Frontend Google OAuth Integration (`LoginPage.tsx`, `GoogleSignInButton.tsx`)**
-  - Render "Sign in with Google" button on web login (`LoginPage.tsx`) and mobile login screens.
-  - Implement pop-up or redirect OAuth flow using `@react-oauth/google` or Google Identity Services SDK.
-  - Store issued API token securely in HTTP-only cookies / encrypted local storage upon login success.
-- [ ] **25.3 Mobile App Identity Federation (`mobile/lib/screens/login_screen.dart`)**
-  - Integrate `google_sign_in` Flutter package.
-  - Obtain Google ID Token from mobile device and transmit to backend `/api/auth/google/callback`.
+- [ ] **25.1 Google Cloud Platform (GCP) OAuth 2.0 Credentials Setup**
+  - In Google Cloud Console $\rightarrow$ APIs & Services $\rightarrow$ Credentials:
+    - Create OAuth 2.0 Client ID for **Web Application** (Web Clinical Portal) and **Android / iOS** (Mobile Patient App).
+    - Configure Authorized JavaScript Origins: `http://localhost:5173`, `http://127.0.0.1:5173`, and production clinical domain.
+    - Configure Authorized Redirect URIs: `http://localhost:8000/api/auth/google/callback`, `http://localhost:5173/login`, and mobile deep-link schemes.
+    - Configure environment variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` in `backend/.env`.
+- [ ] **25.2 Clinic Admin Module Configuration Integration (`ModuleConfigPage.tsx` & `clinic_module_configs`)**
+  - In Admin Navigation $\rightarrow$ **Clinic Setup** $\rightarrow$ **Module Configuration** (`/setup/modules`):
+    - Add **Authentication & Single Sign-On** section card in `ModuleConfigPage.tsx`.
+    - Add toggle: **Enable Google Sign-In for Clinic Staff** (`google_sso_enabled` stored in `clinic_module_configs`).
+    - Add setting: **Allowed Staff SSO Roles** checkboxes mapped to real DB roles:
+      - `admin` (Clinic Administrator)
+      - `registration` (Registration / Front Desk)
+      - `triage` (Triage / Attending Doctor)
+      - `treatment` (Treatment Nurse)
+    - Add optional setting: **Restrict to Official Health Domain** (e.g. `@doh.gov.ph`, `@rhu.gov.ph`, or local clinic domain).
+    - Save configuration via `PUT /api/setup/module-config` with instant toast feedback.
+
+### 26. Web Staff Google OAuth Integration (`AuthController.php` & `LoginPage.tsx`)
+> **Assigned Development**: Web Staff Identity Federation  
+> **Main Tasks**: Implement secure Google token verification for clinic staff with strict account matching, clinic isolation, and unauthorized access rejection.
+
+- [ ] **26.1 Backend Web Staff OAuth Handler (`POST /api/auth/google` in `AuthController.php`)**
+  - Receive Google ID Token (`credential`) from frontend Web Login.
+  - Verify token integrity and signature using `google/apiclient` or Socialite:
+    - Extract verified `email`, `name`, `sub` (Google ID), and `picture`.
+  - **Strict Account Matching & Access Guard (Prevents unauthorized public access to clinical records)**:
+    - Look up staff account in `users` table where `email = $googleEmail`.
+    - **Case 1 (Existing Staff)**:
+      - Verify `is_active === true` (reject inactive accounts with `403 Forbidden: Account deactivated`).
+      - Verify user is assigned to an active clinic (`clinic_id` is present and clinic exists).
+      - If `google_id` is null, automatically link `google_id` and set `email_verified_at = now()`.
+      - Issue Sanctum API token (`auth_token`), update `last_login_at`, record login in `audit_logs`.
+      - Return authenticated `User` object (with `clinic` relationship) and bearer token.
+    - **Case 2 (Pending Staff Invitation)**:
+      - If user does not exist in `users`, check `staff_invitations` table for active invitation matching `$googleEmail`.
+      - If valid invitation exists: auto-provision `User` with assigned `clinic_id` and `role`, mark invitation accepted, link `google_id`.
+    - **Case 3 (Unauthorized External Account)**:
+      - If no matching staff record or active invitation exists: **STRICTLY REJECT** with HTTP 403:
+        `"Unauthorized: No clinical staff account is registered under this Google email. Contact your clinic administrator."`
+      - **CRITICAL**: Do NOT auto-provision random public Google users into the clinical `users` table.
+- [ ] **26.2 Frontend Web Login Screen Integration (`LoginPage.tsx`)**
+  - Add official "Sign in with Google" button on the staff login screen (`LoginPage.tsx`).
+  - Integrate Google Identity Services (GIS) Web SDK (`@react-oauth/google`).
+  - On Google response: send ID token payload to `POST /api/auth/google`.
+  - On success: store `authToken` and `userData` in `localStorage`, log audit entry, and navigate to the staff member's role-assigned dashboard:
+    - `treatment` $\rightarrow$ `/nurse/patients`
+    - `triage` $\rightarrow$ `/doctor/patients`
+    - `registration` $\rightarrow$ `/patients`
+    - `admin` $\rightarrow$ `/dashboard`
+  - On 403 failure: display clear security alert banner explaining that access is restricted to verified clinic personnel.
+
+### 27. Mobile Patient Google Identity Federation & Account Linking
+> **Assigned Development**: Mobile Patient Identity Federation  
+> **Main Tasks**: Implement Google Sign-In for patients on mobile app with automatic account creation and verified patient record linking.
+
+- [ ] **27.1 Backend Mobile Patient OAuth Handler (`POST /api/mobile/auth/google` in `PatientAccountAuthController.php`)**
+  - Verify Google ID Token from mobile client.
+  - Query `patient_accounts` table by `email`:
+    - If account exists: update `last_login_at`, link `google_id`.
+    - If account does not exist: auto-provision new `PatientAccount` (`name`, `email`, `email_verified_at = now()`, `is_active = true`).
+  - **Automatic Patient Record Linking**:
+    - Check `patient_invitations` table for any pending invitations sent to this email by clinic staff.
+    - If invitation found: link the `PatientAccount` to the verified clinical `Patient` record in `patient_account_patient` pivot table.
+  - Issue Sanctum token with `mobile` scope (`createToken('mobile')->plainTextToken`).
+  - Return `account` profile with loaded `patients` relationship.
+- [ ] **27.2 Mobile Flutter App Integration (`mobile/lib/screens/login_screen.dart`)**
+  - Add "Sign in with Google" button using `google_sign_in` Flutter package.
+  - Obtain Google ID Token from device and post to `/api/mobile/auth/google`.
+  - Store mobile auth token securely in Flutter Keychain / EncryptedSharedPreferences.
 
 ---
 
 ## 🛡️ Tier 10: Security Policies, Standards, Procedures & DOH Guidelines (Phase 10 — NEW)
-*Implements enterprise access policies across all roles, password security standards, patient record protection, and standard operating procedures for registration, treatment, and data handling.*
+*Implements enterprise access policies across all system database roles, dual-stream clinical workflow rules (separating Doctor consultation from Nurse follow-up), multi-tenant clinic boundary isolation, encryption standards, and DOH NRPCP 2026 clinical protocols.*
 
-### 26. Security Policies (Role-Based Authorization Policies)
-> **Assigned Development**: Security Policies  
-> **Main Tasks**: Implement access policies for Admin, Doctor, Nurse, Staff, and Patient.
+### 28. Enterprise Role-Based Access Control (RBAC) & Dual-Stream Clinical Workflow
+> **Assigned Development**: Security Policies & Clinical Workflow  
+> **Main Tasks**: Enforce strict role-based permissions aligned with database enums, multi-doctor queue stations, and the two distinct patient streams.
 
-- [ ] **26.1 Enterprise Role-Based Access Control (RBAC) Matrix**
-  - **Admin**: Full access to System Settings, User Management, Audit Logs, Inventory Setup, Master Analytics.
-  - **Doctor**: Read/Write Patient Treatment Form 2 (Diagnosis, Category III Assessment, PEP Prescription, Rabies Risk Assessment), View Medical History, Queue Management.
-  - **Nurse**: Read/Write Patient Form 3 (PEP Vaccine Dose Administration, Route/Site Selection, Batch Tracking, Open Vial Timer), Queue Call/Skip.
-  - **Staff/Receptionist**: Patient Registration (Form 1), Check-In, Queue Ticket Generation, Appointment Scheduling.
-  - **Patient**: View personal appointment schedule, view own vaccination card summary, view clinic announcements.
-- [ ] **26.2 Backend Laravel Authorization Policies (`app/Policies/`)**
-  - Implement `PatientPolicy`, `TreatmentRecordPolicy`, `VaccinationRecordPolicy`, `InventoryPolicy`, and `QueuePolicy`.
-  - Attach middleware `can:authorize` to all sensitive API endpoints in `routes/api.php`.
+- [ ] **28.1 Database-Aligned Role Permission Matrix**
+  - Permissions must strictly match the database enum `role: ['developer', 'admin', 'registration', 'triage', 'treatment']` in `users` and `patient_accounts`:
+    - **`developer` (System Developer / Superadmin)**:
+      - Full access to `/developer/*` (Database Explorer, Landing Page Settings, Appointment Diagnostics).
+    - **`admin` (Clinic Administrator)**:
+      - Full access to Clinic Setup (`/setup/*`), Operating Schedule (`/setup/schedule`), Module Config (`/setup/modules`), Staff Assignments (`/setup/staff-assignments`), User Management (`/users`), Audit Logs (`/staff-activity`), Vaccine Batch & Inventory Setup (`/inventory`), Reports & Analytics (`/reports`).
+    - **`registration` (Front Desk / Receptionist)**:
+      - Patient Registration (Form 1 demographics, PhilHealth ID, 4Ps status).
+      - Walk-In Queue Ticket Generation for New Bite Consultations (`POST /queue`).
+      - Patient Portal Invitation dispatch & account verification.
+    - **`triage` (Attending Doctor / Triage Physician)**:
+      - Doctor Patient Workspace (`/doctor/patients`).
+      - Medical Assessment (Form 2 - WHO Category I/II/III diagnosis, anatomical bite site evaluation, animal observation status, Rabies Risk Assessment).
+      - Treatment Plan Formulation (PEP schedule prescription, RIG weight-based order, tetanus prophylaxis, antibiotics).
+      - Doctor Queue Call / Serve / Complete station handling.
+    - **`treatment` (Treatment Nurse)**:
+      - Nurse Patient Workspace (`/nurse/patients`).
+      - Follow-Up Appointment Check-In (`POST /appointments/patient/{id}/check-in`).
+      - Vaccination Administration (Form 3 - Route [Intradermal ID 2-site / Intramuscular IM], anatomical injection site, vaccine brand & lot/batch selection, open vial expiration tracking).
+      - Stock deduction & beyond-use vial discard.
+    - **`patient_accounts` (Mobile App / Patient Portal User)**:
+      - View personal digital vaccination card, view scheduled follow-up & booster dates, view clinic operating schedule and vaccine availability.
+- [ ] **28.2 Strict Dual-Stream Patient Flow Rules (Doctor Consultation Queue vs Nurse Follow-Up Stream)**
+  - Enforce separation between initial consultations and follow-up returnees:
+    - **Stream A — Initial Consultations & New Bites (Day 0)**:
+      - Registration desk enters Form 1 $\rightarrow$ generates ticket in Doctor Queue (`queues`).
+      - Patient waits for Doctor call (`triage`).
+      - Doctor conducts medical evaluation and prescribes treatment plan in Form 2.
+      - Upon Doctor completion, patient proceeds to Nurse (`treatment`) for initial Day 0 dose.
+    - **Stream B — Returning Follow-Up Doses (Day 3, Day 7, Day 14, Day 28)**:
+      - Returnees bypass the Doctor consultation queue entirely!
+      - Returnees report directly to the Treatment Nurse desk (`/nurse/patients`).
+      - Nurse clicks **"Check In"** $\rightarrow$ calls `POST /api/appointments/patient/{id}/check-in` (flips appointment status to `confirmed`; does **NOT** generate a ticket in doctor queue).
+      - Status updates to **"Checked In / Ready for Dose"** and unlocks **"Record Dose (Form 3)"** button.
+      - Nurse records vaccination and decrements stock.
+- [ ] **28.3 Frontend Route RBAC Protection (`RoleProtectedRoute` in `App.tsx`)**
+  - Replace naive `isAuthenticated()` with `RoleProtectedRoute` evaluating `user.role`:
+    - Restrict `/users/*`, `/setup/*`, `/staff-activity` to `admin` and `developer`.
+    - Restrict `/doctor/patients` to `triage`, `admin`, `developer`.
+    - Restrict `/nurse/patients`, `/vaccinations/*` to `treatment`, `admin`, `developer`.
+    - Restrict `/developer/*` strictly to `developer`.
+  - Redirect unauthorized role attempts to `/dashboard` with an informative access denied notification.
 
-### 27. Security Standards & Data Protection
-> **Assigned Development**: Security Standards  
-> **Main Tasks**: Implement password requirements, authentication standards, and protection of patient records.
+### 29. Multi-Tenant Clinic Boundary Isolation Policies & Data Protection
+> **Assigned Development**: Security Standards & Isolation  
+> **Main Tasks**: Implement Laravel multi-tenant authorization policies to guarantee zero cross-clinic data leakage, encrypt sensitive health data, and record immutable audit logs.
 
-- [ ] **27.1 Password Standards & Authentication Hardening**
-  - Enforce password complexity policy: Minimum 12 characters, requiring uppercase, lowercase, numeric, and special character (`Password::min(12)->mixedCase()->numbers()->symbols()`).
-  - Implement rate-limiting / brute-force protection: Max 5 failed login attempts per minute per IP (`ThrottleRequests`).
-  - Enforce automatic session timeout after 15 minutes of inactivity on clinical workstations.
-- [ ] **27.2 Patient Records Data Protection & Encryption**
-  - Encrypt Personally Identifiable Information (PII) and Sensitive Personal Info (SPI) at rest (PhilHealth ID, Contact Number, Address, Clinical Assessment Notes) using AES-256 (`Crypt::encrypt`).
-  - Enforce SSL/TLS encryption for all HTTP communications in transit (`FORCE_HTTPS=true`).
-  - Implement immutable Audit Logging (`audit_logs` table) recording user ID, action, model, IP address, and timestamp for all patient record views, updates, and exports.
+- [ ] **29.1 Laravel Multi-Tenant Authorization Policies (`app/Policies/`)**
+  - Create authorization policies in `backend/app/Policies/`:
+    - `PatientPolicy`: Verifies `$user->clinic_id === $patient->clinic_id`.
+    - `TreatmentRecordPolicy`: Verifies `$user->clinic_id === $record->clinic_id`.
+    - `VaccinationRecordPolicy`: Verifies `$user->clinic_id === $record->clinic_id`.
+    - `VaccineInventoryPolicy`: Verifies `$user->clinic_id === $inventory->clinic_id`.
+    - `QueuePolicy`: Verifies `$user->clinic_id === $queue->clinic_id`.
+  - Register policies in `AuthServiceProvider` / `AppServiceProvider`.
+  - Prevent cross-clinic ID enumeration (e.g. user from Clinic 1 attempting to view `/api/patients/99` belonging to Clinic 2 returns `403 Forbidden`).
+- [ ] **29.2 Sensitive Data Encryption & Compliance with RA 10173 (Data Privacy Act of 2012)**
+  - Encrypt sensitive demographic and clinical fields at rest using AES-256 (`Crypt::encrypt` or Eloquent `$casts = ['encrypted']`):
+    - `philhealth_no`, `contact_number`, `street_address`, and detailed doctor consultation clinical notes.
+  - Implement comprehensive, tamper-evident Audit Logging in `audit_logs` table:
+    - Log every patient record access, print action (`/print/*`), export action, and clinical data modification with `user_id`, `clinic_id`, `action`, `model_type`, `model_id`, `ip_address`, and `user_agent`.
+  - Enforce automatic session timeout after 15 minutes of idle time on clinical workstations to prevent unauthorized viewing.
+  - Enforce HTTPS across all clinical API communications.
 
-### 28. Standard Operating Procedures (SOP) & Clinical Guidelines
+### 30. Standard Operating Procedures (SOP) & DOH NRPCP 2026 Clinical Protocols
 > **Assigned Development**: Procedures & Guidelines  
-> **Main Tasks**: Develop procedures and guidelines for registration, treatment records, account usage, and secure handling of patient information.
+> **Main Tasks**: Document and enforce clinical SOPs adhering to the DOH National Rabies Prevention and Control Program (NRPCP) and account lifecycle management.
 
-- [ ] **28.1 Patient Registration Procedure Guidelines**
-  - Embed inline operational guidance in Form 1: Standardized intake procedures for bite incidence reporting, PhilHealth validation, and emergency triage prioritization.
-- [ ] **28.2 Clinical Treatment Records Handling Guidelines**
-  - Document & enforce DOH National Rabies Prevention and Control Program (NRPCP) protocols within Form 2 (Doctor Assessment) and Form 3 (Nurse Vaccination).
-  - Guidelines for Day 0, Day 3, Day 7, Day 14, Day 28 PEP schedule compliance and RIG (Rabies Immunoglobulin) weight-based dosage calculations.
-- [ ] **28.3 Account Usage & Secure Data Handling Guidelines**
-  - Admin SOP for user account lifecycle management (onboarding, role assignment, prompt deactivation upon staff offboarding).
-  - Data privacy guidelines complying with Republic Act 10173 (Data Privacy Act of 2012) for handling patient rabies surveillance records and report generation.
+- [ ] **30.1 Patient Registration & Triage Intake SOP (Form 1 & Front Desk)**
+  - Standardized intake procedure for all bite victims:
+    - Immediate verification of bite incident date, exposure category, biting animal status, and prior rabies immunization history.
+    - Identification of severe Category III emergency exposures (head/neck/face bites, deep multiple puncture wounds, wild animal bites) for immediate priority triage over routine cases.
+    - Verification of PhilHealth eligibility and 4Ps beneficiary status for billing exemption.
+- [ ] **30.2 DOH NRPCP Clinical Treatment & Vaccination Protocols (Form 2 & Form 3)**
+  - **WHO Category Assessment & RIG Protocols (Doctor Form 2)**:
+    - Category I: Touching/feeding animals, licks on intact skin $\rightarrow$ No PEP required.
+    - Category II: Nibbling uncovered skin, minor scratches without bleeding $\rightarrow$ Immediate vaccine PEP required.
+    - Category III: Transdermal bites, scratches with bleeding, licks on broken skin, exposure to bats $\rightarrow$ Immediate vaccine PEP $+$ Rabies Immunoglobulin (RIG).
+    - Weight-based RIG dosage: Equine Rabies Immunoglobulin (ERIG) 40 IU/kg or Human Rabies Immunoglobulin (HRIG) 20 IU/kg, infiltrated into and around wound sites.
+  - **Vaccination Regimen Adherence (Nurse Form 3)**:
+    - **Intradermal (ID) 2-site regimen**: 0.1 mL per site administered at 2 sites (deltoid) on **Day 0, Day 3, and Day 7**.
+    - **Intramuscular (IM) Essen regimen**: Full vial dose on **Day 0, Day 3, Day 7, Day 14, and Day 28**.
+    - **Booster Regimen (Re-Exposure)**: 1-site ID or IM on **Day 0 and Day 3** for patients with documented completed prior PEP.
+  - **Chronological Prerequisite Dose Sequence Locking**:
+    - Day 7 administration locked until Day 3 is verified as administered.
+    - Day 3 administration locked until Day 0 is verified as administered.
+  - **Cold-Chain & Open-Vial Management**:
+    - Reconstituted lyophilized rabies vaccine vials must be discarded after 8 hours (WHO/DOH cold chain standard).
+    - Opened liquid Rabies Immunoglobulin (RIG) vials must be discarded after 48 hours.
+- [ ] **30.3 Account Lifecycle Management & Audit Compliance SOP**
+  - Strict clinic policy for staff onboarding: user creation requires verified email, phone number, clinic association, and role assignment.
+  - Immediate deactivation (`is_active = false`) upon staff resignation, transfer, or offboarding to instantly revoke all active Sanctum tokens.
+  - Annual data privacy compliance audit reviewing access logs and patient record exports.
+
 

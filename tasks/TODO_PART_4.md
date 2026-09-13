@@ -405,7 +405,7 @@ Phase 8: Human-Computer Interaction (HCI) Form Layout & Validation UX Refactorin
 
 - [ ] **26.1 Enterprise Role-Based Access Control (RBAC) Matrix**
   - **Admin**: Full access to System Settings, User Management, Audit Logs, Inventory Setup, Master Analytics.
-  - **Doctor**: Read/Write Patient Treatment Form 2 (Diagnosis, Category III Assessment, PEP Prescription, Rabies Risk Assessment), View Medical History, Queue Management.
+  - **Doctor**: Read/Write Patient Treatment Form 2 (Diagnosis, PEP Prescription, Rabies Risk Assessment), View Medical History, Queue Management.
   - **Nurse**: Read/Write Patient Form 3 (PEP Vaccine Dose Administration, Route/Site Selection, Batch Tracking, Open Vial Timer), Queue Call/Skip.
   - **Staff/Receptionist**: Patient Registration (Form 1), Check-In, Queue Ticket Generation, Appointment Scheduling.
   - **Patient**: View personal appointment schedule, view own vaccination card summary, view clinic announcements.

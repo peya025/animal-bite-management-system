@@ -4,6 +4,7 @@ import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../models/patient_account_profile.dart';
 import '../services/api.dart';
+import '../widgets/menu/booster_guidance_banner.dart';
 import '../widgets/menu/campaign_banner.dart';
 import '../widgets/menu/guidelines_section.dart';
 import '../widgets/menu/information_panels.dart';
@@ -92,6 +93,8 @@ class _MenuViewState extends State<MenuView> {
                       children: [
                         const CampaignBanner(),
                         const SizedBox(height: 20),
+                        const BoosterGuidanceBanner(),
+                        const SizedBox(height: 20),
                         ScheduleSection(
                           onOpenAppointments: () => Navigator.of(
                             context,
@@ -167,6 +170,11 @@ class _HomeSearchDelegate extends SearchDelegate<String?> {
       label: 'Book an appointment',
       route: AppRoutes.booking,
       icon: Icons.edit_calendar_rounded,
+    ),
+    _HomeSearchItem(
+      label: 'Booster guidance & re-exposure protocol',
+      route: AppRoutes.boosterGuidance,
+      icon: Icons.shield_outlined,
     ),
     _HomeSearchItem(
       label: 'Appointment list',

@@ -215,20 +215,20 @@ Phase 10: Security Policies, Standards, Procedures & DOH Guidelines (Phase 10 â€
 *Mobile patient experience and asynchronous online booking.*
 
 ### 14. Mobile Digital Vaccination Card
-- [ ] **14.1 Conditionally Hide Booster Boxes**
+- [x] **14.1 Conditionally Hide Booster Boxes**
   - If a patient has only received primary post-exposure vaccination (Days 0, 3, 7), hide booster fields on the digital card to avoid patient anxiety or confusion.
   - Show booster cards only if the patient has an active re-exposure / booster protocol.
 
 ### 15. Mobile Booster Guidance & Landing Page
-- [ ] **15.1 Direct Booster Guidance for Re-Bitten Patients**
+- [x] **15.1 Direct Booster Guidance for Re-Bitten Patients**
   - Provide a clear banner/action: *"Bitten again after completing previous vaccine? Click here for Booster Guidance."*
-- [ ] **15.2 Step-by-Step Educational Landing Screen**
+- [x] **15.2 Step-by-Step Educational Landing Screen**
   - Explain the DOH re-exposure protocol (why only 2 doses are needed, importance of immediate wound washing, consultation timeframe).
 
 ### 16. Separate Booster Appointment Flow & Web Sync
-- [ ] **16.1 Dedicated Mobile Booster Appointment Form**
+- [x] **16.1 Dedicated Mobile Booster Appointment Form**
   - Distinct appointment request flow separated from initial bite registration: selects previous bite record, verifies prior vaccination date, and requests Booster Day 0 & Day 3 dates.
-- [ ] **16.2 Real-Time Sync with Web Appointment Queue**
+- [x] **16.2 Real-Time Sync with Web Appointment Queue**
   - Automatically tag incoming requests as `visit_type: 'booster'` in the clinic web triage queue for nurse/doctor verification.
 
 ---

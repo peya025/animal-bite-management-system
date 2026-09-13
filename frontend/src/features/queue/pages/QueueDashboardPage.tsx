@@ -60,7 +60,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import StockLevelIndicator from '../../inventory/components/StockLevelIndicator/StockLevelIndicator';
 
 const TRIAGE_VISIT_TYPES = ['new_case', 'consultation'];
-const TREATMENT_VISIT_TYPES = ['vaccination', 'follow_up', 'observation'];
+const TREATMENT_VISIT_TYPES = ['vaccination', 'follow_up', 'observation', 'booster'];
 
 function getCategoryHugeicon(cat: string) {
   switch (cat) {

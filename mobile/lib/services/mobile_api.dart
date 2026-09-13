@@ -418,11 +418,13 @@ class MobileApi {
     }
 
     if (response.statusCode == 403) {
-      throw const ApiException('You do not have permission to perform this action.');
+      final msg = (decoded is Map<String, dynamic>) ? decoded['message']?.toString() : null;
+      throw ApiException(msg ?? 'You do not have permission to perform this action.');
     }
 
     if (response.statusCode == 404) {
-      throw const ApiException('The requested clinic resource was not found.');
+      final msg = (decoded is Map<String, dynamic>) ? decoded['message']?.toString() : null;
+      throw ApiException(msg ?? 'The requested clinic resource was not found.');
     }
 
     if (response.statusCode >= 500) {

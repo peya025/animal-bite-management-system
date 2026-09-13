@@ -25,7 +25,7 @@ return new class extends Migration
             }
 
             // Make scheduled_datetime nullable if it exists
-            if (Schema::hasColumn('appointments', 'scheduled_datetime')) {
+            if (Schema::hasColumn('appointments', 'scheduled_datetime') && DB::getDriverName() === 'mysql') {
                 DB::statement("ALTER TABLE `appointments` MODIFY `scheduled_datetime` DATETIME NULL");
             }
 
@@ -40,7 +40,7 @@ return new class extends Migration
             }
 
             // Update appointment_type enum
-            if (Schema::hasColumn('appointments', 'appointment_type')) {
+            if (Schema::hasColumn('appointments', 'appointment_type') && DB::getDriverName() === 'mysql') {
                 DB::statement("ALTER TABLE `appointments` MODIFY `appointment_type` ENUM('follow_up_vaccination', 'consultation', 'checkup', 'vaccination') NOT NULL DEFAULT 'follow_up_vaccination'");
             }
 
@@ -50,7 +50,7 @@ return new class extends Migration
             }
 
             // Update status enum to include all states
-            if (Schema::hasColumn('appointments', 'status')) {
+            if (Schema::hasColumn('appointments', 'status') && DB::getDriverName() === 'mysql') {
                 DB::statement("ALTER TABLE `appointments` MODIFY `status` ENUM('scheduled', 'confirmed', 'completed', 'missed', 'cancelled', 'no_show') NOT NULL DEFAULT 'scheduled'");
             }
 
@@ -116,15 +116,19 @@ return new class extends Migration
      */
     private function indexExists(string $table, string|array $columns): bool
     {
-        $indexes = DB::select("SHOW INDEX FROM `{$table}`");
-        $columnKey = is_array($columns) ? implode('_', $columns) : $columns;
-        
-        foreach ($indexes as $index) {
-            if (str_contains($index->Key_name, $columnKey)) {
-                return true;
+        try {
+            $indexes = Schema::getIndexes($table);
+            $columnKey = is_array($columns) ? implode('_', $columns) : $columns;
+            
+            foreach ($indexes as $index) {
+                $name = is_array($index) ? ($index['name'] ?? '') : ($index->Key_name ?? $index->name ?? '');
+                if (str_contains($name, $columnKey)) {
+                    return true;
+                }
             }
+            return false;
+        } catch (\Throwable $e) {
+            return false;
         }
-        
-        return false;
     }
 };

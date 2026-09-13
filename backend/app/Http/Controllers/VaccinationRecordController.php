@@ -665,10 +665,10 @@ class VaccinationRecordController extends Controller
             $isReExposure = ($incident && $incident->isReExposure()) || $request->episode_type === 're_exposure';
             // Determine if incident regimen is complete:
             // For 2-Dose Booster (re-exposure): completed when Day 3 is administered
-            // For Standard PEP (primary): completed when Day 28 is administered
+            // For Standard PEP (primary): completed when Day 7 (DOH 2-site ID standard) is administered
             $isRegimenComplete = $isReExposure
                 ? in_array(3, $savedDoseNumbers)
-                : in_array(28, $savedDoseNumbers);
+                : in_array(7, $savedDoseNumbers);
             $incidentStatus = $isRegimenComplete ? 'completed' : 'active';
 
             if (!$incident) {
@@ -949,20 +949,22 @@ class VaccinationRecordController extends Controller
                 ->where('status', 'scheduled')
                 ->update(['status' => 'cancelled', 'notes' => 'Cancelled: Re-exposure 2-Dose Booster protocol completed']);
         } else {
+            // DOH NRPCP 2-Site Intradermal (ID) Standard Primary PEP: strictly Day 3 and Day 7
             $schedule = [
                 ['period' => 'Day 3', 'days_after' => 3, 'dose_number' => 3],
                 ['period' => 'Day 7', 'days_after' => 7, 'dose_number' => 7],
-                ['period' => 'Day 28', 'days_after' => 28, 'dose_number' => 28],
-                ['period' => 'Booster 1', 'days_after' => 90, 'dose_number' => 90],
-                ['period' => 'Booster 2', 'days_after' => 365, 'dose_number' => 365],
             ];
             $doseIntervals = [
-                3   => 3,   // 3 days after Day 0
-                7   => 4,   // 4 days after Day 3
-                28  => 21,  // 21 days after Day 7
-                90  => 62,  // 62 days after Day 28 (Booster 1)
-                365 => 275, // 275 days after Day 90 (Booster 2)
+                3 => 3, // 3 days after Day 0
+                7 => 4, // 4 days after Day 3
             ];
+
+            // Only schedule Day 28 if explicitly specified with a date in the form (e.g. IM Essen protocol)
+            $hasExplicitDay28 = collect($request->doses ?? [])->contains(fn($d) => ($d['period'] ?? '') === 'Day 28' && !empty($d['date']));
+            if ($hasExplicitDay28) {
+                $schedule[] = ['period' => 'Day 28', 'days_after' => 28, 'dose_number' => 28];
+                $doseIntervals[28] = 21;
+            }
         }
 
         $previousResolvedDate = $day0Date->copy();

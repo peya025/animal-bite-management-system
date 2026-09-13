@@ -299,21 +299,6 @@ Phase 8: Human-Computer Interaction (HCI) Form Layout & Validation UX Refactorin
 ## 🚨 Tier 7: Backend API Exception, Check-In & Dose Lock Remediation (Phase 7 — NEW)
 *Fixes 500 Internal Server Errors on check-in routes and enforces strict chronological PEP dose sequence locking.*
 
-### 21. Fix Patient Check-In 500 Internal Server Error (`AppointmentController.php`)
-> **Problem**: Invoking `POST /api/appointments/patient/5/check-in` or `POST /api/appointments/patient/7/check-in` returns HTTP 500 Internal Server Error because `checkIn($id)` and `checkInByPatient($patientId)` methods are missing in `AppointmentController.php` despite being defined in `routes/api.php`.
-
-- [ ] **21.1 Implement `checkIn($id)` in `AppointmentController.php`**
-  - Find appointment by ID. Verify clinic ownership.
-  - Create new `patient_queues` record for today (`status: 'waiting'`, `visit_type: 'vaccination'`).
-  - Update appointment status to `checked_in`.
-  - Return `200 OK` JSON response.
-- [ ] **21.2 Implement `checkInByPatient($patientId)` in `AppointmentController.php`**
-  - Find active appointment for patient ID today.
-  - Invoke check-in workflow or issue walk-in queue ticket for today.
-- [ ] **21.3 Non-500 Defensive Exception Handling**
-  - Catch invalid patient/appointment IDs and return clean `404 Not Found` JSON.
-  - Prevent duplicate check-in tickets today by returning `422 Unprocessable Entity` if patient is already waiting in active queue.
-
 ### 22. Form 3 Chronological Dose Sequence & Prerequisite Lock (`VaccinationRecordForm.tsx`)
 > **Problem**: Nurses can record future doses out of chronological order (e.g. attempting to edit/record Day 7 when Day 3 has not yet been administered), violating DOH clinical safety protocols.
 

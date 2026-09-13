@@ -12,7 +12,7 @@ return new class extends Migration
             // booked_by_account_id — mobile booking account reference
             if (!Schema::hasColumn('appointments', 'booked_by_account_id')) {
                 $table->unsignedBigInteger('booked_by_account_id')->nullable()->after('notes');
-                $table->foreign('booked_by_account_id')->references('id')->on('users')->onDelete('set null');
+                $table->foreign('booked_by_account_id')->references('id')->on('patient_accounts')->onDelete('set null');
             }
 
             // staff_id — staff assigned to appointment

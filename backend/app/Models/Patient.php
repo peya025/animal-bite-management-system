@@ -45,7 +45,35 @@ class Patient extends Model
     protected $appends = [
         'name',
         'age',
+        'has_completed_primary',
     ];
+
+    /**
+     * Determine if patient has completed the primary 3-dose anti-rabies PEP series (Days 0, 3, 7).
+     * Required before any booster regimen can be initiated.
+     */
+    public function getHasCompletedPrimaryAttribute(): bool
+    {
+        $completedTreatmentDoses = $this->treatmentRecords()
+            ->whereIn('dose_number', [0, 3, 7])
+            ->where(function ($q) {
+                $q->where('status', 'completed')
+                  ->orWhereNotNull('treatment_date');
+            })
+            ->pluck('dose_number')
+            ->unique()
+            ->toArray();
+
+        $completedApptDoses = $this->appointments()
+            ->whereIn('dose_number', [0, 3, 7])
+            ->where('status', 'completed')
+            ->pluck('dose_number')
+            ->unique()
+            ->toArray();
+
+        $allCompletedDoses = array_unique(array_merge($completedTreatmentDoses, $completedApptDoses));
+        return count(array_intersect([0, 3, 7], $allCompletedDoses)) === 3;
+    }
 
     /**
      * Preserve the legacy API display field without storing duplicate data.

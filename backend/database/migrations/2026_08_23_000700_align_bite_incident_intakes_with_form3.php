@@ -33,16 +33,18 @@ return new class extends Migration
         });
 
         // 3. Widen the enum to Form 3 values
-        DB::statement("
-            ALTER TABLE bite_incident_intakes
-            MODIFY exposure_type ENUM(
-                'nibbling_uncovered_skin',
-                'nibbling_broken_skin',
-                'scratch_abrasion',
-                'transdermal_bite',
-                'handling_ingestion_raw_meat'
-            ) NOT NULL
-        ");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("
+                ALTER TABLE bite_incident_intakes
+                MODIFY exposure_type ENUM(
+                    'nibbling_uncovered_skin',
+                    'nibbling_broken_skin',
+                    'scratch_abrasion',
+                    'transdermal_bite',
+                    'handling_ingestion_raw_meat'
+                ) NOT NULL
+            ");
+        }
     }
 
     public function down(): void
@@ -57,10 +59,12 @@ return new class extends Migration
             END
         ");
 
-        DB::statement("
-            ALTER TABLE bite_incident_intakes
-            MODIFY exposure_type ENUM('bite','scratch','lick','other') NOT NULL
-        ");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("
+                ALTER TABLE bite_incident_intakes
+                MODIFY exposure_type ENUM('bite','scratch','lick','other') NOT NULL
+            ");
+        }
 
         Schema::table('bite_incident_intakes', function ($table) {
             if (Schema::hasColumn('bite_incident_intakes', 'body_part_exposed')) {

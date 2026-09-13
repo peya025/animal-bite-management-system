@@ -18,6 +18,7 @@ class MockMobileApi {
   bool _isAuthenticated = false;
   Map<String, dynamic> _account = _deepCopyMap(MockData.sampleAccount);
   List<Map<String, dynamic>> _patients = _deepCopyList(MockData.samplePatients);
+  final Set<int> _patientBoosterActive = <int>{};
 
   bool get isAuthenticated => _isAuthenticated;
 
@@ -249,6 +250,11 @@ class MockMobileApi {
     dynamic intake,
   }) async {
     await Future.delayed(const Duration(seconds: 1));
+    final service = booking is Map ? booking['service'] : (booking?.service?.toString() ?? '');
+    final apptType = booking is Map ? booking['appointment_type'] : '';
+    if (service.toString().toLowerCase().contains('booster') || apptType.toString().toLowerCase().contains('booster')) {
+      _patientBoosterActive.add(patient.id);
+    }
   }
 
   Future<List<AppointmentSummary>> appointments() async {
@@ -288,6 +294,8 @@ class MockMobileApi {
     await Future.delayed(const Duration(milliseconds: 200));
     return true;
   }
+
+
 
   Map<String, dynamic> _buildPatientJson({
     required int patientId,
@@ -431,9 +439,124 @@ class MockMobileApi {
   Future<Map<String, dynamic>> vaccinationCard(int patientId) async {
     await Future.delayed(const Duration(milliseconds: 300));
     final patient = _patients.firstWhere(
-      (p) => p['id'] == patientId,
-      orElse: () => _patients.isNotEmpty ? _patients.first : {'id': patientId, 'name': 'Juan Dela Cruz', 'patient_number': 'P-2026-0042'},
+      (p) => p['id'] == patientId || p['patient_id'] == patientId,
+      orElse: () => _patients.isNotEmpty ? _patients.first : {'id': patientId, 'patient_id': patientId, 'name': 'Juan Dela Cruz', 'patient_number': 'P-2026-0042'},
     );
+
+    final bool hasCompletedPrimary = patient['has_completed_primary'] == true;
+    final bool hasBooster = hasCompletedPrimary && _patientBoosterActive.contains(patientId);
+
+    final List<Map<String, dynamic>> doses = [];
+    if (hasCompletedPrimary) {
+      doses.add({
+        'period': 'Day 0',
+        'dose_number': 0,
+        'scheduled_date': 'March 10, 2026',
+        'administered_date': 'March 10, 2026',
+        'vaccine_brand': 'Speeda (PVRV)',
+        'batch_no': 'SP-2026-08',
+        'route': 'ID',
+        'status': 'completed',
+      });
+      doses.add({
+        'period': 'Day 3',
+        'dose_number': 3,
+        'scheduled_date': 'March 13, 2026',
+        'administered_date': 'March 13, 2026',
+        'vaccine_brand': 'Speeda (PVRV)',
+        'batch_no': 'SP-2026-08',
+        'route': 'ID',
+        'status': 'completed',
+      });
+      doses.add({
+        'period': 'Day 7',
+        'dose_number': 7,
+        'scheduled_date': 'March 17, 2026',
+        'administered_date': 'March 17, 2026',
+        'vaccine_brand': 'Speeda (PVRV)',
+        'batch_no': 'SP-2026-08',
+        'route': 'ID',
+        'status': 'completed',
+      });
+
+      if (hasBooster) {
+        doses.add({
+          'period': 'Booster 1',
+          'dose_number': 90,
+          'scheduled_date': 'March 25, 2026',
+          'administered_date': null,
+          'vaccine_brand': 'Speeda (PVRV)',
+          'batch_no': '—',
+          'route': 'ID',
+          'status': 'scheduled',
+        });
+        doses.add({
+          'period': 'Booster 2',
+          'dose_number': 365,
+          'scheduled_date': 'March 28, 2026',
+          'administered_date': null,
+          'vaccine_brand': 'Speeda (PVRV)',
+          'batch_no': '—',
+          'route': 'ID',
+          'status': 'scheduled',
+        });
+      }
+    } else {
+      doses.add({
+        'period': 'Day 0',
+        'dose_number': 0,
+        'scheduled_date': 'March 10, 2026',
+        'administered_date': 'March 10, 2026',
+        'vaccine_brand': 'Speeda (PVRV)',
+        'batch_no': 'SP-2026-08',
+        'route': 'ID',
+        'status': 'completed',
+      });
+      doses.add({
+        'period': 'Day 3',
+        'dose_number': 3,
+        'scheduled_date': 'March 13, 2026',
+        'administered_date': 'March 13, 2026',
+        'vaccine_brand': 'Speeda (PVRV)',
+        'batch_no': 'SP-2026-08',
+        'route': 'ID',
+        'status': 'completed',
+      });
+      doses.add({
+        'period': 'Day 7',
+        'dose_number': 7,
+        'scheduled_date': 'March 17, 2026',
+        'administered_date': null,
+        'vaccine_brand': 'Speeda (PVRV)',
+        'batch_no': '—',
+        'route': 'ID',
+        'status': 'scheduled',
+      });
+    }
+
+    final String cardStatus = (hasCompletedPrimary && !hasBooster) ? 'COMPLETED' : 'ACTIVE';
+    final int completedCount = doses.where((d) => d['status'] == 'completed').length;
+    final int totalCount = doses.length;
+
+    final String doseLabel = hasBooster
+        ? 'Booster: 0 of 2 doses (Primary 3/3 complete)'
+        : (hasCompletedPrimary
+            ? '3 of 3 doses (Completed)'
+            : '$completedCount of $totalCount doses');
+
+    final Map<String, dynamic>? nextDose = hasBooster
+        ? {
+            'name': 'Booster 1',
+            'scheduled_date': 'March 25, 2026',
+            'due_text': 'Due in 3 days',
+          }
+        : (hasCompletedPrimary
+            ? null
+            : {
+                'name': 'Day 7',
+                'scheduled_date': 'March 17, 2026',
+                'due_text': 'Due in 4 days',
+              });
 
     return {
       'clinic': {
@@ -445,8 +568,8 @@ class MockMobileApi {
         'patient_id': patient['id'],
         'patient_number': patient['patient_number'] ?? 'P-2026-0042',
         'full_name': patient['name'] ?? 'Juan Dela Cruz',
-        'age': 28,
-        'gender': 'Male',
+        'age': patient['age'] ?? 28,
+        'gender': patient['gender'] ?? 'Male',
         'philhealth_no': '12-345678901-2',
       },
       'card': {
@@ -458,61 +581,18 @@ class MockMobileApi {
         'date_treatment_started': 'March 10, 2026',
         'place_of_exposure': 'Poblacion, Tagoloan',
       },
-      'card_token': 'vc_demo_token_123',
-      'qr_payload': 'https://clinic.gov.ph/verify/card/vc_demo_token_123',
-      'status': 'ACTIVE',
+      'card_token': 'vc_demo_token_${patient['id'] ?? 101}',
+      'qr_payload': 'https://clinic.gov.ph/verify/card/vc_demo_token_${patient['id'] ?? 101}',
+      'status': cardStatus,
+      'has_booster': hasBooster,
       'progress': {
-        'completed_doses': 2,
-        'total_doses': 4,
-        'dose_label': '2 of 4 doses',
-        'next_dose': {
-          'name': 'Day 7',
-          'scheduled_date': 'March 17, 2026',
-          'due_text': 'Due in 4 days',
-        },
+        'completed_doses': completedCount,
+        'total_doses': totalCount,
+        'dose_label': doseLabel,
+        'has_booster': hasBooster,
+        'next_dose': nextDose,
       },
-      'doses': [
-        {
-          'period': 'Day 0',
-          'dose_number': 0,
-          'scheduled_date': 'March 10, 2026',
-          'administered_date': 'March 10, 2026',
-          'vaccine_brand': 'Speeda (PVRV)',
-          'batch_no': 'SP-2026-08',
-          'route': 'ID',
-          'status': 'completed',
-        },
-        {
-          'period': 'Day 3',
-          'dose_number': 3,
-          'scheduled_date': 'March 13, 2026',
-          'administered_date': 'March 13, 2026',
-          'vaccine_brand': 'Speeda (PVRV)',
-          'batch_no': 'SP-2026-08',
-          'route': 'ID',
-          'status': 'completed',
-        },
-        {
-          'period': 'Day 7',
-          'dose_number': 7,
-          'scheduled_date': 'March 17, 2026',
-          'administered_date': null,
-          'vaccine_brand': 'Speeda (PVRV)',
-          'batch_no': '—',
-          'route': 'ID',
-          'status': 'scheduled',
-        },
-        {
-          'period': 'Day 28',
-          'dose_number': 28,
-          'scheduled_date': 'April 7, 2026',
-          'administered_date': null,
-          'vaccine_brand': 'Speeda (PVRV)',
-          'batch_no': '—',
-          'route': 'ID',
-          'status': 'scheduled',
-        },
-      ],
+      'doses': doses,
     };
   }
 

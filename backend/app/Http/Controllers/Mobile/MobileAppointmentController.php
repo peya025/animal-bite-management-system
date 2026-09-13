@@ -53,7 +53,7 @@ class MobileAppointmentController extends Controller
                 $doseName = $m[1];
             }
 
-            $isVac = str_contains($app->appointment_type ?? '', 'vaccination');
+            $isVac = str_contains($app->appointment_type ?? '', 'vaccination') || $app->appointment_type === 'booster';
             $idealDate = $app->ideal_date ? \Carbon\Carbon::parse($app->ideal_date)->format('Y-m-d') : $dateStr;
 
             return [
@@ -62,8 +62,8 @@ class MobileAppointmentController extends Controller
                 'patient_name' => $pName,
                 'relationship' => $rel,
                 'appointment_type' => $app->appointment_type,
-                'type' => $isVac ? 'vaccination' : 'consultation',
-                'type_label' => $doseName ? "Anti-rabies vaccine · {$doseName}" : ($isVac ? 'Vaccination' : 'Bite consultation'),
+                'type' => $isVac ? ($app->appointment_type === 'booster' ? 'booster' : 'vaccination') : 'consultation',
+                'type_label' => $doseName ? "Anti-rabies vaccine · {$doseName}" : ($app->appointment_type === 'booster' ? 'Rabies Booster' : ($isVac ? 'Vaccination' : 'Bite consultation')),
                 'dose_name' => $doseName,
                 'dose_number' => $app->dose_number,
                 'scheduled_date' => $dateStr,
@@ -92,7 +92,7 @@ class MobileAppointmentController extends Controller
     {
         $validated = $request->validate([
             'patient_id' => ['required', 'integer', 'exists:patients,patient_id'],
-            'appointment_type' => ['required', 'in:consultation,vaccination'],
+            'appointment_type' => ['required', 'in:consultation,vaccination,booster'],
             'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'time_slot' => ['nullable', 'in:morning,afternoon'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -104,7 +104,7 @@ class MobileAppointmentController extends Controller
                 $request->all(),
                 [
                     'patient_id'           => ['required', 'integer', 'exists:patients,patient_id'],
-                    'appointment_type'     => ['required', 'in:consultation,vaccination'],
+                    'appointment_type'     => ['required', 'in:consultation,vaccination,booster'],
                     'scheduled_date'       => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
                     'time_slot'            => ['nullable', 'in:morning,afternoon'],
                     'notes'                => ['nullable', 'string', 'max:1000'],
@@ -112,7 +112,7 @@ class MobileAppointmentController extends Controller
                     'intake.bite_date'     => ['required', 'date', 'before_or_equal:today'],
                     'intake.bite_place'    => ['nullable', 'string', 'max:255'],
                     'intake.site_washed'   => ['required', 'boolean'],
-                    'intake.exposure_type' => ['required', 'in:nibbling_uncovered_skin,nibbling_broken_skin,scratch_abrasion,transdermal_bite,handling_ingestion_raw_meat'],
+                    'intake.exposure_type' => ['required', 'in:nibbling_uncovered_skin,nibbling_broken_skin,scratch_abrasion,transdermal_bite,handling_ingestion_raw_meat,bite,scratch,lick,other'],
                     'intake.animal_type'   => ['required', 'string', 'max:100'],
                     'intake.animal_type_others' => ['nullable', 'string', 'max:255'],
                     'intake.animal_status' => ['required', 'in:owned,stray,unknown'],
@@ -133,22 +133,66 @@ class MobileAppointmentController extends Controller
             ->wherePivotIn('status', ['pending', 'verified'])
             ->firstOrFail();
 
+        // Task & DOH Protocol Validation:
+        // A patient cannot book a booster if they have not completed the primary 3 doses (Days 0, 3, 7).
+        if ($validated['appointment_type'] === 'booster' && !$patient->has_completed_primary) {
+            return response()->json([
+                'message' => 'Booster doses are strictly for patients who have completed all 3 primary doses (Day 0, Day 3, Day 7). Since your primary vaccination series is incomplete, please book a Bite Consultation or regular vaccination appointment.',
+                'has_completed_primary' => false,
+            ], 422);
+        }
+
         $appointment = DB::transaction(function () use ($account, $patient, $validated) {
+            $isBooster = $validated['appointment_type'] === 'booster';
+
             $appointment = Appointment::create([
                 'clinic_id'           => $patient->clinic_id,
                 'patient_id'          => $validated['patient_id'],
                 'appointment_type'    => $validated['appointment_type'],
+                'dose_number'         => $isBooster ? 90 : null, // 90 = Booster 1 / Day 0
                 'scheduled_date'      => $validated['scheduled_date'],
                 'appointment_date'    => $validated['scheduled_date'], // keep in sync
+                'ideal_date'          => $validated['scheduled_date'],
                 'time_slot'           => $validated['time_slot'] ?? 'morning',
-                'notes'               => $validated['notes'] ?? null,
+                'notes'               => $isBooster
+                    ? trim(($validated['notes'] ?? '') . ' [BOOSTER RE-EXPOSURE: Day 0]')
+                    : ($validated['notes'] ?? null),
                 'booked_by_account_id' => $account->id,
                 'status'              => 'scheduled',
             ]);
 
+            if ($isBooster) {
+                // Automatically schedule Day 3 Booster 2 follow-up per DOH NRPCP guidelines
+                $day3Date = \Carbon\Carbon::parse($validated['scheduled_date'])->addDays(3)->format('Y-m-d');
+                Appointment::create([
+                    'clinic_id'            => $patient->clinic_id,
+                    'patient_id'           => $validated['patient_id'],
+                    'appointment_type'     => 'booster',
+                    'dose_number'          => 365, // 365 = Booster 2 / Day 3
+                    'scheduled_date'       => $day3Date,
+                    'appointment_date'     => $day3Date,
+                    'ideal_date'           => $day3Date,
+                    'time_slot'            => $validated['time_slot'] ?? 'morning',
+                    'notes'                => trim(($validated['notes'] ?? '') . ' [BOOSTER RE-EXPOSURE: Day 3 follow-up]'),
+                    'booked_by_account_id' => $account->id,
+                    'status'               => 'scheduled',
+                ]);
+            }
+
             if ($appointment->appointment_type === 'consultation' && !empty($validated['intake'])) {
+                $intakeData = $validated['intake'];
+                $exposureMap = [
+                    'bite' => 'transdermal_bite',
+                    'scratch' => 'scratch_abrasion',
+                    'lick' => 'nibbling_uncovered_skin',
+                    'other' => 'nibbling_broken_skin',
+                ];
+                if (isset($intakeData['exposure_type']) && isset($exposureMap[$intakeData['exposure_type']])) {
+                    $intakeData['exposure_type'] = $exposureMap[$intakeData['exposure_type']];
+                }
+
                 BiteIncidentIntake::create([
-                    ...$validated['intake'],
+                    ...$intakeData,
                     'clinic_id' => $patient->clinic_id,
                     'patient_id' => $patient->patient_id,
                     'patient_account_id' => $account->id,
@@ -157,12 +201,19 @@ class MobileAppointmentController extends Controller
                 ]);
             }
 
+            $readableType = match ($appointment->appointment_type) {
+                'booster'      => 'rabies booster (2 doses)',
+                'vaccination'  => 'vaccination',
+                'consultation' => 'bite consultation',
+                default        => $appointment->appointment_type,
+            };
+
             Notification::create([
                 'patient_id' => $patient->patient_id,
                 'patient_account_id' => $account->id,
                 'appointment_id' => $appointment->appointment_id,
                 'type' => 'booking_confirmation',
-                'message' => "{$patient->name}'s {$appointment->appointment_type} appointment is scheduled for {$appointment->scheduled_date->format('F j, Y')}.",
+                'message' => "{$patient->name}'s {$readableType} appointment is scheduled starting on {$appointment->scheduled_date->format('F j, Y')}.",
                 'status' => 'pending',
                 'send_time' => now(),
             ]);

@@ -278,4 +278,142 @@ class MobilePatientWorkflowTest extends TestCase
             ->assertJsonPath('patient.patient_id', $patient->patient_id)
             ->assertJsonPath('card_token', $patient->card_token);
     }
+
+    public function test_booster_booking_requires_primary_series_completion(): void
+    {
+        $clinic = Clinic::create(['name' => 'Test Clinic']);
+        $account = $this->account();
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'first_name' => 'Maria',
+            'last_name' => 'Dela Cruz',
+            'gender' => 'female',
+            'registration_source' => 'mobile',
+        ]);
+        $account->patients()->attach($patient, [
+            'relationship' => 'self',
+            'status' => 'verified',
+            'verified_at' => now(),
+        ]);
+        Sanctum::actingAs($account);
+
+        // Incomplete primary: patient has only completed Day 0 and Day 3
+        \App\Models\TreatmentRecord::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'dose_number' => 0,
+            'status' => 'completed',
+            'treatment_date' => now()->subDays(7),
+        ]);
+        \App\Models\TreatmentRecord::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'dose_number' => 3,
+            'status' => 'completed',
+            'treatment_date' => now()->subDays(4),
+        ]);
+
+        $this->assertFalse($patient->fresh()->has_completed_primary);
+
+        // Attempting to book booster while primary is incomplete should fail with 422
+        $this->postJson('/api/mobile/appointments', [
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'booster',
+            'scheduled_date' => now()->addDay()->toDateString(),
+        ])->assertUnprocessable()
+            ->assertJsonPath('has_completed_primary', false);
+
+        // Complete Day 7
+        \App\Models\TreatmentRecord::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'dose_number' => 7,
+            'status' => 'completed',
+            'treatment_date' => now()->subDay(),
+        ]);
+
+        $this->assertTrue($patient->fresh()->has_completed_primary);
+
+        // Now booster booking should succeed and create Booster 1 & Booster 2
+        $this->postJson('/api/mobile/appointments', [
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'booster',
+            'scheduled_date' => now()->addDay()->toDateString(),
+        ])->assertCreated()
+            ->assertJsonPath('appointment_type', 'booster');
+
+        $this->assertDatabaseHas('appointments', [
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'booster',
+            'dose_number' => 90,
+        ]);
+        $this->assertDatabaseHas('appointments', [
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'booster',
+            'dose_number' => 365,
+        ]);
+    }
+
+    public function test_vaccination_card_hides_boosters_until_booster_is_active(): void
+    {
+        $clinic = Clinic::create(['name' => 'Test Clinic']);
+        $account = $this->account();
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'first_name' => 'Juan',
+            'last_name' => 'Dela Cruz',
+            'gender' => 'male',
+            'registration_source' => 'mobile',
+        ]);
+        $account->patients()->attach($patient, [
+            'relationship' => 'self',
+            'status' => 'verified',
+            'verified_at' => now(),
+        ]);
+        Sanctum::actingAs($account);
+
+        // Complete Day 0, 3, 7
+        foreach ([0, 3, 7] as $dose) {
+            \App\Models\TreatmentRecord::create([
+                'clinic_id' => $clinic->id,
+                'patient_id' => $patient->patient_id,
+                'dose_number' => $dose,
+                'status' => 'completed',
+                'treatment_date' => now()->subDays(10 - $dose),
+            ]);
+        }
+
+        // Check card before booster: has_booster must be false, doses count = 3
+        $response = $this->getJson("/api/mobile/patients/{$patient->patient_id}/vaccination-card")
+            ->assertOk()
+            ->assertJsonPath('has_booster', false)
+            ->assertJsonPath('progress.total_doses', 3)
+            ->assertJsonPath('status', 'COMPLETED');
+
+        $doses = $response->json('doses');
+        $this->assertCount(3, $doses);
+        foreach ($doses as $dose) {
+            $this->assertStringNotContainsStringIgnoringCase('booster', $dose['period']);
+        }
+
+        // Now book booster
+        $this->postJson('/api/mobile/appointments', [
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'booster',
+            'scheduled_date' => now()->addDay()->toDateString(),
+        ])->assertCreated();
+
+        // Check card after booster: has_booster must be true, doses count = 5 (includes Booster 1 & Booster 2)
+        $responseAfter = $this->getJson("/api/mobile/patients/{$patient->patient_id}/vaccination-card")
+            ->assertOk()
+            ->assertJsonPath('has_booster', true)
+            ->assertJsonPath('progress.has_booster', true)
+            ->assertJsonPath('status', 'ACTIVE');
+
+        $dosesAfter = $responseAfter->json('doses');
+        $this->assertCount(5, $dosesAfter);
+        $boosterNames = array_column($dosesAfter, 'period');
+        $this->assertContains('Booster 1', $boosterNames);
+        $this->assertContains('Booster 2', $boosterNames);
+    }
 }

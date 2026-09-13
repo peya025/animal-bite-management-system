@@ -12,7 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement("ALTER TABLE bite_incidents MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'active'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE bite_incidents MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'active'");
+        }
     }
 
     /**
@@ -20,6 +22,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("ALTER TABLE bite_incidents MODIFY COLUMN status ENUM('active','completed','referred','abandoned') NOT NULL DEFAULT 'active'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE bite_incidents MODIFY COLUMN status ENUM('active','completed','referred','abandoned') NOT NULL DEFAULT 'active'");
+        }
     }
 };

@@ -145,6 +145,7 @@ class PatientProfile {
     this.details,
     this.memberships = const [],
     this.isActive = true,
+    this.hasCompletedPrimary = false,
   });
 
   final int id;
@@ -166,6 +167,7 @@ class PatientProfile {
   final PatientDetailsProfile? details;
   final List<PatientMembership> memberships;
   final bool isActive;
+  final bool hasCompletedPrimary;
 
   bool get isVerified => status == 'verified';
 
@@ -189,6 +191,7 @@ class PatientProfile {
     PatientDetailsProfile? details,
     List<PatientMembership>? memberships,
     bool? isActive,
+    bool? hasCompletedPrimary,
   }) {
     return PatientProfile(
       id: id ?? this.id,
@@ -210,6 +213,7 @@ class PatientProfile {
       details: details ?? this.details,
       memberships: memberships ?? this.memberships,
       isActive: isActive ?? this.isActive,
+      hasCompletedPrimary: hasCompletedPrimary ?? this.hasCompletedPrimary,
     );
   }
 
@@ -236,6 +240,11 @@ class PatientProfile {
         ? rawIsActive
         : (rawIsActive == 1 || rawIsActive == '1' || rawIsActive == null);
 
+    final rawHasCompleted = json['has_completed_primary'];
+    final bool parsedHasCompleted = (rawHasCompleted is bool)
+        ? rawHasCompleted
+        : (rawHasCompleted == 1 || rawHasCompleted == '1' || rawHasCompleted == 'true');
+
     return PatientProfile(
       id: (json['patient_id'] ?? json['id']) as int,
       name: resolvedName,
@@ -261,6 +270,7 @@ class PatientProfile {
           .map(PatientMembership.fromJson)
           .toList(),
       isActive: parsedIsActive,
+      hasCompletedPrimary: parsedHasCompleted,
     );
   }
 }

@@ -17,13 +17,17 @@ return new class extends Migration
         });
 
         // Extend the status enum to include no_response
-        DB::statement("ALTER TABLE queues MODIFY COLUMN status ENUM('waiting','in_consultation','completed','cancelled','no_response') NOT NULL DEFAULT 'waiting'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE queues MODIFY COLUMN status ENUM('waiting','in_consultation','completed','cancelled','no_response') NOT NULL DEFAULT 'waiting'");
+        }
     }
 
     public function down(): void
     {
         // Revert status enum
-        DB::statement("ALTER TABLE queues MODIFY COLUMN status ENUM('waiting','in_consultation','completed','cancelled') NOT NULL DEFAULT 'waiting'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE queues MODIFY COLUMN status ENUM('waiting','in_consultation','completed','cancelled') NOT NULL DEFAULT 'waiting'");
+        }
 
         Schema::table('queues', function (Blueprint $table) {
             $table->dropColumn(['no_response_at', 'deleted_at']);

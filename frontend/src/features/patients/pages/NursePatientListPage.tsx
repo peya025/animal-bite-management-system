@@ -119,9 +119,9 @@ export default function NursePatientListPage() {
   const handleCheckIn = async (patient: Patient) => {
     setCheckingInId(patient.patient_id);
     try {
-      // Use patient-level check-in endpoint to confirm appointment without adding to queue
-      await api.post(`/appointments/patient/${patient.patient_id}/check-in`);
-      toast('Patient checked in successfully', 'success');
+      const response = await api.post(`/appointments/patient/${patient.patient_id}/check-in`);
+      const msg = response.data?.message || 'Patient checked in successfully';
+      toast(msg, 'success');
       // Reload patients to reflect updated status
       loadPatients();
     } catch (err: any) {

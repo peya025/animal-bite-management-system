@@ -54,6 +54,7 @@ class MockData {
           'is_active': true,
         },
       ],
+      'has_completed_primary': true,
       'pivot': {'relationship': 'self', 'status': 'verified'},
     },
     {
@@ -84,6 +85,7 @@ class MockData {
           'is_active': true,
         },
       ],
+      'has_completed_primary': false,
       'pivot': {'relationship': 'child', 'status': 'pending'},
     },
   ];

@@ -234,9 +234,16 @@ export default function PatientList() {
         }
       }
 
+      const today = new Date().toISOString().slice(0, 10);
+      const isBoosterToday = (p as any).appointments?.some((a: any) => 
+        a.status === 'scheduled' && 
+        a.appointment_type === 'booster' &&
+        ((a.appointment_date && a.appointment_date.startsWith(today)) || (a.scheduled_date && a.scheduled_date.startsWith(today)))
+      );
+
       // If returning years later or starting a new bite case, always route to Doctor Triage (new_case)
       const isInitialVisit = isNewBiteCase || !isFollowUpWithinRegimen;
-      const visitType = isInitialVisit ? 'new_case' : 'vaccination';
+      const visitType = isBoosterToday ? 'booster' : (isInitialVisit ? 'new_case' : 'vaccination');
 
       const res = await api.post('/queue', {
         patient_id: patientId,
@@ -245,7 +252,9 @@ export default function PatientList() {
         priority: 'normal',
       });
 
-      const station = isInitialVisit ? 'Triage Queue (Doctor Assessment)' : 'Treatment Queue (Vaccination Desk)';
+      const station = visitType === 'booster'
+        ? 'Treatment Queue (Booster Vaccination)'
+        : (isInitialVisit ? 'Triage Queue (Doctor Assessment)' : 'Treatment Queue (Vaccination Desk)');
       setCheckInModalData({
         patientName: fullName(p),
         patientNumber: p.patient_number,
@@ -269,11 +278,15 @@ export default function PatientList() {
     // 1. Active Queue Status (Highest priority)
     if (activeQueue) {
       if (activeQueue.status === 'waiting') {
-        const station = activeQueue.visit_type === 'new_case' ? 'Waiting in Triage' : 'Waiting in Treatment';
+        const station = activeQueue.visit_type === 'new_case'
+          ? 'Waiting in Triage'
+          : (activeQueue.visit_type === 'booster' ? 'Waiting in Treatment (Booster)' : 'Waiting in Treatment');
         return { label: `Queue #${activeQueue.queue_number || ''} (${station})`, icon: Clock01Icon, bg: '#d1fae5', color: '#065f46' };
       }
       if (activeQueue.status === 'in_consultation' || activeQueue.status === 'called' || activeQueue.status === 'serving') {
-        const station = activeQueue.visit_type === 'new_case' ? 'In Doctor Triage' : 'In Treatment';
+        const station = activeQueue.visit_type === 'new_case'
+          ? 'In Doctor Triage'
+          : (activeQueue.visit_type === 'booster' ? 'In Treatment (Booster)' : 'In Treatment');
         return { label: `Queue #${activeQueue.queue_number || ''} (${station})`, icon: Stethoscope02Icon, bg: '#eff6ff', color: '#1d4ed8' };
       }
       if (activeQueue.status === 'second_chance' || activeQueue.status === 'final_recall') {
@@ -297,10 +310,22 @@ export default function PatientList() {
       return false;
     });
 
+    const formatDoseLabel = (a: any) => {
+      if (a.appointment_type === 'booster' || a.notes?.toLowerCase().includes('booster')) {
+        if (a.dose_number === 90 || a.notes?.toLowerCase().includes('day 0')) return 'Booster 1 (Day 0)';
+        if (a.dose_number === 365 || a.notes?.toLowerCase().includes('day 3')) return 'Booster 2 (Day 3)';
+        return 'Rabies Booster';
+      }
+      if (a.dose_number !== undefined && a.dose_number !== null) {
+        return `Day ${a.dose_number}`;
+      }
+      return 'Dose';
+    };
+
     if (missedAppt) {
       const apptDate = new Date(missedAppt.scheduled_date || missedAppt.appointment_date);
       const lateDays = Math.max(1, Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24)));
-      const doseLabel = missedAppt.dose_number !== undefined ? `Day ${missedAppt.dose_number}` : 'Dose';
+      const doseLabel = formatDoseLabel(missedAppt);
       return {
         label: `Missed ${doseLabel} (${apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${lateDays}d ago)`,
         icon: AlertCircleIcon,
@@ -318,7 +343,7 @@ export default function PatientList() {
     });
 
     if (todayAppt) {
-      const doseLabel = todayAppt.dose_number !== undefined ? `Day ${todayAppt.dose_number}` : 'Dose';
+      const doseLabel = formatDoseLabel(todayAppt);
       return {
         label: `Appt Today: ${doseLabel} (${todayAppt.time_slot || 'regular'})`,
         icon: Clock01Icon,
@@ -342,7 +367,7 @@ export default function PatientList() {
       });
       const nextAppt = upcomingAppts[0];
       const apptDate = new Date(nextAppt.scheduled_date || nextAppt.appointment_date);
-      const doseLabel = nextAppt.dose_number !== undefined ? `Day ${nextAppt.dose_number}` : 'Dose';
+      const doseLabel = formatDoseLabel(nextAppt);
       return {
         label: `Next Appt: ${doseLabel} (${apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
         icon: Calendar03Icon,

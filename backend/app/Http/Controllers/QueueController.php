@@ -76,7 +76,7 @@ class QueueController extends Controller
         if ($station === 'triage') {
             $query->whereIn('visit_type', ['new_case', 'consultation']);
         } elseif ($station === 'treatment') {
-            $query->whereIn('visit_type', ['vaccination', 'follow_up', 'observation']);
+            $query->whereIn('visit_type', ['vaccination', 'follow_up', 'observation', 'booster']);
         }
 
         $waiting = $query->with(['patient:' . $this->patientFields(), 'biteIncident:bite_id,case_number,patient_id'])
@@ -659,7 +659,7 @@ class QueueController extends Controller
         $request->validate([
             'patient_id'       => 'required|exists:patients,patient_id',
             'bite_incident_id' => 'nullable|exists:bite_incidents,bite_id',
-            'visit_type'       => 'required|in:new_case,consultation,follow_up,vaccination,observation',
+            'visit_type'       => 'required|in:new_case,consultation,follow_up,vaccination,observation,booster',
             'priority'         => 'nullable|in:normal,urgent,emergency',
             'queue_category'   => 'nullable|in:regular,appointment,senior_citizen,pwd,pregnant,priority',
             'check_in_notes'   => 'nullable|string|max:1000',
@@ -707,6 +707,20 @@ class QueueController extends Controller
             }
             if ($visitType === 'follow_up') {
                 $visitType = 'vaccination';
+            }
+
+            // Real-time Sync (Task 16.2): If patient has a scheduled booster appointment today, tag visit_type as booster
+            $hasBoosterToday = \App\Models\Appointment::where('patient_id', $request->patient_id)
+                ->where('status', 'scheduled')
+                ->where('appointment_type', 'booster')
+                ->where(function ($q) use ($todayDate) {
+                    $q->whereDate('scheduled_date', $todayDate)
+                      ->orWhereDate('appointment_date', $todayDate);
+                })
+                ->exists();
+
+            if ($hasBoosterToday) {
+                $visitType = 'booster';
             }
 
             $queue = Queue::create([

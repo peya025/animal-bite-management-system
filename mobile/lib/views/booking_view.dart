@@ -16,7 +16,9 @@ import '../widgets/menu/patient_action_button.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class BookingView extends StatefulWidget {
-  const BookingView({super.key});
+  const BookingView({super.key, this.initialService});
+
+  final BookingService? initialService;
 
   @override
   State<BookingView> createState() => _BookingViewState();
@@ -36,14 +38,30 @@ class _BookingViewState extends State<BookingView> {
   Map<String, dynamic> _scheduleExceptions = const {};
   Map<String, dynamic> _clinicSchedules = const {};
   Map<String, dynamic>? _urgentPolicy;
+  bool _initializedArgs = false;
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialService != null) {
+      _service = widget.initialService!;
+    }
     // Always initialise to today when screen opens — avoids stale date if app ran past midnight
     _selectedDate = DateUtils.dateOnly(DateTime.now());
     _loadPatients();
     _loadScheduleSummary();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initializedArgs) {
+      _initializedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is BookingService) {
+        _service = args;
+      }
+    }
   }
 
   DateTime _findNextOpenDate(DateTime start, List<int> openDays, Map<String, dynamic> exceptions) {
@@ -291,13 +309,48 @@ class _BookingViewState extends State<BookingView> {
       return;
     }
 
+    final isBooster = _service == BookingService.booster;
+
+    // DOH NRPCP Rule: If patient has not completed the 3 primary doses, booster cannot be booked
+    if (isBooster && !patient.hasCompletedPrimary) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          icon: const Icon(Icons.block_rounded, color: Color(0xFFDC2626), size: 36),
+          title: const Text('Booster Not Applicable'),
+          content: Text(
+            '${patient.name} has not completed the primary 3-dose anti-rabies vaccination series (Day 0, Day 3, Day 7).\n\nPer DOH NRPCP protocol, the 2-dose booster regimen is strictly reserved for patients with verified completed primary PEP.\n\nIf bitten again or continuing care, please select "Bite consultation" for medical evaluation, or select "Vaccination" to resume/complete the primary series.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() => _service = BookingService.consultation);
+              },
+              child: const Text('Switch to Consultation'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(Icons.vaccines_outlined, color: AppColors.primary),
-        title: const Text('Confirm vaccination booking'),
+        icon: Icon(
+          isBooster ? Icons.shield_outlined : Icons.vaccines_outlined,
+          color: AppColors.primary,
+        ),
+        title: Text(isBooster ? 'Confirm rabies booster booking' : 'Confirm vaccination booking'),
         content: Text(
-          'Book a vaccination appointment for ${patient.name} on ${DateSelector.formatDate(_selectedDate)}?\n\nNo bite incident intake will be required for this booking.',
+          isBooster
+              ? 'Book a 2-dose rabies booster (Day 0 & Day 3) for ${patient.name} starting on ${DateSelector.formatDate(_selectedDate)}?\n\nPer DOH NRPCP guidelines, booster regimen requires only 2 intradermal doses (Day 0 & Day 3). Rabies Immunoglobulin (RIG) is withheld.'
+              : 'Book a vaccination appointment for ${patient.name} on ${DateSelector.formatDate(_selectedDate)}?\n\nNo bite incident intake will be required for this booking.',
         ),
         actions: [
           TextButton(
@@ -306,7 +359,7 @@ class _BookingViewState extends State<BookingView> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Book vaccination'),
+            child: Text(isBooster ? 'Book booster' : 'Book vaccination'),
           ),
         ],
       ),
@@ -325,9 +378,11 @@ class _BookingViewState extends State<BookingView> {
             Icons.assignment_turned_in_outlined,
             color: AppColors.primary,
           ),
-          title: const Text('Vaccination booked'),
+          title: Text(isBooster ? 'Booster booked' : 'Vaccination booked'),
           content: Text(
-            '${patient.name} has been scheduled for vaccination on ${DateSelector.formatDate(_selectedDate)}.',
+            isBooster
+                ? '${patient.name} has been scheduled for Booster Day 0 on ${DateSelector.formatDate(_selectedDate)}. Follow-up Booster Day 3 will be set for 3 days later.'
+                : '${patient.name} has been scheduled for vaccination on ${DateSelector.formatDate(_selectedDate)}.',
           ),
           actions: [
             FilledButton(
@@ -612,6 +667,118 @@ class _BookingViewState extends State<BookingView> {
                         ),
                       ],
 
+                      if (_service == BookingService.booster && _selectedPatient != null && !_selectedPatient!.hasCompletedPrimary) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFFCA5A5), width: 0.8),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'PRIMARY 3-DOSE PEP INCOMPLETE',
+                                      style: TextStyle(
+                                        color: Color(0xFFB91C1C),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${_selectedPatient!.name} has not completed all 3 primary doses (Day 0, Day 3, Day 7). Per DOH guidelines, booster regimen is strictly for fully vaccinated patients. If bitten again, please select "Bite consultation" or complete missing primary doses.',
+                                      style: const TextStyle(
+                                        color: Color(0xFF991B1B),
+                                        fontSize: 11.5,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    InkWell(
+                                      onTap: () => setState(() => _service = BookingService.consultation),
+                                      child: const Text(
+                                        'Switch to Bite Consultation →',
+                                        style: TextStyle(
+                                          color: Color(0xFFDC2626),
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w700,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else if (_service == BookingService.booster) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFBFDBFE), width: 0.8),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.shield_outlined, size: 18, color: Color(0xFF1D4ED8)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'DOH 2-DOSE BOOSTER PROTOCOL',
+                                      style: TextStyle(
+                                        color: Color(0xFF1E40AF),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    const Text(
+                                      'For patients with documented prior complete rabies PEP: only 2 intradermal doses (Day 0 and Day 3) are required. Rabies Immunoglobulin (RIG) is withheld. Day 3 will be automatically scheduled.',
+                                      style: TextStyle(
+                                        color: Color(0xFF1E3A8A),
+                                        fontSize: 11.5,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    InkWell(
+                                      onTap: () => Navigator.of(context).pushNamed(AppRoutes.boosterGuidance),
+                                      child: const Text(
+                                        'Learn more about the booster protocol →',
+                                        style: TextStyle(
+                                          color: Color(0xFF2563EB),
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 20),
 
                       // ─── 4. DATE PICKER SECTION ───
@@ -698,7 +865,11 @@ class _BookingViewState extends State<BookingView> {
                         isLoading: _booking,
                         confirmLabel: _service == BookingService.consultation
                             ? 'Continue to intake'
-                            : 'Confirm booking',
+                            : _service == BookingService.booster
+                                ? (_selectedPatient != null && !_selectedPatient!.hasCompletedPrimary
+                                    ? 'Primary PEP incomplete'
+                                    : 'Confirm booster booking')
+                                : 'Confirm booking',
                       ),
                       const SizedBox(height: 16),
                     ],

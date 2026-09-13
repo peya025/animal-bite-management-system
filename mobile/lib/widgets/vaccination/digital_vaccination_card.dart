@@ -12,7 +12,12 @@ Future<void> showDigitalVaccinationCard(BuildContext context, {int? initialPatie
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => DigitalVaccinationCardSheet(initialPatientId: initialPatientId),
+    builder: (_) => ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
+      ),
+      child: DigitalVaccinationCardSheet(initialPatientId: initialPatientId),
+    ),
   );
 }
 
@@ -102,9 +107,10 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
       }
     } catch (e) {
       if (mounted) {
+        final errorMsg = (e is ApiException) ? e.message : 'Unable to fetch official vaccination record ($e).';
         setState(() {
           _loading = false;
-          _error = 'Unable to fetch official vaccination record ($e).';
+          _error = errorMsg;
         });
       }
     }
@@ -274,24 +280,51 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
                     child: const CircularProgressIndicator(color: Color(0xFF1D9E75)),
                   )
                 else if (_error != null && _error!.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFECACA)),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(LucideIcons.alertCircle, color: Color(0xFFDC2626), size: 28),
-                        const SizedBox(height: 8),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13),
+                  Builder(
+                    builder: (context) {
+                      final isPending = _error!.toLowerCase().contains('pending verification');
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                        decoration: BoxDecoration(
+                          color: isPending ? const Color(0xFFFFFBEB) : const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isPending ? const Color(0xFFFDE68A) : const Color(0xFFFECACA),
+                          ),
                         ),
-                      ],
-                    ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              isPending ? LucideIcons.clock : LucideIcons.alertCircle,
+                              color: isPending ? const Color(0xFFD97706) : const Color(0xFFDC2626),
+                              size: 30,
+                            ),
+                            const SizedBox(height: 10),
+                            if (isPending) ...[
+                              const Text(
+                                'Linkage Pending Verification',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFF92400E),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: isPending ? const Color(0xFFB45309) : const Color(0xFFDC2626),
+                                fontSize: 12.5,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   )
                 else if (_cardData != null)
                   _OfficialVaccinationCard(cardData: _cardData!),
@@ -299,36 +332,50 @@ class _DigitalVaccinationCardSheetState extends State<DigitalVaccinationCardShee
                 const SizedBox(height: 14),
 
                 // Footer Actions: Official Proof note + Export / Share Button
-                Row(
+                Column(
                   children: [
-                    const Icon(
-                      LucideIcons.badgeCheck,
-                      color: Color(0xFF059669),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    const Expanded(
-                      child: Text(
-                        'Accredited by DOH Philippines & PhilHealth Animal Bite Package.',
-                        style: TextStyle(
-                          color: AppColors.gray500,
-                          fontSize: 10.5,
-                          height: 1.3,
+                    if (_cardData != null) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _shareCard,
+                          icon: const Icon(LucideIcons.share2, size: 15),
+                          label: const Text(
+                            'Export / Share Certificate',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1D9E75),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _shareCard,
-                      icon: const Icon(LucideIcons.share2, size: 14),
-                      label: const Text('Export / Share', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1D9E75),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          LucideIcons.badgeCheck,
+                          color: Color(0xFF059669),
+                          size: 15,
+                        ),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Accredited by DOH Philippines & PhilHealth Animal Bite Package.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.gray500,
+                              fontSize: 10.5,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -420,10 +467,13 @@ class _OfficialVaccinationCard extends StatelessWidget {
                           fontSize: 9,
                           fontWeight: FontWeight.w500,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 _VerifiedStatusBadge(status: cardStatus),
               ],
             ),
@@ -487,7 +537,7 @@ class _OfficialVaccinationCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       _CardDetailRow(
                         label: 'DOSE PROGRESS',
-                        value: progress['dose_label']?.toString() ?? '0 of 4 doses',
+                        value: progress['dose_label']?.toString() ?? '0 of 3 doses',
                       ),
                       const SizedBox(height: 6),
                       _CardDetailRow(
@@ -652,48 +702,23 @@ class _LiveDoseProgress extends StatelessWidget {
 
   final List<dynamic> doses;
 
-  bool _isDoseComplete(String name) {
-    final match = doses.firstWhere(
-      (d) {
-        final period = d['period']?.toString().toUpperCase();
-        final doseNum = d['dose_number']?.toString();
-        final target = name.toUpperCase();
-        if (period == target) return true;
-        if (target == 'DAY 0' && doseNum == '0') return true;
-        if (target == 'DAY 3' && doseNum == '3') return true;
-        if (target == 'DAY 7' && doseNum == '7') return true;
-        if (target == 'DAY 28' && doseNum == '28') return true;
-        return false;
-      },
-      orElse: () => null,
-    );
-    return match != null && match['status']?.toString().toUpperCase() == 'COMPLETED';
-  }
-
-  String _getDoseDate(String name) {
-    final match = doses.firstWhere(
-      (d) {
-        final period = d['period']?.toString().toUpperCase();
-        final doseNum = d['dose_number']?.toString();
-        final target = name.toUpperCase();
-        if (period == target) return true;
-        if (target == 'DAY 0' && doseNum == '0') return true;
-        if (target == 'DAY 3' && doseNum == '3') return true;
-        if (target == 'DAY 7' && doseNum == '7') return true;
-        if (target == 'DAY 28' && doseNum == '28') return true;
-        return false;
-      },
-      orElse: () => null,
-    );
-    return match != null ? (match['administered_date'] ?? match['scheduled_date'] ?? match['formatted_date'] ?? match['date'] ?? '') : '';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final d0 = _isDoseComplete('Day 0');
-    final d3 = _isDoseComplete('Day 3');
-    final d7 = _isDoseComplete('Day 7');
-    final d28 = _isDoseComplete('Day 28');
+    if (doses.isEmpty) return const SizedBox.shrink();
+
+    // Separate primary PEP doses from booster doses
+    final primaryDoses = doses.where((d) {
+      final period = (d['period'] ?? '').toString().toLowerCase();
+      return !period.contains('booster');
+    }).toList();
+
+    final boosterDoses = doses.where((d) {
+      final period = (d['period'] ?? '').toString().toLowerCase();
+      return period.contains('booster');
+    }).toList();
+
+    final isPrimaryCompleted = primaryDoses.isNotEmpty &&
+        primaryDoses.every((d) => d['status']?.toString().toUpperCase() == 'COMPLETED');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -706,35 +731,130 @@ class _LiveDoseProgress extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'RABIES POST-EXPOSURE DOSE TIMELINE',
-            style: TextStyle(
-              color: AppColors.gray500,
-              fontSize: 8.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
+          // ─── Primary PEP Series ───
+          if (primaryDoses.isNotEmpty) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    isPrimaryCompleted
+                        ? 'PRIMARY RABIES PEP TIMELINE · COMPLETED'
+                        : 'RABIES POST-EXPOSURE DOSE TIMELINE',
+                    style: TextStyle(
+                      color: isPrimaryCompleted ? const Color(0xFF065F46) : AppColors.gray500,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isPrimaryCompleted) ...[
+                  const SizedBox(width: 6),
+                  const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(LucideIcons.checkCheck, size: 12, color: Color(0xFF10B981)),
+                      SizedBox(width: 4),
+                      Text(
+                        '3/3 Complete',
+                        style: TextStyle(
+                          color: Color(0xFF065F46),
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildDoseItem('Day 0', d0),
-              _buildDoseLine(isComplete: d0 && d3),
-              _buildDoseItem('Day 3', d3),
-              _buildDoseLine(isComplete: d3 && d7),
-              _buildDoseItem('Day 7', d7),
-              _buildDoseLine(isComplete: d7 && d28),
-              _buildDoseItem('Day 28', d28),
-            ],
-          ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: _buildTimelineItems(primaryDoses),
+            ),
+          ],
+
+          // ─── Booster Series (Only shown if patient decided to get a booster) ───
+          if (boosterDoses.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Divider(color: Color(0xFFE5E7EB), height: 1),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(LucideIcons.shieldAlert, size: 12, color: Color(0xFF0284C7)),
+                const SizedBox(width: 5),
+                const Expanded(
+                  child: Text(
+                    'RABIES 2-DOSE BOOSTER TIMELINE',
+                    style: TextStyle(
+                      color: Color(0xFF0369A1),
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Active Protocol',
+                    style: TextStyle(
+                      color: Color(0xFF0284C7),
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: _buildTimelineItems(boosterDoses),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildDoseItem(String label, bool complete) {
-    final date = _getDoseDate(label);
+  List<Widget> _buildTimelineItems(List<dynamic> doseList) {
+    final items = <Widget>[];
+    for (int i = 0; i < doseList.length; i++) {
+      final dose = doseList[i] as Map<String, dynamic>;
+      final period = dose['period']?.toString() ?? 'Dose ${i + 1}';
+      final isComplete = dose['status']?.toString().toUpperCase() == 'COMPLETED';
+      final isMissed = dose['status']?.toString().toUpperCase() == 'MISSED';
+      final date = (dose['administered_date'] ?? dose['scheduled_date'] ?? '')?.toString() ?? '';
+
+      items.add(_buildDoseItem(period, isComplete, isMissed, date));
+
+      if (i < doseList.length - 1) {
+        final nextDose = doseList[i + 1] as Map<String, dynamic>;
+        final nextComplete = nextDose['status']?.toString().toUpperCase() == 'COMPLETED';
+        items.add(_buildDoseLine(isComplete: isComplete && nextComplete));
+      }
+    }
+    return items;
+  }
+
+  Widget _buildDoseItem(String label, bool complete, bool isMissed, String date) {
+    final color = complete
+        ? const Color(0xFF1D9E75)
+        : (isMissed ? const Color(0xFFEF4444) : const Color(0xFFBBC8C5));
+    final textColor = complete
+        ? const Color(0xFF065F46)
+        : (isMissed ? const Color(0xFFDC2626) : AppColors.gray500);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -743,10 +863,10 @@ class _LiveDoseProgress extends StatelessWidget {
           width: 22,
           height: 22,
           decoration: BoxDecoration(
-            color: complete ? const Color(0xFF1D9E75) : AppColors.white,
+            color: complete ? const Color(0xFF1D9E75) : (isMissed ? const Color(0xFFFEE2E2) : AppColors.white),
             shape: BoxShape.circle,
             border: Border.all(
-              color: complete ? const Color(0xFF1D9E75) : const Color(0xFFBBC8C5),
+              color: color,
               width: 1.5,
             ),
           ),
@@ -756,13 +876,19 @@ class _LiveDoseProgress extends StatelessWidget {
                   color: AppColors.white,
                   size: 12,
                 )
-              : null,
+              : (isMissed
+                  ? const Icon(
+                      LucideIcons.x,
+                      color: Color(0xFFDC2626),
+                      size: 12,
+                    )
+                  : null),
         ),
         const SizedBox(height: 3),
         Text(
           label,
           style: TextStyle(
-            color: complete ? const Color(0xFF065F46) : AppColors.gray500,
+            color: textColor,
             fontSize: 8.5,
             fontWeight: complete ? FontWeight.w700 : FontWeight.w500,
           ),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../views/booking_view.dart';
 import '../models/bite_intake_route_args.dart';
+import '../models/booking_draft.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_profile_form_args.dart';
 import '../views/bite_intake_view.dart';
+import '../views/booster_guidance_view.dart';
+import '../views/booking_view.dart';
 import '../views/appointments_view.dart';
 import '../views/history_view.dart';
 import '../views/login_view.dart';
@@ -30,7 +32,11 @@ abstract final class AppRouter {
         initialToken: settings.arguments is String ? settings.arguments as String : null,
       ),
       AppRoutes.menu => const MenuView(),
-      AppRoutes.booking => const BookingView(),
+      AppRoutes.booking => switch (settings.arguments) {
+        BookingService service => BookingView(initialService: service),
+        _ => const BookingView(),
+      },
+      AppRoutes.boosterGuidance => const BoosterGuidanceView(),
       AppRoutes.history => const HistoryView(),
       AppRoutes.settings => const SettingsView(),
       AppRoutes.privacySecurity => const PrivacySecurityView(),

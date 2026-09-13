@@ -12,12 +12,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (Schema::hasTable('tagoloan_treatment_cards') && Schema::hasColumn('tagoloan_treatment_cards', 'body_part_exposed')) {
-            DB::statement("ALTER TABLE tagoloan_treatment_cards MODIFY body_part_exposed VARCHAR(255) NULL");
-        }
+        if (DB::getDriverName() === 'mysql') {
+            if (Schema::hasTable('tagoloan_treatment_cards') && Schema::hasColumn('tagoloan_treatment_cards', 'body_part_exposed')) {
+                DB::statement("ALTER TABLE tagoloan_treatment_cards MODIFY body_part_exposed VARCHAR(255) NULL");
+            }
 
-        if (Schema::hasTable('bite_incident_intakes') && Schema::hasColumn('bite_incident_intakes', 'body_part_exposed')) {
-            DB::statement("ALTER TABLE bite_incident_intakes MODIFY body_part_exposed VARCHAR(255) NULL");
+            if (Schema::hasTable('bite_incident_intakes') && Schema::hasColumn('bite_incident_intakes', 'body_part_exposed')) {
+                DB::statement("ALTER TABLE bite_incident_intakes MODIFY body_part_exposed VARCHAR(255) NULL");
+            }
         }
     }
 
@@ -26,12 +28,14 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (Schema::hasTable('tagoloan_treatment_cards') && Schema::hasColumn('tagoloan_treatment_cards', 'body_part_exposed')) {
-            DB::statement("ALTER TABLE tagoloan_treatment_cards MODIFY body_part_exposed ENUM('head_neck', 'other_parts', 'na_ingestion') NULL");
-        }
+        if (DB::getDriverName() === 'mysql') {
+            if (Schema::hasTable('tagoloan_treatment_cards') && Schema::hasColumn('tagoloan_treatment_cards', 'body_part_exposed')) {
+                DB::statement("ALTER TABLE tagoloan_treatment_cards MODIFY body_part_exposed ENUM('head_neck', 'other_parts', 'na_ingestion') NULL");
+            }
 
-        if (Schema::hasTable('bite_incident_intakes') && Schema::hasColumn('bite_incident_intakes', 'body_part_exposed')) {
-            DB::statement("ALTER TABLE bite_incident_intakes MODIFY body_part_exposed ENUM('head_neck', 'other_parts', 'na_ingestion') NULL");
+            if (Schema::hasTable('bite_incident_intakes') && Schema::hasColumn('bite_incident_intakes', 'body_part_exposed')) {
+                DB::statement("ALTER TABLE bite_incident_intakes MODIFY body_part_exposed ENUM('head_neck', 'other_parts', 'na_ingestion') NULL");
+            }
         }
     }
 };

@@ -14,7 +14,7 @@ return new class extends Migration
             });
         } catch (\Illuminate\Database\QueryException $e) {
             // Ignore if duplicate index name / key already exists
-            if ($e->getCode() === '42000' || str_contains($e->getMessage(), '1061 Duplicate key name')) {
+            if ($e->getCode() === '42000' || str_contains($e->getMessage(), '1061 Duplicate key name') || str_contains($e->getMessage(), 'already exists')) {
                 return;
             }
             throw $e;

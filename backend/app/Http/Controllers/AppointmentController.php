@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\Patient;
+use App\Models\Queue;
 use App\Models\TreatmentRecord;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class AppointmentController extends Controller
@@ -489,5 +492,148 @@ class AppointmentController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Check in an appointment by its appointment ID
+     * POST /api/appointments/{id}/check-in
+     */
+    public function checkIn(Request $request, $id)
+    {
+        $clinicId = $request->user()->clinic_id;
+        $appointment = Appointment::where('clinic_id', $clinicId)->findOrFail($id);
+
+        return $this->processAppointmentCheckIn($request, $appointment->patient_id, $appointment);
+    }
+
+    /**
+     * Check in a patient by patient ID from patient list / due today
+     * POST /api/appointments/patient/{patientId}/check-in
+     */
+    public function checkInByPatient(Request $request, $patientId)
+    {
+        $clinicId = $request->user()->clinic_id;
+        $patient = Patient::where('clinic_id', $clinicId)->findOrFail($patientId);
+
+        $todayDate = Carbon::today()->toDateString();
+
+        // Find active scheduled appointment for today or overdue appointment
+        $appointment = Appointment::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->where('status', 'scheduled')
+            ->where(function ($q) use ($todayDate) {
+                $q->whereDate('scheduled_date', $todayDate)
+                  ->orWhereDate('appointment_date', $todayDate)
+                  ->orWhere('scheduled_date', '<', $todayDate);
+            })
+            ->orderByRaw("CASE WHEN scheduled_date = '{$todayDate}' OR appointment_date = '{$todayDate}' THEN 0 ELSE 1 END")
+            ->orderBy('scheduled_date', 'desc')
+            ->first();
+
+        return $this->processAppointmentCheckIn($request, (int)$patientId, $appointment);
+    }
+
+    /**
+     * Common atomic check-in processing logic creating queue ticket and routing appropriately.
+     * Boosters route directly to Treatment Nurse (visit_type: 'booster').
+     */
+    private function processAppointmentCheckIn(Request $request, int $patientId, ?Appointment $appointment = null)
+    {
+        $clinicId = $request->user()->clinic_id;
+        $todayDate = Carbon::today()->toDateString();
+
+        return DB::transaction(function () use ($request, $clinicId, $patientId, $appointment, $todayDate) {
+            $patient = Patient::where('clinic_id', $clinicId)->findOrFail($patientId);
+
+            // Check if patient is already active in today's queue
+            $activeStatuses = ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'];
+            $existingQueue = Queue::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('queue_date', $todayDate)
+                ->whereNull('deleted_at')
+                ->whereIn('status', $activeStatuses)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existingQueue) {
+                $stationLabel = in_array($existingQueue->visit_type, ['vaccination', 'booster', 'follow_up', 'observation'])
+                    ? 'Treatment Room'
+                    : 'Doctor Triage';
+
+                return response()->json([
+                    'message' => "{$patient->first_name} {$patient->last_name} is already active in today's {$stationLabel} queue (Queue #{$existingQueue->queue_number})",
+                    'queue' => $existingQueue->load(['patient', 'biteIncident']),
+                    'queue_number' => $existingQueue->queue_number,
+                    'station' => in_array($existingQueue->visit_type, ['vaccination', 'booster', 'follow_up', 'observation']) ? 'treatment' : 'triage',
+                ], 200);
+            }
+
+            // Determine visit type based on appointment
+            $isBooster = ($appointment && ($appointment->appointment_type === 'booster' || str_contains(strtolower($appointment->notes ?? ''), 'booster')));
+            $isConsultation = ($appointment && ($appointment->appointment_type === 'consultation' || str_contains(strtolower($appointment->notes ?? ''), 'consultation')));
+
+            if ($isBooster) {
+                $visitType = 'booster';
+                $stationName = 'Treatment Desk (Booster Vaccination)';
+                $targetStation = 'treatment';
+            } elseif ($isConsultation) {
+                $visitType = 'new_case';
+                $stationName = 'Doctor Triage';
+                $targetStation = 'triage';
+            } else {
+                $visitType = 'vaccination';
+                $stationName = 'Treatment Desk (Vaccination)';
+                $targetStation = 'treatment';
+            }
+
+            // Generate next queue number safely with DB lock
+            $lastQueue = Queue::where('clinic_id', $clinicId)
+                ->where('queue_date', $todayDate)
+                ->whereNull('deleted_at')
+                ->lockForUpdate()
+                ->orderBy('queue_number', 'desc')
+                ->first();
+
+            $nextQueueNumber = $lastQueue ? ($lastQueue->queue_number + 1) : 1;
+
+            $doseInfo = $appointment && $appointment->dose_number !== null
+                ? ($isBooster ? "Booster Dose" : "Day {$appointment->dose_number} Dose")
+                : null;
+            $noteText = $doseInfo ? "Checked in for {$doseInfo}" : "Checked in via patient list";
+
+            $queue = Queue::create([
+                'clinic_id'      => $clinicId,
+                'patient_id'     => $patientId,
+                'bite_id'        => $appointment?->bite_id,
+                'queue_number'   => $nextQueueNumber,
+                'queue_date'     => $todayDate,
+                'visit_type'     => $visitType,
+                'priority'       => $request->get('priority', 'normal'),
+                'queue_category' => $appointment ? 'appointment' : 'regular',
+                'status'         => 'waiting',
+                'checked_in_at'  => now(),
+                'checked_in_by'  => $request->user()->id,
+                'check_in_notes' => $noteText,
+                'call_count'     => 0,
+            ]);
+
+            // Sync scheduled appointment with queue number
+            if ($appointment) {
+                $appointment->update([
+                    'queue_number' => $nextQueueNumber,
+                ]);
+            }
+
+            // Invalidate queue cache
+            Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
+
+            return response()->json([
+                'message'      => "{$patient->first_name} {$patient->last_name} checked in successfully to {$stationName} (Queue #{$nextQueueNumber})",
+                'queue'        => $queue->load(['patient', 'biteIncident']),
+                'queue_number' => $nextQueueNumber,
+                'station'      => $targetStation,
+                'visit_type'   => $visitType,
+            ]);
+        });
     }
 }

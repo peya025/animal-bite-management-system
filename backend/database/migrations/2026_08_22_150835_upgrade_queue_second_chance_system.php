@@ -22,16 +22,20 @@ return new class extends Migration
         });
 
         // Extend status enum
-        DB::statement("ALTER TABLE queues MODIFY COLUMN status 
-            ENUM('waiting','called','in_consultation','serving','completed','cancelled','no_response','second_chance','final_recall','absent') 
-            NOT NULL DEFAULT 'waiting'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE queues MODIFY COLUMN status 
+                ENUM('waiting','called','in_consultation','serving','completed','cancelled','no_response','second_chance','final_recall','absent') 
+                NOT NULL DEFAULT 'waiting'");
+        }
     }
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE queues MODIFY COLUMN status 
-            ENUM('waiting','in_consultation','completed','cancelled','no_response') 
-            NOT NULL DEFAULT 'waiting'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE queues MODIFY COLUMN status 
+                ENUM('waiting','in_consultation','completed','cancelled','no_response') 
+                NOT NULL DEFAULT 'waiting'");
+        }
 
         Schema::table('queues', function (Blueprint $table) {
             $table->dropColumn([

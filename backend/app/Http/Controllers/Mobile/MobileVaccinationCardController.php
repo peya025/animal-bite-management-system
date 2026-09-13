@@ -19,7 +19,20 @@ class MobileVaccinationCardController extends Controller
         $patientObj = $request->user()->patients()
             ->whereKey($patient)
             ->with(['details', 'clinic'])
-            ->firstOrFail();
+            ->first();
+
+        if (!$patientObj) {
+            return response()->json([
+                'message' => 'Patient profile not found or not linked to this account.',
+            ], 404);
+        }
+
+        if ($patientObj->pivot?->status !== 'verified') {
+            return response()->json([
+                'message' => 'Patient profile linkage is pending verification by clinic staff before official vaccination card can be accessed.',
+                'verification_status' => $patientObj->pivot?->status ?? 'pending',
+            ], 404);
+        }
 
         // Ensure patient has a secure scannable card token
         if (!$patientObj->card_token) {
@@ -59,15 +72,44 @@ class MobileVaccinationCardController extends Controller
         $day0Appt = $appointments->get(0);
         $day0Date = $day0Record?->treatment_date ?? $day0Record?->scheduled_date ?? $day0Appt?->scheduled_date ?? $day0Appt?->appointment_date ?? $treatmentCard?->card_date ?? $incident?->bite_date;
 
-        // Map standard doses
+        // Detect if patient has an active booster protocol or an actual booster booking/record
+        // Legacy auto-scheduled routine placeholders ('Auto-scheduled: Booster...') do NOT activate the booster timeline.
+        $hasBoosterRecord = $treatmentRecords->has(90) || $treatmentRecords->has(365) ||
+            $treatmentRecords->contains(function ($r) {
+                return ($r->dose_number >= 90 && ($r->status === 'completed' || !empty($r->treatment_date))) ||
+                       (str_contains(strtolower($r->remarks ?? ''), 'booster') && !str_contains(strtolower($r->remarks ?? ''), 'auto-scheduled'));
+            });
+        $hasBoosterAppt = $appointments->contains(function ($a) {
+            $notes = strtolower($a->notes ?? '');
+            $type = strtolower($a->appointment_type ?? '');
+            return $type === 'booster' || 
+                   str_contains($notes, 'booster re-exposure') ||
+                   (in_array($a->dose_number, [90, 365]) && !str_contains($notes, 'auto-scheduled'));
+        });
+        $isBoosterEpisode = ($treatmentCard && ($treatmentCard->is_booster || strtolower($treatmentCard->protocol ?? '') === 'booster'));
+        $hasBooster = $hasBoosterRecord || $hasBoosterAppt || $isBoosterEpisode;
+
+        // Check if Day 28 was actually administered (DOH 2-site ID regimen uses only Day 0, 3, 7)
+        // Day 28 will only appear if an actual completed treatment record exists for it.
+        $hasDay28 = $treatmentRecords->has(28) && ($treatmentRecords->get(28)?->status === 'completed' || !empty($treatmentRecords->get(28)?->treatment_date));
+
+        // Map doses based on patient regimen (Primary PEP: Days 0, 3, 7 [+ Day 28 if IM]; Booster: Boosters)
+        // DOH 2-site ID standard primary regimen is strictly 3 doses (Day 0, Day 3, Day 7).
+        // Boosters are conditionally hidden unless patient has an active booster protocol / records (Task 14.1).
         $standardDoses = [
             0   => ['name' => 'Day 0', 'offset' => 0],
             3   => ['name' => 'Day 3', 'offset' => 3],
             7   => ['name' => 'Day 7', 'offset' => 7],
-            28  => ['name' => 'Day 28', 'offset' => 28],
-            90  => ['name' => 'Booster 1', 'offset' => 90],
-            365 => ['name' => 'Booster 2', 'offset' => 365],
         ];
+
+        if ($hasDay28) {
+            $standardDoses[28] = ['name' => 'Day 28', 'offset' => 28];
+        }
+
+        if ($hasBooster) {
+            $standardDoses[90]  = ['name' => 'Booster 1', 'offset' => 90];
+            $standardDoses[365] = ['name' => 'Booster 2', 'offset' => 365];
+        }
 
         $dosesList = [];
         $completedDosesCount = 0;
@@ -86,7 +128,7 @@ class MobileVaccinationCardController extends Controller
             $administeredDate = null;
             $vaccineBrand = '—';
             $batchNo = '—';
-            $route = 'IM';
+            $route = 'ID';
             $remarks = null;
             $treatmentId = null;
 
@@ -98,7 +140,7 @@ class MobileVaccinationCardController extends Controller
                 $scheduledDate = $record->scheduled_date ? Carbon::parse($record->scheduled_date)->format('F j, Y') : ($day0Date ? Carbon::parse($day0Date)->addDays($offset)->format('F j, Y') : null);
                 $vaccineBrand = $record->vaccine_brand ?: $record->vaccine_generic ?: 'Purified Vero Cell Rabies Vaccine (PVRV)';
                 $batchNo = $record->batch_no ?: '—';
-                $route = $record->route ?: 'IM';
+                $route = $record->route ?: 'ID';
                 $remarks = $record->remarks;
             } elseif ($appt) {
                 $isCompleted = ($appt->status === 'completed');
@@ -140,7 +182,7 @@ class MobileVaccinationCardController extends Controller
             ];
         }
 
-        $totalDoses = 4;
+        $totalDoses = count($standardDoses);
         $isAllCompleted = ($completedDosesCount >= $totalDoses && $totalDoses > 0);
         $cardStatus = $isAllCompleted ? 'COMPLETED' : (($completedDosesCount > 0 || $nextScheduledDose) ? 'ACTIVE' : 'PENDING');
 
@@ -191,11 +233,13 @@ class MobileVaccinationCardController extends Controller
             'card_token' => $patientObj->card_token,
             'qr_payload' => $qrPayload,
             'status' => $cardStatus,
+            'has_booster' => $hasBooster,
             'progress' => [
                 'completed_doses' => $completedDosesCount,
                 'total_doses' => $totalDoses,
                 'dose_label' => $doseLabel,
                 'next_dose' => $nextScheduledDose,
+                'has_booster' => $hasBooster,
             ],
             'doses' => $dosesList,
         ]);

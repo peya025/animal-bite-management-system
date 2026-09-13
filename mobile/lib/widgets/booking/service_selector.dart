@@ -7,11 +7,13 @@ extension BookingServiceDetails on BookingService {
   String get description => switch (this) {
     BookingService.consultation => 'Assessment for a new bite or exposure',
     BookingService.vaccination => 'Schedule an anti-rabies vaccine dose',
+    BookingService.booster => '2-dose booster for previously vaccinated patients',
   };
 
   IconData get icon => switch (this) {
     BookingService.consultation => Icons.medical_information_outlined,
     BookingService.vaccination => Icons.vaccines_outlined,
+    BookingService.booster => Icons.shield_outlined,
   };
 }
 
@@ -69,7 +71,9 @@ class ServiceSelector extends StatelessWidget {
                 child: Text(
                   selected == BookingService.consultation
                       ? 'Consultation bookings require a bite incident intake form before submission.'
-                      : 'Vaccination bookings can be submitted directly without filling out a bite incident intake form.',
+                      : selected == BookingService.booster
+                          ? 'Rabies booster is strictly for patients with verified prior complete rabies PEP. Per DOH NRPCP guidelines, only 2 doses (Day 0 and Day 3) are scheduled and RIG is withheld.'
+                          : 'Vaccination bookings can be submitted directly without filling out a bite incident intake form.',
                   style: const TextStyle(
                     color: Color(0xFF085041),
                     fontSize: 11,

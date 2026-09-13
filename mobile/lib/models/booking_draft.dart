@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
 
-enum BookingService { consultation, vaccination }
+enum BookingService { consultation, vaccination, booster }
 
 extension BookingServiceLabel on BookingService {
   String get label => switch (this) {
     BookingService.consultation => 'Bite consultation',
     BookingService.vaccination => 'Vaccination',
+    BookingService.booster => 'Rabies booster (re-exposure)',
   };
 }
 

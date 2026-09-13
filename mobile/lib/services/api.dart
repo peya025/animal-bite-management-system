@@ -6,6 +6,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'mobile_api.dart';
 import 'mock_mobile_api.dart';
 
+export 'mobile_api.dart' show ApiException;
+
 /// Get the appropriate API instance based on USE_MOCK_DATA setting
 dynamic get api {
   final useMockData = dotenv.env['USE_MOCK_DATA']?.toLowerCase() == 'true';

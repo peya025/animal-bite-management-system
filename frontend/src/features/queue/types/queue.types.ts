@@ -129,6 +129,7 @@ export const VISIT_LABEL: Record<string, string> = {
   follow_up:   'Follow-up',
   vaccination: 'Vaccination',
   observation: 'Observation',
+  booster:     'Booster',
 };
 
 export const STATUS_CFG: Record<QueueStatus, { bg: string; color: string; label: string }> = {

@@ -49,6 +49,18 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
   };
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await logout();
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
+    }
+  };
 
   return (
     <DashboardLayoutRoot>
@@ -238,8 +250,10 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
           title="Sign out?"
           message="You'll be returned to the login page."
           confirmLabel="Yes, sign out"
-          onConfirm={() => { setShowLogoutModal(false); logout(); }}
-          onCancel={() => setShowLogoutModal(false)}
+          loadingLabel="Signing out..."
+          loading={isLoggingOut}
+          onConfirm={handleLogout}
+          onCancel={() => !isLoggingOut && setShowLogoutModal(false)}
           shakeIcon
         />
       )}

@@ -160,6 +160,11 @@ export const Actions = styled('div')({
   },
 });
 
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
 const DialogButton = styled('button')({
   flex: 1,
   padding: '11px 16px',
@@ -170,13 +175,22 @@ const DialogButton = styled('button')({
   cursor: 'pointer',
   border: 'none',
   transition: 'all 0.2s ease',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  '&:disabled': {
+    opacity: 0.65,
+    cursor: 'not-allowed',
+    transform: 'none !important',
+  },
 });
 
 export const CancelButton = styled(DialogButton)({
   background: '#f3f4f6',
   color: '#4b5563',
 
-  '&:hover': {
+  '&:hover:not(:disabled)': {
     background: '#e5e7eb',
   },
 });
@@ -191,12 +205,14 @@ export const ConfirmButton = styled(DialogButton, {
     color: '#ffffff',
     boxShadow: colors.shadow,
 
-    '&:hover': {
+    '&:hover:not(:disabled)': {
       transform: 'translateY(-1px)',
       boxShadow: colors.hoverShadow,
     },
   };
 });
+
+export { ButtonSpinner } from '../../common/ButtonSpinner';
 
 export const LoaderWrap = styled('div')({
   width: '100%',

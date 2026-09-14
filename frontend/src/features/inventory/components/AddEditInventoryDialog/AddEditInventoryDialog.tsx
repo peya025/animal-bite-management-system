@@ -49,6 +49,7 @@ import api from '../../../../services/api';
 import { useAuth } from '../../../../shared/contexts/AuthContext';
 import { formatDate } from '../../../../shared/utils';
 import VaccineTypeDialog from '../VaccineTypeDialog/VaccineTypeDialog';
+import ButtonSpinner from '../../../../components/common/ButtonSpinner';
 import { getVaccinePresets } from '../../services/vaccineInventoryService';
 import type { InventoryItem, VaccineTypePreset } from '../../types';
 import {
@@ -288,11 +289,18 @@ export default function AddEditInventoryDialog({
     if (!form.quantity || Number(form.quantity) < 1) next.quantity = isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
     if (!form.expiration_date) next.expiration_date = 'Expiration date is required.';
     if (!isEdit && expiryDays !== null && expiryDays <= 0) next.expiration_date = 'New stock must have a future expiration date.';
+    if (form.open_vial_hours !== null && form.open_vial_hours !== undefined && form.open_vial_hours !== '') {
+      const hours = Number(form.open_vial_hours);
+      if (isNaN(hours) || hours < 1 || hours > 48) {
+        next.open_vial_hours = 'Open vial discard timer must be between 1 and 48 hours per cold-chain standards.';
+      }
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const handleSubmit = async () => {
+    if (saving) return;
     if (!validate()) return;
 
     setSaving(true);
@@ -816,7 +824,7 @@ export default function AddEditInventoryDialog({
               onClick={handleSubmit}
               variant="contained"
               disabled={!!submitDisabledReason || saving}
-              startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
+              startIcon={saving ? <ButtonSpinner size={16} /> : <AddIcon />}
               sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 2, px: 3, bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}
             >
               {saving ? 'Saving…' : isEdit ? 'Save batch changes' : 'Add to Inventory'}

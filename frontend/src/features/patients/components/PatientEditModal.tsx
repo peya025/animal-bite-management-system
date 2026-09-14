@@ -18,6 +18,7 @@ import {
 import { LockOutlined as LockIcon, CheckCircleOutlined as CheckIcon } from '@mui/icons-material';
 import api from '../../../shared/services/api';
 import type { Patient } from '../types';
+import ButtonSpinner from '../../../components/common/ButtonSpinner';
 
 interface PatientEditModalProps {
   open: boolean;
@@ -409,6 +410,7 @@ export default function PatientEditModal({
           variant="contained"
           onClick={handleSave}
           disabled={loading}
+          startIcon={loading ? <ButtonSpinner size={16} /> : null}
           sx={{
             textTransform: 'none',
             bgcolor: '#10b981',
@@ -418,7 +420,7 @@ export default function PatientEditModal({
             '&:hover': { bgcolor: '#059669' },
           }}
         >
-          {loading ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save Demographic Changes'}
+          {loading ? 'Saving Changes…' : 'Save Demographic Changes'}
         </Button>
       </DialogActions>
     </Dialog>

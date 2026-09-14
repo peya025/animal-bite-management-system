@@ -239,10 +239,10 @@ Phase 10: Security Policies, Standards, Procedures & DOH Guidelines (Phase 10 �
 ### 19. Admin Side Module Configuration (Step-by-Step Enablement & Field Rules)
 > **Goal**: Configure module section toggles and field rules in the Admin workspace (`ModuleConfigPage.tsx`) to enable smooth clinical intake.
 
-- [ ] **19.1 Step 1 — Admin Module Configuration Access**
+- [x] **19.1 Step 1 — Admin Module Configuration Access**
   - Log in with an `admin` or `developer` account.
   - In the left sidebar navigation, expand **Clinic Setup** and click **Module Configuration** (`/setup/modules`).
-- [ ] **19.2 Step 2 — Enable Core Clinical Sections**
+- [x] **19.2 Step 2 — Enable Core Clinical Sections**
   - Toggle all 7 core clinic sections to `ENABLED`:
     - `Patient Registration` (`patient_registration_enabled = true`)
     - `Address Information` (`address_section_enabled = true`)
@@ -251,7 +251,7 @@ Phase 10: Security Policies, Standards, Procedures & DOH Guidelines (Phase 10 �
     - `Bite Incident Intake` (`bite_intake_section_enabled = true`)
     - `Triage & Assessment` (`triage_section_enabled = true`)
     - `Treatment & Vaccination` (`treatment_section_enabled = true`)
-- [ ] **19.3 Step 3 — Set Required Clinical Field Rules**
+- [x] **19.3 Step 3 — Set Required Clinical Field Rules**
   - Under **Triage & Assessment**:
     - Set `exposure_category` (WHO Category I, II, III) $\rightarrow$ `REQUIRED`
     - Set `bite_site` (Anatomical location) $\rightarrow$ `REQUIRED`
@@ -260,47 +260,47 @@ Phase 10: Security Policies, Standards, Procedures & DOH Guidelines (Phase 10 �
     - Set `protocol_type` (Standard, Accelerated, Booster) $\rightarrow$ `REQUIRED`
     - Set `route` (Intradermal ID / Intramuscular IM) $\rightarrow$ `REQUIRED`
     - Set `vaccine_brand` & `batch_no` $\rightarrow$ `REQUIRED`
-- [ ] **19.4 Step 4 — Save & Verify Configuration**
+- [x] **19.4 Step 4 — Save & Verify Configuration**
   - Click **"Save Module Configuration"** at top-right.
   - Verify API PUT request to `/api/clinic-config` succeeds and toast reads *"Clinic module configuration saved successfully"*.
-- [ ] **19.5 Step 5 — Staff Station Assignment**
+- [x] **19.5 Step 5 — Staff Station Assignment**
   - Navigate to **Staff Assignments** (`/setup/staff-assignments`).
   - Assign physicians to **Triage / Consultation Station**.
   - Assign clinic nurses to **Treatment / Vaccination Station**.
-- [ ] **19.6 Step 6 — Dynamic Form Runtime Binding**
+- [x] **19.6 Step 6 — Dynamic Form Runtime Binding**
   - Connect `GeneralTreatmentForm.tsx` (Doctor Form 2) and `VaccinationRecordForm.tsx` (Form 3) to `useClinicModuleConfig()` hook to dynamically enforce configured field rules.
 
 ### 20. Itemized 10 Discovered Frontend Loopholes & System Hardening
 > **Goal**: Step-by-step remediation of all 10 frontend loopholes identified during system audit.
 
-- [ ] **20.1 Loophole 1: Missing Route-Level RBAC Protection (`App.tsx`)**
+- [x] **20.1 Loophole 1: Missing Route-Level RBAC Protection (`App.tsx`)**
   - **Defect**: `ProtectedRoute` checks only `authToken` in `localStorage` without verifying `user.role`. Low-privilege users can manually type `/developer/*`, `/users/*`, `/setup/*` in URL.
   - **Fix**: Implement `RoleProtectedRoute` component with `allowedRoles` array prop, redirecting unauthorized roles to `/dashboard`.
-- [ ] **20.2 Loophole 2: Severe Emergency Priority Sorting Inversion (`QueueDashboardPage.tsx`)**
+- [x] **20.2 Loophole 2: Severe Emergency Priority Sorting Inversion (`QueueDashboardPage.tsx`)**
   - **Defect**: `sortQueueForDisplay` evaluates `priorityCategoryRank` (Senior/PWD/Pregnant) **before** `priorityLevelRank` (Emergency = 0). Emergency severe head/neck bite patients are placed **below** normal priority seniors.
   - **Fix**: Update `sortQueueForDisplay` to evaluate `priorityLevelRank(a) - priorityLevelRank(b)` FIRST so Emergency patients take top precedence.
-- [ ] **20.3 Loophole 3: Multi-Doctor Parallel Room Ticket Collision (`QueueDashboardPage.tsx`)**
+- [x] **20.3 Loophole 3: Multi-Doctor Parallel Room Ticket Collision (`QueueDashboardPage.tsx`)**
   - **Defect**: Clicking "Call Next" sends a generic call request without station/room binding or optimistic locking. Parallel doctors call and serve the same ticket.
   - **Fix**: Include `room_id`/`station_id` in call payload, optimistically lock ticket in local state, and handle 409 Conflict API errors with doctor station toast notifications.
-- [ ] **20.4 Loophole 4: Action Button Double-Submit & Multi-Click Vulnerability**
+- [x] **20.4 Loophole 4: Action Button Double-Submit & Multi-Click Vulnerability**
   - **Defect**: Form submit buttons lack debouncing and remain active during pending API calls, causing duplicate patient records, double stock deductions, or duplicate queue tickets.
   - **Fix**: Add `isSubmitting` state guard, disable submit buttons on click, and apply 500ms debounce throttling on queue action buttons.
-- [ ] **20.5 Loophole 5: Client LocalStorage State Tampering for Admin Controls (`InventoryTable.tsx`)**
+- [x] **20.5 Loophole 5: Client LocalStorage State Tampering for Admin Controls (`InventoryTable.tsx`)**
   - **Defect**: Admin buttons (`Delete Batch`, `Adjust Stock`) rely purely on client `user?.role === 'admin'`. Overwriting `localStorage` `userData` reveals all admin buttons.
   - **Fix**: Enforce server-side authorization check on submit and handle 403 Forbidden responses by resetting client state safely.
-- [ ] **20.6 Loophole 6: Unsanitized Open-Vial Discard Timer Bounds (`AddEditInventoryDialog.tsx`)**
+- [x] **20.6 Loophole 6: Unsanitized Open-Vial Discard Timer Bounds (`AddEditInventoryDialog.tsx`)**
   - **Defect**: Form allows arbitrary open vial hours (e.g. 168 hours) without enforcing WHO/DOH cold-chain limits (max 8h for reconstituted vaccines, max 48h for RIG).
   - **Fix**: Enforce input bounds `min={1}` and `max={48}` with cold-chain preset tooltips.
-- [ ] **20.7 Loophole 7: Search Input Regex Special Character Crash**
+- [x] **20.7 Loophole 7: Search Input Regex Special Character Crash**
   - **Defect**: Search fields with regex special characters (`(`, `[`, `*`, `\`, `?`) crash client JS rendering when parsed with `new RegExp(search)`.
   - **Fix**: Escape regex special characters with `search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')` and use `String.prototype.includes()`.
-- [ ] **20.8 Loophole 8: Unhandled API Failure & Infinite Spinner Deadlocks**
+- [x] **20.8 Loophole 8: Unhandled API Failure & Infinite Spinner Deadlocks**
   - **Defect**: API 500 errors or network dropouts trap tables in perpetual `loading: true` state without error banners or retry actions.
   - **Fix**: Ensure `finally { setLoading(false); }` runs on all data hooks and render error fallback banners with "Tap to Retry" buttons.
-- [ ] **20.9 Loophole 9: Print Filter Desynchronization & Missing DOH Sign-Off Blocks (`ReportsDashboardPage.tsx`)**
+- [x] **20.9 Loophole 9: Print Filter Desynchronization & Missing DOH Sign-Off Blocks (`ReportsDashboardPage.tsx`)**
   - **Defect**: Clicking "Print" outputs static/unfiltered data rather than mirroring active UI filters, and lacks formal government sign-off signature blocks (*Prepared by Nurse*, *Approved by Doctor*).
   - **Fix**: Pass active `filteredItems` to print window, adding clinic letterhead, generated timestamp, filter criteria banner, and formal sign-off signature blocks.
-- [ ] **20.10 Loophole 10: Mobile Application Mock Mode Release Build Leak (`mobile/.env`)**
+- [x] **20.10 Loophole 10: Mobile Application Mock Mode Release Build Leak (`mobile/.env`)**
   - **Defect**: Flutter app contains mock mode flags (`MOCK_MODE=true`) that bypass real backend JWT login if left enabled in release builds.
   - **Fix**: Add build assertion in Flutter `main.dart` raising an error if `MOCK_MODE=true` is set in `--release` build mode.
 

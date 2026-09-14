@@ -716,7 +716,9 @@ export default function TreatmentRecordsPage() {
           confirmLabel="Delete Record"
           cancelLabel="Cancel"
           variant="danger"
-          onConfirm={() => showDeleteId && handleDelete(showDeleteId)}
+          onConfirm={() => {
+            if (showDeleteId) handleDelete(showDeleteId);
+          }}
           onCancel={() => setShowDeleteId(null)}
         />
       )}

@@ -45,12 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setClinic(null);
-    setToken(null);
-    authService.logout();
-    navigate(ROUTES.LOGIN, { replace: true });
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } finally {
+      setUser(null);
+      setClinic(null);
+      setToken(null);
+      navigate(ROUTES.LOGIN, { replace: true });
+    }
   };
 
   const value: AuthContextType = {

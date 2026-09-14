@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -18,6 +19,10 @@ Future<void> main() async {
   // Check if mock mode is enabled
   final useMockData = dotenv.env['USE_MOCK_DATA']?.toLowerCase() == 'true';
   
+  if (kReleaseMode && useMockData) {
+    throw StateError('CRITICAL SECURITY ERROR: USE_MOCK_DATA must not be enabled in release builds.');
+  }
+
   if (useMockData) {
     // Use mock data (no backend needed)
     await MockMobileApi.instance.initialize();

@@ -108,21 +108,23 @@ function priorityLevelRank(entry: QueueEntry): number {
 
 function displayRank(entry: QueueEntry): number {
   if (['called', 'serving', 'in_consultation'].includes(entry.status)) return 0;
-  if (entry.status === 'waiting' && isPriorityQueueEntry(entry)) return 1;
-  if (entry.status === 'waiting') return 2;
-  if (['second_chance', 'final_recall'].includes(entry.status)) return 3;
-  return 4;
+  if (entry.status === 'waiting' && entry.priority === 'emergency') return 1;
+  if (entry.status === 'waiting' && (isPriorityQueueEntry(entry) || entry.priority === 'urgent')) return 2;
+  if (entry.status === 'waiting') return 3;
+  if (['second_chance', 'final_recall'].includes(entry.status)) return 4;
+  return 5;
 }
 
 function sortQueueForDisplay(a: QueueEntry, b: QueueEntry): number {
   const rankDiff = displayRank(a) - displayRank(b);
   if (rankDiff !== 0) return rankDiff;
 
-  const categoryDiff = priorityCategoryRank(a) - priorityCategoryRank(b);
-  if (categoryDiff !== 0) return categoryDiff;
-
+  // Emergency / Urgent Priority must come FIRST
   const priorityDiff = priorityLevelRank(a) - priorityLevelRank(b);
   if (priorityDiff !== 0) return priorityDiff;
+
+  const categoryDiff = priorityCategoryRank(a) - priorityCategoryRank(b);
+  if (categoryDiff !== 0) return categoryDiff;
 
   return a.queue_number - b.queue_number;
 }
@@ -203,16 +205,28 @@ export default function QueueDashboard() {
   const [showHistoryLookup, setShowHistoryLookup] = useState(false);
 
 
+  const [actionPending, setActionPending] = useState(false);
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const run = async (fn: () => Promise<unknown>, successMsg: string, errMsg: string) => {
-    try   { await fn(); toast(successMsg); reload(); }
-    catch (err: unknown) {
-      const response = typeof err === 'object' && err !== null && 'response' in err
-        ? (err as { response?: { data?: { message?: string } } }).response
-        : undefined;
-      const msg = response?.data?.message ?? errMsg;
-      toast(msg, 'error');
+    if (actionPending) return;
+    setActionPending(true);
+    try {
+      await fn();
+      toast(successMsg);
+      reload();
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message;
+      if (status === 409) {
+        toast(msg || 'This patient is currently being called or attended by another workstation.', 'error');
+        reload();
+      } else {
+        toast(msg ?? errMsg, 'error');
+      }
+    } finally {
+      setActionPending(false);
     }
   };
 

@@ -31,6 +31,7 @@ import {
 import api from '../../../shared/services/api';
 import type { Patient } from '../types';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import ButtonSpinner from '../../../components/common/ButtonSpinner';
 
 // ─── Local Error Boundary Component ───────────────────────────
 interface ErrorBoundaryProps {
@@ -410,7 +411,7 @@ function InvitePatientModalContent({
             variant="outlined"
             onClick={handleResendInvite}
             disabled={sending || !hasPhone}
-            startIcon={sending ? <CircularProgress size={16} /> : <ResendIcon fontSize="small" />}
+            startIcon={sending ? <ButtonSpinner size={16} /> : <ResendIcon fontSize="small" />}
             sx={{
               borderColor: '#059669',
               color: '#059669',
@@ -426,7 +427,7 @@ function InvitePatientModalContent({
             variant="contained"
             onClick={handleSendInvite}
             disabled={sending || !hasPhone || invitation?.status === 'accepted'}
-            startIcon={sending ? <CircularProgress size={16} color="inherit" /> : <SendIcon fontSize="small" />}
+            startIcon={sending ? <ButtonSpinner size={16} /> : <SendIcon fontSize="small" />}
             sx={{
               bgcolor: '#059669',
               fontWeight: 600,

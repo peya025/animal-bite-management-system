@@ -8,10 +8,10 @@ import {
   Box,
   Alert,
   Typography,
-  CircularProgress,
 } from '@mui/material';
 import VaccineSelector from '../VaccineSelector/VaccineSelector';
 import { useVaccine, type VaccineBatch } from '../../services/vaccineInventoryService';
+import ButtonSpinner from '../../../../components/common/ButtonSpinner';
 
 // ─── Props ────────────────────────────────────────────────────
 interface VaccineManagementDialogProps {
@@ -228,7 +228,7 @@ export default function VaccineManagementDialog({
             '&:hover': { bgcolor: '#059669' },
             '&:disabled': { bgcolor: '#d1d5db', color: '#9ca3af' },
           }}
-          startIcon={saving ? <CircularProgress size={16} /> : null}
+          startIcon={saving ? <ButtonSpinner size={16} /> : null}
         >
           {saving ? 'Processing...' : 'Use Vaccine'}
         </Button>

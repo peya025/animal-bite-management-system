@@ -44,7 +44,7 @@ export interface AuthContextType {
   clinic: Clinic | null;
   token: string | null;
   login: (credentials: LoginCredentials) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void> | void;
   isAuthenticated: boolean;
   isLoading: boolean;
 }

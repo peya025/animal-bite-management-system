@@ -29,7 +29,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   // Check if user has required role
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/unauthorized" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

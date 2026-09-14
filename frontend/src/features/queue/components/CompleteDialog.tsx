@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Alert, Button, CircularProgress, Dialog, DialogActions,
+  Alert, Button, Dialog, DialogActions,
   DialogContent, DialogTitle, Divider, TextField,
 } from '@mui/material';
 import { Done as CompleteIcon } from '@mui/icons-material';
@@ -8,6 +8,7 @@ import type { QueueEntry } from '../types';
 import { VISIT_LABEL } from '../types';
 import { completeQueueConsultation } from '../services';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import ButtonSpinner from '../../../components/common/ButtonSpinner';
 
 interface CompleteDialogProps {
   open: boolean;
@@ -121,7 +122,7 @@ export function CompleteDialog({ open, entry, onClose, onDone, mode = 'complete'
             variant="contained"
             color="success"
             disabled={saving}
-            startIcon={saving ? <CircularProgress size={16} /> : <CompleteIcon />}
+            startIcon={saving ? <ButtonSpinner size={16} /> : <CompleteIcon />}
             onClick={() => setShowConfirm(true)}
           >
             {actionLabel}
@@ -135,10 +136,11 @@ export function CompleteDialog({ open, entry, onClose, onDone, mode = 'complete'
           title={dialogTitle}
           message={confirmMessage}
           confirmLabel={confirmLabel}
+          loadingLabel="Completing..."
           cancelLabel="Go Back"
-          onConfirm={() => {
+          onConfirm={async () => {
+            await doComplete();
             setShowConfirm(false);
-            doComplete();
           }}
           onCancel={() => setShowConfirm(false)}
         />

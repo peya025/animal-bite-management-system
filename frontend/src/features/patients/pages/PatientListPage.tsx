@@ -1015,11 +1015,6 @@ export default function PatientList() {
         }}
         onSuccess={() => {
           fetchPatients();
-          setSuccessModal({
-            open: true,
-            title: 'Invitation Sent',
-            message: 'Patient portal invitation sent successfully!',
-          });
         }}
       />
 

@@ -150,10 +150,11 @@ export default function AdjustStockDialog({ open, item, onClose, onSaved }: Adju
             </>
           }
           confirmLabel="Yes, Adjust Stock"
+          loadingLabel="Adjusting stock..."
           cancelLabel="Go Back"
-          onConfirm={() => {
+          onConfirm={async () => {
+            await handleSubmit();
             setShowConfirm(false);
-            handleSubmit();
           }}
           onCancel={() => setShowConfirm(false)}
         />

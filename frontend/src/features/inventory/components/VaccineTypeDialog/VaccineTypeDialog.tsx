@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -30,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { storeVaccinePreset, updateVaccinePreset } from '../../services/vaccineInventoryService';
 import type { VaccineTypePreset } from '../../types';
+import ButtonSpinner from '../../../../components/common/ButtonSpinner';
 
 interface VaccineTypeDialogProps {
   open: boolean;
@@ -109,8 +111,11 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
     if (!form.default_shelf_life_months || form.default_shelf_life_months < 1) {
       next.default_shelf_life_months = 'Shelf-life must be at least 1 month.';
     }
-    if (form.is_multidose && (!form.default_open_vial_hours || form.default_open_vial_hours < 1)) {
-      next.default_open_vial_hours = 'Enter how many hours the vial stays valid once opened.';
+    if (form.is_multidose) {
+      const hours = Number(form.default_open_vial_hours);
+      if (!form.default_open_vial_hours || isNaN(hours) || hours < 1 || hours > 48) {
+        next.default_open_vial_hours = 'Open vial discard timer must be between 1 and 48 hours per cold-chain standards.';
+      }
     }
     if (form.is_multidose && (!form.doses_per_vial || form.doses_per_vial < 1)) {
       next.doses_per_vial = 'Enter how many patients can share 1 vial (at least 1).';
@@ -308,9 +313,9 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
                 helperText={
                   !form.is_multidose
                     ? 'Single-dose: hours valid once opened is not used.'
-                    : errors.default_open_vial_hours || 'How many hours the vial stays valid after it is first opened.'
+                    : errors.default_open_vial_hours || '1 to 48 hours per cold-chain standards (e.g., 8h for ARV, 48h for RIG).'
                 }
-                slotProps={{ htmlInput: { min: 1, max: 168 } }}
+                slotProps={{ htmlInput: { min: 1, max: 48 } }}
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
               />
             </Grid>
@@ -415,7 +420,7 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
           onClick={handleSave}
           variant="contained"
           disabled={saving}
-          startIcon={<SaveIcon />}
+          startIcon={saving ? <ButtonSpinner size={16} /> : <SaveIcon />}
           sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#2563eb', '&:hover': { bgcolor: '#1d4ed8' } }}
         >
           {saving ? 'Saving…' : isEdit ? 'Save rule changes' : 'Save vaccine type'}

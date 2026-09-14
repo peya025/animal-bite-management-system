@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Actions,
+  ButtonSpinner,
   CancelButton,
   ConfirmButton,
   Icon,
@@ -20,11 +21,14 @@ export interface ConfirmationDialogProps {
   message: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  loadingLabel?: string;
+  loading?: boolean;
+  isLoading?: boolean;
   hideCancel?: boolean;
   hideConfirm?: boolean;
-  onConfirm?: () => void;
-  onCancel?: () => void;
-  onClose?: () => void;
+  onConfirm?: () => Promise<unknown> | void;
+  onCancel?: () => Promise<unknown> | void;
+  onClose?: () => Promise<unknown> | void;
   shakeIcon?: boolean;
   autoClose?: number;
 }
@@ -77,6 +81,9 @@ export default function ConfirmationDialog({
   message,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
+  loadingLabel,
+  loading = false,
+  isLoading = false,
   hideCancel = false,
   hideConfirm = false,
   onConfirm,
@@ -85,9 +92,12 @@ export default function ConfirmationDialog({
   shakeIcon = false,
   autoClose,
 }: ConfirmationDialogProps) {
+  const [internalLoading, setInternalLoading] = useState(false);
+  const isActionLoading = Boolean(loading || isLoading || internalLoading);
   const activeColorVariant = colorVariant || variant;
 
   const handleDismiss = () => {
+    if (isActionLoading) return;
     if (onClose) {
       onClose();
     } else if (onCancel) {
@@ -97,17 +107,24 @@ export default function ConfirmationDialog({
     }
   };
 
-  const handleConfirmAction = () => {
-    if (onConfirm) {
-      onConfirm();
-    } else if (onClose) {
-      onClose();
-    } else if (onCancel) {
-      onCancel();
+  const handleConfirmAction = async () => {
+    if (isActionLoading) return;
+    setInternalLoading(true);
+    try {
+      if (onConfirm) {
+        await onConfirm();
+      } else if (onClose) {
+        await onClose();
+      } else if (onCancel) {
+        await onCancel();
+      }
+    } finally {
+      setInternalLoading(false);
     }
   };
 
   const handleCancelAction = () => {
+    if (isActionLoading) return;
     if (onCancel) {
       onCancel();
     } else if (onClose) {
@@ -150,13 +167,19 @@ export default function ConfirmationDialog({
         {showActions && (
           <Actions>
             {!hideCancel && (
-              <CancelButton type="button" onClick={handleCancelAction}>
+              <CancelButton type="button" disabled={isActionLoading} onClick={handleCancelAction}>
                 {cancelLabel}
               </CancelButton>
             )}
             {!hideConfirm && (
-              <ConfirmButton type="button" variant={activeColorVariant} onClick={handleConfirmAction}>
-                {confirmLabel}
+              <ConfirmButton
+                type="button"
+                variant={activeColorVariant}
+                disabled={isActionLoading}
+                onClick={handleConfirmAction}
+              >
+                {isActionLoading && <ButtonSpinner />}
+                {isActionLoading && loadingLabel ? loadingLabel : confirmLabel}
               </ConfirmButton>
             )}
           </Actions>

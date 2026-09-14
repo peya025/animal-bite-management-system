@@ -191,7 +191,7 @@ export default function NursePatientListPage() {
     return scheduledAppts[0];
   };
 
-  const getVaccinationStatus = (patient: Patient) => {
+  const getVaccinationStatus = (patient: Patient): { label: string; color: string; bg: string; border: string; subtext?: string } => {
     const activeQueue = (patient as any).queues?.[0];
     const appt = getNextAppointment(patient);
     if (activeQueue) {
@@ -202,15 +202,15 @@ export default function NursePatientListPage() {
 
       if (activeQueue.status === 'waiting') {
         if (isPastAppt) {
-          return { label: `In Queue (Waiting · ${lateDays}d Late)`, color: '#92400e', bg: '#fef3c7', border: '#fde68a' };
+          return { label: `In Queue (Waiting · ${lateDays}d Late)`, color: '#92400e', bg: '#fef3c7', border: '#fde68a', subtext: 'Late Arrival' };
         }
-        return { label: 'In Queue (Waiting)', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+        return { label: 'In Queue (Waiting)', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0', subtext: `Queue #${activeQueue.queue_number || ''}` };
       }
       if (activeQueue.status === 'in_consultation' || activeQueue.status === 'called' || activeQueue.status === 'serving') {
         if (isPastAppt) {
-          return { label: `In Triage (${lateDays}d Late)`, color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' };
+          return { label: `In Triage (${lateDays}d Late)`, color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', subtext: 'Consultation / Triage' };
         }
-        return { label: 'In Consultation', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' };
+        return { label: 'In Consultation', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', subtext: `Queue #${activeQueue.queue_number || ''}` };
       }
     }
 
@@ -218,11 +218,13 @@ export default function NursePatientListPage() {
     const hasCompletedTriage = Boolean(
       (patient as any).bite_incidents?.length ||
       (patient as any).biteIncidents?.length ||
+      (patient as any).bite_intakes?.length ||
+      (patient as any).biteIntakes?.length ||
       record
     );
 
     if (!hasCompletedTriage) {
-      return { label: 'Awaiting Triage (Form 2)', color: '#b45309', bg: '#fef3c7', border: '#fde68a' };
+      return { label: 'Awaiting Triage (Form 2)', color: '#b45309', bg: '#fef3c7', border: '#fde68a', subtext: 'Needs Consultation' };
     }
 
     if (!record || record.dose_number === null || record.dose_number === undefined) {
@@ -230,32 +232,53 @@ export default function NursePatientListPage() {
         const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
         const today = new Date();
         if (apptDate < today && apptDate.toDateString() !== today.toDateString()) {
-          return { label: 'Missed Booking', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' };
+          const lateDays = Math.floor((today.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24));
+          return { label: 'Missed Booking', color: '#991b1b', bg: '#fef2f2', border: '#fecaca', subtext: `${lateDays}d overdue` };
         }
       }
       if (appt?.status === 'confirmed') {
-        return { label: 'Checked In', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+        return { label: 'Checked In', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0', subtext: 'Ready for Dose 1 (Day 0)' };
       }
-      return { label: 'Ready for Dose 1 (Day 0)', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+      return { label: 'Ready for Dose 1 (Day 0)', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0', subtext: 'Triage Completed' };
     }
 
-    if (record.dose_number >= 28 && !appt) {
-      return { label: 'Completed', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+    // Regimen completion logic:
+    // DOH NRPCP Primary PEP complete when dose >= 7 (and < 90) with no pending appointments
+    // Booster complete when dose >= 365 (or >= 90 with no pending appointments)
+    const isPrimaryComplete = record.dose_number >= 7 && record.dose_number < 90;
+    const isBoosterComplete = record.dose_number >= 365 || (record.dose_number >= 90 && !appt);
+
+    if ((isPrimaryComplete || isBoosterComplete) && !appt) {
+      return {
+        label: isBoosterComplete ? 'Booster Complete' : 'Completed',
+        color: '#047857',
+        bg: '#ecfdf5',
+        border: '#a7f3d0',
+        subtext: isBoosterComplete ? 'Booster Series Done' : 'Primary Series Done'
+      };
     }
 
     if (appt) {
       const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
       const today = new Date();
-      if (apptDate < today && apptDate.toDateString() !== today.toDateString()) {
-        return { label: 'Overdue', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' };
+      const isToday = apptDate.toDateString() === today.toDateString();
+      const isPast = apptDate < today && !isToday;
+
+      if (isPast) {
+        const lateDays = Math.floor((today.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24));
+        return { label: 'Overdue', color: '#991b1b', bg: '#fef2f2', border: '#fecaca', subtext: `${lateDays}d Past Schedule` };
+      }
+
+      if (appt.status === 'confirmed') {
+        return { label: 'Checked In / Ready for Dose', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0', subtext: 'In Treatment Queue' };
+      }
+
+      if (isToday) {
+        return { label: 'Due Today', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0', subtext: appt.time_slot || 'Regular hours' };
       }
     }
 
-    if (appt?.status === 'confirmed') {
-      return { label: 'Checked In / Ready for Dose', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
-    }
-
-    return { label: 'In Progress', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' };
+    return { label: 'In Progress', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', subtext: 'Awaiting Next Schedule' };
   };
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -336,15 +359,19 @@ export default function NursePatientListPage() {
         const status = getDoseStatus(patient);
         const record = patient.latest_treatment_record;
         return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
             <Chip
               label={status.label}
               size="small"
               sx={{ bgcolor: status.bg, color: status.color, border: `1px solid ${status.border}`, fontSize: 11.5, fontWeight: 600, height: 24, mb: 0.25 }}
             />
-            {record?.treatment_date && (
-              <Typography sx={{ fontSize: 11, color: '#6b7280', display: 'block', textAlign: 'center' }}>
+            {record?.treatment_date ? (
+              <Typography sx={{ fontSize: 11, color: '#6b7280', display: 'block', textAlign: 'center', lineHeight: 1.2 }}>
                 Administered: {new Date(record.treatment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </Typography>
+            ) : (
+              <Typography sx={{ fontSize: 11, color: '#9ca3af', display: 'block', textAlign: 'center', lineHeight: 1.2 }}>
+                Not administered
               </Typography>
             )}
           </Box>
@@ -358,12 +385,21 @@ export default function NursePatientListPage() {
       render: (patient) => {
         const status = getVaccinationStatus(patient);
         return (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
             <Chip
               label={status.label}
               size="small"
-              sx={{ bgcolor: status.bg, color: status.color, border: `1px solid ${status.border}`, fontSize: 11.5, fontWeight: 600, height: 24 }}
+              sx={{ bgcolor: status.bg, color: status.color, border: `1px solid ${status.border}`, fontSize: 11.5, fontWeight: 600, height: 24, mb: 0.25 }}
             />
+            {status.subtext ? (
+              <Typography sx={{ fontSize: 11, color: '#6b7280', display: 'block', textAlign: 'center', lineHeight: 1.2 }}>
+                {status.subtext}
+              </Typography>
+            ) : (
+              <Typography sx={{ fontSize: 11, color: 'transparent', display: 'block', textAlign: 'center', lineHeight: 1.2, userSelect: 'none' }}>
+                —
+              </Typography>
+            )}
           </Box>
         );
       },
@@ -393,9 +429,22 @@ export default function NursePatientListPage() {
         };
 
         const isBoosterAppt = appt.appointment_type === 'booster' || appt.notes?.toLowerCase()?.includes('booster');
+        let fallbackTitle = 'Initial Consultation / Day 0';
+        if (isBoosterAppt) {
+          fallbackTitle = 'Booster Vaccination';
+        } else if (appt.appointment_type === 'consultation') {
+          fallbackTitle = 'Initial Consultation';
+        } else if (patient.latest_treatment_record) {
+          const prevDose = patient.latest_treatment_record.dose_number;
+          if (prevDose === 0) fallbackTitle = 'Day 3 (Dose 1)';
+          else if (prevDose === 3) fallbackTitle = 'Day 7 (Dose 2)';
+          else if (prevDose >= 7 && prevDose < 90) fallbackTitle = 'Booster 1';
+          else if (prevDose >= 90) fallbackTitle = 'Booster 2';
+          else fallbackTitle = 'Follow-up Dose';
+        }
         const appointmentTitle = appt.dose_number !== undefined && appt.dose_number !== null && doseMap[appt.dose_number]
           ? doseMap[appt.dose_number]
-          : (isBoosterAppt ? 'Booster Vaccination' : (appt.appointment_type === 'consultation' ? 'Initial Consultation' : 'Initial Consultation / Day 0'));
+          : fallbackTitle;
 
         if (appt.status === 'confirmed') {
           return (

@@ -82,8 +82,8 @@ class VaccinationJourneyController extends Controller
             $appointments = $p->appointments;
             $biteIncident = $p->biteIncidents->first();
 
-            // Build standard PEP Doses list (Day 0, Day 3, Day 7, Day 28)
-            $standardDoses = [0, 3, 7, 28];
+            // Build standard PEP Doses list (Day 0, Day 3, Day 7 - DOH NRPCP 3-Dose Regimen)
+            $standardDoses = [0, 3, 7];
             $dosesMatrix = [];
             $hasAnyDose = $treatmentRecords->isNotEmpty();
             $hasForm2 = (bool) $biteIncident;
@@ -161,7 +161,7 @@ class VaccinationJourneyController extends Controller
             if (!$hasForm2 && !$hasAnyDose) {
                 $patientStatus = 'awaiting_triage';
                 $kpi['awaiting_triage']++;
-            } elseif ($maxDoseDone >= 28) {
+            } elseif ($maxDoseDone >= 7) {
                 $patientStatus = 'completed';
                 $kpi['completed']++;
             } elseif ($nextAppt && $nextAppt['is_missed']) {

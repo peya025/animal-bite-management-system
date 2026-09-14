@@ -284,7 +284,6 @@ class ClinicScheduleService
         $doseIntervals = [
             3   => ['interval_from_prev' => 3,   'days_after_day0' => 3,   'name' => 'Day 3'],
             7   => ['interval_from_prev' => 4,   'days_after_day0' => 7,   'name' => 'Day 7'],
-            28  => ['interval_from_prev' => 21,  'days_after_day0' => 28,  'name' => 'Day 28'],
             90  => ['interval_from_prev' => 62,  'days_after_day0' => 90,  'name' => 'Booster 1'],
             365 => ['interval_from_prev' => 275, 'days_after_day0' => 365, 'name' => 'Booster 2'],
         ];

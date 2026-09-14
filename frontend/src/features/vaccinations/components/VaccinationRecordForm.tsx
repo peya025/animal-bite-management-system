@@ -241,14 +241,12 @@ const calculateDoseDates = (baseDateStr: string, currentDoses: VaccinationDose[]
 const createInitialDoses = (baseDate: string = getLocalDateString()): VaccinationDose[] => {
   const d3 = scheduledDoseDate(baseDate, 3);
   const d7 = scheduledDoseDate(baseDate, 7);
-  const d28 = scheduledDoseDate(baseDate, 28);
   const b1 = scheduledDoseDate(baseDate, 90);
   const b2 = scheduledDoseDate(baseDate, 365);
   return [
     { period: 'Day 0', route: 'IM', date: baseDate, ideal_date: baseDate, schedule_drift_days: 0, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
     { period: 'Day 3', route: 'IM', ...d3, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
     { period: 'Day 7', route: 'IM', ...d7, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
-    { period: 'Day 28', route: '', ...d28, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
     { period: 'Booster 1', route: '', ...b1, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
     { period: 'Booster 2', route: '', ...b2, given_by: '', signature: '', vaccine_type: '', inventory_units_used: '1', batch_number: '', expiration_date: '', available_stock: undefined, inventory_linked: false, is_external: false, external_facility_name: '' },
   ];
@@ -2025,8 +2023,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 }}
               >
                 {showFullSchedule
-                  ? '▲ Hide Day 28 & Booster Doses'
-                  : '▼ Show Day 28 & Booster 1 / Booster 2 (optional follow-up)'}
+                  ? '▲ Hide Booster Doses'
+                  : '▼ Show Booster 1 / Booster 2 (optional follow-up)'}
               </button>
             </div>
           )}

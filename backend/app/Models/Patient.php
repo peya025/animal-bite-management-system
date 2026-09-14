@@ -340,7 +340,8 @@ class Patient extends Model
     {
         return $this->hasOne(TreatmentRecord::class, 'patient_id', 'patient_id')
             ->whereNotNull('dose_number')
-            ->latest('treatment_date');
+            ->orderBy('treatment_date', 'desc')
+            ->orderBy('treatment_id', 'desc');
     }
 
     /**

@@ -150,12 +150,12 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
   const bite = cardData?.bite_incident;
   const records = cardData?.treatment_records || [];
 
-  // Map 9 vaccination period rows
+  // Map vaccination period rows (DOH NRPCP 3-Dose Primary Regimen + Boosters)
   const periods = [
     { period: 'Day 0', key: 'day0', doseNum: 0 },
     { period: 'Day 3', key: 'day3', doseNum: 3 },
     { period: 'Day 7', key: 'day7', doseNum: 7 },
-    { period: 'Day 28', key: 'day28', doseNum: 28 },
+    ...(records.some((r: any) => r.dose_number === 28) ? [{ period: 'Day 28', key: 'day28', doseNum: 28 }] : []),
     { period: 'Booster 1', key: 'booster1', doseNum: 100 },
     { period: 'Booster 2', key: 'booster2', doseNum: 101 },
     { period: 'ERIG', key: 'erig', doseNum: 200 },

@@ -827,7 +827,7 @@ class VaccinationRecordController extends Controller
                     $isBooster = $incident->isReExposure() || $request->episode_type === 're_exposure';
                     if ($isBooster && in_array(3, $savedDoseNumbers)) {
                         $incident->update(['status' => 'completed']);
-                    } elseif (!$isBooster && in_array(28, $savedDoseNumbers)) {
+                    } elseif (!$isBooster && in_array(7, $savedDoseNumbers)) {
                         $incident->update(['status' => 'completed']);
                     }
                 }
@@ -980,13 +980,6 @@ class VaccinationRecordController extends Controller
                 3 => 3, // 3 days after Day 0
                 7 => 4, // 4 days after Day 3
             ];
-
-            // Only schedule Day 28 if explicitly specified with a date in the form (e.g. IM Essen protocol)
-            $hasExplicitDay28 = collect($request->doses ?? [])->contains(fn($d) => ($d['period'] ?? '') === 'Day 28' && !empty($d['date']));
-            if ($hasExplicitDay28) {
-                $schedule[] = ['period' => 'Day 28', 'days_after' => 28, 'dose_number' => 28];
-                $doseIntervals[28] = 21;
-            }
         }
 
         $previousResolvedDate = $day0Date->copy();

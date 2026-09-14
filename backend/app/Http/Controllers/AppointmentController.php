@@ -245,6 +245,9 @@ class AppointmentController extends Controller
                         'biteIntakes' => function ($bi) {
                             $bi->latest();
                         },
+                        'biteIncidents' => function ($bi) {
+                            $bi->latest();
+                        },
                         'latestTreatmentRecord',
                         'queues' => function ($qu) {
                             $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
@@ -301,6 +304,9 @@ class AppointmentController extends Controller
                         'biteIntakes' => function ($bi) {
                             $bi->latest();
                         },
+                        'biteIncidents' => function ($bi) {
+                            $bi->latest();
+                        },
                         'latestTreatmentRecord',
                         'queues' => function ($qu) {
                             $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)->latest();
@@ -323,6 +329,9 @@ class AppointmentController extends Controller
                         'biteIntakes' => function ($bi) {
                             $bi->latest();
                         },
+                        'biteIncidents' => function ($bi) {
+                            $bi->latest();
+                        },
                         'latestTreatmentRecord'
                     ]);
                     break;
@@ -341,6 +350,9 @@ class AppointmentController extends Controller
                         'biteIntakes' => function ($bi) {
                             $bi->latest();
                         },
+                        'biteIncidents' => function ($bi) {
+                            $bi->latest();
+                        },
                         'queues' => function ($qu) {
                             $qu->where('status', 'completed')
                                ->whereDate('queue_date', Carbon::today())
@@ -355,6 +367,9 @@ class AppointmentController extends Controller
                     $query->with([
                         'latestTreatmentRecord',
                         'upcomingAppointment',
+                        'biteIncidents' => function ($bi) {
+                            $bi->latest();
+                        },
                         'appointments' => function ($app) {
                             $app->whereIn('status', ['scheduled', 'missed'])
                                 ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC');
@@ -625,9 +640,10 @@ class AppointmentController extends Controller
             $prevDose = (int)$latestRecord->dose_number;
             if ($prevDose === 0) $nextDose = 3;
             elseif ($prevDose === 3) $nextDose = 7;
-            elseif ($prevDose === 7) $nextDose = 28;
+            elseif ($prevDose === 7) $nextDose = 90;
             elseif ($prevDose >= 28 && $prevDose < 90) $nextDose = 90;
-            elseif ($prevDose === 90) $nextDose = 365;
+            elseif ($prevDose >= 90 && $prevDose < 365) $nextDose = 365;
+            elseif ($prevDose >= 365) $nextDose = 90;
         } else {
             $nextDose = 0;
         }

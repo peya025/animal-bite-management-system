@@ -438,6 +438,55 @@ class VaccinationRecordController extends Controller
                     ]);
                 }
 
+                // 22.2 — Prerequisite dose sequence validation
+                // Enforce chronological order: Day 3 requires Day 0, Day 7 requires Day 3,
+                // Day 28 requires Day 7. Booster 2 (day 365) requires Booster 1 (day 90).
+                $prerequisiteMap = [
+                    3   => 0,   // Day 3  → Day 0 must be completed
+                    7   => 3,   // Day 7  → Day 3 must be completed
+                    28  => 7,   // Day 28 → Day 7 must be completed
+                    365 => 90,  // Booster 2 → Booster 1 must be completed
+                ];
+                $doseNumberToLabel = [
+                    0   => 'Day 0',
+                    3   => 'Day 3',
+                    7   => 'Day 7',
+                    28  => 'Day 28',
+                    90  => 'Booster 1',
+                    365 => 'Booster 2',
+                ];
+
+                if (isset($prerequisiteMap[$doseNumber])) {
+                    $prereqDoseNumber = $prerequisiteMap[$doseNumber];
+                    $prereqLabel      = $doseNumberToLabel[$prereqDoseNumber] ?? "Dose {$prereqDoseNumber}";
+                    $currentLabel     = $doseNumberToLabel[$doseNumber] ?? "Dose {$doseNumber}";
+
+                    $prereqCompleted = TreatmentRecord::where('clinic_id', $clinicId)
+                        ->where('patient_id', $patientId)
+                        ->when($biteId, fn($q) => $q->where('bite_id', $biteId))
+                        ->where('dose_number', $prereqDoseNumber)
+                        ->where('status', 'completed')
+                        ->whereNotNull('treatment_date')
+                        ->exists();
+
+                    // Also accept if the prerequisite is being submitted in the same request
+                    if (!$prereqCompleted) {
+                        $prereqInThisBatch = collect($request->doses)->contains(function ($d) use ($prereqDoseNumber, $periodMapping) {
+                            return isset($periodMapping[$d['period']]) &&
+                                   $periodMapping[$d['period']] === $prereqDoseNumber &&
+                                   !empty($d['vaccine_type']) &&
+                                   !empty($d['date']);
+                        });
+                        $prereqCompleted = $prereqInThisBatch;
+                    }
+
+                    if (!$prereqCompleted) {
+                        throw ValidationException::withMessages([
+                            'doses' => "Prerequisite dose [{$prereqLabel}] missing. {$currentLabel} cannot be recorded until {$prereqLabel} has been administered.",
+                        ]);
+                    }
+                }
+
                 if ($inventoryUnitsUsed < 0) {
                     throw ValidationException::withMessages([
                         'doses' => "Enter valid stock units (0 for shared open vial, or 1+ for new vial) for {$doseData['period']}.",

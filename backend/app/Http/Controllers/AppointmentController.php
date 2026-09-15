@@ -553,56 +553,69 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Check in an appointment by its appointment ID
+     * Check in an appointment by its appointment ID.
      * POST /api/appointments/{id}/check-in
+     *
+     * 21.1 / 21.3 — Wire through processAppointmentCheckIn so a queue ticket
+     * is created atomically (with dedup, race-safe numbering, and cache flush).
+     * Returns 404 if appointment or patient not found; 422 if already active in queue.
      */
     public function checkIn(Request $request, $id)
     {
         $clinicId = $request->user()->clinic_id;
-        $appointment = Appointment::where('clinic_id', $clinicId)->findOrFail($id);
-        $patient = Patient::where('clinic_id', $clinicId)->findOrFail($appointment->patient_id);
 
-        $appointment->update(['status' => 'confirmed']);
+        // 21.3 — clean 404 instead of 500 when ID is invalid
+        $appointment = Appointment::where('clinic_id', $clinicId)->find($id);
+        if (!$appointment) {
+            return response()->json([
+                'success' => false,
+                'message' => "Appointment #{$id} not found for this clinic.",
+            ], 404);
+        }
 
-        $isBooster = ($appointment->appointment_type === 'booster' || str_contains(strtolower($appointment->notes ?? ''), 'booster'));
-        $doseLabel = $isBooster ? 'Booster dose' : ($appointment->dose_number ? "Day {$appointment->dose_number} dose" : 'follow-up dose');
+        // Confirm the appointment first so Form 3 is unlocked
+        if ($appointment->status !== 'confirmed') {
+            $appointment->update(['status' => 'confirmed']);
+        }
 
-        return response()->json([
-            'success' => true,
-            'message' => "{$patient->first_name} {$patient->last_name} checked in for {$doseLabel}. Form 3 (Record Dose) is now available in Actions.",
-            'appointment' => $appointment,
-        ]);
+        // Delegate to the full atomic check-in handler (creates queue ticket, dedup, cache)
+        return $this->processAppointmentCheckIn($request, (int) $appointment->patient_id, $appointment);
     }
 
     /**
-     * Check in a patient by patient ID from patient list / due today
+     * Check in a patient by patient ID from the Nurse Patient List.
      * POST /api/appointments/patient/{patientId}/check-in
+     *
+     * 21.2 / 21.3 — Wire through processAppointmentCheckIn.
+     * Returns 404 if patient not found; idempotent 200 if already queued.
      */
     public function checkInByPatient(Request $request, $patientId)
     {
         $clinicId = $request->user()->clinic_id;
-        $patient = Patient::where('clinic_id', $clinicId)->findOrFail($patientId);
+
+        // 21.3 — clean 404 instead of 500 when patient ID is invalid
+        $patient = Patient::where('clinic_id', $clinicId)->find($patientId);
+        if (!$patient) {
+            return response()->json([
+                'success' => false,
+                'message' => "Patient #{$patientId} not found for this clinic.",
+            ], 404);
+        }
 
         $todayDate = Carbon::today()->toDateString();
 
-        // 1. Check if patient already has an active confirmed appointment
+        // 1. Idempotency — return early if already confirmed (no duplicate queue ticket)
         $existingConfirmed = Appointment::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
             ->where('status', 'confirmed')
             ->first();
 
         if ($existingConfirmed) {
-            $isBooster = ($existingConfirmed->appointment_type === 'booster' || str_contains(strtolower($existingConfirmed->notes ?? ''), 'booster'));
-            $doseLabel = $isBooster ? 'Booster dose' : ($existingConfirmed->dose_number ? "Day {$existingConfirmed->dose_number} dose" : 'follow-up dose');
-
-            return response()->json([
-                'success' => true,
-                'message' => "{$patient->first_name} {$patient->last_name} is already checked in for {$doseLabel}. Form 3 (Record Dose) is ready in Actions.",
-                'appointment' => $existingConfirmed,
-            ]);
+            // Still run through processAppointmentCheckIn — it handles the "already in queue" 200 case
+            return $this->processAppointmentCheckIn($request, (int) $patientId, $existingConfirmed);
         }
 
-        // 2. Find scheduled or missed appointment (prioritize today, then overdue, then nearest upcoming)
+        // 2. Find the best matching appointment (today > overdue > upcoming)
         $appointment = Appointment::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
             ->whereIn('status', ['scheduled', 'missed'])
@@ -616,18 +629,10 @@ class AppointmentController extends Controller
 
         if ($appointment) {
             $appointment->update(['status' => 'confirmed']);
-
-            $isBooster = ($appointment->appointment_type === 'booster' || str_contains(strtolower($appointment->notes ?? ''), 'booster'));
-            $doseLabel = $isBooster ? 'Booster dose' : ($appointment->dose_number ? "Day {$appointment->dose_number} dose" : 'follow-up dose');
-
-            return response()->json([
-                'success' => true,
-                'message' => "{$patient->first_name} {$patient->last_name} checked in for {$doseLabel}. Form 3 (Record Dose) is now available in Actions.",
-                'appointment' => $appointment,
-            ]);
+            return $this->processAppointmentCheckIn($request, (int) $patientId, $appointment);
         }
 
-        // 3. If no scheduled appointment was found, determine next dose from treatment history
+        // 3. No appointment found — derive next dose and auto-create one
         $latestRecord = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
             ->whereNotNull('dose_number')
@@ -635,38 +640,30 @@ class AppointmentController extends Controller
             ->orderBy('dose_number', 'desc')
             ->first();
 
-        $nextDose = null;
+        $nextDose = 0;
         if ($latestRecord) {
-            $prevDose = (int)$latestRecord->dose_number;
-            if ($prevDose === 0) $nextDose = 3;
-            elseif ($prevDose === 3) $nextDose = 7;
-            elseif ($prevDose === 7) $nextDose = 90;
+            $prevDose = (int) $latestRecord->dose_number;
+            if ($prevDose === 0)                       $nextDose = 3;
+            elseif ($prevDose === 3)                   $nextDose = 7;
+            elseif ($prevDose === 7)                   $nextDose = 90;
             elseif ($prevDose >= 28 && $prevDose < 90) $nextDose = 90;
-            elseif ($prevDose >= 90 && $prevDose < 365) $nextDose = 365;
-            elseif ($prevDose >= 365) $nextDose = 90;
-        } else {
-            $nextDose = 0;
+            elseif ($prevDose >= 90 && $prevDose < 365)$nextDose = 365;
+            elseif ($prevDose >= 365)                  $nextDose = 90;
         }
 
         $appointment = Appointment::create([
-            'clinic_id' => $clinicId,
-            'patient_id' => $patient->patient_id,
-            'scheduled_date' => $todayDate,
+            'clinic_id'        => $clinicId,
+            'patient_id'       => $patient->patient_id,
+            'scheduled_date'   => $todayDate,
             'appointment_date' => $todayDate,
             'appointment_type' => ($nextDose >= 90) ? 'booster' : 'vaccination',
-            'dose_number' => $nextDose,
-            'status' => 'confirmed',
-            'notes' => 'Checked in directly via Nurse Patient List',
-            'created_by' => $request->user()->id,
+            'dose_number'      => $nextDose,
+            'status'           => 'confirmed',
+            'notes'            => 'Checked in directly via Nurse Patient List',
+            'created_by'       => $request->user()->id,
         ]);
 
-        $doseLabel = ($nextDose >= 90) ? 'Booster dose' : "Day {$nextDose} dose";
-
-        return response()->json([
-            'success' => true,
-            'message' => "{$patient->first_name} {$patient->last_name} checked in for {$doseLabel}. Form 3 (Record Dose) is now available in Actions.",
-            'appointment' => $appointment,
-        ]);
+        return $this->processAppointmentCheckIn($request, (int) $patientId, $appointment);
     }
 
     /**

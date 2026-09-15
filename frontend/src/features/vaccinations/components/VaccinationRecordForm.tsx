@@ -906,7 +906,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     });
 
     // Only submit active uncompleted doses being administered today
-    const filledDoses = candidateDoses.filter(d => !d.is_completed && d.date && d.vaccine_type);
+    const filledDoses = candidateDoses.filter(d => {
+      if (d.is_completed || !d.date || !d.vaccine_type) return false;
+      // 22.1 — block prerequisite-locked doses from being submitted
+      const PREREQ: Record<string, string> = { 'Day 3': 'Day 0', 'Day 7': 'Day 3', 'Day 28': 'Day 7', 'Booster 2': 'Booster 1' };
+      const prereqPeriod = PREREQ[d.period];
+      if (prereqPeriod) {
+        const prereq = doses.find(x => x.period === prereqPeriod);
+        if (prereq && !prereq.is_completed && !prereq.inventory_linked) return false;
+      }
+      return true;
+    });
     if (filledDoses.length === 0) {
       setError("Please select a Vaccine Type for today's dose before saving.");
       return;
@@ -1618,31 +1628,51 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 const isFilled = Boolean(dose.date);
                 const isLinked = dose.inventory_linked;
                 const isCompleted = Boolean(dose.is_completed || isLinked);
-                const isLocked = readOnly || isCompleted;
+
+                // 22.1 — Prerequisite dose lock
+                // Determine which dose must be completed before this one can be recorded.
+                // Chain: Day 3 → requires Day 0 | Day 7 → requires Day 3 | Day 28 → requires Day 7
+                const PREREQ: Record<string, string> = {
+                  'Day 3':     'Day 0',
+                  'Day 7':     'Day 3',
+                  'Day 28':    'Day 7',
+                  'Booster 2': 'Booster 1',
+                };
+                const prereqPeriod = PREREQ[dose.period];
+                const prereqDose = prereqPeriod ? doses.find(d => d.period === prereqPeriod) : undefined;
+                const isPrerequisiteLocked =
+                  !isCompleted &&
+                  !!prereqDose &&
+                  !prereqDose.is_completed &&
+                  !prereqDose.inventory_linked;
+
+                const isLocked = readOnly || isCompleted || isPrerequisiteLocked;
                 const hasFifoError = Boolean(fifoErrors[dose.period]);
-                const isActivelyRecording = !isCompleted && Boolean(dose.given_by || dose.signature || dose.vaccine_type || dose.is_external);
+                const isActivelyRecording = !isCompleted && !isPrerequisiteLocked && Boolean(dose.given_by || dose.signature || dose.vaccine_type || dose.is_external);
                 const showRequiredWarning = isActivelyRecording && !dose.is_external && !dose.vaccine_type;
 
                 const candidateList = manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
                   ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
                   : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period));
-                const activeCandidateIdx = candidateList.findIndex(d => !d.is_completed && !d.inventory_linked);
-                const isActiveFollowUp = !readOnly && !isCompleted && index === activeCandidateIdx;
+                const activeCandidateIdx = candidateList.findIndex(d => !d.is_completed && !d.inventory_linked && !PREREQ[d.period]?.includes(doses.find(x => x.period === PREREQ[d.period])?.is_completed === false ? 'no' : 'yes'));
+                const isActiveFollowUp = !readOnly && !isCompleted && !isPrerequisiteLocked && index === activeCandidateIdx;
 
                 return (
                   <tr
                     key={dose.period}
                     style={{
                       borderBottom: '1px solid #f1f5f9',
-                      backgroundColor: isCompleted ? '#f0fdf4' : isActiveFollowUp ? '#f0fdf4' : isFilled ? '#f8fafc' : '#ffffff',
-                      boxShadow: isActiveFollowUp ? 'inset 4px 0 0 #10b981' : undefined,
+                      backgroundColor: isPrerequisiteLocked ? '#fafafa' : isCompleted ? '#f0fdf4' : isActiveFollowUp ? '#f0fdf4' : isFilled ? '#f8fafc' : '#ffffff',
+                      boxShadow: isActiveFollowUp ? 'inset 4px 0 0 #10b981' : isPrerequisiteLocked ? 'inset 4px 0 0 #f59e0b' : undefined,
+                      opacity: isPrerequisiteLocked ? 0.65 : 1,
                     }}
                   >
                     {/* 1. Period */}
-                    <td style={{ padding: '10px 12px', fontWeight: 700, color: isCompleted ? '#15803d' : '#1e293b' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 700, color: isCompleted ? '#15803d' : isPrerequisiteLocked ? '#92400e' : '#1e293b' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           {isCompleted && <span style={{ color: '#16a34a', fontSize: 14 }}>✓</span>}
+                          {isPrerequisiteLocked && <span style={{ color: '#f59e0b', fontSize: 13 }}>🔒</span>}
                           <span>{dose.period}</span>
                           {isActiveFollowUp && (
                             <span style={{
@@ -1655,6 +1685,23 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                               border: '1px solid #86efac',
                             }}>
                               Ready to Administer
+                            </span>
+                          )}
+                          {isPrerequisiteLocked && prereqPeriod && (
+                            <span
+                              title={`Prerequisite dose (${prereqPeriod}) must be administered before ${dose.period} can be recorded.`}
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                padding: '1px 6px',
+                                borderRadius: 4,
+                                backgroundColor: '#fef3c7',
+                                color: '#92400e',
+                                border: '1px solid #fcd34d',
+                                cursor: 'help',
+                              }}
+                            >
+                              Locked — {prereqPeriod} pending
                             </span>
                           )}
                         </div>

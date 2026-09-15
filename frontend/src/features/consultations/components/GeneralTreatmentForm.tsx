@@ -472,6 +472,8 @@ export default function GeneralTreatmentForm({
     setCheckedMeds([]);
     setCheckedHistory([]);
     setError('');
+    setFieldErrors({});
+    setTouchedFields({});
 
     const patientId = entry.patient.patient_id || entry.patient.id;
     if (!patientId) {
@@ -536,6 +538,26 @@ export default function GeneralTreatmentForm({
   };
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Tracks which fields have been blurred at least once (for blur-first validation)
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  /** Mark a field as touched and validate it immediately on blur */
+  const handleFieldBlur = (key: string) => () => {
+    setTouchedFields((prev) => ({ ...prev, [key]: true }));
+    // Run single-field validation on blur
+    const newErrors: Record<string, string> = { ...fieldErrors };
+    if (key === 'nature_of_visit' && !formData.nature_of_visit) {
+      newErrors.nature_of_visit = 'Please select Nature of Visit';
+    } else if (key === 'nature_of_visit') {
+      delete newErrors.nature_of_visit;
+    }
+    if (key === 'chief_complaints' && !formData.chief_complaints.trim()) {
+      newErrors.chief_complaints = 'Please enter Chief Complaints';
+    } else if (key === 'chief_complaints') {
+      delete newErrors.chief_complaints;
+    }
+    setFieldErrors(newErrors);
+  };
 
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -1225,6 +1247,7 @@ export default function GeneralTreatmentForm({
                 value={option.value}
                 checked={formData.nature_of_visit === option.value}
                 onChange={handleFieldChange('nature_of_visit')}
+                onBlur={handleFieldBlur('nature_of_visit')}
                 disabled={isFormDisabled}
                 style={{ marginRight: 8, accentColor: fieldErrors.nature_of_visit ? '#ef4444' : undefined }}
               />
@@ -1315,6 +1338,7 @@ export default function GeneralTreatmentForm({
           <textarea
             value={formData.chief_complaints}
             onChange={handleFieldChange('chief_complaints')}
+            onBlur={handleFieldBlur('chief_complaints')}
             rows={3}
             disabled={isFormDisabled}
             style={{

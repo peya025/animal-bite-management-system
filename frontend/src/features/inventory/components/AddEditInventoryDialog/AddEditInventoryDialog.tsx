@@ -228,6 +228,40 @@ export default function AddEditInventoryDialog({
     return addMonthsToDate(form.manufactured_date, Number(form.shelf_life_months) || 0);
   }, [form.manufactured_date, form.shelf_life_months]);
 
+  /** 23.1 — Blur-first validation: validate a single field when focus leaves it.
+   *  If the field already has a visible error, clear it as soon as the value is valid (live recovery).
+   */
+  const handleBlurField = (field: string) => () => {
+    setErrors((prev) => {
+      const next = { ...prev };
+      switch (field) {
+        case 'batch_number':
+          if (!form.batch_number.trim()) next.batch_number = 'Batch / lot number is required.';
+          else delete next.batch_number;
+          break;
+        case 'quantity':
+          if (!form.quantity || Number(form.quantity) < 1)
+            next.quantity = isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
+          else delete next.quantity;
+          break;
+        case 'expiration_date':
+          if (!form.expiration_date) next.expiration_date = 'Expiration date is required.';
+          else if (!isEdit && expiryDays !== null && expiryDays <= 0)
+            next.expiration_date = 'New stock must have a future expiration date.';
+          else delete next.expiration_date;
+          break;
+        case 'supplier_other':
+          if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim())
+            next.supplier_other = 'Please specify the supplier name.';
+          else delete next.supplier_other;
+          break;
+        default:
+          break;
+      }
+      return next;
+    });
+  };
+
 
   const handleVaccineTypeSelect = (vaccineType: string) => {
     const matchedPreset = presets.find((preset) => preset.vaccine_name === vaccineType) || null;
@@ -456,6 +490,7 @@ export default function AddEditInventoryDialog({
                     setForm((prev) => ({ ...prev, batch_number: e.target.value.toUpperCase() }));
                     setErrors((prev) => ({ ...prev, batch_number: '' }));
                   }}
+                  onBlur={handleBlurField('batch_number')}
                   error={!!errors.batch_number}
                   helperText={errors.batch_number || 'Shown in FIFO / FEFO order.'}
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' }, '& input': { fontFamily: 'monospace', fontWeight: 700 } }}
@@ -517,6 +552,7 @@ export default function AddEditInventoryDialog({
                           label="Specify Supplier"
                           placeholder="Type or select from catalog…"
                           error={!!errors.supplier_other}
+                          onBlur={handleBlurField('supplier_other')}
                           helperText={
                             errors.supplier_other ||
                             'Select from the catalog or type a consistent name for DOH records.'
@@ -625,6 +661,7 @@ export default function AddEditInventoryDialog({
                     setForm((prev) => ({ ...prev, quantity: e.target.value }));
                     setErrors((prev) => ({ ...prev, quantity: '' }));
                   }}
+                  onBlur={handleBlurField('quantity')}
                   error={!!errors.quantity}
                   helperText={errors.quantity || 'Used to compute the read-only Balance value.'}
                   slotProps={{ htmlInput: { min: 1 } }}
@@ -666,6 +703,7 @@ export default function AddEditInventoryDialog({
                     setForm((prev) => ({ ...prev, expiration_date: e.target.value }));
                     setErrors((prev) => ({ ...prev, expiration_date: '' }));
                   }}
+                  onBlur={handleBlurField('expiration_date')}
                   error={!!errors.expiration_date}
                   slotProps={{ inputLabel: { shrink: true } }}
                   helperText={errors.expiration_date || 'Auto-filled by default. You can override it for exceptions.'}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { SetupWizardRoot } from '../styles/SetupWizard.styles';
 import { ROUTES } from '../../../shared/config/routes';
@@ -541,6 +541,41 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 function AdminAccountStep({ data, setData, errors, setErrors }: any) {
   const [passwordsMatch, setPasswordsMatch] = useState(true);
 
+  /** 23.1 — Blur-first per-field validation for Step 1 */
+  const handleBlur = (field: string) => () => {
+    setErrors((prev: any) => {
+      const next = { ...prev };
+      switch (field) {
+        case 'clinicName':
+          if (!data.clinicName.trim()) next.clinicName = 'Clinic Name is required';
+          else delete next.clinicName;
+          break;
+        case 'adminName':
+          if (!data.adminName.trim()) next.adminName = 'Your Full Name is required';
+          else delete next.adminName;
+          break;
+        case 'adminEmail':
+          if (!data.adminEmail.trim()) next.adminEmail = 'Email Address is required';
+          else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.adminEmail)) next.adminEmail = 'Enter a valid email address';
+          else delete next.adminEmail;
+          break;
+        case 'adminPassword':
+          if (!data.adminPassword) next.adminPassword = 'Password is required';
+          else if (data.adminPassword.length < 8) next.adminPassword = 'Password must be at least 8 characters';
+          else delete next.adminPassword;
+          break;
+        case 'adminPasswordConfirm':
+          if (!data.adminPasswordConfirm) next.adminPasswordConfirm = 'Confirm Password is required';
+          else if (data.adminPasswordConfirm !== data.adminPassword) next.adminPasswordConfirm = 'Passwords do not match';
+          else delete next.adminPasswordConfirm;
+          break;
+        default:
+          break;
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="step-content">
       <h2>Create Admin Account</h2>
@@ -565,6 +600,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
               }
             }}
             placeholder="Tagoloan Rural Health Unit"
+            onBlur={handleBlur('clinicName')}
             className={errors?.clinicName ? 'has-error' : ''}
             required
           />
@@ -591,6 +627,8 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
           Administrator Details
         </h3>
 
+        {/* 23.2 — 2-column pair: Full Name + Email */}
+        <div className="form-row">
         <div className="form-group">
           <label>Your Full Name *</label>
           <div className="input-with-icon">
@@ -608,6 +646,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                 }
               }}
               placeholder="Dr. Juan Dela Cruz"
+              onBlur={handleBlur('adminName')}
               className={errors?.adminName ? 'has-error' : ''}
               required
             />
@@ -647,6 +686,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                 }
               }}
               placeholder="admin@clinic.com"
+              onBlur={handleBlur('adminEmail')}
               className={errors?.adminEmail ? 'has-error' : ''}
               required
             />
@@ -672,7 +712,10 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             </p>
           )}
         </div>
+        </div>{/* end form-row: Name + Email */}
 
+        {/* 23.2 — 2-column pair: Password + Confirm Password */}
+        <div className="form-row">
         <div className="form-group">
           <label>Password *</label>
           <div className="input-with-icon">
@@ -690,6 +733,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                 }
               }}
               placeholder="Minimum 8 characters"
+              onBlur={handleBlur('adminPassword')}
               className={errors?.adminPassword ? 'has-error' : ''}
               required
             />
@@ -734,6 +778,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                 }
               }}
               placeholder="Re-enter password"
+              onBlur={handleBlur('adminPasswordConfirm')}
               className={errors?.adminPasswordConfirm ? 'has-error' : ''}
               required
             />
@@ -766,6 +811,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             )
           )}
         </div>
+        </div>{/* end form-row: Password + Confirm Password */}
       </div>
     </div>
   );
@@ -884,6 +930,32 @@ function CustomizeStep({ data, setData }: any) {
 }
 
 function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
+  /** 23.1 — Blur-first per-field validation for Step 3 */
+  const handleClinicBlur = (field: string) => () => {
+    setErrors((prev: any) => {
+      const next = { ...prev };
+      switch (field) {
+        case 'address':
+          if (!data.address.trim()) next.address = 'Address is required';
+          else delete next.address;
+          break;
+        case 'phone':
+          if (!data.phone) next.phone = 'Phone number is required';
+          else if (data.phone.length !== 11) next.phone = 'Phone number must be exactly 11 digits';
+          else delete next.phone;
+          break;
+        case 'email':
+          if (!data.email.trim()) next.email = 'Email Address is required';
+          else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) next.email = 'Enter a valid email address';
+          else delete next.email;
+          break;
+        default:
+          break;
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="step-content">
       <h2>Clinic Profile</h2>
@@ -905,6 +977,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
               }
             }}
             placeholder="123 Main Street, City, Province"
+            onBlur={handleClinicBlur('address')}
             className={errors?.address ? 'has-error' : ''}
             rows={3}
             required
@@ -948,6 +1021,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
               }}
               maxLength={11}
               placeholder="09123456789"
+              onBlur={handleClinicBlur('phone')}
               className={errors?.phone ? 'has-error' : ''}
               required
             />
@@ -986,6 +1060,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
                 }
               }}
               placeholder="contact@clinic.com"
+              onBlur={handleClinicBlur('email')}
               className={errors?.email ? 'has-error' : ''}
               required
             />
@@ -1108,3 +1183,4 @@ function DoneStep() {
     </div>
   );
 }
+

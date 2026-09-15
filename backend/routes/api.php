@@ -41,6 +41,9 @@ Route::get('/test', function () {
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+// Tier 9 — Google OAuth SSO for clinical staff (public, token-based)
+Route::post('/auth/google', [AuthController::class, 'googleLogin'])
+    ->middleware('throttle:20,1');  // 20 attempts per minute
 Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
 Route::get('/public/vaccine-availability', [VaccineInventoryController::class, 'publicAvailability']);
 
@@ -77,6 +80,9 @@ Route::prefix('mobile')->group(function () {
     Route::post('/register', [PatientAccountAuthController::class, 'register']);
     Route::post('/login', [PatientAccountAuthController::class, 'login']);
     Route::post('/forgot-password', [PatientAccountAuthController::class, 'forgotPassword']);
+    // Tier 9 — Google OAuth SSO for mobile patients
+    Route::post('/auth/google', [PatientAccountAuthController::class, 'googleLogin'])
+        ->middleware('throttle:20,1');
     Route::get('/schedule-summary', [ClinicScheduleController::class, 'getScheduleSummary']);
 
     Route::middleware(['auth:sanctum', 'patient.account'])->group(function () {

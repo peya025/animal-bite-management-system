@@ -17,6 +17,9 @@ class ClinicModuleConfig extends Model
         'triage_section_enabled',
         'treatment_section_enabled',
         'field_rules',
+        'google_sso_enabled',
+        'google_sso_roles',
+        'google_sso_domain',
     ];
 
     protected $casts = [
@@ -29,6 +32,8 @@ class ClinicModuleConfig extends Model
         'triage_section_enabled'         => 'boolean',
         'treatment_section_enabled'      => 'boolean',
         'field_rules'                    => 'array',
+        'google_sso_enabled'             => 'boolean',
+        'google_sso_roles'               => 'array',
     ];
 
     public function clinic()

@@ -679,8 +679,8 @@ export default function NursePatientListPage() {
 
       {/* ── Top Circular Ring Summary Cards (Matching Vaccine Inventory & Queue Design) ── */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' }, gap: 2, mb: 3 }}>
-        <StatCard label="NEEDS ACTION" value={kpiStats.needsAction} color="warning" total={totalCount || 1} loading={loading} />
         <StatCard label="DUE TODAY" value={kpiStats.dueToday} color="info" total={totalCount || 1} loading={loading} />
+        <StatCard label="NEEDS ACTION" value={kpiStats.needsAction} color="warning" total={totalCount || 1} loading={loading} />
         <StatCard label="OVERDUE DOSES" value={kpiStats.overdue} color="error" total={totalCount || 1} loading={loading} />
         <StatCard label="ONLINE APPOINTMENTS" value={kpiStats.online} color="primary" total={totalCount || 1} loading={loading} />
         <StatCard label="UPCOMING DOSES" value={kpiStats.upcoming} color="success" total={totalCount || 1} loading={loading} />
@@ -708,19 +708,6 @@ export default function NursePatientListPage() {
           <Tab
             label={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <span>Needs Action</span>
-                <Box sx={{ bgcolor: tab === 'needs_action' ? '#fef3c7' : '#f3f4f6', color: tab === 'needs_action' ? '#b45309' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
-                  {kpiStats.needsAction}
-                </Box>
-              </Stack>
-            }
-            value="needs_action"
-            icon={<HugeiconsIcon icon={AlertCircleIcon} size={17} />}
-            iconPosition="start"
-          />
-          <Tab
-            label={
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <span>Due Today</span>
                 <Box sx={{ bgcolor: tab === 'due_today' ? '#eff6ff' : '#f3f4f6', color: tab === 'due_today' ? '#2563eb' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
                   {kpiStats.dueToday}
@@ -729,6 +716,19 @@ export default function NursePatientListPage() {
             }
             value="due_today"
             icon={<HugeiconsIcon icon={Clock01Icon} size={17} />}
+            iconPosition="start"
+          />
+          <Tab
+            label={
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <span>Needs Action</span>
+                <Box sx={{ bgcolor: tab === 'needs_action' ? '#fef3c7' : '#f3f4f6', color: tab === 'needs_action' ? '#b45309' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+                  {kpiStats.needsAction}
+                </Box>
+              </Stack>
+            }
+            value="needs_action"
+            icon={<HugeiconsIcon icon={AlertCircleIcon} size={17} />}
             iconPosition="start"
           />
           <Tab

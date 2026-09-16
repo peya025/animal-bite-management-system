@@ -67,10 +67,10 @@ export const AdminFiltersSection: React.FC<AdminFiltersSectionProps> = ({
     <div
       style={{
         background: 'var(--card-bg, #ffffff)',
-        borderRadius: 14,
-        border: '1px solid var(--card-border, #e5e7eb)',
+        borderRadius: 16,
+        border: '1px solid var(--border-glow, #e5e7eb)',
         padding: '16px 20px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+        boxShadow: 'var(--card-shadow)',
         marginBottom: 24,
       }}
     >

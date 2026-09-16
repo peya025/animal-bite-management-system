@@ -240,13 +240,13 @@ export default function DeveloperLandingSettingsPage() {
       ) : (
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Section 1: App Identity */}
-          <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '14px', border: '1px solid #e0eae3', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+          <div style={{ background: 'var(--card-bg-solid, #ffffff)', padding: '1.25rem', borderRadius: '14px', border: '1px solid var(--border-glow, #e0eae3)', boxShadow: 'var(--shadow, 0 1px 3px rgba(0,0,0,0.02))' }}>
             <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
               <Icon name="clinicSetup" size={16} color="var(--primary)" /> Application Identity & Header
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: '#475569' }}>App Short Name (Abbreviation)</label>
+                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: 'var(--text-secondary, #475569)' }}>App Short Name (Abbreviation)</label>
                 <input
                   type="text"
                   className="db-explorer-input"
@@ -256,7 +256,7 @@ export default function DeveloperLandingSettingsPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: '#475569' }}>App Full Name / Subtitle</label>
+                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: 'var(--text-secondary, #475569)' }}>App Full Name / Subtitle</label>
                 <input
                   type="text"
                   className="db-explorer-input"
@@ -269,13 +269,13 @@ export default function DeveloperLandingSettingsPage() {
           </div>
 
           {/* Section 2: Operating Schedule & Requirements */}
-          <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '14px', border: '1px solid #e0eae3', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+          <div style={{ background: 'var(--card-bg-solid, #ffffff)', padding: '1.25rem', borderRadius: '14px', border: '1px solid var(--border-glow, #e0eae3)', boxShadow: 'var(--shadow, 0 1px 3px rgba(0,0,0,0.02))' }}>
             <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
               <Icon name="queue" size={16} color="var(--primary)" /> Schedule & Requirement Notices
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: '#475569' }}>Operating Schedule Title</label>
+                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: 'var(--text-secondary, #475569)' }}>Operating Schedule Title</label>
                 <input
                   type="text"
                   className="db-explorer-input"
@@ -284,7 +284,7 @@ export default function DeveloperLandingSettingsPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: '#475569' }}>Operating Hours</label>
+                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: 'var(--text-secondary, #475569)' }}>Operating Hours</label>
                 <input
                   type="text"
                   className="db-explorer-input"
@@ -293,7 +293,7 @@ export default function DeveloperLandingSettingsPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: '#475569' }}>Registration Window Notice</label>
+                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: 'var(--text-secondary, #475569)' }}>Registration Window Notice</label>
                 <input
                   type="text"
                   className="db-explorer-input"
@@ -302,7 +302,7 @@ export default function DeveloperLandingSettingsPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: '#475569' }}>Mandatory Patient Requirement</label>
+                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: 'var(--text-secondary, #475569)' }}>Mandatory Patient Requirement</label>
                 <input
                   type="text"
                   className="db-explorer-input"
@@ -314,13 +314,13 @@ export default function DeveloperLandingSettingsPage() {
           </div>
 
           {/* Section 3: Footer Brand Column */}
-          <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '14px', border: '1px solid #e0eae3', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+          <div style={{ background: 'var(--card-bg-solid, #ffffff)', padding: '1.25rem', borderRadius: '14px', border: '1px solid var(--border-glow, #e0eae3)', boxShadow: 'var(--shadow, 0 1px 3px rgba(0,0,0,0.02))' }}>
             <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
               <Icon name="reports" size={16} color="var(--primary)" /> Footer Column 1: Brand & Bio
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: '#475569' }}>Footer Brand Title (e.g. ABTC)</label>
+                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: 'var(--text-secondary, #475569)' }}>Footer Brand Title (e.g. ABTC)</label>
                 <input
                   type="text"
                   className="db-explorer-input"
@@ -329,7 +329,7 @@ export default function DeveloperLandingSettingsPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: '#475569' }}>Developed For Text</label>
+                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: 'var(--text-secondary, #475569)' }}>Developed For Text</label>
                 <input
                   type="text"
                   className="db-explorer-input"
@@ -338,18 +338,18 @@ export default function DeveloperLandingSettingsPage() {
                 />
               </div>
               <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: '#475569' }}>System Description</label>
+                <label style={{ display: 'block', fontWeight: 500, fontSize: '0.8125rem', marginBottom: '0.35rem', color: 'var(--text-secondary, #475569)' }}>System Description</label>
                 <textarea
                   value={settings.abtc_description}
                   onChange={e => setSettings({ ...settings, abtc_description: e.target.value })}
-                  style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #cbd5e1', borderRadius: '0.375rem', minHeight: '70px', fontSize: '0.8125rem', fontFamily: 'inherit' }}
+                  style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid var(--border-glow, #cbd5e1)', background: 'var(--input-bg, #fff)', color: 'var(--input-text, #111827)', borderRadius: '0.375rem', minHeight: '70px', fontSize: '0.8125rem', fontFamily: 'inherit' }}
                 />
               </div>
             </div>
           </div>
 
           {/* Section 4: Footer Columns (Quick Links, Support, System Info) */}
-          <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '14px', border: '1px solid #e0eae3', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+          <div style={{ background: 'var(--card-bg-solid, #ffffff)', padding: '1.25rem', borderRadius: '14px', border: '1px solid var(--border-glow, #e0eae3)', boxShadow: 'var(--shadow, 0 1px 3px rgba(0,0,0,0.02))' }}>
             <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
               <Icon name="inventory" size={16} color="var(--primary)" /> Footer Link Columns (Quick Links, Support, System Info)
             </h2>

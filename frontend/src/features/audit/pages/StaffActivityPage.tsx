@@ -178,15 +178,15 @@ export default function StaffActivityPage() {
       {summary && summary.suspicious_after_hours > 0 && (
         <div
           style={{
-            background: '#fffbe6',
-            border: '1px solid #ffe58f',
+            background: 'rgba(245, 158, 11, 0.12)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
             borderRadius: '14px',
             padding: '0.75rem 1rem',
             marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
             gap: '0.65rem',
-            color: '#873800',
+            color: 'var(--text-primary, #873800)',
             fontSize: '0.8125rem',
             fontWeight: 400,
           }}
@@ -201,12 +201,12 @@ export default function StaffActivityPage() {
       {/* Filters Card */}
       <div
         style={{
-          background: '#ffffff',
+          background: 'var(--card-bg-solid, #ffffff)',
           borderRadius: '14px',
-          border: '1px solid #e0eae3',
+          border: '1px solid var(--border-glow, #e0eae3)',
           padding: '1rem 1.25rem',
           marginBottom: '1.25rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
+          boxShadow: 'var(--shadow, 0 1px 3px rgba(0, 0, 0, 0.02))',
         }}
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem', alignItems: 'center' }}>
@@ -294,14 +294,14 @@ export default function StaffActivityPage() {
       {/* Activity Table Card */}
       <div
         style={{
-          background: '#ffffff',
+          background: 'var(--card-bg-solid, #ffffff)',
           borderRadius: '14px',
-          border: '1px solid #e0eae3',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
+          border: '1px solid var(--border-glow, #e0eae3)',
+          boxShadow: 'var(--shadow, 0 1px 3px rgba(0, 0, 0, 0.02))',
           padding: '1.25rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f0f7f2' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border, #f0f7f2)' }}>
           <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Icon name="activity" size={18} color="var(--primary)" />
             Audit Activity Logs ({logs.length})

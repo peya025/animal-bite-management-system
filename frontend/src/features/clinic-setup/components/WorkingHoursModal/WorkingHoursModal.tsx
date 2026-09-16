@@ -97,7 +97,7 @@ export default function WorkingHoursModal({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ bgcolor: '#fafafa', p: 3 }}>
+      <DialogContent dividers sx={{ bgcolor: 'var(--bg-secondary, #fafafa)', p: 3 }}>
         <Box
           sx={{
             display: 'grid',
@@ -113,12 +113,12 @@ export default function WorkingHoursModal({
               <Box
                 key={day}
                 sx={{
-                  border: '1px solid #e5e7eb',
+                  border: '1px solid var(--border-glow, #e5e7eb)',
                   borderRadius: 3,
                   p: 2.5,
-                  bgcolor: '#fff',
+                  bgcolor: 'var(--card-bg-solid, #fff)',
                   transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-                  '&:hover': { borderColor: '#d1d5db' },
+                  '&:hover': { borderColor: 'var(--accent, #d1d5db)' },
                 }}
               >
                 {/* Card header */}
@@ -129,12 +129,12 @@ export default function WorkingHoursModal({
                     justifyContent: 'space-between',
                     pb: 2,
                     mb: 2,
-                    borderBottom: '1px solid #f3f4f6',
+                    borderBottom: '1px solid var(--border, #f3f4f6)',
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <AccessTimeIcon sx={{ fontSize: 18, color: '#9ca3af' }} />
-                    <Typography sx={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>
+                    <Typography sx={{ fontSize: 13, color: 'var(--text-secondary, #6b7280)', fontWeight: 500 }}>
                       Date and Time
                     </Typography>
                   </Box>
@@ -199,7 +199,7 @@ export default function WorkingHoursModal({
                     <Select
                       value={hours.close}
                       onChange={(e) => onHoursChange(day, 'close', e.target.value)}
-                      sx={{ borderRadius: 2, bgcolor: isOpen ? '#fff' : '#f9fafb' }}
+                      sx={{ borderRadius: 2, bgcolor: isOpen ? 'var(--input-bg, #fff)' : 'var(--bg-hover, #f9fafb)' }}
                     >
                       {TIME_OPTIONS.map(t => (
                         <MenuItem key={t} value={t}>

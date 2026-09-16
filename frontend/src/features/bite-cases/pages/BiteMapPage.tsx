@@ -24,6 +24,7 @@ import {
   History as HistoryIcon,
   Category as CategoryIcon,
 } from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
 import BiteMap from '../components/BiteMap/BiteMap';
 import MapLegend from '../components/BiteMap/MapLegend';
 import biteCaseService from '../services/biteCaseService';
@@ -32,6 +33,8 @@ import { Icon } from '../../../shared/components/ui/Icon';
 import '../../developer/styles/DeveloperDatabaseExplorer.css';
 
 export default function BiteMapPage() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
   const [data, setData] = useState<BiteMapData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -144,56 +147,167 @@ export default function BiteMapPage() {
 
       {/* Filter controls are now inside the same map container below */}
 
-      {/* ── KPI Summary Cards (Matching Staff Activity Monitor Design) ── */}
-      {data && (
-        <div className="db-kpi-grid" style={{ marginBottom: '1.25rem' }}>
-          <div className="db-kpi-card">
-            <div className="db-kpi-header">
-              <span className="db-kpi-label">TOTAL CASES</span>
-              <Icon name="activity" size={16} color="var(--primary)" />
-            </div>
-            <div className="db-kpi-value">{data.statistics.total_cases}</div>
-            <div className="db-kpi-sub">
-              {data.statistics.by_status 
-                ? `${data.statistics.by_status.active} Active · ${data.statistics.by_status.completed} Completed` 
-                : 'All Categories Logged'}
-            </div>
-          </div>
+      {/* ── KPI Summary Cards (Adaptive Glowing Pillow Aesthetic) ── */}
+      {data && (() => {
+        const kpiItems = [
+          {
+            id: 'total',
+            label: 'TOTAL CASES',
+            value: data.statistics.total_cases,
+            sub: data.statistics.by_status
+              ? `${data.statistics.by_status.active} Active · ${data.statistics.by_status.completed} Completed`
+              : 'All Categories Logged',
+            badge: null,
+            icon: <Icon name="activity" size={15} color="#10b981" />,
+            color: '#10b981',
+            glowColor: 'rgba(163, 230, 53, 0.3)',
+          },
+          {
+            id: 'cat3',
+            label: 'CATEGORY III',
+            value: data.statistics.by_severity.severe,
+            sub: 'Severe Transdermal Bites',
+            badge: 'High Risk',
+            icon: null,
+            color: '#ef4444',
+            glowColor: 'rgba(239, 68, 68, 0.3)',
+          },
+          {
+            id: 'cat2',
+            label: 'CATEGORY II',
+            value: data.statistics.by_severity.moderate,
+            sub: 'Minor Scratches & Abrasions',
+            badge: 'Moderate',
+            icon: null,
+            color: '#f59e0b',
+            glowColor: 'rgba(245, 158, 11, 0.3)',
+          },
+          {
+            id: 'cat1',
+            label: 'CATEGORY I',
+            value: data.statistics.by_severity.minor,
+            sub: 'Intact Skin / Minor Bites',
+            badge: 'Low Risk',
+            icon: null,
+            color: '#10b981',
+            glowColor: 'rgba(16, 185, 129, 0.3)',
+          },
+        ];
 
-          <div className="db-kpi-card">
-            <div className="db-kpi-header">
-              <span className="db-kpi-label">CATEGORY III</span>
-              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#ef4444' }} />
-            </div>
-            <div className="db-kpi-value" style={{ color: '#ef4444' }}>
-              {data.statistics.by_severity.severe}
-            </div>
-            <div className="db-kpi-sub" style={{ color: '#ef4444' }}>Severe Bites</div>
-          </div>
-
-          <div className="db-kpi-card">
-            <div className="db-kpi-header">
-              <span className="db-kpi-label">CATEGORY II</span>
-              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#f59e0b' }} />
-            </div>
-            <div className="db-kpi-value" style={{ color: '#f59e0b' }}>
-              {data.statistics.by_severity.moderate}
-            </div>
-            <div className="db-kpi-sub" style={{ color: '#f59e0b' }}>Moderate Bites</div>
-          </div>
-
-          <div className="db-kpi-card">
-            <div className="db-kpi-header">
-              <span className="db-kpi-label">CATEGORY I</span>
-              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#10b981' }} />
-            </div>
-            <div className="db-kpi-value" style={{ color: '#10b981' }}>
-              {data.statistics.by_severity.minor}
-            </div>
-            <div className="db-kpi-sub" style={{ color: '#10b981' }}>Minor Bites</div>
-          </div>
-        </div>
-      )}
+        return (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+              gap: 2,
+              mb: 2.5,
+            }}
+          >
+            {kpiItems.map((item) => (
+              <Paper
+                key={item.id}
+                elevation={0}
+                sx={{
+                  p: '16px 18px',
+                  borderRadius: '20px',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: 118,
+                  cursor: 'default',
+                  ...(isDark
+                    ? {
+                        background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
+                        border: '1px solid rgba(163, 230, 53, 0.3)',
+                        boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12)',
+                        '&:hover': {
+                          transform: 'translateY(-3px)',
+                          borderColor: 'rgba(163, 230, 53, 0.55)',
+                          boxShadow: `0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)`,
+                        },
+                      }
+                    : {
+                        background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+                        border: '1px solid rgba(16, 185, 129, 0.32)',
+                        boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12)',
+                        '&:hover': {
+                          transform: 'translateY(-3px)',
+                          borderColor: 'rgba(16, 185, 129, 0.55)',
+                          boxShadow: `0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)`,
+                        },
+                      }),
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography
+                    sx={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: isDark ? '#a7f3d0' : '#047857',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    {item.label}
+                  </Typography>
+                  {item.badge ? (
+                    <Box
+                      sx={{
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: 999,
+                        bgcolor: `${item.color}22`,
+                        border: `1px solid ${item.color}50`,
+                        color: item.color,
+                        fontSize: 10,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {item.badge}
+                    </Box>
+                  ) : item.icon ? (
+                    <Box
+                      sx={{
+                        p: 0.6,
+                        bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                        border: isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid rgba(16, 185, 129, 0.25)',
+                        borderRadius: '8px',
+                        display: 'flex',
+                      }}
+                    >
+                      {item.icon}
+                    </Box>
+                  ) : null}
+                </Box>
+                <Typography
+                  sx={{
+                    fontSize: 28,
+                    fontWeight: 800,
+                    color: isDark ? '#ffffff' : '#064e3b',
+                    lineHeight: 1.1,
+                    my: 0.5,
+                    letterSpacing: '-0.5px',
+                  }}
+                >
+                  {item.value}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: 11,
+                    color: isDark ? '#a7f3d0' : '#4b5563',
+                    fontWeight: 500,
+                  }}
+                >
+                  {item.sub}
+                </Typography>
+              </Paper>
+            ))}
+          </Box>
+        );
+      })()}
 
       {/* ── Unified Map Container (Filter + Map in same div/paper) ── */}
       <Paper
@@ -265,10 +379,10 @@ export default function BiteMapPage() {
               }}
               sx={{
                 width: 148,
-                bgcolor: '#ffffff',
-                color: '#6f879d',
+                bgcolor: isDark ? '#0b140f' : '#ffffff',
+                color: isDark ? '#ffffff' : '#6f879d',
                 borderRadius: 2.5,
-                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+                boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 1px 2px rgba(15, 23, 42, 0.05)',
                 '& .MuiSelect-select': {
                   display: 'flex',
                   alignItems: 'center',
@@ -279,14 +393,14 @@ export default function BiteMapPage() {
                   pr: 4.5,
                 },
                 '& .MuiSelect-icon': {
-                  color: '#8aa0b3',
+                  color: isDark ? '#a7f3d0' : '#8aa0b3',
                   fontSize: 18,
                   right: 10,
                   top: 'calc(50% - 9px)',
                 },
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e9eef3' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee', borderWidth: '1px' },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? 'rgba(163, 230, 53, 0.25)' : '#e9eef3' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? 'rgba(163, 230, 53, 0.5)' : '#dde6ee' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#10b981', borderWidth: '1px' },
               }}
               MenuProps={{
                 disableScrollLock: true,
@@ -299,6 +413,8 @@ export default function BiteMapPage() {
                       mt: 0.5,
                       borderRadius: 2.5,
                       overflow: 'hidden',
+                      bgcolor: isDark ? '#0e1812' : '#ffffff',
+                      border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : 'none',
                     },
                   },
                   list: {
@@ -309,7 +425,7 @@ export default function BiteMapPage() {
                 },
               }}
             >
-              <MenuItem value="all" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4, bgcolor: '#effaf7' }}>
+              <MenuItem value="all" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4, bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#effaf7' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
                   <CalendarTodayIcon sx={{ fontSize: 17, color: '#5f99f6' }} />
                   <span style={{ fontSize: '13px' }}>All Time</span>
@@ -375,10 +491,10 @@ export default function BiteMapPage() {
               }}
               sx={{
                 width: 212,
-                bgcolor: '#ffffff',
-                color: '#6f879d',
+                bgcolor: isDark ? '#0b140f' : '#ffffff',
+                color: isDark ? '#ffffff' : '#6f879d',
                 borderRadius: 2.5,
-                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+                boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 1px 2px rgba(15, 23, 42, 0.05)',
                 '& .MuiSelect-select': {
                   display: 'flex',
                   alignItems: 'center',
@@ -389,14 +505,14 @@ export default function BiteMapPage() {
                   pr: 4.5,
                 },
                 '& .MuiSelect-icon': {
-                  color: '#8aa0b3',
+                  color: isDark ? '#a7f3d0' : '#8aa0b3',
                   fontSize: 18,
                   right: 10,
                   top: 'calc(50% - 9px)',
                 },
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e9eef3' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee', borderWidth: '1px' },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? 'rgba(163, 230, 53, 0.25)' : '#e9eef3' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? 'rgba(163, 230, 53, 0.5)' : '#dde6ee' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#10b981', borderWidth: '1px' },
               }}
               MenuProps={{
                 disableScrollLock: true,
@@ -409,6 +525,8 @@ export default function BiteMapPage() {
                       mt: 0.5,
                       borderRadius: 2.5,
                       overflow: 'hidden',
+                      bgcolor: isDark ? '#0e1812' : '#ffffff',
+                      border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : 'none',
                     },
                   },
                   list: {
@@ -419,9 +537,9 @@ export default function BiteMapPage() {
                 },
               }}
             >
-              <MenuItem value="all" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4, bgcolor: '#effaf7' }}>
+              <MenuItem value="all" sx={{ px: 1.75, py: 1.15, minHeight: 42, fontSize: 13, lineHeight: 1.4, bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#effaf7' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
-                  <CategoryIcon sx={{ fontSize: 17, color: '#7d93aa' }} />
+                  <CategoryIcon sx={{ fontSize: 17, color: isDark ? '#a7f3d0' : '#7d93aa' }} />
                   <span style={{ fontSize: '13px' }}>All Categories</span>
                 </Box>
               </MenuItem>
@@ -467,10 +585,10 @@ export default function BiteMapPage() {
               }}
               sx={{
                 width: 195,
-                bgcolor: '#ffffff',
-                color: '#6f879d',
+                bgcolor: isDark ? '#0b140f' : '#ffffff',
+                color: isDark ? '#ffffff' : '#6f879d',
                 borderRadius: 2.5,
-                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+                boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 1px 2px rgba(15, 23, 42, 0.05)',
                 '& .MuiSelect-select': {
                   display: 'flex',
                   alignItems: 'center',
@@ -481,14 +599,14 @@ export default function BiteMapPage() {
                   pr: 4.5,
                 },
                 '& .MuiSelect-icon': {
-                  color: '#8aa0b3',
+                  color: isDark ? '#a7f3d0' : '#8aa0b3',
                   fontSize: 18,
                   right: 10,
                   top: 'calc(50% - 9px)',
                 },
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e9eef3' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#dde6ee', borderWidth: '1px' },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? 'rgba(163, 230, 53, 0.25)' : '#e9eef3' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? 'rgba(163, 230, 53, 0.5)' : '#dde6ee' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#10b981', borderWidth: '1px' },
               }}
               MenuProps={{
                 disableScrollLock: true,
@@ -501,6 +619,8 @@ export default function BiteMapPage() {
                       mt: 0.5,
                       borderRadius: 2.5,
                       overflow: 'hidden',
+                      bgcolor: isDark ? '#0e1812' : '#ffffff',
+                      border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : 'none',
                     },
                   },
                   list: { p: 0.5 },

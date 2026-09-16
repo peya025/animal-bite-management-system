@@ -108,26 +108,28 @@ export default function Form1PrintPreviewModal({
       slotProps={{
         paper: {
           sx: {
-            borderRadius: 3,
             height: '92vh',
             maxHeight: '92vh',
+            borderRadius: 2.5,
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            bgcolor: 'var(--card-bg-solid, #ffffff)',
+            border: '1px solid var(--border-glow, transparent)',
           },
         },
       }}
     >
-      {/* ── Modal Header ── */}
+      {/* ── Modal Header Bar ── */}
       <DialogTitle
         sx={{
           display: 'flex',
           alignItems: 'center',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           px: 3,
           py: 2,
-          borderBottom: '1px solid #e5e7eb',
-          bgcolor: '#fafafa',
+          borderBottom: '1px solid var(--border-glow, #e5e7eb)',
+          bgcolor: 'var(--card-bg-solid, #fafafa)',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -136,24 +138,24 @@ export default function Form1PrintPreviewModal({
               width: 36,
               height: 36,
               borderRadius: 2,
-              bgcolor: '#ecfdf5',
+              bgcolor: 'rgba(16, 185, 129, 0.15)',
               display: 'flex',
               alignItems: 'center',
-              justify: 'center',
+              justifyContent: 'center',
             }}
           >
-            <Icon name="print" size={20} color="#059669" />
+            <Icon name="print" size={20} color="#10b981" />
           </Box>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, color: '#111827' }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, color: 'var(--text-h, #111827)' }}>
               Print Preview — DOH iCLINICSYS Patient Enrolment Record (Form 1)
             </Typography>
-            <Typography variant="body2" sx={{ fontSize: 12, color: '#6b7280' }}>
+            <Typography variant="body2" sx={{ fontSize: 12, color: 'var(--text-m, #6b7280)' }}>
               Document loaded. Opening print dialog automatically…
             </Typography>
           </Box>
         </Box>
-        <IconButton onClick={onClose} size="small" sx={{ color: '#6b7280' }}>
+        <IconButton onClick={onClose} size="small" sx={{ color: 'var(--text-m, #6b7280)' }}>
           <Icon name="trash" size={16} />
         </IconButton>
       </DialogTitle>
@@ -167,14 +169,14 @@ export default function Form1PrintPreviewModal({
               inset: 0,
               display: 'flex',
               alignItems: 'center',
-              justify: 'center',
-              bgcolor: '#ffffff',
+              justifyContent: 'center',
+              bgcolor: 'var(--card-bg-solid, #ffffff)',
               zIndex: 10,
             }}
           >
             <Box sx={{ textAlign: 'center' }}>
-              <CircularProgress size={36} sx={{ color: '#059669', mb: 1.5 }} />
-              <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+              <CircularProgress size={36} sx={{ color: '#10b981', mb: 1.5 }} />
+              <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)' }}>
                 Rendering DOH Form 1 Enrolment Record & Opening Printer…
               </Typography>
             </Box>
@@ -209,21 +211,21 @@ export default function Form1PrintPreviewModal({
         sx={{
           px: 3,
           py: 2,
-          borderTop: '1px solid #e5e7eb',
-          bgcolor: '#fafafa',
+          borderTop: '1px solid var(--border-glow, #e5e7eb)',
+          bgcolor: 'var(--card-bg-solid, #fafafa)',
           justify: 'space-between',
         }}
       >
-        <Typography variant="body2" sx={{ fontSize: 12, color: '#6b7280' }}>
-          Patient: <strong>{patient.last_name}, {patient.first_name}</strong> (#{patient.patient_number || patient.patient_id})
+        <Typography variant="body2" sx={{ fontSize: 12, color: 'var(--text-m, #6b7280)' }}>
+          Patient: <strong style={{ color: 'var(--text-h, #111827)' }}>{patient.last_name}, {patient.first_name}</strong> (#{patient.patient_number || patient.patient_id})
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           <Button
             onClick={onClose}
             sx={{
-              color: '#374151',
-              borderColor: '#d1d5db',
+              color: 'var(--text-m, #374151)',
+              borderColor: 'var(--border-glow, #d1d5db)',
               textTransform: 'none',
               fontWeight: 600,
               px: 2.5,

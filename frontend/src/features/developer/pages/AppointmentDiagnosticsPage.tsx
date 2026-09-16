@@ -17,6 +17,7 @@ import {
   Divider,
   LinearProgress,
   Tooltip,
+  useTheme,
 } from '@mui/material';
 import {
   BugReport as BugIcon,
@@ -73,6 +74,8 @@ interface DiagnosticResults {
 }
 
 export const AppointmentDiagnosticsPage: React.FC = () => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
@@ -272,266 +275,228 @@ export const AppointmentDiagnosticsPage: React.FC = () => {
 
       {/* KPI Overview Grid */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
-        {/* Health Score Card */}
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2.5,
-            borderRadius: '12px',
-            bgcolor: '#ffffff',
-            borderColor: '#e5e7eb',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>
-              System Health
-            </Typography>
-            {healthScore >= 90 ? (
-              <HealthyIcon sx={{ color: scoreColor, fontSize: 22 }} />
-            ) : healthScore >= 60 ? (
-              <WarningIcon sx={{ color: scoreColor, fontSize: 22 }} />
-            ) : (
-              <CriticalIcon sx={{ color: scoreColor, fontSize: 22 }} />
-            )}
-          </Box>
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: scoreColor }}>
-              {healthScore}%
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#6b7280' }}>
-              {healthScore === 100 ? 'Zero Anomalies Detected' : `${data?.summary?.total_anomalies} Issues Found`}
-            </Typography>
-          </Box>
-        </Paper>
-
-        {/* Total Appointments */}
-        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: '12px', bgcolor: '#ffffff', borderColor: '#e5e7eb' }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>
-            Audited Appointments
-          </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: '#111827', mt: 1 }}>
-            {data?.summary?.total_appointments ?? 0}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#6b7280' }}>
-            Live in Database
-          </Typography>
-        </Paper>
-
-        {/* Critical Violations */}
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2.5,
-            borderRadius: '12px',
-            bgcolor: (data?.summary?.critical_count ?? 0) > 0 ? '#fff5f5' : '#ffffff',
-            borderColor: (data?.summary?.critical_count ?? 0) > 0 ? '#fecaca' : '#e5e7eb',
-          }}
-        >
-          <Typography variant="caption" sx={{ fontWeight: 700, color: '#dc2626', textTransform: 'uppercase' }}>
-            Critical Violations
-          </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: '#dc2626', mt: 1 }}>
-            {data?.summary?.critical_count ?? 0}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#6b7280' }}>
-            Closed Days & Inversions
-          </Typography>
-        </Paper>
-
-        {/* Workflow Warnings */}
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2.5,
-            borderRadius: '12px',
-            bgcolor: (data?.summary?.warning_count ?? 0) > 0 ? '#fffbeb' : '#ffffff',
-            borderColor: (data?.summary?.warning_count ?? 0) > 0 ? '#fde68a' : '#e5e7eb',
-          }}
-        >
-          <Typography variant="caption" sx={{ fontWeight: 700, color: '#d97706', textTransform: 'uppercase' }}>
-            Workflow Warnings
-          </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: '#d97706', mt: 1 }}>
-            {data?.summary?.warning_count ?? 0}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#6b7280' }}>
-            Status & Regimen Desync
-          </Typography>
-        </Paper>
-
-        {/* Auto-Fixable */}
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2.5,
-            borderRadius: '12px',
-            bgcolor: (data?.summary?.fixable_count ?? 0) > 0 ? '#f0fdf4' : '#ffffff',
-            borderColor: (data?.summary?.fixable_count ?? 0) > 0 ? '#bbf7d0' : '#e5e7eb',
-          }}
-        >
-          <Typography variant="caption" sx={{ fontWeight: 700, color: '#16a34a', textTransform: 'uppercase' }}>
-            Auto-Fixable Issues
-          </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: '#16a34a', mt: 1 }}>
-            {data?.summary?.fixable_count ?? 0}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#6b7280' }}>
-            1-Click Resolution Ready
-          </Typography>
-        </Paper>
+        {[
+          {
+            id: 'health',
+            label: 'System Health',
+            value: `${healthScore}%`,
+            sub: healthScore === 100 ? 'Zero Anomalies Detected' : `${data?.summary?.total_anomalies} Issues Found`,
+            color: scoreColor,
+            icon: healthScore >= 90 ? <HealthyIcon sx={{ color: scoreColor, fontSize: 22 }} /> : healthScore >= 60 ? <WarningIcon sx={{ color: scoreColor, fontSize: 22 }} /> : <CriticalIcon sx={{ color: scoreColor, fontSize: 22 }} />,
+          },
+          {
+            id: 'audited',
+            label: 'Audited Appointments',
+            value: data?.summary?.total_appointments ?? 0,
+            sub: 'Live in Database',
+            color: '#10b981',
+            icon: null,
+          },
+          {
+            id: 'critical',
+            label: 'Critical Violations',
+            value: data?.summary?.critical_count ?? 0,
+            sub: 'Closed Days & Inversions',
+            color: '#dc2626',
+            icon: null,
+          },
+          {
+            id: 'warning',
+            label: 'Workflow Warnings',
+            value: data?.summary?.warning_count ?? 0,
+            sub: 'Status & Regimen Desync',
+            color: '#d97706',
+            icon: null,
+          },
+          {
+            id: 'fixable',
+            label: 'Auto-Fixable Issues',
+            value: data?.summary?.fixable_count ?? 0,
+            sub: '1-Click Resolution Ready',
+            color: '#10b981',
+            icon: null,
+          },
+        ].map((item) => (
+          <Paper
+            key={item.id}
+            elevation={0}
+            sx={{
+              p: '18px 20px',
+              borderRadius: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: 110,
+              position: 'relative',
+              overflow: 'hidden',
+              cursor: 'default',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              ...(isDark
+                ? {
+                    background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
+                    border: '1px solid rgba(163, 230, 53, 0.3)',
+                    boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)',
+                    '&:hover': {
+                      transform: 'translateY(-3px)',
+                      borderColor: 'rgba(163, 230, 53, 0.55)',
+                      boxShadow: '0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)',
+                    },
+                  }
+                : {
+                    background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.32)',
+                    boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
+                    '&:hover': {
+                      transform: 'translateY(-3px)',
+                      borderColor: 'rgba(16, 185, 129, 0.55)',
+                      boxShadow: '0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)',
+                    },
+                  }),
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  color: isDark ? '#a7f3d0' : '#047857',
+                  textTransform: 'uppercase',
+                  fontSize: '11px',
+                  letterSpacing: '0.04em',
+                  fontFamily: "'Poppins', sans-serif",
+                }}
+              >
+                {item.label}
+              </Typography>
+              {item.icon}
+            </Box>
+            <Box sx={{ mt: 1 }}>
+              <Typography
+                sx={{
+                  fontSize: '24px',
+                  fontWeight: 800,
+                  color: isDark ? '#ffffff' : '#064e3b',
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.3px',
+                  fontFamily: "'Poppins', sans-serif",
+                  textShadow: isDark ? '0 1px 3px rgba(0,0,0,0.5)' : 'none',
+                }}
+              >
+                {item.value}
+              </Typography>
+              <Typography sx={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#64748b', mt: 0.25 }}>
+                {item.sub}
+              </Typography>
+            </Box>
+          </Paper>
+        ))}
       </Box>
 
       {/* Role Lifecycle Pipeline Status Cards */}
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151', mb: 1.5, textTransform: 'uppercase', fontSize: 12 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', mb: 1.5, textTransform: 'uppercase', fontSize: 12, letterSpacing: '0.04em', fontFamily: "'Poppins', sans-serif" }}>
         Workflow Stage & Role Status Synchronization
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-        {/* Registration Desk */}
-        <Paper
-          variant="outlined"
-          onClick={() => setStageFilter(stageFilter === 'registration' ? 'all' : 'registration')}
-          sx={{
-            p: 2,
-            borderRadius: '10px',
-            cursor: 'pointer',
-            borderColor: stageFilter === 'registration' ? '#2563eb' : '#e5e7eb',
-            bgcolor: stageFilter === 'registration' ? '#eff6ff' : '#ffffff',
-            transition: 'all 0.15s ease',
-            '&:hover': { borderColor: '#93c5fd' },
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <RegistrationIcon sx={{ color: '#2563eb', fontSize: 22 }} />
-              <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#111827' }}>Registration Desk</Typography>
-            </Box>
-            <Chip
-              size="small"
-              label={data?.role_breakdown?.registration?.total === 0 ? 'HEALTHY' : `${data?.role_breakdown?.registration?.total} ISSUES`}
+        {[
+          {
+            key: 'registration',
+            label: 'Registration Desk',
+            icon: <RegistrationIcon sx={{ color: '#2563eb', fontSize: 22 }} />,
+            desc: 'Online bookings, patient intake triage, and check-in status sync.',
+            issues: data?.role_breakdown?.registration?.total ?? 0,
+          },
+          {
+            key: 'doctor',
+            label: 'Doctor / Triage',
+            icon: <DoctorIcon sx={{ color: '#7c3aed', fontSize: 22 }} />,
+            desc: 'Consultation completion, exposure risk rating, and regimen initiation.',
+            issues: data?.role_breakdown?.doctor?.total ?? 0,
+          },
+          {
+            key: 'treatment',
+            label: 'Treatment / Nurse',
+            icon: <NurseIcon sx={{ color: '#059669', fontSize: 22 }} />,
+            desc: 'Form 3 vaccine administration vs appointment status synchronization.',
+            issues: data?.role_breakdown?.treatment?.total ?? 0,
+          },
+          {
+            key: 'schedule_engine',
+            label: 'Schedule Engine',
+            icon: <ScheduleIcon sx={{ color: '#d97706', fontSize: 22 }} />,
+            desc: 'Weekly operating hours, holiday closures, and PEP chronology drift.',
+            issues: data?.role_breakdown?.schedule_engine?.total ?? 0,
+          },
+        ].map((r) => {
+          const isSelected = stageFilter === r.key;
+          return (
+            <Paper
+              key={r.key}
+              elevation={0}
+              onClick={() => setStageFilter(isSelected ? 'all' : r.key)}
               sx={{
-                height: 20,
-                fontSize: 10,
-                fontWeight: 700,
-                bgcolor: data?.role_breakdown?.registration?.total === 0 ? '#e8f5e9' : '#fff3e0',
-                color: data?.role_breakdown?.registration?.total === 0 ? '#2e7d32' : '#e65100',
+                p: '18px 20px',
+                borderRadius: '20px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: 110,
+                position: 'relative',
+                overflow: 'hidden',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                ...(isDark
+                  ? {
+                      background: isSelected
+                        ? 'radial-gradient(ellipse at 30% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)'
+                        : 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
+                      border: isSelected ? '2px solid #10b981' : '1px solid rgba(163, 230, 53, 0.3)',
+                      boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)',
+                      '&:hover': {
+                        transform: 'translateY(-3px)',
+                        borderColor: 'rgba(163, 230, 53, 0.55)',
+                        boxShadow: '0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35)',
+                      },
+                    }
+                  : {
+                      background: isSelected
+                        ? 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 45%, #ffffff 100%)'
+                        : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+                      border: isSelected ? '2px solid #10b981' : '1px solid rgba(16, 185, 129, 0.32)',
+                      boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
+                      '&:hover': {
+                        transform: 'translateY(-3px)',
+                        borderColor: 'rgba(16, 185, 129, 0.55)',
+                        boxShadow: '0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22)',
+                      },
+                    }),
               }}
-            />
-          </Box>
-          <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 1 }}>
-            Online bookings, patient intake triage, and check-in status sync.
-          </Typography>
-        </Paper>
-
-        {/* Doctor / Triage */}
-        <Paper
-          variant="outlined"
-          onClick={() => setStageFilter(stageFilter === 'doctor' ? 'all' : 'doctor')}
-          sx={{
-            p: 2,
-            borderRadius: '10px',
-            cursor: 'pointer',
-            borderColor: stageFilter === 'doctor' ? '#2563eb' : '#e5e7eb',
-            bgcolor: stageFilter === 'doctor' ? '#eff6ff' : '#ffffff',
-            transition: 'all 0.15s ease',
-            '&:hover': { borderColor: '#93c5fd' },
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <DoctorIcon sx={{ color: '#7c3aed', fontSize: 22 }} />
-              <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#111827' }}>Doctor / Triage</Typography>
-            </Box>
-            <Chip
-              size="small"
-              label={data?.role_breakdown?.doctor?.total === 0 ? 'HEALTHY' : `${data?.role_breakdown?.doctor?.total} ISSUES`}
-              sx={{
-                height: 20,
-                fontSize: 10,
-                fontWeight: 700,
-                bgcolor: data?.role_breakdown?.doctor?.total === 0 ? '#e8f5e9' : '#fff3e0',
-                color: data?.role_breakdown?.doctor?.total === 0 ? '#2e7d32' : '#e65100',
-              }}
-            />
-          </Box>
-          <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 1 }}>
-            Consultation completion, exposure risk rating, and regimen initiation.
-          </Typography>
-        </Paper>
-
-        {/* Treatment / Nurse */}
-        <Paper
-          variant="outlined"
-          onClick={() => setStageFilter(stageFilter === 'treatment' ? 'all' : 'treatment')}
-          sx={{
-            p: 2,
-            borderRadius: '10px',
-            cursor: 'pointer',
-            borderColor: stageFilter === 'treatment' ? '#2563eb' : '#e5e7eb',
-            bgcolor: stageFilter === 'treatment' ? '#eff6ff' : '#ffffff',
-            transition: 'all 0.15s ease',
-            '&:hover': { borderColor: '#93c5fd' },
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <NurseIcon sx={{ color: '#059669', fontSize: 22 }} />
-              <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#111827' }}>Treatment / Nurse</Typography>
-            </Box>
-            <Chip
-              size="small"
-              label={data?.role_breakdown?.treatment?.total === 0 ? 'HEALTHY' : `${data?.role_breakdown?.treatment?.total} ISSUES`}
-              sx={{
-                height: 20,
-                fontSize: 10,
-                fontWeight: 700,
-                bgcolor: data?.role_breakdown?.treatment?.total === 0 ? '#e8f5e9' : '#fff3e0',
-                color: data?.role_breakdown?.treatment?.total === 0 ? '#2e7d32' : '#e65100',
-              }}
-            />
-          </Box>
-          <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 1 }}>
-            Form 3 vaccine administration vs appointment status synchronization.
-          </Typography>
-        </Paper>
-
-        {/* Operating Schedule Engine */}
-        <Paper
-          variant="outlined"
-          onClick={() => setStageFilter(stageFilter === 'schedule_engine' ? 'all' : 'schedule_engine')}
-          sx={{
-            p: 2,
-            borderRadius: '10px',
-            cursor: 'pointer',
-            borderColor: stageFilter === 'schedule_engine' ? '#2563eb' : '#e5e7eb',
-            bgcolor: stageFilter === 'schedule_engine' ? '#eff6ff' : '#ffffff',
-            transition: 'all 0.15s ease',
-            '&:hover': { borderColor: '#93c5fd' },
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <ScheduleIcon sx={{ color: '#d97706', fontSize: 22 }} />
-              <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#111827' }}>Schedule Engine</Typography>
-            </Box>
-            <Chip
-              size="small"
-              label={data?.role_breakdown?.schedule_engine?.total === 0 ? 'HEALTHY' : `${data?.role_breakdown?.schedule_engine?.total} ISSUES`}
-              sx={{
-                height: 20,
-                fontSize: 10,
-                fontWeight: 700,
-                bgcolor: data?.role_breakdown?.schedule_engine?.total === 0 ? '#e8f5e9' : '#fff3e0',
-                color: data?.role_breakdown?.schedule_engine?.total === 0 ? '#2e7d32' : '#e65100',
-              }}
-            />
-          </Box>
-          <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 1 }}>
-            Weekly operating hours, holiday closures, and PEP chronology drift.
-          </Typography>
-        </Paper>
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {r.icon}
+                  <Typography sx={{ fontWeight: 700, fontSize: 13, color: isDark ? '#ffffff' : '#064e3b', fontFamily: "'Poppins', sans-serif" }}>
+                    {r.label}
+                  </Typography>
+                </Box>
+                <Chip
+                  size="small"
+                  label={r.issues === 0 ? 'HEALTHY' : `${r.issues} ISSUES`}
+                  sx={{
+                    height: 22,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    bgcolor: r.issues === 0 ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2'),
+                    color: r.issues === 0 ? (isDark ? '#34d399' : '#15803d') : (isDark ? '#f87171' : '#dc2626'),
+                    border: `1px solid ${r.issues === 0 ? '#10b98140' : '#ef444440'}`,
+                    borderRadius: 999,
+                  }}
+                />
+              </Box>
+              <Typography sx={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: 11, mt: 1 }}>
+                {r.desc}
+              </Typography>
+            </Paper>
+          );
+        })}
       </Box>
 
       {/* Log Console Drawer */}
@@ -678,12 +643,12 @@ export const AppointmentDiagnosticsPage: React.FC = () => {
                           height: 20,
                           fontSize: 10,
                           fontWeight: 700,
-                          bgcolor: '#ffffff',
-                          color: '#374151',
-                          border: '1px solid #d1d5db',
+                          bgcolor: 'var(--input-bg, #ffffff)',
+                          color: 'var(--text-b, #374151)',
+                          border: '1px solid var(--border-glow, #d1d5db)',
                         }}
                       />
-                      <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 14, color: 'var(--text-h, #111827)' }}>
                         {item.title}
                       </Typography>
                     </Box>

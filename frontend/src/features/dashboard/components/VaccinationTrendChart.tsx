@@ -39,10 +39,10 @@ export const VaccinationTrendChart: React.FC<VaccinationTrendChartProps> = ({
     <div
       style={{
         background: 'var(--card-bg, #ffffff)',
-        borderRadius: 16,
-        border: '1px solid var(--card-border, #e5e7eb)',
+        borderRadius: 20,
+        border: '1px solid var(--border-glow, #e5e7eb)',
         padding: '20px 22px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+        boxShadow: 'var(--card-shadow)',
         display: 'flex',
         flexDirection: 'column',
         height: '100%',

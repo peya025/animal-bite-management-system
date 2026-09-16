@@ -991,7 +991,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date</label>
-            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
@@ -1004,7 +1004,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #d1d5db',
+                border: '1px solid var(--input-border)',
                 borderRadius: 6,
                 fontSize: 13,
                 backgroundColor: '#f3f4f6',
@@ -1028,7 +1028,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #d1d5db',
+                border: '1px solid var(--input-border)',
                 borderRadius: 6,
                 fontSize: 13,
                 backgroundColor: '#f3f4f6',
@@ -1050,10 +1050,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #d1d5db',
+                border: '1px solid var(--input-border)',
                 borderRadius: 6,
                 fontSize: 13,
-                backgroundColor: '#f9fafb',
+                backgroundColor: 'var(--bg-secondary, #e8fdf6)',
                 color: '#374151',
                 cursor: 'not-allowed',
                 fontWeight: 500,
@@ -1090,10 +1090,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               style={{
                 flex: 1,
                 padding: '8px 12px',
-                border: fieldErrors.philhealth_pin ? '2px solid #ef4444' : !isPhilHealthMember ? '1px dashed #fca5a5' : '1px solid #d1d5db',
+                border: fieldErrors.philhealth_pin ? '2px solid #ef4444' : !isPhilHealthMember ? '1px dashed #fca5a5' : '1px solid var(--input-border)',
                 borderRadius: 6,
                 fontSize: 13,
-                backgroundColor: !isPhilHealthMember ? '#fef2f2' : readOnly ? '#f9fafb' : '#ffffff',
+                backgroundColor: !isPhilHealthMember ? '#fef2f2' : readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
                 color: !isPhilHealthMember ? '#dc2626' : '#111827',
                 fontWeight: !isPhilHealthMember ? 500 : 400,
                 fontStyle: !isPhilHealthMember ? 'italic' : 'normal',
@@ -1106,10 +1106,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               disabled={readOnly || !isPhilHealthMember}
               style={{
                 padding: '8px 12px',
-                border: !isPhilHealthMember ? '1px dashed #fca5a5' : '1px solid #d1d5db',
+                border: !isPhilHealthMember ? '1px dashed #fca5a5' : '1px solid var(--input-border)',
                 borderRadius: 6,
                 fontSize: 13,
-                backgroundColor: !isPhilHealthMember ? '#fef2f2' : readOnly ? '#f9fafb' : '#ffffff',
+                backgroundColor: !isPhilHealthMember ? '#fef2f2' : readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
                 color: !isPhilHealthMember ? '#dc2626' : '#111827',
                 outline: 'none',
                 cursor: !isPhilHealthMember ? 'not-allowed' : undefined,
@@ -1130,21 +1130,21 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Patient Name <span style={{ color: '#ef4444' }}>*</span></label>
-          <input type="text" value={formData.patient_name} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: '#f9fafb', color: '#6b7280' }} placeholder="Last, First Middle" />
+          <input type="text" value={formData.patient_name} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} placeholder="Last, First Middle" />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Age</label>
-            <input type="text" value={formData.age} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: '#f9fafb', color: '#6b7280' }} />
+            <input type="text" value={formData.age} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date of Birth</label>
-            <input type="date" value={formData.date_of_birth} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: '#f9fafb', color: '#6b7280' }} />
+            <input type="date" value={formData.date_of_birth} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} />
           </div>
         </div>
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Address</label>
-          <input type="text" value={formData.address} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: '#f9fafb', color: '#6b7280' }} />
+          <input type="text" value={formData.address} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
@@ -1198,7 +1198,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               style={{ 
                 width: '100%', 
                 padding: '8px 12px', 
-                border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : '1px solid #d1d5db', 
+                border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : '1px solid var(--input-border)', 
                 borderRadius: 6, 
                 fontSize: 13, 
                 backgroundColor: readOnly ? '#f3f4f6' : undefined,
@@ -1221,7 +1221,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               style={{ 
                 width: '100%', 
                 padding: '8px 12px', 
-                border: '1px solid #d1d5db', 
+                border: '1px solid var(--input-border)', 
                 borderRadius: 6, 
                 fontSize: 13, 
                 backgroundColor: readOnly ? '#f3f4f6' : undefined,
@@ -1288,7 +1288,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     onChange={e => expLoc.setManualMun(e.target.value)}
                     disabled={readOnly}
                     placeholder="Enter municipality"
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? '#f9fafb' : '#fff' }}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
                   />
                 </div>
                 <div>
@@ -1299,7 +1299,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     onChange={e => expLoc.setManualBrgy(e.target.value)}
                     disabled={readOnly}
                     placeholder="Enter barangay"
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? '#f9fafb' : '#fff' }}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
                   />
                 </div>
               </div>
@@ -1312,7 +1312,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     value={expLoc.municipality}
                     onChange={e => expLoc.setMunicipality(e.target.value)}
                     disabled={readOnly || expLoc.loadingMun}
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : '#fff', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
                   >
                     <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
                     {expLoc.municipalities.map(m => (
@@ -1326,7 +1326,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     value={expLoc.barangay}
                     onChange={e => expLoc.setBarangay(e.target.value)}
                     disabled={readOnly || !expLoc.municipality || expLoc.loadingBrgy}
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: (readOnly || !expLoc.municipality) ? '#f9fafb' : '#fff', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: (readOnly || !expLoc.municipality) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
                   >
                     <option value="">{expLoc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
                     {expLoc.barangays.map(b => (
@@ -1339,7 +1339,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
             {/* Read-only display when form is read-only and value came from bite record */}
             {readOnly && !expLoc.full && formData.place_of_exposure && (
-              <div style={{ padding: '7px 11px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, color: '#374151' }}>
+              <div style={{ padding: '7px 11px', background: 'var(--bg-secondary, #f9fafb)', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, color: '#374151' }}>
                 {formData.place_of_exposure}
               </div>
             )}
@@ -1380,10 +1380,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 style={{
                   width: '100%',
                   padding: '7px 10px',
-                  border: '1px solid #d1d5db',
+                  border: '1px solid var(--input-border)',
                   borderRadius: 4,
                   fontSize: 13,
-                  backgroundColor: readOnly ? '#f9fafb' : '#ffffff',
+                  backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
                   marginBottom: 6,
                 }}
               />
@@ -1471,10 +1471,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     flex: 1,
                     minWidth: 160,
                     padding: '6px 10px',
-                    border: '1px solid #d1d5db',
+                    border: '1px solid var(--input-border)',
                     borderRadius: 4,
                     fontSize: 13,
-                    backgroundColor: readOnly ? '#f9fafb' : undefined,
+                    backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : undefined,
                   }}
                 />
               )}
@@ -1533,7 +1533,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '6px 12px',
-                  backgroundColor: manualReExposure ? '#fef3c7' : '#ffffff',
+                  backgroundColor: manualReExposure ? '#fef3c7' : 'var(--card-bg-solid, #ffffff)',
                   border: `1px solid ${manualReExposure ? '#f59e0b' : '#cbd5e1'}`,
                   borderRadius: 6, fontSize: 12, fontWeight: 700,
                   color: manualReExposure ? '#92400e' : '#64748b',
@@ -1552,12 +1552,12 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 alignItems: 'center',
                 gap: 6,
                 padding: '6px 12px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #cbd5e1',
+                backgroundColor: 'var(--card-bg-solid, #ffffff)',
+                border: '1px solid var(--border-glow, #cbd5e1)',
                 borderRadius: 6,
                 fontSize: 12,
                 fontWeight: 600,
-                color: '#1e293b',
+                color: 'var(--text-h, #1e293b)',
                 cursor: 'pointer',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
               }}
@@ -1568,14 +1568,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
 
         {(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
-          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 6, color: '#065f46', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid var(--border-glow, #a7f3d0)', borderRadius: 6, color: 'var(--text-h, #065f46)', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>🛡️</span>
             <span><strong>2-Dose Booster Regimen Active (Re-Exposure Protocol)</strong>: Patient is scheduled for <strong>Day 0 & Day 3 ONLY</strong>. Doses 7 & 28 are not required per DOH/WHO re-exposure guidelines.</span>
           </div>
         )}
 
         {inventorySetupMessage && (
-          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, color: '#92400e', fontSize: 12 }}>
+          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(245, 158, 11, 0.12)', border: '1px solid var(--border-glow, #fde68a)', borderRadius: 6, color: 'var(--text-b, #92400e)', fontSize: 12 }}>
             ⚠ {inventorySetupMessage}
           </div>
         )}
@@ -1585,37 +1585,37 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             marginBottom: 16,
             padding: '12px 16px',
             borderRadius: 8,
-            backgroundColor: '#ecfdf5',
-            border: '1px solid #a7f3d0',
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            border: '1px solid var(--border-glow, #a7f3d0)',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
           }}>
             <span style={{ fontSize: 20 }}>🛡️</span>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-h, #065f46)' }}>
                 Prior Immunization History Verified ({pastHistoryRecords.filter(r => r.status === 'completed').length} completed doses on file)
               </div>
-              <div style={{ fontSize: 12, color: '#047857', marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-b, #047857)', marginTop: 2 }}>
                 Patient is returning with a new animal bite exposure. A fresh vaccination regimen has been initiated — doses below are open for recording today's treatment.
               </div>
             </div>
           </div>
         )}
 
-        <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: 8, backgroundColor: '#ffffff' }}>
+        <div style={{ overflowX: 'auto', border: '1px solid var(--border-glow, #e5e7eb)', borderRadius: 8, backgroundColor: 'var(--card-bg-solid, #ffffff)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
-              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 85 }}>Period</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: '#334155', minWidth: 95 }}>Route</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 125 }}>Date</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 185 }}>Vaccine Type & Source</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 195 }}>FIFO Batch Preview</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: '#334155', minWidth: 105 }}>Stock Units</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 120 }}>Given by</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: '#334155', minWidth: 100 }}>Signature</th>
-                <th style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 700, color: '#334155', minWidth: 100 }}>Status</th>
+              <tr style={{ backgroundColor: 'var(--table-header-bg, #f8fafc)', borderBottom: '2px solid var(--border-glow, #e2e8f0)' }}>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 85 }}>Period</th>
+                <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 95 }}>Route</th>
+                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 125 }}>Date</th>
+                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 185 }}>Vaccine Type & Source</th>
+                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 195 }}>FIFO Batch Preview</th>
+                <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 105 }}>Stock Units</th>
+                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 120 }}>Given by</th>
+                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 100 }}>Signature</th>
+                <th style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 100 }}>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -1662,7 +1662,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     key={dose.period}
                     style={{
                       borderBottom: '1px solid #f1f5f9',
-                      backgroundColor: isPrerequisiteLocked ? '#fafafa' : isCompleted ? '#f0fdf4' : isActiveFollowUp ? '#f0fdf4' : isFilled ? '#f8fafc' : '#ffffff',
+                      backgroundColor: isPrerequisiteLocked ? 'var(--bg-secondary, #f9fafb)' : isCompleted ? '#f0fdf4' : isActiveFollowUp ? '#f0fdf4' : isFilled ? 'var(--table-header-bg, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
                       boxShadow: isActiveFollowUp ? 'inset 4px 0 0 #10b981' : isPrerequisiteLocked ? 'inset 4px 0 0 #f59e0b' : undefined,
                       opacity: isPrerequisiteLocked ? 0.65 : 1,
                     }}
@@ -1746,7 +1746,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                           border: isFilled ? '1px solid #94a3b8' : '1px solid #cbd5e1',
                           borderRadius: 5,
                           fontSize: 12,
-                          backgroundColor: isCompleted ? '#f1f5f9' : '#ffffff',
+                          backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
                           color: isCompleted ? '#334155' : '#0f172a',
                           cursor: isCompleted ? 'not-allowed' : 'text',
                           fontWeight: isCompleted ? 600 : 400,
@@ -1821,7 +1821,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                           border: showRequiredWarning ? '1.5px solid #ef4444' : prescribedVaccineType && !isCompleted ? '1.5px solid #86efac' : '1px solid #cbd5e1',
                           borderRadius: 5,
                           fontSize: 12,
-                          backgroundColor: isCompleted ? '#f1f5f9' : prescribedVaccineType && !isCompleted ? '#f0fdf4' : '#ffffff',
+                          backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : prescribedVaccineType && !isCompleted ? '#f0fdf4' : 'var(--card-bg-solid, #ffffff)',
                           color: dose.vaccine_type ? '#166534' : '#64748b',
                           fontWeight: dose.vaccine_type ? 700 : 400,
                           cursor: (isCompleted || Boolean(prescribedVaccineType && !isCompleted)) ? 'not-allowed' : 'pointer',
@@ -1951,7 +1951,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                           External (0 stock)
                         </span>
                       ) : isCompleted ? (
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 6, backgroundColor: '#f1f5f9', color: '#475569', fontSize: 11, fontWeight: 600 }}>
+                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 6, backgroundColor: 'var(--card-bg-nested, #f8fafc)', color: '#475569', fontSize: 11, fontWeight: 600 }}>
                           {dose.inventory_units_used === '0' ? 'Shared Vial' : `${dose.inventory_units_used || 1} vial(s)`}
                         </span>
                       ) : dose.vaccine_type && dose.batch_number ? (
@@ -1989,7 +1989,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                           border: '1px solid #cbd5e1',
                           borderRadius: 5,
                           fontSize: 12,
-                          backgroundColor: isCompleted ? '#f1f5f9' : '#ffffff',
+                          backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
                           cursor: isCompleted ? 'not-allowed' : 'text',
                         }}
                       />
@@ -2009,7 +2009,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                           border: '1px solid #cbd5e1',
                           borderRadius: 5,
                           fontSize: 12,
-                          backgroundColor: isCompleted ? '#f1f5f9' : '#ffffff',
+                          backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
                           cursor: isCompleted ? 'not-allowed' : 'text',
                         }}
                       />
@@ -2042,7 +2042,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                           </span>
                         )
                       ) : (
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: '#f1f5f9', color: '#64748b', fontSize: 10, fontWeight: 500 }}>
+                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: 'var(--card-bg-nested, #e4fbf4)', color: '#64748b', fontSize: 10, fontWeight: 500 }}>
                           Pending
                         </span>
                       )}
@@ -2062,7 +2062,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '6px 16px',
-                  background: showFullSchedule ? '#f1f5f9' : '#f0fdf4',
+                  background: showFullSchedule ? 'var(--card-bg-nested, #e4fbf4)' : '#f0fdf4',
                   border: `1px solid ${showFullSchedule ? '#cbd5e1' : '#a7f3d0'}`,
                   borderRadius: 20, fontSize: 12, fontWeight: 600,
                   color: showFullSchedule ? '#475569' : '#065f46',
@@ -2110,7 +2110,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
         <div>
           <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>ICD 10 Code</label>
-          <input type="text" value={icdCode} onChange={(e) => setIcdCode(e.target.value)} placeholder="e.g., W54.0" disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? '#f9fafb' : undefined }} />
+          <input type="text" value={icdCode} onChange={(e) => setIcdCode(e.target.value)} placeholder="e.g., W54.0" disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
         </div>
       </div>
 

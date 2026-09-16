@@ -11,7 +11,7 @@ export function NotFoundPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        bgcolor: '#fff',
+        bgcolor: 'var(--bg-primary, #ffffff)',
       }}
     >
       <Container maxWidth="md">
@@ -24,6 +24,7 @@ export function NotFoundPage() {
               backgroundRepeat: 'no-repeat',
               backgroundSize: 'contain',
               position: 'relative',
+              borderRadius: 3,
             }}
           >
             <Typography
@@ -31,7 +32,7 @@ export function NotFoundPage() {
               sx={{
                 fontSize: { xs: '4rem', sm: '5rem', md: '6rem' },
                 fontWeight: 700,
-                color: '#000',
+                color: 'var(--text-h, #000000)',
                 pt: { xs: 3, sm: 4 },
               }}
             >
@@ -45,13 +46,13 @@ export function NotFoundPage() {
               sx={{
                 fontSize: { xs: '1.5rem', sm: '2rem' },
                 fontWeight: 700,
-                color: '#000',
+                color: 'var(--text-h, #000000)',
                 mb: 2,
               }}
             >
               Look like you're lost
             </Typography>
-            <Typography sx={{ mb: 3, color: '#000' }}>
+            <Typography sx={{ mb: 3, color: 'var(--text-b, #4b5563)' }}>
               The page you are looking for is not available!
             </Typography>
 

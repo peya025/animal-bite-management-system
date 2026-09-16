@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -485,7 +485,7 @@ export default function InventoryTable({
 
   return (
     <Box>
-      <Box sx={{ mb: 3, p: 2, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: 2 }}>
+      <Box sx={{ mb: 3, p: 2, bgcolor: 'var(--card-bg-solid, #fff)', border: '1px solid var(--border-glow, #e5e7eb)', borderRadius: 2, boxShadow: 'var(--shadow)' }}>
         <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
           {/* Row 1: search + batch + status + source */}
           {/* 6.1 — Vaccine type search */}

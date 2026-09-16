@@ -23,6 +23,7 @@ import {
   Typography,
   CircularProgress,
   Alert,
+  useTheme,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -86,6 +87,8 @@ const DOSE_OPTIONS = [
 ];
 
 export default function NurseVaccineList() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [records, setRecords] = useState<AdministeredVaccineRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -240,122 +243,94 @@ export default function NurseVaccineList() {
 
         {/* ── Summary Stats ── */}
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={4}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2,
-                borderRadius: 2.5,
-                bgcolor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-              }}
-            >
-              <Box
+          {[
+            {
+              id: 'total',
+              label: 'Total Doses Administered',
+              value: stats.total_administrations,
+              icon: <MedicalIcon sx={{ fontSize: 20 }} />,
+              color: '#10b981',
+            },
+            {
+              id: 'today',
+              label: 'Administered Today',
+              value: stats.today_administrations,
+              icon: <CalendarIcon sx={{ fontSize: 20 }} />,
+              color: '#10b981',
+            },
+            {
+              id: 'patients',
+              label: 'Unique Patients Served',
+              value: stats.unique_patients,
+              icon: <PersonIcon sx={{ fontSize: 20 }} />,
+              color: '#f59e0b',
+            },
+          ].map((c) => (
+            <Grid item xs={12} sm={4} key={c.id}>
+              <Paper
+                elevation={0}
                 sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 2,
-                  bgcolor: '#eff6ff',
-                  border: '1px solid #bfdbfe',
+                  p: '18px 20px',
+                  borderRadius: '20px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#1d4ed8',
+                  gap: 2,
+                  minHeight: 100,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  cursor: 'default',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  ...(isDark
+                    ? {
+                        background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
+                        border: '1px solid rgba(163, 230, 53, 0.3)',
+                        boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)',
+                        '&:hover': {
+                          transform: 'translateY(-3px)',
+                          borderColor: 'rgba(163, 230, 53, 0.55)',
+                          boxShadow: '0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)',
+                        },
+                      }
+                    : {
+                        background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+                        border: '1px solid rgba(16, 185, 129, 0.32)',
+                        boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
+                        '&:hover': {
+                          transform: 'translateY(-3px)',
+                          borderColor: 'rgba(16, 185, 129, 0.55)',
+                          boxShadow: '0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)',
+                        },
+                      }),
                 }}
               >
-                <MedicalIcon />
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>
-                  Total Doses Administered
-                </Typography>
-                <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
-                  {stats.total_administrations}
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} sm={4}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2,
-                borderRadius: 2.5,
-                bgcolor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-              }}
-            >
-              <Box
-                sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 2,
-                  bgcolor: '#ecfdf5',
-                  border: '1px solid #a7f3d0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#059669',
-                }}
-              >
-                <CalendarIcon />
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>
-                  Administered Today
-                </Typography>
-                <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#059669', lineHeight: 1.1 }}>
-                  {stats.today_administrations}
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} sm={4}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2,
-                borderRadius: 2.5,
-                bgcolor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-              }}
-            >
-              <Box
-                sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 2,
-                  bgcolor: '#fef3c7',
-                  border: '1px solid #fde68a',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#d97706',
-                }}
-              >
-                <PersonIcon />
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>
-                  Unique Patients Served
-                </Typography>
-                <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
-                  {stats.unique_patients}
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '12px',
+                    bgcolor: isDark ? `${c.color}20` : `${c.color}15`,
+                    border: `1px solid ${c.color}40`,
+                    boxShadow: `0 0 12px ${c.color}25`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: c.color,
+                    flexShrink: 0,
+                  }}
+                >
+                  {c.icon}
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: "'Poppins', sans-serif" }}>
+                    {c.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: 24, fontWeight: 800, color: isDark ? '#ffffff' : '#064e3b', lineHeight: 1.15, fontFamily: "'Poppins', sans-serif", mt: 0.25, textShadow: isDark ? '0 1px 3px rgba(0,0,0,0.5)' : 'none' }}>
+                    {c.value}
+                  </Typography>
+                </Box>
+              </Paper>
+            </Grid>
+          ))}
         </Grid>
       </Box>
 
@@ -365,9 +340,10 @@ export default function NurseVaccineList() {
         sx={{
           p: 2,
           mb: 3,
-          borderRadius: 2.5,
-          border: '1px solid #e2e8f0',
-          bgcolor: '#ffffff',
+          borderRadius: '20px',
+          border: isDark ? '1px solid rgba(163, 230, 53, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
+          bgcolor: isDark ? 'rgba(14, 24, 18, 0.85)' : '#ffffff',
+          boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 2px 12px rgba(16,185,129,0.06)',
         }}
       >
         <Grid container spacing={1.5} alignItems="center">
@@ -385,10 +361,10 @@ export default function NurseVaccineList() {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon sx={{ color: '#94a3b8', fontSize: 19 }} />
+                    <SearchIcon sx={{ color: isDark ? '#a7f3d0' : '#94a3b8', fontSize: 19 }} />
                   </InputAdornment>
                 ),
-                sx: { fontSize: 13, borderRadius: 2 },
+                sx: { fontSize: 13, borderRadius: '8px' },
               }}
             />
           </Grid>
@@ -404,7 +380,7 @@ export default function NurseVaccineList() {
                   setVaccineFilter(e.target.value);
                   setPage(0);
                 }}
-                sx={{ fontSize: 13, borderRadius: 2 }}
+                sx={{ fontSize: 13, borderRadius: '8px' }}
               >
                 <MenuItem value="all" sx={{ fontSize: 13 }}>All Vaccines</MenuItem>
                 {availableVaccines.map((v) => (
@@ -427,7 +403,7 @@ export default function NurseVaccineList() {
                   setDoseFilter(e.target.value);
                   setPage(0);
                 }}
-                sx={{ fontSize: 13, borderRadius: 2 }}
+                sx={{ fontSize: 13, borderRadius: '8px' }}
               >
                 {DOSE_OPTIONS.map((opt) => (
                   <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: 13 }}>
@@ -453,7 +429,7 @@ export default function NurseVaccineList() {
               }}
               InputLabelProps={{ shrink: true }}
               inputProps={{ style: { fontSize: 12.5 } }}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
             />
           </Grid>
 
@@ -472,20 +448,35 @@ export default function NurseVaccineList() {
               }}
               InputLabelProps={{ shrink: true }}
               inputProps={{ style: { fontSize: 12.5 } }}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
             />
           </Grid>
 
-          {/* Reset button */}
-          <Grid item xs={12} sm={12} md={1} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          {/* Clear / Reset Filter Button */}
+          <Grid item xs={12} sm={6} md={1} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Tooltip title="Reset all filters">
               <Button
-                variant="text"
-                onClick={handleResetFilters}
+                variant="outlined"
                 size="small"
-                sx={{ textTransform: 'none', color: '#64748b', fontSize: 12, minWidth: 60 }}
+                onClick={handleResetFilters}
+                startIcon={<RefreshIcon sx={{ fontSize: 15 }} />}
+                sx={{
+                  height: 38,
+                  minWidth: 0,
+                  px: 1.5,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  borderColor: isDark ? 'rgba(163, 230, 53, 0.3)' : '#e2e8f0',
+                  color: isDark ? '#a7f3d0' : '#64748b',
+                  '&:hover': {
+                    borderColor: '#10b981',
+                    color: '#10b981',
+                    bgcolor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4',
+                  },
+                }}
               >
-                Clear
+                Reset
               </Button>
             </Tooltip>
           </Grid>
@@ -493,7 +484,7 @@ export default function NurseVaccineList() {
 
         {/* Quick Date Chips */}
         <Stack direction="row" spacing={1} sx={{ mt: 1.5, alignItems: 'center' }}>
-          <Typography sx={{ fontSize: 11.5, color: '#64748b', fontWeight: 600 }}>
+          <Typography sx={{ fontSize: 11.5, color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
             Quick Date:
           </Typography>
           <Chip
@@ -502,11 +493,13 @@ export default function NurseVaccineList() {
             clickable
             onClick={() => handleQuickDate('all')}
             sx={{
-              height: 22,
+              height: 24,
               fontSize: 11,
               fontWeight: 600,
-              bgcolor: quickDate === 'all' && !dateFrom && !dateTo ? '#0284c7' : '#f1f5f9',
-              color: quickDate === 'all' && !dateFrom && !dateTo ? '#ffffff' : '#475569',
+              borderRadius: '6px',
+              bgcolor: quickDate === 'all' && !dateFrom && !dateTo ? (isDark ? 'rgba(59, 130, 246, 0.25)' : '#0284c7') : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
+              color: quickDate === 'all' && !dateFrom && !dateTo ? (isDark ? '#93c5fd' : '#ffffff') : (isDark ? '#94a3b8' : '#475569'),
+              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
             }}
           />
           <Chip
@@ -515,11 +508,13 @@ export default function NurseVaccineList() {
             clickable
             onClick={() => handleQuickDate('today')}
             sx={{
-              height: 22,
+              height: 24,
               fontSize: 11,
               fontWeight: 600,
-              bgcolor: quickDate === 'today' ? '#0284c7' : '#f1f5f9',
-              color: quickDate === 'today' ? '#ffffff' : '#475569',
+              borderRadius: '6px',
+              bgcolor: quickDate === 'today' ? (isDark ? 'rgba(59, 130, 246, 0.25)' : '#0284c7') : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
+              color: quickDate === 'today' ? (isDark ? '#93c5fd' : '#ffffff') : (isDark ? '#94a3b8' : '#475569'),
+              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
             }}
           />
           <Chip
@@ -528,11 +523,13 @@ export default function NurseVaccineList() {
             clickable
             onClick={() => handleQuickDate('week')}
             sx={{
-              height: 22,
+              height: 24,
               fontSize: 11,
               fontWeight: 600,
-              bgcolor: quickDate === 'week' ? '#0284c7' : '#f1f5f9',
-              color: quickDate === 'week' ? '#ffffff' : '#475569',
+              borderRadius: '6px',
+              bgcolor: quickDate === 'week' ? (isDark ? 'rgba(59, 130, 246, 0.25)' : '#0284c7') : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
+              color: quickDate === 'week' ? (isDark ? '#93c5fd' : '#ffffff') : (isDark ? '#94a3b8' : '#475569'),
+              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
             }}
           />
         </Stack>
@@ -548,16 +545,17 @@ export default function NurseVaccineList() {
       <Paper
         elevation={0}
         sx={{
-          borderRadius: 2.5,
-          border: '1px solid #e2e8f0',
+          borderRadius: '20px',
+          border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid rgba(16, 185, 129, 0.2)',
           overflow: 'hidden',
-          bgcolor: '#ffffff',
+          bgcolor: isDark ? 'rgba(14, 24, 18, 0.85)' : '#ffffff',
+          boxShadow: isDark ? '0 8px 30px rgba(0,0,0,0.5)' : '0 4px 16px rgba(16,185,129,0.08)',
         }}
       >
         <TableContainer sx={{ maxHeight: 600 }}>
           <Table stickyHeader size="small">
             <TableHead>
-              <TableRow sx={{ '& th': { bgcolor: '#f8fafc', color: '#475569', fontWeight: 700, fontSize: 12, py: 1.2 } }}>
+              <TableRow sx={{ '& th': { bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : '#f8fafc', color: isDark ? '#a7f3d0' : '#475569', fontWeight: 700, fontSize: 12, py: 1.4, borderBottom: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)', textTransform: 'uppercase', letterSpacing: '0.04em' } }}>
                 <TableCell>Patient</TableCell>
                 <TableCell>Diagnosis / Category</TableCell>
                 <TableCell>Vaccine & Batch</TableCell>
@@ -598,8 +596,15 @@ export default function NurseVaccineList() {
                       key={row.treatment_id}
                       hover
                       sx={{
-                        '&:nth-of-type(even)': { bgcolor: '#fafafa' },
-                        '& td': { py: 1.2, fontSize: 12.5 },
+                        '&:nth-of-type(even)': { bgcolor: isDark ? 'rgba(34, 197, 94, 0.03)' : '#fafafa' },
+                        '& td': {
+                          py: 1.4,
+                          fontSize: 12.5,
+                          borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f1f5f9',
+                        },
+                        '&:hover': {
+                          bgcolor: isDark ? 'rgba(34, 197, 94, 0.08) !important' : 'rgba(16, 185, 129, 0.04) !important',
+                        },
                       }}
                     >
                       {/* 1. Patient Info */}
@@ -610,24 +615,24 @@ export default function NurseVaccineList() {
                               width: 32,
                               height: 32,
                               borderRadius: '50%',
-                              bgcolor: '#f1f5f9',
-                              border: '1px solid #cbd5e1',
+                              bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f1f5f9',
+                              border: isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid #cbd5e1',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               fontSize: 12,
                               fontWeight: 700,
-                              color: '#334151',
+                              color: isDark ? '#a3e635' : '#334151',
                               flexShrink: 0,
                             }}
                           >
                             {row.patient_name ? row.patient_name[0].toUpperCase() : 'P'}
                           </Box>
                           <Box>
-                            <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
+                            <Typography sx={{ fontWeight: 700, fontSize: 13, color: isDark ? '#ffffff' : '#0f172a' }}>
                               {row.patient_name}
                             </Typography>
-                            <Typography sx={{ fontSize: 11, color: '#64748b' }}>
+                            <Typography sx={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }}>
                               ID #{row.patient_id}
                               {row.case_number ? ` · Case #${row.case_number}` : ''}
                               {row.patient_age ? ` · ${row.patient_age}y` : ''}
@@ -647,14 +652,14 @@ export default function NurseVaccineList() {
                               height: 20,
                               fontSize: 10.5,
                               fontWeight: 700,
-                              bgcolor: catVisual.bg,
-                              color: catVisual.color,
+                              bgcolor: isDark ? `${catVisual.color}25` : catVisual.bg,
+                              color: isDark ? '#f8fafc' : catVisual.color,
                               border: `1px solid ${catVisual.border}`,
                               width: 'fit-content',
                             }}
                           />
                           {row.diagnosis_notes && (
-                            <Typography sx={{ fontSize: 10.5, color: '#64748b', maxWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <Typography sx={{ fontSize: 10.5, color: isDark ? '#94a3b8' : '#64748b', maxWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {row.diagnosis_notes}
                             </Typography>
                           )}
@@ -664,7 +669,7 @@ export default function NurseVaccineList() {
                       {/* 3. Vaccine & Batch */}
                       <TableCell>
                         <Box>
-                          <Typography sx={{ fontWeight: 700, fontSize: 12.5, color: '#1e293b' }}>
+                          <Typography sx={{ fontWeight: 700, fontSize: 12.5, color: isDark ? '#ffffff' : '#1e293b' }}>
                             {row.vaccine_brand}
                           </Typography>
                           {row.batch_no && (
@@ -676,9 +681,9 @@ export default function NurseVaccineList() {
                                 fontSize: 9.5,
                                 fontFamily: 'monospace',
                                 fontWeight: 700,
-                                bgcolor: '#f1f5f9',
-                                color: '#475569',
-                                border: '1px solid #e2e8f0',
+                                bgcolor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9',
+                                color: isDark ? '#cbd5e1' : '#475569',
+                                border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #e2e8f0',
                                 mt: 0.25,
                               }}
                             />
@@ -696,12 +701,18 @@ export default function NurseVaccineList() {
                               height: 22,
                               fontSize: 11,
                               fontWeight: 700,
-                              bgcolor: row.dose_number === 0 ? '#ecfdf5' : '#eff6ff',
-                              color: row.dose_number === 0 ? '#059669' : '#1d4ed8',
-                              border: `1px solid ${row.dose_number === 0 ? '#a7f3d0' : '#bfdbfe'}`,
+                              bgcolor: isDark
+                                ? (row.dose_number === 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)')
+                                : (row.dose_number === 0 ? '#ecfdf5' : '#eff6ff'),
+                              color: isDark
+                                ? (row.dose_number === 0 ? '#a3e635' : '#93c5fd')
+                                : (row.dose_number === 0 ? '#059669' : '#1d4ed8'),
+                              border: isDark
+                                ? `1px solid ${row.dose_number === 0 ? 'rgba(163, 230, 53, 0.4)' : 'rgba(59, 130, 246, 0.4)'}`
+                                : `1px solid ${row.dose_number === 0 ? '#a7f3d0' : '#bfdbfe'}`,
                             }}
                           />
-                          <Typography sx={{ fontSize: 10, color: '#64748b', mt: 0.25 }}>
+                          <Typography sx={{ fontSize: 10, color: isDark ? '#94a3b8' : '#64748b', mt: 0.25 }}>
                             {row.route || 'ID'} {row.injection_site ? `· ${row.injection_site}` : ''}
                           </Typography>
                         </Box>
@@ -718,12 +729,18 @@ export default function NurseVaccineList() {
                               height: 22,
                               fontSize: 11,
                               fontWeight: 800,
-                              bgcolor: row.is_shared ? '#ecfeff' : '#f0fdf4',
-                              color: row.is_shared ? '#0e7490' : '#15803d',
-                              border: `1px solid ${row.is_shared ? '#a5f3fc' : '#86efac'}`,
+                              bgcolor: isDark
+                                ? (row.is_shared ? 'rgba(6, 182, 212, 0.2)' : 'rgba(16, 185, 129, 0.2)')
+                                : (row.is_shared ? '#ecfeff' : '#f0fdf4'),
+                              color: isDark
+                                ? (row.is_shared ? '#67e8f9' : '#a3e635')
+                                : (row.is_shared ? '#0e7490' : '#15803d'),
+                              border: isDark
+                                ? `1px solid ${row.is_shared ? 'rgba(6, 182, 212, 0.4)' : 'rgba(163, 230, 53, 0.4)'}`
+                                : `1px solid ${row.is_shared ? '#a5f3fc' : '#86efac'}`,
                             }}
                           />
-                          <Typography sx={{ fontSize: 10, fontWeight: 600, color: row.is_shared ? '#0891b2' : '#166534' }}>
+                          <Typography sx={{ fontSize: 10, fontWeight: 600, color: isDark ? (row.is_shared ? '#67e8f9' : '#a3e635') : (row.is_shared ? '#0891b2' : '#166534') }}>
                             {row.is_external
                               ? 'Transferred-In'
                               : row.is_shared
@@ -736,12 +753,12 @@ export default function NurseVaccineList() {
                       {/* 6. Administered At */}
                       <TableCell>
                         <Box>
-                          <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#1e293b' }}>
+                          <Typography sx={{ fontSize: 12, fontWeight: 600, color: isDark ? '#ffffff' : '#1e293b' }}>
                             {row.treatment_date ? formatDate(row.treatment_date) : 'N/A'}
                           </Typography>
                           {row.administered_at && (
-                            <Typography sx={{ fontSize: 10.5, color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                              <TimeIcon sx={{ fontSize: 11, color: '#94a3b8' }} />
+                            <Typography sx={{ fontSize: 10.5, color: isDark ? '#94a3b8' : '#64748b', display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                              <TimeIcon sx={{ fontSize: 11, color: isDark ? '#a7f3d0' : '#94a3b8' }} />
                               {formatTime(row.administered_at)}
                             </Typography>
                           )}
@@ -756,8 +773,8 @@ export default function NurseVaccineList() {
                               width: 22,
                               height: 22,
                               borderRadius: '50%',
-                              bgcolor: '#eff6ff',
-                              color: '#2563eb',
+                              bgcolor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff',
+                              color: isDark ? '#93c5fd' : '#2563eb',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -767,7 +784,7 @@ export default function NurseVaccineList() {
                           >
                             <BadgeIcon sx={{ fontSize: 13 }} />
                           </Box>
-                          <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#334151' }}>
+                          <Typography sx={{ fontSize: 12, fontWeight: 600, color: isDark ? '#e2e8f0' : '#334151' }}>
                             {row.administered_by_name}
                           </Typography>
                         </Box>
@@ -793,10 +810,10 @@ export default function NurseVaccineList() {
           }}
           rowsPerPageOptions={[10, 15, 25, 50]}
           sx={{
-            borderTop: '1px solid #e2e8f0',
+            borderTop: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid #e2e8f0',
             '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
               fontSize: 12,
-              color: '#64748b',
+              color: isDark ? '#94a3b8' : '#64748b',
             },
           }}
         />

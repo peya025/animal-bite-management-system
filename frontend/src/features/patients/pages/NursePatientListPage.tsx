@@ -670,7 +670,7 @@ export default function NursePatientListPage() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
           <Tooltip title="Refresh Patients List">
-            <IconButton onClick={loadPatients} disabled={loading} sx={{ bgcolor: '#ffffff', border: '1px solid #e0eae3', borderRadius: 2 }}>
+            <IconButton onClick={loadPatients} disabled={loading} sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', border: '1px solid var(--border-glow, #e0eae3)', borderRadius: 2, color: 'var(--text-m, #6b7280)' }}>
               <HugeiconsIcon icon={RefreshIcon} size={18} />
             </IconButton>
           </Tooltip>

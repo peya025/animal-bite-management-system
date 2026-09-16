@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles';
 import { staffApi } from '../../../services/staffApi';
 import { ROUTES } from '../../../shared/config/routes';
 import type { StaffUser, AssignedModule } from '../../../types';
@@ -335,18 +336,52 @@ export default function StaffAssignmentPage() {
 
 
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   return (
-    <div style={styles.statCard}>
-      <div style={{ ...styles.statIcon, backgroundColor: `${color}15` }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px',
+        padding: '18px 20px',
+        borderRadius: 20,
+        background: isDark
+          ? 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)'
+          : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+        border: isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid rgba(16, 185, 129, 0.32)',
+        boxShadow: isDark
+          ? '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)'
+          : '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        minHeight: 90,
+      }}
+    >
+      <div
+        style={{
+          width: '44px',
+          height: '44px',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.12)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
+          boxShadow: '0 0 12px rgba(16, 185, 129, 0.2)',
+          color: '#10b981',
+          flexShrink: 0,
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
           <circle cx="9" cy="7" r="4" />
           <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
         </svg>
       </div>
       <div>
-        <p style={styles.statLabel}>{label}</p>
-        <p style={styles.statValue}>{value}</p>
+        <p style={{ fontSize: '11px', fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 4px 0', fontFamily: "'Poppins', sans-serif" }}>{label}</p>
+        <p style={{ fontSize: '24px', fontWeight: 800, color: isDark ? '#ffffff' : '#064e3b', margin: 0, fontFamily: "'Poppins', sans-serif", lineHeight: 1.1, textShadow: isDark ? '0 1px 3px rgba(0,0,0,0.5)' : 'none' }}>{value}</p>
       </div>
     </div>
   );
@@ -407,9 +442,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '12px',
     padding: '16px',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'var(--card-bg-solid, #ffffff)',
     borderRadius: '12px',
-    border: '1px solid #e5e7eb',
+    border: '1px solid var(--border-glow, #e5e7eb)',
     boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
   },
   statIcon: {
@@ -422,14 +457,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statLabel: {
     fontSize: '12px',
-    color: '#6b7280',
+    color: 'var(--text-m, #6b7280)',
     margin: '0 0 4px 0',
     fontWeight: 500,
   },
   statValue: {
     fontSize: '24px',
     fontWeight: 700,
-    color: '#111827',
+    color: 'var(--text-h, #111827)',
     margin: 0,
   },
   searchContainer: {
@@ -447,9 +482,10 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     padding: '12px 40px 12px 42px',
     fontSize: '14px',
-    border: '1px solid #e5e7eb',
+    border: '1px solid var(--input-border, #e5e7eb)',
     borderRadius: '10px',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'var(--input-bg, #ffffff)',
+    color: 'var(--input-text, #111827)',
     outline: 'none',
     transition: 'border-color 0.2s',
   },
@@ -461,15 +497,15 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     fontSize: '24px',
-    color: '#9ca3af',
+    color: 'var(--text-m, #9ca3af)',
     cursor: 'pointer',
     padding: '4px 8px',
     lineHeight: 1,
   },
   tableContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: 'var(--card-bg-solid, #ffffff)',
     borderRadius: '12px',
-    border: '1px solid #e5e7eb',
+    border: '1px solid var(--border-glow, #e5e7eb)',
     overflow: 'hidden',
     boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
     marginBottom: '24px',
@@ -483,26 +519,26 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'left',
     fontSize: '12px',
     fontWeight: 600,
-    color: '#6b7280',
+    color: 'var(--text-m, #6b7280)',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
-    backgroundColor: '#f9fafb',
-    borderBottom: '1px solid #e5e7eb',
+    backgroundColor: 'var(--table-header-bg, #f9fafb)',
+    borderBottom: '1px solid var(--border-glow, #e5e7eb)',
   },
   tr: {
-    borderBottom: '1px solid #f3f4f6',
+    borderBottom: '1px solid var(--border-glow, #f3f4f6)',
     transition: 'background-color 0.15s',
   },
   td: {
     padding: '16px',
     fontSize: '14px',
-    color: '#374151',
+    color: 'var(--text-b, #374151)',
   },
   emptyCell: {
     padding: '48px 16px',
     textAlign: 'center',
     fontSize: '14px',
-    color: '#9ca3af',
+    color: 'var(--text-m, #9ca3af)',
   },
   nameCell: {
     display: 'flex',
@@ -523,18 +559,19 @@ const styles: Record<string, React.CSSProperties> = {
   },
   name: {
     fontWeight: 500,
-    color: '#111827',
+    color: 'var(--text-h, #111827)',
   },
   email: {
-    color: '#6b7280',
+    color: 'var(--text-m, #6b7280)',
   },
   roleBadge: {
     padding: '4px 10px',
     borderRadius: '6px',
     fontSize: '12px',
     fontWeight: 500,
-    backgroundColor: '#f3f4f6',
-    color: '#374151',
+    backgroundColor: 'var(--input-bg, #f3f4f6)',
+    color: 'var(--text-b, #374151)',
+    border: '1px solid var(--border-glow, transparent)',
     textTransform: 'capitalize',
   },
   moduleBadge: {
@@ -550,10 +587,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
     lineHeight: 1.4,
     fontFamily: "'Poppins', sans-serif",
-    border: '1px solid #e5e7eb',
+    border: '1px solid var(--input-border, #e5e7eb)',
     borderRadius: '8px',
-    backgroundColor: '#ffffff',
-    color: '#374151',
+    backgroundColor: 'var(--input-bg, #ffffff)',
+    color: 'var(--input-text, #374151)',
     cursor: 'pointer',
     outline: 'none',
     transition: 'border-color 0.2s',
@@ -564,11 +601,11 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: '12px',
     padding: '16px',
-    backgroundColor: '#dbeafe',
-    border: '1px solid #93c5fd',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    border: '1px solid rgba(59, 130, 246, 0.3)',
     borderRadius: '10px',
     fontSize: '13px',
-    color: '#1e40af',
+    color: 'var(--text-b, #1e40af)',
   },
   notification: {
     position: 'fixed',

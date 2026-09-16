@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTheme } from '@mui/material';
 import { formatPhilHealthNumber } from '../../../shared/utils';
 import { ConfirmationDialog } from '../../../components/feedback';
 
@@ -267,25 +268,36 @@ function printPatientCopy(rec: TreatmentRecord) {
 }
 
 // ─── Form Modal ────────────────────────────────────────────────
-interface FormProps { record: Omit<TreatmentRecord,'id'|'createdAt'>; onChange: (r: Omit<TreatmentRecord,'id'|'createdAt'>) => void; }
+interface FormProps { record: Omit<TreatmentRecord,'id'|'createdAt'>; onChange: (r: Omit<TreatmentRecord,'id'|'createdAt'>) => void; isDark?: boolean; }
 
-function TreatmentForm({ record: r, onChange }: FormProps) {
+function TreatmentForm({ record: r, onChange, isDark = false }: FormProps) {
   const set = (field: string, value: unknown) => onChange({ ...r, [field]: value });
   const vaxSet = (i: number, field: keyof VaccinationRow, value: string) => {
     const rows = r.vaccinations.map((v, idx) => idx === i ? { ...v, [field]: value } : v);
     onChange({ ...r, vaccinations: rows });
   };
 
-  const inp: React.CSSProperties = { padding:'7px 10px', border:'1px solid #d1d5db', borderRadius:6, fontSize:13, fontFamily:'inherit', width:'100%', outline:'none', boxSizing:'border-box' };
-  const lbl: React.CSSProperties = { fontSize:11, fontWeight:600, color:'#374151', display:'block', marginBottom:3 };
-  const sec: React.CSSProperties = { fontSize:11, fontWeight:700, color:'#10b981', textTransform:'uppercase', letterSpacing:'0.5px', margin:'0 0 12px', paddingBottom:7, borderBottom:'1px solid #ecfdf5' };
+  const inp: React.CSSProperties = {
+    padding: '8px 12px',
+    border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #d1d5db',
+    borderRadius: 8,
+    fontSize: 13,
+    fontFamily: 'inherit',
+    width: '100%',
+    outline: 'none',
+    boxSizing: 'border-box',
+    background: isDark ? '#0b140f' : '#ffffff',
+    color: isDark ? '#f8fafc' : '#111827',
+  };
+  const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: isDark ? '#a7f3d0' : '#374151', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.03em' };
+  const sec: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: isDark ? '#a3e635' : '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 14px', paddingBottom: 8, borderBottom: isDark ? '1px solid rgba(163, 230, 53, 0.2)' : '1px solid #ecfdf5' };
 
   return (
-    <div style={{ fontFamily:'inherit' }}>
+    <div style={{ fontFamily: 'inherit' }}>
 
       {/* ── Header info ── */}
       <p style={sec}>Patient &amp; Registration Information</p>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px 16px', marginBottom:16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', marginBottom: 18 }}>
         <div><label style={lbl}>Date</label><input style={inp} type="date" value={r.date} onChange={e=>set('date',e.target.value)} /></div>
         <div><label style={lbl}>Registry No.</label><input style={inp} value={r.registryNo} onChange={e=>set('registryNo',e.target.value)} /></div>
         <div><label style={lbl}>Hospital No.</label><input style={inp} value={r.hospitalNo} onChange={e=>set('hospitalNo',e.target.value)} /></div>
@@ -306,14 +318,14 @@ function TreatmentForm({ record: r, onChange }: FormProps) {
         <div style={{gridColumn:'1/-1'}}><label style={lbl}>Address</label><input style={inp} value={r.address} onChange={e=>set('address',e.target.value)} /></div>
         <div><label style={lbl}>Sex</label>
           <div style={{display:'flex',gap:16,paddingTop:6}}>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}><input type="radio" checked={r.sex==='male'} onChange={()=>set('sex','male')} /> Male</label>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}><input type="radio" checked={r.sex==='female'} onChange={()=>set('sex','female')} /> Female</label>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:isDark?'#f8fafc':'#111827'}}><input type="radio" checked={r.sex==='male'} onChange={()=>set('sex','male')} style={{accentColor:'#10b981'}} /> Male</label>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:isDark?'#f8fafc':'#111827'}}><input type="radio" checked={r.sex==='female'} onChange={()=>set('sex','female')} style={{accentColor:'#10b981'}} /> Female</label>
           </div>
         </div>
         <div><label style={lbl}>Exposure Category</label>
           <div style={{display:'flex',gap:12,paddingTop:6}}>
             {(['I','II','III'] as const).map(v=>(
-              <label key={v} style={{display:'flex',alignItems:'center',gap:5,fontSize:13}}><input type="radio" checked={r.exposure===v} onChange={()=>set('exposure',v)} /> {v}</label>
+              <label key={v} style={{display:'flex',alignItems:'center',gap:5,fontSize:13,color:isDark?'#f8fafc':'#111827'}}><input type="radio" checked={r.exposure===v} onChange={()=>set('exposure',v)} style={{accentColor:'#10b981'}} /> {v}</label>
             ))}
           </div>
         </div>
@@ -324,9 +336,9 @@ function TreatmentForm({ record: r, onChange }: FormProps) {
 
       {/* ── Exposure details ── */}
       <p style={sec}>Exposure Details</p>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 24px', marginBottom:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 24px', marginBottom:18 }}>
         <div>
-          <p style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>1. Mode of Animal Exposure</p>
+          <p style={{ fontSize:12, fontWeight:700, color:isDark?'#a7f3d0':'#374151', marginBottom:8 }}>1. Mode of Animal Exposure</p>
           {[
             ['modeNibbling','Nibbling/Licking of uncovered skin'],
             ['modeNibblingWounded','Nibbling/Licking of wounded/broken skin'],
@@ -334,73 +346,73 @@ function TreatmentForm({ record: r, onChange }: FormProps) {
             ['modeTransdermal','Transdermal Bite'],
             ['modeIngestion','Handling / Ingestion of raw infected meat'],
           ].map(([k,l])=>(
-            <label key={k} style={{display:'flex',alignItems:'center',gap:7,fontSize:13,marginBottom:5,cursor:'pointer'}}>
+            <label key={k} style={{display:'flex',alignItems:'center',gap:7,fontSize:13,color:isDark?'#cbd5e1':'#374151',marginBottom:6,cursor:'pointer'}}>
               <input type="checkbox" checked={!!(r as any)[k]} onChange={e=>set(k,e.target.checked)} style={{accentColor:'#10b981',width:14,height:14}} /> {l}
             </label>
           ))}
         </div>
         <div>
-          <p style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>2. Body Part Affected Exposed</p>
+          <p style={{ fontSize:12, fontWeight:700, color:isDark?'#a7f3d0':'#374151', marginBottom:8 }}>2. Body Part Affected Exposed</p>
           {[
             ['bodyHeadNeck','Head and/or neck'],
             ['bodyOther','Other parts of the body'],
             ['bodyNA','N/A if Ingestion mode'],
           ].map(([k,l])=>(
-            <label key={k} style={{display:'flex',alignItems:'center',gap:7,fontSize:13,marginBottom:5,cursor:'pointer'}}>
+            <label key={k} style={{display:'flex',alignItems:'center',gap:7,fontSize:13,color:isDark?'#cbd5e1':'#374151',marginBottom:6,cursor:'pointer'}}>
               <input type="checkbox" checked={!!(r as any)[k]} onChange={e=>set(k,e.target.checked)} style={{accentColor:'#10b981',width:14,height:14}} /> {l}
             </label>
           ))}
-          <p style={{ fontSize:12, fontWeight:600, margin:'10px 0 6px' }}>3. Type of Animal</p>
+          <p style={{ fontSize:12, fontWeight:700, color:isDark?'#a7f3d0':'#374151', margin:'12px 0 6px' }}>3. Type of Animal</p>
           <div style={{display:'flex',gap:12,marginBottom:6}}>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}><input type="checkbox" checked={r.animalDog} onChange={e=>set('animalDog',e.target.checked)} style={{accentColor:'#10b981',width:14,height:14}}/> Dog</label>
-            <div style={{display:'flex',alignItems:'center',gap:5,fontSize:13}}>Others: <input style={{...inp,width:100,padding:'4px 8px'}} value={r.animalOther} onChange={e=>set('animalOther',e.target.value)} /></div>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:isDark?'#cbd5e1':'#374151'}}><input type="checkbox" checked={r.animalDog} onChange={e=>set('animalDog',e.target.checked)} style={{accentColor:'#10b981',width:14,height:14}}/> Dog</label>
+            <div style={{display:'flex',alignItems:'center',gap:5,fontSize:13,color:isDark?'#cbd5e1':'#374151'}}>Others: <input style={{...inp,width:100,padding:'4px 8px'}} value={r.animalOther} onChange={e=>set('animalOther',e.target.value)} /></div>
           </div>
         </div>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'10px 16px', marginBottom:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'10px 16px', marginBottom:18 }}>
         <div>
-          <p style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>4. Past History of animal bite</p>
+          <p style={{ fontSize:12, fontWeight:700, color:isDark?'#a7f3d0':'#374151', marginBottom:6 }}>4. Past History of animal bite</p>
           <div style={{display:'flex',gap:12}}>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}><input type="radio" checked={r.pastHistoryYes} onChange={()=>set('pastHistoryYes',true)} /> Yes</label>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}><input type="radio" checked={!r.pastHistoryYes} onChange={()=>set('pastHistoryYes',false)} /> No</label>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:isDark?'#cbd5e1':'#374151'}}><input type="radio" checked={r.pastHistoryYes} onChange={()=>set('pastHistoryYes',true)} style={{accentColor:'#10b981'}} /> Yes</label>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:isDark?'#cbd5e1':'#374151'}}><input type="radio" checked={!r.pastHistoryYes} onChange={()=>set('pastHistoryYes',false)} style={{accentColor:'#10b981'}} /> No</label>
           </div>
         </div>
         {r.pastHistoryYes && <div><label style={lbl}>If yes, specify dates</label><input style={inp} value={r.pastHistorySpecify} onChange={e=>set('pastHistorySpecify',e.target.value)} /></div>}
         <div>
-          <p style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>Was PEP Immunization completed?</p>
+          <p style={{ fontSize:12, fontWeight:700, color:isDark?'#a7f3d0':'#374151', marginBottom:6 }}>Was PEP Immunization completed?</p>
           <div style={{display:'flex',gap:12}}>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}><input type="radio" checked={r.pepCompleted==='yes'} onChange={()=>set('pepCompleted','yes')} /> Yes</label>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}><input type="radio" checked={r.pepCompleted==='no'} onChange={()=>set('pepCompleted','no')} /> No</label>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:isDark?'#cbd5e1':'#374151'}}><input type="radio" checked={r.pepCompleted==='yes'} onChange={()=>set('pepCompleted','yes')} style={{accentColor:'#10b981'}} /> Yes</label>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:isDark?'#cbd5e1':'#374151'}}><input type="radio" checked={r.pepCompleted==='no'} onChange={()=>set('pepCompleted','no')} style={{accentColor:'#10b981'}} /> No</label>
           </div>
         </div>
       </div>
 
       {/* ── Vaccination table ── */}
       <p style={sec}>Period Exposure Vaccination Record</p>
-      <div style={{ border:'1px solid #e5e7eb', borderRadius:8, overflow:'hidden', marginBottom:16 }}>
+      <div style={{ border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', marginBottom: 18 }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
           <thead>
-            <tr style={{ background:'#f0fdf4' }}>
+            <tr style={{ background: isDark ? 'rgba(16, 185, 129, 0.12)' : '#f0fdf4' }}>
               {['Period','Adm Route','Date','Given by','Signature'].map(h=>(
-                <th key={h} style={{ padding:'9px 10px', textAlign:'left', fontWeight:600, fontSize:11, color:'var(--text-h)', borderBottom:'2px solid #10b981', whiteSpace:'nowrap' }}>{h}</th>
+                <th key={h} style={{ padding:'10px 12px', textAlign:'left', fontWeight:700, fontSize:11, color: isDark ? '#a7f3d0' : '#166534', borderBottom: isDark ? '2px solid rgba(163, 230, 53, 0.3)' : '2px solid #10b981', whiteSpace:'nowrap', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {r.vaccinations.map((v,i)=>(
-              <tr key={i} style={{ background: i%2===0 ? '#fff' : '#f9fafb' }}>
-                <td style={{ padding:'7px 10px', fontWeight:600, fontSize:13, whiteSpace:'nowrap', borderBottom:'1px solid #f0f0f0' }}>{v.period}</td>
-                <td style={{ padding:'5px 8px', borderBottom:'1px solid #f0f0f0' }}>
+              <tr key={i} style={{ background: i%2===0 ? (isDark ? 'transparent' : '#fff') : (isDark ? 'rgba(34, 197, 94, 0.03)' : '#f9fafb') }}>
+                <td style={{ padding:'8px 12px', fontWeight:700, fontSize:13, whiteSpace:'nowrap', color: isDark ? '#f8fafc' : '#111827', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f0f0f0' }}>{v.period}</td>
+                <td style={{ padding:'6px 10px', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f0f0f0' }}>
                   {(v.period !== 'ERIG' && v.period !== 'TT' && v.period !== 'ATS') && (
                     <div style={{display:'flex',gap:12}}>
-                      <label style={{display:'flex',alignItems:'center',gap:5,fontSize:12}}><input type="radio" checked={v.route==='ID'} onChange={()=>vaxSet(i,'route','ID')} style={{accentColor:'#10b981'}}/> ID</label>
-                      <label style={{display:'flex',alignItems:'center',gap:5,fontSize:12}}><input type="radio" checked={v.route==='IM'} onChange={()=>vaxSet(i,'route','IM')} style={{accentColor:'#10b981'}}/> IM</label>
+                      <label style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:isDark?'#cbd5e1':'#374151'}}><input type="radio" checked={v.route==='ID'} onChange={()=>vaxSet(i,'route','ID')} style={{accentColor:'#10b981'}}/> ID</label>
+                      <label style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:isDark?'#cbd5e1':'#374151'}}><input type="radio" checked={v.route==='IM'} onChange={()=>vaxSet(i,'route','IM')} style={{accentColor:'#10b981'}}/> IM</label>
                     </div>
                   )}
                 </td>
-                <td style={{ padding:'5px 8px', borderBottom:'1px solid #f0f0f0' }}><input style={{...inp,padding:'5px 8px',fontSize:12}} type="date" value={v.date} onChange={e=>vaxSet(i,'date',e.target.value)} /></td>
-                <td style={{ padding:'5px 8px', borderBottom:'1px solid #f0f0f0' }}><input style={{...inp,padding:'5px 8px',fontSize:12}} value={v.givenBy} onChange={e=>vaxSet(i,'givenBy',e.target.value)} /></td>
-                <td style={{ padding:'5px 8px', borderBottom:'1px solid #f0f0f0' }}><input style={{...inp,padding:'5px 8px',fontSize:12}} value={v.signature} onChange={e=>vaxSet(i,'signature',e.target.value)} /></td>
+                <td style={{ padding:'6px 10px', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f0f0f0' }}><input style={{...inp,padding:'5px 8px',fontSize:12}} type="date" value={v.date} onChange={e=>vaxSet(i,'date',e.target.value)} /></td>
+                <td style={{ padding:'6px 10px', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f0f0f0' }}><input style={{...inp,padding:'5px 8px',fontSize:12}} value={v.givenBy} onChange={e=>vaxSet(i,'givenBy',e.target.value)} /></td>
+                <td style={{ padding:'6px 10px', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f0f0f0' }}><input style={{...inp,padding:'5px 8px',fontSize:12}} value={v.signature} onChange={e=>vaxSet(i,'signature',e.target.value)} /></td>
               </tr>
             ))}
           </tbody>
@@ -408,7 +420,7 @@ function TreatmentForm({ record: r, onChange }: FormProps) {
       </div>
 
       <div style={{ display:'flex', justifyContent:'flex-end' }}>
-        <div style={{ width:200 }}>
+        <div style={{ width:220 }}>
           <label style={lbl}>ICD 10 Code</label>
           <input style={inp} value={r.icd10} onChange={e=>set('icd10',e.target.value)} placeholder="e.g. Z20.3" />
         </div>
@@ -422,6 +434,9 @@ const STORAGE_KEY = 'abtc_treatment_records';
 
 // ─── Main Page ────────────────────────────────────────────────
 export default function TreatmentRecordsPage() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   // Load from localStorage on mount
   const [records, setRecords] = useState<TreatmentRecord[]>(() => {
     try {
@@ -500,45 +515,49 @@ export default function TreatmentRecordsPage() {
     r.registryNo.toLowerCase().includes(search.toLowerCase())
   );
 
-  const btn = (bg: string, sm = false): React.CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: sm ? '6px 14px' : '9px 18px',
-    background: `linear-gradient(135deg, ${bg} 0%, ${bg}cc 100%)`,
-    color: '#fff', border: 'none', borderRadius: 8,
-    fontSize: sm ? 12 : 13, fontWeight: 600, cursor: 'pointer',
-    fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap',
-    boxShadow: `0 2px 8px ${bg}44`,
-  });
-
   return (
     <div style={{ padding: '0 24px 32px' }}>
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:6 }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:16 }}>
         <div>
-          <h1 style={{ fontSize: 25, fontWeight: 600, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5 }}>Treatment Records</h1>
-          <p style={{ fontSize:13, color:'#77877d', margin:0 }}>ABTC paper form and clinical management for animal bite treatments.</p>
+          <h1 style={{ fontSize: 25, fontWeight: 700, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5 }}>Treatment Records</h1>
+          <p style={{ fontSize:13, color: isDark ? '#a7f3d0' : '#77877d', margin:0 }}>ABTC paper form and clinical management for animal bite treatments.</p>
           {/* Breadcrumb */}
-          <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:6, fontSize:13 }}>
-            <button onClick={()=>{window.location.href='/dashboard';}} style={{ background:'none', border:'none', padding:0, color:'#3b82f6', fontSize:13, fontFamily:'inherit', cursor:'pointer' }}>Dashboard</button>
-            <span style={{ color:'#d1d5db' }}>›</span>
-            <span style={{ color:'#6b7280' }}>Treatment Records</span>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:8, fontSize:13 }}>
+            <button onClick={()=>{window.location.href='/dashboard';}} style={{ background:'none', border:'none', padding:0, color: isDark ? '#93c5fd' : '#3b82f6', fontSize:13, fontFamily:'inherit', cursor:'pointer' }}>Dashboard</button>
+            <span style={{ color: isDark ? '#64748b' : '#d1d5db' }}>›</span>
+            <span style={{ color: isDark ? '#94a3b8' : '#6b7280' }}>Treatment Records</span>
           </div>
         </div>
-        <button onClick={openNew} style={btn('#10b981')}>
+        <button
+          onClick={openNew}
+          className="btn-action btn-action-green"
+          style={{ padding: '10px 20px', fontSize: 13, fontWeight: 700 }}
+        >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           New Treatment Record
         </button>
       </div>
 
       {/* Search */}
-      <div style={{ background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:10, padding:'12px 16px', marginBottom:20, display:'flex', alignItems:'center', gap:8 }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <div style={{
+        background: isDark ? 'rgba(14, 24, 18, 0.85)' : '#ffffff',
+        border: isDark ? '1px solid rgba(163, 230, 53, 0.2)' : '1px solid #e2e8f0',
+        borderRadius: 14,
+        padding: '12px 16px',
+        marginBottom: 20,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.04)',
+      }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#a7f3d0' : '#9ca3af'} strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input
           value={search} onChange={e=>setSearch(e.target.value)}
           placeholder="Search by patient name or registry no…"
-          style={{ flex:1, border:'none', background:'none', outline:'none', fontSize:13, fontFamily:'inherit', color:'#374151' }}
+          style={{ flex: 1, border: 'none', background: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: isDark ? '#f8fafc' : '#374151' }}
         />
-        {search && <button onClick={()=>setSearch('')} style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', padding:0, display:'flex' }}>
+        {search && <button onClick={()=>setSearch('')} style={{ background:'none', border:'none', cursor:'pointer', color: isDark ? '#a7f3d0' : '#9ca3af', padding:0, display:'flex' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>}
       </div>
@@ -546,46 +565,60 @@ export default function TreatmentRecordsPage() {
       {/* Records list */}
       {filtered.length === 0 ? (
         <div style={{ textAlign:'center', padding:'64px 24px', color:'#9ca3af' }}>
-          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5" style={{margin:'0 auto 16px',display:'block'}}>
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#334155' : '#d1d5db'} strokeWidth="1.5" style={{margin:'0 auto 16px',display:'block'}}>
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
             <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
           </svg>
-          <p style={{ fontSize:15, fontWeight:600, color:'#374151', marginBottom:6 }}>No treatment records yet</p>
-          <p style={{ fontSize:13 }}>Click "New Treatment Record" to create the first ABTC form.</p>
+          <p style={{ fontSize:15, fontWeight:700, color: isDark ? '#ffffff' : '#374151', marginBottom:6 }}>No treatment records yet</p>
+          <p style={{ fontSize:13, color: isDark ? '#94a3b8' : '#6b7280' }}>Click "New Treatment Record" to create the first ABTC form.</p>
         </div>
       ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
           {filtered.map(rec => (
-            <div key={rec.id} style={{ background:'#fff', border:'1px solid #e5e7eb', borderRadius:12, padding:'16px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div
+              key={rec.id}
+              style={{
+                background: isDark ? 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)' : '#ffffff',
+                border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid rgba(16, 185, 129, 0.2)',
+                borderRadius: 20,
+                padding: '18px 24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 14,
+                boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.4)' : '0 2px 10px rgba(16, 185, 129, 0.06)',
+                transition: 'all 0.25s ease',
+              }}
+            >
               <div style={{ display:'flex', alignItems:'center', gap:14, flex:1, minWidth:0 }}>
-                <div style={{ width:42, height:42, borderRadius:10, background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+                <div style={{ width:42, height:42, borderRadius:12, background: isDark ? 'rgba(16, 185, 129, 0.18)' : '#f0fdf4', border: isDark ? '1px solid rgba(163, 230, 53, 0.35)' : '1px solid #bbf7d0', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#a3e635' : '#10b981'} strokeWidth="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
                 </div>
                 <div style={{ minWidth:0 }}>
-                  <p style={{ fontSize:14, fontWeight:700, color:'#111827', margin:'0 0 2px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{rec.patientName || '—'}</p>
-                  <div style={{ display:'flex', gap:12, fontSize:12, color:'#6b7280', flexWrap:'wrap' }}>
-                    {rec.registryNo && <span>Registry: <b>{rec.registryNo}</b></span>}
-                    {rec.date && <span>Date: <b>{fmtDate(rec.date)}</b></span>}
-                    {rec.exposure && <span>Exposure: <b>Category {rec.exposure}</b></span>}
-                    <span style={{ color:'#d1d5db' }}>ID: {rec.id}</span>
+                  <p style={{ fontSize:15, fontWeight:800, color: isDark ? '#ffffff' : '#111827', margin:'0 0 3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{rec.patientName || '—'}</p>
+                  <div style={{ display:'flex', gap:14, fontSize:12, color: isDark ? '#94a3b8' : '#6b7280', flexWrap:'wrap' }}>
+                    {rec.registryNo && <span>Registry: <b style={{ color: isDark ? '#a7f3d0' : '#111827' }}>{rec.registryNo}</b></span>}
+                    {rec.date && <span>Date: <b style={{ color: isDark ? '#a7f3d0' : '#111827' }}>{fmtDate(rec.date)}</b></span>}
+                    {rec.exposure && <span>Exposure: <b style={{ color: isDark ? '#a7f3d0' : '#111827' }}>Category {rec.exposure}</b></span>}
+                    <span style={{ color: isDark ? '#64748b' : '#9ca3af' }}>ID: {rec.id}</span>
                   </div>
                 </div>
               </div>
-              <div style={{ display:'flex', gap:8, flexShrink:0 }}>
-                <button onClick={()=>setPatientCopyRec(rec)} style={btn('#0ea5e9', true)} title="Print Patient Copy">
+              <div style={{ display:'flex', gap:8, flexShrink:0, flexWrap:'wrap' }}>
+                <button onClick={()=>setPatientCopyRec(rec)} className="btn-action btn-action-blue" title="Print Patient Copy">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                   Patient Copy
                 </button>
-                <button onClick={()=>printRecord(rec)} style={btn('#6366f1', true)} title="Print Official">
+                <button onClick={()=>printRecord(rec)} className="btn-action btn-action-blue" title="Print Official">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                   Print
                 </button>
-                <button onClick={()=>openEdit(rec)} style={btn('#10b981', true)}>
+                <button onClick={()=>openEdit(rec)} className="btn-action btn-action-green">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   Edit
                 </button>
-                <button onClick={()=>setShowDeleteId(rec.id)} style={btn('#ef4444', true)}>
+                <button onClick={()=>setShowDeleteId(rec.id)} className="btn-action btn-action-red">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                   Delete
                 </button>
@@ -597,28 +630,38 @@ export default function TreatmentRecordsPage() {
 
       {/* Create / Edit Modal */}
       {showModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(3px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }}
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }}
           onClick={()=>setShowModal(false)}>
-          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:820, maxHeight:'92vh', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,0.25)' }}
+          <div style={{
+            background: isDark ? '#0e1812' : '#ffffff',
+            border: isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid #e5e7eb',
+            borderRadius: 20,
+            width: '100%',
+            maxWidth: 820,
+            maxHeight: '92vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: isDark ? '0 24px 64px rgba(0,0,0,0.7)' : '0 24px 64px rgba(0,0,0,0.25)',
+          }}
             onClick={e=>e.stopPropagation()}>
             {/* Modal header */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 24px', borderBottom:'1px solid #f3f4f6', flexShrink:0 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid #f3f4f6', flexShrink:0 }}>
               <div>
-                <h2 style={{ margin:0, fontSize:17, fontWeight:700, color:'#111827' }}>{editRecord ? 'Edit Treatment Record' : 'New Treatment Record'}</h2>
-                <p style={{ margin:'2px 0 0', fontSize:12, color:'#6b7280' }}>TAGOLOAN ANIMAL BITE TREATMENT CENTER — Official Form</p>
+                <h2 style={{ margin:0, fontSize:17, fontWeight:800, color: isDark ? '#ffffff' : '#111827' }}>{editRecord ? 'Edit Treatment Record' : 'New Treatment Record'}</h2>
+                <p style={{ margin:'3px 0 0', fontSize:12, color: isDark ? '#a7f3d0' : '#6b7280' }}>TAGOLOAN ANIMAL BITE TREATMENT CENTER — Official Form</p>
               </div>
-              <button onClick={()=>setShowModal(false)} style={{ width:32, height:32, borderRadius:8, border:'1px solid #e5e7eb', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#6b7280' }}>
+              <button onClick={()=>setShowModal(false)} className="btn-icon" style={{ width:32, height:32, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             {/* Modal body */}
             <div style={{ overflowY:'auto', padding:'24px', flex:1 }}>
-              <TreatmentForm record={formData} onChange={setFormData} />
+              <TreatmentForm record={formData} onChange={setFormData} isDark={isDark} />
             </div>
             {/* Modal footer */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:10, padding:'14px 24px', borderTop:'1px solid #f3f4f6', flexShrink:0, background:'#fafafa', borderRadius:'0 0 16px 16px' }}>
-              <button onClick={()=>setShowModal(false)} style={{ padding:'8px 20px', fontSize:13, fontWeight:600, borderRadius:8, border:'1px solid #d1d5db', background:'#fff', cursor:'pointer', color:'#374151', fontFamily:'inherit' }}>Cancel</button>
-              <button onClick={handleSave} disabled={!formData.patientName.trim()} style={btn('#10b981')}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:10, padding:'14px 24px', borderTop: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid #f3f4f6', flexShrink:0, background: isDark ? '#070f0b' : '#fafafa', borderRadius:'0 0 20px 20px' }}>
+              <button onClick={()=>setShowModal(false)} className="btn-action" style={{ padding:'8px 20px', fontSize:13, fontWeight:600 }}>Cancel</button>
+              <button onClick={handleSave} disabled={!formData.patientName.trim()} className="btn-action btn-action-green" style={{ padding: '8px 20px', fontSize: 13, fontWeight: 700 }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 {editRecord ? 'Save Changes' : 'Save Record'}
               </button>
@@ -629,27 +672,37 @@ export default function TreatmentRecordsPage() {
 
       {/* Patient Copy Preview Modal */}
       {patientCopyRec && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', backdropFilter:'blur(3px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }}
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }}
           onClick={()=>setPatientCopyRec(null)}>
-          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:600, maxHeight:'90vh', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,0.25)' }}
+          <div style={{
+            background: isDark ? '#0e1812' : '#ffffff',
+            border: isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid #e5e7eb',
+            borderRadius: 20,
+            width: '100%',
+            maxWidth: 620,
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: isDark ? '0 24px 64px rgba(0,0,0,0.7)' : '0 24px 64px rgba(0,0,0,0.25)',
+          }}
             onClick={e=>e.stopPropagation()}>
             {/* Header */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 22px', borderBottom:'1px solid #f3f4f6', flexShrink:0 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div style={{ width:38, height:38, borderRadius:9, background:'#f0f9ff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 24px', borderBottom: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid #f3f4f6', flexShrink:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <div style={{ width:38, height:38, borderRadius:10, background: isDark ? 'rgba(59, 130, 246, 0.2)' : '#f0f9ff', border: isDark ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #bfdbfe', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#93c5fd' : '#0ea5e9'} strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
                 <div>
-                  <h2 style={{ margin:0, fontSize:15, fontWeight:700, color:'#111827' }}>Patient Copy Preview</h2>
-                  <p style={{ margin:'2px 0 0', fontSize:12, color:'#6b7280' }}>Tagoloan Animal Bite Center — Treatment Record</p>
+                  <h2 style={{ margin:0, fontSize:16, fontWeight:800, color: isDark ? '#ffffff' : '#111827' }}>Patient Copy Preview</h2>
+                  <p style={{ margin:'2px 0 0', fontSize:12, color: isDark ? '#a7f3d0' : '#6b7280' }}>Tagoloan Animal Bite Center — Treatment Record</p>
                 </div>
               </div>
-              <button onClick={()=>setPatientCopyRec(null)} style={{ width:32, height:32, borderRadius:8, border:'1px solid #e5e7eb', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#6b7280' }}>
+              <button onClick={()=>setPatientCopyRec(null)} className="btn-icon" style={{ width:32, height:32, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             {/* Preview paper */}
-            <div style={{ flex:1, overflowY:'auto', padding:'16px 20px', background:'#f3f4f6' }}>
+            <div style={{ flex:1, overflowY:'auto', padding:'16px 20px', background: isDark ? '#070f0b' : '#f3f4f6' }}>
               <div style={{ background:'#fff', borderRadius:8, padding:'22px 24px', boxShadow:'0 2px 12px rgba(0,0,0,0.08)', fontFamily:'Arial,sans-serif', fontSize:12, lineHeight:1.5, color:'#000' }}>
                 {/* Clinic header box */}
                 <div style={{ border:'2px solid #000', padding:'8px 12px', textAlign:'center', marginBottom:14 }}>
@@ -697,9 +750,9 @@ export default function TreatmentRecordsPage() {
               </div>
             </div>
             {/* Footer */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:10, padding:'12px 22px', borderTop:'1px solid #f3f4f6', flexShrink:0, background:'#fafafa', borderRadius:'0 0 16px 16px' }}>
-              <button onClick={()=>setPatientCopyRec(null)} style={{ padding:'8px 18px', fontSize:13, fontWeight:600, borderRadius:8, border:'1px solid #d1d5db', background:'#fff', cursor:'pointer', color:'#374151', fontFamily:'inherit' }}>Cancel</button>
-              <button onClick={()=>{ printPatientCopy(patientCopyRec); setPatientCopyRec(null); }} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 18px', fontSize:13, fontWeight:600, borderRadius:8, background:'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)', color:'#fff', border:'none', cursor:'pointer', fontFamily:'inherit', boxShadow:'0 2px 8px rgba(14,165,233,0.3)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:10, padding:'14px 24px', borderTop: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid #f3f4f6', flexShrink:0, background: isDark ? '#070f0b' : '#fafafa', borderRadius:'0 0 20px 20px' }}>
+              <button onClick={()=>setPatientCopyRec(null)} className="btn-action" style={{ padding:'8px 18px', fontSize:13, fontWeight:600 }}>Cancel</button>
+              <button onClick={()=>{ printPatientCopy(patientCopyRec); setPatientCopyRec(null); }} className="btn-action btn-action-blue" style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 18px', fontSize:13, fontWeight:700 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                 Print Patient Copy
               </button>

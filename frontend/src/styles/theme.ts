@@ -9,12 +9,12 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
   const isDark = mode === 'dark';
 
   const colors = {
-    bg: isDark ? '#0b1220' : '#f5f7fa',
-    surface: isDark ? '#111827' : '#ffffff',
-    surfaceAlt: isDark ? '#182437' : '#f9fafb',
-    border: isDark ? '#243244' : '#e5e7eb',
-    inputBorder: isDark ? '#334155' : '#d7e3da',
-    text: isDark ? '#f8fafc' : '#111827',
+    bg: isDark ? '#050c08' : '#ffffff',
+    surface: isDark ? '#09160f' : '#ffffff',
+    surfaceAlt: isDark ? '#07100a' : '#f9fafb',
+    border: isDark ? 'rgba(16, 185, 129, 0.28)' : 'rgba(16, 185, 129, 0.32)',
+    inputBorder: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.28)',
+    text: isDark ? '#ffffff' : '#111827',
     textSecondary: isDark ? '#94a3b8' : '#6b7280',
   };
 
@@ -61,6 +61,7 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
             backgroundColor: colors.surface,
             backgroundImage: 'none',
             borderColor: colors.border,
+            borderRadius: 20,
           },
         },
       },
@@ -69,7 +70,10 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
           root: {
             backgroundColor: colors.surface,
             border: `1px solid ${colors.border}`,
-            boxShadow: 'none',
+            borderRadius: 20,
+            boxShadow: isDark
+              ? '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2)'
+              : '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15)',
           },
         },
       },
@@ -77,10 +81,10 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
         styleOverrides: {
           paper: {
             border: `1px solid ${colors.border}`,
-            borderRadius: 14,
+            borderRadius: 20,
             boxShadow: isDark
-              ? '0 18px 50px rgba(0, 0, 0, 0.45)'
-              : '0 18px 50px rgba(23, 61, 41, 0.12)',
+              ? '0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(163, 230, 53, 0.2)'
+              : '0 18px 50px rgba(23, 61, 41, 0.15)',
             backgroundColor: colors.surface,
           },
         },
@@ -96,10 +100,10 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
             fontWeight: 600,
             textTransform: 'none',
             borderRadius: 8,
-            padding: '9px 18px',
-            minHeight: 36,
+            padding: '8px 16px',
+            minHeight: 34,
             boxSizing: 'border-box',
-            transition: 'all 0.2s ease',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           },
           contained: {
             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
@@ -109,7 +113,7 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
             '&:hover': {
               background: 'linear-gradient(135deg, #0fb981 0%, #047857 100%)',
               transform: 'translateY(-1px)',
-              boxShadow: '0 4px 12px rgba(16,185,129,0.35)',
+              boxShadow: '0 4px 14px rgba(16,185,129,0.38)',
             },
             '&.Mui-disabled': {
               background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
@@ -118,20 +122,20 @@ export const getAppTheme = (mode: 'light' | 'dark') => {
             },
           },
           outlined: {
-            background: colors.surface,
+            background: isDark ? 'transparent' : 'var(--btn-outlined-bg, #ffffff)',
             borderColor: colors.border,
-            color: colors.textSecondary,
+            color: isDark ? '#a3e635' : '#059669',
             borderWidth: '1px',
             '&:hover': {
-              background: colors.surfaceAlt,
-              borderColor: isDark ? '#475569' : '#d1d5db',
-              color: colors.text,
+              background: isDark ? 'rgba(163, 230, 53, 0.12)' : 'rgba(16, 185, 129, 0.08)',
+              borderColor: isDark ? 'rgba(163, 230, 53, 0.6)' : 'rgba(16, 185, 129, 0.6)',
+              boxShadow: isDark ? '0 0 12px rgba(163, 230, 53, 0.25)' : 'none',
             },
           },
           text: {
             color: colors.textSecondary,
             '&:hover': {
-              background: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(107, 114, 128, 0.08)',
+              background: isDark ? 'rgba(163, 230, 53, 0.08)' : 'rgba(107, 114, 128, 0.08)',
               color: colors.text,
             },
           },

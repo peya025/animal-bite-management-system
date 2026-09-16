@@ -99,14 +99,21 @@ export const Overlay = styled('div')({
 });
 
 export const Modal = styled('div')({
-  background: '#ffffff',
+  background: 'var(--card-bg-solid, #ffffff)',
   borderRadius: 16,
   padding: '36px 32px 28px',
   width: '100%',
   maxWidth: 400,
   textAlign: 'center',
-  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.35)',
+  border: '1px solid var(--border-glow, rgba(16, 185, 129, 0.2))',
   animation: `${scaleIn} 0.25s ease`,
+
+  '[data-theme="dark"] &': {
+    background: '#0e1812',
+    color: '#ffffff',
+    border: '1px solid rgba(163, 230, 53, 0.25)',
+  },
 
   '@media (max-width: 480px)': {
     margin: 16,
@@ -136,18 +143,18 @@ export const Icon = styled('div', {
 export const Title = styled('h3')({
   fontSize: 20,
   fontWeight: 700,
-  color: '#374151',
+  color: 'var(--text-primary, #374151)',
   marginBottom: 10,
 });
 
 export const Message = styled('p')({
   fontSize: 14,
-  color: '#6b7280',
+  color: 'var(--text-secondary, #6b7280)',
   lineHeight: 1.6,
   marginBottom: 28,
 
   '& strong': {
-    color: '#374151',
+    color: 'var(--text-primary, #374151)',
   },
 });
 
@@ -187,11 +194,12 @@ const DialogButton = styled('button')({
 });
 
 export const CancelButton = styled(DialogButton)({
-  background: '#f3f4f6',
-  color: '#4b5563',
+  background: 'var(--bg-hover, #f3f4f6)',
+  color: 'var(--text-primary, #4b5563)',
+  border: '1px solid var(--border-glow, transparent)',
 
   '&:hover:not(:disabled)': {
-    background: '#e5e7eb',
+    background: 'var(--bg-secondary, #e5e7eb)',
   },
 });
 

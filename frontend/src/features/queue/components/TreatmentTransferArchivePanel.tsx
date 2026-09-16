@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Chip, Paper, Tooltip, IconButton, Typography, Collapse } from '@mui/material';
+import { Box, Chip, Paper, Tooltip, IconButton, Typography, Collapse, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowUpRight01Icon, ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons';
@@ -35,6 +35,8 @@ function statusRank(status: QueueEntry['status']): number {
 
 export function TreatmentTransferArchivePanel({ entries, loading }: TreatmentTransferArchivePanelProps) {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [expanded, setExpanded] = useState(false);
 
   if (!loading && entries.length === 0) return null;
@@ -88,7 +90,7 @@ export function TreatmentTransferArchivePanel({ entries, loading }: TreatmentTra
       </Box>
 
       <Collapse in={expanded}>
-        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: '#ffffff' }}>
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#ffffff' }}>
           {sortedEntries.map(entry => {
             const statusCfg = STATUS_CFG[entry.status] ?? STATUS_CFG.cancelled;
             const categoryLabel = CATEGORY_LABEL[entry.queue_category] ?? entry.queue_category;
@@ -102,8 +104,8 @@ export function TreatmentTransferArchivePanel({ entries, loading }: TreatmentTra
                   px: 2,
                   py: 1.25,
                   borderRadius: 2,
-                  bgcolor: '#f8fbff',
-                  border: '1px solid #dbeafe',
+                  bgcolor: isDark ? 'rgba(59, 130, 246, 0.08)' : '#f8fbff',
+                  border: isDark ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #dbeafe',
                 }}
               >
                 <Box
@@ -111,23 +113,23 @@ export function TreatmentTransferArchivePanel({ entries, loading }: TreatmentTra
                     width: 36,
                     height: 36,
                     borderRadius: 1.5,
-                    bgcolor: '#eff6ff',
+                    bgcolor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
                   }}
                 >
-                  <Typography sx={{ fontWeight: 800, fontSize: 13, color: '#2563eb' }}>
+                  <Typography sx={{ fontWeight: 800, fontSize: 13, color: isDark ? '#60a5fa' : '#2563eb' }}>
                     {entry.queue_number}
                   </Typography>
                 </Box>
 
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#1f2937', lineHeight: 1.2 }}>
+                  <Typography sx={{ fontWeight: 600, fontSize: 13, color: isDark ? '#f8fafc' : '#1f2937', lineHeight: 1.2 }}>
                     {entry.patient.name}
                   </Typography>
-                  <Typography sx={{ fontSize: 11, color: '#64748b', mt: 0.25 }}>
+                  <Typography sx={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', mt: 0.25 }}>
                     {entry.patient.age}y · {entry.patient.gender}
                     &nbsp;·&nbsp;{VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
                     &nbsp;·&nbsp;{categoryLabel}
@@ -145,14 +147,14 @@ export function TreatmentTransferArchivePanel({ entries, loading }: TreatmentTra
                     size="small"
                     onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: entry.queue_id }))}
                     sx={{
-                      color: '#2563eb',
-                      bgcolor: '#fff',
-                      border: '1px solid #bfdbfe',
+                      color: isDark ? '#60a5fa' : '#2563eb',
+                      bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#fff',
+                      border: isDark ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid #bfdbfe',
                       borderRadius: '7px',
                       width: 28,
                       height: 28,
                       flexShrink: 0,
-                      '&:hover': { bgcolor: '#eff6ff', color: '#1d4ed8', borderColor: '#93c5fd' },
+                      '&:hover': { bgcolor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff', color: '#3b82f6', borderColor: '#93c5fd' },
                     }}
                   >
                     <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />

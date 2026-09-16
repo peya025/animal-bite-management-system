@@ -140,8 +140,8 @@ function ModalPatientHero({
     <Box sx={{
       display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
       px: 3, py: 2.5,
-      borderBottom: '1px solid #e5e7eb',
-      bgcolor: '#ffffff',
+      borderBottom: '1px solid var(--border, #e5e7eb)',
+      bgcolor: 'var(--card-bg-solid, #ffffff)',
     }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         {/* Avatar */}
@@ -231,7 +231,7 @@ function TabBar({ active, onSelect, userRole }: {
   userRole: string;
 }) {
   return (
-    <Box sx={{ display: 'flex', borderBottom: '2px solid #f3f4f6', px: 3, bgcolor: '#ffffff' }}>
+    <Box sx={{ display: 'flex', borderBottom: '2px solid var(--border, #f3f4f6)', px: 3, bgcolor: 'var(--card-bg-solid, #ffffff)' }}>
       {TABS.map(tab => {
         const editable = canEdit(userRole, tab.owner);
         const isActive = active === tab.key;
@@ -374,21 +374,21 @@ function PatientConsultationHistoryTab({ patientId }: { patientId?: number }) {
             elevation={0}
             sx={{
               p: 2,
-              border: '1px solid #e5e7eb',
+              border: '1px solid var(--border-glow, #e5e7eb)',
               borderRadius: 2.5,
-              bgcolor: '#ffffff',
+              bgcolor: 'var(--card-bg-solid, #ffffff)',
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, pb: 1, borderBottom: '1px solid #f3f4f6' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, pb: 1, borderBottom: '1px solid var(--border-glow, #f3f4f6)' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 28, height: 28, borderRadius: 1, bgcolor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Box sx={{ width: 28, height: 28, borderRadius: 1, bgcolor: 'rgba(37, 99, 235, 0.15)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <HugeiconsIcon icon={Calendar03Icon} size={14} strokeWidth={2} />
                 </Box>
-                <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#111827' }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-h, #111827)' }}>
                   {t.consultation_date || 'Date not recorded'}
                 </Typography>
                 {t.consultation_time && (
-                  <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+                  <Typography sx={{ fontSize: 12, color: 'var(--text-m, #6b7280)' }}>
                     ({t.consultation_time})
                   </Typography>
                 )}
@@ -683,7 +683,7 @@ export default function QueuePatientDetailModal({
           <TabBar active={activeTab} onSelect={setActiveTab} userRole={userRole} />
 
           {/* Scrollable Content */}
-          <DialogContent sx={{ p: 0, overflowY: 'auto', bgcolor: '#f9fafb' }}>
+          <DialogContent sx={{ p: 0, overflowY: 'auto', bgcolor: 'var(--bg-secondary, #f9fafb)' }}>
             <Box sx={{ px: 2.5, pt: 2 }}>
               <StockLevelIndicator compact={true} showLegend={true} />
             </Box>
@@ -893,8 +893,8 @@ function asYesNo(value: unknown): string {
 
 function Form1Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Box sx={{ borderBottom: '1px solid #f3f4f6', p: 2.5, '&:last-of-type': { borderBottom: 'none' } }}>
-      <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.45px', mb: 1.5 }}>
+    <Box sx={{ borderBottom: '1px solid var(--border-glow, #f3f4f6)', p: 2.5, '&:last-of-type': { borderBottom: 'none' } }}>
+      <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.45px', mb: 1.5 }}>
         {title}
       </Typography>
       {children}
@@ -905,10 +905,10 @@ function Form1Section({ title, children }: { title: string; children: ReactNode 
 function Form1Field({ label, value, capitalize = false }: { label: string; value: string; capitalize?: boolean }) {
   return (
     <Box>
-      <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.45px', mb: 0.5 }}>
+      <Typography sx={{ fontSize: 10, fontWeight: 600, color: 'var(--text-m, #9ca3af)', textTransform: 'uppercase', letterSpacing: '0.45px', mb: 0.5 }}>
         {label}
       </Typography>
-      <Typography sx={{ fontSize: 13, color: '#111827', fontWeight: 500, textTransform: capitalize ? 'capitalize' : 'none', wordBreak: 'break-word' }}>
+      <Typography sx={{ fontSize: 13, color: 'var(--text-h, #111827)', fontWeight: 500, textTransform: capitalize ? 'capitalize' : 'none', wordBreak: 'break-word' }}>
         {value}
       </Typography>
     </Box>
@@ -950,7 +950,7 @@ function Form1InlineView({ entry, readOnly: _readOnly }: { entry: Form1Entry; re
   };
 
   return (
-    <Box sx={{ bgcolor: '#fff', borderRadius: 2, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+    <Box sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', borderRadius: 2, border: '1px solid var(--border-glow, #e5e7eb)', overflow: 'hidden' }}>
       {/* 1. Basic Information */}
       <Form1Section title="1. Basic Information">
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 2 }}>

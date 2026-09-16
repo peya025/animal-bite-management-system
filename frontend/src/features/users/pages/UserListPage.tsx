@@ -1421,9 +1421,9 @@ export default function UserListPage() {
                     sx={{
                       p: 2.25,
                       borderRadius: '12px',
-                      border: '1px solid #e2e8f0',
-                      bgcolor: '#ffffff',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      border: '1px solid var(--border-glow, #e2e8f0)',
+                      bgcolor: 'var(--card-bg-solid, #ffffff)',
+                      boxShadow: 'var(--shadow, 0 1px 3px rgba(0,0,0,0.04))',
                       display: 'flex',
                       flexDirection: { xs: 'column', md: 'row' },
                       justifyContent: 'space-between',
@@ -1433,7 +1433,7 @@ export default function UserListPage() {
                   >
                     <Box sx={{ flex: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.75 }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 15, color: 'var(--text-h, #0f172a)' }}>
                           {[p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ')}
                         </Typography>
                         <Chip
@@ -1460,27 +1460,27 @@ export default function UserListPage() {
 
                       <Grid container spacing={1} sx={{ mt: 0.5 }}>
                         <Grid item xs={12} sm={6}>
-                          <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                            Patient No: <strong style={{ color: '#0f172a' }}>{p.patient_number || 'Pending Assignment'}</strong>
+                          <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                            Patient No: <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{p.patient_number || 'Pending Assignment'}</strong>
                           </Typography>
-                          <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                            Gender & Age: <strong style={{ color: '#0f172a' }}>{p.gender} {p.age ? `(${p.age}y)` : ''}</strong> · DOB: {p.date_of_birth ? new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                          <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                            Gender & Age: <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{p.gender} {p.age ? `(${p.age}y)` : ''}</strong> · DOB: {p.date_of_birth ? new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                           </Typography>
                           {p.contact_number && (
-                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                              Contact: <strong style={{ color: '#0f172a' }}>{p.contact_number}</strong>
+                            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                              Contact: <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{p.contact_number}</strong>
                             </Typography>
                           )}
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           {p.address && (
-                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                              Address: <strong style={{ color: '#0f172a' }}>{p.address}</strong>
+                            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                              Address: <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{p.address}</strong>
                             </Typography>
                           )}
                           {p.emergency_contact_name && (
-                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                              Emergency: <strong style={{ color: '#0f172a' }}>{p.emergency_contact_name}</strong> {p.emergency_contact_number ? `(${p.emergency_contact_number})` : ''}
+                            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                              Emergency: <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{p.emergency_contact_name}</strong> {p.emergency_contact_number ? `(${p.emergency_contact_number})` : ''}
                             </Typography>
                           )}
                           {p.next_appointment && (
@@ -1521,7 +1521,7 @@ export default function UserListPage() {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 1.5, bgcolor: '#ffffff', borderTop: '1px solid #f1f5f9' }}>
+        <DialogActions sx={{ px: 3, py: 1.5, bgcolor: 'var(--card-bg-solid, #ffffff)', borderTop: '1px solid var(--border, #f1f5f9)' }}>
           <AppButton variant="secondary" onClick={() => setViewingProfilesAccount(null)}>
             Close
           </AppButton>

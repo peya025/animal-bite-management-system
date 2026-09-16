@@ -1,202 +1,248 @@
-# Dual-Nurse Workstation & Role-Based Queue System Specification
+# Dual-Nurse Workstation & Role-Based Queue System
+## Implementation Specification (Revised)
 
-**Date**: September 14, 2026  
-**Status**: Ready for Implementation (Saved for Tomorrow)  
-**Location**: `tasks/nursetemplate.md`  
-
----
-
-## 1. Executive Summary & Operational Context
-
-In the animal bite treatment center, patient intake and ongoing vaccination follow-ups serve two completely different operational rhythms:
-
-1. **Intake / New Patients (Nurse 1)**:
-   - Requires comprehensive triage (Form 2), bite classification (Category I, II, III), animal history assessment, wound cleaning verification, tetanus toxoid assessment, and Day 0 initial dose administration.
-   - Highly time-intensive per patient (~10–15 minutes).
-2. **Follow-ups & Boosters (Nurse 2)**:
-   - Returning patients already have established medical records.
-   - Requires identity confirmation, adverse reaction screening, rapid administration of Day 3, Day 7, or Booster doses, and setting the next schedule.
-   - Rapid turnaround (~2–3 minutes per patient).
-
-### Scalability Scenarios Supported
-
-- **Two-Nurse Clinic (Default Target)**:
-  - **Nurse 1 (`intake_nurse`)**: Logs into Workstation 1 $\rightarrow$ Defaults to the **New Patient / Triage Queue** (`/queue`).
-  - **Nurse 2 (`follow_up_nurse`)**: Logs into Workstation 2 $\rightarrow$ Defaults to the **Follow-up & Booster Patient List** (`/nurse/patients?tab=due_today`).
-- **Solo-Nurse Clinic (1 staff member handles everything)**:
-  - A single nurse account is assigned both roles/modules.
-  - A workstation mode switcher in the navigation bar allows switching between `[Intake Queue]`, `[Follow-Up Queue]`, and `[Unified Combined View]`.
-  - Full auditability is preserved under the nurse's individual identity.
-- **Multi-Nurse Clinic (3–5+ nurses)**:
-  - Administrators assign specific stations or duty modules dynamically based on daily shift rosters.
+**Supersedes**: `tasks/nursetemplate.md`  
+**Status**: Ready for implementation  
+**Stack**: Laravel + Sanctum (API), React/TSX (web), Flutter (mobile)  
 
 ---
 
-## 2. Identity Verification & User Validation
+## 0. Design Principle (read this first)
 
-A common clinic concern is: *"How does the system ensure Nurse 1 and Nurse 2 are really the ones operating their stations, and prevent identity confusion or falsification?"*
+Three concepts are deliberately kept separate. Conflating them is the source of most of the ambiguity in earlier drafts:
 
-```
-                     ┌───────────────────────────────┐
-                     │     Individual Staff Login    │
-                     │   (Nurse A vs. Nurse B Creds) │
-                     └───────────────┬───────────────┘
-                                     │
-                     ┌───────────────▼───────────────┐
-                     │   Laravel Sanctum Auth Token  │
-                     │  (Encrypted in Session Storage│
-                     └───────────────┬───────────────┘
-                                     │
-       ┌─────────────────────────────┴─────────────────────────────┐
-       ▼                                                           ▼
-┌───────────────────────────────┐           ┌───────────────────────────────┐
-│     Nurse 1 (Workstation 1)   │           │     Nurse 2 (Workstation 2)   │
-│ • Token bound to User ID #1   │           │ • Token bound to User ID #2   │
-│ • Assigned: intake_nurse      │           │ • Assigned: follow_up_nurse   │
-│ • Handles: Day 0 / Intake     │           │ • Handles: Follow-ups/Boosters│
-└───────────────┬───────────────┘           └───────────────┬───────────────┘
-                │                                           │
-                └─────────────────────┬─────────────────────┘
-                                      │
-                     ┌────────────────▼───────────────┐
-                     │ Server-Side Identity Stamping │
-                     │ • auth('sanctum')->user()->id  │
-                     │ • administered_by = $userId   │
-                     │ • performed_by = $userId      │
-                     │ • Nurse Signature & Name Stamp│
-                     └────────────────────────────────┘
-```
+| Concept | What it is | Changes how often | Stored where |
+| :--- | :--- | :--- | :--- |
+| **Identity** | Who is performing the action — a real, named person | Never (per employee) | `users` table |
+| **Role** | What kind of work they're assigned to right now | Reassignable anytime by admin | `user_roles` join table |
+| **Permission** | What they're allowed to do | Rarely (per role type) | Policy layer |
 
-### 2.1 Technical Identity Guarantees
-1. **Isolated Session Tokens (Laravel Sanctum)**:
-   - Each nurse logs in with their own distinct account credentials.
-   - The server generates an encrypted, single-user Bearer token tied strictly to that database user ID (`users.id`).
-   - Browser sessions (cookies/local storage) are completely isolated across workstations.
-2. **Server-Side Identity Stamping (Zero Client Spoofing)**:
-   - The frontend never submits an unverified user ID in request bodies.
-   - All backend controllers resolve the logged-in user via `auth('sanctum')->user()->id`.
-   - In `VaccinationRecordController.php`:
-     ```php
-     $userId = auth()->id();
-     $nurseName = auth()->user()->name;
+### The Core Rule
+> **Role determines the default view. Permission determines the hard boundary. Identity determines the audit record.**
 
-     $record = TreatmentRecord::create([
-         // ...
-         'administered_by' => $userId,
-         'remarks'         => "Given by: {$nurseName} | " . (auth()->user()->clinic->name ?? 'ABTC'),
-         'signature'       => auth()->user()->signature_path ?? $request->signature,
-     ]);
-     ```
-3. **Official Medical Document Fingerprint**:
-   - The nurse's full legal name and digital signature are permanently embedded into:
-     - The DOH Tagoloan Treatment Card (`TagoloanTreatmentCardModal.tsx`).
-     - The Printable Medical Record and Vaccination Certificate.
-     - Historical dose breakdown logs.
+A nurse's role should **never** prevent them from performing a nursing action they are clinically qualified for — it only decides which queue they land on when they log in.
+
+**Why this matters clinically**: in a 2-nurse clinic, if the follow-up nurse is absent, the intake nurse must still be able to administer Day 3 doses. A role that hard-blocks that creates a patient-safety failure, not a security win.
 
 ---
 
-## 3. Monitoring & Audit Logging Architecture
+## 1. Data Model
 
-Supervisors and Clinic Administrators can track, filter, and inspect all staff actions in real time.
+### 1.1 `users` (existing table, minimal change)
+No role column is added here. Roles live in their own join table (see 1.3).
 
-### 3.1 Staff Activity Monitor UI (`/staff-activity`)
-Located in **Clinic Setup → Staff Activity** (`StaffActivityPage.tsx`), backed by `AuditLogController.php`:
+**Columns added:**
+- `signature_path` `VARCHAR NULL` — server-stored signature asset, uploaded once during staff onboarding.
+- `is_active` `BOOLEAN DEFAULT true` — for offboarding staff without deleting audit history.
+- `professional_license_no` `VARCHAR NULL` — for RN/clinician credentialing on printed records.
 
-- **Real-Time Audit Stream**:
-  - **Staff Actor**: Name, email, role badge (`Nurse`, `Admin`, `Staff`).
-  - **Action Badges**: `LOGIN`, `LOGOUT`, `CREATED` (green), `UPDATED` (blue), `DELETED` (red), `VIEWED` (gray).
-  - **Event Description**: E.g., `"POST /api/vaccination-records"`, `"Day 3 administered for Patient #5"`.
-  - **Network & Device Fingerprint**: IP address, user agent, exact timestamp.
-- **Filtering & Search Tools**:
-  - Filter specifically by **Nurse 1** or **Nurse 2** to review shift productivity.
-  - Filter by date range or specific actions (e.g., only vaccination creations or logins).
-  - Full-text search across descriptions and IP addresses.
-- **Operational KPI Cards**:
-  - **Actions Today**: Total actions executed across the clinic.
-  - **Logins Today**: Number of active staff sessions.
-  - **Most Active Staff**: Identifies the top clinical contributor for the day.
-  - **After-Hours Actions Banner**: Automatically alerts if any clinical actions occurred outside 8:00 AM – 5:00 PM operating hours.
+> **Rule**: Do not delete user rows. Every `administered_by` FK depends on them existing permanently. Deactivate via `is_active` instead.
 
-### 3.2 Queue Movement Audit Trail (`queue_history` table)
-Every single transition of a patient in the clinic is logged via `QueueHistory.php`:
-- `queue_id`: The patient's queue ticket.
-- `action`: `called`, `serving`, `completed`, `no_response`, `transferred`.
-- `performed_by`: The exact User ID of the nurse who took action.
-- `occurred_at`: Precise timestamp.
-
-### 3.3 Automatic Request Auditing (`AuditMiddleware.php`)
-Every HTTP mutation (`POST`, `PUT`, `PATCH`, `DELETE`) is captured automatically by the global audit middleware into the `audit_logs` database table with response status codes and request payloads.
-
----
-
-## 4. Security Measures & Safeguards
-
-| Security Feature | Implementation Mechanism | Clinical Benefit |
+### 1.2 `roles` (new, seeded)
+| Column | Type | Notes |
 | :--- | :--- | :--- |
-| **Workstation Concurrency Lock (HTTP 409)** | Database optimistic locking and queue status check (`QueueController::callTicket`, `serveTicket`). | Prevents Nurse 1 and Nurse 2 from calling, serving, or opening the same patient simultaneously. |
-| **Double-Dose Prevention** | Unique composite index on `(patient_id, dose_number, bite_incident_id)` and backend pre-check in `VaccinationRecordController`. | A nurse cannot accidentally double-inject or record two Day 3 doses on the same patient visit. |
-| **Data Immutability on Medical Logs** | Once recorded, `administered_by` is immutable in `treatment_records`. Edits to notes create an `updated` audit log with `old_values` vs `new_values`. | Preserves clinical and legal integrity. Historical records cannot be rewritten to shift blame. |
-| **Role-Based Access Control (RBAC)** | Frontend `ProtectedRoute` combined with Laravel Sanctum route middleware and `assigned_module` guards. | Ensures staff only access features permitted for their role and duty station. |
-| **Session Invalidation on Logout** | `AuthController::logout` invokes `$request->user()->currentAccessToken()->delete()`. | Prevents workstation token reuse or session hijacking when shifts change. |
-| **Clinic Operating Hours & Clinical Spacing Enforcement** | `ClinicScheduleService.php` forward-shifts closed days and maintains minimum interval spacing. | Appointments cannot be booked on closed days, and minimum clinical recovery spacing between doses is strictly preserved. |
+| `id` | PK | Auto-incrementing identifier |
+| `slug` | `VARCHAR UNIQUE` | `intake_nurse`, `follow_up_nurse`, `clinic_admin`, `doctor`, `receptionist` |
+| `display_name` | `VARCHAR` | Shown in admin UI (e.g. "Intake Nurse") |
+| `default_route` | `VARCHAR` | Where this role lands after login, e.g. `/queue` or `/nurse/patients` |
+
+*There is deliberately no `all_nursing` role.* A nurse who does both jobs is given both `intake_nurse` and `follow_up_nurse` rows in `user_roles`. This removes the special case and makes the 3–5 nurse scenario work with no additional values.
+
+### 1.3 `user_roles` (new join table)
+| Column | Type | Notes |
+| :--- | :--- | :--- |
+| `user_id` | `FK → users` | Assigned staff member |
+| `role_id` | `FK → roles` | Role assigned |
+| `assigned_by` | `FK → users NULL` | Who granted this role — auditable |
+| `assigned_at` | `DATETIME` | Timestamp of assignment |
+
+- Composite unique on `(user_id, role_id)`.
+
+**Scenario Coverage**:
+- **Two-nurse clinic**: Nurse A $\rightarrow$ `intake_nurse`. Nurse B $\rightarrow$ `follow_up_nurse`.
+- **Solo-nurse clinic**: Nurse A $\rightarrow$ both rows. Sees a station switcher.
+- **Multi-nurse clinic**: assign per shift roster; no schema change needed.
+- **Other clinics adopting the system**: seed the same roles, assign differently.
+
+### 1.4 `stations` (new)
+| Column | Type | Notes |
+| :--- | :--- | :--- |
+| `id` | PK | Identifier |
+| `clinic_id` | `FK → clinics` | Multi-clinic support |
+| `name` | `VARCHAR` | "Station 1", "Station 2", "Triage Room" |
+| `is_active` | `BOOLEAN` | Active status |
+
+Station is not an identity. It is an optional label a nurse selects at login ("I'm working Station 2 today") stored on the session, purely to make conflict messages and floor coordination clearer. It never substitutes for `administered_by`.
+
+### 1.5 `treatment_records` (amendments)
+- `administered_by` `FK → users`, `NOT NULL`, immutable after insert.
+- `voided_at` `DATETIME NULL`, `voided_by` `FK → users NULL`, `void_reason` `TEXT NULL`.
+- Unique live dose constraint: In MySQL, enforced via DB transaction with a `SELECT ... FOR UPDATE` pre-check inside `VaccinationRecordController` checking `WHERE voided_at IS NULL AND bite_incident_id = ? AND dose_number = ?`.
+- **Remove name-in-remarks pattern**: Drop `'remarks' => "Given by: {$nurseName} | ..."`. The name is already reachable through the `administered_by` relationship. Resolve the display name at read time.
 
 ---
 
-## 5. Technical Implementation Plan (For Tomorrow)
+## 2. Identity & Anti-Spoofing
 
-### Phase 1: Staff Roles & Station Configuration
-1. **Database Migration**:
-   - Add `workstation_mode` / `assigned_modules` column to `users` table:
-     - `intake_nurse`: Focuses on triage, new patient queue, Day 0.
-     - `follow_up_nurse`: Focuses on returning patients, Day 3, Day 7, Boosters.
-     - `all_nursing`: Has access to both stations with toggle switcher.
-2. **User Profile & Admin Management**:
-   - In Staff Management (`/staff`), allow Clinic Admins to select duty assignment for each nurse.
+### 2.1 Server-side Stamping
+```php
+$userId = auth('sanctum')->id();
 
-### Phase 2: Queue & Patient List Segregation
-1. **Nurse 1 Workstation (`/queue`)**:
-   - Filter queue tickets to display **New Patient / Initial Consultation (Day 0)**.
-   - Quick action to open Triage Form and Initial Vaccination Record.
-2. **Nurse 2 Workstation (`/nurse/patients`)**:
-   - Default tab set to `due_today` (patients with scheduled appointments today for Day 3, Day 7, Booster 1, Booster 2).
-   - "Administer Next Dose" modal pre-loads the next due dose without requiring the nurse to fill out initial bite incident history.
-3. **Solo-Nurse Workstation Switcher**:
-   - For users with `all_nursing` permission, add a compact station selector in the top navbar:
-     ```
-     [ Station: Intake (Day 0) ▾ ]  <-->  [ Station: Follow-ups & Boosters ▾ ]
-     ```
-   - Automatically adjusts default view while recording the nurse's actual name on every action.
+$record = TreatmentRecord::create([
+    // ... clinical fields from validated request ...
+    'administered_by' => $userId,          // never from request body
+    'signature_path'  => auth('sanctum')->user()->signature_path,
+]);
+```
 
-### Phase 3: Anti-Collision Concurrency Guard
-1. **API Guard**:
-   - When a nurse clicks "Call Patient" or "Serve":
-     - If `queue.status === 'serving'` by another user ID, return HTTP 409 Conflict:
-       ```json
-       {
-         "error": "conflict",
-         "message": "Patient is currently being attended by Nurse [Name] at Station [Station]."
-       }
-       ```
-2. **Frontend UI Handling**:
-   - Display a non-blocking amber toast notification and refresh queue status automatically.
+### 2.2 No Client-Supplied Signature Fallback
+A signature is an identity artifact; it must originate server-side.
+```php
+if (! auth('sanctum')->user()->signature_path) {
+    abort(422, 'Your signature is not yet on file. Ask a clinic admin to complete your staff profile before administering doses.');
+}
+```
+Signatures are uploaded once, by an admin, during staff onboarding — never submitted per-request.
+
+### 2.3 Model-Layer Immutability Enforcement
+```php
+// TreatmentRecord model
+protected static function booted()
+{
+    static::updating(function ($record) {
+        if ($record->isDirty('administered_by')) {
+            throw new \DomainException('administered_by is immutable on treatment records.');
+        }
+    });
+}
+```
+
+### 2.4 Correction Workflow
+Corrections are **void + re-record**, never edit:
+1. Nurse/admin voids the record with a required `void_reason`.
+2. A new record is created with correct data, stamped with the current user.
+3. Both rows persist in the database. Printed records and the mobile passport show only live records (`voided_at IS NULL`); the audit view shows both.
 
 ---
 
-## 6. Verification & Test Plan
+## 3. Role-Based Views (Not Role-Based Locks)
 
-1. **Identity & Audit Logging Test**:
-   - Log in as Nurse 1 $\rightarrow$ Administer Day 0 for Patient A.
-   - Log in as Nurse 2 $\rightarrow$ Administer Day 3 for Patient A.
-   - Verify `treatment_records`:
-     - Record for Day 0 has `administered_by = Nurse 1 ID`.
-     - Record for Day 3 has `administered_by = Nurse 2 ID`.
-   - Verify `/staff-activity`:
-     - Nurse 1's action shows under Nurse 1's filter.
-     - Nurse 2's action shows under Nurse 2's filter.
-2. **Concurrency Conflict Test**:
-   - Simulate simultaneous access to Patient B's ticket from two browser sessions.
-   - Verify the second attempt receives HTTP 409 and does not overwrite or corrupt the record.
-3. **Clinical Rules Integrity Test**:
-   - Verify that primary doses remain strictly Day 0, Day 3, Day 7.
-   - Verify that booster doses remain strictly Booster 1, Booster 2.
-   - Verify that operating hours forward-shifting (+days on closed days) operates normally.
+### 3.1 Login Routing
+On successful authentication, resolve landing route:
+- User has exactly one role $\rightarrow$ redirect to that role's `default_route`.
+- User has multiple roles $\rightarrow$ redirect to their last-used station (stored per-user preference), else the first role's default route.
+- User has no roles $\rightarrow$ land on a neutral dashboard with a "No duty assigned, contact your admin" notice (fail visible, not silently blank).
+
+### 3.2 Station Switcher (Multi-Role Users)
+Visible only when `user_roles` count > 1:
+```
+[ Station: Intake (Day 0) ▾ ]
+    • Intake (Day 0 / New patients)
+    • Follow-ups & Boosters
+    • Combined view
+```
+Switching changes the view only. It never changes `administered_by`, which always resolves from the session identity.
+
+### 3.3 Permission Boundary (Deliberately Looser than the View)
+| Action | Who can perform |
+| :--- | :--- |
+| Administer any dose (Day 0, 3, 7, booster) | Any user holding any nursing role |
+| Void a treatment record | Any nursing role (reason required) |
+| Assign/revoke roles | `clinic_admin` only |
+| View staff activity / audit log | `clinic_admin` only |
+| Upload staff signatures | `clinic_admin` only |
+
+**Cross-Coverage Rationale**: Cross-coverage is normal clinical reality. When an intake nurse administers a follow-up dose, the correct system response is to record accurately who did it, not to refuse. Accountability comes from the audit trail, not from blocking the action.
+- Soft guardrail: Tag the audit entry `cross_role = true` so supervisors can review patterns without work being obstructed.
+
+---
+
+## 4. Concurrency Control
+
+### 4.1 Preventing Two Nurses on One Patient
+Wrap ticket claiming in a transaction with row-level locking:
+```php
+DB::transaction(function () use ($queueId) {
+    $queue = Queue::where('queue_id', $queueId)->lockForUpdate()->first();
+
+    if ($queue->status === 'serving' && $queue->served_by !== auth('sanctum')->id()) {
+        abort(409, "Patient is currently being attended by {$queue->servedBy->name}.");
+    }
+
+    $queue->update([
+        'status'             => 'serving',
+        'served_by'          => auth('sanctum')->id(),
+        'serving_started_at' => now(),
+        'station_id'         => session('active_station_id'),
+    ]);
+});
+```
+
+### 4.2 Stale Lock Recovery
+- `serving_started_at` timestamp on `queues`.
+- Stale threshold: 30 minutes.
+- Past the threshold, another nurse may take over the ticket; the takeover is logged to `queue_history` as `transferred` with both user IDs.
+
+### 4.3 Frontend Handling
+- On HTTP 409: Display amber non-blocking toast, auto-refresh the queue list, do not navigate away or lose entered form state.
+
+---
+
+## 5. Audit & Monitoring
+
+### 5.1 Established Audit Logging
+Retain `AuditMiddleware` on all mutations, `queue_history` transitions, and the `/staff-activity` filterable stream.
+
+### 5.2 Dynamic After-Hours Detection via `ClinicScheduleService`
+Instead of a hardcoded 8:00 AM – 5:00 PM window, query `ClinicScheduleService` for that clinic's configured operating hours on that date (including schedule exceptions) and flag actions falling outside them as informational review items.
+
+### 5.3 Audit Log Data Governance & Redaction
+- Redact sensitive personal fields from stored request payloads (patient full name, contact numbers, street addresses) in `AuditMiddleware`. Store record IDs and modified keys.
+- Restrict read access to `clinic_admin` only, enforced server-side.
+- Scope audit logs strictly by clinic ID.
+
+---
+
+## 6. Migration & Rollout Plan
+
+### 6.1 Ordered Migration Steps
+1. Create `roles` table, seed the five role rows (`intake_nurse`, `follow_up_nurse`, `clinic_admin`, `doctor`, `receptionist`).
+2. Create `user_roles` join table.
+3. **Backfill**: assign every existing nursing user both `intake_nurse` and `follow_up_nurse` (preserves current behavior — nobody loses access on deploy day); admins can narrow assignments afterward.
+4. Add `signature_path`, `is_active`, `professional_license_no` to `users`.
+5. Add `voided_at`, `voided_by`, `void_reason` to `treatment_records`.
+6. Add `served_by`, `serving_started_at`, `station_id` to `queues`.
+7. Create `stations` table.
+8. Enforce live-dose uniqueness in `VaccinationRecordController` using transactional lock check.
+9. Deploy model-layer immutability guard on `TreatmentRecord`.
+
+---
+
+## 7. Concrete UI & Screen Enhancements
+
+### 7.1 Replace Shared Account Identity Everywhere
+- **Sidebar & Header**: Replace "Treatment Nurse / Treatment Staff" with authenticated user's real name and role badge (e.g. `Maria Santos, RN / Intake Station`).
+- Server-side stamping on all dose, triage, and queue actions.
+
+### 7.2 `/queue` — Intake Station (`intake_nurse` default route)
+- Add an **"Attended by"** column to the Treatment Queue table showing which nurse claimed each ticket.
+- Change the **"Serving"** KPI card from a bare count to naming the serving nurse(s) (e.g. `Serving 1 — Maria S.`).
+- Default Category / Visit type filters to intake-type visits (new patients, walk-ins, Day 0, awaiting triage) for users with `intake_nurse` role (as pre-applied default, changeable by user).
+
+### 7.3 `/nurse/patients` — Follow-up Station (`follow_up_nurse` default route)
+- Default tab: **"Needs Action"** (combined `due_today` + `overdue` + today's confirmed online bookings, sorted by urgency: overdue first by days past schedule).
+- Filter sub-tabs: `Due Today`, `Online Bookings`, `Upcoming`, `Overdue`, `All Patients`.
+- Exclude pre-triage / "Awaiting Triage (Form 2)" patients from follow-up default views (or show in "All Patients" with clear `Intake — Nurse 1` badge).
+- Fix action button on "Completed" series: offer **"Start New Episode (Re-Exposure)"** or view-only mode rather than invalid "Record Dose (Form 3)".
+
+### 7.4 Check-In Routing Rule
+- When a follow-up patient is checked in from Patients List, generate a queue ticket pre-assigned to the follow-up station (`station = follow_up`), appearing directly in the follow-up nurse's queue.
+- Visit type routing:
+  - Initial / triage visits $\rightarrow$ Intake station queue.
+  - Day 3 / Day 7 / Booster / Re-exposure follow-ups $\rightarrow$ Follow-up station queue.
+- All tickets remain claimable by any nurse for seamless cross-coverage.
+
+### 7.5 Station Switcher
+- For users holding multiple roles (solo nurses or cross-coverage staff), render compact top-bar switcher: `[ Station: Intake ▾ ]` / `[ Station: Follow-ups ▾ ]` / `[ Combined ]`.
+- Adjusts view filters and defaults without altering server-side identity stamping.
+- Hidden for single-role nurses.

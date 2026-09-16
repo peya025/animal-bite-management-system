@@ -223,6 +223,41 @@ class AppointmentController extends Controller
                 ->update(['status' => 'completed']);
 
             switch ($tab) {
+                case 'needs_action':
+                    // Combined follow-up queue: overdue + due today + active in queue, excluding pre-triage
+                    $todayDate = Carbon::today()->toDateString();
+                    $query->whereHas('treatmentRecords', function ($tr) {
+                        $tr->whereNotNull('dose_number')->where('status', 'completed');
+                    })->where(function ($q) use ($todayDate) {
+                        $q->whereHas('appointments', function ($app) use ($todayDate) {
+                            $app->where(function ($d) use ($todayDate) {
+                                $d->whereDate('appointment_date', '<=', $todayDate)
+                                  ->orWhereDate('scheduled_date', '<=', $todayDate);
+                            })->whereIn('status', ['scheduled', 'missed', 'confirmed']);
+                        })->orWhereHas('queues', function ($qu) use ($todayDate) {
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                               ->whereDate('queue_date', $todayDate);
+                        });
+                    })->with([
+                        'appointments' => function ($app) {
+                            $app->whereIn('status', ['scheduled', 'missed', 'confirmed'])
+                                ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC');
+                        },
+                        'biteIntakes' => function ($bi) {
+                            $bi->latest();
+                        },
+                        'biteIncidents' => function ($bi) {
+                            $bi->latest();
+                        },
+                        'latestTreatmentRecord',
+                        'queues' => function ($qu) use ($todayDate) {
+                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                               ->whereDate('queue_date', $todayDate)
+                               ->latest();
+                        }
+                    ]);
+                    break;
+
                 case 'due_today':
                     // Patients with appointments today OR confirmed pending dose OR currently active in queue
                     $query->where(function ($q) {
@@ -397,8 +432,35 @@ class AppointmentController extends Controller
                 });
             }
 
-            $patients = $query->orderBy('last_name')
+            if ($tab === 'needs_action') {
+                $patients = $query->orderByRaw("(
+                    SELECT MIN(COALESCE(scheduled_date, appointment_date))
+                    FROM appointments
+                    WHERE appointments.patient_id = patients.patient_id
+                      AND appointments.status IN ('scheduled', 'missed', 'confirmed')
+                ) ASC")
                 ->paginate($request->get('per_page', 15));
+            } else {
+                $patients = $query->orderBy('last_name')
+                    ->paginate($request->get('per_page', 15));
+            }
+
+            $todayDate = Carbon::today()->toDateString();
+            $needsActionCount = Patient::where('clinic_id', $clinicId)
+                ->whereHas('treatmentRecords', function ($tr) {
+                    $tr->whereNotNull('dose_number')->where('status', 'completed');
+                })
+                ->where(function ($q) use ($todayDate) {
+                    $q->whereHas('appointments', function ($app) use ($todayDate) {
+                        $app->where(function ($d) use ($todayDate) {
+                            $d->whereDate('appointment_date', '<=', $todayDate)
+                              ->orWhereDate('scheduled_date', '<=', $todayDate);
+                        })->whereIn('status', ['scheduled', 'missed', 'confirmed']);
+                    })->orWhereHas('queues', function ($qu) use ($todayDate) {
+                        $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                           ->whereDate('queue_date', $todayDate);
+                    });
+                })->count();
 
             $dueTodayCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
                 $q->whereHas('appointments', function ($app) {
@@ -451,6 +513,7 @@ class AppointmentController extends Controller
             })->count();
 
             $res = $patients->toArray();
+            $res['needs_action_count']   = $needsActionCount;
             $res['due_today_count']      = $dueTodayCount;
             $res['online_count']         = $onlineCount;
             $res['upcoming_count']       = $upcomingCount;
@@ -734,6 +797,14 @@ class AppointmentController extends Controller
                 : null;
             $noteText = $doseInfo ? "Checked in for {$doseInfo}" : "Checked in via patient list";
 
+            // Assign station based on clinical visit type: follow-ups go to Follow-up station, initial/consultation to Intake
+            $isFollowUp = $isBooster || ($appointment && $appointment->dose_number > 0) || in_array($visitType, ['vaccination', 'booster', 'follow_up']);
+            $stationQuery = \App\Models\Station::where('clinic_id', $clinicId)->where('is_active', true);
+            $stationObj = $isFollowUp
+                ? (clone $stationQuery)->where('name', 'like', '%Follow-up%')->first()
+                : (clone $stationQuery)->where('name', 'like', '%Intake%')->first();
+            $assignedStationId = $stationObj?->id;
+
             $queue = Queue::create([
                 'clinic_id'      => $clinicId,
                 'patient_id'     => $patientId,
@@ -746,6 +817,7 @@ class AppointmentController extends Controller
                 'status'         => 'waiting',
                 'checked_in_at'  => now(),
                 'checked_in_by'  => $request->user()->id,
+                'station_id'     => $assignedStationId,
                 'check_in_notes' => $noteText,
                 'call_count'     => 0,
             ]);

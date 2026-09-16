@@ -11,6 +11,44 @@ use Illuminate\Support\Facades\Log;
 class ClinicScheduleService
 {
     /**
+     * Get operating hours for a specific date (including exceptions)
+     * @return array{is_open: bool, open_time: string, close_time: string}
+     */
+    public function getOperatingHoursForDate(int $clinicId, Carbon $date): array
+    {
+        $exception = ClinicScheduleException::where('clinic_id', $clinicId)
+            ->where('exception_date', $date->toDateString())
+            ->first();
+
+        if ($exception !== null) {
+            return [
+                'is_open'    => (bool) $exception->is_open,
+                'open_time'  => $exception->open_time ?? '08:00:00',
+                'close_time' => $exception->close_time ?? '17:00:00',
+            ];
+        }
+
+        $schedule = ClinicSchedule::where('clinic_id', $clinicId)
+            ->where('day_of_week', $date->dayOfWeek)
+            ->first();
+
+        if ($schedule !== null) {
+            return [
+                'is_open'    => (bool) $schedule->is_open,
+                'open_time'  => $schedule->open_time ?? '08:00:00',
+                'close_time' => $schedule->close_time ?? '17:00:00',
+            ];
+        }
+
+        $isOpen = !in_array($date->dayOfWeek, [0, 6]);
+        return [
+            'is_open'    => $isOpen,
+            'open_time'  => '08:00:00',
+            'close_time' => '17:00:00',
+        ];
+    }
+
+    /**
      * Resolve the open clinic appointment date for a given dose protocol
      *
      * @param int $clinicId

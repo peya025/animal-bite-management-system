@@ -2,6 +2,45 @@ import { useState, useEffect } from 'react';
 import { APP_NAME } from '../../../constants';
 import { LoginRoot } from '../styles/Login.styles';
 
+function resolveLandingRoute(user: any): string {
+  if (!user) return '/dashboard';
+
+  const roles = user.roles || [];
+  const hasIntake = roles.some((r: any) => r.slug === 'intake_nurse');
+  const hasFollowUp = roles.some((r: any) => r.slug === 'follow_up_nurse');
+
+  // Solo / Dual-role Nurse: check active_station_mode preference
+  if (hasIntake && hasFollowUp) {
+    const activeStation = localStorage.getItem('active_station_mode');
+    if (activeStation === 'follow_up') return '/nurse/patients';
+    return '/queue';
+  }
+
+  // Single-role Intake Nurse
+  if (hasIntake) {
+    localStorage.setItem('active_station_mode', 'intake');
+    return '/queue';
+  }
+
+  // Single-role Follow-up Nurse
+  if (hasFollowUp) {
+    localStorage.setItem('active_station_mode', 'follow_up');
+    return '/nurse/patients';
+  }
+
+  // Roles with default_route from backend roles table
+  if (roles.length > 0 && roles[0].default_route) {
+    return roles[0].default_route;
+  }
+
+  // Legacy role fallbacks
+  if (user.role === 'triage') return '/queue';
+  if (user.role === 'registration') return '/registration';
+  if (user.role === 'treatment') return '/queue';
+
+  return '/dashboard';
+}
+
 export default function Login() {
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
@@ -14,7 +53,12 @@ export default function Login() {
     const token    = localStorage.getItem('authToken');
     const userData = localStorage.getItem('userData');
     if (token && userData) {
-      window.location.replace('/dashboard');
+      try {
+        const u = JSON.parse(userData);
+        window.location.replace(resolveLandingRoute(u));
+      } catch {
+        window.location.replace('/dashboard');
+      }
     }
   }, []);
 
@@ -41,7 +85,7 @@ export default function Login() {
       localStorage.setItem('userData', JSON.stringify(data.user));
       // clinic is nested inside user in the backend response
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
-      window.location.replace('/dashboard');
+      window.location.replace(resolveLandingRoute(data.user));
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
     } finally {
@@ -49,11 +93,15 @@ export default function Login() {
     }
   };
 
-  const handleQuickRoleLogin = async (roleEmail: string) => {
+  const handleQuickRoleLogin = async (roleEmail: string, preferredStation?: 'intake' | 'follow_up' | 'combined') => {
     setEmail(roleEmail);
     setPassword('password123');
     setError('');
     setLoading(true);
+
+    if (preferredStation) {
+      localStorage.setItem('active_station_mode', preferredStation);
+    }
 
     try {
       const response = await fetch('http://localhost:8000/api/login', {
@@ -67,7 +115,7 @@ export default function Login() {
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
-      window.location.replace('/dashboard');
+      window.location.replace(resolveLandingRoute(data.user));
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
     } finally {
@@ -231,18 +279,115 @@ export default function Login() {
               <span>Triage Doctor</span>
             </button>
 
+            {/* ── DUAL-NURSE WORKSTATIONS ── */}
+            <div style={{
+              gridColumn: 'span 2',
+              marginTop: '8px',
+              paddingTop: '10px',
+              borderTop: '1px dashed var(--gray-200, #e2e8f0)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary, #0f766e)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Nursing Workstations (Dual-Nurse Architecture)
+              </span>
+            </div>
+
             <button
               type="button"
               className="role-demo-btn"
-              onClick={() => handleQuickRoleLogin('treatment@clinic.com')}
+              onClick={() => handleQuickRoleLogin('nurse1@clinic.com', 'intake')}
               disabled={loading}
-              style={{ gridColumn: 'span 2' }}
+              style={{
+                borderLeft: '3px solid #0284c7',
+                background: '#f0f9ff',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: '2px',
+                padding: '10px 14px',
+              }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              <span>Treatment Nurse</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span style={{ fontWeight: 700, color: '#0369a1', fontSize: '13.5px' }}>Nurse 1: Intake</span>
+              </div>
+              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, paddingLeft: '24px' }}>
+                Maria Santos, RN · Day 0 / Queue
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className="role-demo-btn"
+              onClick={() => handleQuickRoleLogin('nurse2@clinic.com', 'follow_up')}
+              disabled={loading}
+              style={{
+                borderLeft: '3px solid #059669',
+                background: '#f0fdf4',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: '2px',
+                padding: '10px 14px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span style={{ fontWeight: 700, color: '#047857', fontSize: '13.5px' }}>Nurse 2: Follow-up</span>
+              </div>
+              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, paddingLeft: '24px' }}>
+                Juan Reyes, RN · Patient List
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className="role-demo-btn"
+              onClick={() => handleQuickRoleLogin('treatment@clinic.com', 'combined')}
+              disabled={loading}
+              style={{
+                gridColumn: 'span 2',
+                borderLeft: '3px solid #0f766e',
+                background: '#f0fdfa',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '12px 16px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f766e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: 700, color: '#0f766e', fontSize: '13.5px' }}>
+                    Solo Nurse (Combined Work — Nurse 1 & 2)
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                    Elena Cruz, RN · Both Roles Assigned · Top Station Switcher
+                  </div>
+                </div>
+              </div>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: '#0f766e',
+                background: '#ccfbf1',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+              }}>
+                Dual Roles
+              </span>
             </button>
           </div>
         </div>

@@ -3,7 +3,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'registration' | 'triage' | 'treatment';
+  role: 'developer' | 'admin' | 'registration' | 'triage' | 'treatment';
   clinic_id: number;
   phone?: string;
   is_active: boolean;

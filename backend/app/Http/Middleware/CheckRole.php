@@ -19,7 +19,15 @@ class CheckRole
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        if (!in_array($request->user()->role, $roles)) {
+        if (! $request->user()->is_active) {
+            $request->user()->tokens()->delete();
+
+            return response()->json([
+                'message' => 'This account is inactive. Contact your clinic administrator.',
+            ], 403);
+        }
+
+        if (!in_array($request->user()->role, $roles, true)) {
             return response()->json([
                 'message' => 'Unauthorized. This action requires ' . implode(' or ', $roles) . ' role.',
             ], 403);

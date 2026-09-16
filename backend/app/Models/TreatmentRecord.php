@@ -80,6 +80,7 @@ class TreatmentRecord extends Model
         'dosage_ml' => 'decimal:2',
         'consultation_date' => 'date:Y-m-d',
         'consultation_types' => 'array', // Cast JSON to array
+        'administration_notes' => \App\Casts\LegacyCompatibleEncrypted::class,
     ];
 
     /**

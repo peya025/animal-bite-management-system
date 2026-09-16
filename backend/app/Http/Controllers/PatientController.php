@@ -104,7 +104,6 @@ class PatientController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('patient_number', 'like', "%{$search}%")
-                  ->orWhere('contact_number', 'like', "%{$search}%")
                   ->orWhere(function ($nameQuery) use ($search) {
                       $nameQuery->searchName($search);
                   });

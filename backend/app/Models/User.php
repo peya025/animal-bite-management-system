@@ -108,6 +108,14 @@ class User extends Authenticatable
     /**
      * Update last login timestamp
      */
+    public function tokens()
+    {
+        return $this->morphMany(\Laravel\Sanctum\PersonalAccessToken::class, 'tokenable');
+    }
+
+    /**
+     * Update last login timestamp
+     */
     public function updateLastLogin(): void
     {
         $this->update(['last_login_at' => now()]);

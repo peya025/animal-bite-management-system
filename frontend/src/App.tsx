@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './features/auth/pages/LoginPage';
 import SetupWizard from './features/clinic-setup/pages/SetupWizardPage';
@@ -33,10 +33,11 @@ const DeveloperDatabaseExplorerPage = lazy(() => import('./features/developer/pa
 const AppointmentDiagnosticsPage = lazy(() => import('./features/developer/pages/AppointmentDiagnosticsPage'));
 
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
-import { ROUTES } from './shared/config/routes';
+
 import { AppLayout } from './shared/components/layout/AppLayout';
 import { SimpleDashboardPage } from './features/dashboard/pages/SimpleDashboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import Unauthorized from './pages/Unauthorized';
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="/setup" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><SetupWizard /></ProtectedRoute>} />
           <Route path="/accept-invitation/:token" element={<AcceptInvitationPage />} />
           

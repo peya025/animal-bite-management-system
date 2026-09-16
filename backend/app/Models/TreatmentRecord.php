@@ -41,6 +41,9 @@ class TreatmentRecord extends Model
         'signature',
         'outcome',
         'status',
+        'voided_at',
+        'voided_by',
+        'void_reason',
         'is_external',
         'external_facility_name',
         'scheduled_by',
@@ -77,6 +80,7 @@ class TreatmentRecord extends Model
         'treatment_date' => 'date:Y-m-d',
         'expiration_date' => 'date:Y-m-d',
         'administered_at' => 'datetime',
+        'voided_at' => 'datetime',
         'dosage_ml' => 'decimal:2',
         'consultation_date' => 'date:Y-m-d',
         'consultation_types' => 'array', // Cast JSON to array
@@ -123,11 +127,44 @@ class TreatmentRecord extends Model
     }
 
     /**
+     * Booted method enforcing domain immutability
+     */
+    protected static function booted()
+    {
+        static::updating(function ($record) {
+            if ($record->isDirty('administered_by')) {
+                throw new \DomainException('administered_by is immutable on treatment records.');
+            }
+        });
+    }
+
+    public function getSignaturePathAttribute()
+    {
+        return $this->signature ?: $this->administeredBy?->signature_path;
+    }
+
+    /**
+     * Scope to live (non-voided) records
+     */
+    public function scopeLive($query)
+    {
+        return $query->whereNull('voided_at');
+    }
+
+    /**
      * Relationship: TreatmentRecord belongs to User (administered_by)
      */
     public function administeredBy()
     {
         return $this->belongsTo(User::class, 'administered_by', 'id');
+    }
+
+    /**
+     * Relationship: TreatmentRecord belongs to User (voided_by)
+     */
+    public function voidedBy()
+    {
+        return $this->belongsTo(User::class, 'voided_by', 'id');
     }
 
     /**

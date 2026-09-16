@@ -28,6 +28,8 @@ class User extends Authenticatable
         'assigned_module',
         'is_active',
         'phone',
+        'signature_path',
+        'professional_license_no',
         'last_login_at',
         'google_id',
     ];
@@ -63,6 +65,39 @@ class User extends Authenticatable
     public function clinic()
     {
         return $this->belongsTo(Clinic::class);
+    }
+
+    /**
+     * Get the roles assigned to this user
+     */
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id')
+            ->withPivot('assigned_by', 'assigned_at');
+    }
+
+    /**
+     * Check if user holds a specific role by slug
+     */
+    public function hasRole(string $roleSlug): bool
+    {
+        return $this->roles->contains('slug', $roleSlug);
+    }
+
+    /**
+     * Check if user has nursing duties (intake, follow-up, or treatment)
+     */
+    public function isNursing(): bool
+    {
+        return $this->hasRole('intake_nurse') || $this->hasRole('follow_up_nurse') || $this->role === 'treatment';
+    }
+
+    /**
+     * Check if user is a solo nurse handling both intake and follow-up
+     */
+    public function isSoloNurse(): bool
+    {
+        return $this->hasRole('intake_nurse') && $this->hasRole('follow_up_nurse');
     }
 
     /**

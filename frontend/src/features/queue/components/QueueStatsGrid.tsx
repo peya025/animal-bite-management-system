@@ -53,6 +53,9 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
       id: 'serving',
       label: 'Serving',
       value: (stats?.serving ?? 0) + (stats?.in_consultation ?? 0),
+      subtitle: stats?.active_servers && stats.active_servers.length > 0
+        ? stats.active_servers.slice(0, 2).join(', ')
+        : undefined,
       icon: <HugeiconsIcon icon={Stethoscope02Icon} size={18} strokeWidth={2} />,
       isWaiting: false,
       isCalled: false,
@@ -181,9 +184,11 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
               <Typography sx={{ fontSize: 26, fontWeight: 800, color: isDark ? '#ffffff' : '#064e3b', lineHeight: 1, letterSpacing: '-0.5px' }}>
                 {card.value}
               </Typography>
-              <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: isDark ? 'rgba(167, 243, 208, 0.7)' : '#059669' }}>
-                {card.percent}%
-              </Typography>
+              {card.subtitle && (
+                <Typography sx={{ fontSize: 11, color: '#0f766e', fontWeight: 500, mt: 0.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {card.subtitle}
+                </Typography>
+              )}
             </Box>
 
             {/* Bottom mini glow progress bar */}

@@ -680,7 +680,7 @@ export default function StockCardFileManager({
   }, [viewerFile, activeItem]);
 
   const managerContent = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#ffffff', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'var(--card-bg-solid, #ffffff)', overflow: 'hidden' }}>
       {/* ── Webix Style Emerald Header Bar ── */}
       <Box
         sx={{
@@ -813,14 +813,14 @@ export default function StockCardFileManager({
       </Box>
 
       {/* ── Main Explorer Content ── */}
-      <DialogContent sx={{ p: 0, display: 'flex', height: 'calc(100% - 56px)', bgcolor: '#ffffff' }}>
+      <DialogContent sx={{ p: 0, display: 'flex', height: 'calc(100% - 56px)', bgcolor: 'var(--card-bg-solid, #ffffff)' }}>
         
         {/* ── Left Sidebar (Tree Navigation & Storage) ── */}
         <Box
           sx={{
             width: 240,
-            borderRight: '1px solid #e2e8f0',
-            bgcolor: '#f8fafc',
+            borderRight: '1px solid var(--border-glow, #e2e8f0)',
+            bgcolor: 'var(--card-bg, #f8fafc)',
             p: 1.75,
             display: 'flex',
             flexDirection: 'column',
@@ -866,8 +866,9 @@ export default function StockCardFileManager({
                     borderRadius: 2,
                     py: 0.5,
                     mt: 0.5,
-                    border: '1px solid #a7f3d0',
-                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.08)',
+                    bgcolor: 'var(--card-bg-solid, #ffffff)',
+                    border: '1px solid var(--border-glow, #a7f3d0)',
+                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)',
                   },
                 },
               }}
@@ -877,7 +878,7 @@ export default function StockCardFileManager({
                   setAddNewAnchor(null);
                   setIsAddModalOpen(true);
                 }}
-                sx={{ fontSize: 12, gap: 1, py: 0.85, px: 1.5, color: '#166534', fontWeight: 600 }}
+                sx={{ fontSize: 12, gap: 1, py: 0.85, px: 1.5, color: '#10b981', fontWeight: 600 }}
               >
                 <FileIcon sx={{ fontSize: 16, color: '#059669' }} />
                 <span>New Stock Card File</span>
@@ -887,7 +888,7 @@ export default function StockCardFileManager({
                   setAddNewAnchor(null);
                   setIsAddFolderModalOpen(true);
                 }}
-                sx={{ fontSize: 12, gap: 1, py: 0.85, px: 1.5, color: '#166534', fontWeight: 600 }}
+                sx={{ fontSize: 12, gap: 1, py: 0.85, px: 1.5, color: '#10b981', fontWeight: 600 }}
               >
                 <FolderIcon sx={{ fontSize: 16, color: '#eab308' }} />
                 <span>New Archive Folder</span>
@@ -895,7 +896,7 @@ export default function StockCardFileManager({
             </Menu>
 
             {/* Directory Structure */}
-            <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#047857', mb: 1.25, px: 0.5, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#10b981', mb: 1.25, px: 0.5, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
               Directory Structure
             </Typography>
 
@@ -1025,9 +1026,9 @@ export default function StockCardFileManager({
           </Box>
 
           {/* Storage Progress Bar */}
-          <Box sx={{ p: 1.25, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <Box sx={{ p: 1.25, bgcolor: 'var(--card-bg-solid, #ffffff)', borderRadius: 2, border: '1px solid var(--border-glow, #e2e8f0)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#334155' }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'var(--text-h, #334155)' }}>
                 97.7 KB of 125.0 KB used
               </Typography>
             </Box>
@@ -1037,7 +1038,7 @@ export default function StockCardFileManager({
               sx={{
                 height: 6,
                 borderRadius: 3,
-                bgcolor: '#e2e8f0',
+                bgcolor: 'var(--input-bg, #e2e8f0)',
                 '& .MuiLinearProgress-bar': { bgcolor: '#059669' },
               }}
             />
@@ -1045,12 +1046,12 @@ export default function StockCardFileManager({
         </Box>
 
         {/* ── Center Content: Files Explorer Table ── */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid #e2e8f0' }}>
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border-glow, #e2e8f0)' }}>
           
           {/* Breadcrumb Bar */}
-          <Box sx={{ px: 2.5, py: 1.25, borderBottom: '1px solid #e2e8f0', bgcolor: '#fafafa', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ px: 2.5, py: 1.25, borderBottom: '1px solid var(--border-glow, #e2e8f0)', bgcolor: 'var(--card-bg, #fafafa)', display: 'flex', alignItems: 'center', gap: 1 }}>
             <FolderOpenIcon sx={{ fontSize: 18, color: '#059669' }} />
-            <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h, #334155)' }}>
               My Files &nbsp;&rsaquo;&nbsp; {currentYear} Stock Cards &nbsp;&rsaquo;&nbsp; {activeItem.vaccine_type} ({activeItem.batch_number})
             </Typography>
           </Box>
@@ -1060,7 +1061,7 @@ export default function StockCardFileManager({
             {viewMode === 'list' ? (
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
-                  <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#64748b', textAlign: 'left', background: '#f8fafc' }}>
+                  <tr style={{ borderBottom: '2px solid var(--border-glow, #e2e8f0)', color: 'var(--text-m, #64748b)', textAlign: 'left', background: 'var(--table-header-bg, #f8fafc)' }}>
                     <th style={{ padding: '10px 14px', fontWeight: 700, fontSize: '12px', width: '50%' }}>File Name</th>
                     <th style={{ padding: '10px 14px', fontWeight: 700, fontSize: '12px', width: '20%' }}>Size</th>
                     <th style={{ padding: '10px 14px', fontWeight: 700, fontSize: '12px', width: '30%' }}>Date Modified</th>
@@ -1076,23 +1077,23 @@ export default function StockCardFileManager({
                         onDoubleClick={() => handleOpenFile(file)}
                         onContextMenu={(e) => handleRightClick(e, file)}
                         style={{
-                          borderBottom: '1px solid #f1f5f9',
-                          backgroundColor: isSelected ? '#ecfdf5' : '#ffffff',
+                          borderBottom: '1px solid var(--border-glow, #f1f5f9)',
+                          backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
                           cursor: 'pointer',
                         }}
                       >
                         <td style={{ padding: '10px 14px' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <FileIcon sx={{ fontSize: 22, color: isSelected ? '#059669' : '#94a3b8' }} />
-                            <Typography sx={{ fontSize: 13, fontWeight: isSelected ? 700 : 500, color: isSelected ? '#047857' : '#1e293b' }}>
+                            <FileIcon sx={{ fontSize: 22, color: isSelected ? '#10b981' : 'var(--text-m, #94a3b8)' }} />
+                            <Typography sx={{ fontSize: 13, fontWeight: isSelected ? 700 : 500, color: isSelected ? '#10b981' : 'var(--text-h, #1e293b)' }}>
                               {file.fileName}
                             </Typography>
                           </Box>
                         </td>
-                        <td style={{ padding: '10px 14px', color: '#64748b', fontSize: '12.5px' }}>
+                        <td style={{ padding: '10px 14px', color: 'var(--text-m, #64748b)', fontSize: '12.5px' }}>
                           {file.fileSize}
                         </td>
-                        <td style={{ padding: '10px 14px', color: '#64748b', fontSize: '12.5px' }}>
+                        <td style={{ padding: '10px 14px', color: 'var(--text-m, #64748b)', fontSize: '12.5px' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span>{file.lastModified}</span>
                             <IconButton
@@ -1151,41 +1152,41 @@ export default function StockCardFileManager({
         </Box>
 
         {/* ── Right Details Preview Panel ("What's Inside" Quick Preview) ── */}
-        <Box sx={{ width: 300, bgcolor: '#fafafa', p: 2.25, display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
+        <Box sx={{ width: 300, bgcolor: 'var(--card-bg, #fafafa)', p: 2.25, display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
           {selectedFile ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Box sx={{ textAlign: 'center', pb: 2, borderBottom: '1px solid #e2e8f0' }}>
+              <Box sx={{ textAlign: 'center', pb: 2, borderBottom: '1px solid var(--border-glow, #e2e8f0)' }}>
                 <FileIcon sx={{ fontSize: 48, color: '#059669', mb: 0.5 }} />
-                <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>
+                <Typography sx={{ fontWeight: 800, fontSize: 15, color: 'var(--text-h, #0f172a)' }}>
                   {selectedFile.monthName} {selectedFile.year}
                 </Typography>
-                <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#64748b', mt: 0.25 }}>
+                <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-m, #64748b)', mt: 0.25 }}>
                   {selectedFile.fileName}
                 </Typography>
               </Box>
 
               {/* Sample Data Details */}
-              <Box sx={{ p: 1.75, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #a7f3d0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#047857', textTransform: 'uppercase', mb: 1.25, letterSpacing: '0.5px' }}>
+              <Box sx={{ p: 1.75, bgcolor: 'var(--card-bg-solid, #ffffff)', borderRadius: 2, border: '1px solid var(--border-glow, #a7f3d0)', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#10b981', textTransform: 'uppercase', mb: 1.25, letterSpacing: '0.5px' }}>
                   Sample Data Summary
                 </Typography>
                 <Stack spacing={1.25}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography sx={{ fontSize: 12, color: '#64748b' }}>Total Received:</Typography>
-                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#047857' }}>+{selectedFile.totalReceived} vials</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'var(--text-m, #64748b)' }}>Total Received:</Typography>
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#10b981' }}>+{selectedFile.totalReceived} vials</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography sx={{ fontSize: 12, color: '#64748b' }}>Total Dispensed:</Typography>
-                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#b91c1c' }}>-{selectedFile.totalDispensed} vials</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'var(--text-m, #64748b)' }}>Total Dispensed:</Typography>
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#ef4444' }}>-{selectedFile.totalDispensed} vials</Typography>
                   </Box>
-                  <Divider sx={{ my: 0.5 }} />
+                  <Divider sx={{ my: 0.5, borderColor: 'var(--border-glow, #e2e8f0)' }} />
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography sx={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>Ending Balance:</Typography>
-                    <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#059669' }}>{selectedFile.finalBalance} vials</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'var(--text-m, #64748b)', fontWeight: 600 }}>Ending Balance:</Typography>
+                    <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#10b981' }}>{selectedFile.finalBalance} vials</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography sx={{ fontSize: 12, color: '#64748b' }}>Logged Rows:</Typography>
-                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>31 Days Logged</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'var(--text-m, #64748b)' }}>Logged Rows:</Typography>
+                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'var(--text-h, #334155)' }}>31 Days Logged</Typography>
                   </Box>
                 </Stack>
               </Box>
@@ -1204,34 +1205,34 @@ export default function StockCardFileManager({
                 <Button
                   fullWidth
                   variant="outlined"
-                  startIcon={<DownloadIcon sx={{ color: '#059669' }} />}
+                  startIcon={<DownloadIcon sx={{ color: '#10b981' }} />}
                   onClick={() => handleDownloadCSV(selectedFile)}
-                  sx={{ borderColor: '#059669', color: '#059669', '&:hover': { bgcolor: '#ecfdf5' }, textTransform: 'none', fontWeight: 700, fontSize: 13, py: 1, borderRadius: 1.5 }}
+                  sx={{ borderColor: '#10b981', color: '#10b981', '&:hover': { bgcolor: 'rgba(16, 185, 129, 0.1)' }, textTransform: 'none', fontWeight: 700, fontSize: 13, py: 1, borderRadius: 1.5 }}
                 >
                   Download CSV (Excel Data)
                 </Button>
                 <Button
                   fullWidth
                   variant="outlined"
-                  startIcon={<DownloadIcon sx={{ color: '#059669' }} />}
+                  startIcon={<DownloadIcon sx={{ color: '#10b981' }} />}
                   onClick={() => handleSaveAsPDF(selectedFile)}
-                  sx={{ borderColor: '#059669', color: '#059669', '&:hover': { bgcolor: '#ecfdf5' }, textTransform: 'none', fontWeight: 700, fontSize: 13, py: 1, borderRadius: 1.5 }}
+                  sx={{ borderColor: '#10b981', color: '#10b981', '&:hover': { bgcolor: 'rgba(16, 185, 129, 0.1)' }, textTransform: 'none', fontWeight: 700, fontSize: 13, py: 1, borderRadius: 1.5 }}
                 >
                   Download Stock Card
                 </Button>
                 <Button
                   fullWidth
                   variant="outlined"
-                  startIcon={<PrintIcon sx={{ color: '#047857' }} />}
+                  startIcon={<PrintIcon sx={{ color: '#10b981' }} />}
                   onClick={() => handlePrintStockCard(selectedFile)}
-                  sx={{ borderColor: '#cbd5e1', color: '#334155', '&:hover': { bgcolor: '#f8fafc' }, textTransform: 'none', fontWeight: 700, fontSize: 13, py: 1, borderRadius: 1.5 }}
+                  sx={{ borderColor: 'var(--border-glow, #cbd5e1)', color: 'var(--text-h, #334155)', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)' }, textTransform: 'none', fontWeight: 700, fontSize: 13, py: 1, borderRadius: 1.5 }}
                 >
                   Print Stock Card
                 </Button>
               </Stack>
             </Box>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-m, #94a3b8)' }}>
               <FileIcon sx={{ fontSize: 44, mb: 1, opacity: 0.4 }} />
               <Typography sx={{ fontSize: 13 }}>Select a file to inspect sample data</Typography>
             </Box>
@@ -1541,7 +1542,7 @@ export default function StockCardFileManager({
             </Paper>
           </DialogContent>
 
-          <DialogActions sx={{ p: 2, bgcolor: '#ffffff', borderTop: '1px solid #e2e8f0', gap: 1 }}>
+          <DialogActions sx={{ p: 2, bgcolor: 'var(--card-bg-solid, #ffffff)', borderTop: '1px solid var(--border-glow, #e2e8f0)', gap: 1 }}>
             <Button
               variant="contained"
               startIcon={<DownloadIcon />}
@@ -1552,21 +1553,21 @@ export default function StockCardFileManager({
             </Button>
             <Button
               variant="outlined"
-              startIcon={<DownloadIcon sx={{ color: '#059669' }} />}
+              startIcon={<DownloadIcon sx={{ color: '#10b981' }} />}
               onClick={() => handleSaveAsPDF(viewerFile)}
-              sx={{ borderColor: '#059669', color: '#059669', '&:hover': { bgcolor: '#ecfdf5' }, textTransform: 'none', fontWeight: 700 }}
+              sx={{ borderColor: '#10b981', color: '#10b981', '&:hover': { bgcolor: 'rgba(16, 185, 129, 0.1)' }, textTransform: 'none', fontWeight: 700 }}
             >
               Download Stock Card
             </Button>
             <Button
               variant="outlined"
-              startIcon={<PrintIcon sx={{ color: '#047857' }} />}
+              startIcon={<PrintIcon sx={{ color: '#10b981' }} />}
               onClick={() => handlePrintStockCard(viewerFile)}
-              sx={{ borderColor: '#cbd5e1', color: '#334155', '&:hover': { bgcolor: '#f8fafc' }, textTransform: 'none', fontWeight: 700 }}
+              sx={{ borderColor: 'var(--border-glow, #cbd5e1)', color: 'var(--text-h, #334155)', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)' }, textTransform: 'none', fontWeight: 700 }}
             >
               Print Stock Card
             </Button>
-            <Button onClick={() => setViewerFile(null)} sx={{ textTransform: 'none' }}>
+            <Button onClick={() => setViewerFile(null)} sx={{ textTransform: 'none', color: 'var(--text-m, #64748b)' }}>
               Close Viewer
             </Button>
           </DialogActions>
@@ -1736,12 +1737,12 @@ export default function StockCardFileManager({
       <Paper
         elevation={0}
         sx={{
-          border: '1px solid #e2e8f0',
+          border: '1px solid var(--border-glow, #e2e8f0)',
           borderRadius: 2.5,
           height: 'calc(100vh - 180px)',
           minHeight: 650,
           width: '100%',
-          bgcolor: '#ffffff',
+          bgcolor: 'var(--card-bg-solid, #ffffff)',
           overflow: 'hidden',
           boxShadow: '0 10px 25px -5px rgba(5, 150, 105, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
         }}
@@ -1763,7 +1764,8 @@ export default function StockCardFileManager({
             borderRadius: 2.5,
             height: 660,
             maxHeight: '92vh',
-            bgcolor: '#ffffff',
+            bgcolor: 'var(--card-bg-solid, #ffffff)',
+            border: '1px solid var(--border-glow, transparent)',
             overflow: 'hidden',
             boxShadow: '0 25px 35px -5px rgba(5, 150, 105, 0.15), 0 15px 15px -5px rgba(0, 0, 0, 0.08)',
           },

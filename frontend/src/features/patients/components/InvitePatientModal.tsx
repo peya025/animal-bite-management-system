@@ -216,34 +216,35 @@ function InvitePatientModalContent({
         sx={{
           display: 'flex',
           alignItems: 'center',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           pb: 1.5,
-          borderBottom: '1px solid #e5e7eb',
+          borderBottom: '1px solid var(--border-glow, #e5e7eb)',
+          bgcolor: 'var(--card-bg-solid, #ffffff)',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PhoneIcon sx={{ color: '#059669' }} />
-          <Typography variant="h6" sx={{ fontWeight: 700, color: '#173d29', fontSize: 16 }}>
+          <PhoneIcon sx={{ color: '#10b981' }} />
+          <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--text-h, #173d29)', fontSize: 16 }}>
             Patient Portal Invitation
           </Typography>
         </Box>
-        <IconButton size="small" onClick={onClose}>
+        <IconButton size="small" onClick={onClose} sx={{ color: 'var(--text-m, #9ca3af)' }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: 2.5, pb: 2 }}>
+      <DialogContent sx={{ pt: 2.5, pb: 2, bgcolor: 'var(--bg-secondary, #f9fafb)' }}>
         <Stack spacing={2.5}>
           {/* Patient Card Summary */}
           <Paper
             elevation={0}
-            sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: 2, border: '1px solid #e5e7eb' }}
+            sx={{ p: 2, bgcolor: 'var(--card-bg-solid, #ffffff)', borderRadius: 2, border: '1px solid var(--border-glow, #e5e7eb)' }}
           >
             <Typography
               sx={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: '#6b7280',
+                color: 'var(--text-m, #6b7280)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
                 mb: 1,
@@ -254,19 +255,19 @@ function InvitePatientModalContent({
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '7fr 5fr' }, gap: 1.5 }}>
               <Box>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Full Name</Typography>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-m, #6b7280)' }}>Full Name</Typography>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'var(--text-h, #111827)' }}>
                   {patientFullName}
                 </Typography>
               </Box>
 
               <Box>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Patient Number</Typography>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-m, #6b7280)' }}>Patient Number</Typography>
                 <Typography
                   sx={{
                     fontSize: 13,
                     fontWeight: 700,
-                    color: '#059669',
+                    color: '#10b981',
                     fontFamily: 'monospace',
                   }}
                 >
@@ -275,26 +276,26 @@ function InvitePatientModalContent({
               </Box>
 
               <Box>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Mobile Contact Phone</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: hasPhone ? '#111827' : '#dc2626', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-m, #6b7280)' }}>Mobile Contact Phone</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: hasPhone ? 'var(--text-h, #111827)' : '#ef4444', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   {hasPhone ? (
                     <>
-                      <Icon name="phone" size={14} color="#059669" /> {contactPhone}
+                      <Icon name="phone" size={14} color="#10b981" /> {contactPhone}
                     </>
                   ) : (
                     <>
-                      <Icon name="warning" size={14} color="#dc2626" /> No contact number on record
+                      <Icon name="warning" size={14} color="#ef4444" /> No contact number on record
                     </>
                   )}
                 </Typography>
               </Box>
 
               <Box>
-                <Typography sx={{ fontSize: 12, color: '#6b7280' }}>Email Address</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: patient.email ? '#111827' : '#9ca3af', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-m, #6b7280)' }}>Email Address</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: patient.email ? 'var(--text-h, #111827)' : 'var(--text-m, #9ca3af)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   {patient.email ? (
                     <>
-                      <Icon name="email" size={14} color="#2563eb" /> {patient.email}
+                      <Icon name="email" size={14} color="#3b82f6" /> {patient.email}
                     </>
                   ) : (
                     '— (No email)'
@@ -304,7 +305,7 @@ function InvitePatientModalContent({
             </Box>
           </Paper>
 
-          {/* Warning if missing phone number */}
+          {/* Invitation Notice */}
           {!hasPhone && (
             <Alert severity="warning" sx={{ borderRadius: 2 }}>
               Patient has no valid mobile phone number recorded. Please update the patient profile before sending a portal invitation.
@@ -319,10 +320,10 @@ function InvitePatientModalContent({
           {invitation && (
             <Paper
               elevation={0}
-              sx={{ p: 2, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #d1fae5' }}
+              sx={{ p: 2, bgcolor: 'var(--card-bg-solid, #ffffff)', borderRadius: 2, border: '1px solid var(--border-glow, #d1fae5)' }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#065f46', textTransform: 'uppercase' }}>
+                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#10b981', textTransform: 'uppercase' }}>
                   Active Invitation Status
                 </Typography>
                 <Chip
@@ -330,8 +331,8 @@ function InvitePatientModalContent({
                   label={statusLabel}
                   icon={invitation.status === 'accepted' ? <VerifiedIcon /> : <PendingIcon />}
                   sx={{
-                    bgcolor: invitation.status === 'accepted' ? '#d1fae5' : '#fef3c7',
-                    color: invitation.status === 'accepted' ? '#047857' : '#b45309',
+                    bgcolor: invitation.status === 'accepted' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                    color: invitation.status === 'accepted' ? '#10b981' : '#f59e0b',
                     fontWeight: 700,
                     fontSize: 11,
                   }}
@@ -341,17 +342,17 @@ function InvitePatientModalContent({
               {/* Code Token Display */}
               {invitation.token && (
                 <>
-                  <Typography sx={{ fontSize: 12, color: '#6b7280', mb: 0.5 }}>
+                  <Typography sx={{ fontSize: 12, color: 'var(--text-m, #6b7280)', mb: 0.5 }}>
                     Activation Token Code (Expires in 7 days):
                   </Typography>
                   <Box
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      bgcolor: '#f3f4f6',
+                      bgcolor: 'var(--input-bg, #f3f4f6)',
                       p: 1.25,
                       borderRadius: 1.5,
-                      border: '1px solid #e5e7eb',
+                      border: '1px solid var(--input-border, #e5e7eb)',
                       gap: 1,
                     }}
                   >
@@ -360,7 +361,7 @@ function InvitePatientModalContent({
                         fontFamily: 'monospace',
                         fontSize: 12,
                         fontWeight: 600,
-                        color: '#374151',
+                        color: 'var(--input-text, #374151)',
                         wordBreak: 'break-all',
                         flex: 1,
                       }}
@@ -368,41 +369,32 @@ function InvitePatientModalContent({
                       {invitation.token}
                     </Typography>
                     <Tooltip title={copied ? 'Copied!' : 'Copy activation code'}>
-                      <Button
-                        size="small"
-                        onClick={handleCopyCode}
-                        startIcon={copied ? <CheckIcon fontSize="small" /> : <CopyIcon fontSize="small" />}
-                        sx={{ textTransform: 'none', fontWeight: 600, minWidth: 80 }}
-                      >
-                        {copied ? 'Copied' : 'Copy'}
-                      </Button>
+                      <IconButton size="small" onClick={handleCopyToken} sx={{ color: 'var(--text-m, #6b7280)' }}>
+                        <CopyIcon fontSize="small" />
+                      </IconButton>
                     </Tooltip>
                   </Box>
                 </>
               )}
-
-              <Divider sx={{ my: 1.5 }} />
-
-              <Typography sx={{ fontSize: 11, color: '#6b7280' }}>
-                Dispatch Channels: <strong>SMS ({invitation.phone || contactPhone})</strong> {patient.email ? `& Email (${patient.email})` : ''} · Expires: {formatDateSafe(invitation.expires_at)}
-              </Typography>
             </Paper>
           )}
 
-          {/* Instructions box */}
-          <Box sx={{ bgcolor: '#eff6ff', p: 1.75, borderRadius: 2, border: '1px solid #bfdbfe' }}>
-            <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#1e40af', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Icon name="phone" size={15} color="#1e40af" /> Mobile App Portal Activation Instructions
+          {/* Quick Help Guide */}
+          <Box sx={{ p: 2, bgcolor: 'rgba(59, 130, 246, 0.08)', borderRadius: 2, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'var(--text-h, #1e40af)', mb: 0.5 }}>
+              How Patient Portal Works:
             </Typography>
-            <Typography sx={{ fontSize: 12, color: '#1e3a8a', lineHeight: 1.4 }}>
-              The patient can download the Animal Bite Center mobile app and tap <strong>"Activate Account"</strong> using the 64-character activation token sent to their mobile phone {patient.email ? 'or email' : ''}.
+            <Typography sx={{ fontSize: 11.5, color: 'var(--text-b, #1d4ed8)', lineHeight: 1.6 }}>
+              1. The patient receives an SMS link with a 6-digit PIN token.<br />
+              2. They open the web app to view their upcoming rabies vaccine doses, schedule, and treatment record card.<br />
+              3. No complex username or password needed — quick and secure OTP verification.
             </Typography>
           </Box>
         </Stack>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fafafa' }}>
-        <Button onClick={onClose} sx={{ color: '#6b7280', textTransform: 'none', fontWeight: 600 }}>
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-glow, #e5e7eb)', bgcolor: 'var(--card-bg-solid, #fafafa)' }}>
+        <Button onClick={onClose} sx={{ color: 'var(--text-m, #6b7280)', textTransform: 'none', fontWeight: 600 }}>
           Close
         </Button>
 

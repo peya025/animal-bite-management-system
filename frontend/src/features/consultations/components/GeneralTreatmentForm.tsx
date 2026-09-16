@@ -1647,21 +1647,21 @@ export default function GeneralTreatmentForm({
           {/* Display existing notes if present */}
           {existingRecord?.administration_notes ? (
             <Box sx={{
-              p: 2, mb: 2, bgcolor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 2,
-              fontSize: 13, color: '#374151', whiteSpace: 'pre-wrap', lineHeight: 1.6,
+              p: 2, mb: 2, bgcolor: 'var(--card-bg-solid, #f9fafb)', border: '1px solid var(--border-glow, #e5e7eb)', borderRadius: 2,
+              fontSize: 13, color: 'var(--text-b, #374151)', whiteSpace: 'pre-wrap', lineHeight: 1.6,
             }}>
               {existingRecord.administration_notes}
             </Box>
           ) : (
-            <Typography sx={{ fontSize: 12.5, color: '#9ca3af', fontStyle: 'italic', mb: 2 }}>
+            <Typography sx={{ fontSize: 12.5, color: 'var(--text-m, #9ca3af)', fontStyle: 'italic', mb: 2 }}>
               No clinical addenda recorded yet.
             </Typography>
           )}
 
           {/* Addendum Entry Form */}
           {hasAdministeredVaccine && !readOnly && (
-            <Box sx={{ bgcolor: '#f0fdf4', p: 2, borderRadius: 2, border: '1px solid #bbf7d0' }}>
-              <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#166534', mb: 1 }}>
+            <Box sx={{ bgcolor: 'rgba(16, 185, 129, 0.1)', p: 2, borderRadius: 2, border: '1px solid var(--border-glow, #bbf7d0)' }}>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-h, #166534)', mb: 1 }}>
                 ✍️ Append Clinical Addendum Note (Physician / Clinical Staff)
               </Typography>
               <TextField
@@ -1672,7 +1672,15 @@ export default function GeneralTreatmentForm({
                 placeholder="Enter clinical progress note or diagnostic update here..."
                 value={addendumNote}
                 onChange={(e) => setAddendumNote(e.target.value)}
-                sx={{ bgcolor: '#fff', mb: 1.5 }}
+                sx={{
+                  bgcolor: 'var(--input-bg, #ffffff)',
+                  borderRadius: 1.5,
+                  mb: 1.5,
+                  '& .MuiOutlinedInput-root': {
+                    color: 'var(--input-text, #111827)',
+                    '& fieldset': { borderColor: 'var(--input-border, #e5e7eb)' },
+                  },
+                }}
               />
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                 <Button

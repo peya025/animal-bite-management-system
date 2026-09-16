@@ -57,8 +57,8 @@ export function DohTransferSlipModal({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          bgcolor: '#f8fafc',
-          borderBottom: '1px solid #e2e8f0',
+          bgcolor: 'var(--card-bg-solid, #f8fafc)',
+          borderBottom: '1px solid var(--border, #e2e8f0)',
           py: 1.5,
           px: 3,
           '@media print': { display: 'none' },
@@ -66,7 +66,7 @@ export function DohTransferSlipModal({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <HugeiconsIcon icon={Share01Icon} size={20} color="#059669" />
-          <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 16, color: 'var(--text-h, #0f172a)' }}>
             DOH Rabies PEP Referral & Transfer Certificate
           </Typography>
         </Box>
@@ -81,13 +81,13 @@ export function DohTransferSlipModal({
           >
             Print Referral Slip
           </Button>
-          <IconButton onClick={onClose} size="small" sx={{ color: '#64748b' }}>
+          <IconButton onClick={onClose} size="small" sx={{ color: 'var(--text-secondary, #64748b)' }}>
             <HugeiconsIcon icon={Cancel01Icon} size={18} />
           </IconButton>
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 4, bgcolor: '#ffffff' }} ref={printRef}>
+      <DialogContent sx={{ p: 4, bgcolor: 'var(--card-bg-solid, #ffffff)' }} ref={printRef}>
         {/* Printable DOH Form Layout */}
         <Box
           sx={{

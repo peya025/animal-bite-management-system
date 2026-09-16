@@ -285,12 +285,13 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid var(--border-glow, #e2e8f0)',
                     borderRadius: 3,
-                    bgcolor: '#ffffff',
+                    bgcolor: 'var(--card-bg-solid, #ffffff)',
+                    boxShadow: 'var(--shadow)',
                     transition: 'all 0.2s ease-in-out',
                     '&:hover': {
-                      boxShadow: '0 8px 20px rgba(0,0,0,0.06)',
+                      boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
                       borderColor: '#a7f3d0',
                       transform: 'translateY(-2px)',
                     },
@@ -319,7 +320,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                                 setSelectedPreset(preset);
                                 setDialogOpen(true);
                               }}
-                              sx={{ color: '#64748b', '&:hover': { color: '#059669', bgcolor: '#f0fdf4' } }}
+                              sx={{ color: '#64748b', '&:hover': { color: '#059669', bgcolor: 'rgba(16, 185, 129, 0.15)' } }}
                             >
                               <EditIcon sx={{ fontSize: 16 }} />
                             </IconButton>
@@ -328,7 +329,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                             <IconButton
                               size="small"
                               onClick={() => setDeleteTarget(preset)}
-                              sx={{ color: '#64748b', '&:hover': { color: '#dc2626', bgcolor: '#fef2f2' } }}
+                              sx={{ color: '#64748b', '&:hover': { color: '#dc2626', bgcolor: 'rgba(239, 68, 68, 0.15)' } }}
                             >
                               <DeleteIcon sx={{ fontSize: 16 }} />
                             </IconButton>
@@ -338,7 +339,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                     </Box>
 
                     {/* Vaccine Name */}
-                    <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#0f172a', lineHeight: 1.3, mb: 1.5 }}>
+                    <Typography sx={{ fontWeight: 800, fontSize: 16, color: 'var(--text-h, #0f172a)', lineHeight: 1.3, mb: 1.5 }}>
                       {preset.vaccine_name}
                     </Typography>
 

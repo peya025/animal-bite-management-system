@@ -1399,12 +1399,73 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>2. Body Part Affected / Exposed</p>
-            <div style={{ marginBottom: 16 }}>
-              <input
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={formData.body_part_affected.head_neck} 
+                  onChange={handleCheckboxChange('body_part_affected', 'head_neck')} 
+                  disabled={isFormLocked} 
+                  style={{ marginRight: 8, marginTop: 2 }} 
+                />
+                <span style={{ fontSize: 13, color: '#374151' }}>Head & Neck</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={formData.body_part_affected.other_parts} 
+                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  disabled={isFormLocked} 
+                  style={{ marginRight: 8, marginTop: 2 }} 
+                />
+                <span style={{ fontSize: 13, color: '#374151' }}>Upper Extremities (Arm/Hand)</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={formData.body_part_affected.other_parts} 
+                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  disabled={isFormLocked} 
+                  style={{ marginRight: 8, marginTop: 2 }} 
+                />
+                <span style={{ fontSize: 13, color: '#374151' }}>Lower Extremities (Leg/Foot)</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={formData.body_part_affected.other_parts} 
+                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  disabled={isFormLocked} 
+                  style={{ marginRight: 8, marginTop: 2 }} 
+                />
+                <span style={{ fontSize: 13, color: '#374151' }}>Trunk / Torso</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={formData.body_part_affected.other_parts} 
+                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  disabled={isFormLocked} 
+                  style={{ marginRight: 8, marginTop: 2 }} 
+                />
+                <span style={{ fontSize: 13, color: '#374151' }}>Multiple Sites</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={formData.body_part_affected.na_ingestion} 
+                  onChange={handleCheckboxChange('body_part_affected', 'na_ingestion')} 
+                  disabled={isFormLocked} 
+                  style={{ marginRight: 8, marginTop: 2 }} 
+                />
+                <span style={{ fontSize: 13, color: '#374151' }}>N/A (Ingestion)</span>
+              </label>
+            </div>
+            <input
                 type="text"
                 value={formData.body_part_affected_text}
                 onChange={handleFieldChange('body_part_affected_text')}
-                placeholder="e.g. Left hand, Right lower leg, Head / Neck"
+                placeholder="Specify exact location (optional)"
                 disabled={isFormLocked}
                 style={{
                   width: '100%',
@@ -1412,48 +1473,12 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   border: '1px solid var(--input-border)',
                   borderRadius: 4,
                   fontSize: 13,
-                  backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                  marginBottom: 6,
+                  backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
                 }}
               />
-              {!readOnly && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  {[
-                    'Head & Neck',
-                    'Upper Extremities (Arm/Hand)',
-                    'Lower Extremities (Leg/Foot)',
-                    'Trunk / Torso',
-                    'Multiple Sites',
-                    'N/A (Ingestion)',
-                  ].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          body_part_affected_text: prev.body_part_affected_text
-                            ? `${prev.body_part_affected_text}, ${preset}`
-                            : preset,
-                        }))
-                      }
-                      style={{
-                        background: '#f3f4f6',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: 4,
-                        padding: '2px 8px',
-                        fontSize: 11,
-                        color: '#4b5563',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      + {preset}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+          </div>
 
+          <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>3. Type of Animal</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>

@@ -576,6 +576,16 @@ class QueueController extends Controller
                     $request->consultation_notes,
                 ])->filter()->implode(' | ');
 
+                // The first vaccination after consultation remains part of the
+                // patient's Day 0/new episode, so route it to Station 1.
+                $intakeStationId = \App\Models\Station::where('clinic_id', $queue->clinic_id)
+                    ->where('is_active', true)
+                    ->where(function ($station) {
+                        $station->where('name', 'like', '%Intake%')
+                            ->orWhere('name', 'like', '%Station 1%');
+                    })
+                    ->value('id');
+
                 $this->logHistory($queue, 'transferred_to_treatment', 'waiting', $request->user()->id, $transferNotes);
 
                 $queue->update([
@@ -586,6 +596,7 @@ class QueueController extends Controller
                     'completed_at'       => null,
                     'consultation_notes' => $transferNotes,
                     'recall_stage'       => null,
+                    'station_id'         => $intakeStationId ?? $queue->station_id,
                 ]);
 
                 $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
@@ -665,7 +676,11 @@ class QueueController extends Controller
             ->with(['patient.details', 'patient.memberships', 'biteIncident', 'checkedInBy:id,name', 'handledBy:id,name', 'history'])
             ->findOrFail($id);
 
-        return response()->json($queue);
+        // Resolve model casts before JsonResponse starts encoding. Some legacy patient
+        // contact fields are stored as plaintext and are intentionally handled by the
+        // compatibility encryption cast; serializing the Eloquent model directly can
+        // leave PHP's JSON error state set by that fallback.
+        return response()->json($queue->toArray());
     }
 
     // ────────────────────────────────────────────────────────────────────────

@@ -559,10 +559,10 @@ export function SimpleDashboardPage() {
                   style={{
                     display: 'flex',
                     gap: '3px',
-                    background: 'rgba(16, 185, 129, 0.08)',
+                    background: '#f1f5f9',
                     padding: '3px',
                     borderRadius: '999px',
-                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    border: '1px solid #e2e8f0',
                   }}
                 >
                   {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((period) => {
@@ -575,12 +575,12 @@ export function SimpleDashboardPage() {
                         style={{
                           padding: '4px 12px',
                           fontSize: '11px',
-                          fontWeight: isActive ? 700 : 500,
+                          fontWeight: isActive ? 600 : 500,
                           borderRadius: '999px',
                           border: 'none',
-                          background: isActive ? '#10b981' : 'transparent',
+                          background: isActive ? '#0f172a' : 'transparent',
                           color: isActive ? '#ffffff' : 'var(--text-secondary, #64748b)',
-                          boxShadow: isActive ? '0 2px 8px rgba(16, 185, 129, 0.35)' : 'none',
+                          boxShadow: isActive ? '0 1px 3px rgba(0, 0, 0, 0.15)' : 'none',
                           cursor: 'pointer',
                           textTransform: 'capitalize',
                           transition: 'all 0.18s ease',
@@ -649,7 +649,7 @@ export function SimpleDashboardPage() {
             >
               <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Vaccination Trend <span>(last 6 months)</span></p>
               <div style={{ flex: 1, minHeight: 0 }}>
-                <SdLineChart color="#10b981" />
+                <SdLineChart color="#3b82f6" />
               </div>
             </div>
 
@@ -719,20 +719,20 @@ export function SimpleDashboardPage() {
                       padding: '4px 9px',
                       fontSize: '11px',
                       fontWeight: 600,
-                      color: '#059669',
-                      background: 'var(--nav-item-hover-bg, #ecfdf5)',
-                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      color: '#475569',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
                       borderRadius: '7px',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#10b981';
-                      e.currentTarget.style.color = '#ffffff';
+                      e.currentTarget.style.background = '#f1f5f9';
+                      e.currentTarget.style.color = '#0f172a';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'var(--nav-item-hover-bg, #ecfdf5)';
-                      e.currentTarget.style.color = '#059669';
+                      e.currentTarget.style.background = '#f8fafc';
+                      e.currentTarget.style.color = '#475569';
                     }}
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -935,12 +935,12 @@ function SdCalendar() {
           <button
             onClick={prevMonth}
             style={{
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
               borderRadius: '8px',
               padding: '4px 10px',
               cursor: 'pointer',
-              color: '#059669',
+              color: '#475569',
               fontSize: '13px',
               fontWeight: 700,
               transition: 'all 0.15s ease',
@@ -951,12 +951,12 @@ function SdCalendar() {
           <button
             onClick={nextMonth}
             style={{
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
               borderRadius: '8px',
               padding: '4px 10px',
               cursor: 'pointer',
-              color: '#059669',
+              color: '#475569',
               fontSize: '13px',
               fontWeight: 700,
               transition: 'all 0.15s ease',
@@ -969,7 +969,7 @@ function SdCalendar() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', gap: '4px', marginBottom: '8px' }}>
         {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
-          <span key={i} style={{ fontSize: '11px', fontWeight: 700, color: '#047857' }}>
+          <span key={i} style={{ fontSize: '11px', fontWeight: 650, color: '#64748b' }}>
             {d}
           </span>
         ))}
@@ -986,10 +986,10 @@ function SdCalendar() {
               borderRadius: '10px',
               color: item.isToday ? '#ffffff' : item.isCurrent ? 'var(--text-h)' : 'var(--text-secondary)',
               opacity: item.isCurrent ? 1 : 0.45,
-              background: item.isToday ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
-              fontWeight: item.isToday ? 750 : 500,
-              boxShadow: item.isToday ? '0 3px 10px rgba(16, 185, 129, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.4)' : 'none',
-              border: item.isToday ? '1px solid #059669' : '1px solid transparent',
+              background: item.isToday ? '#0f172a' : 'transparent',
+              fontWeight: item.isToday ? 700 : 500,
+              boxShadow: item.isToday ? '0 2px 6px rgba(15, 23, 42, 0.2)' : 'none',
+              border: item.isToday ? '1px solid #0f172a' : '1px solid transparent',
             }}
           >
             {item.day}

@@ -61,16 +61,34 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
     return (localStorage.getItem('active_station_mode') as any) || 'intake';
   });
 
-  const handleStationChange = (newMode: 'intake' | 'follow_up' | 'combined') => {
+  const applyStationMode = (newMode: 'intake' | 'follow_up' | 'combined') => {
     setStationMode(newMode);
     localStorage.setItem('active_station_mode', newMode);
     window.dispatchEvent(new CustomEvent('station-changed', { detail: newMode }));
+  };
+
+  const handleStationChange = (newMode: 'intake' | 'follow_up' | 'combined') => {
+    applyStationMode(newMode);
     if (newMode === 'intake' && location.pathname !== ROUTES.QUEUE.DASHBOARD) {
       navigate(ROUTES.QUEUE.DASHBOARD);
     } else if (newMode === 'follow_up' && location.pathname !== ROUTES.PATIENTS.NURSE_LIST) {
       navigate(ROUTES.PATIENTS.NURSE_LIST);
+    } else if (newMode === 'combined' && location.pathname !== ROUTES.QUEUE.DASHBOARD) {
+      navigate(ROUTES.QUEUE.DASHBOARD);
     }
   };
+
+  // Direct sidebar navigation must always tell the same story as the station control.
+  // Combined mode remains available on the queue dashboard for cross-coverage.
+  useEffect(() => {
+    if (!isSoloNurse || stationMode === 'combined') return;
+    const routeMode = location.pathname === ROUTES.QUEUE.DASHBOARD
+      ? 'intake'
+      : location.pathname === ROUTES.PATIENTS.NURSE_LIST
+        ? 'follow_up'
+        : null;
+    if (routeMode && routeMode !== stationMode) applyStationMode(routeMode);
+  }, [location.pathname, isSoloNurse, stationMode]);
 
   const getRoleBadge = () => {
     if (isSoloNurse) {
@@ -152,6 +170,8 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                         }
                       }
                     } else if (item.path) {
+                      if (item.path === ROUTES.QUEUE.DASHBOARD) applyStationMode('intake');
+                      if (item.path === ROUTES.PATIENTS.NURSE_LIST) applyStationMode('follow_up');
                       navigate(item.path);
                     }
                   }}
@@ -185,6 +205,8 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                       <button
                         key={subItem.path}
                         onClick={() => {
+                          if (subItem.path === ROUTES.QUEUE.DASHBOARD) applyStationMode('intake');
+                          if (subItem.path === ROUTES.PATIENTS.NURSE_LIST) applyStationMode('follow_up');
                           navigate(subItem.path);
                           if (subItem.path === ROUTES.INVENTORY.LIST) {
                             window.dispatchEvent(new CustomEvent('nav-inventory-reset'));
@@ -272,10 +294,10 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                background: 'var(--bg-secondary, #f8fafc)',
+                background: stationMode === 'follow_up' ? '#eef2ff' : stationMode === 'combined' ? '#f8fafc' : '#ecfdf5',
                 borderRadius: '8px',
                 padding: '3px 8px',
-                border: '1px solid var(--border-color, #e2e8f0)',
+                border: `1px solid ${stationMode === 'follow_up' ? '#c7d2fe' : stationMode === 'combined' ? 'var(--border-color, #e2e8f0)' : '#a7f3d0'}`,
                 gap: 6,
               }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -290,14 +312,14 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                     outline: 'none',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: 'var(--primary, #0f766e)',
+                    color: stationMode === 'follow_up' ? '#4f46e5' : stationMode === 'combined' ? '#475569' : '#047857',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
                   }}
                 >
-                  <option value="intake">Intake (Day 0 / New)</option>
-                  <option value="follow_up">Follow-ups & Boosters</option>
-                  <option value="combined">Combined View</option>
+                  <option value="intake">Station 1 · New & Day 0</option>
+                  <option value="follow_up">Station 2 · Follow-up Doses</option>
+                  <option value="combined">Combined · All Active Queues</option>
                 </select>
               </div>
             )}
@@ -323,7 +345,9 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
           loadingLabel="Signing out..."
           loading={isLoggingOut}
           onConfirm={handleLogout}
-          onCancel={() => !isLoggingOut && setShowLogoutModal(false)}
+          onCancel={() => {
+            if (!isLoggingOut) setShowLogoutModal(false);
+          }}
           shakeIcon
         />
       )}

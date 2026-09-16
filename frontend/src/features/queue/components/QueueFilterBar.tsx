@@ -26,6 +26,8 @@ interface QueueFilterBarProps {
   onCategoryChange?: (val: string) => void;
   visitTypeFilter?: string;
   onVisitTypeChange?: (val: string) => void;
+  /** Individual station views are already clinically scoped, so their visit type must not be changed. */
+  lockedVisitTypeLabel?: string;
   onClear: () => void;
 }
 
@@ -38,6 +40,7 @@ export function QueueFilterBar({
   onCategoryChange,
   visitTypeFilter = '',
   onVisitTypeChange,
+  lockedVisitTypeLabel,
   onClear,
 }: QueueFilterBarProps) {
   const selectSx = {
@@ -166,15 +169,27 @@ export function QueueFilterBar({
           </FormControl>
         </Grid>
 
-        {/* Visit Type filter */}
-        {onVisitTypeChange && (
+        {/* A station owns one clinical stream. Do not offer a control that can mix streams. */}
+        {lockedVisitTypeLabel ? (
+          <Grid size={{ xs: 12, sm: 2.5, md: 2.5 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Queue view"
+              value={lockedVisitTypeLabel}
+              disabled
+              slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2, fontWeight: 600 } } }}
+            />
+          </Grid>
+        ) : onVisitTypeChange && (
+          /* Combined view only: staff can intentionally change the visible stream. */
           <Grid size={{ xs: 12, sm: 2.5, md: 2.5 }}>
             <FormControl fullWidth size="small">
               <InputLabel>Visit / Duty</InputLabel>
               <Select label="Visit / Duty" value={visitTypeFilter} onChange={e => onVisitTypeChange(e.target.value)} MenuProps={menuPaperSx} sx={selectSx}>
                 <MenuItem value="">All Visit Types</MenuItem>
-                <MenuItem value="intake">Intake (New Case / Day 0)</MenuItem>
-                <MenuItem value="follow_up_station">Follow-ups & Boosters</MenuItem>
+                <MenuItem value="intake">Station 1 · Day 0 / New Episode</MenuItem>
+                <MenuItem value="follow_up_station">Station 2 · Follow-up Doses</MenuItem>
                 <Divider sx={{ my: 0.5 }} />
                 <MenuItem value="new_case">New Case</MenuItem>
                 <MenuItem value="consultation">Consultation</MenuItem>

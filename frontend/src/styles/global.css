@@ -7,14 +7,14 @@ html {
   --bg: #ffffff;
   --bg-dark: #0a110d;
   --bg-dark-deep: #050b07;
-  --card-bg: radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%);
+  --card-bg: #ffffff;
   --card-bg-solid: #ffffff;
   --card-bg-nested: #f8fafc;
-  --card-bg-subtle: rgba(16, 185, 129, 0.04);
-  --card-border: rgba(16, 185, 129, 0.32);
-  --border-glow: rgba(16, 185, 129, 0.32);
-  --border-glow-subtle: rgba(16, 185, 129, 0.18);
-  --card-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95);
+  --card-bg-subtle: #f8fafc;
+  --card-border: #e2e8f0;
+  --border-glow: #e2e8f0;
+  --border-glow-subtle: #f1f5f9;
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
 
   /* Purpose Accents */
   --accent-green: #10b981;
@@ -442,8 +442,8 @@ body {
 .app-table-wrap,
 .pm-table-wrap,
 .db-table-wrapper {
-  background: var(--card-bg);
-  border: 1px solid var(--border-glow);
+  background: var(--card-bg-solid, #ffffff);
+  border: 1px solid var(--border-glow, #e2e8f0);
   border-radius: var(--radius-lg);
   box-shadow: var(--card-shadow);
   overflow: hidden;
@@ -463,8 +463,8 @@ table,
 
 thead,
 .MuiTableHead-root {
-  background: var(--table-header-bg);
-  border-bottom: 1px solid var(--table-border);
+  background: var(--table-header-bg, #f8fafc);
+  border-bottom: 1px solid var(--table-border, #e2e8f0);
 }
 
 th,
@@ -472,16 +472,16 @@ th,
   padding: 12px 18px;
   text-align: left;
   font-size: 11.5px;
-  font-weight: 750;
+  font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: #047857;
+  letter-spacing: 0.5px;
+  color: #475569;
   white-space: nowrap;
   box-sizing: border-box;
 }
 [data-theme='dark'] th,
 [data-theme='dark'] .MuiTableHead-root .MuiTableCell-root {
-  color: #a7f3d0;
+  color: #94a3b8;
 }
 
 tbody td,
@@ -490,35 +490,35 @@ tbody td,
   padding: 13px 18px;
   font-size: 13px;
   color: var(--text);
-  border-bottom: 1px solid var(--table-row-border);
+  border-bottom: 1px solid var(--table-row-border, #f1f5f9);
   vertical-align: middle;
   box-sizing: border-box;
 }
 
-/* Subtle Alternating Green Row Striping */
+/* Plain clean rows */
 tbody tr:nth-of-type(even),
 .MuiTableBody-root .MuiTableRow-root:nth-of-type(even) {
-  background: rgba(16, 185, 129, 0.025);
+  background: var(--card-bg-solid, #ffffff);
 }
 [data-theme='dark'] tbody tr:nth-of-type(even),
 [data-theme='dark'] .MuiTableBody-root .MuiTableRow-root:nth-of-type(even) {
-  background: rgba(34, 197, 94, 0.03);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 tbody tr:nth-of-type(odd),
 .MuiTableBody-root .MuiTableRow-root:nth-of-type(odd) {
-  background: transparent;
+  background: var(--card-bg-solid, #ffffff);
 }
 
-/* Row Hover Highlight */
+/* Row Hover Highlight - clean neutral */
 tbody tr:hover,
 .MuiTableBody-root .MuiTableRow-root:hover {
-  background: rgba(16, 185, 129, 0.08) !important;
-  transition: background 0.18s ease;
+  background: #f8fafc !important;
+  transition: background 0.15s ease;
 }
 [data-theme='dark'] tbody tr:hover,
 [data-theme='dark'] .MuiTableBody-root .MuiTableRow-root:hover {
-  background: rgba(34, 197, 94, 0.08) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
 }
 
 /* Hairline borders between rows */

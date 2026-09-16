@@ -133,6 +133,8 @@ export default function NursePatientListPage() {
     loadPatients(TABS[activeTab].key, search);
   }, [activeTab, search, loadPatients]);
 
+  return (
+    <Box sx={{ p: 3 }}>
       {/* Stat Cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 2, mb: 3 }}>
         <Box sx={{ cursor: 'pointer' }} onClick={() => setActiveTab(0)}>

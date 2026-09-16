@@ -453,8 +453,8 @@ export default function PatientList() {
 
   // Preview table for the modal
   const th: React.CSSProperties = {
-    background: '#f0fdf4', color: 'var(--text-h)', fontWeight: 600,
-    padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #10b981',
+    background: '#f8fafc', color: '#475569', fontWeight: 600,
+    padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #e2e8f0',
     whiteSpace: 'nowrap', fontSize: 11,
   };
   const td: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid #f0f0f0', fontSize: 11 };

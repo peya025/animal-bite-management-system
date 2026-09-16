@@ -62,6 +62,26 @@ import StockLevelIndicator from '../../inventory/components/StockLevelIndicator/
 const TRIAGE_VISIT_TYPES = ['new_case', 'consultation'];
 const TREATMENT_VISIT_TYPES = ['vaccination', 'follow_up', 'observation', 'booster'];
 
+const isFollowUpStationEntry = (entry: QueueEntry) => {
+  const stationName = entry.station?.name?.toLowerCase() ?? '';
+  // Station assignment is authoritative once a patient reaches treatment.
+  return entry.visit_type === 'follow_up'
+    || entry.visit_type === 'booster'
+    || stationName.includes('follow-up')
+    || stationName.includes('follow up')
+    || stationName.includes('station 2');
+};
+
+const isIntakeStationEntry = (entry: QueueEntry) => {
+  const stationName = entry.station?.name?.toLowerCase() ?? '';
+  // A cleared Day 0 case becomes visit_type=vaccination. It still belongs to
+  // Station 1, as the public display correctly shows, until its Day 0 dose ends.
+  if (stationName.includes('intake') || stationName.includes('station 1')) return true;
+  if (stationName.includes('follow-up') || stationName.includes('follow up') || stationName.includes('station 2')) return false;
+  return TRIAGE_VISIT_TYPES.includes(entry.visit_type)
+    || (entry.visit_type === 'vaccination' && !isFollowUpStationEntry(entry));
+};
+
 function getCategoryHugeicon(cat: string) {
   switch (cat) {
     case 'appointment':    return Calendar03Icon;
@@ -298,21 +318,47 @@ export default function QueueDashboard() {
   const completedTreatmentEntries = isTreatmentNurse
     ? queue.filter(entry => entry.visit_type === 'vaccination' && entry.status === 'completed')
     : [];
-  const visibleSecondChanceQueue = (isTreatmentNurse && !isSoloNurse && hasFollowUpNurseRole && !hasIntakeNurseRole) ? [] : secondChanceQueue;
+  const stationScopedQueue = stationMode === 'intake'
+    ? queue.filter(isIntakeStationEntry)
+    : stationMode === 'follow_up'
+      ? queue.filter(isFollowUpStationEntry)
+      : queue;
+  const stationScopedSecondChanceQueue = stationMode === 'intake'
+    ? secondChanceQueue.filter(isIntakeStationEntry)
+    : stationMode === 'follow_up'
+      ? secondChanceQueue.filter(isFollowUpStationEntry)
+      : secondChanceQueue;
+  const visibleSecondChanceQueue = (isTreatmentNurse && !isSoloNurse && hasFollowUpNurseRole && !hasIntakeNurseRole)
+    ? []
+    : stationScopedSecondChanceQueue;
   const roleScopedQueue = isTriageDoctor
-    ? queue.filter(entry => TRIAGE_VISIT_TYPES.includes(entry.visit_type))
-    : queue;
+    ? stationScopedQueue.filter(isIntakeStationEntry)
+    : stationScopedQueue;
+  const stationStats = {
+    ...stats,
+    total: stationScopedQueue.length + stationScopedSecondChanceQueue.length,
+    waiting: stationScopedQueue.filter(entry => entry.status === 'waiting').length,
+    called: stationScopedQueue.filter(entry => entry.status === 'called').length,
+    in_consultation: stationScopedQueue.filter(entry => entry.status === 'in_consultation').length,
+    serving: stationScopedQueue.filter(entry => entry.status === 'serving').length,
+    completed: stationScopedQueue.filter(entry => entry.status === 'completed').length,
+    cancelled: stationScopedQueue.filter(entry => entry.status === 'cancelled').length,
+    absent: stationScopedQueue.filter(entry => entry.status === 'absent').length,
+    no_response: stationScopedQueue.filter(entry => entry.status === 'no_response').length,
+    second_chance: stationScopedSecondChanceQueue.filter(entry => entry.status === 'second_chance').length,
+    final_recall: stationScopedSecondChanceQueue.filter(entry => entry.status === 'final_recall').length,
+  };
   const roleScopedNextEntry = isTriageDoctor || isTreatmentNurse
     ? getScopedNextEntry(roleScopedQueue)
     : nextEntry;
   const pageTitle = isTriageDoctor
     ? 'Triage Dashboard'
     : hasIntakeNurseRole && !hasFollowUpNurseRole
-      ? 'Intake Station Queue'
+      ? 'Station 1 · Day 0 & New Episode Queue'
       : hasFollowUpNurseRole && !hasIntakeNurseRole
-        ? 'Follow-Up Station Queue'
+        ? 'Station 2 · Follow-up Queue'
         : isTreatmentNurse
-          ? (stationMode === 'intake' ? 'Intake Station Queue' : stationMode === 'follow_up' ? 'Follow-Up Station Queue' : 'Treatment Queue Dashboard')
+          ? (stationMode === 'intake' ? 'Station 1 · Day 0 & New Episode Queue' : stationMode === 'follow_up' ? 'Station 2 · Follow-up Queue' : 'Combined Treatment Queue')
           : isRegistrationStaff
             ? 'Registration Queue Dashboard'
             : user?.role === 'admin'
@@ -321,11 +367,11 @@ export default function QueueDashboard() {
   const queueSectionTitle = isTriageDoctor
     ? 'Triage Queue'
     : hasIntakeNurseRole && !hasFollowUpNurseRole
-      ? 'Intake Station Queue'
+      ? 'Station 1 · Day 0 & New Episode Queue'
       : hasFollowUpNurseRole && !hasIntakeNurseRole
-        ? 'Follow-Up Station Queue'
+        ? 'Station 2 · Follow-up Queue'
         : isTreatmentNurse
-          ? (stationMode === 'intake' ? 'Intake Station Queue' : stationMode === 'follow_up' ? 'Follow-Up Station Queue' : 'Treatment Queue')
+          ? (stationMode === 'intake' ? 'Station 1 · Day 0 & New Episode Queue' : stationMode === 'follow_up' ? 'Station 2 · Follow-up Queue' : 'Combined Treatment Queue')
           : isRegistrationStaff
             ? 'Registration Queue'
             : user?.role === 'admin'
@@ -343,15 +389,9 @@ export default function QueueDashboard() {
 
     let matchVisitType = true;
     if (visitTypeFilter === 'intake') {
-      matchVisitType = TRIAGE_VISIT_TYPES.includes(q.visit_type) ||
-        q.station_id === 1 ||
-        Boolean(q.station?.name?.toLowerCase().includes('intake')) ||
-        Boolean(q.check_in_notes?.toLowerCase().includes('intake')) ||
-        Boolean(q.check_in_notes?.toLowerCase().includes('day 0'));
+      matchVisitType = isIntakeStationEntry(q);
     } else if (visitTypeFilter === 'follow_up_station') {
-      matchVisitType = TREATMENT_VISIT_TYPES.includes(q.visit_type) ||
-        q.station_id === 2 ||
-        Boolean(q.station?.name?.toLowerCase().includes('follow'));
+      matchVisitType = isFollowUpStationEntry(q);
     } else if (visitTypeFilter) {
       matchVisitType = q.visit_type === visitTypeFilter;
     }
@@ -842,13 +882,13 @@ export default function QueueDashboard() {
       </Box>
 
       {/* ── 2. KPI Strip (Waiting, Called, Serving, Completed, Total Today) ── */}
-      <QueueKPIStrip stats={stats} onWaitingClick={handleWaitingClick} />
+      <QueueKPIStrip stats={stationStats} onWaitingClick={handleWaitingClick} />
 
       {/* ── 3. Condensed Vaccine Stock Strip ── */}
-      <StockLevelIndicator variant="strip" showLegend={false} />
+      {stationMode !== 'follow_up' && <StockLevelIndicator variant="strip" collapsible showLegend={false} />}
 
       {/* ── 4. Slim Inline Secondary Counters Row ── */}
-      <SecondaryCountersRow stats={stats} />
+      <SecondaryCountersRow stats={stationStats} />
 
       {/* ── 5. Next Patient Banner (if active) ── */}
       {!isRegistrationStaff && user?.role !== 'admin' && roleScopedNextEntry && (
@@ -884,7 +924,7 @@ export default function QueueDashboard() {
               {queueSectionTitle}
             </Typography>
             <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
-              ({stats?.waiting ?? 0} patients waiting)
+              ({stationStats.waiting} patients waiting)
             </Typography>
           </Box>
           {visibleSecondChanceQueue.length > 0 && (
@@ -905,7 +945,14 @@ export default function QueueDashboard() {
             onCategoryChange={v => { setCategoryFilter(v); setPage(0); }}
             visitTypeFilter={visitTypeFilter}
             onVisitTypeChange={v => { setVisitTypeFilter(v); setPage(0); }}
-            onClear={() => { setSearch(''); setStatusFilter(''); setCategoryFilter(''); setVisitTypeFilter(''); setPage(0); }}
+            lockedVisitTypeLabel={stationMode === 'intake' ? 'Station 1 · Day 0 / new episode' : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only' : undefined}
+            onClear={() => {
+              setSearch('');
+              setStatusFilter('');
+              setCategoryFilter('');
+              setVisitTypeFilter(stationMode === 'intake' ? 'intake' : stationMode === 'follow_up' ? 'follow_up_station' : '');
+              setPage(0);
+            }}
           />
         </Box>
 
@@ -935,7 +982,7 @@ export default function QueueDashboard() {
       </Paper>
 
       {/* ── 7. Today's Progress Bar ── */}
-      <QueueProgressBar stats={stats} />
+      <QueueProgressBar stats={stationStats} />
 
       {/* ── 8. Historical / Reference Archive Panels (Collapsed by default) ── */}
       {visibleSecondChanceQueue.length > 0 && (

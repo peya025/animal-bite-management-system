@@ -15,19 +15,36 @@ class CheckRole
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        if (!$request->user()) {
+        $user = $request->user();
+        if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        if (! $request->user()->is_active) {
-            $request->user()->tokens()->delete();
+        $userDirectRole = $user->role;
+        $userAssignedRoles = $user->relationLoaded('roles') ? $user->roles->pluck('slug')->toArray() : $user->roles()->pluck('slug')->toArray();
+        $allUserRoles = array_filter(array_unique(array_merge([$userDirectRole], $userAssignedRoles)));
 
-            return response()->json([
-                'message' => 'This account is inactive. Contact your clinic administrator.',
-            ], 403);
+        // Nursing aliases: 'nurse' or 'treatment' match any nursing duty
+        if (in_array('nurse', $roles) || in_array('treatment', $roles) || in_array('intake_nurse', $roles) || in_array('follow_up_nurse', $roles)) {
+            if ($user->isNursing()) {
+                return $next($request);
+            }
         }
 
-        if (!in_array($request->user()->role, $roles, true)) {
+        // Admin alias
+        if (in_array('admin', $roles) && ($user->isAdmin() || in_array('clinic_admin', $allUserRoles))) {
+            return $next($request);
+        }
+
+        $hasRole = false;
+        foreach ($roles as $r) {
+            if (in_array($r, $allUserRoles)) {
+                $hasRole = true;
+                break;
+            }
+        }
+
+        if (!$hasRole) {
             return response()->json([
                 'message' => 'Unauthorized. This action requires ' . implode(' or ', $roles) . ' role.',
             ], 403);

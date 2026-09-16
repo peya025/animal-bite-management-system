@@ -6,6 +6,11 @@ export interface User {
   role: 'developer' | 'admin' | 'registration' | 'triage' | 'treatment';
   clinic_id: number;
   phone?: string;
+  signature_path?: string;
+  professional_license_no?: string;
+  roles?: Array<{ id: number; slug: string; display_name: string; default_route: string }>;
+  is_solo_nurse?: boolean;
+  is_nursing?: boolean;
   is_active: boolean;
   last_login_at?: string;
   created_at: string;

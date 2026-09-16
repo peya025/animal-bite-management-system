@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Alert, Box, CircularProgress, IconButton,
@@ -168,15 +168,15 @@ export default function QueueDashboard() {
   const location = useLocation();
   const { user } = useAuth();
 
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'warning' }>({
     open: false, message: '', severity: 'success',
   });
   const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: React.ReactNode } | null>(null);
 
-  const toast = (msg: string, severity: 'success' | 'error' = 'success') =>
+  const toast = (msg: string, severity: 'success' | 'error' | 'warning' = 'success') =>
     setSnackbar({ open: true, message: msg, severity });
 
-  const queueToast = (location.state as { queueToast?: { message: string; severity: 'success' | 'error' } } | null)?.queueToast;
+  const queueToast = (location.state as { queueToast?: { message: string; severity: 'success' | 'error' | 'warning' } } | null)?.queueToast;
   if (queueToast && !snackbar.open && snackbar.message !== queueToast.message) {
     setSnackbar({ open: true, message: queueToast.message, severity: queueToast.severity });
     navigate(location.pathname, { replace: true, state: null });
@@ -185,9 +185,48 @@ export default function QueueDashboard() {
   const { queue, secondChanceQueue, stats, loading, nextEntry, reload } =
     useQueueData(msg => toast(msg, 'error'));
 
-  const [search,       setSearch]       = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const hasIntakeNurseRole = Boolean(user?.roles?.some((r: any) => r.slug === 'intake_nurse'));
+  const hasFollowUpNurseRole = Boolean(user?.roles?.some((r: any) => r.slug === 'follow_up_nurse'));
+  const isSoloNurse = Boolean(user?.is_solo_nurse || (hasIntakeNurseRole && hasFollowUpNurseRole));
+
+  const [stationMode, setStationMode] = useState<'intake' | 'follow_up' | 'combined'>(() => {
+    const saved = localStorage.getItem('active_station_mode') as any;
+    if (saved) return saved;
+    if (hasIntakeNurseRole) return 'intake';
+    if (hasFollowUpNurseRole) return 'follow_up';
+    return 'intake';
+  });
+
+  const [search,          setSearch]          = useState('');
+  const [statusFilter,    setStatusFilter]    = useState('');
+  const [categoryFilter,  setCategoryFilter]  = useState('');
+  const [visitTypeFilter, setVisitTypeFilter] = useState<string>(() => {
+    const saved = localStorage.getItem('active_station_mode');
+    if (saved === 'intake') return 'intake';
+    if (saved === 'follow_up') return 'follow_up_station';
+    if (hasIntakeNurseRole && !hasFollowUpNurseRole) return 'intake';
+    if (hasFollowUpNurseRole && !hasIntakeNurseRole) return 'follow_up_station';
+    return '';
+  });
+
+  useEffect(() => {
+    const onStationChanged = (e: CustomEvent) => {
+      const mode = e.detail;
+      if (mode) {
+        setStationMode(mode);
+        if (mode === 'intake') {
+          setVisitTypeFilter('intake');
+        } else if (mode === 'follow_up') {
+          setVisitTypeFilter('follow_up_station');
+        } else {
+          setVisitTypeFilter('');
+        }
+      }
+    };
+    window.addEventListener('station-changed', onStationChanged as EventListener);
+    return () => window.removeEventListener('station-changed', onStationChanged as EventListener);
+  }, []);
+
   const [page,         setPage]         = useState(0);
   const [rowsPerPage,  setRowsPerPage]  = useState(15);
 
@@ -220,7 +259,7 @@ export default function QueueDashboard() {
       const status = err?.response?.status;
       const msg = err?.response?.data?.message;
       if (status === 409) {
-        toast(msg || 'This patient is currently being called or attended by another workstation.', 'error');
+        toast(msg || 'This patient is currently being called or attended by another workstation.', 'warning');
         reload();
       } else {
         toast(msg ?? errMsg, 'error');
@@ -249,7 +288,7 @@ export default function QueueDashboard() {
   });
   const isRegistrationStaff = user?.role === 'registration';
   const isTriageDoctor = user?.role === 'triage';
-  const isTreatmentNurse = user?.role === 'treatment';
+  const isTreatmentNurse = user?.role === 'treatment' || user?.is_nursing || hasIntakeNurseRole || hasFollowUpNurseRole;
   const transferredToTreatmentEntries = isTriageDoctor
     ? queue.filter(entry =>
         entry.visit_type === 'vaccination'
@@ -259,33 +298,39 @@ export default function QueueDashboard() {
   const completedTreatmentEntries = isTreatmentNurse
     ? queue.filter(entry => entry.visit_type === 'vaccination' && entry.status === 'completed')
     : [];
-  const visibleSecondChanceQueue = isTreatmentNurse ? [] : secondChanceQueue;
+  const visibleSecondChanceQueue = (isTreatmentNurse && !isSoloNurse && hasFollowUpNurseRole && !hasIntakeNurseRole) ? [] : secondChanceQueue;
   const roleScopedQueue = isTriageDoctor
     ? queue.filter(entry => TRIAGE_VISIT_TYPES.includes(entry.visit_type))
-    : isTreatmentNurse
-      ? queue.filter(entry => TREATMENT_VISIT_TYPES.includes(entry.visit_type))
-      : queue;
+    : queue;
   const roleScopedNextEntry = isTriageDoctor || isTreatmentNurse
     ? getScopedNextEntry(roleScopedQueue)
     : nextEntry;
   const pageTitle = isTriageDoctor
     ? 'Triage Dashboard'
-    : isTreatmentNurse
-      ? 'Treatment Queue Dashboard'
-      : isRegistrationStaff
-        ? 'Registration Queue Dashboard'
-        : user?.role === 'admin'
-          ? 'Admin Queue Dashboard'
-          : 'Queue Dashboard';
+    : hasIntakeNurseRole && !hasFollowUpNurseRole
+      ? 'Intake Station Queue'
+      : hasFollowUpNurseRole && !hasIntakeNurseRole
+        ? 'Follow-Up Station Queue'
+        : isTreatmentNurse
+          ? (stationMode === 'intake' ? 'Intake Station Queue' : stationMode === 'follow_up' ? 'Follow-Up Station Queue' : 'Treatment Queue Dashboard')
+          : isRegistrationStaff
+            ? 'Registration Queue Dashboard'
+            : user?.role === 'admin'
+              ? 'Admin Queue Dashboard'
+              : 'Queue Dashboard';
   const queueSectionTitle = isTriageDoctor
     ? 'Triage Queue'
-    : isTreatmentNurse
-      ? 'Treatment Queue'
-      : isRegistrationStaff
-        ? 'Registration Queue'
-        : user?.role === 'admin'
-          ? 'Admin Queue'
-          : 'Main Queue';
+    : hasIntakeNurseRole && !hasFollowUpNurseRole
+      ? 'Intake Station Queue'
+      : hasFollowUpNurseRole && !hasIntakeNurseRole
+        ? 'Follow-Up Station Queue'
+        : isTreatmentNurse
+          ? (stationMode === 'intake' ? 'Intake Station Queue' : stationMode === 'follow_up' ? 'Follow-Up Station Queue' : 'Treatment Queue')
+          : isRegistrationStaff
+            ? 'Registration Queue'
+            : user?.role === 'admin'
+              ? 'Admin Queue'
+              : 'Main Queue';
 
   // ── Filter + Pagination ───────────────────────────────────────────────────
 
@@ -295,11 +340,27 @@ export default function QueueDashboard() {
       String(q.queue_number).includes(search);
     const matchStatus   = !statusFilter   || q.status         === statusFilter;
     const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
+
+    let matchVisitType = true;
+    if (visitTypeFilter === 'intake') {
+      matchVisitType = TRIAGE_VISIT_TYPES.includes(q.visit_type) ||
+        q.station_id === 1 ||
+        Boolean(q.station?.name?.toLowerCase().includes('intake')) ||
+        Boolean(q.check_in_notes?.toLowerCase().includes('intake')) ||
+        Boolean(q.check_in_notes?.toLowerCase().includes('day 0'));
+    } else if (visitTypeFilter === 'follow_up_station') {
+      matchVisitType = TREATMENT_VISIT_TYPES.includes(q.visit_type) ||
+        q.station_id === 2 ||
+        Boolean(q.station?.name?.toLowerCase().includes('follow'));
+    } else if (visitTypeFilter) {
+      matchVisitType = q.visit_type === visitTypeFilter;
+    }
+
     // Main table only shows active/second-chance entries unless a specific status filter is set
     const isActiveOrFiltered = statusFilter
       ? true
       : (MAIN_STATUSES as string[]).includes(q.status);
-    return matchSearch && matchStatus && matchCategory && isActiveOrFiltered;
+    return matchSearch && matchStatus && matchCategory && matchVisitType && isActiveOrFiltered;
   });
   const sortedQueue = isTriageDoctor || isTreatmentNurse
     ? [...filtered].sort(sortQueueForDisplay)
@@ -552,6 +613,28 @@ export default function QueueDashboard() {
             <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: cfg.bg, color: cfg.color, borderRadius: 1.5, fontSize: 11.5, fontWeight: 500 }}>
               {cfg.label}
             </Box>
+          </Box>
+        );
+      },
+    },
+    {
+      key: 'attended_by', header: 'Attended by', align: 'center', width: '135px',
+      render: e => {
+        const staff = e.servedBy || e.handledBy || (e as any).served_by_user || (e as any).handled_by_user;
+        const stationName = e.station?.name ? e.station.name.replace('Station ', 'St. ') : '';
+        if (!staff?.name) {
+          return <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography>;
+        }
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'var(--text-h)', lineHeight: 1.2 }}>
+              {staff.name}
+            </Typography>
+            {stationName && (
+              <Typography sx={{ fontSize: 10.5, color: '#0f766e', fontWeight: 500 }}>
+                {stationName}
+              </Typography>
+            )}
           </Box>
         );
       },
@@ -820,7 +903,9 @@ export default function QueueDashboard() {
             onStatusChange={v => { setStatusFilter(v); setPage(0); }}
             categoryFilter={categoryFilter}
             onCategoryChange={v => { setCategoryFilter(v); setPage(0); }}
-            onClear={() => { setSearch(''); setStatusFilter(''); setCategoryFilter(''); setPage(0); }}
+            visitTypeFilter={visitTypeFilter}
+            onVisitTypeChange={v => { setVisitTypeFilter(v); setPage(0); }}
+            onClear={() => { setSearch(''); setStatusFilter(''); setCategoryFilter(''); setVisitTypeFilter(''); setPage(0); }}
           />
         </Box>
 

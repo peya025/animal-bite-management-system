@@ -93,18 +93,23 @@ class AuthController extends Controller
         // Create token
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        // Load clinic relationship
-        $user->load('clinic');
+        // Load clinic and roles relationship
+        $user->load(['clinic', 'roles']);
 
         return response()->json([
             'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'phone' => $user->phone,
-                'is_active' => $user->is_active,
-                'clinic' => $user->clinic,
+                'id'                      => $user->id,
+                'name'                    => $user->name,
+                'email'                   => $user->email,
+                'role'                    => $user->role,
+                'phone'                   => $user->phone,
+                'is_active'               => $user->is_active,
+                'signature_path'          => $user->signature_path,
+                'professional_license_no' => $user->professional_license_no,
+                'roles'                   => $user->roles,
+                'is_solo_nurse'           => $user->isSoloNurse(),
+                'is_nursing'              => $user->isNursing(),
+                'clinic'                  => $user->clinic,
             ],
             'token' => $token,
             'token_type' => 'Bearer',
@@ -131,17 +136,22 @@ class AuthController extends Controller
      */
     public function me(Request $request)
     {
-        $user = $request->user()->load('clinic');
+        $user = $request->user()->load(['clinic', 'roles']);
         
         return response()->json([
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role,
-            'phone' => $user->phone,
-            'is_active' => $user->is_active,
-            'last_login_at' => $user->last_login_at,
-            'clinic' => $user->clinic,
+            'id'                      => $user->id,
+            'name'                    => $user->name,
+            'email'                   => $user->email,
+            'role'                    => $user->role,
+            'phone'                   => $user->phone,
+            'is_active'               => $user->is_active,
+            'signature_path'          => $user->signature_path,
+            'professional_license_no' => $user->professional_license_no,
+            'roles'                   => $user->roles,
+            'is_solo_nurse'           => $user->isSoloNurse(),
+            'is_nursing'              => $user->isNursing(),
+            'last_login_at'           => $user->last_login_at,
+            'clinic'                  => $user->clinic,
         ]);
     }
 

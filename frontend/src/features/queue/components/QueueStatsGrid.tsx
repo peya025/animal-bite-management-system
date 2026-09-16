@@ -42,6 +42,9 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
       id: 'serving',
       label: 'Serving',
       value: (stats?.serving ?? 0) + (stats?.in_consultation ?? 0),
+      subtitle: stats?.active_servers && stats.active_servers.length > 0
+        ? stats.active_servers.slice(0, 2).join(', ')
+        : undefined,
       icon: <HugeiconsIcon icon={Stethoscope02Icon} size={18} strokeWidth={2} />,
       isWaiting: false,
       isCalled: false,
@@ -156,6 +159,11 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
               <Typography sx={{ fontSize: 22, fontWeight: 600, color: '#1e293b', lineHeight: 1.1, mt: 0.25 }}>
                 {card.value}
               </Typography>
+              {card.subtitle && (
+                <Typography sx={{ fontSize: 11, color: '#0f766e', fontWeight: 500, mt: 0.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {card.subtitle}
+                </Typography>
+              )}
             </Box>
             <Box sx={{ color: '#94a3b8', p: 1, bgcolor: '#f8fafc', borderRadius: '8px', display: 'flex' }}>
               {card.icon}

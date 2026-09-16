@@ -17,8 +17,9 @@ class StaffInvitationController extends Controller
     public function invite(Request $request)
     {
         $request->validate([
-            'email' => 'required|email|max:255',
-            'role' => ['required', Rule::in(['registration', 'triage', 'treatment'])],
+            'email'            => 'required|email|max:255',
+            'role'             => ['nullable', 'string'],
+            'workstation_role' => ['nullable', 'string'],
         ]);
 
         $user = $request->user();
@@ -42,12 +43,33 @@ class StaffInvitationController extends Controller
             ]);
         }
 
+        $inputRole = $request->workstation_role ?? $request->role ?? 'registration';
+
+        // Map canonical/workstation role
+        $legacyRole = 'registration';
+        $workstationRole = $inputRole;
+
+        if (in_array($inputRole, ['intake_nurse', 'follow_up_nurse', 'solo_nurse', 'treatment'])) {
+            $legacyRole = 'treatment';
+            $workstationRole = ($inputRole === 'treatment') ? 'solo_nurse' : $inputRole;
+        } elseif (in_array($inputRole, ['doctor', 'triage'])) {
+            $legacyRole = 'triage';
+            $workstationRole = 'doctor';
+        } elseif (in_array($inputRole, ['receptionist', 'registration'])) {
+            $legacyRole = 'registration';
+            $workstationRole = 'receptionist';
+        } elseif (in_array($inputRole, ['clinic_admin', 'admin'])) {
+            $legacyRole = 'admin';
+            $workstationRole = 'clinic_admin';
+        }
+
         // Create invitation
         $invitation = StaffInvitation::createInvitation([
-            'clinic_id' => $user->clinic_id,
-            'invited_by' => $user->id,
-            'email' => $request->email,
-            'role' => $request->role,
+            'clinic_id'        => $user->clinic_id,
+            'invited_by'       => $user->id,
+            'email'            => $request->email,
+            'role'             => $legacyRole,
+            'workstation_role' => $workstationRole,
         ]);
 
         // Send invitation email
@@ -135,21 +157,52 @@ class StaffInvitationController extends Controller
 
         // Create user
         $user = User::create([
-            'clinic_id' => $invitation->clinic_id,
-            'name' => $request->name,
-            'email' => $invitation->email,
-            'password' => Hash::make($request->password),
-            'role' => $invitation->role,
-            'phone' => $request->phone,
-            'is_active' => true,
+            'clinic_id'               => $invitation->clinic_id,
+            'name'                    => $request->name,
+            'email'                   => $invitation->email,
+            'password'                => Hash::make($request->password),
+            'role'                    => $invitation->role,
+            'phone'                   => $request->phone,
+            'signature_path'          => ($invitation->role === 'treatment') ? 'signatures/default_nurse_signature.png' : null,
+            'professional_license_no' => $request->professional_license_no ?? null,
+            'is_active'               => true,
         ]);
+
+        // Attach workstation roles to user_roles
+        $targetSlugs = [];
+        $wr = $invitation->workstation_role;
+        if ($wr === 'solo_nurse') {
+            $targetSlugs = ['intake_nurse', 'follow_up_nurse'];
+        } elseif ($wr) {
+            $targetSlugs = [$wr];
+        } elseif ($invitation->role === 'treatment') {
+            $targetSlugs = ['intake_nurse', 'follow_up_nurse'];
+        } elseif ($invitation->role === 'triage') {
+            $targetSlugs = ['doctor'];
+        } elseif ($invitation->role === 'registration') {
+            $targetSlugs = ['receptionist'];
+        } elseif ($invitation->role === 'admin') {
+            $targetSlugs = ['clinic_admin'];
+        }
+
+        if (!empty($targetSlugs)) {
+            $roleModels = \App\Models\Role::whereIn('slug', $targetSlugs)->get();
+            $syncData = [];
+            foreach ($roleModels as $rm) {
+                $syncData[$rm->id] = [
+                    'assigned_by' => $invitation->invited_by,
+                    'assigned_at' => now(),
+                ];
+            }
+            $user->roles()->sync($syncData);
+        }
 
         // Mark invitation as accepted
         $invitation->markAsAccepted();
 
         // Generate auth token for auto-login
         $token = $user->createToken('auth_token')->plainTextToken;
-        $user->load('clinic');
+        $user->load(['clinic', 'roles']);
 
         return response()->json([
             'message' => 'Account created successfully',

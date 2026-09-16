@@ -379,9 +379,10 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             Route::get('/{id}', [VaccinationRecordController::class, 'show']);
         });
 
-        // Create/Update vaccination records (admin, treatment, developer)
-        Route::middleware('role:admin,treatment,developer')->group(function () {
+        // Create/Update/Void vaccination records (admin, treatment, nurse)
+        Route::middleware('role:admin,treatment,nurse')->group(function () {
             Route::post('/', [VaccinationRecordController::class, 'store']);
+            Route::post('/{id}/void', [VaccinationRecordController::class, 'voidRecord']);
             Route::delete('/{id}', [VaccinationRecordController::class, 'destroy']);
         });
     });

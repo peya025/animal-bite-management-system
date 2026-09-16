@@ -51,6 +51,39 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  const isSoloNurse = Boolean(
+    user?.is_solo_nurse ||
+    (user?.roles && user.roles.some((r: any) => r.slug === 'intake_nurse') && user.roles.some((r: any) => r.slug === 'follow_up_nurse')) ||
+    user?.role === 'treatment'
+  );
+
+  const [stationMode, setStationMode] = useState<'intake' | 'follow_up' | 'combined'>(() => {
+    return (localStorage.getItem('active_station_mode') as any) || 'intake';
+  });
+
+  const handleStationChange = (newMode: 'intake' | 'follow_up' | 'combined') => {
+    setStationMode(newMode);
+    localStorage.setItem('active_station_mode', newMode);
+    window.dispatchEvent(new CustomEvent('station-changed', { detail: newMode }));
+    if (newMode === 'intake' && location.pathname !== ROUTES.QUEUE.DASHBOARD) {
+      navigate(ROUTES.QUEUE.DASHBOARD);
+    } else if (newMode === 'follow_up' && location.pathname !== ROUTES.PATIENTS.NURSE_LIST) {
+      navigate(ROUTES.PATIENTS.NURSE_LIST);
+    }
+  };
+
+  const getRoleBadge = () => {
+    if (isSoloNurse) {
+      if (stationMode === 'intake') return 'Intake Station';
+      if (stationMode === 'follow_up') return 'Follow-Up Station';
+      return 'Dual Nurse Station';
+    }
+    if (user?.roles?.some((r: any) => r.slug === 'intake_nurse')) return 'Intake Nurse';
+    if (user?.roles?.some((r: any) => r.slug === 'follow_up_nurse')) return 'Follow-Up Nurse';
+    if (user?.role) return ROLE_LABELS[user.role] || user.role;
+    return 'Staff';
+  };
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
@@ -174,9 +207,11 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
           <div className="sidebar-user">
             <div className="sidebar-user-avatar">{initials}</div>
             <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{user?.name}</span>
+              <span className="sidebar-user-name">
+                {user?.name}{user?.professional_license_no ? `, RN` : ''}
+              </span>
               <span className="sidebar-user-role">
-                {user?.role ? ROLE_LABELS[user.role] : ''}
+                {getRoleBadge()}
               </span>
             </div>
             <button
@@ -216,7 +251,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
       {/* ── Main Content ── */}
       <div className="main-content">
         <header className="top-header">
-          <div className="header-left">
+          <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {sidebarOpen && (
               <button
                 className="header-toggle"
@@ -230,6 +265,41 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                   <line x1="4" y1="18" x2="20" y2="18"></line>
                 </svg>
               </button>
+            )}
+
+            {/* Station Switcher for Dual/Multi-Role Nurses */}
+            {isSoloNurse && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                background: 'var(--bg-secondary, #f8fafc)',
+                borderRadius: '8px',
+                padding: '3px 8px',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                gap: 6,
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Station:
+                </span>
+                <select
+                  value={stationMode}
+                  onChange={(e) => handleStationChange(e.target.value as any)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'var(--primary, #0f766e)',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <option value="intake">Intake (Day 0 / New)</option>
+                  <option value="follow_up">Follow-ups & Boosters</option>
+                  <option value="combined">Combined View</option>
+                </select>
+              </div>
             )}
           </div>
           <div className="header-right">

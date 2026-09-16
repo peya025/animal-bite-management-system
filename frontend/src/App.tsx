@@ -63,6 +63,7 @@ function App() {
           <Route path="/patients" element={<ProtectedRoute allowedRoles={['registration', 'admin', 'developer']}><AppLayout title="Patient Registration"><PatientList /></AppLayout></ProtectedRoute>} />
           <Route path="/nurse/patients" element={<ProtectedRoute allowedRoles={['treatment', 'admin', 'developer']}><AppLayout title="Patients List"><NursePatientList /></AppLayout></ProtectedRoute>} />
           <Route path="/doctor/patients" element={<ProtectedRoute allowedRoles={['triage', 'admin', 'developer']}><AppLayout title="Patients List"><DoctorPatientList /></AppLayout></ProtectedRoute>} />
+          <Route path="/patients/doctor" element={<Navigate to="/doctor/patients" replace />} />
           <Route path="/inventory" element={<ProtectedRoute allowedRoles={['admin', 'treatment', 'developer']}><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
           <Route path="/inventory/administrations" element={<ProtectedRoute allowedRoles={['admin', 'treatment', 'developer']}><AppLayout title="Inventory Transaction"><VaccineInventory initialTab="administrations" /></AppLayout></ProtectedRoute>} />
           <Route path="/inventory/types" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Vaccine Setup"><VaccineTypeManagementPage /></AppLayout></ProtectedRoute>} />

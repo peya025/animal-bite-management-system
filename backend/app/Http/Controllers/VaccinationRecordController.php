@@ -334,12 +334,19 @@ class VaccinationRecordController extends Controller
             'doses.min' => "Please select a Vaccine Type for today's dose before saving.",
         ]);
 
+        $actingUser = $request->user();
+        if (!$actingUser || !$actingUser->signature_path) {
+            return response()->json([
+                'message' => 'Your signature is not yet on file. Ask a clinic admin to complete your staff profile before administering doses.',
+            ], 422);
+        }
+
         DB::beginTransaction();
         try {
-            $clinicId = $request->user()->clinic_id;
+            $clinicId = $actingUser->clinic_id;
             $patientId = $request->patient_id;
             $biteId = $request->bite_id;
-            $userId = $request->user()->id;
+            $userId = $actingUser->id;
 
             // Resolve or create active BiteIncident for this episode
             if (!$biteId) {
@@ -506,16 +513,17 @@ class VaccinationRecordController extends Controller
                           ->orWhereNotNull('administered_at')
                           ->orWhereNull('scheduled_by'); // not system-auto-generated
                     })
+                    ->whereNull('voided_at')
                     ->latest('treatment_id')
+                    ->lockForUpdate()
                     ->first();
 
                 $isExternal = !empty($doseData['is_external']);
                 $externalFacility = trim((string) ($doseData['external_facility_name'] ?? ''));
 
-                $baseRemarks = 'Given by: ' . ($doseData['given_by'] ?? '');
                 $remarks = $isExternal
-                    ? trim(($externalFacility ? "External facility: {$externalFacility} | " : "External facility | ") . $baseRemarks)
-                    : trim($baseRemarks . ' | Inventory units used: ' . $inventoryUnitsUsed . ($inventoryUnitsUsed === 0 ? ' (Shared Open Vial)' : ''));
+                    ? trim($externalFacility ? "External facility: {$externalFacility}" : "External facility")
+                    : ($inventoryUnitsUsed === 0 ? 'Shared Open Vial' : null);
 
                 $treatmentData = [
                     'clinic_id' => $clinicId,
@@ -525,7 +533,7 @@ class VaccinationRecordController extends Controller
                     'treatment_date' => $doseData['date'],
                     'scheduled_date' => $doseData['date'],
                     'route' => $doseData['route'] ?? null,
-                    'signature' => $doseData['signature'] ?? null,
+                    'signature' => $actingUser->signature_path,
                     'administered_by' => $userId,
                     'administered_at' => now(),
                     'status' => 'completed',
@@ -584,7 +592,7 @@ class VaccinationRecordController extends Controller
                         'administration_notes' => $usage['is_shared']
                             ? "Shared open vial (Dose {$usage['dose_index']} of {$usage['total_doses']}) from batch {$batch->batch_number}"
                             : "New vial opened (Dose 1 of {$usage['total_doses']}) from FIFO batch {$batch->batch_number}",
-                        'remarks' => trim($baseRemarks . " | Dose {$usage['dose_index']} of {$usage['total_doses']}" . ($usage['is_shared'] ? ' (Shared Open Vial)' : ' (New Vial)')),
+                        'remarks' => trim(($remarks ?: '') . " | Dose {$usage['dose_index']} of {$usage['total_doses']}" . ($usage['is_shared'] ? ' (Shared Open Vial)' : ' (New Vial)')),
                     ]);
                 }
             }
@@ -1185,6 +1193,51 @@ class VaccinationRecordController extends Controller
 
         // If we can't find a working day in 30 days, just return the original date
         return $date;
+    }
+
+    /**
+     * Void an administered treatment record with audit reason.
+     * POST /api/vaccination-records/{id}/void
+     */
+    public function voidRecord(Request $request, $id)
+    {
+        $request->validate([
+            'void_reason' => 'required|string|min:5|max:1000',
+        ]);
+
+        $clinicId = $request->user()->clinic_id;
+
+        return DB::transaction(function () use ($request, $clinicId, $id) {
+            $record = TreatmentRecord::where('clinic_id', $clinicId)
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            if ($record->voided_at) {
+                return response()->json([
+                    'message' => 'This treatment record has already been voided.',
+                ], 400);
+            }
+
+            $record->update([
+                'voided_at'   => now(),
+                'voided_by'   => $request->user()->id,
+                'void_reason' => $request->void_reason,
+            ]);
+
+            \App\Models\AuditLog::log('voided', 'TreatmentRecord', $record->treatment_id, [
+                'description' => "Treatment Record #{$record->treatment_id} (Dose {$record->dose_number}) voided by {$request->user()->name}: {$request->void_reason}",
+                'metadata' => [
+                    'patient_id'  => $record->patient_id,
+                    'dose_number' => $record->dose_number,
+                    'void_reason' => $request->void_reason,
+                ],
+            ]);
+
+            return response()->json([
+                'message' => 'Treatment record voided successfully.',
+                'record'  => $record->fresh()->load(['administeredBy', 'voidedBy']),
+            ]);
+        });
     }
 }
 

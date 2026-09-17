@@ -31,7 +31,6 @@ import {
 } from '@hugeicons/core-free-icons';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
-import StatCard from '../../../components/common/StatCard/StatCard';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
 
@@ -60,7 +59,8 @@ interface Patient {
 
 export default function NursePatientListPage() {
 
-  const [tab, setTab] = useState<'needs_action' | 'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('needs_action');
+  // Station 2 begins with the patients expected for a follow-up dose today.
+  const [tab, setTab] = useState<'needs_action' | 'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('due_today');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -568,9 +568,9 @@ export default function NursePatientListPage() {
                   textTransform: 'none',
                   fontWeight: 600,
                   borderRadius: '6px',
-                  bgcolor: '#10b981',
+                  bgcolor: '#6366f1',
                   color: '#ffffff',
-                  '&:hover': { bgcolor: '#059669' },
+                  '&:hover': { bgcolor: '#4f46e5' },
                 }}
               >
                 {checkingInId === patient.patient_id ? 'Checking in...' : 'Check In'}
@@ -661,14 +661,14 @@ export default function NursePatientListPage() {
               mb: 0.5,
             }}
           >
-            Follow-Up & Vaccination Patient List
+            Station 2 · Follow-up Doses
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
-            {today} · Follow-Up Station: manage due today, overdue follow-ups, online bookings, and booster vaccinations
+            {today} · Indigo Station 2: manage due today, overdue follow-ups, online bookings, and booster vaccinations
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
+          {loading && <CircularProgress size={18} sx={{ color: '#6366f1' }} />}
           <Tooltip title="Refresh Patients List">
             <IconButton onClick={loadPatients} disabled={loading} sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', border: '1px solid var(--border-glow, #e0eae3)', borderRadius: 2, color: 'var(--text-m, #6b7280)' }}>
               <HugeiconsIcon icon={RefreshIcon} size={18} />
@@ -678,14 +678,6 @@ export default function NursePatientListPage() {
       </Box>
 
       {/* ── Top Circular Ring Summary Cards (Matching Vaccine Inventory & Queue Design) ── */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' }, gap: 2, mb: 3 }}>
-        <StatCard label="DUE TODAY" value={kpiStats.dueToday} color="info" total={totalCount || 1} loading={loading} />
-        <StatCard label="NEEDS ACTION" value={kpiStats.needsAction} color="warning" total={totalCount || 1} loading={loading} />
-        <StatCard label="OVERDUE DOSES" value={kpiStats.overdue} color="error" total={totalCount || 1} loading={loading} />
-        <StatCard label="ONLINE APPOINTMENTS" value={kpiStats.online} color="primary" total={totalCount || 1} loading={loading} />
-        <StatCard label="UPCOMING DOSES" value={kpiStats.upcoming} color="success" total={totalCount || 1} loading={loading} />
-        <StatCard label="TOTAL TRACKED" value={totalCount} color="info" total={totalCount || 1} loading={loading} />
-      </Box>
 
       {/* ── Tabs Bar with Soft Count Badges ── */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', mb: 3 }}>
@@ -701,8 +693,8 @@ export default function NursePatientListPage() {
               fontSize: 13.5,
               minHeight: 48,
             },
-            '& .Mui-selected': { color: '#10b981' },
-            '& .MuiTabs-indicator': { bgcolor: '#10b981', height: 3, borderRadius: '3px 3px 0 0' },
+            '& .Mui-selected': { color: '#6366f1' },
+            '& .MuiTabs-indicator': { bgcolor: '#6366f1', height: 3, borderRadius: '3px 3px 0 0' },
           }}
         >
           <Tab
@@ -728,6 +720,7 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="needs_action"
+            sx={{ display: 'none' }}
             icon={<HugeiconsIcon icon={AlertCircleIcon} size={17} />}
             iconPosition="start"
           />
@@ -741,6 +734,7 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="online"
+            sx={{ display: 'none' }}
             icon={<HugeiconsIcon icon={SmartPhone01Icon} size={17} />}
             iconPosition="start"
           />
@@ -780,6 +774,7 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="all"
+            sx={{ display: 'none' }}
             icon={<HugeiconsIcon icon={UserMultiple02Icon} size={17} />}
             iconPosition="start"
           />
@@ -812,7 +807,7 @@ export default function NursePatientListPage() {
                 fontSize: 13,
                 '& fieldset': { borderColor: '#e5e7eb' },
                 '&:hover fieldset': { borderColor: '#9ca3af' },
-                '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '1.5px' },
+                '&.Mui-focused fieldset': { borderColor: '#6366f1', borderWidth: '1.5px' },
               },
             }}
           />

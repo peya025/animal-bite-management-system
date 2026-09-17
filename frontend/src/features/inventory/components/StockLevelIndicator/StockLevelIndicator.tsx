@@ -11,6 +11,8 @@ import {
   LocalShipping as SupplierIcon,
   Vaccines as VialIcon,
   OpenInNew as DetailsIcon,
+  MoreHoriz as MoreIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import api from '../../../../services/api';
 import { daysUntil, formatDate } from '../../../../shared/utils';
@@ -134,7 +136,8 @@ function batchStatusVisual(batch: RawBatch) {
 interface StockLevelIndicatorProps {
   compact?: boolean;
   showLegend?: boolean;
-  variant?: 'cards' | 'strip';
+  collapsible?: boolean;
+  variant?: 'cards' | 'strip' | 'queue-list';
 }
 
 // ── Batch Details Modal ───────────────────────────────────────────────────────
@@ -192,8 +195,8 @@ function BatchDetailsModal({
       </DialogTitle>
 
       <DialogContent sx={{ px: 2.5, py: 2.5 }}>
-        {/* Patient capacity summary (multidose) */}
-        {item.doses_per_vial > 1 && (
+        {/* Patient capacity summary */}
+        {(
           <Box sx={{ mb: 2, px: 1.5, py: 1, borderRadius: '8px', bgcolor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff', border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #bfdbfe' }}>
             <Typography sx={{ fontSize: 12, fontWeight: 700, color: isDark ? '#93c5fd' : '#1d4ed8' }}>
               Combined patient capacity: ≈ {item.patient_capacity} patients
@@ -345,6 +348,7 @@ function BatchDetailsModal({
 export default function StockLevelIndicator({
   compact = false,
   showLegend = true,
+  collapsible = false,
   variant = 'cards',
 }: StockLevelIndicatorProps) {
   const theme = useTheme();
@@ -353,6 +357,7 @@ export default function StockLevelIndicator({
   const [loading, setLoading] = useState(true);
   // Which card's batch details are shown in the modal (null = closed)
   const [modalItem, setModalItem] = useState<VaccineStockSummary | null>(null);
+  const [isStripExpanded, setIsStripExpanded] = useState(!collapsible);
 
   const fetchStock = useCallback(async () => {
     try {
@@ -464,7 +469,109 @@ export default function StockLevelIndicator({
 
   if (loading && stockList.length === 0) return null;
 
+  const totalPatientCapacity = stockList.reduce((total, item) => total + item.patient_capacity, 0);
+
   // ── Strip variant (Queue Dashboard) — unchanged behaviour ────────────────
+  if (variant === 'queue-list') {
+    if (stockList.length === 0) return null;
+
+    return (
+      <>
+        <Box
+          sx={{
+            mb: 1.5,
+            border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #d1fae5',
+            borderRadius: 2.5,
+            bgcolor: isDark ? 'rgba(14, 24, 18, 0.9)' : '#ffffff',
+            overflow: 'hidden',
+            boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.4)' : '0 4px 14px rgba(16,185,129,0.06)',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+              px: 2, py: 1.1,
+              bgcolor: isDark ? 'rgba(16,185,129,0.08)' : '#f0fdf4',
+              borderBottom: isDark ? '1px solid rgba(163,230,53,0.12)' : '1px solid #d1fae5',
+            }}
+          >
+            <Box>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: isDark ? '#d1fae5' : '#065f46' }}>
+                Vaccine availability
+              </Typography>
+              <Typography sx={{ fontSize: 10.5, color: isDark ? '#94a3b8' : '#64748b', mt: 0.15 }}>
+                Select more details to check patient capacity, batches, and expiry.
+              </Typography>
+            </Box>
+            <Chip
+              label={`${stockList.length} type${stockList.length === 1 ? '' : 's'}`}
+              size="small"
+              sx={{ height: 21, fontSize: 10, fontWeight: 700, bgcolor: isDark ? 'rgba(16,185,129,0.14)' : '#dcfce7', color: isDark ? '#a7f3d0' : '#15803d' }}
+            />
+          </Box>
+
+          {stockList.map((item, idx) => {
+            const visual = evaluateStockLevelTier(item.total_stock, item.earliest_expiration, isDark);
+            return (
+              <Box
+                key={item.vaccine_type}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '34px minmax(0, 1fr) auto auto',
+                  alignItems: 'center',
+                  columnGap: { xs: 0.75, sm: 1.25 },
+                  px: { xs: 1.25, sm: 2 },
+                  py: 0.9,
+                  borderBottom: idx < stockList.length - 1 ? (isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #ecfdf5') : 'none',
+                  '&:hover': { bgcolor: isDark ? 'rgba(16,185,129,0.06)' : '#f8fffb' },
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 26, height: 26, display: 'grid', placeItems: 'center', borderRadius: 1.25,
+                    bgcolor: visual.badgeBg, color: visual.badgeColor, border: `1px solid ${visual.border}`,
+                    fontSize: 11, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {String(idx + 1).padStart(2, '0')}
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography noWrap sx={{ fontSize: 13, fontWeight: 700, color: isDark ? '#ffffff' : '#1e293b' }}>
+                    {item.vaccine_type}
+                  </Typography>
+                  <Typography noWrap sx={{ fontSize: 10.5, color: isDark ? '#94a3b8' : '#64748b', mt: 0.1 }}>
+                    {item.total_stock} sealed vial{item.total_stock === 1 ? '' : 's'} - {item.batch_count} batch{item.batch_count === 1 ? '' : 'es'}
+                  </Typography>
+                </Box>
+                <Chip
+                  label={visual.badgeLabel}
+                  size="small"
+                  sx={{ display: { xs: 'none', sm: 'inline-flex' }, height: 21, fontSize: 10, fontWeight: 700, bgcolor: visual.badgeBg, color: visual.badgeColor, border: `1px solid ${visual.border}`, borderRadius: 1 }}
+                />
+                <Tooltip title={`View ${item.vaccine_type} capacity and batch details`}>
+                  <IconButton
+                    size="small"
+                    aria-label={`View details for ${item.vaccine_type}`}
+                    onClick={() => setModalItem(item)}
+                    sx={{
+                      ml: { xs: 0, sm: 0.5 }, color: isDark ? '#a7f3d0' : '#047857',
+                      bgcolor: isDark ? 'rgba(16,185,129,0.12)' : '#ecfdf5',
+                      border: isDark ? '1px solid rgba(163,230,53,0.24)' : '1px solid #a7f3d0',
+                      '&:hover': { bgcolor: isDark ? 'rgba(16,185,129,0.22)' : '#d1fae5' },
+                    }}
+                  >
+                    <MoreIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            );
+          })}
+        </Box>
+        {modalItem && <BatchDetailsModal item={modalItem} onClose={() => setModalItem(null)} />}
+      </>
+    );
+  }
+
   if (variant === 'strip') {
     if (stockList.length === 0) return null;
 
@@ -479,6 +586,39 @@ export default function StockLevelIndicator({
           boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.4)' : '0 1px 2px rgba(0,0,0,0.02)',
         }}
       >
+        {collapsible && (
+          <Box
+            sx={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+              px: 2, py: 1,
+              bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : '#f0fdf4',
+              borderBottom: isStripExpanded ? (isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #d1fae5') : 'none',
+            }}
+          >
+            <Box>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: isDark ? '#d1fae5' : '#065f46' }}>
+                Vaccine availability
+              </Typography>
+              <Typography sx={{ fontSize: 10.5, color: isDark ? '#94a3b8' : '#64748b', mt: 0.15 }}>
+                Remaining doses can serve approximately <strong>{totalPatientCapacity} patient{totalPatientCapacity === 1 ? '' : 's'}</strong>.
+              </Typography>
+            </Box>
+            <Tooltip title={isStripExpanded ? 'Collapse vaccine availability' : 'Show vaccine availability'}>
+              <IconButton
+                size="small"
+                aria-label={isStripExpanded ? 'Collapse vaccine availability' : 'Show vaccine availability'}
+                aria-expanded={isStripExpanded}
+                onClick={() => setIsStripExpanded((expanded) => !expanded)}
+                sx={{ color: isDark ? '#a7f3d0' : '#047857', bgcolor: isDark ? 'rgba(16,185,129,0.12)' : '#ffffff', border: isDark ? '1px solid rgba(163,230,53,0.22)' : '1px solid #a7f3d0' }}
+              >
+                <ExpandMoreIcon sx={{ transition: 'transform 160ms ease', transform: isStripExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
+
+        {(!collapsible || isStripExpanded) && (
+          <>
         {stockList.map((item, idx) => {
           const visual = evaluateStockLevelTier(item.total_stock, item.earliest_expiration, isDark);
           return (
@@ -546,6 +686,8 @@ export default function StockLevelIndicator({
             </Box>
           );
         })}
+          </>
+        )}
       </Box>
     );
   }

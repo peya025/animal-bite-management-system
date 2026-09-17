@@ -152,22 +152,23 @@ export const AppStyleScope = styled('div')`
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .sd-dash-tab:hover {
-    color: #059669;
-    background: rgba(16, 185, 129, 0.12);
+    color: #0f172a;
+    background: #f1f5f9;
   }
   [data-theme='dark'] .sd-dash-tab:hover {
-    color: #a3e635;
-    background: rgba(163, 230, 53, 0.12);
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.08);
   }
   .sd-dash-tab--active {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: #0f172a;
     color: #ffffff !important;
-    font-weight: 700;
-    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.35);
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
   }
   [data-theme='dark'] .sd-dash-tab--active {
-    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
-    box-shadow: 0 0 14px rgba(16, 185, 129, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    background: #1e293b;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   }
   .sd-cards-grid {
     display: grid;
@@ -281,32 +282,32 @@ export const AppStyleScope = styled('div')`
   .sd-charts-bottom { grid-template-columns: 1fr 1fr; }
   
   .sd-chart-card {
-    background: radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%);
+    background: #ffffff;
     border-radius: 20px;
     padding: 20px 24px;
-    border: 1px solid rgba(16, 185, 129, 0.32);
-    box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95);
-    transition: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
   }
   [data-theme='dark'] .sd-chart-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border-glow);
-    box-shadow: var(--card-shadow);
+    background: #09160f;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    box-shadow: none;
   }
   .sd-chart-card:hover {
     transform: translateY(-2px);
-    border-color: rgba(16, 185, 129, 0.5);
-    box-shadow: 0 12px 28px -4px rgba(16, 185, 129, 0.22), 0 0 20px -2px rgba(132, 204, 22, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 1);
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   }
   [data-theme='dark'] .sd-chart-card:hover {
-    border-color: rgba(16, 185, 129, 0.65);
-    box-shadow: 0 14px 34px -5px rgba(0, 0, 0, 0.8), 0 0 28px -2px rgba(16, 185, 129, 0.35);
+    border-color: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
   }
 
   .sd-chart-title {
     font-size: 13.5px;
     font-weight: 700;
-    color: #064e3b;
+    color: #1e293b;
     margin: 0 0 16px;
     letter-spacing: -0.2px;
   }
@@ -331,25 +332,25 @@ export const AppStyleScope = styled('div')`
   .sd-donut-legend-pct { margin-left: auto; font-weight: 700; color: var(--text-h); padding-left: 12px; }
 
   .sd-filter-card {
-    background: radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%);
+    background: #ffffff;
     border-radius: 20px;
     padding: 18px 22px;
-    border: 1px solid rgba(16, 185, 129, 0.32);
-    box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     display: flex;
     flex-direction: column;
     gap: 0;
-    transition: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease;
   }
   [data-theme='dark'] .sd-filter-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border-glow);
-    box-shadow: var(--card-shadow);
+    background: #09160f;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    box-shadow: none;
   }
   .sd-filter-title {
     font-size: 13.5px;
     font-weight: 750;
-    color: #064e3b;
+    color: #1e293b;
     margin: 0 0 14px;
     letter-spacing: -0.2px;
   }
@@ -360,20 +361,20 @@ export const AppStyleScope = styled('div')`
   .sd-filter-label {
     font-size: 11px;
     font-weight: 700;
-    color: #047857;
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
   [data-theme='dark'] .sd-filter-label {
-    color: #a7f3d0;
+    color: #94a3b8;
   }
   .sd-filter-select {
     padding: 8px 12px;
-    border: 1px solid rgba(16, 185, 129, 0.28);
+    border: 1px solid #d1d5db;
     border-radius: 10px;
     font-size: 13px;
-    font-weight: 600;
-    color: #064e3b;
+    font-weight: 500;
+    color: #1e293b;
     background: #ffffff;
     cursor: pointer;
     font-family: inherit;
@@ -390,8 +391,8 @@ export const AppStyleScope = styled('div')`
   }
   .sd-filter-select:focus {
     outline: none;
-    border-color: #10b981;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
   }
   [data-theme='dark'] .sd-filter-select:focus {
     border-color: #10b981;
@@ -404,32 +405,31 @@ export const AppStyleScope = styled('div')`
     align-items: center;
     gap: 8px;
     padding: 8px 14px;
-    background: rgba(16, 185, 129, 0.08);
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     border-radius: 10px;
-    color: #059669;
+    color: #475569;
     font-size: 13px;
-    font-weight: 650;
+    font-weight: 600;
     cursor: pointer;
     font-family: inherit;
     transition: all 0.18s ease;
   }
   [data-theme='dark'] .sd-filter-link {
-    background: rgba(16, 185, 129, 0.1);
-    border-color: rgba(16, 185, 129, 0.3);
-    color: #34d399;
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
   }
   .sd-filter-link:hover {
-    background: #10b981;
-    border-color: #059669;
-    color: #ffffff;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #0f172a;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   }
   [data-theme='dark'] .sd-filter-link:hover {
-    background: #10b981;
-    border-color: #059669;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
     color: #ffffff;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45);
   }
 
   @media (max-width: 1200px) {

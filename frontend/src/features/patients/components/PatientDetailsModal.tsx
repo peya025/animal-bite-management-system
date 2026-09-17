@@ -25,6 +25,7 @@ interface PatientDetailsModalProps {
   onClose: () => void;
   onEdit?: (patient: Patient) => void;
   onPatientUpdated?: (patient: any) => void;
+  readOnly?: boolean;
 }
 
 // ── Read-only Banner ─────────────────────────────────────────────────────────
@@ -327,6 +328,7 @@ export default function PatientDetailsModal({
   onClose,
   onEdit,
   onPatientUpdated,
+  readOnly = false,
 }: PatientDetailsModalProps) {
   const [printing, setPrinting] = useState(false);
   const [activeTab, setActiveTab] = useState('form1');
@@ -472,7 +474,7 @@ export default function PatientDetailsModal({
         return (
           <Box sx={{ p: 3 }}>
             <ReadOnlyBanner />
-            <Form1InlineView patient={p} onEdit={() => setShowEditModal(true)} />
+            <Form1InlineView patient={p} onEdit={readOnly ? undefined : () => setShowEditModal(true)} />
           </Box>
         );
       case 'form2':
@@ -599,7 +601,7 @@ export default function PatientDetailsModal({
         {(() => {
           const isCompletedSeries = episodes.length > 0 && episodes.every((e: any) => e.status === 'completed');
           const hasActiveTreatment = episodes.some((e: any) => e.status === 'active' || e.status === 'in_progress');
-          const canCheckInNewBite = (isCompletedSeries || historySummary?.has_history) && !hasActiveTreatment;
+          const canCheckInNewBite = !readOnly && (isCompletedSeries || historySummary?.has_history) && !hasActiveTreatment;
 
           if (!canCheckInNewBite) {
             return <div />;

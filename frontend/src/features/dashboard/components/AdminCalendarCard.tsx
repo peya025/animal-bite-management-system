@@ -161,13 +161,13 @@ export const AdminCalendarCard: React.FC<AdminCalendarCardProps> = ({
       style={{
         background: isDark
           ? 'var(--card-bg)'
-          : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+          : '#ffffff',
         borderRadius: 20,
-        border: isDark ? '1px solid var(--border-glow)' : '1px solid rgba(16, 185, 129, 0.32)',
+        border: isDark ? '1px solid var(--border-glow)' : '1px solid #e2e8f0',
         padding: '18px 20px',
         boxShadow: isDark
           ? 'var(--card-shadow)'
-          : '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
+          : '0 1px 3px rgba(0, 0, 0, 0.05)',
         display: 'flex',
         flexDirection: 'column',
         height: '100%',

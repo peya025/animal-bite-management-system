@@ -125,8 +125,15 @@ export default function NursePatientListPage() {
       const response = await api.post(`/appointments/patient/${patient.patient_id}/check-in`);
       const msg = response.data?.message || 'Patient checked in successfully';
       toast(msg, 'success');
-      // Reload patients to reflect updated status
-      loadPatients();
+
+      // A confirmed appointment is now ready for vaccination. Move the nurse
+      // directly to the Due Today worklist so Form 3 is immediately available.
+      setPage(0);
+      if (tab === 'due_today' && page === 0) {
+        await loadPatients();
+      } else {
+        setTab('due_today');
+      }
     } catch (err: any) {
       toast(err.response?.data?.message || 'Failed to check in patient', 'error');
     } finally {

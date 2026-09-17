@@ -39,7 +39,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     }
     if (key === 'queue_priority_group') {
       const nextGroup = value as EnrolmentFormData['queue_priority_group'];
-      const forcedPriority = nextGroup === 'normal' ? enrolment.queue_priority_level : 'priority';
+      const forcedPriority = nextGroup === 'normal' ? 'normal' : 'priority';
       setEnrolment(prev => ({
         ...prev,
         queue_priority_group: nextGroup,
@@ -95,7 +95,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     if (isRegistrationStaff && !enrolment.queue_priority_group) {
       newFieldErrors.queue_priority_group = 'Queue category is required';
     }
-    if (isRegistrationStaff && !enrolment.queue_priority_level) {
+    if (isRegistrationStaff && enrolment.queue_priority_group !== 'normal' && !enrolment.queue_priority_level) {
       newFieldErrors.queue_priority_level = 'Priority is required';
     }
 

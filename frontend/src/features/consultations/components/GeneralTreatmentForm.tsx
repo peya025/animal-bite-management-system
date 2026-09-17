@@ -285,9 +285,7 @@ export default function GeneralTreatmentForm({
   const [savingAddendum, setSavingAddendum] = useState(false);
   const [addendumSuccess, setAddendumSuccess] = useState('');
 
-  // Track which checklist items are checked (separate from the editable text box)
   const [checkedDiagnoses, setCheckedDiagnoses] = useState<string[]>([]);
-  const [checkedMeds, setCheckedMeds] = useState<string[]>([]);
   const [checkedHistory, setCheckedHistory] = useState<string[]>([]);
 
   // Fetch available vaccine names + stock details for inline chip
@@ -430,7 +428,7 @@ export default function GeneralTreatmentForm({
       },
       chief_complaints: record.chief_complaints || '',
       diagnosis: diagText,
-      medication_treatment: medText,
+      medication_treatment: record.prescribed_vaccine_type || medText,
       prescribed_vaccine_type: record.prescribed_vaccine_type || '',
       name_of_provider: record.provider_name || currentUserName || prev.name_of_provider,
       name_of_attending_provider: record.attending_provider || '',
@@ -445,12 +443,7 @@ export default function GeneralTreatmentForm({
     const histText = asText(record.pertinent_history);
     setCheckedHistory(PERTINENT_HISTORY_OPTIONS.filter(h => histText.includes(h)));
 
-    if (!preserveEmptyMeds && vaccineNames.length > 0) {
-      const matchedMeds = vaccineNames.filter(v => medText.includes(v));
-      setCheckedMeds(matchedMeds);
-    } else {
-      setCheckedMeds([]);
-    }
+
   };
 
   useEffect(() => {
@@ -469,7 +462,6 @@ export default function GeneralTreatmentForm({
       medication_treatment: '',
     }));
     setCheckedDiagnoses([]);
-    setCheckedMeds([]);
     setCheckedHistory([]);
     setError('');
     setFieldErrors({});
@@ -608,25 +600,6 @@ export default function GeneralTreatmentForm({
     });
   };
 
-  // Toggle a medication checklist item → also add/remove from the text box
-  const toggleMed = (item: string) => {
-    const isChecked = checkedMeds.includes(item);
-    const next = isChecked
-      ? checkedMeds.filter(m => m !== item)
-      : [...checkedMeds, item];
-    setCheckedMeds(next);
-
-    setFormData(prev => {
-      const existingLines = prev.medication_treatment.split('\n').map(l => l.trim()).filter(Boolean);
-      let updated: string[];
-      if (isChecked) {
-        updated = existingLines.filter(l => l !== item);
-      } else {
-        updated = existingLines.includes(item) ? existingLines : [...existingLines, item];
-      }
-      return { ...prev, medication_treatment: updated.join('\n') };
-    });
-  };
 
   // Toggle a pertinent history checklist item → also add/remove from the text box
   const toggleHistory = (item: string) => {
@@ -1467,7 +1440,11 @@ export default function GeneralTreatmentForm({
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <select
               value={formData.prescribed_vaccine_type}
-              onChange={(e) => setFormData(prev => ({ ...prev, prescribed_vaccine_type: e.target.value }))}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                prescribed_vaccine_type: e.target.value,
+                medication_treatment: e.target.value,
+              }))}
               disabled={isFormDisabled}
               style={{
                 flex: 1,
@@ -1518,93 +1495,33 @@ export default function GeneralTreatmentForm({
           </div>
         </div>
 
-        {/* ── Medication / Treatment: Checklist (left) + Text Box (right) ── */}
+        {/* ── Medication / Treatment: automatically mirrors the prescribed vaccine ── */}
         <div style={{ marginBottom: 20 }}>
           <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
             Medication / Treatment
-            {checkedMeds.length > 0 && (
-              <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, background: '#eff6ff', color: '#1d4ed8', borderRadius: 99, padding: '2px 8px', border: '1px solid #bfdbfe' }}>
-                {checkedMeds.length} checked
-              </span>
-            )}
           </label>
           <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 8px 0' }}>
-            Check vaccines/medications from inventory — or type manually
+            Automatically populated from the Prescribed PEP Vaccine above.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {/* LEFT: Vaccine inventory checklist */}
-            <div style={{
-              border: '1px solid #d1d5db', borderRadius: 8,
-              maxHeight: 230, overflowY: 'auto',
-              backgroundColor: isFormDisabled ? '#f9fafb' : '#fff',
-            }}>
-              {vaccineNames.length === 0 ? (
-                <div style={{ padding: '12px 16px', fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>
-                  Loading vaccines from inventory…
-                </div>
-              ) : vaccineNames.map((vaccine, idx) => {
-                const isChecked = checkedMeds.includes(vaccine);
-                return (
-                  <label key={vaccine} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '7px 12px',
-                    borderBottom: idx < vaccineNames.length - 1 ? '1px solid #f3f4f6' : 'none',
-                    cursor: isFormDisabled ? 'default' : 'pointer',
-                    background: isChecked ? '#eff6ff' : 'transparent',
-                    transition: 'background 0.1s',
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => !isFormDisabled && toggleMed(vaccine)}
-                      disabled={isFormDisabled}
-                      style={{ accentColor: '#3b82f6', width: 14, height: 14, flexShrink: 0, cursor: isFormDisabled ? 'default' : 'pointer' }}
-                    />
-                    <span style={{ fontSize: 12.5, color: isChecked ? '#1d4ed8' : '#374151', fontWeight: isChecked ? 600 : 400, lineHeight: 1.3 }}>
-                      {vaccine}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-
-            {/* RIGHT: Auto-filled + manually editable text box */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ fontSize: 11, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M8 1v6H2" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="8" r="7" stroke="#9ca3af" strokeWidth="1.5"/></svg>
-                Auto-fills when checked · Editable
-              </div>
-              <textarea
-                value={formData.medication_treatment}
-                onChange={handleFieldChange('medication_treatment')}
-                disabled={isFormDisabled}
-                rows={9}
-                placeholder={isFormDisabled ? '—' : 'Checked vaccines appear here.\nYou can also type dosage, notes…'}
-                style={{
-                  width: '100%', flex: 1,
-                  padding: '10px 12px',
-                  border: isFormDisabled ? '1px solid #d1d5db' : '1.5px solid #bfdbfe',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  backgroundColor: isFormDisabled ? '#f9fafb' : '#eff6ff',
-                  color: isFormDisabled ? '#374151' : '#1d4ed8',
-                  lineHeight: 1.6,
-                  outline: 'none',
-                }}
-              />
-              {!isFormDisabled && (
-                <button
-                  type="button"
-                  onClick={() => { setCheckedMeds([]); setFormData(p => ({ ...p, medication_treatment: '' })); }}
-                  style={{ alignSelf: 'flex-start', fontSize: 11, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-          </div>
+          <input
+            type="text"
+            value={formData.medication_treatment}
+            readOnly
+            disabled
+            placeholder="No PEP vaccine prescribed"
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              border: '1.5px solid #bfdbfe',
+              borderRadius: 8,
+              fontSize: 13,
+              fontFamily: 'inherit',
+              backgroundColor: '#f9fafb',
+              color: formData.medication_treatment ? '#1d4ed8' : '#9ca3af',
+              lineHeight: 1.6,
+              cursor: 'not-allowed',
+            }}
+          />
         </div>
 
         {/* Provider + Lab */}

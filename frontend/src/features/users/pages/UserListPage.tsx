@@ -301,7 +301,7 @@ export default function UserListPage() {
     password: '',
     professional_license_no: '',
     signature_data: '',
-    signature_path: 'signatures/default_nurse_signature.png',
+    signature_path: '',
     is_active: true,
   });
   const [creating, setCreating] = useState(false);
@@ -435,7 +435,7 @@ export default function UserListPage() {
         password: '',
         professional_license_no: '',
         signature_data: '',
-        signature_path: 'signatures/default_nurse_signature.png',
+        signature_path: '',
         is_active: true,
       });
       setSuccessModal({
@@ -540,9 +540,8 @@ export default function UserListPage() {
     },
     {
       key: 'signature',
-      label: 'Digital Signature',
+      label: 'Digital Signature (Optional)',
       render: (u) => {
-        const isNurse = getUserWorkstationInfo(u).isNurse;
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {u.signature_path ? (
@@ -553,14 +552,12 @@ export default function UserListPage() {
                 title={u.signature_path}
                 sx={{ bgcolor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontSize: '11px', height: '22px', fontWeight: 600 }}
               />
-            ) : isNurse ? (
+            ) : (
               <Chip
                 size="small"
-                label="Missing"
-                sx={{ bgcolor: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', fontSize: '11px', height: '22px', fontWeight: 600 }}
+                label="Not on file · optional"
+                sx={{ bgcolor: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db', fontSize: '11px', height: '22px', fontWeight: 600 }}
               />
-            ) : (
-              <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>Not Required</Typography>
             )}
           </Box>
         );
@@ -1187,7 +1184,7 @@ export default function UserListPage() {
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <Alert severity="info" sx={{ fontSize: '13px' }}>
-                  A default digital signature will be assigned automatically for nursing staff.
+                  Digital signature is optional. The staff member and timestamp are retained in the administration audit trail; printed records may be signed by hand.
                 </Alert>
               </Grid>
             </Grid>

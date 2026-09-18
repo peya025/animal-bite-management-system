@@ -60,6 +60,8 @@ interface PepDose {
   appointment_id?: number;
   reminder_sent_count?: number;
   last_reminded_at?: string;
+  is_booster?: boolean;
+  episode_number?: number;
 }
 
 interface PatientJourney {
@@ -133,7 +135,7 @@ export default function VaccinationSchedulePage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState<'all' | 'walk_in' | 'online'>('all');
-  const [doseFilter, setDoseFilter] = useState<'all' | 'Day 0' | 'Day 3' | 'Day 7' | 'Booster 1' | 'Booster 2'>('all'); // 8.3
+  const [doseFilter, setDoseFilter] = useState<'all' | 'Day 0' | 'Day 3' | 'Day 7' | 'Booster' | 'Booster 1' | 'Booster 2'>('all'); // 8.3
 
   // Debounce search input by 300ms
   useEffect(() => {
@@ -674,6 +676,7 @@ export default function VaccinationSchedulePage() {
                 <MenuItem value="Day 0">Day 0 (Initial)</MenuItem>
                 <MenuItem value="Day 3">Day 3</MenuItem>
                 <MenuItem value="Day 7">Day 7</MenuItem>
+                <MenuItem value="Booster">Booster Doses</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -723,6 +726,9 @@ export default function VaccinationSchedulePage() {
             {patients
               .filter(patient => {
                 if (doseFilter === 'all') return true;
+                if (doseFilter === 'Booster') {
+                  return patient.doses?.some(d => d.is_booster || d.label.toLowerCase().includes('booster'));
+                }
                 // Map dose label to dose_number
                 const doseMap: Record<string, number> = { 'Day 0': 0, 'Day 3': 3, 'Day 7': 7, 'Booster 1': 90, 'Booster 2': 365 };
                 const targetNum = doseMap[doseFilter];
@@ -841,48 +847,91 @@ export default function VaccinationSchedulePage() {
                     >
                       {patient.doses
                         .filter(dose => dose.dose_number !== 28) // hide Day 28
-                        .map((dose) => {
+                        .map((dose, idx, arr) => {
                         const style = getDoseBadgeStyle(dose.status);
                         const IconComponent = style.icon;
+                        const isFirstBooster = dose.is_booster && (idx === 0 || !arr[idx - 1]?.is_booster);
+
+                        const tooltipText = dose.status === 'completed'
+                          ? `${dose.label} • Administered on ${dose.administered_date || 'N/A'}${dose.vaccine_brand ? ` • ${dose.vaccine_brand}` : ''}${dose.administered_by ? ` • Attended by: ${dose.administered_by}` : ''}`
+                          : dose.status === 'due_today'
+                          ? `${dose.label} • Expected injection today!`
+                          : dose.status === 'missed'
+                          ? `${dose.label} • Missed appointment`
+                          : dose.scheduled_date
+                          ? `${dose.label} • Scheduled for ${dose.scheduled_date}`
+                          : `${dose.label} • Pending`;
 
                         return (
-                          <Box
-                            key={`p-${patient.patient_id}-dose-${dose.dose_number}`}
-                            sx={{
-                              px: 1.5, py: 0.75,
-                              borderRadius: '8px',
-                              bgcolor: style.bg,
-                              border: `1px solid ${style.border}`,
-                              display: 'flex', alignItems: 'center', gap: 0.75,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            <Box sx={{ color: style.color, display: 'flex', alignItems: 'center' }}>
-                              <HugeiconsIcon icon={IconComponent} size={13} />
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" sx={{ fontWeight: 700, color: style.color, fontSize: '11px', display: 'block', lineHeight: 1.2 }}>
-                                {dose.label}
-                              </Typography>
-                              <Typography
-                                variant="caption"
+                          <Box key={`p-${patient.patient_id}-dose-${dose.dose_number}-${idx}`} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {isFirstBooster && (
+                              <Box
                                 sx={{
-                                  display: 'block',
-                                  fontSize: '10px',
-                                  color: style.color,
-                                  fontWeight: 600,
-                                  opacity: 0.85,
+                                  width: '1px',
+                                  height: 24,
+                                  bgcolor: isDark ? 'rgba(163, 230, 53, 0.4)' : '#cbd5e1',
+                                  mx: 0.25,
+                                }}
+                              />
+                            )}
+                            <Tooltip title={tooltipText} arrow>
+                              <Box
+                                sx={{
+                                  px: 1.5, py: 0.75,
+                                  borderRadius: '8px',
+                                  bgcolor: dose.is_booster && dose.status === 'completed' 
+                                    ? (isDark ? 'rgba(99, 102, 241, 0.2)' : '#f5f3ff') 
+                                    : style.bg,
+                                  border: dose.is_booster && dose.status === 'completed'
+                                    ? '1px solid #c4b5fd'
+                                    : `1px solid ${style.border}`,
+                                  display: 'flex', alignItems: 'center', gap: 0.75,
+                                  whiteSpace: 'nowrap',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                  '&:hover': {
+                                    transform: 'scale(1.03)',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                                  },
                                 }}
                               >
-                                {dose.status === 'completed'
-                                  ? dose.administered_date || 'Done'
-                                  : dose.status === 'due_today'
-                                  ? 'Due Today'
-                                : dose.status === 'missed'
-                                ? 'Missed'
-                                : dose.scheduled_date || 'Pending'}
-                              </Typography>
-                            </Box>
+                                <Box sx={{ color: dose.is_booster && dose.status === 'completed' ? '#6d28d9' : style.color, display: 'flex', alignItems: 'center' }}>
+                                  {dose.is_booster ? <span>🛡️</span> : <HugeiconsIcon icon={IconComponent} size={13} />}
+                                </Box>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      fontWeight: 700,
+                                      color: dose.is_booster && dose.status === 'completed' ? '#6d28d9' : style.color,
+                                      fontSize: '11px',
+                                      display: 'block',
+                                      lineHeight: 1.2,
+                                    }}
+                                  >
+                                    {dose.label}
+                                  </Typography>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      display: 'block',
+                                      fontSize: '10px',
+                                      color: dose.is_booster && dose.status === 'completed' ? '#7c3aed' : style.color,
+                                      fontWeight: 600,
+                                      opacity: 0.85,
+                                    }}
+                                  >
+                                    {dose.status === 'completed'
+                                      ? dose.administered_date || 'Done'
+                                      : dose.status === 'due_today'
+                                      ? 'Due Today'
+                                      : dose.status === 'missed'
+                                      ? 'Missed'
+                                      : dose.scheduled_date || 'Pending'}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Tooltip>
                           </Box>
                         );
                       })}

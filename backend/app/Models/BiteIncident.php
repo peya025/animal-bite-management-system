@@ -66,6 +66,12 @@ class BiteIncident extends Model
         return $this->episode_type === 'primary';
     }
 
+    public function isAwaitingAssessment(): bool
+    {
+        return $this->episode_type === 'pending_assessment'
+            || $this->status === 'awaiting_assessment';
+    }
+
     public function isTransferredOut(): bool
     {
         return $this->status === 'transferred_out' || !empty($this->transferred_to_facility);
@@ -149,6 +155,11 @@ class BiteIncident extends Model
     public function queues()
     {
         return $this->hasMany(Queue::class, 'bite_id', 'bite_id');
+    }
+
+    public function treatmentPlan()
+    {
+        return $this->hasOne(TreatmentPlan::class, 'bite_id', 'bite_id');
     }
 
     /**

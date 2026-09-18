@@ -141,7 +141,10 @@ class QueueController extends Controller
                     ->whereNull('deleted_at')
                     ->with([
                         'patient:' . $this->patientFields(),
-                        'biteIncident:bite_id,case_number,patient_id,exposure_type,severity,remarks,rig_decision_reason',
+                        // The Doctor form must receive the episode state. Without it a
+                        // newly registered exposure could look like an ordinary ticket.
+                        'biteIncident:bite_id,case_number,patient_id,episode_type,status,bite_date,exposure_type,severity,remarks,rig_decision_reason',
+                        'biteIncident.treatmentPlan:treatment_plan_id,bite_id,plan_type,status,ordered_dose_days',
                         'handledBy:id,name,role,professional_license_no',
                         'handledByUser:id,name,role,professional_license_no',
                         'servedBy:id,name,role,signature_path,professional_license_no',
@@ -567,8 +570,20 @@ class QueueController extends Controller
                 : null;
             $serviceSeconds = $servedAt ? now()->diffInSeconds($servedAt) : null;
 
+            $incidentPlan = $queue->bite_id
+                ? \App\Models\TreatmentPlan::where('clinic_id', $queue->clinic_id)
+                    ->where('bite_id', $queue->bite_id)
+                    ->first()
+                : null;
+            $isPendingExposure = $queue->biteIncident?->isAwaitingAssessment() ?? false;
+            if ($isPendingExposure && !$incidentPlan) {
+                return response()->json([
+                    'message' => 'Doctor treatment decision is required before this new exposure can be transferred to treatment.',
+                ], 422);
+            }
+
             $isTriageTransfer = in_array($request->user()->role, ['triage', 'doctor', 'admin'])
-                && in_array($queue->visit_type, ['new_case', 'follow_up', 'observation', 'consultation']);
+                && in_array($queue->visit_type, ['new_case', 'follow_up', 'observation', 'consultation', 'booster']);
 
             if ($isTriageTransfer) {
                 $transferNotes = collect([
@@ -763,18 +778,20 @@ class QueueController extends Controller
                 $visitType = 'vaccination';
             }
 
-            // Real-time Sync (Task 16.2): If patient has a scheduled booster appointment today, tag visit_type as booster
-            $hasBoosterToday = \App\Models\Appointment::where('patient_id', $request->patient_id)
-                ->where('status', 'scheduled')
-                ->where('appointment_type', 'booster')
-                ->where(function ($q) use ($todayDate) {
-                    $q->whereDate('scheduled_date', $todayDate)
-                      ->orWhereDate('appointment_date', $todayDate);
-                })
-                ->exists();
-
-            if ($hasBoosterToday) {
-                $visitType = 'booster';
+            // A booster request is a new clinical assessment, not a direct nurse
+            // appointment. Keep it in the Doctor queue until Form 2 approves the
+            // treatment; the approval transfer will then route its Day 0 dose to
+            // Station 1 just like any other newly assessed episode.
+            $isBoosterRequest = $visitType === 'booster';
+            if ($isBoosterRequest) {
+                $visitType = 'new_case';
+            }
+            $checkInNotes = $request->check_in_notes;
+            if ($isBoosterRequest) {
+                $checkInNotes = trim(implode(' | ', array_filter([
+                    $checkInNotes,
+                    'Booster request: Doctor assessment and Form 2 approval required before treatment.',
+                ])));
             }
 
             $queue = Queue::create([
@@ -789,7 +806,7 @@ class QueueController extends Controller
                 'status'         => 'waiting',
                 'checked_in_at'  => now(),
                 'checked_in_by'  => $request->user()->id,
-                'check_in_notes' => $request->check_in_notes,
+                'check_in_notes' => $checkInNotes,
                 'call_count'     => 0,
             ]);
 

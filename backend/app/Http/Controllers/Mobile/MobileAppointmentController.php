@@ -133,12 +133,11 @@ class MobileAppointmentController extends Controller
             ->wherePivotIn('status', ['pending', 'verified'])
             ->firstOrFail();
 
-        // Task & DOH Protocol Validation:
-        // A patient cannot book a booster if they have not completed the primary 3 doses (Days 0, 3, 7).
-        if ($validated['appointment_type'] === 'booster' && !$patient->has_completed_primary) {
+        // A booster is never self-scheduled. It is a new-exposure request and must
+        // be registered and assessed by a Doctor before Treatment receives an order.
+        if ($validated['appointment_type'] === 'booster') {
             return response()->json([
-                'message' => 'Booster doses are strictly for patients who have completed all 3 primary doses (Day 0, Day 3, Day 7). Since your primary vaccination series is incomplete, please book a Bite Consultation or regular vaccination appointment.',
-                'has_completed_primary' => false,
+                'message' => 'Please register this as a new bite or possible rabies exposure. A Doctor must assess it and issue any vaccine order before Treatment can schedule an injection.',
             ], 422);
         }
 

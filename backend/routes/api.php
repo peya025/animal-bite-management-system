@@ -235,6 +235,8 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::get('/', [BiteCaseController::class, 'index']); // All roles
         Route::get('/statistics', [BiteCaseController::class, 'statistics']); // All roles
         Route::get('/map-data', [BiteCaseController::class, 'getMapData']); // All roles - Map visualization
+        Route::post('/new-exposure', [BiteCaseController::class, 'registerNewExposure'])
+            ->middleware('role:admin,registration,triage,doctor');
         Route::get('/patient/{patientId}/episodes', [BiteCaseController::class, 'patientEpisodes']); // All roles
         Route::get('/{id}', [BiteCaseController::class, 'show']); // All roles
         Route::get('/{id}/vaccinations', [BiteCaseController::class, 'vaccinations']); // All roles

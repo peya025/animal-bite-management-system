@@ -635,7 +635,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
               PEP Regimen Date Drift Policy (When Ideal Date Falls on Closed Day)
             </Typography>
             <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
-              Post-Exposure Prophylaxis (Day 3, 7, 28, Boosters) ideal calendar dates falling on clinic closures will automatically resolve based on this policy.
+              Doctor-ordered PEP follow-up dates (such as Day 3 and Day 7) that fall on clinic closures will automatically resolve based on this policy.
             </Typography>
 
             <Paper variant="outlined" sx={{ p: 2.5, borderRadius: '10px', mb: 3 }}>

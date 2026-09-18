@@ -57,6 +57,10 @@ interface TreatmentFormData {
   };
   body_part_affected: {
     head_neck: boolean;
+    upper_extremities: boolean;
+    lower_extremities: boolean;
+    trunk_torso: boolean;
+    multiple_sites: boolean;
     other_parts: boolean;
     na_ingestion: boolean;
   };
@@ -291,6 +295,10 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   },
   body_part_affected: {
     head_neck: false,
+    upper_extremities: false,
+    lower_extremities: false,
+    trunk_torso: false,
+    multiple_sites: false,
     other_parts: false,
     na_ingestion: false,
   },
@@ -576,9 +584,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           handling_ingestion: mode === 'handling_ingestion_raw_meat',
         },
         body_part_affected: {
-          head_neck: bodyPart === 'head_neck',
-          other_parts: bodyPart === 'other_parts',
-          na_ingestion: bodyPart === 'na_ingestion',
+          head_neck:         bodyPart === 'head_neck',
+          upper_extremities: bodyPart === 'upper_extremities',
+          lower_extremities: bodyPart === 'lower_extremities',
+          trunk_torso:       bodyPart === 'trunk_torso',
+          multiple_sites:    bodyPart === 'multiple_sites',
+          other_parts:       bodyPart === 'other_parts',
+          na_ingestion:      bodyPart === 'na_ingestion',
         },
         body_part_affected_text: bodyPart === 'head_neck' ? 'Head and/or neck' : bodyPart === 'other_parts' ? 'Other parts of the body' : bodyPart === 'na_ingestion' ? 'N/A if Ingestion mode' : (bodyPart || ''),
         animal_type: animal.toLowerCase() === 'dog' ? 'dog' : animal.toLowerCase() === 'cat' ? 'cat' : animal ? 'other' : prev.animal_type,
@@ -1491,8 +1503,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.upper_extremities} 
+                  onChange={handleCheckboxChange('body_part_affected', 'upper_extremities')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -1501,8 +1513,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.lower_extremities} 
+                  onChange={handleCheckboxChange('body_part_affected', 'lower_extremities')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -1511,8 +1523,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.trunk_torso} 
+                  onChange={handleCheckboxChange('body_part_affected', 'trunk_torso')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -1521,8 +1533,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.multiple_sites} 
+                  onChange={handleCheckboxChange('body_part_affected', 'multiple_sites')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />

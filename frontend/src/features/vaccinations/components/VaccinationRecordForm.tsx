@@ -897,6 +897,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
+    const today = new Date().toISOString().split('T')[0];
 
     if (isPhilHealthMember && formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
       newFieldErrors.philhealth_pin = 'PhilHealth PIN must be exactly 12 digits.';
@@ -906,7 +907,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
     if (!formData.date_of_exposure) {
       newFieldErrors.date_of_exposure = 'Please enter Date of Exposure';
+    } else if (formData.date_of_exposure > today) {
+      newFieldErrors.date_of_exposure = 'Date of Exposure cannot be a future date.';
     }
+    if (formData.date_treatment_started && formData.date_treatment_started > today) {
+      newFieldErrors.date_treatment_started = 'Date Treatment Started cannot be a future date.';
+    }
+
+    // Validate dose dates — only check doses the nurse is actually submitting now
+    // (has vaccine_type + date set, not already completed).
+    // Scheduled future rows (Day 3, Day 7) without a vaccine type selected are skipped.
+    // NOTE: actual check happens below after filledDoses is computed
 
     setFieldErrors(newFieldErrors);
 
@@ -965,6 +976,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     });
     if (filledDoses.length === 0) {
       setError("Please select a Vaccine Type for today's dose before saving.");
+      return;
+    }
+
+    // Validate: doses being submitted now cannot have future dates
+    const futureDose = filledDoses.find(d => d.date && d.date > todayStr);
+    if (futureDose) {
+      setError(`${futureDose.period} administration date cannot be a future date.`);
       return;
     }
 
@@ -1068,7 +1086,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date</label>
-            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
+            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} max={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
@@ -1271,6 +1289,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               type="date" 
               value={formData.date_of_exposure} 
               onChange={handleFieldChange('date_of_exposure')} 
+              max={new Date().toISOString().split('T')[0]}
               disabled={readOnly} 
               style={{ 
                 width: '100%', 
@@ -1294,6 +1313,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               type="date" 
               value={formData.date_treatment_started} 
               onChange={handleFieldChange('date_treatment_started')} 
+              max={new Date().toISOString().split('T')[0]}
               disabled={readOnly} 
               style={{ 
                 width: '100%', 
@@ -1850,6 +1870,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         value={dose.date}
                         onChange={(e) => handleDoseChange(index, 'date', e.target.value)}
                         disabled={isLocked}
+                        max={isActiveFollowUp ? new Date().toISOString().split('T')[0] : undefined}
                         style={{
                           width: '100%',
                           padding: '6px 8px',

@@ -638,6 +638,11 @@ export default function GeneralTreatmentForm({
 
     const newFieldErrors: Record<string, string> = {};
 
+    // Validate: consultation date cannot be in the future
+    if (formData.date_of_consultation && formData.date_of_consultation > new Date().toISOString().split('T')[0]) {
+      newFieldErrors.date_of_consultation = 'Date of Consultation cannot be a future date.';
+    }
+
     if (!formData.nature_of_visit) {
       newFieldErrors.nature_of_visit = 'Please select Nature of Visit';
     }
@@ -662,8 +667,8 @@ export default function GeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints'];
+        ? ['date_of_consultation', 'nature_of_visit', 'chief_complaints']
+        : ['date_of_consultation', 'nature_of_visit', 'consultation_types', 'chief_complaints'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -1152,6 +1157,7 @@ export default function GeneralTreatmentForm({
               type="date"
               value={formData.date_of_consultation}
               onChange={handleFieldChange('date_of_consultation')}
+              max={new Date().toISOString().split('T')[0]}
               disabled={isFormDisabled}
               style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: isFormDisabled ? '#f9fafb' : undefined }}
             />

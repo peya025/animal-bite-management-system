@@ -82,6 +82,11 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       return;
     }
 
+    if (enrolment.date_of_birth > new Date().toISOString().split('T')[0]) {
+      setError('Date of Birth cannot be a future date.');
+      return;
+    }
+
     if (enrolment.contact_number && enrolment.contact_number.length !== 11) {
       setError('Contact number must be exactly 11 digits.');
       return;

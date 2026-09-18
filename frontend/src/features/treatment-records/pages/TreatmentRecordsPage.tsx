@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useTheme } from '@mui/material';
 import { formatPhilHealthNumber } from '../../../shared/utils';
 import { ConfirmationDialog } from '../../../components/feedback';
@@ -298,7 +298,7 @@ function TreatmentForm({ record: r, onChange, isDark = false }: FormProps) {
       {/* ── Header info ── */}
       <p style={sec}>Patient &amp; Registration Information</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', marginBottom: 18 }}>
-        <div><label style={lbl}>Date</label><input style={inp} type="date" value={r.date} onChange={e=>set('date',e.target.value)} /></div>
+        <div><label style={lbl}>Date</label><input style={inp} type="date" value={r.date} onChange={e=>set('date',e.target.value)} max={new Date().toISOString().split('T')[0]} /></div>
         <div><label style={lbl}>Registry No.</label><input style={inp} value={r.registryNo} onChange={e=>set('registryNo',e.target.value)} /></div>
         <div><label style={lbl}>Hospital No.</label><input style={inp} value={r.hospitalNo} onChange={e=>set('hospitalNo',e.target.value)} /></div>
         <div><label style={lbl}>Referred by</label><input style={inp} value={r.referredBy} onChange={e=>set('referredBy',e.target.value)} /></div>
@@ -314,7 +314,7 @@ function TreatmentForm({ record: r, onChange, isDark = false }: FormProps) {
         </div>
         <div style={{gridColumn:'1/-1'}}><label style={lbl}>Patient Name <span style={{color:'#ef4444'}}>*</span></label><input style={inp} value={r.patientName} onChange={e=>set('patientName',e.target.value)} placeholder="Last, First Middle" /></div>
         <div><label style={lbl}>Age</label><input style={inp} value={r.age} onChange={e=>set('age',e.target.value)} placeholder="e.g. 25" /></div>
-        <div><label style={lbl}>Date of Birth</label><input style={inp} type="date" value={r.dateOfBirth} onChange={e=>set('dateOfBirth',e.target.value)} /></div>
+        <div><label style={lbl}>Date of Birth</label><input style={inp} type="date" value={r.dateOfBirth} onChange={e=>set('dateOfBirth',e.target.value)} max={new Date().toISOString().split('T')[0]} /></div>
         <div style={{gridColumn:'1/-1'}}><label style={lbl}>Address</label><input style={inp} value={r.address} onChange={e=>set('address',e.target.value)} /></div>
         <div><label style={lbl}>Sex</label>
           <div style={{display:'flex',gap:16,paddingTop:6}}>
@@ -329,8 +329,8 @@ function TreatmentForm({ record: r, onChange, isDark = false }: FormProps) {
             ))}
           </div>
         </div>
-        <div><label style={lbl}>Date of Exposure</label><input style={inp} type="date" value={r.dateOfExposure} onChange={e=>set('dateOfExposure',e.target.value)} /></div>
-        <div><label style={lbl}>Date Treatment Started</label><input style={inp} type="date" value={r.dateTreatmentStarted} onChange={e=>set('dateTreatmentStarted',e.target.value)} /></div>
+        <div><label style={lbl}>Date of Exposure</label><input style={inp} type="date" value={r.dateOfExposure} onChange={e=>set('dateOfExposure',e.target.value)} max={new Date().toISOString().split('T')[0]} /></div>
+        <div><label style={lbl}>Date Treatment Started</label><input style={inp} type="date" value={r.dateTreatmentStarted} onChange={e=>set('dateTreatmentStarted',e.target.value)} max={new Date().toISOString().split('T')[0]} /></div>
         <div style={{gridColumn:'1/-1'}}><label style={lbl}>Place of Exposure</label><input style={inp} value={r.placeOfExposure} onChange={e=>set('placeOfExposure',e.target.value)} /></div>
       </div>
 
@@ -410,7 +410,7 @@ function TreatmentForm({ record: r, onChange, isDark = false }: FormProps) {
                     </div>
                   )}
                 </td>
-                <td style={{ padding:'6px 10px', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f0f0f0' }}><input style={{...inp,padding:'5px 8px',fontSize:12}} type="date" value={v.date} onChange={e=>vaxSet(i,'date',e.target.value)} /></td>
+                <td style={{ padding:'6px 10px', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f0f0f0' }}><input style={{...inp,padding:'5px 8px',fontSize:12}} type="date" value={v.date} onChange={e=>vaxSet(i,'date',e.target.value)} max={new Date().toISOString().split('T')[0]} /></td>
                 <td style={{ padding:'6px 10px', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f0f0f0' }}><input style={{...inp,padding:'5px 8px',fontSize:12}} value={v.givenBy} onChange={e=>vaxSet(i,'givenBy',e.target.value)} /></td>
                 <td style={{ padding:'6px 10px', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f0f0f0' }}><input style={{...inp,padding:'5px 8px',fontSize:12}} value={v.signature} onChange={e=>vaxSet(i,'signature',e.target.value)} /></td>
               </tr>
@@ -476,6 +476,14 @@ export default function TreatmentRecordsPage() {
       alert('PhilHealth PIN must be exactly 12 digits.');
       return;
     }
+    // Validate: past-only date fields
+    const today = new Date().toISOString().split('T')[0];
+    if (formData.date && formData.date > today) { alert('Card date cannot be a future date.'); return; }
+    if (formData.dateOfBirth && formData.dateOfBirth > today) { alert('Date of Birth cannot be a future date.'); return; }
+    if (formData.dateOfExposure && formData.dateOfExposure > today) { alert('Date of Exposure cannot be a future date.'); return; }
+    if (formData.dateTreatmentStarted && formData.dateTreatmentStarted > today) { alert('Date Treatment Started cannot be a future date.'); return; }
+    const futureDose = formData.vaccinations?.find((v: any) => v.date && v.date > today);
+    if (futureDose) { alert(`Dose date for "${futureDose.period || 'a dose'}" cannot be a future date.`); return; }
     const isEdit = Boolean(editRecord);
     if (editRecord) {
       saveRecords(records.map(r => r.id === editRecord.id ? { ...formData, id: editRecord.id, createdAt: editRecord.createdAt } : r));

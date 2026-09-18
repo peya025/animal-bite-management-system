@@ -185,10 +185,14 @@ class TreatmentRecordController extends Controller
 
         // Resolve active BiteIncident
         $activeBiteId = $request->get('bite_id');
+        $queueForEpisode = null;
         if (!$activeBiteId && !empty($validated['queue_id'])) {
-            $activeBiteId = Queue::where('clinic_id', $clinicId)
+            $queueForEpisode = Queue::where('clinic_id', $clinicId)
                 ->where('queue_id', $validated['queue_id'])
-                ->value('bite_id');
+                ->where('patient_id', $validated['patient_id'])
+                ->whereNull('deleted_at')
+                ->first();
+            $activeBiteId = $queueForEpisode?->bite_id;
         }
         $activeIncident = null;
         if ($activeBiteId) {
@@ -203,9 +207,40 @@ class TreatmentRecordController extends Controller
                 ->first();
         }
 
+        if (!$activeIncident && $queueForEpisode && $queueForEpisode->visit_type === 'new_case') {
+            // Older registration records were placed in the Doctor queue before
+            // an incident was created. Preserve that workflow by creating the
+            // primary episode at the first Form 2 save and linking this ticket.
+            $episodeNumber = (BiteIncident::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->max('episode_number') ?? 0) + 1;
+
+            $activeIncident = BiteIncident::create([
+                'clinic_id' => $clinicId,
+                'patient_id' => $validated['patient_id'],
+                'episode_number' => $episodeNumber,
+                'episode_type' => 'pending_assessment',
+                'is_previously_vaccinated' => false,
+                'bite_date' => $validated['new_bite_date'] ?? $validated['consultation_date'] ?? Carbon::today()->toDateString(),
+                'bite_place' => $validated['new_bite_place'] ?? null,
+                'site_washed' => $validated['new_site_washed'] ?? false,
+                'exposure_type' => $validated['new_exposure_type'] ?? 'bite',
+                'severity' => $validated['new_severity'] ?? 'moderate',
+                'animal_type' => $validated['new_animal_type'] ?? null,
+                'animal_status' => $validated['new_animal_status'] ?? 'unknown',
+                'site_number' => $validated['new_body_part'] ?? null,
+                'wound_description' => $validated['new_wound_description'] ?? null,
+                'status' => 'awaiting_assessment',
+                'remarks' => 'Primary episode created from Form 2 for a registration queue without a linked intake.',
+                'created_by' => $request->user()->id,
+            ]);
+
+            $queueForEpisode->update(['bite_id' => $activeIncident->bite_id]);
+        }
+
         if (!$activeIncident) {
             return response()->json([
-                'message' => 'Select the bite episode for this Form 2 assessment before saving.',
+                'message' => 'This queue ticket is not linked to a bite episode. Return to registration and record the exposure first.',
             ], 422);
         }
 

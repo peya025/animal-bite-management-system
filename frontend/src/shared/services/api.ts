@@ -27,11 +27,11 @@ api.interceptors.request.use(
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
       localStorage.removeItem('clinicData');
+      localStorage.removeItem(LAST_ACTIVITY_KEY);
       window.location.href = '/login?reason=idle-timeout';
       return Promise.reject(new Error('Clinical workstation session expired due to inactivity.'));
     }
     if (token) config.headers.Authorization = `Bearer ${token}`;
-    localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
     return config;
   },
   error => Promise.reject(error),
@@ -44,6 +44,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
+      localStorage.removeItem('clinicData');
+      localStorage.removeItem(LAST_ACTIVITY_KEY);
       window.location.href = '/login'; // Can't import ROUTES here — circular dep risk, literal is safe
     }
     return Promise.reject(error);

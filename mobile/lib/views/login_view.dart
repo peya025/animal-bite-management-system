@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../app/app_theme.dart';
 import '../app/app_routes.dart';
@@ -151,46 +152,53 @@ class _LoginViewState extends State<LoginView> {
     resetEmailController.dispose();
   }
 
-  void _showSocialAuthNotice(String providerName) {
-    showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.info_outline, color: AppColors.primary, size: 28),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '$providerName Sign-In Coming Soon',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.gray900),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$providerName authentication will be available in an upcoming mobile release. Please sign in with your email & password or SMS activation code.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: AppColors.gray600, height: 1.4),
-            ),
-            const SizedBox(height: 20),
-            PrimaryActionButton(
-              label: 'GOT IT',
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
-    );
+  // Tier 9 - Google OAuth SSO for mobile patients
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId: const String.fromEnvironment(
+      'GOOGLE_SERVER_CLIENT_ID',
+      defaultValue: '',
+    ),
+    scopes: ['email', 'profile'],
+  );
+
+  Future<void> _handleGoogleSignIn() async {
+    if (_isLoading) return;
+    setState(() { _isLoading = true; _errorMessage = null; });
+
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Google Sign-In failed: could not obtain ID token.';
+        });
+        return;
+      }
+
+      await api.googleLogin(idToken: idToken);
+
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);
+    } catch (error) {
+      if (mounted) {
+        final msg = error.toString().replaceFirst('Exception: ', '');
+        setState(() => _errorMessage =
+          (msg.contains('Unauthorized') || msg.contains('not registered'))
+            ? 'Access Restricted: ' + msg
+            : msg,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -347,7 +355,7 @@ class _LoginViewState extends State<LoginView> {
                       const SizedBox(height: 14),
                       SocialAuthButton(
                         provider: SocialAuthProvider.google,
-                        onPressed: _isLoading ? null : () => _showSocialAuthNotice('Google'),
+                        onPressed: _isLoading ? null : _handleGoogleSignIn,
                       ),
                       const SizedBox(height: 18),
                       OutlinedButton.icon(

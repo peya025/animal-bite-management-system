@@ -150,6 +150,12 @@ export default function ModuleConfigPage() {
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  // ── Tier 9: Google SSO configuration state ────────────────────────────
+  const [ssoEnabled,    setSsoEnabled]    = useState(false);
+  const [ssoRoles,      setSsoRoles]      = useState<string[]>(['admin', 'registration', 'triage', 'treatment']);
+  const [ssoDomain,     setSsoDomain]     = useState('');
+  const SSO_ALL_ROLES = ['admin', 'registration', 'triage', 'treatment'] as const;
+
   useEffect(() => {
     loadConfig();
   }, []);
@@ -171,6 +177,10 @@ export default function ModuleConfigPage() {
         'Triage & Assessment':       data.triage_section_enabled        ?? true,
         'Treatment & Vaccination':   data.treatment_section_enabled     ?? true,
       });
+      // Tier 9 — SSO settings
+      setSsoEnabled(data.google_sso_enabled ?? false);
+      setSsoRoles(data.google_sso_roles ?? ['admin', 'registration', 'triage', 'treatment']);
+      setSsoDomain(data.google_sso_domain ?? '');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load module configuration');
     } finally {
@@ -194,6 +204,10 @@ export default function ModuleConfigPage() {
         triage_section_enabled:        sectionEnabled['Triage & Assessment'],
         treatment_section_enabled:     sectionEnabled['Treatment & Vaccination'],
         field_rules: fieldRules as any,
+        // Tier 9 — SSO
+        google_sso_enabled: ssoEnabled,
+        google_sso_roles:   ssoRoles,
+        google_sso_domain:  ssoDomain.trim() || null,
       });
 
       setConfig(updatedConfig);
@@ -730,6 +744,83 @@ export default function ModuleConfigPage() {
                 </div>
               );
             })}
+            </div>
+          </div>
+
+          {/* ── Tier 9: Authentication & Single Sign-On Section Card ── */}
+          <div style={{ marginTop: '1.5rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden' }}>
+            {/* Card header */}
+            <div style={{ padding: '1rem 1.25rem', background: 'linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <div>
+                  <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.875rem' }}>Authentication & Single Sign-On</div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem', marginTop: 2 }}>Google OAuth 2.0 for clinical staff access</div>
+                </div>
+              </div>
+              {/* Master toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: ssoEnabled ? '#fff' : 'rgba(255,255,255,0.6)' }}>
+                  {ssoEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <input
+                    type="checkbox"
+                    checked={ssoEnabled}
+                    onChange={e => setSsoEnabled(e.target.checked)}
+                    style={{ width: 38, height: 22, appearance: 'none', background: ssoEnabled ? '#10b981' : 'rgba(255,255,255,0.3)', borderRadius: 11, cursor: 'pointer', transition: 'background 0.2s' }}
+                  />
+                  <span style={{ position: 'absolute', top: 2, left: ssoEnabled ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', pointerEvents: 'none' }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Card body */}
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', opacity: ssoEnabled ? 1 : 0.5, pointerEvents: ssoEnabled ? 'auto' : 'none' }}>
+              {/* Allowed roles */}
+              <div>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#334155', marginBottom: '0.5rem' }}>Allowed Staff Roles for Google Sign-In</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {(['admin','registration','triage','treatment'] as const).map(role => {
+                    const labels: Record<string,string> = { admin:'Administrator', registration:'Registration / Front Desk', triage:'Triage / Doctor', treatment:'Treatment Nurse' };
+                    const checked = ssoRoles.includes(role);
+                    return (
+                      <label key={role} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', padding: '0.3rem 0.75rem', border: `1.5px solid ${checked ? '#6366f1' : '#cbd5e1'}`, borderRadius: 8, cursor: 'pointer', background: checked ? '#f0f0ff' : '#f8fafc', fontSize: '0.8rem', fontWeight: checked ? 600 : 400, color: checked ? '#4338ca' : '#64748b' }}>
+                        <input type="checkbox" checked={checked} onChange={() => setSsoRoles(prev => checked ? prev.filter(r => r !== role) : [...prev, role])} style={{ accentColor: '#6366f1' }} />
+                        {labels[role]}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.4rem' }}>Only selected roles can use Google Sign-In. Unselected roles must use email & password.</p>
+              </div>
+
+              {/* Domain restriction */}
+              <div>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#334155', marginBottom: '0.4rem' }}>Restrict to Official Health Domain <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span></div>
+                <input
+                  type="text"
+                  value={ssoDomain}
+                  onChange={e => setSsoDomain(e.target.value)}
+                  placeholder="e.g. doh.gov.ph or rhu.tagoloan.gov.ph"
+                  style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: '0.8125rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+                <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.4rem' }}>Leave blank to allow any email domain. When set, only Google accounts ending in @{ssoDomain || 'your-domain.com'} are accepted.</p>
+              </div>
+
+              {/* Setup instructions */}
+              <div style={{ background: '#f8f8ff', border: '1px solid #c7d2fe', borderRadius: 8, padding: '0.75rem 1rem' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#4338ca', marginBottom: '0.4rem' }}>📋 Setup Checklist</div>
+                <ol style={{ paddingLeft: '1.25rem', margin: 0, fontSize: '0.78rem', color: '#4338ca', lineHeight: 1.7 }}>
+                  <li>Go to Google Cloud Console → APIs &amp; Services → Credentials</li>
+                  <li>Create an OAuth 2.0 Web Application Client ID</li>
+                  <li>Add <code>http://localhost:5173</code> to Authorized JavaScript Origins</li>
+                  <li>Set <code>GOOGLE_CLIENT_ID</code> in <code>backend/.env</code> and <code>VITE_GOOGLE_CLIENT_ID</code> in <code>frontend/.env</code></li>
+                  <li>Run <code>php artisan migrate</code> to create the <code>google_id</code> columns</li>
+                </ol>
+              </div>
             </div>
           </div>
 

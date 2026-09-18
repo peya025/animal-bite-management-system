@@ -135,6 +135,19 @@ class MobileApi {
     await _setToken(data['token'] as String, persist: remember);
   }
 
+  /// Tier 9 — Google OAuth SSO for mobile patients
+  /// Sends the Google ID Token to the backend for verification and account
+  /// lookup / auto-provisioning. Stores the Sanctum token on success.
+  Future<void> googleLogin({required String idToken}) async {
+    final data = await _send(
+      'POST',
+      '/auth/google',
+      body: {'credential': idToken},
+    );
+    // Backend returns 200 (existing) or 201 (newly provisioned)
+    await _setToken(data['token'] as String, persist: true);
+  }
+
   Future<void> logout() async {
     if (_token != null) await _send('POST', '/logout');
     _token = null;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles';
 import api from '../../../shared/services/api';
 import { ROUTES } from '../../../shared/config/routes';
 import DashboardLayout from '../../../components/Layout/DashboardLayout';
@@ -295,10 +296,10 @@ export function SimpleDashboardPage() {
 
   return (
     <DashboardLayout pageTitle="Dashboard">
-      <div className="sd-dash-header">
+      <div className="sd-dash-header" style={{ marginTop: '4px', marginBottom: '14px' }}>
         <div>
-          <h1>Animal Bite Treatment Center</h1>
-          <p>Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+          <h1 style={{ margin: '0 0 3px 0', fontSize: '22px', lineHeight: 1.25 }}>Animal Bite Treatment Center</h1>
+          <p style={{ margin: 0, fontSize: '12px' }}>Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
         </div>
         <div className="sd-dash-tabs">
           <button
@@ -329,9 +330,9 @@ export function SimpleDashboardPage() {
             style={{
               display: 'grid',
               gridTemplateColumns: 'minmax(280px, 340px) 1fr',
-              gap: '16px',
-              marginBottom: '20px',
-              alignItems: 'start',
+              gap: '14px',
+              marginBottom: '16px',
+              alignItems: 'stretch',
             }}
             className="sd-top-arrangement"
           >
@@ -349,7 +350,9 @@ export function SimpleDashboardPage() {
                         style={{
                           marginBottom: 0,
                           gridTemplateColumns: 'repeat(4, 1fr)',
+                          gridTemplateRows: 'repeat(2, 1fr)',
                           gap: '14px',
+                          height: '100%',
                         }}
                       >
                         <SdCard color="purple"  label="Total Patients"      value={stats.totalPatients.toString()} sub="Registered" />
@@ -369,7 +372,7 @@ export function SimpleDashboardPage() {
                           display: 'grid',
                           gridTemplateColumns: 'repeat(3, 1fr)',
                           gap: '14px',
-                          alignSelf: 'start',
+                          height: '100%',
                         }}
                       >
                         <SdCard color="purple"  label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" />
@@ -384,7 +387,9 @@ export function SimpleDashboardPage() {
                         style={{
                           marginBottom: 0,
                           gridTemplateColumns: 'repeat(3, 1fr)',
+                          gridTemplateRows: 'repeat(2, 1fr)',
                           gap: '14px',
+                          height: '100%',
                         }}
                       >
                         <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
@@ -402,7 +407,9 @@ export function SimpleDashboardPage() {
                         style={{
                           marginBottom: 0,
                           gridTemplateColumns: 'repeat(2, 1fr)',
+                          gridTemplateRows: 'repeat(2, 1fr)',
                           gap: '14px',
+                          height: '100%',
                         }}
                       >
                         <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
@@ -418,7 +425,9 @@ export function SimpleDashboardPage() {
                         style={{
                           marginBottom: 0,
                           gridTemplateColumns: 'repeat(2, 1fr)',
+                          gridTemplateRows: 'repeat(2, 1fr)',
                           gap: '14px',
+                          height: '100%',
                         }}
                       >
                         <SdCard color="purple"  label="Total Patients"      value={stats.totalPatients.toString()} sub="Registered" />
@@ -887,6 +896,8 @@ export function SimpleDashboardPage() {
 }
 
 function SdCalendar() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [currentDate, setCurrentDate] = useState(new Date());
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -925,6 +936,7 @@ function SdCalendar() {
         minHeight: '260px',
         borderRadius: '20px',
         padding: '20px 22px',
+        justifyContent: 'space-between',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
@@ -935,15 +947,25 @@ function SdCalendar() {
           <button
             onClick={prevMonth}
             style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
+              background: isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc',
+              border: isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid #e2e8f0',
               borderRadius: '8px',
               padding: '4px 10px',
               cursor: 'pointer',
-              color: '#475569',
+              color: isDark ? '#a7f3d0' : '#475569',
               fontSize: '13px',
               fontWeight: 700,
               transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.12)';
+              (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#ffffff' : '#047857';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = isDark ? 'rgba(52, 211, 153, 0.6)' : 'rgba(16, 185, 129, 0.4)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc';
+              (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#a7f3d0' : '#475569';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid #e2e8f0';
             }}
           >
             ‹
@@ -951,15 +973,25 @@ function SdCalendar() {
           <button
             onClick={nextMonth}
             style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
+              background: isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc',
+              border: isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid #e2e8f0',
               borderRadius: '8px',
               padding: '4px 10px',
               cursor: 'pointer',
-              color: '#475569',
+              color: isDark ? '#a7f3d0' : '#475569',
               fontSize: '13px',
               fontWeight: 700,
               transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.12)';
+              (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#ffffff' : '#047857';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = isDark ? 'rgba(52, 211, 153, 0.6)' : 'rgba(16, 185, 129, 0.4)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc';
+              (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#a7f3d0' : '#475569';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid #e2e8f0';
             }}
           >
             ›
@@ -985,11 +1017,35 @@ function SdCalendar() {
               fontSize: '12.5px',
               borderRadius: '10px',
               color: item.isToday ? '#ffffff' : item.isCurrent ? 'var(--text-h)' : 'var(--text-secondary)',
-              opacity: item.isCurrent ? 1 : 0.45,
-              background: item.isToday ? '#0f172a' : 'transparent',
+              opacity: item.isCurrent ? 1 : 0.4,
+              background: item.isToday ? '#10b981' : 'transparent',
               fontWeight: item.isToday ? 700 : 500,
-              boxShadow: item.isToday ? '0 2px 6px rgba(15, 23, 42, 0.2)' : 'none',
-              border: item.isToday ? '1px solid #0f172a' : '1px solid transparent',
+              boxShadow: item.isToday ? '0 2px 8px rgba(16,185,129,0.4)' : 'none',
+              border: item.isToday ? '1px solid #10b981' : '1px solid transparent',
+              cursor: item.isCurrent ? 'pointer' : 'default',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={e => {
+              if (!item.isToday && item.isCurrent) {
+                if (isDark) {
+                  (e.currentTarget as HTMLDivElement).style.background = 'rgba(16, 185, 129, 0.32)';
+                  (e.currentTarget as HTMLDivElement).style.color = '#ffffff';
+                  (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(52, 211, 153, 0.65)';
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.4)';
+                } else {
+                  (e.currentTarget as HTMLDivElement).style.background = 'rgba(16, 185, 129, 0.15)';
+                  (e.currentTarget as HTMLDivElement).style.color = '#047857';
+                  (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(16, 185, 129, 0.35)';
+                }
+              }
+            }}
+            onMouseLeave={e => {
+              if (!item.isToday && item.isCurrent) {
+                (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+                (e.currentTarget as HTMLDivElement).style.color = 'var(--text-h)';
+                (e.currentTarget as HTMLDivElement).style.borderColor = 'transparent';
+                (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+              }
             }}
           >
             {item.day}
@@ -1002,7 +1058,7 @@ function SdCalendar() {
 
 function SdCard({ color, label, value, sub }: { color: string; label: string; value: string; sub: string }) {
   return (
-    <div className={`sd-card sd-card--${color}`}>
+    <div className={`sd-card sd-card--${color}`} style={{ height: '100%', boxSizing: 'border-box' }}>
       <p className="sd-card-label">{label}</p>
       <p className="sd-card-value">{value}</p>
       <p className="sd-card-sub">{sub}</p>

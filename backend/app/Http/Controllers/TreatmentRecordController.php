@@ -156,7 +156,18 @@ class TreatmentRecordController extends Controller
             'patient_id' => 'required|exists:patients,patient_id',
             'queue_id' => 'nullable|exists:queues,queue_id',
             'bite_id' => 'nullable|exists:bite_incidents,bite_id',
-            'treatment_plan' => 'nullable|in:full_pep,single_booster,continue_existing_schedule,no_vaccine',
+            'treatment_plan' => 'nullable|in:full_pep,single_booster,two_dose_booster,continue_existing_schedule,no_vaccine',
+
+            // Optional New Bite Incident updates from Doctor Form 2
+            'new_bite_date' => 'nullable|date',
+            'new_bite_place' => 'nullable|string|max:255',
+            'new_exposure_type' => 'nullable|in:bite,scratch,lick,other',
+            'new_severity' => 'nullable|in:minor,moderate,severe',
+            'new_animal_type' => 'nullable|string|max:100',
+            'new_animal_status' => 'nullable|in:owned,stray,unknown',
+            'new_site_washed' => 'nullable|boolean',
+            'new_body_part' => 'nullable|string|max:255',
+            'new_wound_description' => 'nullable|string',
             
             // General Consultation Fields (NEW Form 2)
             'consultation_date' => 'nullable|date',
@@ -298,6 +309,7 @@ class TreatmentRecordController extends Controller
             $orderedDoseDays = match ($planType) {
                 'full_pep' => [0, 3, 7],
                 'single_booster' => [0],
+                'two_dose_booster' => [0, 3],
                 default => [],
             };
 
@@ -315,10 +327,22 @@ class TreatmentRecordController extends Controller
                 ]
             );
 
-            $activeIncident->update([
-                'episode_type' => $planType === 'single_booster' ? 're_exposure' : 'primary',
+            $incidentUpdates = [
+                'episode_type' => in_array($planType, ['single_booster', 'two_dose_booster'], true) ? 're_exposure' : 'primary',
                 'status' => $planType === 'no_vaccine' ? 'completed' : 'active',
-            ]);
+            ];
+
+            if (!empty($validated['new_bite_date'])) $incidentUpdates['bite_date'] = $validated['new_bite_date'];
+            if (!empty($validated['new_bite_place'])) $incidentUpdates['bite_place'] = $validated['new_bite_place'];
+            if (!empty($validated['new_exposure_type'])) $incidentUpdates['exposure_type'] = $validated['new_exposure_type'];
+            if (!empty($validated['new_severity'])) $incidentUpdates['severity'] = $validated['new_severity'];
+            if (!empty($validated['new_animal_type'])) $incidentUpdates['animal_type'] = $validated['new_animal_type'];
+            if (!empty($validated['new_animal_status'])) $incidentUpdates['animal_status'] = $validated['new_animal_status'];
+            if (isset($validated['new_site_washed'])) $incidentUpdates['site_washed'] = (bool) $validated['new_site_washed'];
+            if (!empty($validated['new_body_part'])) $incidentUpdates['site_number'] = $validated['new_body_part'];
+            if (!empty($validated['new_wound_description'])) $incidentUpdates['wound_description'] = $validated['new_wound_description'];
+
+            $activeIncident->update($incidentUpdates);
         }
 
         $todayQueue = null;

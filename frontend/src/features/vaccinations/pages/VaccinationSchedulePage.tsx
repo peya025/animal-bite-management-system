@@ -60,6 +60,8 @@ interface PepDose {
   appointment_id?: number;
   reminder_sent_count?: number;
   last_reminded_at?: string;
+  is_booster?: boolean;
+  episode_number?: number;
 }
 
 interface PatientJourney {
@@ -133,7 +135,7 @@ export default function VaccinationSchedulePage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState<'all' | 'walk_in' | 'online'>('all');
-  const [doseFilter, setDoseFilter] = useState<'all' | 'Day 0' | 'Day 3' | 'Day 7' | 'Booster 1' | 'Booster 2'>('all'); // 8.3
+  const [doseFilter, setDoseFilter] = useState<'all' | 'Day 0' | 'Day 3' | 'Day 7' | 'Booster' | 'Booster 1' | 'Booster 2'>('all'); // 8.3
 
   // Debounce search input by 300ms
   useEffect(() => {
@@ -324,20 +326,50 @@ export default function VaccinationSchedulePage() {
   const getDoseBadgeStyle = (status: PepDose['status']) => {
     switch (status) {
       case 'completed':
-        return { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0', icon: CheckmarkCircle02Icon, label: 'Completed' };
+        return {
+          bg: isDark ? 'rgba(16, 185, 129, 0.18)' : '#ecfdf5',
+          color: isDark ? '#34d399' : '#047857',
+          border: isDark ? 'rgba(16, 185, 129, 0.4)' : '#a7f3d0',
+          icon: CheckmarkCircle02Icon,
+          label: 'Completed',
+        };
       case 'due_today':
-        return { bg: '#fef3c7', color: '#92400e', border: '#fde68a', icon: Clock01Icon, label: 'Due Today' };
+        return {
+          bg: isDark ? 'rgba(245, 158, 11, 0.18)' : '#fef3c7',
+          color: isDark ? '#fbbf24' : '#92400e',
+          border: isDark ? 'rgba(245, 158, 11, 0.4)' : '#fde68a',
+          icon: Clock01Icon,
+          label: 'Due Today',
+        };
       case 'missed':
-        return { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', icon: AlertCircleIcon, label: 'Missed' };
+        return {
+          bg: isDark ? 'rgba(239, 68, 68, 0.18)' : '#fef2f2',
+          color: isDark ? '#f87171' : '#b91c1c',
+          border: isDark ? 'rgba(239, 68, 68, 0.4)' : '#fecaca',
+          icon: AlertCircleIcon,
+          label: 'Missed',
+        };
       case 'scheduled':
-        return { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', icon: Calendar03Icon, label: 'Scheduled' };
+        return {
+          bg: isDark ? 'rgba(59, 130, 246, 0.18)' : '#eff6ff',
+          color: isDark ? '#60a5fa' : '#1d4ed8',
+          border: isDark ? 'rgba(59, 130, 246, 0.4)' : '#bfdbfe',
+          icon: Calendar03Icon,
+          label: 'Scheduled',
+        };
       default:
-        return { bg: '#f8fafc', color: '#94a3b8', border: '#e2e8f0', icon: Clock01Icon, label: 'Pending' };
+        return {
+          bg: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc',
+          color: isDark ? '#94a3b8' : '#94a3b8',
+          border: isDark ? 'rgba(255, 255, 255, 0.12)' : '#e2e8f0',
+          icon: Clock01Icon,
+          label: 'Pending',
+        };
     }
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: isDark ? 'transparent' : '#f8fafc', minHeight: '100vh' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -357,10 +389,10 @@ export default function VaccinationSchedulePage() {
             <HugeiconsIcon icon={Medicine01Icon} size={24} />
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.02em', fontFamily: "'Poppins', sans-serif" }}>
               Vaccination & Regimen Center
             </Typography>
-            <Typography variant="body2" sx={{ color: '#64748b', fontSize: '13px' }}>
+            <Typography variant="body2" sx={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '13px', fontFamily: "'Poppins', sans-serif" }}>
               Post-Exposure Prophylaxis (PEP) journey tracking, channel filtration, and multi-channel recall alerts
             </Typography>
           </Box>
@@ -381,13 +413,13 @@ export default function VaccinationSchedulePage() {
                 borderRadius: '8px',
                 px: 1.5,
                 py: 0.75,
-                bgcolor: '#f0fdf4',
-                borderColor: '#bbf7d0',
-                color: '#166534',
+                bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
+                borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : '#bbf7d0',
+                color: isDark ? '#34d399' : '#166534',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 0.75,
-                '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
+                '&:hover': { bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#dcfce7', borderColor: isDark ? '#34d399' : '#86efac' },
               }}
             >
               <HugeiconsIcon icon={FlashIcon} size={16} />
@@ -590,7 +622,7 @@ export default function VaccinationSchedulePage() {
       </Box>
 
       {/* Filters & Search Bar — 8.3: Status dropdown + Dose dropdown + Search */}
-      <Paper sx={{ p: 2, borderRadius: '14px', border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)', mb: 3 }}>
+      <Paper sx={{ p: 2, borderRadius: '14px', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)', mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
 
           {/* Left: Status + Channel + Dose dropdowns */}
@@ -602,7 +634,7 @@ export default function VaccinationSchedulePage() {
                 value={activeTab}
                 onChange={(e) => { handleTabChange(e.target.value as any); }}
                 sx={{ borderRadius: '8px', fontSize: '13px', fontWeight: 600, bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? 'rgba(163, 230, 53, 0.3)' : '#a7f3d0' } }}
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : '#a7f3d0' } }}
                 renderValue={(val) => {
                   const labels: Record<string, string> = {
                     matrix: `All Patients (${kpi.total_patients})`,
@@ -644,6 +676,7 @@ export default function VaccinationSchedulePage() {
                 <MenuItem value="Day 0">Day 0 (Initial)</MenuItem>
                 <MenuItem value="Day 3">Day 3</MenuItem>
                 <MenuItem value="Day 7">Day 7</MenuItem>
+                <MenuItem value="Booster">Booster Doses</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -670,13 +703,13 @@ export default function VaccinationSchedulePage() {
 
       {/* Patient Stepper Matrix List */}
       {loading ? (
-        <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '12px', border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)' }}>
+        <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '12px', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)' }}>
           <Typography variant="body1" sx={{ color: isDark ? '#94a3b8' : '#64748b' }}>
             Loading PEP Journey Stepper Matrix...
           </Typography>
         </Paper>
       ) : patients.length === 0 ? (
-        <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '12px', border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)' }}>
+        <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '12px', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)' }}>
           <Box sx={{ color: '#cbd5e1', mb: 1, display: 'flex', justifyContent: 'center' }}>
             <HugeiconsIcon icon={Medicine01Icon} size={48} />
           </Box>
@@ -688,11 +721,14 @@ export default function VaccinationSchedulePage() {
           </Typography>
         </Paper>
       ) : (
-        <Paper sx={{ p: 2, borderRadius: '14px', border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)' }}>
+        <Paper sx={{ p: 2, borderRadius: '14px', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)' }}>
           <Stack spacing={2}>
             {patients
               .filter(patient => {
                 if (doseFilter === 'all') return true;
+                if (doseFilter === 'Booster') {
+                  return patient.doses?.some(d => d.is_booster || d.label.toLowerCase().includes('booster'));
+                }
                 // Map dose label to dose_number
                 const doseMap: Record<string, number> = { 'Day 0': 0, 'Day 3': 3, 'Day 7': 7, 'Booster 1': 90, 'Booster 2': 365 };
                 const targetNum = doseMap[doseFilter];
@@ -710,8 +746,8 @@ export default function VaccinationSchedulePage() {
                     p: 2.5,
                     borderRadius: '12px',
                     border: '1px solid',
-                    borderColor: isMissed ? '#fca5a5' : isDueToday ? '#fde047' : isDark ? 'rgba(163, 230, 53, 0.25)' : '#e2e8f0',
-                    bgcolor: isMissed ? (isDark ? 'rgba(239, 68, 68, 0.1)' : '#fffdfd') : (isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)'),
+                    borderColor: isMissed ? '#fca5a5' : isDueToday ? '#fde047' : isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0',
+                    bgcolor: isMissed ? (isDark ? 'rgba(239, 68, 68, 0.12)' : '#fffdfd') : (isDark ? '#0b131f' : 'var(--card-bg-solid, #fff)'),
                     boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                     transition: 'all 0.15s ease',
                     '&:hover': {
@@ -798,7 +834,7 @@ export default function VaccinationSchedulePage() {
                       sx={{
                         display: 'flex',
                         gap: 1,
-                        bgcolor: isDark ? '#121c15' : '#f8fafc',
+                        bgcolor: isDark ? '#111827' : '#f8fafc',
                         p: '8px 10px',
                         borderRadius: '10px',
                         border: isDark ? '1px solid rgba(163, 230, 53, 0.2)' : '1px solid #e2e8f0',
@@ -811,48 +847,91 @@ export default function VaccinationSchedulePage() {
                     >
                       {patient.doses
                         .filter(dose => dose.dose_number !== 28) // hide Day 28
-                        .map((dose) => {
+                        .map((dose, idx, arr) => {
                         const style = getDoseBadgeStyle(dose.status);
                         const IconComponent = style.icon;
+                        const isFirstBooster = dose.is_booster && (idx === 0 || !arr[idx - 1]?.is_booster);
+
+                        const tooltipText = dose.status === 'completed'
+                          ? `${dose.label} • Administered on ${dose.administered_date || 'N/A'}${dose.vaccine_brand ? ` • ${dose.vaccine_brand}` : ''}${dose.administered_by ? ` • Attended by: ${dose.administered_by}` : ''}`
+                          : dose.status === 'due_today'
+                          ? `${dose.label} • Expected injection today!`
+                          : dose.status === 'missed'
+                          ? `${dose.label} • Missed appointment`
+                          : dose.scheduled_date
+                          ? `${dose.label} • Scheduled for ${dose.scheduled_date}`
+                          : `${dose.label} • Pending`;
 
                         return (
-                          <Box
-                            key={`p-${patient.patient_id}-dose-${dose.dose_number}`}
-                            sx={{
-                              px: 1.5, py: 0.75,
-                              borderRadius: '8px',
-                              bgcolor: style.bg,
-                              border: `1px solid ${style.border}`,
-                              display: 'flex', alignItems: 'center', gap: 0.75,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            <Box sx={{ color: style.color, display: 'flex', alignItems: 'center' }}>
-                              <HugeiconsIcon icon={IconComponent} size={13} />
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" sx={{ fontWeight: 700, color: style.color, fontSize: '11px', display: 'block', lineHeight: 1.2 }}>
-                                {dose.label}
-                              </Typography>
-                              <Typography
-                                variant="caption"
+                          <Box key={`p-${patient.patient_id}-dose-${dose.dose_number}-${idx}`} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {isFirstBooster && (
+                              <Box
                                 sx={{
-                                  display: 'block',
-                                  fontSize: '10px',
-                                  color: style.color,
-                                  fontWeight: 600,
-                                  opacity: 0.85,
+                                  width: '1px',
+                                  height: 24,
+                                  bgcolor: isDark ? 'rgba(163, 230, 53, 0.4)' : '#cbd5e1',
+                                  mx: 0.25,
+                                }}
+                              />
+                            )}
+                            <Tooltip title={tooltipText} arrow>
+                              <Box
+                                sx={{
+                                  px: 1.5, py: 0.75,
+                                  borderRadius: '8px',
+                                  bgcolor: dose.is_booster && dose.status === 'completed' 
+                                    ? (isDark ? 'rgba(99, 102, 241, 0.2)' : '#f5f3ff') 
+                                    : style.bg,
+                                  border: dose.is_booster && dose.status === 'completed'
+                                    ? '1px solid #c4b5fd'
+                                    : `1px solid ${style.border}`,
+                                  display: 'flex', alignItems: 'center', gap: 0.75,
+                                  whiteSpace: 'nowrap',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                  '&:hover': {
+                                    transform: 'scale(1.03)',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                                  },
                                 }}
                               >
-                                {dose.status === 'completed'
-                                  ? dose.administered_date || 'Done'
-                                  : dose.status === 'due_today'
-                                  ? 'Due Today'
-                                : dose.status === 'missed'
-                                ? 'Missed'
-                                : dose.scheduled_date || 'Pending'}
-                              </Typography>
-                            </Box>
+                                <Box sx={{ color: dose.is_booster && dose.status === 'completed' ? '#6d28d9' : style.color, display: 'flex', alignItems: 'center' }}>
+                                  {dose.is_booster ? <span>🛡️</span> : <HugeiconsIcon icon={IconComponent} size={13} />}
+                                </Box>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      fontWeight: 700,
+                                      color: dose.is_booster && dose.status === 'completed' ? '#6d28d9' : style.color,
+                                      fontSize: '11px',
+                                      display: 'block',
+                                      lineHeight: 1.2,
+                                    }}
+                                  >
+                                    {dose.label}
+                                  </Typography>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      display: 'block',
+                                      fontSize: '10px',
+                                      color: dose.is_booster && dose.status === 'completed' ? '#7c3aed' : style.color,
+                                      fontWeight: 600,
+                                      opacity: 0.85,
+                                    }}
+                                  >
+                                    {dose.status === 'completed'
+                                      ? dose.administered_date || 'Done'
+                                      : dose.status === 'due_today'
+                                      ? 'Due Today'
+                                      : dose.status === 'missed'
+                                      ? 'Missed'
+                                      : dose.scheduled_date || 'Pending'}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Tooltip>
                           </Box>
                         );
                       })}
@@ -918,13 +997,13 @@ export default function VaccinationSchedulePage() {
                             py: 0.5,
                             px: 1.25,
                             borderRadius: '6px',
-                            borderColor: '#bbf7d0',
-                            color: '#166534',
-                            bgcolor: '#f0fdf4',
+                            borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : '#bbf7d0',
+                            color: isDark ? '#34d399' : '#166534',
+                            bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
                             display: 'flex',
                             alignItems: 'center',
                             gap: 0.5,
-                            '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
+                            '&:hover': { bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#dcfce7', borderColor: isDark ? '#34d399' : '#86efac' },
                           }}
                         >
                           <HugeiconsIcon icon={Medicine01Icon} size={14} />
@@ -945,9 +1024,9 @@ export default function VaccinationSchedulePage() {
                               fontWeight: 600,
                               py: 0.5,
                               px: 0.75,
-                              color: '#64748b',
+                              color: isDark ? '#94a3b8' : '#64748b',
                               minWidth: 'auto',
-                              '&:hover': { bgcolor: '#f1f5f9', color: '#1e293b' },
+                              '&:hover': { bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9', color: isDark ? '#ffffff' : '#1e293b' },
                             }}
                           >
                             Card

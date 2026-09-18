@@ -8,6 +8,7 @@ import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import { TablePaginator } from '../../../components/data-display';
 import api from '../../../shared/services/api';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -37,7 +38,7 @@ export default function PatientList() {
   const [search,               setSearch]               = useState('');
   const [searchTerm,           setSearchTerm]           = useState(''); // Debounced search term
   const [page,                 setPage]                 = useState(1);
-  const [totalPages,           setTotalPages]           = useState(1);
+  const [,                     setTotalPages]           = useState(1);
   const [total,                setTotal]                = useState(0);
   const [perPage, setPerPage] = useState(15);
   const [membershipFilter, setMembershipFilter] = useState('all');
@@ -533,16 +534,7 @@ export default function PatientList() {
 
           {/* Controls */}
           <div className="pm-controls">
-            <div className="pm-show-entries">
-              <span>Show</span>
-              <select className="pm-entries-select" value={perPage} onChange={e => setPerPage(Number(e.target.value))}>
-                <option value={15}>15</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-              <span>entries</span>
-            </div>
-            <div className="pm-controls-right">
+            <div className="pm-controls-right" style={{ width: '100%', justifyContent: 'flex-end' }}>
               <div className="pm-membership-filter-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>Program:</span>
                 <select
@@ -694,7 +686,7 @@ export default function PatientList() {
                     const statusInfo = getLiveStatus(p);
                     const isOnline = isOnlinePatient(p);
                     const activeQueue = (p as any).queues?.[0];
-                    const latestRecord = p.latest_treatment_record;
+                    const latestRecord = (p as any).latest_treatment_record;
                     const hasDosesAdministered = Boolean(latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined);
                     const hasCompletedTriage = Boolean(
                       (p as any).bite_incidents?.length ||
@@ -704,7 +696,7 @@ export default function PatientList() {
                     const latestIncident = (p as any).bite_incidents?.[0] || (p as any).biteIncidents?.[0];
                     const hasPendingAppointments = Boolean(
                       (p as any).appointments?.some((a: any) => a.status === 'scheduled') ||
-                      p.upcomingAppointment
+                      (p as any).upcomingAppointment
                     );
                     const hasActiveIncident = latestIncident && (latestIncident.status === 'active' || latestIncident.status === 'in_progress');
                     const isOngoingTreatment = hasActiveIncident || hasPendingAppointments || (hasDosesAdministered && latestRecord.dose_number < 28);
@@ -869,45 +861,19 @@ export default function PatientList() {
                 </tbody>
               </table>
             )}
+            {!loading && !error && (
+              <TablePaginator
+                count={total}
+                page={page - 1}
+                rowsPerPage={perPage}
+                onPageChange={(p) => setPage(p + 1)}
+                onRowsPerPageChange={(r) => {
+                  setPerPage(r);
+                  setPage(1);
+                }}
+              />
+            )}
           </div>
-
-          {/* Pagination */}
-          {!loading && !error && totalPages > 1 && (
-            <div className="pm-pagination">
-              <span className="pm-page-info">Page {page} of {totalPages} ({total} total)</span>
-              <div className="pm-page-btns">
-                <button className="pm-page-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>← Prev</button>
-                {(() => {
-                  const pageButtons = [];
-                  const maxButtons = Math.min(5, totalPages);
-                  
-                  // Calculate start page to show centered around current page
-                  let startPage = Math.max(1, page - Math.floor(maxButtons / 2));
-                  const endPage = Math.min(totalPages, startPage + maxButtons - 1);
-                  
-                  // Adjust start if we're near the end
-                  if (endPage - startPage + 1 < maxButtons) {
-                    startPage = Math.max(1, endPage - maxButtons + 1);
-                  }
-                  
-                  for (let pg = startPage; pg <= endPage; pg++) {
-                    pageButtons.push(
-                      <button 
-                        key={`page-btn-${pg}`} 
-                        className={`pm-page-btn ${pg === page ? 'pm-page-btn--active' : ''}`} 
-                        onClick={() => setPage(pg)}
-                      >
-                        {pg}
-                      </button>
-                    );
-                  }
-                  
-                  return pageButtons;
-                })()}
-                <button className="pm-page-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next →</button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── Stat cards ── */}

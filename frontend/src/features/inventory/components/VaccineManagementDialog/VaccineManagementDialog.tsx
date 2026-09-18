@@ -25,7 +25,7 @@ interface VaccineManagementDialogProps {
 // ─── Main Component ───────────────────────────────────────────
 export default function VaccineManagementDialog({
   open,
-  patientId,
+  patientId: _patientId,
   treatmentId,
   onClose,
   onVaccineUsed,

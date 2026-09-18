@@ -25,16 +25,21 @@ const COLOR_MAP: Record<string, keyof typeof COLORS> = {
 };
 
 const COLORS: Record<string, { stroke: string; track: string; glow: string; text: string }> = {
-  primary: { stroke: '#10b981', track: 'rgba(16, 185, 129, 0.16)', glow: 'rgba(16, 185, 129, 0.4)', text: '#34d399' },
-  success: { stroke: '#10b981', track: 'rgba(16, 185, 129, 0.16)', glow: 'rgba(16, 185, 129, 0.4)', text: '#34d399' },
-  info:    { stroke: '#38bdf8', track: 'rgba(56, 189, 248, 0.16)', glow: 'rgba(56, 189, 248, 0.4)', text: '#7dd3fc' },
-  warning: { stroke: '#fbbf24', track: 'rgba(251, 191, 36, 0.16)', glow: 'rgba(251, 191, 36, 0.4)', text: '#fde68a' },
-  error:   { stroke: '#f87171', track: 'rgba(248, 113, 113, 0.16)', glow: 'rgba(248, 113, 113, 0.4)', text: '#fca5a5' },
-  purple:  { stroke: '#a78bfa', track: 'rgba(167, 139, 250, 0.16)', glow: 'rgba(167, 139, 250, 0.4)', text: '#c4b5fd' },
+  primary: { stroke: '#00e5a0', track: 'rgba(0, 229, 160, 0.14)', glow: 'rgba(0, 229, 160, 0.55)', text: '#00e5a0' },
+  success: { stroke: '#00e5a0', track: 'rgba(0, 229, 160, 0.14)', glow: 'rgba(0, 229, 160, 0.55)', text: '#00e5a0' },
+  info:    { stroke: '#38bdf8', track: 'rgba(56, 189, 248, 0.14)', glow: 'rgba(56, 189, 248, 0.55)', text: '#7dd3fc' },
+  warning: { stroke: '#fbbf24', track: 'rgba(251, 191, 36, 0.14)', glow: 'rgba(251, 191, 36, 0.55)', text: '#fde68a' },
+  error:   { stroke: '#f87171', track: 'rgba(248, 113, 113, 0.14)', glow: 'rgba(248, 113, 113, 0.55)', text: '#fca5a5' },
+  purple:  { stroke: '#a78bfa', track: 'rgba(167, 139, 250, 0.14)', glow: 'rgba(167, 139, 250, 0.55)', text: '#c4b5fd' },
 };
 
-const RADIUS = 25;
+// Ring dimensions — larger to match reference image
+const SIZE         = 84;
+const RADIUS       = 34;
+const STROKE_W     = 6;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const CX = SIZE / 2;
+const CY = SIZE / 2;
 
 export default function StatCard({
   label,
@@ -78,59 +83,87 @@ export default function StatCard({
       elevation={0}
       sx={{
         borderRadius: '20px',
-        p: '16px 14px',
+        p: '18px 14px 14px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 1.25,
-        minHeight: 128,
+        justifyContent: 'center',
+        gap: 1.5,
+        minHeight: 148,
         position: 'relative',
         overflow: 'hidden',
         cursor: 'default',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         ...(isDark
           ? {
-              background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
-              border: '1px solid rgba(163, 230, 53, 0.3)',
-              boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12)',
+              background: 'linear-gradient(145deg, #0d1f13 0%, #091610 55%, #060f0b 100%)',
+              border: '1.5px solid rgba(0, 229, 160, 0.28)',
+              boxShadow: `
+                0 0 0 1px rgba(0, 229, 160, 0.06),
+                0 8px 32px -4px rgba(0, 0, 0, 0.75),
+                0 0 30px -8px ${c.glow}
+              `,
               '&:hover': {
-                transform: 'translateY(-3px)',
-                borderColor: 'rgba(163, 230, 53, 0.55)',
-                boxShadow: `0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)`,
+                transform: 'translateY(-4px)',
+                borderColor: 'rgba(0, 229, 160, 0.55)',
+                boxShadow: `
+                  0 0 0 1px rgba(0, 229, 160, 0.12),
+                  0 14px 42px -4px rgba(0, 0, 0, 0.85),
+                  0 0 45px -6px ${c.glow}
+                `,
               },
             }
           : {
               background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.32)',
-              boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12)',
+              border: '1.5px solid rgba(16, 185, 129, 0.30)',
+              boxShadow: '0 6px 24px -4px rgba(16, 185, 129, 0.15), inset 0 1px 2px rgba(255,255,255,0.9)',
               '&:hover': {
-                transform: 'translateY(-3px)',
+                transform: 'translateY(-4px)',
                 borderColor: 'rgba(16, 185, 129, 0.55)',
-                boxShadow: `0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)`,
+                boxShadow: '0 12px 30px -4px rgba(16, 185, 129, 0.25)',
               },
             }),
       }}
     >
-      {/* Donut chart meter */}
-      <Box sx={{ position: 'relative', width: 62, height: 62, mt: 0.25 }}>
-        <svg width="62" height="62" viewBox="0 0 62 62" fill="none">
-          <circle cx="31" cy="31" r={RADIUS} stroke={isDark ? c.track : 'rgba(16, 185, 129, 0.15)'} strokeWidth="5.5" />
+      {/* ── Donut ring + value ───────────────────────────────── */}
+      <Box sx={{ position: 'relative', width: SIZE, height: SIZE }}>
+        <svg
+          width={SIZE}
+          height={SIZE}
+          viewBox={`0 0 ${SIZE} ${SIZE}`}
+          fill="none"
+          style={{ display: 'block' }}
+        >
+          {/* Track circle */}
+          <circle
+            cx={CX}
+            cy={CY}
+            r={RADIUS}
+            stroke={isDark ? c.track : 'rgba(16, 185, 129, 0.13)'}
+            strokeWidth={STROKE_W}
+          />
+          {/* Filled arc */}
           {!loading && (
             <circle
-              cx="31"
-              cy="31"
+              cx={CX}
+              cy={CY}
               r={RADIUS}
-              stroke={c.stroke}
-              strokeWidth="5.5"
+              stroke={isDark ? c.stroke : '#10b981'}
+              strokeWidth={STROKE_W}
               strokeDasharray={dashArray}
-              strokeDashoffset={CIRCUMFERENCE * 0.25}
               strokeLinecap="round"
-              transform="rotate(-90 31 31)"
-              style={{ filter: isDark ? `drop-shadow(0 0 6px ${c.glow})` : `drop-shadow(0 0 4px rgba(16, 185, 129, 0.35))` }}
+              transform={`rotate(-90 ${CX} ${CY})`}
+              style={{
+                filter: isDark
+                  ? `drop-shadow(0 0 9px ${c.glow}) drop-shadow(0 0 3px ${c.stroke})`
+                  : 'drop-shadow(0 0 5px rgba(16, 185, 129, 0.45))',
+                transition: 'stroke-dasharray 0.6s ease',
+              }}
             />
           )}
         </svg>
+
+        {/* Centre value */}
         <Box
           sx={{
             position: 'absolute',
@@ -141,17 +174,23 @@ export default function StatCard({
           }}
         >
           {loading ? (
-            <Skeleton width={24} height={20} sx={{ bgcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }} />
+            <Skeleton
+              width={28}
+              height={22}
+              sx={{ bgcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }}
+            />
           ) : (
             <Typography
               sx={{
-                fontSize: 15,
-                fontWeight: 800,
+                fontSize: String(value).length > 4 ? 13 : 18,
+                fontWeight: 900,
                 color: isDark ? '#ffffff' : '#064e3b',
                 lineHeight: 1,
-                letterSpacing: '-0.3px',
+                letterSpacing: '-0.5px',
                 fontFamily: "'Poppins', sans-serif",
-                textShadow: isDark ? '0 1px 3px rgba(0,0,0,0.5)' : 'none',
+                textShadow: isDark
+                  ? `0 0 14px rgba(0,229,160,0.35), 0 1px 4px rgba(0,0,0,0.6)`
+                  : 'none',
               }}
             >
               {value}
@@ -160,18 +199,19 @@ export default function StatCard({
         </Box>
       </Box>
 
-      {/* Label */}
+      {/* ── Label ────────────────────────────────────────────── */}
       <Box sx={{ textAlign: 'center', width: '100%' }}>
         <Typography
           sx={{
-            fontSize: 11,
-            color: isDark ? '#a7f3d0' : '#047857',
+            fontSize: 10.5,
+            color: isDark ? c.text : '#047857',
             textAlign: 'center',
             lineHeight: 1.3,
             fontWeight: 700,
-            letterSpacing: '0.04em',
+            letterSpacing: '0.06em',
             textTransform: 'uppercase',
             fontFamily: "'Poppins', sans-serif",
+            textShadow: isDark ? `0 0 10px ${c.glow}` : 'none',
           }}
         >
           {label}
@@ -180,9 +220,10 @@ export default function StatCard({
           <Typography
             sx={{
               fontSize: 10,
-              color: isDark ? 'rgba(167, 243, 208, 0.7)' : '#6b7280',
+              color: isDark ? 'rgba(0, 229, 160, 0.6)' : '#6b7280',
               mt: 0.25,
               fontWeight: 500,
+              fontFamily: "'Poppins', sans-serif",
             }}
           >
             {subtitle}

@@ -22,6 +22,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
 import {
   ErrorOutlined as HighRiskIcon,
@@ -105,6 +106,8 @@ const filterSx = {
 
 // ─── Main Component ───────────────────────────────────────────
 export default function BiteCaseRiskDashboard() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
   const location = useLocation();
   const isBiteMap = location.pathname.includes('/map');
@@ -398,7 +401,7 @@ export default function BiteCaseRiskDashboard() {
               mb: '7px',
             }}
           >
-            {isBiteMap ? 'Bite Risk Map & Location Surveillance' : 'Bite Case Risk Dashboard'}
+            {isBiteMap ? 'Bite Risk Map & Location Surveillance' : 'Bite Case Risk'}
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
             {isBiteMap
@@ -461,8 +464,8 @@ export default function BiteCaseRiskDashboard() {
       </Box>
 
       {/* ── Standard Table Container (Filter + Table Together) ── */}
-      <Paper elevation={0} sx={{ border: '1px solid var(--card-border)', borderRadius: 2, overflow: 'hidden', bgcolor: 'var(--card-bg)' }}>
-        <Box sx={{ p: 2, borderBottom: '1px solid var(--table-row-border)', bgcolor: 'var(--card-bg)' }}>
+      <Paper elevation={0} sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}>
+        <Box sx={{ p: 2, borderBottom: isDark ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid var(--table-row-border, #e2e8f0)', bgcolor: isDark ? '#111827' : '#ffffff' }}>
           <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <TextField fullWidth size="small" placeholder="Search case number or patient…"
@@ -500,7 +503,7 @@ export default function BiteCaseRiskDashboard() {
             <Grid size={{ xs: 12, sm: 4, md: 2 }}>
               <Button fullWidth variant="outlined" size="small"
                 onClick={() => { setSearch(''); setSeverity(''); setStatus(''); setPage(0); }}
-                sx={{ borderRadius: 1.5, borderColor: 'var(--input-border)', color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 500, fontSize: 13, py: '8px', bgcolor: 'var(--input-bg)', '&:hover': { borderColor: 'var(--text-secondary)', bgcolor: 'var(--bg-hover)' } }}>
+                sx={{ borderRadius: 1.5, borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : 'var(--input-border)', color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 500, fontSize: 13, py: '8px', bgcolor: 'var(--input-bg)', '&:hover': { borderColor: '#10b981', bgcolor: 'var(--bg-hover)' } }}>
                 Clear
               </Button>
             </Grid>
@@ -510,7 +513,7 @@ export default function BiteCaseRiskDashboard() {
         {tab === 'map' ? (
           <>
             {/* Risk legend */}
-            <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid var(--table-row-border)', bgcolor: 'var(--table-header-bg)', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ px: 2.5, py: 1.5, borderBottom: isDark ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid var(--table-row-border, #e2e8f0)', bgcolor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'var(--table-header-bg, #f8fafc)', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
               <Typography sx={{ fontSize: 13, fontWeight: 500, color: 'var(--text-h)', mr: 1 }}>Risk Score Guide:</Typography>
               {Object.entries(RISK_CFG).map(([key, cfg]) => (
                 <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -523,13 +526,20 @@ export default function BiteCaseRiskDashboard() {
             </Box>
             <DataTable
               columns={riskColumns}
-              rows={locationRisks}
+              rows={locationRisks.slice(page * rowsPerPage, (page + 1) * rowsPerPage)}
               loading={loading}
-              skeletonRows={8}
+              skeletonRows={rowsPerPage}
               rowKey={r => r.place}
               emptyIcon={<LocationIcon sx={{ fontSize: 36, color: '#d1d5db' }} />}
               emptyTitle="No location data available"
               emptySubtitle="Bite cases with a recorded location will appear here"
+            />
+            <TablePager
+              count={locationRisks.length}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={setPage}
+              onRowsPerPageChange={n => { setRowsPerPage(n); setPage(0); }}
             />
           </>
         ) : (

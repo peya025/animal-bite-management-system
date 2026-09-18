@@ -1,6 +1,6 @@
 import {
   Box, Button, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Typography,
+  TableContainer, TableHead, TableRow, Typography, useTheme,
 } from '@mui/material';
 import type { ReactNode } from 'react';
 import Loader from '../Loader';
@@ -79,6 +79,8 @@ export default function DataTable<T>({
   emptyState,
   minWidth = 600,
 }: DataTableProps<T>) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const rows = rowsProp ?? dataProp ?? [];
 
   const getKey = (row: T, index: number) => {
@@ -90,23 +92,33 @@ export default function DataTable<T>({
   };
 
   return (
-    <TableContainer sx={{ bgcolor: 'var(--card-bg)' }}>
+    <TableContainer sx={{ bgcolor: 'transparent', borderRadius: 0 }}>
       <Table sx={{ minWidth }}>
 
         {/* ── Header ── */}
         <TableHead>
-          <TableRow sx={{ bgcolor: 'var(--table-header-bg)', borderBottom: '1px solid var(--table-border)' }}>
+          <TableRow
+            sx={{
+              bgcolor: isDark ? 'transparent' : 'var(--table-header-bg, #f8fafc)',
+              borderBottom: isDark ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid var(--table-border, #e2e8f0)',
+            }}
+          >
             {columns.map(col => (
               <TableCell
                 key={col.key}
                 align={col.align ?? 'left'}
                 width={col.width}
                 sx={{
-                  fontWeight: 500,
-                  color: 'var(--text-h)',
-                  fontSize: 13,
-                  py: 1.6,
+                  fontFamily: "'Poppins', sans-serif !important",
+                  fontWeight: 700,
+                  color: isDark ? '#a7f3d0' : '#475569',
+                  fontSize: 12,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  py: 1.75,
+                  px: 2,
                   border: 'none',
+                  borderBottom: isDark ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid var(--table-border, #e2e8f0)',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -134,18 +146,18 @@ export default function DataTable<T>({
                   <>
                     {emptyIcon && (
                       <Box sx={{
-                        width: 80, height: 80, borderRadius: 3, bgcolor: 'var(--bg-secondary)',
+                        width: 80, height: 80, borderRadius: 3, bgcolor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'var(--bg-secondary)',
                         mx: 'auto', mb: 2.5,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         {emptyIcon}
                       </Box>
                     )}
-                    <Typography sx={{ fontWeight: 600, fontSize: 15, color: 'var(--text-h)', mb: 0.5 }}>
+                    <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600, fontSize: 15, color: 'var(--text-h)', mb: 0.5 }}>
                       {emptyTitle}
                     </Typography>
                     {emptySubtitle && (
-                      <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', mb: emptyAction ? 2 : 0 }}>
+                      <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, color: 'var(--text-secondary)', mb: emptyAction ? 2 : 0 }}>
                         {emptySubtitle}
                       </Typography>
                     )}
@@ -158,6 +170,7 @@ export default function DataTable<T>({
                           mt: emptySubtitle ? 0 : 2,
                           bgcolor: '#10b981',
                           textTransform: 'none',
+                          fontFamily: "'Poppins', sans-serif",
                           fontWeight: 600,
                           fontSize: 13,
                           py: 1,
@@ -180,11 +193,11 @@ export default function DataTable<T>({
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 sx={{
                   bgcolor: rowBg
-                    ? (rowBg(row) ?? (idx % 2 === 1 ? 'var(--bg-secondary)' : 'var(--card-bg)'))
-                    : (idx % 2 === 1 ? 'var(--bg-secondary)' : 'var(--card-bg)'),
+                    ? (rowBg(row) ?? (isDark ? 'transparent' : (idx % 2 === 1 ? 'var(--bg-secondary)' : 'var(--card-bg)')))
+                    : (isDark ? 'transparent' : (idx % 2 === 1 ? 'var(--bg-secondary)' : 'var(--card-bg)')),
                   cursor: onRowClick ? 'pointer' : 'default',
-                  '&:hover': { bgcolor: 'var(--bg-hover)' },
-                  transition: 'background 0.15s',
+                  '&:hover': { bgcolor: isDark ? 'rgba(255, 255, 255, 0.035) !important' : 'var(--bg-hover)' },
+                  transition: 'background 0.15s ease',
                 }}
               >
                 {columns.map(col => (
@@ -192,7 +205,17 @@ export default function DataTable<T>({
                     key={col.key}
                     align={col.align ?? 'left'}
                     width={col.width}
-                    sx={{ py: 1.45, border: 'none', borderBottom: '1px solid var(--table-row-border)', width: col.width, color: 'var(--text)' }}
+                    sx={{
+                      fontFamily: "'Poppins', sans-serif !important",
+                      py: 1.75,
+                      px: 2,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      border: 'none',
+                      borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid var(--table-row-border, #f1f5f9)',
+                      width: col.width,
+                      color: isDark ? '#f8fafc' : 'var(--text)',
+                    }}
                   >
                     {col.render(row, idx)}
                   </TableCell>

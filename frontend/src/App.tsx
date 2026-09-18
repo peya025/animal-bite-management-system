@@ -90,6 +90,10 @@ function App() {
           <Route path="/setup/schedule" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Operating Schedule"><ClinicOperatingSchedulePage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/modules" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Module Configuration"><ModuleConfigPage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/staff-assignments" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Staff Assignments"><StaffAssignmentPage /></AppLayout></ProtectedRoute>} />
+          
+          {/* Legacy / Alias Route Redirects */}
+          <Route path="/registration" element={<Navigate to="/patients" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Suspense>
     </AppStyleScope>

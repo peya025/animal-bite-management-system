@@ -21,7 +21,7 @@ interface VaccineSelectorProps {
 // ─── Main Component ───────────────────────────────────────────
 export default function VaccineSelector({
   selectedVaccineType,
-  selectedBatch,
+  selectedBatch: _selectedBatch,
   onVaccineTypeChange,
   onBatchSelected,
   disabled = false,

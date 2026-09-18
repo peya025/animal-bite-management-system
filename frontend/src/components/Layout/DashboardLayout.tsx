@@ -120,7 +120,15 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
 
         {/* Brand */}
-        <div className="sidebar-header" style={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', padding: sidebarOpen ? '0 16px' : '0' }}>
+        <div
+          className="sidebar-header"
+          style={{
+            justifyContent: sidebarOpen ? 'flex-start' : 'center',
+            padding: sidebarOpen ? '0 16px' : '0',
+            height: '68px',
+            boxSizing: 'border-box',
+          }}
+        >
           {sidebarOpen ? (
             <>
               <div className="clinic-logo">

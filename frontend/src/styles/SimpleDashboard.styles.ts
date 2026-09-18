@@ -118,13 +118,13 @@ export const AppStyleScope = styled('div')`
     font-size: 12px; font-weight: 700; display: flex; align-items: center;
     justify-content: center;
   }
-  .sd-content { flex: 1; padding: 32px; overflow-y: auto; background: var(--bg); }
+  .sd-content { flex: 1; padding: 4px 32px 32px; overflow-y: auto; background: var(--bg); }
   .sd-dash-header {
-    display: flex; align-items: flex-start; justify-content: space-between;
-    margin-bottom: 28px; flex-wrap: wrap; gap: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; flex-wrap: wrap; gap: 12px;
   }
-  .sd-dash-header h1 { font-size: 25px; line-height: 1.2; letter-spacing: -0.5px; font-weight: 600; color: var(--text-h); margin: 0 0 7px; }
-  .sd-dash-header p { font-size: 13px; color: var(--text-secondary); margin: 0; }
+  .sd-dash-header h1 { font-size: 22px; line-height: 1.2; letter-spacing: -0.5px; font-weight: 600; color: var(--text-h); margin: 0 0 2px; }
+  .sd-dash-header p { font-size: 12px; color: var(--text-secondary); margin: 0; }
   .sd-dash-tabs {
     display: flex;
     gap: 4px;
@@ -178,96 +178,61 @@ export const AppStyleScope = styled('div')`
   }
   .sd-card {
     border-radius: 20px;
-    padding: 18px 20px;
+    padding: 16px 16px 14px;
     background: radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%);
     border: 1px solid rgba(16, 185, 129, 0.32);
-    box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95);
+    box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12);
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    min-height: 122px;
+    justify-content: space-between;
+    min-height: 116px;
     cursor: default;
-    transition: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   [data-theme='dark'] .sd-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border-glow);
-    box-shadow: var(--card-shadow);
+    background: radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%);
+    border: 1px solid rgba(163, 230, 53, 0.3);
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12);
   }
   .sd-card:hover {
     transform: translateY(-3px);
     border-color: rgba(16, 185, 129, 0.55);
-    box-shadow: 0 14px 30px -6px rgba(16, 185, 129, 0.28), 0 0 24px -2px rgba(16, 185, 129, 0.25), inset 0 1px 2px 0 rgba(255, 255, 255, 1);
+    box-shadow: 0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1);
   }
   [data-theme='dark'] .sd-card:hover {
-    border-color: rgba(16, 185, 129, 0.65);
-    box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.8), 0 0 32px -2px rgba(16, 185, 129, 0.35), inset 0 1px 2px 0 rgba(255, 255, 255, 0.1);
-  }
-  /* Glowing indicator ring — top right */
-  .sd-card::before {
-    content: '';
-    position: absolute;
-    top: 18px; right: 18px;
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: #10b981;
-    box-shadow: 0 0 10px #10b981;
-    pointer-events: none;
-    z-index: 2;
-  }
-  [data-theme='dark'] .sd-card::before {
-    background: #10b981;
-    box-shadow: 0 0 12px #10b981;
-  }
-  /* Outer halo */
-  .sd-card::after {
-    content: '';
-    position: absolute;
-    top: 14px; right: 14px;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    background: rgba(16, 185, 129, 0.15);
-    pointer-events: none;
-    z-index: 1;
-  }
-  [data-theme='dark'] .sd-card::after {
-    background: rgba(16, 185, 129, 0.25);
+    transform: translateY(-3px);
+    border-color: rgba(163, 230, 53, 0.55);
+    box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3);
   }
   .sd-card-label {
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.6px;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    margin: 0 0 6px;
+    margin: 0 0 8px;
     color: #047857;
-    position: relative;
-    z-index: 1;
   }
   [data-theme='dark'] .sd-card-label {
     color: #a7f3d0;
   }
   .sd-card-value {
-    font-size: 2.1rem;
+    font-size: 26px;
     font-weight: 800;
     margin: 0 0 4px;
     line-height: 1;
-    letter-spacing: -1px;
+    letter-spacing: -0.5px;
     color: #064e3b;
-    position: relative;
-    z-index: 1;
   }
   [data-theme='dark'] .sd-card-value {
     color: #ffffff;
   }
   .sd-card-sub {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     margin: 0;
     color: #64748b;
-    position: relative;
-    z-index: 1;
   }
   [data-theme='dark'] .sd-card-sub {
     color: #94a3b8;
@@ -290,7 +255,7 @@ export const AppStyleScope = styled('div')`
     transition: all 0.2s ease;
   }
   [data-theme='dark'] .sd-chart-card {
-    background: #09160f;
+    background: #111827;
     border: 1px solid rgba(16, 185, 129, 0.25);
     box-shadow: none;
   }
@@ -343,7 +308,7 @@ export const AppStyleScope = styled('div')`
     transition: all 0.2s ease;
   }
   [data-theme='dark'] .sd-filter-card {
-    background: #09160f;
+    background: #111827;
     border: 1px solid rgba(16, 185, 129, 0.25);
     box-shadow: none;
   }

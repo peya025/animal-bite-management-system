@@ -1,6 +1,5 @@
 import { useState, useEffect, Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
-import { Icon } from '../../../shared/components/ui/Icon';
 import {
   Dialog,
   DialogTitle,
@@ -11,17 +10,14 @@ import {
   Typography,
   Chip,
   Alert,
-  CircularProgress,
   IconButton,
   Tooltip,
   Paper,
   Stack,
-  Divider,
 } from '@mui/material';
 import {
   Send as SendIcon,
   ContentCopy as CopyIcon,
-  Check as CheckIcon,
   PhoneIphone as PhoneIcon,
   Close as CloseIcon,
   Refresh as ResendIcon,
@@ -369,7 +365,7 @@ function InvitePatientModalContent({
                       {invitation.token}
                     </Typography>
                     <Tooltip title={copied ? 'Copied!' : 'Copy activation code'}>
-                      <IconButton size="small" onClick={handleCopyToken} sx={{ color: 'var(--text-m, #6b7280)' }}>
+                      <IconButton size="small" onClick={handleCopyCode} sx={{ color: 'var(--text-m, #6b7280)' }}>
                         <CopyIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

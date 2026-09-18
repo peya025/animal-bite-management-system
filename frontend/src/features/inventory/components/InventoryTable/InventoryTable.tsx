@@ -15,6 +15,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -147,7 +148,24 @@ export default function InventoryTable({
   onDiscardVial,
   onAddFirst,
 }: InventoryTableProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [, setTick] = useState(0);
+
+  const fieldSx = {
+    fontFamily: "'Poppins', sans-serif",
+    '& .MuiOutlinedInput-root': {
+      bgcolor: isDark ? 'rgba(0, 0, 0, 0.25)' : '#f9fafb',
+      borderRadius: 2,
+      fontFamily: "'Poppins', sans-serif",
+      '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
+      '&:hover fieldset': { borderColor: '#10b981' },
+      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '1px' },
+    },
+    '& .MuiOutlinedInput-input': { fontSize: '13px', padding: '9px 12px', fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
+    '& .MuiInputLabel-root': { fontSize: '13px', fontFamily: "'Poppins', sans-serif", color: isDark ? '#94a3b8' : undefined },
+    '& .MuiSelect-select': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
+  };
 
   useEffect(() => {
     const interval = setInterval(() => setTick((value) => value + 1), 30000);
@@ -485,7 +503,7 @@ export default function InventoryTable({
 
   return (
     <Box>
-      <Box sx={{ mb: 3, p: 2, bgcolor: 'var(--card-bg-solid, #fff)', border: '1px solid var(--border-glow, #e5e7eb)', borderRadius: 2, boxShadow: 'var(--shadow)' }}>
+      <Box sx={{ mb: 3, p: 2, bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-glow, #e5e7eb)', borderRadius: 2.5, boxShadow: 'var(--shadow)' }}>
         <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
           {/* Row 1: search + batch + status + source */}
           {/* 6.1 — Vaccine type search */}
@@ -500,7 +518,7 @@ export default function InventoryTable({
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon sx={{ fontSize: 18, color: '#9ca3af' }} />
+                      <SearchIcon sx={{ fontSize: 18, color: isDark ? '#94a3b8' : '#9ca3af' }} />
                     </InputAdornment>
                   ),
                 },
@@ -550,7 +568,7 @@ export default function InventoryTable({
               >
                 <MenuItem value="">All sources</MenuItem>
                 {sourceOptions.map((src) => (
-                  <MenuItem key={src} value={src} sx={{ fontSize: 13, whiteSpace: 'normal', maxWidth: 360 }}>
+                  <MenuItem key={src} value={src} sx={{ fontSize: 13, whiteSpace: 'normal', maxWidth: 360, fontFamily: "'Poppins', sans-serif" }}>
                     {src}
                   </MenuItem>
                 ))}
@@ -598,7 +616,7 @@ export default function InventoryTable({
                 onExpiryToChange('');
                 onPageChange(0);
               }}
-              sx={{ color: '#6b7280', fontSize: 12, textTransform: 'none', minWidth: 0, p: 0.5 }}
+              sx={{ color: isDark ? '#cbd5e1' : '#6b7280', fontSize: 12, textTransform: 'none', minWidth: 0, p: 0.5, fontFamily: "'Poppins', sans-serif" }}
             >
               Clear
             </Button>
@@ -614,8 +632,8 @@ export default function InventoryTable({
           gap: 1.5,
           p: 1.5,
           mb: 2,
-          bgcolor: '#f8fafc',
-          border: '1px solid #e2e8f0',
+          bgcolor: isDark ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
+          border: isDark ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #e2e8f0',
           borderRadius: 2,
           flexWrap: 'wrap',
         }}
@@ -623,21 +641,21 @@ export default function InventoryTable({
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
           <WarningIcon sx={{ color: '#2563eb', mt: 0.1 }} />
           <Box>
-            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', fontFamily: "'Poppins', sans-serif" }}>
               Two separate clocks are shown in each row
             </Typography>
-            <Typography sx={{ fontSize: 11.5, color: '#64748b' }}>
+            <Typography sx={{ fontSize: 11.5, color: isDark ? '#cbd5e1' : '#64748b', fontFamily: "'Poppins', sans-serif" }}>
               <strong>Batch expiration</strong> tracks the sealed stock life. <strong>Opened vial expired / dispose</strong> appears only after a vial is opened and uses its own timer style.
             </Typography>
-            <Typography sx={{ fontSize: 11.5, color: '#475569', mt: 0.5 }}>
+            <Typography sx={{ fontSize: 11.5, color: isDark ? '#94a3b8' : '#475569', mt: 0.5, fontFamily: "'Poppins', sans-serif" }}>
               💡 <strong>What is a Vial?</strong> 1 Vial = 1 glass bottle of vaccine. In animal bite clinics, 1 vial can vaccinate multiple patients (e.g., 1 vial = up to 3 patients for intradermal rabies shots). Hover over any vial count for a reminder.
             </Typography>
           </Box>
         </Box>
-        <Chip label="Daily-use inventory view" size="small" sx={{ fontWeight: 700, bgcolor: '#eff6ff', color: '#1d4ed8' }} />
+        <Chip label="Daily-use inventory view" size="small" sx={{ fontWeight: 700, bgcolor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff', color: isDark ? '#60a5fa' : '#1d4ed8' }} />
       </Box>
 
-      <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
+      <Paper elevation={0} sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}>
         <DataTable
           columns={columns}
           rows={items}

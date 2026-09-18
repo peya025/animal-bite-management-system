@@ -33,7 +33,7 @@ html {
   /* Layout Chrome */
   --sidebar-bg: #ffffff;
   --sidebar-border: #e5e7eb;
-  --sidebar-header-border: #f3f4f6;
+  --sidebar-header-border: #e5e7eb;
   --nav-item-color: #6b7280;
   --nav-item-hover-bg: #f9fafb;
   --nav-item-hover-color: #111827;
@@ -95,17 +95,17 @@ html {
 /* Fallback to system preference dark mode */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #050c08;
-    --bg-dark: #07100b;
-    --bg-dark-deep: #030604;
-    --card-bg: radial-gradient(ellipse at 30% 0%, #10261b 0%, #0b1c13 55%, #060d09 100%);
-    --card-bg-solid: #09160f;
-    --card-bg-nested: #060e0a;
-    --card-bg-subtle: rgba(16, 185, 129, 0.06);
-    --card-border: rgba(16, 185, 129, 0.28);
-    --border-glow: rgba(16, 185, 129, 0.35);
-    --border-glow-subtle: rgba(16, 185, 129, 0.18);
-    --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.7), 0 0 20px -3px rgba(16, 185, 129, 0.18), inset 0 1px 2px 0 rgba(255, 255, 255, 0.08);
+    --bg: #1F2937;
+    --bg-dark: #111827;
+    --bg-dark-deep: #111827;
+    --card-bg: #111827;
+    --card-bg-solid: #111827;
+    --card-bg-nested: #1F2937;
+    --card-bg-subtle: rgba(255, 255, 255, 0.03);
+    --card-border: rgba(16, 185, 129, 0.25);
+    --border-glow: rgba(16, 185, 129, 0.25);
+    --border-glow-subtle: rgba(16, 185, 129, 0.15);
+    --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 
     --accent-green: #10b981;
     --accent-green-bright: #34d399;
@@ -119,7 +119,7 @@ html {
     --text-secondary: #94a3b8;
     --text-muted: #94a3b8;
 
-    --sidebar-bg: #060d09;
+    --sidebar-bg: #111827;
     --sidebar-border: rgba(16, 185, 129, 0.2);
     --sidebar-header-border: rgba(16, 185, 129, 0.15);
     --nav-item-color: #94a3b8;
@@ -127,48 +127,48 @@ html {
     --nav-item-hover-color: #f8fafc;
     --nav-item-active-bg: rgba(16, 185, 129, 0.2);
     --nav-item-active-color: #34d399;
-    --topbar-bg: #060d09;
+    --topbar-bg: #111827;
     --topbar-border: rgba(16, 185, 129, 0.2);
-    --bg-secondary: #08120c;
-    --bg-hover: rgba(16, 185, 129, 0.08);
+    --bg-secondary: #111827;
+    --bg-hover: rgba(255, 255, 255, 0.04);
 
-    --table-header-bg: #0a1810;
-    --table-border: rgba(16, 185, 129, 0.25);
-    --table-row-border: rgba(16, 185, 129, 0.1);
+    --table-header-bg: #111827;
+    --table-border: rgba(16, 185, 129, 0.2);
+    --table-row-border: rgba(255, 255, 255, 0.05);
 
-    --input-bg: #07100a;
-    --input-border: rgba(16, 185, 129, 0.3);
+    --input-bg: #111827;
+    --input-border: rgba(16, 185, 129, 0.25);
     --input-text: #ffffff;
-    --btn-outlined-bg: #09160f;
+    --btn-outlined-bg: #111827;
     --btn-outlined-border: rgba(16, 185, 129, 0.35);
     --btn-outlined-color: #34d399;
     --btn-outlined-hover-bg: rgba(16, 185, 129, 0.15);
     --btn-outlined-hover-border: rgba(16, 185, 129, 0.6);
     --shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.7);
 
-    --border: rgba(16, 185, 129, 0.28);
-    --code-bg: #07100a;
+    --border: rgba(16, 185, 129, 0.25);
+    --code-bg: #111827;
     --accent: #10b981;
     --accent-bg: rgba(16, 185, 129, 0.18);
     --accent-border: rgba(16, 185, 129, 0.45);
-    --social-bg: rgba(10, 22, 15, 0.75);
+    --social-bg: rgba(17, 24, 39, 0.75);
     color-scheme: dark;
   }
 }
 
 /* Explicit dark mode override via data-theme */
 [data-theme='dark'] {
-  --bg: #050c08;
-  --bg-dark: #07100b;
-  --bg-dark-deep: #030604;
-  --card-bg: radial-gradient(ellipse at 30% 0%, #10261b 0%, #0b1c13 55%, #060d09 100%);
-  --card-bg-solid: #09160f;
-  --card-bg-nested: #060e0a;
-  --card-bg-subtle: rgba(16, 185, 129, 0.06);
-  --card-border: rgba(16, 185, 129, 0.28);
-  --border-glow: rgba(16, 185, 129, 0.35);
-  --border-glow-subtle: rgba(16, 185, 129, 0.18);
-  --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.7), 0 0 20px -3px rgba(16, 185, 129, 0.18), inset 0 1px 2px 0 rgba(255, 255, 255, 0.08);
+  --bg: #1F2937;
+  --bg-dark: #111827;
+  --bg-dark-deep: #111827;
+  --card-bg: #111827;
+  --card-bg-solid: #111827;
+  --card-bg-nested: #1F2937;
+  --card-bg-subtle: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(16, 185, 129, 0.25);
+  --border-glow: rgba(16, 185, 129, 0.25);
+  --border-glow-subtle: rgba(16, 185, 129, 0.15);
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 
   --accent-green: #10b981;
   --accent-green-bright: #34d399;
@@ -182,7 +182,7 @@ html {
   --text-secondary: #94a3b8;
   --text-muted: #94a3b8;
 
-  --sidebar-bg: #060d09;
+  --sidebar-bg: #111827;
   --sidebar-border: rgba(16, 185, 129, 0.2);
   --sidebar-header-border: rgba(16, 185, 129, 0.15);
   --nav-item-color: #94a3b8;
@@ -190,31 +190,31 @@ html {
   --nav-item-hover-color: #f8fafc;
   --nav-item-active-bg: rgba(16, 185, 129, 0.2);
   --nav-item-active-color: #34d399;
-  --topbar-bg: #060d09;
+  --topbar-bg: #111827;
   --topbar-border: rgba(16, 185, 129, 0.2);
-  --bg-secondary: #08120c;
-  --bg-hover: rgba(16, 185, 129, 0.08);
+  --bg-secondary: #111827;
+  --bg-hover: rgba(255, 255, 255, 0.04);
 
-  --table-header-bg: #0a1810;
-  --table-border: rgba(16, 185, 129, 0.25);
-  --table-row-border: rgba(16, 185, 129, 0.1);
+  --table-header-bg: #111827;
+  --table-border: rgba(16, 185, 129, 0.2);
+  --table-row-border: rgba(255, 255, 255, 0.05);
 
-  --input-bg: #07100a;
-  --input-border: rgba(16, 185, 129, 0.3);
+  --input-bg: #111827;
+  --input-border: rgba(16, 185, 129, 0.25);
   --input-text: #ffffff;
-  --btn-outlined-bg: #09160f;
+  --btn-outlined-bg: #111827;
   --btn-outlined-border: rgba(16, 185, 129, 0.35);
   --btn-outlined-color: #34d399;
   --btn-outlined-hover-bg: rgba(16, 185, 129, 0.15);
   --btn-outlined-hover-border: rgba(16, 185, 129, 0.6);
   --shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.7);
 
-  --border: rgba(16, 185, 129, 0.28);
-  --code-bg: #07100a;
+  --border: rgba(16, 185, 129, 0.25);
+  --code-bg: #111827;
   --accent: #10b981;
   --accent-bg: rgba(16, 185, 129, 0.18);
   --accent-border: rgba(16, 185, 129, 0.45);
-  --social-bg: rgba(10, 22, 15, 0.75);
+  --social-bg: rgba(17, 24, 39, 0.75);
   color-scheme: dark;
 }
 
@@ -437,6 +437,8 @@ body {
 
 /* ══════════════════════════════════════════════════════════════════
    3. TABLE SYSTEM
+/* ══════════════════════════════════════════════════════════════════
+   3. TABLE SYSTEM
    ══════════════════════════════════════════════════════════════════ */
 .table-card-wrap,
 .app-table-wrap,
@@ -444,10 +446,19 @@ body {
 .db-table-wrapper {
   background: var(--card-bg-solid, #ffffff);
   border: 1px solid var(--border-glow, #e2e8f0);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md, 14px);
   box-shadow: var(--card-shadow);
   overflow: hidden;
   box-sizing: border-box;
+}
+
+[data-theme='dark'] .table-card-wrap,
+[data-theme='dark'] .app-table-wrap,
+[data-theme='dark'] .pm-table-wrap,
+[data-theme='dark'] .db-table-wrapper,
+[data-theme='dark'] .pm-main-panel {
+  background: #111827 !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
 }
 
 table,
@@ -457,7 +468,7 @@ table,
 .MuiTable-root {
   width: 100%;
   border-collapse: collapse;
-  font-family: var(--sans);
+  font-family: 'Poppins', var(--sans);
   font-size: 13px;
 }
 
@@ -466,59 +477,67 @@ thead,
   background: var(--table-header-bg, #f8fafc);
   border-bottom: 1px solid var(--table-border, #e2e8f0);
 }
+[data-theme='dark'] thead,
+[data-theme='dark'] .MuiTableHead-root {
+  background: #111827 !important;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
 
 th,
 .MuiTableHead-root .MuiTableCell-root {
-  padding: 12px 18px;
+  font-family: 'Poppins', var(--sans) !important;
+  padding: 14px 18px !important;
   text-align: left;
-  font-size: 11.5px;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
   color: #475569;
   white-space: nowrap;
   box-sizing: border-box;
 }
 [data-theme='dark'] th,
 [data-theme='dark'] .MuiTableHead-root .MuiTableCell-root {
-  color: #94a3b8;
+  color: #a7f3d0 !important;
+  background: #111827 !important;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.2) !important;
 }
 
 tbody td,
 .MuiTableBody-root .MuiTableCell-root,
 .MuiTableFooter-root .MuiTableCell-root {
-  padding: 13px 18px;
-  font-size: 13px;
+  font-family: 'Poppins', var(--sans) !important;
+  padding: 14px 18px !important;
+  font-size: 13px !important;
+  font-weight: 500;
   color: var(--text);
   border-bottom: 1px solid var(--table-row-border, #f1f5f9);
   vertical-align: middle;
   box-sizing: border-box;
 }
+[data-theme='dark'] tbody td,
+[data-theme='dark'] .MuiTableBody-root .MuiTableCell-root {
+  color: #f8fafc !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
 
 /* Plain clean rows */
-tbody tr:nth-of-type(even),
-.MuiTableBody-root .MuiTableRow-root:nth-of-type(even) {
+tbody tr,
+.MuiTableBody-root .MuiTableRow-root {
   background: var(--card-bg-solid, #ffffff);
+  transition: background 0.15s ease;
 }
-[data-theme='dark'] tbody tr:nth-of-type(even),
-[data-theme='dark'] .MuiTableBody-root .MuiTableRow-root:nth-of-type(even) {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-tbody tr:nth-of-type(odd),
-.MuiTableBody-root .MuiTableRow-root:nth-of-type(odd) {
-  background: var(--card-bg-solid, #ffffff);
-}
-
-/* Row Hover Highlight - clean neutral */
 tbody tr:hover,
 .MuiTableBody-root .MuiTableRow-root:hover {
   background: #f8fafc !important;
-  transition: background 0.15s ease;
+}
+[data-theme='dark'] tbody tr,
+[data-theme='dark'] .MuiTableBody-root .MuiTableRow-root {
+  background: transparent !important;
 }
 [data-theme='dark'] tbody tr:hover,
 [data-theme='dark'] .MuiTableBody-root .MuiTableRow-root:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
 }
 
 /* Hairline borders between rows */
@@ -819,6 +838,20 @@ tbody tr:last-child td,
 [data-theme='dark'] .sd-card-sub,
 [data-theme='dark'] .pm-page-info,
 [data-theme='dark'] .dashboard-header p,
+.sd-dash-header {
+  margin-top: 4px !important;
+  margin-bottom: 14px !important;
+}
+.sd-dash-header h1 {
+  margin: 0 0 3px 0 !important;
+  font-size: 22px !important;
+  line-height: 1.25 !important;
+}
+.sd-dash-header p {
+  margin: 0 !important;
+  font-size: 12px !important;
+}
+
 [data-theme='dark'] .triage-header p,
 [data-theme='dark'] .sd-dash-header p {
   color: #94a3b8 !important;
@@ -954,3 +987,111 @@ code {
   background: var(--code-bg);
 }
 
+
+/* ══════════════════════════════════════════════════════════════════
+   6. DATE / CALENDAR INPUT — dark mode hover & picker fixes
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Base date input styling (light) */
+input[type='date'],
+input[type='datetime-local'],
+input[type='time'],
+input[type='month'],
+input[type='week'] {
+  color-scheme: light;
+  cursor: pointer;
+}
+
+input[type='date']:hover,
+input[type='datetime-local']:hover,
+input[type='time']:hover,
+input[type='month']:hover,
+input[type='week']:hover {
+  border-color: rgba(16, 185, 129, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12) !important;
+}
+
+input[type='date']:focus,
+input[type='datetime-local']:focus,
+input[type='time']:focus,
+input[type='month']:focus,
+input[type='week']:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.22) !important;
+  outline: none !important;
+}
+
+/* Calendar icon button (webkit) — light */
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator,
+input[type='month']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  border-radius: 4px;
+  padding: 2px;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+input[type='date']:hover::-webkit-calendar-picker-indicator,
+input[type='datetime-local']:hover::-webkit-calendar-picker-indicator,
+input[type='time']:hover::-webkit-calendar-picker-indicator,
+input[type='month']:hover::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+/* ── Dark mode date inputs ── */
+[data-theme='dark'] input[type='date'],
+[data-theme='dark'] input[type='datetime-local'],
+[data-theme='dark'] input[type='time'],
+[data-theme='dark'] input[type='month'],
+[data-theme='dark'] input[type='week'] {
+  color-scheme: dark;
+  background-color: #111827 !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(16, 185, 129, 0.28) !important;
+}
+
+[data-theme='dark'] input[type='date']:hover,
+[data-theme='dark'] input[type='datetime-local']:hover,
+[data-theme='dark'] input[type='time']:hover,
+[data-theme='dark'] input[type='month']:hover,
+[data-theme='dark'] input[type='week']:hover {
+  border-color: rgba(16, 185, 129, 0.65) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18) !important;
+  background-color: #151f18 !important;
+}
+
+[data-theme='dark'] input[type='date']:focus,
+[data-theme='dark'] input[type='datetime-local']:focus,
+[data-theme='dark'] input[type='time']:focus,
+[data-theme='dark'] input[type='month']:focus,
+[data-theme='dark'] input[type='week']:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.28), 0 0 8px rgba(16, 185, 129, 0.15) !important;
+  outline: none !important;
+  background-color: #151f18 !important;
+}
+
+/* Calendar picker icon — dark mode: tint it emerald */
+[data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator,
+[data-theme='dark'] input[type='datetime-local']::-webkit-calendar-picker-indicator,
+[data-theme='dark'] input[type='time']::-webkit-calendar-picker-indicator,
+[data-theme='dark'] input[type='month']::-webkit-calendar-picker-indicator {
+  filter: invert(1) sepia(1) saturate(3) hue-rotate(100deg) brightness(1.1);
+  opacity: 0.65;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+[data-theme='dark'] input[type='date']:hover::-webkit-calendar-picker-indicator,
+[data-theme='dark'] input[type='datetime-local']:hover::-webkit-calendar-picker-indicator,
+[data-theme='dark'] input[type='time']:hover::-webkit-calendar-picker-indicator,
+[data-theme='dark'] input[type='month']:hover::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  background: rgba(16, 185, 129, 0.18);
+  filter: invert(1) sepia(1) saturate(4) hue-rotate(100deg) brightness(1.2);
+}

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Alert, Box, CircularProgress, IconButton,
   Paper, Snackbar, Stack, Tooltip, Typography,
-  MenuItem, Select, FormControl,
+  MenuItem, Select, FormControl, useTheme,
 } from '@mui/material';
 import {
   AccessTime as WaitIcon,
@@ -182,6 +182,8 @@ function getRegistrationStatusDisplay(entry: QueueEntry): { label: string; bg: s
 }
 
 export default function QueueDashboard() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -364,7 +366,7 @@ export default function QueueDashboard() {
           : isRegistrationStaff
             ? 'Registration Queue Dashboard'
             : user?.role === 'admin'
-              ? 'Admin Queue Dashboard'
+              ? 'Admin Queue'
               : 'Queue Dashboard';
   const queueSectionTitle = isTriageDoctor
     ? 'Triage Queue'
@@ -921,26 +923,25 @@ export default function QueueDashboard() {
         id="queue-table-container"
         elevation={0}
         sx={{
-          border: '1px solid',
-          borderColor: 'divider',
+          border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-glow, #e2e8f0)',
           borderRadius: 3,
           overflow: 'hidden',
-          background: 'background.paper',
-          p: { xs: 1.5, sm: 2.5 },
-          mb: 2,
+          bgcolor: isDark ? '#111827' : '#ffffff',
+          p: { xs: 2, sm: 3 },
+          mb: 3,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-            <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)' }}>
+            <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 16, color: isDark ? '#ffffff' : 'var(--text-h)' }}>
               {queueSectionTitle}
             </Typography>
-            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
+            <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, color: isDark ? '#94a3b8' : 'var(--text-secondary)', fontWeight: 500 }}>
               ({stationStats.waiting} patients waiting)
             </Typography>
           </Box>
           {visibleSecondChanceQueue.length > 0 && (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500, fontFamily: "'Poppins', sans-serif" }}>
               <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={12} strokeWidth={2} />
               {visibleSecondChanceQueue.length} in Second Chance Queue
             </Box>

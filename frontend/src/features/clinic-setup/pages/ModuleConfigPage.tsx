@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { clinicConfigApi } from '../../../services/clinicConfigApi';
 import { ROUTES } from '../../../shared/config/routes';
@@ -238,6 +238,8 @@ const FIELD_SECTIONS: FieldSection[] = [...FORM1_SECTIONS, ...FORM2_SECTIONS, ..
 
 export default function ModuleConfigPage() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [config, setConfig] = useState<ClinicModuleConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -887,7 +889,7 @@ export default function ModuleConfigPage() {
           })()}
 
           {/* ── Tier 9: Authentication & Single Sign-On Section Card ── */}
-          <div style={{ marginTop: '1.5rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden' }}>
+          <div style={{ marginTop: '1.5rem', background: isDark ? '#111827' : '#fff', border: `1px solid ${isDark ? 'rgba(16,185,129,0.25)' : '#e2e8f0'}`, borderRadius: '14px', overflow: 'hidden' }}>
             {/* Card header */}
             <div style={{ padding: '1rem 1.25rem', background: 'linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -920,44 +922,68 @@ export default function ModuleConfigPage() {
             <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', opacity: ssoEnabled ? 1 : 0.5, pointerEvents: ssoEnabled ? 'auto' : 'none' }}>
               {/* Allowed roles */}
               <div>
-                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#334155', marginBottom: '0.5rem' }}>Allowed Staff Roles for Google Sign-In</div>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: isDark ? '#ffffff' : '#334155', marginBottom: '0.5rem' }}>Allowed Staff Roles for Google Sign-In</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                   {(['admin','registration','triage','treatment'] as const).map(role => {
                     const labels: Record<string,string> = { admin:'Administrator', registration:'Registration / Front Desk', triage:'Triage / Doctor', treatment:'Treatment Nurse' };
                     const checked = ssoRoles.includes(role);
                     return (
-                      <label key={role} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', padding: '0.3rem 0.75rem', border: `1.5px solid ${checked ? '#6366f1' : '#cbd5e1'}`, borderRadius: 8, cursor: 'pointer', background: checked ? '#f0f0ff' : '#f8fafc', fontSize: '0.8rem', fontWeight: checked ? 600 : 400, color: checked ? '#4338ca' : '#64748b' }}>
+                      <label key={role} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+                        padding: '0.3rem 0.75rem',
+                        border: `1.5px solid ${checked ? '#6366f1' : isDark ? 'rgba(255,255,255,0.15)' : '#cbd5e1'}`,
+                        borderRadius: 8, cursor: 'pointer',
+                        background: checked ? (isDark ? 'rgba(99,102,241,0.18)' : '#f0f0ff') : (isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc'),
+                        fontSize: '0.8rem',
+                        fontWeight: checked ? 600 : 400,
+                        color: checked ? (isDark ? '#a5b4fc' : '#4338ca') : (isDark ? '#94a3b8' : '#64748b'),
+                      }}>
                         <input type="checkbox" checked={checked} onChange={() => setSsoRoles(prev => checked ? prev.filter(r => r !== role) : [...prev, role])} style={{ accentColor: '#6366f1' }} />
                         {labels[role]}
                       </label>
                     );
                   })}
                 </div>
-                <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.4rem' }}>Only selected roles can use Google Sign-In. Unselected roles must use email & password.</p>
+                <p style={{ fontSize: '0.72rem', color: isDark ? '#64748b' : '#94a3b8', marginTop: '0.4rem' }}>Only selected roles can use Google Sign-In. Unselected roles must use email & password.</p>
               </div>
 
               {/* Domain restriction */}
               <div>
-                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#334155', marginBottom: '0.4rem' }}>Restrict to Official Health Domain <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span></div>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: isDark ? '#ffffff' : '#334155', marginBottom: '0.4rem' }}>
+                  Restrict to Official Health Domain <span style={{ fontWeight: 400, color: isDark ? '#64748b' : '#94a3b8' }}>(optional)</span>
+                </div>
                 <input
                   type="text"
                   value={ssoDomain}
                   onChange={e => setSsoDomain(e.target.value)}
                   placeholder="e.g. doh.gov.ph or rhu.tagoloan.gov.ph"
-                  style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: '0.8125rem', outline: 'none', boxSizing: 'border-box' }}
+                  style={{
+                    width: '100%', padding: '0.5rem 0.75rem',
+                    border: `1px solid ${isDark ? 'rgba(16,185,129,0.3)' : '#cbd5e1'}`,
+                    borderRadius: 8, fontSize: '0.8125rem', outline: 'none',
+                    boxSizing: 'border-box',
+                    background: isDark ? '#1f2937' : '#fff',
+                    color: isDark ? '#f1f5f9' : '#1e293b',
+                  }}
                 />
-                <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.4rem' }}>Leave blank to allow any email domain. When set, only Google accounts ending in @{ssoDomain || 'your-domain.com'} are accepted.</p>
+                <p style={{ fontSize: '0.72rem', color: isDark ? '#64748b' : '#94a3b8', marginTop: '0.4rem' }}>
+                  Leave blank to allow any email domain. When set, only Google accounts ending in @{ssoDomain || 'your-domain.com'} are accepted.
+                </p>
               </div>
 
               {/* Setup instructions */}
-              <div style={{ background: '#f8f8ff', border: '1px solid #c7d2fe', borderRadius: 8, padding: '0.75rem 1rem' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#4338ca', marginBottom: '0.4rem' }}>📋 Setup Checklist</div>
-                <ol style={{ paddingLeft: '1.25rem', margin: 0, fontSize: '0.78rem', color: '#4338ca', lineHeight: 1.7 }}>
-                  <li>Go to Google Cloud Console → APIs &amp; Services → Credentials</li>
-                  <li>Create an OAuth 2.0 Web Application Client ID</li>
-                  <li>Add <code>http://localhost:5173</code> to Authorized JavaScript Origins</li>
-                  <li>Set <code>GOOGLE_CLIENT_ID</code> in <code>backend/.env</code> and <code>VITE_GOOGLE_CLIENT_ID</code> in <code>frontend/.env</code></li>
-                  <li>Run <code>php artisan migrate</code> to create the <code>google_id</code> columns</li>
+              <div style={{
+                background: isDark ? 'rgba(99,102,241,0.1)' : '#f8f8ff',
+                border: `1px solid ${isDark ? 'rgba(99,102,241,0.35)' : '#c7d2fe'}`,
+                borderRadius: 8, padding: '0.75rem 1rem',
+              }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#a5b4fc' : '#4338ca', marginBottom: '0.4rem' }}>📋 Setup Checklist</div>
+                <ol style={{ paddingLeft: '1.25rem', margin: 0, fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#4338ca', lineHeight: 1.7 }}>
+                  <li style={{ color: isDark ? '#cbd5e1' : undefined }}>Go to Google Cloud Console → APIs &amp; Services → Credentials</li>
+                  <li style={{ color: isDark ? '#cbd5e1' : undefined }}>Create an OAuth 2.0 Web Application Client ID</li>
+                  <li style={{ color: isDark ? '#cbd5e1' : undefined }}>Add <code style={{ background: isDark ? '#374151' : undefined, color: isDark ? '#f1f5f9' : undefined, padding: '1px 5px', borderRadius: 4 }}>http://localhost:5173</code> to Authorized JavaScript Origins</li>
+                  <li style={{ color: isDark ? '#cbd5e1' : undefined }}>Set <code style={{ background: isDark ? '#374151' : undefined, color: isDark ? '#f1f5f9' : undefined, padding: '1px 5px', borderRadius: 4 }}>GOOGLE_CLIENT_ID</code> in <code style={{ background: isDark ? '#374151' : undefined, color: isDark ? '#f1f5f9' : undefined, padding: '1px 5px', borderRadius: 4 }}>backend/.env</code> and <code style={{ background: isDark ? '#374151' : undefined, color: isDark ? '#f1f5f9' : undefined, padding: '1px 5px', borderRadius: 4 }}>VITE_GOOGLE_CLIENT_ID</code> in <code style={{ background: isDark ? '#374151' : undefined, color: isDark ? '#f1f5f9' : undefined, padding: '1px 5px', borderRadius: 4 }}>frontend/.env</code></li>
+                  <li style={{ color: isDark ? '#cbd5e1' : undefined }}>Run <code style={{ background: isDark ? '#374151' : undefined, color: isDark ? '#f1f5f9' : undefined, padding: '1px 5px', borderRadius: 4 }}>php artisan migrate</code> to create the <code style={{ background: isDark ? '#374151' : undefined, color: isDark ? '#f1f5f9' : undefined, padding: '1px 5px', borderRadius: 4 }}>google_id</code> columns</li>
                 </ol>
               </div>
             </div>

@@ -38,18 +38,22 @@ export const DashboardLayoutRoot = styled('div')`
     box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
   }
   .sidebar-header {
-    height: 64px;
+    height: 68px;
+    min-height: 68px;
+    max-height: 68px;
     padding: 0 16px;
     display: flex;
     align-items: center;
     gap: 12px;
     border-bottom: 1px solid var(--sidebar-header-border);
     flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
     overflow: hidden;
   }
   .clinic-logo {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     background: var(--nav-item-active-bg);
     border: 1px solid var(--border-glow-subtle);
     border-radius: 10px;
@@ -58,24 +62,33 @@ export const DashboardLayoutRoot = styled('div')`
     justify-content: center;
     flex-shrink: 0;
   }
-  .clinic-info { overflow: hidden; }
+  .clinic-info {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    gap: 1px;
+  }
   .clinic-info h2 {
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 700;
     color: var(--text-h);
-    margin: 0 0 2px;
+    margin: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.25;
   }
   .clinic-info .app-name {
-    font-size: 10px;
+    font-size: 9.5px;
     color: var(--text-secondary);
     margin: 0;
     white-space: normal;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.35px;
     line-height: 1.3;
+    font-weight: 600;
   }
   .sidebar-nav {
     flex: 1;
@@ -296,7 +309,9 @@ export const DashboardLayoutRoot = styled('div')`
     min-width: 0;
   }
   .top-header {
-    height: 64px;
+    height: 68px;
+    min-height: 68px;
+    max-height: 68px;
     background: var(--topbar-bg);
     border-bottom: 1px solid var(--topbar-border);
     display: flex;
@@ -304,6 +319,7 @@ export const DashboardLayoutRoot = styled('div')`
     justify-content: space-between;
     padding: 0 28px;
     flex-shrink: 0;
+    box-sizing: border-box;
   }
   .header-left { display: flex; align-items: center; gap: 16px; }
   .header-left h1 { font-size: 18px; font-weight: 700; color: var(--text-h); margin: 0; }
@@ -345,7 +361,7 @@ export const DashboardLayoutRoot = styled('div')`
   }
   .logout-button svg { color: var(--text-secondary); }
   .logout-button:hover svg { color: #ef4444; }
-  .page-content { flex: 1; overflow-y: auto; padding: 28px 32px; }
+  .page-content { flex: 1; overflow-y: auto; padding: 18px 32px 28px; }
 
   @media (max-width: 768px) {
     .sidebar {

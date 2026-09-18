@@ -219,6 +219,10 @@ export default function QueueDashboard() {
   const [statusFilter,    setStatusFilter]    = useState('');
   const [categoryFilter,  setCategoryFilter]  = useState('');
   const [visitTypeFilter, setVisitTypeFilter] = useState<string>(() => {
+    // Triage doctors don't use nurse-station filters — their scope is already
+    // enforced by TRIAGE_VISIT_TYPES in roleScopedQueue. Giving them 'intake'
+    // would hide new_case entries (e.g. re-exposure registrations) from their view.
+    if (user?.role === 'triage') return '';
     const saved = localStorage.getItem('active_station_mode');
     if (saved === 'intake') return 'intake';
     if (saved === 'follow_up') return 'follow_up_station';
@@ -386,7 +390,12 @@ export default function QueueDashboard() {
     const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
 
     let matchVisitType = true;
-    if (visitTypeFilter === 'intake') {
+    if (isTriageDoctor) {
+      // Triage scope already enforced by roleScopedQueue (TRIAGE_VISIT_TYPES).
+      // Do NOT apply the nurse-station isIntakeStationEntry filter here — it
+      // excludes new_case visit types, which are exactly what triage sees.
+      matchVisitType = true;
+    } else if (visitTypeFilter === 'intake') {
       matchVisitType = isIntakeStationEntry(q);
     } else if (visitTypeFilter === 'follow_up_station') {
       matchVisitType = isFollowUpStationEntry(q);
@@ -948,12 +957,23 @@ export default function QueueDashboard() {
             onCategoryChange={v => { setCategoryFilter(v); setPage(0); }}
             visitTypeFilter={visitTypeFilter}
             onVisitTypeChange={v => { setVisitTypeFilter(v); setPage(0); }}
-            lockedVisitTypeLabel={stationMode === 'intake' ? 'Station 1 · Day 0 / new episode' : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only' : undefined}
+            lockedVisitTypeLabel={
+              isTriageDoctor
+                ? undefined  // Triage Doctor has no nurse-station lock — they see all triage visit types
+                : stationMode === 'intake' ? 'Station 1 · Day 0 / new episode'
+                : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only'
+                : undefined
+            }
             onClear={() => {
               setSearch('');
               setStatusFilter('');
               setCategoryFilter('');
-              setVisitTypeFilter(stationMode === 'intake' ? 'intake' : stationMode === 'follow_up' ? 'follow_up_station' : '');
+              // Triage doctors reset to no filter (their scope is role-based, not station-based)
+              setVisitTypeFilter(
+                isTriageDoctor ? '' :
+                stationMode === 'intake' ? 'intake' :
+                stationMode === 'follow_up' ? 'follow_up_station' : ''
+              );
               setPage(0);
             }}
           />

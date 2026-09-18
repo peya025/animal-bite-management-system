@@ -22,6 +22,7 @@ import {
   FormControlLabel,
   Radio,
   Stack,
+  useTheme,
 } from '@mui/material';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -107,6 +108,8 @@ interface JourneyKPI {
 }
 
 export default function VaccinationSchedulePage() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState<PatientJourney[]>([]);
   const [kpi, setKpi] = useState<JourneyKPI>({
@@ -424,15 +427,15 @@ export default function VaccinationSchedulePage() {
               borderRadius: '8px',
               fontSize: '12px',
               fontWeight: 600,
-              bgcolor: '#fff',
-              borderColor: '#e2e8f0',
-              color: '#475569',
+              bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)',
+              borderColor: isDark ? 'var(--border-glow, rgba(163, 230, 53, 0.25))' : '#e2e8f0',
+              color: isDark ? '#ffffff' : '#475569',
               display: 'flex',
               alignItems: 'center',
               gap: 0.75,
               px: 1.5,
               py: 0.75,
-              '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1' },
+              '&:hover': { bgcolor: isDark ? 'rgba(163, 230, 53, 0.08)' : '#f8fafc', borderColor: isDark ? '#a3e635' : '#cbd5e1' },
             }}
           >
             <HugeiconsIcon icon={RefreshIcon} size={16} />
@@ -450,209 +453,144 @@ export default function VaccinationSchedulePage() {
           mb: 3,
         }}
       >
-        {/* Total Patients */}
-        <Paper
-          sx={{
-            p: 2,
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0',
-            bgcolor: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-          }}
-        >
-          <Box
+        {[
+          {
+            id: 'total',
+            label: 'Total PEP Cases',
+            value: kpi.total_patients,
+            sub: `${kpi.walk_in_count} Walk-in • ${kpi.online_count} Online`,
+            icon: <HugeiconsIcon icon={UserMultiple02Icon} size={20} />,
+            color: '#10b981',
+          },
+          {
+            id: 'on_track',
+            label: 'On Track',
+            value: kpi.on_track,
+            sub: 'Adherent to schedule',
+            icon: <HugeiconsIcon icon={CheckmarkCircle02Icon} size={20} />,
+            color: '#10b981',
+          },
+          {
+            id: 'due_today',
+            label: 'Due Today',
+            value: kpi.due_today,
+            sub: 'Expected injection today',
+            icon: <HugeiconsIcon icon={Clock01Icon} size={20} />,
+            color: '#f59e0b',
+          },
+          {
+            id: 'overdue_missed',
+            label: 'Overdue / Missed',
+            value: kpi.overdue_missed,
+            sub: 'Defaulters requiring recall',
+            icon: <HugeiconsIcon icon={AlertCircleIcon} size={20} />,
+            color: '#ef4444',
+          },
+          {
+            id: 'completed',
+            label: 'Completed PEP',
+            value: kpi.completed,
+            sub: 'Full regimen completed',
+            icon: <HugeiconsIcon icon={Medicine01Icon} size={20} />,
+            color: '#10b981',
+          },
+        ].map((item) => (
+          <Paper
+            key={item.id}
+            elevation={0}
             sx={{
-              width: 42,
-              height: 42,
-              borderRadius: '10px',
-              bgcolor: '#f1f5f9',
-              color: '#334155',
+              p: '16px 18px',
+              borderRadius: '20px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
+              gap: 1.75,
+              position: 'relative',
+              overflow: 'hidden',
+              cursor: 'default',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              ...(isDark
+                ? {
+                    background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
+                    border: '1px solid rgba(163, 230, 53, 0.3)',
+                    boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)',
+                    '&:hover': {
+                      transform: 'translateY(-3px)',
+                      borderColor: 'rgba(163, 230, 53, 0.55)',
+                      boxShadow: '0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)',
+                    },
+                  }
+                : {
+                    background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.32)',
+                    boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
+                    '&:hover': {
+                      transform: 'translateY(-3px)',
+                      borderColor: 'rgba(16, 185, 129, 0.55)',
+                      boxShadow: '0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)',
+                    },
+                  }),
             }}
           >
-            <HugeiconsIcon icon={UserMultiple02Icon} size={22} />
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '11px' }}>
-              Total PEP Cases
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
-              {kpi.total_patients}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '11px' }}>
-              {kpi.walk_in_count} Walk-in • {kpi.online_count} Online
-            </Typography>
-          </Box>
-        </Paper>
-
-        {/* On Track */}
-        <Paper
-          sx={{
-            p: 2,
-            borderRadius: '12px',
-            border: '1px solid #bbf7d0',
-            bgcolor: '#f0fdf4',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-          }}
-        >
-          <Box
-            sx={{
-              width: 42,
-              height: 42,
-              borderRadius: '10px',
-              bgcolor: '#dcfce7',
-              color: '#166534',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <HugeiconsIcon icon={CheckmarkCircle02Icon} size={22} />
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="caption" sx={{ color: '#166534', fontWeight: 600, textTransform: 'uppercase', fontSize: '11px' }}>
-              On Track
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#166534', lineHeight: 1.2 }}>
-              {kpi.on_track}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#15803d', fontSize: '11px' }}>
-              Adherent to schedule
-            </Typography>
-          </Box>
-        </Paper>
-
-        {/* Due Today */}
-        <Paper
-          sx={{
-            p: 2,
-            borderRadius: '12px',
-            border: '1px solid #fde68a',
-            bgcolor: '#fefce8',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-          }}
-        >
-          <Box
-            sx={{
-              width: 42,
-              height: 42,
-              borderRadius: '10px',
-              bgcolor: '#fef3c7',
-              color: '#92400e',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <HugeiconsIcon icon={Clock01Icon} size={22} />
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="caption" sx={{ color: '#854d0e', fontWeight: 600, textTransform: 'uppercase', fontSize: '11px' }}>
-              Due Today
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#854d0e', lineHeight: 1.2 }}>
-              {kpi.due_today}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#a16207', fontSize: '11px' }}>
-              Expected injection today
-            </Typography>
-          </Box>
-        </Paper>
-
-        {/* Overdue / Missed */}
-        <Paper
-          sx={{
-            p: 2,
-            borderRadius: '12px',
-            border: '1px solid #fecaca',
-            bgcolor: '#fef2f2',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-          }}
-        >
-          <Box
-            sx={{
-              width: 42,
-              height: 42,
-              borderRadius: '10px',
-              bgcolor: '#fee2e2',
-              color: '#991b1b',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <HugeiconsIcon icon={AlertCircleIcon} size={22} />
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="caption" sx={{ color: '#991b1b', fontWeight: 600, textTransform: 'uppercase', fontSize: '11px' }}>
-              Overdue / Missed
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#991b1b', lineHeight: 1.2 }}>
-              {kpi.overdue_missed}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#b91c1c', fontSize: '11px' }}>
-              Defaulters requiring recall
-            </Typography>
-          </Box>
-        </Paper>
-
-        {/* Completed */}
-        <Paper
-          sx={{
-            p: 2,
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0',
-            bgcolor: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-          }}
-        >
-          <Box
-            sx={{
-              width: 42,
-              height: 42,
-              borderRadius: '10px',
-              bgcolor: '#ecfdf5',
-              color: '#047857',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <HugeiconsIcon icon={Medicine01Icon} size={22} />
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="caption" sx={{ color: '#475569', fontWeight: 600, textTransform: 'uppercase', fontSize: '11px' }}>
-              Completed PEP
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#047857', lineHeight: 1.2 }}>
-              {kpi.completed}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '11px' }}>
-              Full regimen completed
-            </Typography>
-          </Box>
-        </Paper>
+            <Box
+              sx={{
+                width: 42,
+                height: 42,
+                borderRadius: '12px',
+                bgcolor: isDark ? `${item.color}20` : `${item.color}15`,
+                color: item.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                border: `1px solid ${item.color}40`,
+                boxShadow: `0 0 12px ${item.color}25`,
+              }}
+            >
+              {item.icon}
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                sx={{
+                  color: isDark ? '#a7f3d0' : '#047857',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  fontSize: '11px',
+                  letterSpacing: '0.03em',
+                  fontFamily: "'Poppins', sans-serif",
+                }}
+              >
+                {item.label}
+              </Typography>
+              <Typography
+                sx={{
+                  fontWeight: 800,
+                  color: isDark ? '#ffffff' : '#064e3b',
+                  lineHeight: 1.15,
+                  fontSize: '22px',
+                  fontFamily: "'Poppins', sans-serif",
+                  my: 0.25,
+                }}
+              >
+                {item.value}
+              </Typography>
+              <Typography
+                sx={{
+                  color: isDark ? '#94a3b8' : '#64748b',
+                  fontSize: '11px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {item.sub}
+              </Typography>
+            </Box>
+          </Paper>
+        ))}
       </Box>
 
       {/* Filters & Search Bar — 8.3: Status dropdown + Dose dropdown + Search */}
-      <Paper sx={{ p: 2, borderRadius: '14px', border: '1px solid #e2e8f0', bgcolor: '#fff', mb: 3 }}>
+      <Paper sx={{ p: 2, borderRadius: '14px', border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)', mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
 
           {/* Left: Status + Channel + Dose dropdowns */}
@@ -663,8 +601,8 @@ export default function VaccinationSchedulePage() {
               <Select
                 value={activeTab}
                 onChange={(e) => { handleTabChange(e.target.value as any); }}
-                sx={{ borderRadius: '8px', fontSize: '13px', fontWeight: 600, bgcolor: '#f0fdf4',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#a7f3d0' } }}
+                sx={{ borderRadius: '8px', fontSize: '13px', fontWeight: 600, bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: isDark ? 'rgba(163, 230, 53, 0.3)' : '#a7f3d0' } }}
                 renderValue={(val) => {
                   const labels: Record<string, string> = {
                     matrix: `All Patients (${kpi.total_patients})`,
@@ -685,7 +623,7 @@ export default function VaccinationSchedulePage() {
               <Select
                 value={channelFilter}
                 onChange={(e) => { setChannelFilter(e.target.value as any); setPage(0); }}
-                sx={{ borderRadius: '8px', fontSize: '13px', bgcolor: '#fff' }}
+                sx={{ borderRadius: '8px', fontSize: '13px', bgcolor: isDark ? 'var(--input-bg, #0b140f)' : 'var(--input-bg, #fff)' }}
               >
                 <MenuItem value="all">All Channels</MenuItem>
                 <MenuItem value="walk_in">Walk-in Only</MenuItem>
@@ -698,7 +636,7 @@ export default function VaccinationSchedulePage() {
               <Select
                 value={doseFilter}
                 onChange={(e) => { setDoseFilter(e.target.value as any); setPage(0); }}
-                sx={{ borderRadius: '8px', fontSize: '13px', bgcolor: '#fff',
+                sx={{ borderRadius: '8px', fontSize: '13px', bgcolor: isDark ? 'var(--input-bg, #0b140f)' : 'var(--input-bg, #fff)',
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: doseFilter !== 'all' ? '#10b981' : undefined } }}
                 renderValue={(val) => val === 'all' ? 'All Doses' : `Dose: ${val}`}
               >
@@ -725,32 +663,32 @@ export default function VaccinationSchedulePage() {
                 ),
               },
             }}
-            sx={{ width: 240, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+            sx={{ width: 240, bgcolor: isDark ? 'var(--input-bg, #0b140f)' : 'var(--input-bg, #fff)', '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
           />
         </Box>
       </Paper>
 
       {/* Patient Stepper Matrix List */}
       {loading ? (
-        <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '12px', border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
-          <Typography variant="body1" sx={{ color: '#64748b' }}>
+        <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '12px', border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)' }}>
+          <Typography variant="body1" sx={{ color: isDark ? '#94a3b8' : '#64748b' }}>
             Loading PEP Journey Stepper Matrix...
           </Typography>
         </Paper>
       ) : patients.length === 0 ? (
-        <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '12px', border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+        <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '12px', border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)' }}>
           <Box sx={{ color: '#cbd5e1', mb: 1, display: 'flex', justifyContent: 'center' }}>
             <HugeiconsIcon icon={Medicine01Icon} size={48} />
           </Box>
-          <Typography variant="h6" sx={{ color: '#475569', fontWeight: 600 }}>
+          <Typography variant="h6" sx={{ color: isDark ? '#ffffff' : '#475569', fontWeight: 600 }}>
             No patients match this filter
           </Typography>
-          <Typography variant="body2" sx={{ color: '#94a3b8', mt: 0.5 }}>
+          <Typography variant="body2" sx={{ color: isDark ? '#94a3b8' : '#94a3b8', mt: 0.5 }}>
             Try adjusting your search criteria or switching tabs.
           </Typography>
         </Paper>
       ) : (
-        <Paper sx={{ p: 2, borderRadius: '14px', border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+        <Paper sx={{ p: 2, borderRadius: '14px', border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)' }}>
           <Stack spacing={2}>
             {patients
               .filter(patient => {
@@ -772,8 +710,8 @@ export default function VaccinationSchedulePage() {
                     p: 2.5,
                     borderRadius: '12px',
                     border: '1px solid',
-                    borderColor: isMissed ? '#fca5a5' : isDueToday ? '#fde047' : '#e2e8f0',
-                    bgcolor: isMissed ? '#fffdfd' : '#fff',
+                    borderColor: isMissed ? '#fca5a5' : isDueToday ? '#fde047' : isDark ? 'rgba(163, 230, 53, 0.25)' : '#e2e8f0',
+                    bgcolor: isMissed ? (isDark ? 'rgba(239, 68, 68, 0.1)' : '#fffdfd') : (isDark ? 'var(--card-bg-solid, #0e1812)' : 'var(--card-bg-solid, #fff)'),
                     boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                     transition: 'all 0.15s ease',
                     '&:hover': {
@@ -796,12 +734,12 @@ export default function VaccinationSchedulePage() {
                           width: 40,
                           height: 40,
                           borderRadius: '10px',
-                          bgcolor: patient.channel === 'online' ? '#eff6ff' : '#f0fdf4',
-                          color: patient.channel === 'online' ? '#2563eb' : '#166534',
+                          bgcolor: patient.channel === 'online' ? (isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff') : (isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4'),
+                          color: patient.channel === 'online' ? (isDark ? '#60a5fa' : '#2563eb') : (isDark ? '#34d399' : '#166534'),
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          border: `1px solid ${patient.channel === 'online' ? '#bfdbfe' : '#bbf7d0'}`,
+                          border: `1px solid ${patient.channel === 'online' ? (isDark ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe') : (isDark ? 'rgba(16, 185, 129, 0.3)' : '#bbf7d0')}`,
                           flexShrink: 0,
                         }}
                       >
@@ -809,7 +747,7 @@ export default function VaccinationSchedulePage() {
                       </Box>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0f172a' }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>
                             {patient.full_name}
                           </Typography>
                           <Chip
@@ -819,9 +757,9 @@ export default function VaccinationSchedulePage() {
                               fontSize: '10px',
                               height: '20px',
                               fontWeight: 600,
-                              bgcolor: patient.channel === 'online' ? '#eff6ff' : '#f1f5f9',
-                              color: patient.channel === 'online' ? '#1d4ed8' : '#475569',
-                              border: `1px solid ${patient.channel === 'online' ? '#dbeafe' : '#e2e8f0'}`,
+                              bgcolor: patient.channel === 'online' ? (isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff') : (isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9'),
+                              color: patient.channel === 'online' ? (isDark ? '#93c5fd' : '#1d4ed8') : (isDark ? '#cbd5e1' : '#475569'),
+                              border: `1px solid ${patient.channel === 'online' ? (isDark ? 'rgba(59, 130, 246, 0.4)' : '#dbeafe') : (isDark ? 'rgba(255,255,255,0.15)' : '#e2e8f0')}`,
                             }}
                           />
                         </Box>
@@ -860,10 +798,10 @@ export default function VaccinationSchedulePage() {
                       sx={{
                         display: 'flex',
                         gap: 1,
-                        bgcolor: '#f8fafc',
+                        bgcolor: isDark ? '#121c15' : '#f8fafc',
                         p: '8px 10px',
                         borderRadius: '10px',
-                        border: '1px solid #e2e8f0',
+                        border: isDark ? '1px solid rgba(163, 230, 53, 0.2)' : '1px solid #e2e8f0',
                         alignItems: 'center',
                         justifyContent: 'center',
                         alignSelf: 'center',

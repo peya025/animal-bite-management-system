@@ -16,27 +16,29 @@ class Queue extends Model
         'clinic_id', 'patient_id', 'appointment_id', 'bite_id',
         'queue_number', 'queue_date', 'visit_type', 'queue_category', 'priority', 'status',
         'checked_in_at', 'called_at', 'completed_at', 'cancelled_at', 'serving_at',
+        'serving_started_at',
         'second_chance_at', 'final_recall_at', 'absent_at', 'no_response_at',
-        'checked_in_by', 'handled_by',
+        'checked_in_by', 'handled_by', 'served_by', 'station_id',
         'check_in_notes', 'consultation_notes',
         'call_count', 'recall_stage',
         'deleted_at',
     ];
 
     protected $casts = [
-        'queue_number'     => 'integer',
-        'call_count'       => 'integer',
-        'queue_date'       => 'date:Y-m-d',
-        'checked_in_at'    => 'datetime',
-        'called_at'        => 'datetime',
-        'completed_at'     => 'datetime',
-        'cancelled_at'     => 'datetime',
-        'serving_at'       => 'datetime',
-        'second_chance_at' => 'datetime',
-        'final_recall_at'  => 'datetime',
-        'absent_at'        => 'datetime',
-        'no_response_at'   => 'datetime',
-        'deleted_at'       => 'datetime',
+        'queue_number'       => 'integer',
+        'call_count'         => 'integer',
+        'queue_date'         => 'date:Y-m-d',
+        'checked_in_at'      => 'datetime',
+        'called_at'          => 'datetime',
+        'completed_at'       => 'datetime',
+        'cancelled_at'       => 'datetime',
+        'serving_at'         => 'datetime',
+        'serving_started_at' => 'datetime',
+        'second_chance_at'   => 'datetime',
+        'final_recall_at'    => 'datetime',
+        'absent_at'          => 'datetime',
+        'no_response_at'     => 'datetime',
+        'deleted_at'         => 'datetime',
     ];
 
     /**
@@ -85,6 +87,22 @@ class Queue extends Model
     public function handledBy()
     {
         return $this->belongsTo(User::class, 'handled_by', 'id');
+    }
+
+    /**
+     * Relationship: Queue is being served by User (served_by)
+     */
+    public function servedBy()
+    {
+        return $this->belongsTo(User::class, 'served_by', 'id');
+    }
+
+    /**
+     * Relationship: Queue belongs to Station
+     */
+    public function station()
+    {
+        return $this->belongsTo(Station::class, 'station_id', 'id');
     }
 
     public function handledByUser()

@@ -15,6 +15,7 @@ export const ROUTES = {
 
   PATIENTS: {
     LIST:    '/patients',
+    REGISTRY: '/patient-registry',
     CREATE:  '/patients/create',
     DETAILS: '/patients/:id',
     EDIT:    '/patients/:id/edit',

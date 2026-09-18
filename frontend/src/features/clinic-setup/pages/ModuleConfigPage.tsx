@@ -373,10 +373,10 @@ export default function ModuleConfigPage() {
           {/* Triage Module Section */}
           <div
             style={{
-              background: '#ffffff',
+              background: 'var(--card-bg-solid, #ffffff)',
               borderRadius: '14px',
-              border: '1px solid #e0eae3',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
+              border: '1px solid var(--border-glow, #e0eae3)',
+              boxShadow: 'var(--shadow, 0 1px 3px rgba(0, 0, 0, 0.02))',
               padding: '1.5rem',
               marginBottom: '1.25rem',
             }}
@@ -387,7 +387,7 @@ export default function ModuleConfigPage() {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 paddingBottom: '1rem',
-                borderBottom: '1px solid #f0f7f2',
+                borderBottom: '1px solid var(--border, #f0f7f2)',
                 marginBottom: '1rem',
               }}
             >
@@ -499,10 +499,10 @@ export default function ModuleConfigPage() {
           {/* Field Rules Sections */}
           <div
             style={{
-              background: '#ffffff',
+              background: 'var(--card-bg-solid, #ffffff)',
               borderRadius: '14px',
-              border: '1px solid #e0eae3',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
+              border: '1px solid var(--border-glow, #e0eae3)',
+              boxShadow: 'var(--shadow, 0 1px 3px rgba(0, 0, 0, 0.02))',
               padding: '1.5rem',
             }}
           >
@@ -512,7 +512,7 @@ export default function ModuleConfigPage() {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 paddingBottom: '1rem',
-                borderBottom: '1px solid #f0f7f2',
+                borderBottom: '1px solid var(--border, #f0f7f2)',
                 marginBottom: '1rem',
               }}
             >
@@ -534,7 +534,7 @@ export default function ModuleConfigPage() {
                 <p
                   style={{
                     fontSize: '0.8125rem',
-                    color: '#77877d',
+                    color: 'var(--text-secondary, #77877d)',
                     fontWeight: 400,
                     margin: 0,
                   }}
@@ -559,10 +559,10 @@ export default function ModuleConfigPage() {
                 <div
                   key={section.title}
                   style={{
-                    border: '1px solid #e8ede9',
+                    border: '1px solid var(--border-glow-subtle, #e8ede9)',
                     borderRadius: '12px',
                     overflow: 'hidden',
-                    background: '#ffffff',
+                    background: 'var(--card-bg-solid, #ffffff)',
                     boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                     display: 'flex',
                     flexDirection: 'column',
@@ -577,9 +577,9 @@ export default function ModuleConfigPage() {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '0.875rem 1rem',
-                      background: isExpanded ? '#f8fafb' : '#ffffff',
+                      background: isExpanded ? 'var(--bg-hover, #f8fafb)' : 'var(--card-bg-solid, #ffffff)',
                       border: 'none',
-                      borderBottom: isExpanded ? '1px solid #f0f4f1' : 'none',
+                      borderBottom: isExpanded ? '1px solid var(--border, #f0f4f1)' : 'none',
                       cursor: 'pointer',
                       transition: 'background 0.2s',
                       minHeight: '72px',
@@ -591,10 +591,10 @@ export default function ModuleConfigPage() {
                         <Icon name={section.icon as any} size={16} color={sectionEnabled[section.title] !== false ? 'var(--primary)' : '#cbd5e1'} />
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: sectionEnabled[section.title] !== false ? '#1e293b' : '#94a3b8', lineHeight: '1.3', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: sectionEnabled[section.title] !== false ? 'var(--text-primary, #1e293b)' : '#94a3b8', lineHeight: '1.3', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {section.title}
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 400, marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary, #94a3b8)', fontWeight: 400, marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {section.description}
                         </div>
                       </div>
@@ -648,7 +648,7 @@ export default function ModuleConfigPage() {
                       </div>
 
                       {/* Stats */}
-                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', borderLeft: '1px solid #e8ede9', paddingLeft: '0.5rem' }}>
+                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', borderLeft: '1px solid var(--border, #e8ede9)', paddingLeft: '0.5rem' }}>
                         {stats.required}R · {stats.optional}O · {stats.hidden}H
                       </div>
 
@@ -671,9 +671,9 @@ export default function ModuleConfigPage() {
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             padding: '0.65rem 0.75rem',
-                            background: '#ffffff',
+                            background: 'var(--card-bg-solid, #ffffff)',
                             borderRadius: '8px',
-                            border: '1px solid #f0f7f2',
+                            border: '1px solid var(--border, #f0f7f2)',
                             marginBottom: '0.5rem',
                           }}
                         >

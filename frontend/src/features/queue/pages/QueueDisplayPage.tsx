@@ -11,6 +11,10 @@ interface QueueEntry {
   status: 'waiting' | 'called' | 'serving' | 'in_consultation' | 'completed' | 'cancelled';
   checked_in_at: string;
   patient: { name: string; age: number; gender: string };
+  station_id?: number | null;
+  station?: { id: number; name: string } | null;
+  served_by?: number | null;
+  servedBy?: { id: number; name: string; role?: string } | null;
 }
 
 const VISIT_LABEL: Record<string, string> = {
@@ -28,6 +32,13 @@ function getStation(visitType: string): 'triage' | 'treatment' {
   return TREATMENT_TYPES.has(visitType) ? 'treatment' : 'triage';
 }
 
+function isFollowUpEntry(entry: QueueEntry): boolean {
+  const stationName = (entry.station?.name || '').toLowerCase();
+  if (stationName.includes('follow-up') || stationName.includes('station 2')) return true;
+  if (stationName.includes('intake') || stationName.includes('station 1')) return false;
+  return entry.visit_type === 'follow_up' || entry.visit_type === 'booster';
+}
+
 function waitTime(checkedIn: string): string {
   const diff = Math.floor((Date.now() - new Date(checkedIn).getTime()) / 60_000);
   if (diff < 1) return '< 1 min';
@@ -37,174 +48,155 @@ function waitTime(checkedIn: string): string {
 
 function padNum(n: number) { return String(n).padStart(3, '0'); }
 
-// ─── Station Panel ────────────────────────────────────────────
+// ─── Sub-Station Card for Treatment Area (HCI Optimized) ─────────
 
-interface StationPanelProps {
-  station:        'triage' | 'treatment';
-  current:        QueueEntry | null;
-  next:           QueueEntry | null;
-  waitingCount:   number;
-  blink:          boolean;
+interface SubStationCardProps {
+  stationNumber: 1 | 2;
+  title: string;
+  subtitle: string;
+  accentColor: string;
+  accentDark: string;
+  gradient: string;
+  current: QueueEntry | null;
+  blink: boolean;
 }
 
-function StationPanel({
-  station, current, next, waitingCount, blink,
-}: StationPanelProps) {
-  const isTriage   = station === 'triage';
-  const accent     = isTriage ? '#0ea5e9' : '#f59e0b';   // blue for triage, amber for treatment
-  const accentDark = isTriage ? '#0369a1' : '#b45309';
-  const label      = isTriage ? 'TRIAGE / DOCTOR' : 'TREATMENT / VACCINATION';
-  const destination = isTriage
-    ? 'Please proceed to Triage Room'
-    : 'Please proceed to Treatment Area';
+function SubStationCard({
+  stationNumber,
+  title,
+  subtitle,
+  accentColor,
+  accentDark,
+  gradient,
+  current,
+  blink,
+}: SubStationCardProps) {
+  const isServing = !!current;
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', gap: 10,
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      borderRadius: 18,
+      overflow: 'hidden',
+      border: isServing ? `2.5px solid ${accentColor}` : '2px solid #e2e8f0',
+      background: '#ffffff',
+      boxShadow: isServing ? `0 8px 24px ${accentColor}28` : '0 1px 3px rgba(0,0,0,0.03)',
+      transition: 'all 0.3s ease',
     }}>
-      {/* Station header badge */}
+      {/* Card Header — Clear Categorization */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '10px 18px', borderRadius: 12,
-        background: `${accent}18`, border: `2px solid ${accent}`,
-        flexShrink: 0,
+        padding: '12px 18px',
+        background: isServing ? `${accentColor}12` : '#f8fafc',
+        borderBottom: `1.5px solid ${isServing ? accentColor + '30' : '#e2e8f0'}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
       }}>
-        <div style={{
-          width: 10, height: 10, borderRadius: '50%',
-          background: accent, boxShadow: `0 0 8px ${accent}`,
-        }} />
-        <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 2, color: accentDark, textTransform: 'uppercase' }}>
-          {label}
-        </span>
-        <span style={{
-          marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: accentDark,
-          background: `${accent}25`, padding: '2px 12px', borderRadius: 999,
-          border: `1px solid ${accent}`,
-        }}>
-          {waitingCount} waiting
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{
+            width: 10, height: 10, borderRadius: '50%',
+            background: accentColor,
+            boxShadow: isServing ? `0 0 10px ${accentColor}` : 'none',
+          }} />
+          <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: 1.5, color: accentDark, textTransform: 'uppercase' }}>
+            {title}
+          </span>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: accentDark, opacity: 0.85 }}>
+          {subtitle}
         </span>
       </div>
 
-      {/* Next Patient card — fixed size, never resizes */}
+      {/* Card Body — Visual Hierarchy Focused */}
       <div style={{
-        height: 320, flexShrink: 0,
-        borderRadius: 20, padding: '28px 36px',
-        background: current
-          ? `linear-gradient(135deg, ${accentDark} 0%, ${accent} 100%)`
-          : '#f9fafb',
-        border: `2px solid ${current ? accent : '#e5e7eb'}`,
-        boxShadow: current ? `0 4px 24px ${accent}44` : 'none',
-        display: 'flex', flexDirection: 'column',
-        transition: 'background 0.4s, border 0.4s',
-        overflow: 'hidden',
+        flex: 1,
+        padding: '24px 18px',
+        background: isServing ? gradient : '#ffffff',
+        color: isServing ? '#ffffff' : '#64748b',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        minHeight: 250,
+        position: 'relative',
       }}>
-        {/* Label row */}
+        {/* Label: NOW SERVING */}
         <div style={{
-          fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase',
-          color: current ? 'rgba(255,255,255,0.75)' : accentDark,
-          marginBottom: 12,
+          fontSize: 13,
+          fontWeight: 900,
+          letterSpacing: 2.5,
+          textTransform: 'uppercase',
+          color: isServing ? 'rgba(255,255,255,0.9)' : '#94a3b8',
+          marginBottom: 4,
         }}>
-          Next Patient
+          NOW SERVING
         </div>
 
-        {current ? (
-          /* ── Two-column layout: number left, details right ── */
-          <div style={{ display: 'flex', alignItems: 'center', gap: 28, flex: 1, minHeight: 0 }}>
-
-            {/* LEFT — big blinking number */}
+        {isServing ? (
+          <>
+            {/* Primary Level: Giant Calling Number */}
             <div style={{
-              fontSize: 190, fontWeight: 900, lineHeight: 1,
-              color: blink ? '#fff' : 'rgba(255,255,255,0.65)',
+              fontSize: 118,
+              fontWeight: 900,
+              lineHeight: 1,
               fontVariantNumeric: 'tabular-nums',
-              textShadow: `0 6px 32px rgba(0,0,0,0.25)`,
-              transition: 'color 0.4s',
-              flexShrink: 0,
               letterSpacing: -4,
+              color: blink ? '#ffffff' : 'rgba(255,255,255,0.72)',
+              textShadow: '0 4px 18px rgba(0,0,0,0.22)',
+              margin: '2px 0 6px',
+              transition: 'color 0.3s ease',
             }}>
               {padNum(current.queue_number)}
             </div>
 
-            {/* Divider */}
-            <div style={{ width: 2, alignSelf: 'stretch', background: 'rgba(255,255,255,0.25)', borderRadius: 2, flexShrink: 0 }} />
-
-            {/* RIGHT — details */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 12, minWidth: 0, flex: 1, textAlign: 'center' }}>
-
-              {/* Announcement pill */}
-              <div style={{
-                padding: '10px 20px', borderRadius: 12,
-                background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.35)',
-              }}>
-                <span style={{ fontSize: 16, fontWeight: 800, color: '#fff', lineHeight: 1.4 }}>
-                  Number {padNum(current.queue_number)} — {destination}
-                </span>
-              </div>
-
-              {/* Patient name */}
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', lineHeight: 1.3, textAlign: 'center' }}>
-                {current.patient.name}
-              </div>
-
-              {current.priority !== 'normal' && (
-                <span style={{
-                  fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 999,
-                  background: current.priority === 'emergency' ? '#dc2626' : '#fbbf24',
-                  color: '#fff', alignSelf: 'flex-start',
-                }}>
-                  {current.priority.toUpperCase()}
-                </span>
-              )}
+            {/* Secondary Level: Patient Name */}
+            <div style={{
+              fontSize: 24,
+              fontWeight: 800,
+              color: '#ffffff',
+              lineHeight: 1.25,
+              maxWidth: '92%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              textShadow: '0 2px 8px rgba(0,0,0,0.18)',
+            }}>
+              {current.patient.name}
             </div>
-          </div>
+
+            {/* Action Level: Directional Pill */}
+            <div style={{
+              marginTop: 16,
+              padding: '10px 22px',
+              borderRadius: 999,
+              background: '#ffffff',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.16)',
+              fontSize: 14,
+              fontWeight: 900,
+              color: accentDark,
+              letterSpacing: 0.4,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}>
+              <span>➔</span>
+              <span>PROCEED TO STATION {stationNumber} DESK</span>
+            </div>
+          </>
         ) : (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ fontSize: 56, marginBottom: 8, color: '#d1d5db' }}>—</div>
-            <div style={{ fontSize: 15, color: '#6b7280', fontWeight: 500 }}>No patient at {isTriage ? 'triage' : 'treatment'}</div>
-          </div>
-        )}
-      </div>
-
-      {/* Next up — compact, fixed at bottom */}
-      <div style={{
-        flexShrink: 0,
-        borderRadius: 14, padding: '12px 18px',
-        background: next ? `${accent}12` : '#f3f4f6',
-        border: `1.5px solid ${next ? accent : '#e5e7eb'}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-        overflow: 'hidden',
-      }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: accentDark, marginBottom: 4 }}>
-            Next
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: next ? accentDark : '#9ca3af' }}>
-            {next ? padNum(next.queue_number) : '—'}
-          </div>
-          {next && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 13, color: '#111827', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
-                {next.patient.name}
-              </span>
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999,
-                background: accent, color: '#fff', letterSpacing: 0.4, flexShrink: 0,
-              }}>
-                {VISIT_LABEL[next.visit_type] ?? next.visit_type}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {next && (
-          <div style={{
-            flexShrink: 0, padding: '10px 20px', borderRadius: 10,
-            background: `${accent}18`, border: `1.5px solid ${accent}44`,
-            display: 'inline-flex', alignItems: 'center', gap: 7,
-          }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2.5">
-              <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, opacity: 0.8 }}>
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.8">
+              <path d="M19 5L5 19M14 4l6 6M4 14l6 6M3 21l3-3" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <span style={{ fontSize: 12, fontWeight: 700, color: accentDark }}>Up next</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: '#475569' }}>
+              No {stationNumber === 1 ? 'Intake' : 'Follow-up'} Patient
+            </span>
+            <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>
+              Station {stationNumber} ready for next call
+            </span>
           </div>
         )}
       </div>
@@ -301,19 +293,25 @@ export default function QueueDisplayPage() {
   // Active statuses = patient is at or being directed to the station
   const ACTIVE = (s: string) => ['called', 'serving', 'in_consultation'].includes(s);
 
-  // Split queue by station
+  // 1. Triage (Doctor)
   const triageWaiting    = queue.filter(q => q.status === 'waiting' && getStation(q.visit_type) === 'triage');
-  const treatmentWaiting = queue.filter(q => q.status === 'waiting' && getStation(q.visit_type) === 'treatment');
-  const triageInConsult    = queue.find(q => ACTIVE(q.status) && getStation(q.visit_type) === 'triage') ?? null;
-  const treatmentInConsult = queue.find(q => ACTIVE(q.status) && getStation(q.visit_type) === 'treatment') ?? null;
+  const triageInConsult  = queue.find(q => ACTIVE(q.status) && getStation(q.visit_type) === 'triage') ?? null;
+  const triageCurrent    = triageInConsult ?? triageWaiting[0] ?? null;
+  const triageNext       = triageInConsult ? (triageWaiting[0] ?? null) : (triageWaiting[1] ?? null);
 
-  // "current" = in_consultation if exists, otherwise show first waiting so the display is never blank
-  const triageCurrent    = triageInConsult    ?? triageWaiting[0]    ?? null;
-  const treatmentCurrent = treatmentInConsult ?? treatmentWaiting[0] ?? null;
+  // 2. Treatment (Nurses): Divided into Station 1 (Intake) and Station 2 (Follow-up)
+  const treatmentEntries = queue.filter(q => getStation(q.visit_type) === 'treatment');
+  const treatmentWaiting = treatmentEntries.filter(q => q.status === 'waiting');
 
-  // "next" = second waiting patient (skip first if shown as current)
-  const triageNext    = triageInConsult    ? triageWaiting[0]    ?? null : triageWaiting[1]    ?? null;
-  const treatmentNext = treatmentInConsult ? treatmentWaiting[0] ?? null : treatmentWaiting[1] ?? null;
+  // Station 1 — Intake
+  const st1Waiting   = treatmentWaiting.filter(q => !isFollowUpEntry(q));
+  const st1InConsult = treatmentEntries.find(q => ACTIVE(q.status) && !isFollowUpEntry(q)) ?? null;
+  const st1Current   = st1InConsult ?? st1Waiting[0] ?? null;
+
+  // Station 2 — Follow-up
+  const st2Waiting   = treatmentWaiting.filter(q => isFollowUpEntry(q));
+  const st2InConsult = treatmentEntries.find(q => ACTIVE(q.status) && isFollowUpEntry(q)) ?? null;
+  const st2Current   = st2InConsult ?? st2Waiting[0] ?? null;
 
   const clinicName = (() => {
     try { return JSON.parse(localStorage.getItem('clinicData') ?? '{}')?.name ?? 'Animal Bite Center'; }
@@ -326,162 +324,449 @@ export default function QueueDisplayPage() {
   return (
     <div style={{
       height: '100vh',
-      background: '#ffffff',
-      display: 'flex', flexDirection: 'column',
-      fontFamily: "'Segoe UI', system-ui, sans-serif",
-      color: '#111827', overflow: 'hidden',
+      background: '#f8fafc',
+      display: 'flex',
+      flexDirection: 'column',
+      fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+      color: '#0f172a',
+      overflow: 'hidden',
     }}>
 
-      {/* ── Top bar ── */}
+      {/* ── Top Bar ── */}
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 40px', borderBottom: '1px solid #e5e7eb',
-        background: '#10b981',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '16px 40px',
+        borderBottom: '2px solid #064e3b',
+        background: '#047857',
+        boxShadow: '0 3px 12px rgba(4,120,87,0.2)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 40, height: 40, background: '#fff', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{
+            width: 48, height: 48, background: '#ffffff', borderRadius: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#047857" strokeWidth="2.4">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{clinicName}</div>
-            <div style={{ fontSize: 11, color: '#d1fae5' }}>Animal Bite Treatment Center · Queue Calling Display</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#ffffff', letterSpacing: -0.3 }}>
+              {clinicName}
+            </div>
+            <div style={{ fontSize: 13, color: '#a7f3d0', fontWeight: 600 }}>
+              Queue Calling Display — Animal Bite Treatment Center
+            </div>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 30, fontWeight: 800, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{timeStr}</div>
-          <div style={{ fontSize: 12, color: '#d1fae5' }}>{dateStr}</div>
+          <div style={{ fontSize: 38, fontWeight: 900, color: '#ffffff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+            {timeStr}
+          </div>
+          <div style={{ fontSize: 13, color: '#a7f3d0', fontWeight: 600, marginTop: 4 }}>
+            {dateStr}
+          </div>
         </div>
       </div>
 
-      {/* ── Instruction banner ── */}
+      {/* ── Instruction Banner ── */}
       <div style={{
-        textAlign: 'center', padding: '10px 40px',
-        background: '#f0fdf4', borderBottom: '1px solid #bbf7d0',
-        fontSize: 14, color: '#065f46', fontWeight: 600, letterSpacing: 1,
+        textAlign: 'center',
+        padding: '11px 36px',
+        background: '#ecfdf5',
+        borderBottom: '1.5px solid #a7f3d0',
+        fontSize: 15,
+        color: '#064e3b',
+        fontWeight: 800,
+        letterSpacing: 0.6,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
       }}>
-        🔔 Please listen for your number and proceed to the assigned station
+        <span style={{ fontSize: 18 }}>🔔</span>
+        <span>PLEASE LISTEN FOR YOUR NUMBER AND PROCEED TO THE ASSIGNED STATION</span>
       </div>
 
-      {/* ── Two station panels ── */}
+      {/* ── Two Column Master Layout ── */}
       <div style={{
-        flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr',
-        gap: 0, overflow: 'hidden',
+        flex: 1,
+        display: 'grid',
+        gridTemplateColumns: '0.95fr 1.05fr',
+        gap: 18,
+        padding: '16px 24px',
+        overflow: 'hidden',
+        minHeight: 0,
       }}>
 
-        {/* Triage Station */}
+        {/* ════ LEFT COLUMN: TRIAGE / DOCTOR ════ */}
         <div style={{
-          padding: '20px 24px',
-          borderRight: '1px solid #e5e7eb',
-          background: '#fff',
-          display: 'flex', flexDirection: 'column', gap: 12,
-          flex: 1, minHeight: 0, overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+          minHeight: 0,
         }}>
-          <StationPanel
-            station="triage"
-            current={triageCurrent}
-            next={triageNext}
-            waitingCount={triageWaiting.length}
-            blink={blink}
-          />
-
-          {/* Triage waiting mini list */}
-          {triageWaiting.length > 1 && (
-            <div style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(14,165,233,0.06)', border: '1px solid rgba(14,165,233,0.12)', flexShrink: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: '#0ea5e9', marginBottom: 8, textTransform: 'uppercase' }}>Also Waiting for Triage</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {triageWaiting.slice(1, 3).map(e => (
-                  <div key={e.queue_id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                    <span style={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#0ea5e9', minWidth: 40 }}>#{padNum(e.queue_number)}</span>
-                    <span style={{ color: '#111827', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.patient.name}</span>
-                    <span style={{ color: '#6b7280', fontSize: 11, flexShrink: 0 }}>{waitTime(e.checked_in_at)}</span>
-                  </div>
-                ))}
-                {triageWaiting.length > 3 && <div style={{ fontSize: 11, color: '#6b7280' }}>+{triageWaiting.length - 3} more</div>}
-              </div>
+          {/* Station Header */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 20px',
+            borderRadius: 14,
+            background: 'rgba(37, 99, 235, 0.08)',
+            border: '2px solid #2563eb',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#2563eb', boxShadow: '0 0 10px #2563eb' }} />
+              <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: 1.8, color: '#1e3a8a', textTransform: 'uppercase' }}>
+                TRIAGE / DOCTOR (CONSULTATION)
+              </span>
             </div>
-          )}
+            <span style={{
+              fontSize: 13, fontWeight: 800, color: '#1e40af',
+              background: 'rgba(37, 99, 235, 0.15)', padding: '4px 14px', borderRadius: 999,
+              border: '1px solid #2563eb',
+            }}>
+              {triageWaiting.length} waiting
+            </span>
+          </div>
+
+          {/* Doctor Calling Card */}
+          <div style={{
+            flex: 1,
+            borderRadius: 20,
+            padding: '28px 32px',
+            background: triageCurrent
+              ? 'linear-gradient(145deg, #1e3a8a 0%, #2563eb 100%)'
+              : '#ffffff',
+            border: triageCurrent ? '2.5px solid #1d4ed8' : '2px solid #e2e8f0',
+            boxShadow: triageCurrent ? '0 10px 32px rgba(37,99,235,0.28)' : '0 1px 3px rgba(0,0,0,0.03)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            textAlign: 'center',
+            overflow: 'hidden',
+            minHeight: 290,
+          }}>
+            <div style={{
+              fontSize: 13, fontWeight: 900, letterSpacing: 3, textTransform: 'uppercase',
+              color: triageCurrent ? 'rgba(255,255,255,0.9)' : '#94a3b8',
+              marginBottom: 4,
+            }}>
+              NOW SERVING
+            </div>
+
+            {triageCurrent ? (
+              <>
+                <div style={{
+                  fontSize: 142,
+                  fontWeight: 900,
+                  lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                  letterSpacing: -5,
+                  color: blink ? '#ffffff' : 'rgba(255,255,255,0.72)',
+                  textShadow: '0 6px 24px rgba(0,0,0,0.25)',
+                  transition: 'color 0.3s ease',
+                  margin: '4px 0 8px',
+                }}>
+                  {padNum(triageCurrent.queue_number)}
+                </div>
+
+                <div style={{
+                  fontSize: 28,
+                  fontWeight: 800,
+                  color: '#ffffff',
+                  lineHeight: 1.25,
+                  maxWidth: '92%',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  textShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                }}>
+                  {triageCurrent.patient.name}
+                </div>
+
+                <div style={{
+                  marginTop: 18,
+                  padding: '10px 24px',
+                  borderRadius: 999,
+                  background: '#ffffff',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                  fontSize: 15,
+                  fontWeight: 900,
+                  color: '#1e3a8a',
+                  letterSpacing: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}>
+                  <span>➔</span>
+                  <span>PROCEED TO DOCTOR'S ROOM</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, opacity: 0.75 }}>
+                <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.6">
+                  <path d="M4.5 3h15M12 3v18M8 21h8" strokeLinecap="round"/>
+                </svg>
+                <div style={{ fontSize: 18, color: '#334155', fontWeight: 800 }}>No Patient at Triage</div>
+                <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>Doctor consultation desk is available</div>
+              </div>
+            )}
+          </div>
+
+          {/* Doctor Next Up Box */}
+          <div style={{
+            borderRadius: 16,
+            padding: '14px 20px',
+            background: triageNext ? 'rgba(37,99,235,0.07)' : '#ffffff',
+            border: `2px solid ${triageNext ? '#93c5fd' : '#e2e8f0'}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+          }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.8, textTransform: 'uppercase', color: '#1e40af' }}>
+                Next for Triage
+              </div>
+              <div style={{ fontSize: 30, fontWeight: 900, color: triageNext ? '#1e3a8a' : '#94a3b8', lineHeight: 1.1, marginTop: 2 }}>
+                {triageNext ? `#${padNum(triageNext.queue_number)}` : '— None'}
+              </div>
+              {triageNext && (
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>
+                  {triageNext.patient.name}
+                </div>
+              )}
+            </div>
+            {triageWaiting.length > 1 && (
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#1e40af', background: 'rgba(37,99,235,0.12)', padding: '5px 12px', borderRadius: 8 }}>
+                +{triageWaiting.length - 1} more waiting
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Treatment Station */}
+        {/* ════ RIGHT COLUMN: TREATMENT & VACCINATION (DUAL NURSES) ════ */}
         <div style={{
-          padding: '20px 24px',
-          background: '#fff',
-          display: 'flex', flexDirection: 'column', gap: 12,
-          flex: 1, minHeight: 0, overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+          minHeight: 0,
         }}>
-          <StationPanel
-            station="treatment"
-            current={treatmentCurrent}
-            next={treatmentNext}
-            waitingCount={treatmentWaiting.length}
-            blink={blink}
-          />
-
-          {/* Treatment waiting mini list */}
-          {treatmentWaiting.length > 1 && (
-            <div style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.12)', flexShrink: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: '#f59e0b', marginBottom: 8, textTransform: 'uppercase' }}>Also Waiting for Treatment</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {treatmentWaiting.slice(1, 3).map(e => (
-                  <div key={e.queue_id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                    <span style={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#f59e0b', minWidth: 40 }}>#{padNum(e.queue_number)}</span>
-                    <span style={{ color: '#111827', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.patient.name}</span>
-                    <span style={{ color: '#6b7280', fontSize: 11, flexShrink: 0 }}>{waitTime(e.checked_in_at)}</span>
-                  </div>
-                ))}
-                {treatmentWaiting.length > 3 && <div style={{ fontSize: 11, color: '#6b7280' }}>+{treatmentWaiting.length - 3} more</div>}
-              </div>
+          {/* Section Header */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 20px',
+            borderRadius: 14,
+            background: 'rgba(5, 150, 105, 0.08)',
+            border: '2px solid #059669',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#059669', boxShadow: '0 0 10px #059669' }} />
+              <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: 1.8, color: '#064e3b', textTransform: 'uppercase' }}>
+                TREATMENT & VACCINATIONS (NURSING WING)
+              </span>
             </div>
-          )}
+            <span style={{
+              fontSize: 13, fontWeight: 800, color: '#064e3b',
+              background: 'rgba(5, 150, 105, 0.15)', padding: '4px 14px', borderRadius: 999,
+              border: '1px solid #059669',
+            }}>
+              {treatmentWaiting.length} waiting
+            </span>
+          </div>
+
+          {/* DUAL STATIONS: Station 1 (Intake) and Station 2 (Follow-up) Side-by-Side */}
+          <div style={{
+            flex: 1,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 14,
+            minHeight: 0,
+          }}>
+            {/* Station 1: Intake — Medical Emerald Green */}
+            <SubStationCard
+              stationNumber={1}
+              title="STATION 1 · INTAKE"
+              subtitle="Day 0 Initial Dose & RIG"
+              accentColor="#059669"
+              accentDark="#064e3b"
+              gradient="linear-gradient(145deg, #064e3b 0%, #059669 100%)"
+              current={st1Current}
+              blink={blink}
+            />
+
+            {/* Station 2: Follow-up — Matching Medical Deep Teal */}
+            <SubStationCard
+              stationNumber={2}
+              title="STATION 2 · FOLLOW-UP"
+              subtitle="Day 3, 7, 28 & Boosters"
+              accentColor="#0d9488"
+              accentDark="#134e4a"
+              gradient="linear-gradient(145deg, #134e4a 0%, #0d9488 100%)"
+              current={st2Current}
+              blink={blink}
+            />
+          </div>
+
+          {/* Up Next for Treatment Bar */}
+          <div style={{
+            borderRadius: 16,
+            padding: '14px 20px',
+            background: '#ffffff',
+            border: '2px solid #e2e8f0',
+            flexShrink: 0,
+          }}>
+            <div style={{
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              color: '#334155',
+              marginBottom: 8,
+            }}>
+              UP NEXT FOR TREATMENT
+            </div>
+
+            {treatmentWaiting.length > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                {treatmentWaiting.slice(0, 3).map((e) => {
+                  const isFollowUp = isFollowUpEntry(e);
+                  return (
+                    <div
+                      key={e.queue_id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 9,
+                        background: '#f8fafc',
+                        border: '1.5px solid #e2e8f0',
+                        padding: '6px 14px',
+                        borderRadius: 10,
+                      }}
+                    >
+                      <span style={{
+                        fontSize: 18,
+                        fontWeight: 900,
+                        color: isFollowUp ? '#0d9488' : '#059669',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        #{padNum(e.queue_number)}
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                        {e.patient.name}
+                      </span>
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: 6,
+                        background: isFollowUp ? '#ccfbf1' : '#d1fae5',
+                        color: isFollowUp ? '#134e4a' : '#064e3b',
+                      }}>
+                        {isFollowUp ? 'Follow-up' : 'Intake'}
+                      </span>
+                    </div>
+                  );
+                })}
+                {treatmentWaiting.length > 3 && (
+                  <span style={{ fontSize: 13, color: '#475569', fontWeight: 700 }}>
+                    +{treatmentWaiting.length - 3} more waiting
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic', fontWeight: 500 }}>
+                No additional patients currently waiting in treatment queue
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ── Bottom ticker ── */}
+      {/* ── Bottom Ticker ── */}
       <div style={{
-        background: '#10b981', padding: '9px 40px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        fontSize: 12, fontWeight: 600, color: '#fff',
+        background: '#10b981',
+        padding: '10px 36px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        fontSize: 12,
+        fontWeight: 600,
+        color: '#ffffff',
         borderTop: '1px solid #059669',
+        boxShadow: '0 -2px 10px rgba(0,0,0,0.04)',
       }}>
         <span>🔔 Auto-refreshes every 5 seconds</span>
         <span>
           Triage: {triageWaiting.length} waiting
           &nbsp;·&nbsp;
-          Treatment: {treatmentWaiting.length} waiting
+          Station 1 (Intake): {st1Waiting.length} waiting
+          &nbsp;·&nbsp;
+          Station 2 (Follow-up): {st2Waiting.length} waiting
           &nbsp;·&nbsp;
           {queue.filter(q => q.status === 'completed').length} completed today
         </span>
-        <a href="/queue" style={{ color: '#6ee7b7', textDecoration: 'none' }}>← Back to Queue Dashboard</a>
+        <a href="/queue" style={{ color: '#d1fae5', textDecoration: 'none', fontWeight: 700 }}>
+          ← Back to Dashboard
+        </a>
       </div>
 
-      {/* ── Call notification overlay ── */}
+      {/* ── Voice / Chime Announcement Banner Overlay ── */}
       {lastCall && (
         <div style={{
-          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
-          background: `linear-gradient(135deg, ${getStation(lastCall.visit_type) === 'triage' ? '#0ea5e9, #0369a1' : '#f59e0b, #b45309'})`,
-          borderRadius: 16, padding: '16px 36px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          zIndex: 9999, textAlign: 'center',
+          position: 'fixed',
+          top: 24,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+          borderRadius: 16,
+          padding: '16px 36px',
+          boxShadow: '0 12px 36px rgba(0,0,0,0.3)',
+          zIndex: 9999,
+          textAlign: 'center',
           animation: 'slideDown 0.3s ease',
-          minWidth: 300,
+          minWidth: 320,
+          border: '1.5px solid #334155',
         }}>
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', opacity: 0.85 }}>Now Calling</div>
-          <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: '#94a3b8' }}>
+            NOW CALLING
+          </div>
+          <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1, color: '#38bdf8', fontVariantNumeric: 'tabular-nums', margin: '4px 0' }}>
             #{padNum(lastCall.queue_number)}
           </div>
-          <div style={{ fontSize: 15, fontWeight: 700, marginTop: 4 }}>{lastCall.patient.name}</div>
-          <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
-            {getStation(lastCall.visit_type) === 'triage'
-              ? '→ Please proceed to Triage Room'
-              : '→ Please proceed to Treatment Area'}
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#ffffff' }}>
+            {lastCall.patient.name}
           </div>
-          <button onClick={() => setLastCall(null)} style={{
-            marginTop: 12, padding: '6px 20px', borderRadius: 8,
-            background: 'rgba(255,255,255,0.2)', border: 'none',
-            color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-          }}>Dismiss</button>
+          <div style={{ fontSize: 13, color: '#a7f3d0', fontWeight: 600, marginTop: 4 }}>
+            ➔ Please proceed to {getStation(lastCall.visit_type) === 'triage'
+              ? "Doctor's Room"
+              : isFollowUpEntry(lastCall)
+              ? "Treatment Station 2 (Follow-up)"
+              : "Treatment Station 1 (Intake)"}
+          </div>
+          <button
+            onClick={() => setLastCall(null)}
+            style={{
+              marginTop: 10,
+              padding: '5px 16px',
+              borderRadius: 8,
+              background: 'rgba(255,255,255,0.15)',
+              border: 'none',
+              color: '#ffffff',
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -491,7 +776,7 @@ export default function QueueDisplayPage() {
           to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
         ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 2px; }
       `}</style>
     </div>
   );

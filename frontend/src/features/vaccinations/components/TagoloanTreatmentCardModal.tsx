@@ -191,16 +191,16 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
 
       <div
         style={{
-          background: '#ffffff',
+          background: 'var(--card-bg-solid, #ffffff)',
           borderRadius: '16px',
           width: '100%',
           maxWidth: '920px',
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
           overflow: 'hidden',
-          border: '1px solid #cbd5e1',
+          border: '1px solid var(--border-glow, #cbd5e1)',
         }}
       >
         {/* Header Bar */}
@@ -638,23 +638,25 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         <div
           className="no-print"
           style={{
-            background: '#f8fafc',
-            borderTop: '1px solid #e2e8f0',
+            background: 'var(--card-bg-solid, #f8fafc)',
+            borderTop: '1px solid var(--border, #e2e8f0)',
             padding: '1rem 1.5rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}
         >
-          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #64748b)' }}>
             Tagoloan RHU Official Animal Bite Treatment Form (3NF Compliant Schema)
           </span>
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
               onClick={onClose}
+              className="btn-action"
               style={{
-                background: '#ffffff',
-                border: '1px solid #cbd5e1',
+                background: 'var(--card-bg-solid, #ffffff)',
+                border: '1px solid var(--border-glow, #cbd5e1)',
+                color: 'var(--text-primary, #1e293b)',
                 padding: '0.5rem 1.25rem',
                 borderRadius: '8px',
                 fontWeight: 500,

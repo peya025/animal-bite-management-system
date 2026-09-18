@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Chip, Paper, Tooltip, IconButton, Typography, Collapse } from '@mui/material';
+import { Box, Chip, Paper, Tooltip, IconButton, Typography, Collapse, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowUpRight01Icon, ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons';
@@ -22,6 +22,8 @@ function completionTime(entry: QueueEntry): string {
 
 export function TreatmentCompletedPanel({ entries, loading }: TreatmentCompletedPanelProps) {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [expanded, setExpanded] = useState(false);
 
   if (!loading && entries.length === 0) return null;
@@ -33,7 +35,7 @@ export function TreatmentCompletedPanel({ entries, loading }: TreatmentCompleted
   });
 
   return (
-    <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', mt: 3, mb: 3 }}>
+    <Paper elevation={0} sx={{ border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', mt: 3, mb: 3, bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#ffffff' }}>
       <Box
         onClick={() => setExpanded(!expanded)}
         sx={{
@@ -71,7 +73,7 @@ export function TreatmentCompletedPanel({ entries, loading }: TreatmentCompleted
       </Box>
 
       <Collapse in={expanded}>
-        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: '#ffffff' }}>
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#ffffff' }}>
         {sortedEntries.map(entry => {
           const statusCfg = STATUS_CFG[entry.status] ?? STATUS_CFG.completed;
           const categoryLabel = CATEGORY_LABEL[entry.queue_category] ?? entry.queue_category;
@@ -85,8 +87,8 @@ export function TreatmentCompletedPanel({ entries, loading }: TreatmentCompleted
                 px: 2,
                 py: 1.25,
                 borderRadius: 2,
-                bgcolor: '#f7fff9',
-                border: '1px solid #d1fae5',
+                bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : '#f7fff9',
+                border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #d1fae5',
               }}
             >
               <Box
@@ -94,23 +96,23 @@ export function TreatmentCompletedPanel({ entries, loading }: TreatmentCompleted
                   width: 36,
                   height: 36,
                   borderRadius: 1.5,
-                  bgcolor: '#ecfdf5',
+                  bgcolor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#ecfdf5',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexShrink: 0,
                 }}
               >
-                <Typography sx={{ fontWeight: 800, fontSize: 13, color: '#16a34a' }}>
+                <Typography sx={{ fontWeight: 800, fontSize: 13, color: isDark ? '#34d399' : '#16a34a' }}>
                   {entry.queue_number}
                 </Typography>
               </Box>
 
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#1f2937', lineHeight: 1.2 }}>
+                <Typography sx={{ fontWeight: 600, fontSize: 13, color: isDark ? '#f8fafc' : '#1f2937', lineHeight: 1.2 }}>
                   {entry.patient.name}
                 </Typography>
-                <Typography sx={{ fontSize: 11, color: '#64748b', mt: 0.25 }}>
+                <Typography sx={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', mt: 0.25 }}>
                   {entry.patient.age}y · {entry.patient.gender}
                   &nbsp;·&nbsp;{VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
                   &nbsp;·&nbsp;{categoryLabel}
@@ -123,7 +125,7 @@ export function TreatmentCompletedPanel({ entries, loading }: TreatmentCompleted
                   label={statusCfg.label}
                   sx={{ bgcolor: statusCfg.bg, color: statusCfg.color, fontWeight: 700, fontSize: 10, height: 20 }}
                 />
-                <Typography sx={{ fontSize: 11, color: '#16a34a', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                <Typography sx={{ fontSize: 11, color: isDark ? '#34d399' : '#16a34a', whiteSpace: 'nowrap', fontWeight: 600 }}>
                   {completionTime(entry)}
                 </Typography>
               </Box>
@@ -133,14 +135,14 @@ export function TreatmentCompletedPanel({ entries, loading }: TreatmentCompleted
                   size="small"
                   onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: entry.queue_id }))}
                   sx={{
-                    color: '#16a34a',
-                    bgcolor: '#fff',
-                    border: '1px solid #bbf7d0',
+                    color: isDark ? '#34d399' : '#16a34a',
+                    bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#fff',
+                    border: isDark ? '1px solid rgba(163, 230, 53, 0.35)' : '1px solid #bbf7d0',
                     borderRadius: '7px',
                     width: 28,
                     height: 28,
                     flexShrink: 0,
-                    '&:hover': { bgcolor: '#ecfdf5', color: '#15803d', borderColor: '#86efac' },
+                    '&:hover': { bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5', color: '#15803d', borderColor: '#86efac' },
                   }}
                 >
                   <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />

@@ -22,7 +22,7 @@ import {
   FormControlLabel,
   Grid,
 } from '@mui/material';
-import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined } from '@mui/icons-material';
+import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined, Lock } from '@mui/icons-material';
 import api from '../../../services/api';
 import DataTable from '../../../components/ui/DataTable';
 import type { Column } from '../../../components/ui/DataTable';
@@ -43,14 +43,24 @@ import {
 } from '@hugeicons/core-free-icons';
 
 type Role = 'admin' | 'registration' | 'triage' | 'treatment';
+
+interface RoleItem {
+  id: number;
+  slug: string;
+  display_name: string;
+}
+
 interface User {
   id: number;
   name: string;
   email: string;
   phone?: string;
   role: Role;
-  is_active: boolean;
+  roles?: RoleItem[];
+  professional_license_no?: string;
+  signature_path?: string;
 }
+
 interface LinkedPatientProfile {
   id: number;
   patient_id?: number;
@@ -71,6 +81,7 @@ interface LinkedPatientProfile {
   case_summary?: { case_number: string; category: string; animal: string } | null;
   next_appointment?: { date: string; label: string } | null;
 }
+
 interface PatientAccount {
   id: number;
   name: string;
@@ -82,6 +93,7 @@ interface PatientAccount {
   last_login_at: string | null;
   created_at: string;
 }
+
 const roles: Record<Role, string> = {
   admin: 'Administrator',
   registration: 'Registration',
@@ -89,29 +101,87 @@ const roles: Record<Role, string> = {
   treatment: 'Treatment',
 };
 
-const ROLE_SOFT_STYLES: Record<Role, { bg: string; color: string; border: string }> = {
-  admin:        { bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe' }, // Soft Lavender Indigo
-  registration: { bg: '#f3e8ff', color: '#6b21a8', border: '#e9d5ff' }, // Soft Violet
-  triage:       { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' }, // Soft Sky Blue
-  treatment:    { bg: '#d1fae5', color: '#065f46', border: '#a7f3d0' }, // Soft Mint Green
-};
+export function getUserWorkstationInfo(user: User) {
+  const slugs = (user.roles || []).map((r) => r.slug);
+  const hasIntake = slugs.includes('intake_nurse');
+  const hasFollowUp = slugs.includes('follow_up_nurse');
 
-function SoftRoleChip({ role }: { role: Role }) {
-  const style = ROLE_SOFT_STYLES[role] || { bg: '#f3f4f6', color: '#374151', border: '#e5e7eb' };
-  return (
-    <Chip
-      size="small"
-      label={roles[role] || role}
-      sx={{
-        bgcolor: style.bg,
-        color: style.color,
-        border: `1px solid ${style.border}`,
-        fontWeight: 600,
-        fontSize: '11.5px',
-        height: '24px',
-      }}
-    />
-  );
+  if (hasIntake && hasFollowUp) {
+    return {
+      slug: 'solo_nurse',
+      label: 'Dual-Role Nurse',
+      stationLabel: 'Stations 1 & 2',
+      bg: '#ecfdf5',
+      color: '#065f46',
+      border: '#a7f3d0',
+      isNurse: true,
+    };
+  }
+  if (hasIntake) {
+    return {
+      slug: 'intake_nurse',
+      label: 'Intake Nurse',
+      stationLabel: 'Station 1 (Day 0)',
+      bg: '#e0f2fe',
+      color: '#0369a1',
+      border: '#bae6fd',
+      isNurse: true,
+    };
+  }
+  if (hasFollowUp) {
+    return {
+      slug: 'follow_up_nurse',
+      label: 'Follow-Up Nurse',
+      stationLabel: 'Station 2 (Follow-up)',
+      bg: '#f0fdf4',
+      color: '#166534',
+      border: '#bbf7d0',
+      isNurse: true,
+    };
+  }
+  if (slugs.includes('doctor') || user.role === 'triage') {
+    return {
+      slug: 'doctor',
+      label: 'Doctor / Triage',
+      stationLabel: 'Consultation',
+      bg: '#f5f3ff',
+      color: '#5b21b6',
+      border: '#ddd6fe',
+      isNurse: false,
+    };
+  }
+  if (slugs.includes('receptionist') || user.role === 'registration') {
+    return {
+      slug: 'receptionist',
+      label: 'Receptionist',
+      stationLabel: 'Registration Desk',
+      bg: '#fdf4ff',
+      color: '#86198f',
+      border: '#f5d0fe',
+      isNurse: false,
+    };
+  }
+  if (slugs.includes('clinic_admin') || user.role === 'admin' || user.role === 'developer') {
+    return {
+      slug: 'clinic_admin',
+      label: 'Administrator',
+      stationLabel: 'Clinic Admin',
+      bg: '#e0e7ff',
+      color: '#3730a3',
+      border: '#c7d2fe',
+      isNurse: false,
+    };
+  }
+
+  return {
+    slug: user.role,
+    label: roles[user.role] || user.role,
+    stationLabel: '',
+    bg: '#f3f4f6',
+    color: '#374151',
+    border: '#e5e7eb',
+    isNurse: user.role === 'treatment',
+  };
 }
 
 function SoftStatusChip({ active }: { active: boolean }) {
@@ -201,16 +271,34 @@ export default function UserListPage() {
   const [patientRowsPerPage, setPatientRowsPerPage] = useState(15);
 
   // Edit state
-  const [editing, setEditing] = useState<User | null>(null);
+  const [editing, setEditing] = useState<(User & {
+    workstation_role?: string;
+    password?: string;
+    signature_data?: string;
+  }) | null>(null);
   const [confirmSave, setConfirmSave] = useState(false);
 
   // Create state
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [newUser, setNewUser] = useState<Omit<User, 'id'>>({
+  const [newUser, setNewUser] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+    workstation_role: string;
+    password: string;
+    professional_license_no: string;
+    signature_data: string;
+    signature_path: string;
+    is_active: boolean;
+  }>({
     name: '',
     email: '',
     phone: '',
-    role: 'registration',
+    workstation_role: 'intake_nurse',
+    password: '',
+    professional_license_no: '',
+    signature_data: '',
+    signature_path: 'signatures/default_nurse_signature.png',
     is_active: true,
   });
   const [creating, setCreating] = useState(false);
@@ -219,7 +307,7 @@ export default function UserListPage() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteData, setInviteData] = useState({
     email: '',
-    role: 'registration' as Role,
+    workstation_role: 'intake_nurse',
   });
   const [inviting, setInviting] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
@@ -280,13 +368,30 @@ export default function UserListPage() {
   // Update existing user
   const save = async () => {
     if (!editing) return;
-    const { id, name, email, phone, role, is_active } = editing;
+    const { id, name, email, phone, workstation_role, professional_license_no, signature_path, signature_data, password, is_active } = editing;
     if (phone && phone.length !== 11) {
       setNotice('Phone number must be exactly 11 digits.');
       return;
     }
     try {
-      await api.put(`/users/${id}`, { name, email, phone, role, is_active });
+      const payload: any = {
+        name,
+        email,
+        phone,
+        workstation_role,
+        professional_license_no,
+        is_active,
+      };
+      if (password && password.trim().length >= 8) {
+        payload.password = password.trim();
+      }
+      if (signature_data) {
+        payload.signature_data = signature_data;
+      } else if (signature_path) {
+        payload.signature_path = signature_path;
+      }
+
+      await api.put(`/users/${id}`, payload);
       const updatedName = name;
       setEditing(null);
       setSuccessModal({
@@ -295,15 +400,19 @@ export default function UserListPage() {
         message: <>Account details for <strong>{updatedName}</strong> have been updated successfully.</>,
       });
       load();
-    } catch {
-      setNotice('Unable to update user.');
+    } catch (err: any) {
+      setNotice(err.response?.data?.message || 'Unable to update user.');
     }
   };
 
   // Create new user
   const createUser = async () => {
-    if (!newUser.name || !newUser.email) {
-      setNotice('Name and email are required.');
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      setNotice('Name, email, and password are required.');
+      return;
+    }
+    if (newUser.password.length < 8) {
+      setNotice('Password must be at least 8 characters.');
       return;
     }
     if (newUser.phone && newUser.phone.length !== 11) {
@@ -315,15 +424,25 @@ export default function UserListPage() {
       await api.post('/users', newUser);
       const createdName = newUser.name;
       setCreateModalOpen(false);
-      setNewUser({ name: '', email: '', phone: '', role: 'registration', is_active: true });
+      setNewUser({
+        name: '',
+        email: '',
+        phone: '',
+        workstation_role: 'intake_nurse',
+        password: '',
+        professional_license_no: '',
+        signature_data: '',
+        signature_path: 'signatures/default_nurse_signature.png',
+        is_active: true,
+      });
       setSuccessModal({
         open: true,
         title: 'User Created',
         message: <>Staff account for <strong>{createdName}</strong> has been created successfully.</>,
       });
       load();
-    } catch {
-      setNotice('Unable to create user.');
+    } catch (err: any) {
+      setNotice(err.response?.data?.message || 'Unable to create user.');
     } finally {
       setCreating(false);
     }
@@ -352,23 +471,97 @@ export default function UserListPage() {
     }
   };
 
-
   // Table columns
   const columns: Column<User>[] = [
     {
       key: 'user',
-      label: 'User',
+      label: 'Staff Member',
       render: (u) => (
         <Box>
-          <Typography sx={{ fontWeight: 600, fontSize: 13 }}>{u.name}</Typography>
-          <Typography sx={{ color: '#6b7280', fontSize: 12 }}>{u.email}</Typography>
+          <Typography sx={{ fontWeight: 600, fontSize: 13, color: '#0f172a' }}>{u.name}</Typography>
+          <Typography sx={{ color: '#64748b', fontSize: 12 }}>{u.email}</Typography>
         </Box>
       ),
     },
     {
       key: 'role',
-      label: 'Role',
-      render: (u) => <SoftRoleChip role={u.role} />,
+      label: 'Assigned Role',
+      render: (u) => {
+        const info = getUserWorkstationInfo(u);
+        return (
+          <Box>
+            <Chip
+              size="small"
+              label={info.label}
+              sx={{
+                bgcolor: info.bg,
+                color: info.color,
+                border: `1px solid ${info.border}`,
+                fontWeight: 600,
+                fontSize: '11.5px',
+                height: '24px',
+              }}
+            />
+            {info.stationLabel && (
+              <Typography sx={{ fontSize: '11px', color: '#64748b', mt: 0.25, fontWeight: 500 }}>
+                {info.stationLabel}
+              </Typography>
+            )}
+          </Box>
+        );
+      },
+    },
+    {
+      key: 'license',
+      label: 'License / PRC',
+      render: (u) => {
+        const isNurse = getUserWorkstationInfo(u).isNurse;
+        return (
+          <Box>
+            {u.professional_license_no ? (
+              <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: '#1e293b', fontFamily: 'monospace' }}>
+                {u.professional_license_no}
+              </Typography>
+            ) : isNurse ? (
+              <Chip
+                size="small"
+                label="No License"
+                sx={{ bgcolor: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', fontSize: '11px', height: '22px' }}
+              />
+            ) : (
+              <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>—</Typography>
+            )}
+          </Box>
+        );
+      },
+    },
+    {
+      key: 'signature',
+      label: 'Digital Signature',
+      render: (u) => {
+        const isNurse = getUserWorkstationInfo(u).isNurse;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {u.signature_path ? (
+              <Chip
+                size="small"
+                icon={<CheckCircle fontSize="small" style={{ color: '#059669' }} />}
+                label="On File"
+                title={u.signature_path}
+                sx={{ bgcolor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontSize: '11px', height: '22px', fontWeight: 600 }}
+              />
+            ) : isNurse ? (
+              <Chip
+                size="small"
+                label="Missing"
+                sx={{ bgcolor: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', fontSize: '11px', height: '22px', fontWeight: 600 }}
+              />
+            ) : (
+              <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>Not Required</Typography>
+            )}
+          </Box>
+        );
+      },
     },
     {
       key: 'phone',
@@ -386,7 +579,18 @@ export default function UserListPage() {
       align: 'right',
       render: (u) => (
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-          <SoftActionButton label="Edit" variant="edit" onClick={() => setEditing({ ...u })} />
+          <SoftActionButton
+            label="Edit"
+            variant="edit"
+            onClick={() =>
+              setEditing({
+                ...u,
+                workstation_role: getUserWorkstationInfo(u).slug,
+                password: '',
+                signature_data: '',
+              })
+            }
+          />
           {u.id !== currentUserId && (
             <SoftActionButton
               label={u.is_active ? 'Deactivate' : 'Activate'}
@@ -399,7 +603,17 @@ export default function UserListPage() {
     },
   ];
 
-  const shown = users.filter((u) => !filter || u.role === filter);
+  const shown = users.filter((u) => {
+    if (!filter) return true;
+    const info = getUserWorkstationInfo(u);
+    if (filter === 'solo_nurse') return info.slug === 'solo_nurse';
+    if (filter === 'intake_nurse') return info.slug === 'intake_nurse';
+    if (filter === 'follow_up_nurse') return info.slug === 'follow_up_nurse';
+    if (filter === 'doctor') return info.slug === 'doctor';
+    if (filter === 'receptionist') return info.slug === 'receptionist';
+    if (filter === 'clinic_admin') return info.slug === 'clinic_admin';
+    return u.role === filter;
+  });
 
   // Toggle patient account active status
   const togglePatientAccount = async (account: PatientAccount) => {
@@ -577,14 +791,16 @@ export default function UserListPage() {
       {/* Staff Users Tab */}
       {activeTab === 'staff' && (
         <Box>
-          <Box sx={{ mb: 2, maxWidth: 250 }}>
+          <Box sx={{ mb: 2, maxWidth: 300 }}>
             <FormControl size="small" fullWidth>
-              <InputLabel>Role</InputLabel>
-              <Select label="Role" value={filter} onChange={(e) => { setFilter(e.target.value); setStaffPage(0); }}>
-                <MenuItem value="">All roles</MenuItem>
-                {Object.entries(roles).map(([key, label]) => (
-                  <MenuItem key={key} value={key}>{label}</MenuItem>
-                ))}
+              <InputLabel>Filter by Role</InputLabel>
+              <Select label="Filter by Role" value={filter} onChange={(e) => { setFilter(e.target.value); setStaffPage(0); }}>
+                <MenuItem value="">All Staff Roles ({users.length})</MenuItem>
+                <MenuItem value="intake_nurse">Intake Nurse (Station 1)</MenuItem>
+                <MenuItem value="follow_up_nurse">Follow-Up Nurse (Station 2)</MenuItem>
+                <MenuItem value="solo_nurse">Dual-Role / Solo Nurse (Stations 1 & 2)</MenuItem>
+                <MenuItem value="doctor">Doctor / Triage Officer</MenuItem>
+                <MenuItem value="receptionist">Receptionist / Registration Staff</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -703,12 +919,12 @@ export default function UserListPage() {
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
-                  <InputLabel>Role</InputLabel>
+                  <InputLabel>Workstation Role</InputLabel>
                   <Select
-                    label="Role"
-                    value={editing?.role || 'registration'}
+                    label="Workstation Role"
+                    value={editing?.workstation_role || 'intake_nurse'}
                     onChange={(e) =>
-                      setEditing((u) => u && { ...u, role: e.target.value as Role })
+                      setEditing((u) => u && { ...u, workstation_role: e.target.value })
                     }
                     startAdornment={
                       <InputAdornment position="start">
@@ -716,14 +932,61 @@ export default function UserListPage() {
                       </InputAdornment>
                     }
                   >
-                    {Object.entries(roles).map(([key, label]) => (
-                      <MenuItem key={key} value={key}>
-                        {label}
-                      </MenuItem>
-                    ))}
+                    <MenuItem value="intake_nurse">Intake Nurse (Day 0)</MenuItem>
+                    <MenuItem value="follow_up_nurse">Follow-up Nurse (Day 3/7/28)</MenuItem>
+                    <MenuItem value="solo_nurse">Solo Nurse (Both Queues)</MenuItem>
+                    <MenuItem value="doctor">Doctor / Physician</MenuItem>
+                    <MenuItem value="receptionist">Receptionist</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="PRC License No."
+                  value={editing?.professional_license_no || ''}
+                  onChange={(e) =>
+                    setEditing((u) => u && { ...u, professional_license_no: e.target.value })
+                  }
+                  inputProps={{ style: { fontFamily: 'monospace' } }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Shield color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="New Password"
+                  type="password"
+                  value={editing?.password || ''}
+                  onChange={(e) =>
+                    setEditing((u) => u && { ...u, password: e.target.value })
+                  }
+                  helperText="Leave blank to keep current password"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Lock color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              {editing?.signature_path && (
+                <Grid size={{ xs: 12 }}>
+                  <Box sx={{ p: 1.5, bgcolor: '#f0fdf4', borderRadius: 1, border: '1px solid #86efac', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CheckCircle fontSize="small" color="success" />
+                    <Typography variant="body2" color="success.dark">
+                      Signature on file: <code style={{ fontSize: '11px' }}>{editing.signature_path}</code>
+                    </Typography>
+                  </Box>
+                </Grid>
+              )}
             </Grid>
             <FormControlLabel
               control={
@@ -849,12 +1112,12 @@ export default function UserListPage() {
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
-                  <InputLabel>Role</InputLabel>
+                  <InputLabel>Workstation Role</InputLabel>
                   <Select
-                    label="Role"
-                    value={newUser.role}
+                    label="Workstation Role"
+                    value={newUser.workstation_role}
                     onChange={(e) =>
-                      setNewUser((u) => ({ ...u, role: e.target.value as Role }))
+                      setNewUser((u) => ({ ...u, workstation_role: e.target.value }))
                     }
                     startAdornment={
                       <InputAdornment position="start">
@@ -862,13 +1125,55 @@ export default function UserListPage() {
                       </InputAdornment>
                     }
                   >
-                    {Object.entries(roles).map(([key, label]) => (
-                      <MenuItem key={key} value={key}>
-                        {label}
-                      </MenuItem>
-                    ))}
+                    <MenuItem value="intake_nurse">Intake Nurse (Day 0)</MenuItem>
+                    <MenuItem value="follow_up_nurse">Follow-up Nurse (Day 3/7/28)</MenuItem>
+                    <MenuItem value="solo_nurse">Solo Nurse (Both Queues)</MenuItem>
+                    <MenuItem value="doctor">Doctor / Physician</MenuItem>
+                    <MenuItem value="receptionist">Receptionist</MenuItem>
                   </Select>
                 </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="PRC License No."
+                  value={newUser.professional_license_no || ''}
+                  onChange={(e) =>
+                    setNewUser((u) => ({ ...u, professional_license_no: e.target.value }))
+                  }
+                  inputProps={{ style: { fontFamily: 'monospace' } }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Shield color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Password"
+                  type="password"
+                  value={newUser.password || ''}
+                  onChange={(e) =>
+                    setNewUser((u) => ({ ...u, password: e.target.value }))
+                  }
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Lock color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Alert severity="info" sx={{ fontSize: '13px' }}>
+                  A default digital signature will be assigned automatically for nursing staff.
+                </Alert>
               </Grid>
             </Grid>
             <FormControlLabel
@@ -906,7 +1211,7 @@ export default function UserListPage() {
           </AppButton>
           <AppButton
             onClick={createUser}
-            disabled={!newUser.name || !newUser.email || creating}
+            disabled={!newUser.name || !newUser.email || !newUser.password || creating}
           >
             {creating ? 'Creating…' : 'Create user'}
           </AppButton>
@@ -940,7 +1245,7 @@ export default function UserListPage() {
         onClose={() => {
           setInviteModalOpen(false);
           setInviteLink('');
-          setInviteData({ email: '', role: 'registration' });
+          setInviteData({ email: '', workstation_role: 'intake_nurse' });
         }}
         maxWidth="sm"
         fullWidth
@@ -972,20 +1277,22 @@ export default function UserListPage() {
                 }}
               />
               <FormControl fullWidth>
-                <InputLabel>Role</InputLabel>
+                <InputLabel>Workstation Role</InputLabel>
                 <Select
-                  label="Role"
-                  value={inviteData.role}
-                  onChange={(e) => setInviteData((d) => ({ ...d, role: e.target.value as Role }))}
+                  label="Workstation Role"
+                  value={inviteData.workstation_role}
+                  onChange={(e) => setInviteData((d) => ({ ...d, workstation_role: e.target.value }))}
                   startAdornment={
                     <InputAdornment position="start">
                       <Shield color="action" />
                     </InputAdornment>
                   }
                 >
-                  <MenuItem value="registration">Registration Staff</MenuItem>
-                  <MenuItem value="triage">Triage / Doctor</MenuItem>
-                  <MenuItem value="treatment">Treatment Staff</MenuItem>
+                  <MenuItem value="intake_nurse">Intake Nurse (Day 0)</MenuItem>
+                  <MenuItem value="follow_up_nurse">Follow-up Nurse (Day 3/7/28)</MenuItem>
+                  <MenuItem value="solo_nurse">Solo Nurse (Both Queues)</MenuItem>
+                  <MenuItem value="doctor">Doctor / Physician</MenuItem>
+                  <MenuItem value="receptionist">Receptionist</MenuItem>
                 </Select>
               </FormControl>
             </Stack>
@@ -1036,7 +1343,7 @@ export default function UserListPage() {
               onClick={() => {
                 setInviteModalOpen(false);
                 setInviteLink('');
-                setInviteData({ email: '', role: 'registration' });
+                setInviteData({ email: '', workstation_role: 'intake_nurse' });
               }}
             >
               Close
@@ -1114,9 +1421,9 @@ export default function UserListPage() {
                     sx={{
                       p: 2.25,
                       borderRadius: '12px',
-                      border: '1px solid #e2e8f0',
-                      bgcolor: '#ffffff',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      border: '1px solid var(--border-glow, #e2e8f0)',
+                      bgcolor: 'var(--card-bg-solid, #ffffff)',
+                      boxShadow: 'var(--shadow, 0 1px 3px rgba(0,0,0,0.04))',
                       display: 'flex',
                       flexDirection: { xs: 'column', md: 'row' },
                       justifyContent: 'space-between',
@@ -1126,7 +1433,7 @@ export default function UserListPage() {
                   >
                     <Box sx={{ flex: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.75 }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 15, color: 'var(--text-h, #0f172a)' }}>
                           {[p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ')}
                         </Typography>
                         <Chip
@@ -1153,27 +1460,27 @@ export default function UserListPage() {
 
                       <Grid container spacing={1} sx={{ mt: 0.5 }}>
                         <Grid item xs={12} sm={6}>
-                          <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                            Patient No: <strong style={{ color: '#0f172a' }}>{p.patient_number || 'Pending Assignment'}</strong>
+                          <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                            Patient No: <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{p.patient_number || 'Pending Assignment'}</strong>
                           </Typography>
-                          <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                            Gender & Age: <strong style={{ color: '#0f172a' }}>{p.gender} {p.age ? `(${p.age}y)` : ''}</strong> · DOB: {p.date_of_birth ? new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                          <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                            Gender & Age: <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{p.gender} {p.age ? `(${p.age}y)` : ''}</strong> · DOB: {p.date_of_birth ? new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                           </Typography>
                           {p.contact_number && (
-                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                              Contact: <strong style={{ color: '#0f172a' }}>{p.contact_number}</strong>
+                            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                              Contact: <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{p.contact_number}</strong>
                             </Typography>
                           )}
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           {p.address && (
-                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                              Address: <strong style={{ color: '#0f172a' }}>{p.address}</strong>
+                            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                              Address: <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{p.address}</strong>
                             </Typography>
                           )}
                           {p.emergency_contact_name && (
-                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                              Emergency: <strong style={{ color: '#0f172a' }}>{p.emergency_contact_name}</strong> {p.emergency_contact_number ? `(${p.emergency_contact_number})` : ''}
+                            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                              Emergency: <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{p.emergency_contact_name}</strong> {p.emergency_contact_number ? `(${p.emergency_contact_number})` : ''}
                             </Typography>
                           )}
                           {p.next_appointment && (
@@ -1214,7 +1521,7 @@ export default function UserListPage() {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 1.5, bgcolor: '#ffffff', borderTop: '1px solid #f1f5f9' }}>
+        <DialogActions sx={{ px: 3, py: 1.5, bgcolor: 'var(--card-bg-solid, #ffffff)', borderTop: '1px solid var(--border, #f1f5f9)' }}>
           <AppButton variant="secondary" onClick={() => setViewingProfilesAccount(null)}>
             Close
           </AppButton>

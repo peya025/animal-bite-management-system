@@ -35,10 +35,10 @@ import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog'
 // Clean, minimal field style matching the reference design
 const cleanFieldSx = {
   '& .MuiOutlinedInput-root': {
-    bgcolor: '#fff',
+    bgcolor: 'var(--input-bg, #fff)',
     fontSize: '14px',
     '& fieldset': {
-      borderColor: '#d7e3da',
+      borderColor: 'var(--input-border, #d7e3da)',
       borderWidth: '1px',
     },
     '&:hover fieldset': {
@@ -52,7 +52,7 @@ const cleanFieldSx = {
   '& .MuiOutlinedInput-input': {
     padding: '10px 14px',
     fontSize: '14px',
-    color: '#374151',
+    color: 'var(--input-text, #374151)',
   },
 };
 
@@ -444,10 +444,10 @@ export default function ClinicInformation() {
         <Paper
           elevation={0}
           sx={{
-            border: '1px solid #e0eae3',
+            border: '1px solid var(--border-glow, #e0eae3)',
             borderRadius: 2,
             p: 3,
-            bgcolor: '#fff',
+            bgcolor: 'var(--card-bg-solid, #fff)',
           }}
         >
           <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>

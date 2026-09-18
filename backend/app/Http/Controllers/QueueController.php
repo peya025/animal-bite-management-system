@@ -144,13 +144,16 @@ class QueueController extends Controller
                         'biteIncident:bite_id,case_number,patient_id,exposure_type,severity,remarks,rig_decision_reason',
                         'handledBy:id,name,role',
                         'handledByUser:id,name,role',
+                        'servedBy:id,name,role,signature_path,professional_license_no',
+                        'station:id,name',
                     ])
                     ->select(
                         'queue_id','queue_number','queue_category','patient_id','bite_id',
                         'visit_type','priority','status','checked_in_at','called_at',
                         'completed_at','cancelled_at','serving_at','second_chance_at',
                         'final_recall_at','absent_at','no_response_at',
-                        'checked_in_by','handled_by','check_in_notes','consultation_notes',
+                        'checked_in_by','handled_by','served_by','serving_started_at','station_id',
+                        'check_in_notes','consultation_notes',
                         'call_count','recall_stage','clinic_id','queue_date'
                     );
 
@@ -219,6 +222,16 @@ class QueueController extends Controller
                     if (isset($counts[$entry->status])) $counts[$entry->status]++;
                 }
 
+                $activeServers = $mainQueue
+                    ->filter(fn($e) => in_array($e->status, ['serving', 'in_consultation']))
+                    ->map(function ($e) {
+                        return $e->servedBy?->name ?? $e->handledBy?->name ?? null;
+                    })
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+
                 return [
                     'date'                => $date,
                     'queue'               => $mainQueue,
@@ -228,6 +241,7 @@ class QueueController extends Controller
                         'total'           => $mainQueue->count() + $secondQueue->count(),
                         'by_visit_type'   => $visitTypeCounts,
                         'by_category'     => $categoryTypeCounts,
+                        'active_servers'  => $activeServers,
                     ]),
                 ];
             });
@@ -297,17 +311,20 @@ class QueueController extends Controller
             $this->logHistory($queue, 'called', 'called', $request->user()->id, 'Auto call-next');
 
             $queue->update([
-                'status'     => 'called',
-                'called_at'  => now(),
-                'call_count' => ($queue->call_count ?? 0) + 1,
-                'handled_by' => $request->user()->id,
+                'status'             => 'called',
+                'called_at'          => now(),
+                'call_count'         => ($queue->call_count ?? 0) + 1,
+                'handled_by'         => $request->user()->id,
+                'served_by'          => $request->user()->id,
+                'serving_started_at' => now(),
+                'station_id'         => $request->get('station_id') ?: $queue->station_id,
             ]);
 
             $this->flushCache($clinicId, $date);
 
             return response()->json([
                 'message'      => "Called #{$queue->queue_number}",
-                'queue'        => $queue->fresh()->load(['patient', 'biteIncident']),
+                'queue'        => $queue->fresh()->load(['patient', 'biteIncident', 'servedBy', 'station']),
                 'queue_number' => $queue->queue_number,
             ]);
         });
@@ -333,17 +350,20 @@ class QueueController extends Controller
             $this->logHistory($queue, 'called', 'called', $request->user()->id);
 
             $queue->update([
-                'status'     => 'called',
-                'called_at'  => now(),
-                'call_count' => ($queue->call_count ?? 0) + 1,
-                'handled_by' => $request->user()->id,
+                'status'             => 'called',
+                'called_at'          => now(),
+                'call_count'         => ($queue->call_count ?? 0) + 1,
+                'handled_by'         => $request->user()->id,
+                'served_by'          => $request->user()->id,
+                'serving_started_at' => now(),
+                'station_id'         => $request->get('station_id') ?: $queue->station_id,
             ]);
 
             $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json([
                 'message' => "Called #{$queue->queue_number} · {$queue->patient->name}",
-                'queue'   => $queue->fresh()->load(['patient', 'biteIncident']),
+                'queue'   => $queue->fresh()->load(['patient', 'biteIncident', 'servedBy', 'station']),
             ]);
         });
     }
@@ -365,20 +385,39 @@ class QueueController extends Controller
                 ], 400);
             }
 
-            $this->logHistory($queue, 'serving', 'serving', $request->user()->id);
+            $userId = $request->user()->id;
+            $staleThresholdMinutes = 30;
+            $isStale = $queue->serving_started_at && Carbon::parse($queue->serving_started_at)->diffInMinutes(now()) >= $staleThresholdMinutes;
+
+            if ($queue->status === 'serving' && $queue->served_by && $queue->served_by !== $userId && !$isStale) {
+                $attendingNurse = $queue->servedBy?->name ?? 'another staff member';
+                return response()->json([
+                    'error'   => 'conflict',
+                    'message' => "Patient is currently being attended by {$attendingNurse}.",
+                ], 409);
+            }
+
+            if ($isStale && $queue->served_by && $queue->served_by !== $userId) {
+                $this->logHistory($queue, 'transferred', 'serving', $userId, "Takeover from {$queue->servedBy?->name} after {$staleThresholdMinutes}m stale lock");
+            } else {
+                $this->logHistory($queue, 'serving', 'serving', $userId);
+            }
 
             $queue->update([
-                'status'       => 'serving',
-                'serving_at'   => now(),
+                'status'             => 'serving',
+                'serving_at'         => now(),
+                'serving_started_at' => ($queue->serving_started_at && !$isStale) ? $queue->serving_started_at : now(),
+                'served_by'          => $userId,
+                'station_id'         => $request->get('station_id') ?: $queue->station_id,
                 // Reset recall_stage so subsequent misses start fresh
-                'recall_stage' => null,
+                'recall_stage'       => null,
             ]);
 
             $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json([
                 'message' => "Patient #{$queue->queue_number} is now being served",
-                'queue'   => $queue->fresh()->load(['patient', 'biteIncident']),
+                'queue'   => $queue->fresh()->load(['patient', 'biteIncident', 'servedBy', 'station']),
             ]);
         });
     }
@@ -537,6 +576,16 @@ class QueueController extends Controller
                     $request->consultation_notes,
                 ])->filter()->implode(' | ');
 
+                // The first vaccination after consultation remains part of the
+                // patient's Day 0/new episode, so route it to Station 1.
+                $intakeStationId = \App\Models\Station::where('clinic_id', $queue->clinic_id)
+                    ->where('is_active', true)
+                    ->where(function ($station) {
+                        $station->where('name', 'like', '%Intake%')
+                            ->orWhere('name', 'like', '%Station 1%');
+                    })
+                    ->value('id');
+
                 $this->logHistory($queue, 'transferred_to_treatment', 'waiting', $request->user()->id, $transferNotes);
 
                 $queue->update([
@@ -547,6 +596,7 @@ class QueueController extends Controller
                     'completed_at'       => null,
                     'consultation_notes' => $transferNotes,
                     'recall_stage'       => null,
+                    'station_id'         => $intakeStationId ?? $queue->station_id,
                 ]);
 
                 $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
@@ -626,7 +676,11 @@ class QueueController extends Controller
             ->with(['patient.details', 'patient.memberships', 'biteIncident', 'checkedInBy:id,name', 'handledBy:id,name', 'history'])
             ->findOrFail($id);
 
-        return response()->json($queue);
+        // Resolve model casts before JsonResponse starts encoding. Some legacy patient
+        // contact fields are stored as plaintext and are intentionally handled by the
+        // compatibility encryption cast; serializing the Eloquent model directly can
+        // leave PHP's JSON error state set by that fallback.
+        return response()->json($queue->toArray());
     }
 
     // ────────────────────────────────────────────────────────────────────────

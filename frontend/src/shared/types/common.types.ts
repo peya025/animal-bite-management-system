@@ -7,6 +7,13 @@
 
 export type UserRole = 'developer' | 'admin' | 'registration' | 'triage' | 'treatment';
 
+export interface RoleItem {
+  id: number;
+  slug: string;
+  display_name: string;
+  default_route: string;
+}
+
 export interface User {
   id: number;
   name: string;
@@ -14,6 +21,11 @@ export interface User {
   role: UserRole;
   clinic_id: number;
   phone?: string;
+  signature_path?: string;
+  professional_license_no?: string;
+  roles?: RoleItem[];
+  is_solo_nurse?: boolean;
+  is_nursing?: boolean;
   is_active: boolean;
   last_login_at?: string;
   created_at: string;

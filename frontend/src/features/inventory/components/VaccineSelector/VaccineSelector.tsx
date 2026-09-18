@@ -207,16 +207,16 @@ export default function VaccineSelector({
               gridTemplateColumns: '1fr 1fr',
               gap: 1.5,
               p: 1.5,
-              bgcolor: '#ffffff',
-              border: '1px solid #bbf7d0',
+              bgcolor: 'var(--card-bg-solid, #ffffff)',
+              border: '1px solid var(--border-glow, #bbf7d0)',
               borderRadius: 1.5,
             }}
           >
             <Box>
-              <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#6b7280', mb: 0.5 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary, #6b7280)', mb: 0.5 }}>
                 Batch Number
               </Typography>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'var(--text-h, #111827)' }}>
                 {fifoBatch.batch_number}
               </Typography>
             </Box>

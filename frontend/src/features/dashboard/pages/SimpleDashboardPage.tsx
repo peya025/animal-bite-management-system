@@ -437,10 +437,11 @@ export function SimpleDashboardPage() {
             className="sd-filter-card"
             style={{
               marginBottom: '20px',
-              padding: '16px 20px',
+              borderRadius: '20px',
+              padding: '18px 22px',
             }}
           >
-            <p className="sd-filter-title" style={{ marginBottom: '12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)' }}>
+            <p className="sd-filter-title" style={{ marginBottom: '14px', fontSize: '13.5px', fontWeight: 750 }}>
               Filters
             </p>
             <div
@@ -453,7 +454,7 @@ export function SimpleDashboardPage() {
               className="sd-filters-bar-grid"
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <span className="sd-filter-label">
                   Role
                 </span>
                 <select className="sd-filter-select" style={{ width: '100%' }}>
@@ -463,7 +464,7 @@ export function SimpleDashboardPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <span className="sd-filter-label">
                   Status
                 </span>
                 <select className="sd-filter-select" style={{ width: '100%' }}>
@@ -473,7 +474,7 @@ export function SimpleDashboardPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <span className="sd-filter-label">
                   Date Range
                 </span>
                 <select className="sd-filter-select" style={{ width: '100%' }}>
@@ -517,8 +518,8 @@ export function SimpleDashboardPage() {
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
-              gap: '16px',
-              marginBottom: '16px',
+              gap: '18px',
+              marginBottom: '18px',
             }}
             className="sd-analytics-row"
           >
@@ -526,18 +527,12 @@ export function SimpleDashboardPage() {
             <div
               className="sd-chart-card"
               style={{
-                background: 'var(--card-bg)',
-                borderRadius: '14px',
+                borderRadius: '20px',
                 padding: '20px 24px',
-                border: '1px solid var(--card-border)',
-                boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
-                transition: 'box-shadow 0.2s',
                 display: 'flex',
                 flexDirection: 'column',
-                minHeight: '220px',
+                minHeight: '230px',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
             >
               <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Cases Over Time <span>(last 6 months)</span></p>
               <div style={{ flex: 1, minHeight: 0 }}>
@@ -549,18 +544,12 @@ export function SimpleDashboardPage() {
             <div
               className="sd-chart-card"
               style={{
-                background: 'var(--card-bg)',
-                borderRadius: '14px',
+                borderRadius: '20px',
                 padding: '20px 24px',
-                border: '1px solid var(--card-border)',
-                boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
-                transition: 'box-shadow 0.2s',
                 display: 'flex',
                 flexDirection: 'column',
-                minHeight: '220px',
+                minHeight: '230px',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                 <p className="sd-chart-title" style={{ margin: 0 }}>
@@ -569,11 +558,11 @@ export function SimpleDashboardPage() {
                 <div
                   style={{
                     display: 'flex',
-                    gap: '2px',
-                    background: 'var(--table-header-bg, #f1f5f9)',
+                    gap: '3px',
+                    background: '#f1f5f9',
                     padding: '3px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--card-border, #e2e8f0)',
+                    borderRadius: '999px',
+                    border: '1px solid #e2e8f0',
                   }}
                 >
                   {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((period) => {
@@ -584,31 +573,19 @@ export function SimpleDashboardPage() {
                         type="button"
                         onClick={() => setCaseDistPeriod(period)}
                         style={{
-                          padding: '4px 10px',
+                          padding: '4px 12px',
                           fontSize: '11px',
                           fontWeight: isActive ? 600 : 500,
-                          borderRadius: '6px',
+                          borderRadius: '999px',
                           border: 'none',
-                          background: isActive ? 'var(--card-bg, #ffffff)' : 'transparent',
-                          color: isActive ? '#059669' : 'var(--text-secondary, #64748b)',
-                          boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' : 'none',
+                          background: isActive ? '#0f172a' : 'transparent',
+                          color: isActive ? '#ffffff' : 'var(--text-secondary, #64748b)',
+                          boxShadow: isActive ? '0 1px 3px rgba(0, 0, 0, 0.15)' : 'none',
                           cursor: 'pointer',
                           textTransform: 'capitalize',
                           transition: 'all 0.18s ease',
                           fontFamily: 'inherit',
                           lineHeight: 1.3,
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isActive) {
-                            e.currentTarget.style.color = 'var(--text-h, #1e293b)';
-                            e.currentTarget.style.background = 'rgba(0,0,0,0.03)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isActive) {
-                            e.currentTarget.style.color = 'var(--text-secondary, #64748b)';
-                            e.currentTarget.style.background = 'transparent';
-                          }
                         }}
                       >
                         {period}
@@ -655,7 +632,7 @@ export function SimpleDashboardPage() {
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
-              gap: '16px',
+              gap: '18px',
             }}
             className="sd-analytics-row"
           >
@@ -663,22 +640,16 @@ export function SimpleDashboardPage() {
             <div
               className="sd-chart-card"
               style={{
-                background: 'var(--card-bg)',
-                borderRadius: '14px',
+                borderRadius: '20px',
                 padding: '20px 24px',
-                border: '1px solid var(--card-border)',
-                boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
-                transition: 'box-shadow 0.2s',
                 display: 'flex',
                 flexDirection: 'column',
-                minHeight: '220px',
+                minHeight: '235px',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
             >
               <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Vaccination Trend <span>(last 6 months)</span></p>
               <div style={{ flex: 1, minHeight: 0 }}>
-                <SdLineChart color="#10b981" />
+                <SdLineChart color="#3b82f6" />
               </div>
             </div>
 
@@ -686,18 +657,12 @@ export function SimpleDashboardPage() {
             <div
               className="sd-chart-card"
               style={{
-                background: 'var(--card-bg)',
-                borderRadius: '14px',
+                borderRadius: '20px',
                 padding: '20px 24px',
-                border: '1px solid var(--card-border)',
-                boxShadow: '0 1px 2px rgba(23,61,41,0.03)',
-                transition: 'all 0.2s ease',
                 display: 'flex',
                 flexDirection: 'column',
                 minHeight: '235px',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.10)'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'}
             >
               {/* Card Header with Title, Registration Municipality Dropdown, and Bite Map Button */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
@@ -714,18 +679,13 @@ export function SimpleDashboardPage() {
                       value={selectedMunicipality}
                       onChange={(e) => setSelectedMunicipality(e.target.value)}
                       disabled={loadingBarangays}
+                      className="sd-filter-select"
                       style={{
-                        padding: '4px 24px 4px 10px',
-                        fontSize: '11px',
+                        padding: '5px 26px 5px 10px',
+                        fontSize: '11.5px',
                         fontWeight: 600,
-                        color: 'var(--text-h)',
-                        background: 'var(--table-header-bg, #f8fafc)',
-                        border: '1px solid var(--card-border, #e2e8f0)',
-                        borderRadius: '6px',
                         cursor: 'pointer',
-                        outline: 'none',
-                        appearance: 'none',
-                        fontFamily: 'inherit',
+                        width: 'auto',
                       }}
                     >
                       {municipalities.map((mun) => (
@@ -759,20 +719,20 @@ export function SimpleDashboardPage() {
                       padding: '4px 9px',
                       fontSize: '11px',
                       fontWeight: 600,
-                      color: '#059669',
-                      background: 'var(--nav-item-hover-bg, #ecfdf5)',
-                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      color: '#475569',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
                       borderRadius: '7px',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#10b981';
-                      e.currentTarget.style.color = '#ffffff';
+                      e.currentTarget.style.background = '#f1f5f9';
+                      e.currentTarget.style.color = '#0f172a';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'var(--nav-item-hover-bg, #ecfdf5)';
-                      e.currentTarget.style.color = '#059669';
+                      e.currentTarget.style.background = '#f8fafc';
+                      e.currentTarget.style.color = '#475569';
                     }}
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -820,8 +780,8 @@ export function SimpleDashboardPage() {
             <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
           </div>
 
-          <div style={{ background: 'var(--card-bg)', borderRadius: '14px', border: '1px solid var(--card-border)', padding: '24px' }}>
-            <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: 'var(--text-h)' }}>Recent Bite Incident Cases</p>
+          <div className="sd-chart-card" style={{ borderRadius: '20px', padding: '24px' }}>
+            <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: 'var(--text-h)' }}>Recent Bite Incident Cases</p>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
@@ -842,7 +802,7 @@ export function SimpleDashboardPage() {
                         <td style={{ padding: '12px 16px', color: 'var(--text)', textTransform: 'capitalize' }}>{c.animal_type || '—'}</td>
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{
-                            padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                            padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
                             background: c.severity === 'Category III' ? '#fee2e2' : c.severity === 'Category II' ? '#fef3c7' : '#ecfdf5',
                             color: c.severity === 'Category III' ? '#ef4444' : c.severity === 'Category II' ? '#d97706' : '#10b981'
                           }}>
@@ -851,7 +811,7 @@ export function SimpleDashboardPage() {
                         </td>
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{
-                            padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                            padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
                             background: c.status === 'completed' ? '#ecfdf5' : '#eff6ff',
                             color: c.status === 'completed' ? '#10b981' : '#3b82f6'
                           }}>
@@ -880,8 +840,8 @@ export function SimpleDashboardPage() {
             <SdCard color="teal" label="Queue Count" value={stats.todayQueue.toString()} sub="Today waiting" />
           </div>
 
-          <div style={{ background: 'var(--card-bg)', borderRadius: '14px', border: '1px solid var(--card-border)', padding: '24px' }}>
-            <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: 'var(--text-h)' }}>Recent Vaccinations & Scheduled Doses</p>
+          <div className="sd-chart-card" style={{ borderRadius: '20px', padding: '24px' }}>
+            <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: 'var(--text-h)' }}>Recent Vaccinations & Scheduled Doses</p>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
@@ -903,7 +863,7 @@ export function SimpleDashboardPage() {
                         <td style={{ padding: '12px 16px', color: 'var(--text)' }}>{v.administered_at ? new Date(v.administered_at).toLocaleDateString() : '—'}</td>
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{
-                            padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                            padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
                             background: '#ecfdf5', color: '#10b981'
                           }}>
                             Done
@@ -963,25 +923,27 @@ function SdCalendar() {
         flexDirection: 'column',
         height: '100%',
         minHeight: '260px',
-        padding: '20px',
+        borderRadius: '20px',
+        padding: '20px 22px',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
         <p className="sd-chart-title" style={{ margin: 0 }}>
           {monthNames[month]} {year}
         </p>
-        <div style={{ display: 'flex', gap: '4px' }}>
+        <div style={{ display: 'flex', gap: '5px' }}>
           <button
             onClick={prevMonth}
             style={{
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--card-border)',
-              borderRadius: '6px',
-              padding: '3px 8px',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '4px 10px',
               cursor: 'pointer',
-              color: 'var(--text)',
-              fontSize: '12px',
-              fontWeight: 600,
+              color: '#475569',
+              fontSize: '13px',
+              fontWeight: 700,
+              transition: 'all 0.15s ease',
             }}
           >
             ‹
@@ -989,14 +951,15 @@ function SdCalendar() {
           <button
             onClick={nextMonth}
             style={{
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--card-border)',
-              borderRadius: '6px',
-              padding: '3px 8px',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '4px 10px',
               cursor: 'pointer',
-              color: 'var(--text)',
-              fontSize: '12px',
-              fontWeight: 600,
+              color: '#475569',
+              fontSize: '13px',
+              fontWeight: 700,
+              transition: 'all 0.15s ease',
             }}
           >
             ›
@@ -1006,7 +969,7 @@ function SdCalendar() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', gap: '4px', marginBottom: '8px' }}>
         {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
-          <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+          <span key={i} style={{ fontSize: '11px', fontWeight: 650, color: '#64748b' }}>
             {d}
           </span>
         ))}
@@ -1018,15 +981,15 @@ function SdCalendar() {
             key={idx}
             style={{
               textAlign: 'center',
-              padding: '6px 0',
+              padding: '7px 0',
               fontSize: '12.5px',
-              borderRadius: '8px',
+              borderRadius: '10px',
               color: item.isToday ? '#ffffff' : item.isCurrent ? 'var(--text-h)' : 'var(--text-secondary)',
-              opacity: item.isCurrent ? 1 : 0.4,
-              background: item.isToday ? '#10b981' : 'transparent',
+              opacity: item.isCurrent ? 1 : 0.45,
+              background: item.isToday ? '#0f172a' : 'transparent',
               fontWeight: item.isToday ? 700 : 500,
-              boxShadow: item.isToday ? '0 2px 8px rgba(16, 185, 129, 0.35)' : 'none',
-              border: item.isToday ? '1px solid #059669' : '1px solid transparent',
+              boxShadow: item.isToday ? '0 2px 6px rgba(15, 23, 42, 0.2)' : 'none',
+              border: item.isToday ? '1px solid #0f172a' : '1px solid transparent',
             }}
           >
             {item.day}

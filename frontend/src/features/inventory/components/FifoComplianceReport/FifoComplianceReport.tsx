@@ -12,12 +12,15 @@ import {
   Chip,
   Alert,
   CircularProgress,
+  useTheme,
 } from '@mui/material';
 import { CheckCircle, Warning, Error as ErrorIcon } from '@mui/icons-material';
 import { getFifoRecommendations, type FifoRecommendation } from '../../services/vaccineInventoryService';
 
 // ─── Main Component ───────────────────────────────────────────
 export default function FifoComplianceReport() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [recommendations, setRecommendations] = useState<Record<string, FifoRecommendation>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -95,10 +98,10 @@ export default function FifoComplianceReport() {
     <Box>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#111827', mb: 0.5 }}>
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: 'var(--text-h, #111827)', mb: 0.5 }}>
           FIFO Compliance Report
         </Typography>
-        <Typography sx={{ fontSize: 13, color: '#6b7280' }}>
+        <Typography sx={{ fontSize: 13, color: 'var(--text-secondary, #6b7280)' }}>
           First In, First Out (FIFO) / First Expire, First Out (FEFO) monitoring for all vaccine types
         </Typography>
       </Box>
@@ -111,17 +114,17 @@ export default function FifoComplianceReport() {
           gap: 1.5,
           p: 2,
           mb: 3,
-          bgcolor: '#f0fdf4',
-          border: '1px solid #bbf7d0',
+          bgcolor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#f0fdf4',
+          border: isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid #bbf7d0',
           borderRadius: 2,
         }}
       >
-        <CheckCircle sx={{ color: '#059669', fontSize: 24 }} />
+        <CheckCircle sx={{ color: isDark ? '#34d399' : '#059669', fontSize: 24 }} />
         <Box>
-          <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 700, color: isDark ? '#a7f3d0' : '#065f46' }}>
             FIFO Protocol Active
           </Typography>
-          <Typography sx={{ fontSize: 12, color: '#047857' }}>
+          <Typography sx={{ fontSize: 12, color: isDark ? '#6ee7b7' : '#047857' }}>
             System automatically prioritizes batches with earliest expiration dates for clinical use
           </Typography>
         </Box>
@@ -139,15 +142,15 @@ export default function FifoComplianceReport() {
         <Box
           sx={{
             p: 2,
-            bgcolor: '#ffffff',
-            border: '1px solid #e5e7eb',
+            bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#ffffff',
+            border: isDark ? '1px solid var(--border-glow, rgba(163, 230, 53, 0.25))' : '1px solid #e5e7eb',
             borderRadius: 2,
           }}
         >
-          <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#6b7280', mb: 0.5 }}>
+          <Typography sx={{ fontSize: 12, fontWeight: 600, color: isDark ? '#94a3b8' : '#6b7280', mb: 0.5 }}>
             Vaccine Types
           </Typography>
-          <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#111827' }}>
+          <Typography sx={{ fontSize: 24, fontWeight: 700, color: isDark ? '#ffffff' : '#111827' }}>
             {Object.keys(recommendations).length}
           </Typography>
         </Box>
@@ -155,15 +158,15 @@ export default function FifoComplianceReport() {
         <Box
           sx={{
             p: 2,
-            bgcolor: '#ffffff',
-            border: '1px solid #e5e7eb',
+            bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#ffffff',
+            border: isDark ? '1px solid var(--border-glow, rgba(163, 230, 53, 0.25))' : '1px solid #e5e7eb',
             borderRadius: 2,
           }}
         >
-          <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#6b7280', mb: 0.5 }}>
+          <Typography sx={{ fontSize: 12, fontWeight: 600, color: isDark ? '#94a3b8' : '#6b7280', mb: 0.5 }}>
             Total Active Batches
           </Typography>
-          <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#111827' }}>
+          <Typography sx={{ fontSize: 24, fontWeight: 700, color: isDark ? '#ffffff' : '#111827' }}>
             {Object.values(recommendations).reduce(
               (sum, rec) => sum + rec.all_batches_fifo.length,
               0
@@ -174,15 +177,15 @@ export default function FifoComplianceReport() {
         <Box
           sx={{
             p: 2,
-            bgcolor: '#ffffff',
-            border: '1px solid #e5e7eb',
+            bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#ffffff',
+            border: isDark ? '1px solid var(--border-glow, rgba(163, 230, 53, 0.25))' : '1px solid #e5e7eb',
             borderRadius: 2,
           }}
         >
-          <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#6b7280', mb: 0.5 }}>
+          <Typography sx={{ fontSize: 12, fontWeight: 600, color: isDark ? '#94a3b8' : '#6b7280', mb: 0.5 }}>
             Total Stock
           </Typography>
-          <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#059669' }}>
+          <Typography sx={{ fontSize: 24, fontWeight: 700, color: isDark ? '#34d399' : '#059669' }}>
             {Object.values(recommendations).reduce((sum, rec) => sum + rec.total_stock, 0)} vials
           </Typography>
         </Box>
@@ -204,7 +207,7 @@ export default function FifoComplianceReport() {
                 mb: 2,
               }}
             >
-              <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>
+              <Typography sx={{ fontSize: 16, fontWeight: 700, color: isDark ? '#ffffff' : '#111827' }}>
                 {vaccineType}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -216,21 +219,21 @@ export default function FifoComplianceReport() {
                 <Chip
                   label={`${recommendation.total_stock} Vials`}
                   size="small"
-                  sx={{ fontSize: 11, fontWeight: 600, bgcolor: '#dcfce7', color: '#166534' }}
+                  sx={{ fontSize: 11, fontWeight: 600, bgcolor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7', color: isDark ? '#34d399' : '#166534' }}
                 />
               </Box>
             </Box>
 
             {/* FIFO Table */}
-            <TableContainer component={Paper} sx={{ border: '1px solid #e5e7eb' }}>
+            <TableContainer component={Paper} sx={{ border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e5e7eb', bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#ffffff' }}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: '#f9fafb' }}>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>FIFO Priority</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Batch Number</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Quantity</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Expiration Date</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Status</TableCell>
+                  <TableRow sx={{ bgcolor: isDark ? '#121c15' : '#f9fafb' }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: isDark ? '#a7f3d0' : undefined }}>FIFO Priority</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: isDark ? '#a7f3d0' : undefined }}>Batch Number</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: isDark ? '#a7f3d0' : undefined }}>Quantity</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: isDark ? '#a7f3d0' : undefined }}>Expiration Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: isDark ? '#a7f3d0' : undefined }}>Status</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -242,8 +245,10 @@ export default function FifoComplianceReport() {
                       <TableRow
                         key={batch.inventory_id}
                         sx={{
-                          bgcolor: isFifoPriority ? '#f0fdf4' : '#ffffff',
-                          '&:hover': { bgcolor: isFifoPriority ? '#dcfce7' : '#f9fafb' },
+                          bgcolor: isFifoPriority
+                            ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#f0fdf4')
+                            : (isDark ? (index % 2 === 0 ? '#0e1812' : 'rgba(34, 197, 94, 0.03)') : '#ffffff'),
+                          '&:hover': { bgcolor: isFifoPriority ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7') : (isDark ? 'rgba(34, 197, 94, 0.08)' : '#f9fafb') },
                         }}
                       >
                         <TableCell>
@@ -255,33 +260,33 @@ export default function FifoComplianceReport() {
                               sx={{
                                 fontSize: 11,
                                 fontWeight: 700,
-                                bgcolor: '#dcfce7',
-                                color: '#166534',
+                                bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#dcfce7',
+                                color: isDark ? '#34d399' : '#166534',
                               }}
                             />
                           ) : (
                             <Chip
                               label={`Rank #${index + 1}`}
                               size="small"
-                              sx={{ fontSize: 11, fontWeight: 600, bgcolor: '#f3f4f6', color: '#6b7280' }}
+                              sx={{ fontSize: 11, fontWeight: 600, bgcolor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6', color: isDark ? '#94a3b8' : '#6b7280' }}
                             />
                           )}
                         </TableCell>
-                        <TableCell sx={{ fontSize: 13, fontWeight: 600 }}>
+                        <TableCell sx={{ fontSize: 13, fontWeight: 600, color: isDark ? '#ffffff' : undefined }}>
                           {batch.batch_number}
                         </TableCell>
-                        <TableCell sx={{ fontSize: 13, fontWeight: 600, color: '#059669' }}>
+                        <TableCell sx={{ fontSize: 13, fontWeight: 600, color: isDark ? '#34d399' : '#059669' }}>
                           {batch.current_quantity}
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 500, color: isDark ? '#f8fafc' : undefined }}>
                               {formatDate(batch.expiration_date)}
                             </Typography>
                             <Typography
                               sx={{
                                 fontSize: 11,
-                                color: '#6b7280',
+                                color: isDark ? '#94a3b8' : '#6b7280',
                                 fontStyle: 'italic',
                               }}
                             >
@@ -297,7 +302,7 @@ export default function FifoComplianceReport() {
                             sx={{
                               fontSize: 11,
                               fontWeight: 600,
-                              bgcolor: batchExpiryStatus.bgColor,
+                              bgcolor: isDark ? 'rgba(255,255,255,0.08)' : batchExpiryStatus.bgColor,
                               color: batchExpiryStatus.color,
                             }}
                           />

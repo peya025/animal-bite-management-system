@@ -80,18 +80,19 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
               <option value="pwd">PWD</option>
             </select>
           </FormField>
-          <FormField id="field-queue_priority_level" label="Priority" required error={!!errors.queue_priority_level} errorText={errors.queue_priority_level}>
-            <select
-              className="fm-select"
-              value={data.queue_priority_level}
-              onChange={onChange('queue_priority_level')}
-              disabled={data.queue_priority_group !== 'normal'}
-              style={errors.queue_priority_level ? { borderColor: '#ef4444' } : undefined}
-            >
-              <option value="normal">Normal</option>
-              <option value="priority">Priority</option>
-            </select>
-          </FormField>
+          {data.queue_priority_group !== 'normal' && (
+            <FormField id="field-queue_priority_level" label="Priority" required error={!!errors.queue_priority_level} errorText={errors.queue_priority_level}>
+              <select
+                className="fm-select"
+                value={data.queue_priority_level}
+                onChange={onChange('queue_priority_level')}
+                style={errors.queue_priority_level ? { borderColor: '#ef4444' } : undefined}
+              >
+                <option value="priority">Priority</option>
+                <option value="normal">Normal</option>
+              </select>
+            </FormField>
+          )}
         </div>
       )}
 

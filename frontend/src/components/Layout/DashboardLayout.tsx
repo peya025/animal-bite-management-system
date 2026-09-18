@@ -51,6 +51,57 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  const isSoloNurse = Boolean(
+    user?.is_solo_nurse ||
+    (user?.roles && user.roles.some((r: any) => r.slug === 'intake_nurse') && user.roles.some((r: any) => r.slug === 'follow_up_nurse')) ||
+    user?.role === 'treatment'
+  );
+
+  const [stationMode, setStationMode] = useState<'intake' | 'follow_up' | 'combined'>(() => {
+    return (localStorage.getItem('active_station_mode') as any) || 'intake';
+  });
+
+  const applyStationMode = (newMode: 'intake' | 'follow_up' | 'combined') => {
+    setStationMode(newMode);
+    localStorage.setItem('active_station_mode', newMode);
+    window.dispatchEvent(new CustomEvent('station-changed', { detail: newMode }));
+  };
+
+  const handleStationChange = (newMode: 'intake' | 'follow_up' | 'combined') => {
+    applyStationMode(newMode);
+    if (newMode === 'intake' && location.pathname !== ROUTES.QUEUE.DASHBOARD) {
+      navigate(ROUTES.QUEUE.DASHBOARD);
+    } else if (newMode === 'follow_up' && location.pathname !== ROUTES.PATIENTS.NURSE_LIST) {
+      navigate(ROUTES.PATIENTS.NURSE_LIST);
+    } else if (newMode === 'combined' && location.pathname !== ROUTES.QUEUE.DASHBOARD) {
+      navigate(ROUTES.QUEUE.DASHBOARD);
+    }
+  };
+
+  // Direct sidebar navigation must always tell the same story as the station control.
+  // Combined mode remains available on the queue dashboard for cross-coverage.
+  useEffect(() => {
+    if (!isSoloNurse || stationMode === 'combined') return;
+    const routeMode = location.pathname === ROUTES.QUEUE.DASHBOARD
+      ? 'intake'
+      : location.pathname === ROUTES.PATIENTS.NURSE_LIST
+        ? 'follow_up'
+        : null;
+    if (routeMode && routeMode !== stationMode) applyStationMode(routeMode);
+  }, [location.pathname, isSoloNurse, stationMode]);
+
+  const getRoleBadge = () => {
+    if (isSoloNurse) {
+      if (stationMode === 'intake') return 'Intake Station';
+      if (stationMode === 'follow_up') return 'Follow-Up Station';
+      return 'Dual Nurse Station';
+    }
+    if (user?.roles?.some((r: any) => r.slug === 'intake_nurse')) return 'Intake Nurse';
+    if (user?.roles?.some((r: any) => r.slug === 'follow_up_nurse')) return 'Follow-Up Nurse';
+    if (user?.role) return ROLE_LABELS[user.role] || user.role;
+    return 'Staff';
+  };
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
@@ -119,6 +170,8 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                         }
                       }
                     } else if (item.path) {
+                      if (item.path === ROUTES.QUEUE.DASHBOARD) applyStationMode('intake');
+                      if (item.path === ROUTES.PATIENTS.NURSE_LIST) applyStationMode('follow_up');
                       navigate(item.path);
                     }
                   }}
@@ -152,6 +205,8 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                       <button
                         key={subItem.path}
                         onClick={() => {
+                          if (subItem.path === ROUTES.QUEUE.DASHBOARD) applyStationMode('intake');
+                          if (subItem.path === ROUTES.PATIENTS.NURSE_LIST) applyStationMode('follow_up');
                           navigate(subItem.path);
                           if (subItem.path === ROUTES.INVENTORY.LIST) {
                             window.dispatchEvent(new CustomEvent('nav-inventory-reset'));
@@ -174,9 +229,11 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
           <div className="sidebar-user">
             <div className="sidebar-user-avatar">{initials}</div>
             <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{user?.name}</span>
+              <span className="sidebar-user-name">
+                {user?.name}{user?.professional_license_no ? `, RN` : ''}
+              </span>
               <span className="sidebar-user-role">
-                {user?.role ? ROLE_LABELS[user.role] : ''}
+                {getRoleBadge()}
               </span>
             </div>
             <button
@@ -216,7 +273,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
       {/* ── Main Content ── */}
       <div className="main-content">
         <header className="top-header">
-          <div className="header-left">
+          <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {sidebarOpen && (
               <button
                 className="header-toggle"
@@ -230,6 +287,41 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                   <line x1="4" y1="18" x2="20" y2="18"></line>
                 </svg>
               </button>
+            )}
+
+            {/* Station Switcher for Dual/Multi-Role Nurses */}
+            {isSoloNurse && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                background: stationMode === 'follow_up' ? '#eef2ff' : stationMode === 'combined' ? '#f8fafc' : '#ecfdf5',
+                borderRadius: '8px',
+                padding: '3px 8px',
+                border: `1px solid ${stationMode === 'follow_up' ? '#c7d2fe' : stationMode === 'combined' ? 'var(--border-color, #e2e8f0)' : '#a7f3d0'}`,
+                gap: 6,
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Station:
+                </span>
+                <select
+                  value={stationMode}
+                  onChange={(e) => handleStationChange(e.target.value as any)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: stationMode === 'follow_up' ? '#4f46e5' : stationMode === 'combined' ? '#475569' : '#047857',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <option value="intake">Station 1 · New & Day 0</option>
+                  <option value="follow_up">Station 2 · Follow-up Doses</option>
+                  <option value="combined">Combined · All Active Queues</option>
+                </select>
+              </div>
             )}
           </div>
           <div className="header-right">
@@ -253,7 +345,9 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
           loadingLabel="Signing out..."
           loading={isLoggingOut}
           onConfirm={handleLogout}
-          onCancel={() => !isLoggingOut && setShowLogoutModal(false)}
+          onCancel={() => {
+            if (!isLoggingOut) setShowLogoutModal(false);
+          }}
           shakeIcon
         />
       )}

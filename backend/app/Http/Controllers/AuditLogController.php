@@ -57,14 +57,20 @@ class AuditLogController extends Controller
         $startOfWeek = now()->startOfWeek()->toDateTimeString();
         $endOfWeek = now()->endOfWeek()->toDateTimeString();
 
-        // 1. Single SQL query to compute all counter metrics in parallel
+        $scheduleService = app(\App\Services\ClinicScheduleService::class);
+        $hours = $scheduleService->getOperatingHoursForDate($clinicId, today());
+        $openTime = $hours['open_time'] ?? '08:00:00';
+        $closeTime = $hours['close_time'] ?? '17:00:00';
+        $isOpenToday = $hours['is_open'] ?? true;
+
+        // 1. Single SQL query to compute metrics in parallel
         $metrics = AuditLog::where('clinic_id', $clinicId)
             ->whereNotNull('user_id')
             ->selectRaw("
                 COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as today_actions,
                 COUNT(CASE WHEN created_at BETWEEN ? AND ? THEN 1 END) as week_actions,
                 COUNT(CASE WHEN DATE(created_at) = ? AND action = 'login' THEN 1 END) as today_logins,
-                COUNT(CASE WHEN DATE(created_at) = ? AND (TIME(created_at) < '08:00:00' OR TIME(created_at) > '17:00:00') THEN 1 END) as suspicious_after_hours
+                COUNT(CASE WHEN DATE(created_at) = ? AND (" . ($isOpenToday ? "(TIME(created_at) < '{$openTime}' OR TIME(created_at) > '{$closeTime}')" : "1=1") . ") THEN 1 END) as suspicious_after_hours
             ", [$today, $startOfWeek, $endOfWeek, $today, $today])
             ->first();
 
@@ -79,11 +85,16 @@ class AuditLogController extends Controller
             ->first();
 
         return response()->json([
-            'today_actions' => (int) ($metrics->today_actions ?? 0),
-            'week_actions' => (int) ($metrics->week_actions ?? 0),
-            'today_logins' => (int) ($metrics->today_logins ?? 0),
-            'most_active_user' => $mostActive,
+            'today_actions'          => (int) ($metrics->today_actions ?? 0),
+            'week_actions'           => (int) ($metrics->week_actions ?? 0),
+            'today_logins'           => (int) ($metrics->today_logins ?? 0),
+            'most_active_user'       => $mostActive,
             'suspicious_after_hours' => (int) ($metrics->suspicious_after_hours ?? 0),
+            'operating_hours'        => [
+                'is_open'    => $isOpenToday,
+                'open_time'  => $openTime,
+                'close_time' => $closeTime,
+            ],
         ]);
     }
 

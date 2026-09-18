@@ -20,6 +20,7 @@ class AuthService {
       localStorage.setItem('authToken',  data.token);
       localStorage.setItem('userData',   JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(clinic));
+      localStorage.setItem('lastActivityAt', String(Date.now()));
     }
 
     // Normalise to the shape AuthContext expects: { token, user, clinic }
@@ -35,6 +36,7 @@ class AuthService {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
     localStorage.removeItem('clinicData');
+    localStorage.removeItem('lastActivityAt');
 
     // 2. Fire background logout request to backend
     try {

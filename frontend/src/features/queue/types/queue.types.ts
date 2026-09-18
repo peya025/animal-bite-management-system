@@ -90,6 +90,19 @@ export interface QueueEntry {
     name: string;
     role: string;
   } | null;
+  served_by?: number | null;
+  servedBy?: {
+    id: number;
+    name: string;
+    role: string;
+    signature_path?: string;
+  } | null;
+  station_id?: number | null;
+  station?: {
+    id: number;
+    name: string;
+  } | null;
+  serving_started_at?: string | null;
   history?: QueueHistoryEntry[];
 }
 
@@ -121,6 +134,7 @@ export interface QueueStats {
   final_recall: number;
   absent: number;
   by_visit_type?: Record<string, number>;
+  active_servers?: string[];
 }
 
 // ── Labels & config ───────────────────────────────────────────────────────────

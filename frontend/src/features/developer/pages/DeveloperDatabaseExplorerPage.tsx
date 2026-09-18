@@ -367,16 +367,16 @@ export default function DeveloperDatabaseExplorerPage() {
                               padding: '4px 8px',
                               borderRadius: 6,
                               fontSize: 11.5,
-                              border: '1px solid #e5e7eb',
-                              backgroundColor: '#ffffff',
-                              color: '#374151',
+                              border: '1px solid var(--border-glow, #e5e7eb)',
+                              backgroundColor: 'var(--card-bg-solid, #ffffff)',
+                              color: 'var(--text-b, #374151)',
                               cursor: 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 4,
                             }}
                           >
-                            <Icon name="copy" size={12} color="#374151" /> Copy Name
+                            <Icon name="copy" size={12} color="var(--text-b, #374151)" /> Copy Name
                           </button>
                         </div>
                       </td>

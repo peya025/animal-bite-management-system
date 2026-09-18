@@ -24,6 +24,10 @@ interface QueueFilterBarProps {
   onStatusChange: (val: string) => void;
   categoryFilter?: string;
   onCategoryChange?: (val: string) => void;
+  visitTypeFilter?: string;
+  onVisitTypeChange?: (val: string) => void;
+  /** Individual station views are already clinically scoped, so their visit type must not be changed. */
+  lockedVisitTypeLabel?: string;
   onClear: () => void;
 }
 
@@ -34,6 +38,9 @@ export function QueueFilterBar({
   onStatusChange,
   categoryFilter = '',
   onCategoryChange,
+  visitTypeFilter = '',
+  onVisitTypeChange,
+  lockedVisitTypeLabel,
   onClear,
 }: QueueFilterBarProps) {
   const selectSx = {
@@ -69,7 +76,7 @@ export function QueueFilterBar({
       <Grid container spacing={1.5} alignItems="center">
 
         {/* Search */}
-        <Grid size={{ xs: 12, sm: onCategoryChange ? 5 : 8, md: onCategoryChange ? 5 : 8 }}>
+        <Grid size={{ xs: 12, sm: onVisitTypeChange ? 3.5 : (onCategoryChange ? 5 : 8), md: onVisitTypeChange ? 3.5 : (onCategoryChange ? 5 : 8) }}>
           <TextField
             fullWidth
             size="small"
@@ -97,7 +104,7 @@ export function QueueFilterBar({
         </Grid>
 
         {/* Status filter — ALL statuses */}
-        <Grid size={{ xs: 12, sm: 3, md: 3 }}>
+        <Grid size={{ xs: 12, sm: onVisitTypeChange ? 2 : 3, md: onVisitTypeChange ? 2 : 3 }}>
           <FormControl fullWidth size="small">
             <InputLabel>Status</InputLabel>
             <Select label="Status" value={statusFilter} onChange={e => onStatusChange(e.target.value)} MenuProps={menuPaperSx} sx={selectSx}>
@@ -162,9 +169,42 @@ export function QueueFilterBar({
           </FormControl>
         </Grid>
 
+        {/* A station owns one clinical stream. Do not offer a control that can mix streams. */}
+        {lockedVisitTypeLabel ? (
+          <Grid size={{ xs: 12, sm: 2.5, md: 2.5 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Queue view"
+              value={lockedVisitTypeLabel}
+              disabled
+              slotProps={{ input: { sx: { bgcolor: '#f8fafc', borderRadius: 2, fontWeight: 600 } } }}
+            />
+          </Grid>
+        ) : onVisitTypeChange && (
+          /* Combined view only: staff can intentionally change the visible stream. */
+          <Grid size={{ xs: 12, sm: 2.5, md: 2.5 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Visit / Duty</InputLabel>
+              <Select label="Visit / Duty" value={visitTypeFilter} onChange={e => onVisitTypeChange(e.target.value)} MenuProps={menuPaperSx} sx={selectSx}>
+                <MenuItem value="">All Visit Types</MenuItem>
+                <MenuItem value="intake">Station 1 · Day 0 / New Episode</MenuItem>
+                <MenuItem value="follow_up_station">Station 2 · Follow-up Doses</MenuItem>
+                <Divider sx={{ my: 0.5 }} />
+                <MenuItem value="new_case">New Case</MenuItem>
+                <MenuItem value="consultation">Consultation</MenuItem>
+                <MenuItem value="vaccination">Vaccination</MenuItem>
+                <MenuItem value="follow_up">Follow-up</MenuItem>
+                <MenuItem value="booster">Booster</MenuItem>
+                <MenuItem value="observation">Observation</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+        )}
+
         {/* Category filter */}
         {onCategoryChange && (
-          <Grid size={{ xs: 12, sm: 3, md: 3 }}>
+          <Grid size={{ xs: 12, sm: onVisitTypeChange ? 2.5 : 3, md: onVisitTypeChange ? 2.5 : 3 }}>
             <FormControl fullWidth size="small">
               <InputLabel>Category</InputLabel>
               <Select label="Category" value={categoryFilter} onChange={e => onCategoryChange(e.target.value)} MenuProps={menuPaperSx} sx={selectSx}>
@@ -181,7 +221,7 @@ export function QueueFilterBar({
         )}
 
         {/* Clear */}
-        <Grid size={{ xs: 12, sm: 2, md: 2 }}>
+        <Grid size={{ xs: 12, sm: onVisitTypeChange ? 1.5 : 2, md: onVisitTypeChange ? 1.5 : 2 }}>
           <Button fullWidth variant="outlined" size="small" onClick={onClear}
             sx={{
               borderRadius: 2, borderColor: 'var(--input-border)',

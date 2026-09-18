@@ -18,8 +18,13 @@ interface QueueKPIStripProps {
   onWaitingClick?: () => void;
 }
 
+import { useTheme } from '@mui/material/styles';
+
 export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const isCalledActive = (stats?.called ?? 0) > 0;
+  const total = stats?.total || 1;
 
   const cards = [
     {
@@ -29,6 +34,9 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
       icon: <HugeiconsIcon icon={Clock01Icon} size={18} strokeWidth={2} />,
       isWaiting: true,
       isCalled: false,
+      color: '#10b981',
+      glow: 'rgba(16, 185, 129, 0.4)',
+      percent: Math.min(100, Math.round(((stats?.waiting ?? 0) / total) * 100)),
     },
     {
       id: 'called',
@@ -37,14 +45,23 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
       icon: <HugeiconsIcon icon={CallIcon} size={18} strokeWidth={2} />,
       isWaiting: false,
       isCalled: isCalledActive,
+      color: '#f59e0b',
+      glow: 'rgba(245, 158, 11, 0.4)',
+      percent: Math.min(100, Math.round(((stats?.called ?? 0) / total) * 100)),
     },
     {
       id: 'serving',
       label: 'Serving',
       value: (stats?.serving ?? 0) + (stats?.in_consultation ?? 0),
+      subtitle: stats?.active_servers && stats.active_servers.length > 0
+        ? stats.active_servers.slice(0, 2).join(', ')
+        : undefined,
       icon: <HugeiconsIcon icon={Stethoscope02Icon} size={18} strokeWidth={2} />,
       isWaiting: false,
       isCalled: false,
+      color: '#38bdf8',
+      glow: 'rgba(56, 189, 248, 0.4)',
+      percent: Math.min(100, Math.round((((stats?.serving ?? 0) + (stats?.in_consultation ?? 0)) / total) * 100)),
     },
     {
       id: 'completed',
@@ -53,6 +70,9 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
       icon: <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} strokeWidth={2} />,
       isWaiting: false,
       isCalled: false,
+      color: '#34d399',
+      glow: 'rgba(52, 211, 153, 0.4)',
+      percent: Math.min(100, Math.round(((stats?.completed ?? 0) / total) * 100)),
     },
     {
       id: 'total',
@@ -61,6 +81,9 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
       icon: <HugeiconsIcon icon={UserMultiple02Icon} size={18} strokeWidth={2} />,
       isWaiting: false,
       isCalled: false,
+      color: '#10b981',
+      glow: 'rgba(16, 185, 129, 0.4)',
+      percent: 100,
     },
   ];
 
@@ -74,66 +97,52 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
           md: 'repeat(5, 1fr)',
         },
         gap: 1.5,
-        mb: 1.5,
+        mb: 2,
       }}
     >
       {cards.map((card) => {
-        if (card.isWaiting) {
-          return (
-            <Box
-              key={card.id}
-              onClick={onWaitingClick}
-              sx={{
-                p: 2,
-                borderRadius: '12px',
-                bgcolor: '#eff6ff',
-                border: '2px solid #2563eb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: onWaitingClick ? 'pointer' : 'default',
-                transition: 'all 0.15s ease',
-                boxShadow: '0 1px 3px rgba(37,99,235,0.1)',
-                '&:hover': onWaitingClick
-                  ? {
-                      transform: 'translateY(-1px)',
-                      boxShadow: '0 4px 12px rgba(37,99,235,0.15)',
-                    }
-                  : undefined,
-              }}
-            >
-              <Box>
-                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#1d4ed8' }}>
-                  {card.label}
-                </Typography>
-                <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#1e40af', lineHeight: 1.1, mt: 0.25 }}>
-                  {card.value}
-                </Typography>
-              </Box>
-              <Box sx={{ color: '#2563eb', p: 1, bgcolor: '#dbeafe', borderRadius: '8px', display: 'flex' }}>
-                {card.icon}
-              </Box>
-            </Box>
-          );
-        }
-
         return (
           <Box
             key={card.id}
+            onClick={card.isWaiting ? onWaitingClick : undefined}
             sx={{
-              p: 2,
-              borderRadius: '12px',
-              bgcolor: 'background.paper',
-              border: '1px solid #e2e8f0',
+              p: '16px 16px 14px',
+              borderRadius: '20px',
+              position: 'relative',
+              overflow: 'hidden',
+              cursor: card.isWaiting && onWaitingClick ? 'pointer' : 'default',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               display: 'flex',
-              alignItems: 'center',
+              flexDirection: 'column',
               justifyContent: 'space-between',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+              minHeight: 116,
+              ...(isDark
+                ? {
+                    background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
+                    border: '1px solid rgba(163, 230, 53, 0.3)',
+                    boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12)',
+                    '&:hover': {
+                      transform: 'translateY(-3px)',
+                      borderColor: 'rgba(163, 230, 53, 0.55)',
+                      boxShadow: `0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)`,
+                    },
+                  }
+                : {
+                    background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.32)',
+                    boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12)',
+                    '&:hover': {
+                      transform: 'translateY(-3px)',
+                      borderColor: 'rgba(16, 185, 129, 0.55)',
+                      boxShadow: `0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)`,
+                    },
+                  }),
             }}
           >
-            <Box>
+            {/* Top row: Label & Icon */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   {card.label}
                 </Typography>
                 {card.isCalled && (
@@ -143,22 +152,57 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
                       height: 7,
                       borderRadius: '50%',
                       bgcolor: '#f59e0b',
+                      boxShadow: '0 0 8px #f59e0b',
                       animation: 'pulse 1.5s infinite',
                       '@keyframes pulse': {
-                        '0%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(245, 158, 11, 0.7)' },
-                        '70%': { transform: 'scale(1.1)', boxShadow: '0 0 0 5px rgba(245, 158, 11, 0)' },
-                        '100%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(245, 158, 11, 0)' },
+                        '0%': { transform: 'scale(0.95)', opacity: 0.8 },
+                        '70%': { transform: 'scale(1.2)', opacity: 1 },
+                        '100%': { transform: 'scale(0.95)', opacity: 0.8 },
                       },
                     }}
                   />
                 )}
               </Box>
-              <Typography sx={{ fontSize: 22, fontWeight: 600, color: '#1e293b', lineHeight: 1.1, mt: 0.25 }}>
+              <Box
+                sx={{
+                  color: card.color,
+                  p: 0.75,
+                  bgcolor: isDark ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.1)',
+                  border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid rgba(16, 185, 129, 0.25)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {card.icon}
+              </Box>
+            </Box>
+
+            {/* Metric Value */}
+            <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <Typography sx={{ fontSize: 26, fontWeight: 800, color: isDark ? '#ffffff' : '#064e3b', lineHeight: 1, letterSpacing: '-0.5px' }}>
                 {card.value}
               </Typography>
+              {card.subtitle && (
+                <Typography sx={{ fontSize: 11, color: '#0f766e', fontWeight: 500, mt: 0.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {card.subtitle}
+                </Typography>
+              )}
             </Box>
-            <Box sx={{ color: '#94a3b8', p: 1, bgcolor: '#f8fafc', borderRadius: '8px', display: 'flex' }}>
-              {card.icon}
+
+            {/* Bottom mini glow progress bar */}
+            <Box sx={{ width: '100%', height: 4, bgcolor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(16, 185, 129, 0.12)', borderRadius: 999, overflow: 'hidden', mt: 1.25 }}>
+              <Box
+                sx={{
+                  width: `${Math.max(card.percent, 8)}%`,
+                  height: '100%',
+                  borderRadius: 999,
+                  bgcolor: card.color,
+                  boxShadow: isDark ? `0 0 6px ${card.color}` : 'none',
+                  transition: 'width 0.4s ease-out',
+                }}
+              />
             </Box>
           </Box>
         );
@@ -172,6 +216,8 @@ interface SecondaryCountersRowProps {
 }
 
 export function SecondaryCountersRow({ stats }: SecondaryCountersRowProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const secondChance = stats?.second_chance ?? 0;
   const finalRecall = stats?.final_recall ?? 0;
   const absentCancelled = (stats?.absent ?? 0) + (stats?.cancelled ?? 0);
@@ -183,32 +229,43 @@ export function SecondaryCountersRow({ stats }: SecondaryCountersRowProps) {
         display: 'flex',
         alignItems: 'center',
         flexWrap: 'wrap',
-        gap: { xs: 1.5, sm: 3 },
-        py: 0.75,
-        px: 1,
+        gap: { xs: 1.5, sm: 2 },
+        py: 1,
+        px: 1.5,
         mb: 2,
-        color: '#64748b',
+        borderRadius: '16px',
         fontSize: 12,
+        ...(isDark
+          ? {
+              background: 'radial-gradient(ellipse at 30% 0%, #16241b 0%, #0d1612 100%)',
+              border: '1px solid rgba(163, 230, 53, 0.2)',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4), inset 0 1px 1px 0 rgba(255, 255, 255, 0.1)',
+            }
+          : {
+              background: 'radial-gradient(ellipse at 30% 0%, #f0fdf4 0%, #ffffff 100%)',
+              border: '1px solid rgba(16, 185, 129, 0.22)',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.08), inset 0 1px 1px 0 rgba(255, 255, 255, 0.9)',
+            }),
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-        <HugeiconsIcon icon={UserCheck01Icon} size={15} strokeWidth={1.8} style={{ color: '#94a3b8' }} />
-        <span>Second Chance: <strong style={{ color: secondChance > 0 ? '#ea580c' : '#475569' }}>{secondChance}</strong></span>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
+        <HugeiconsIcon icon={UserCheck01Icon} size={15} strokeWidth={1.8} style={{ color: '#34d399' }} />
+        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Second Chance: <strong style={{ color: secondChance > 0 ? '#fb923c' : (isDark ? '#ffffff' : '#111827') }}>{secondChance}</strong></span>
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-        <HugeiconsIcon icon={UserBlock01Icon} size={15} strokeWidth={1.8} style={{ color: '#94a3b8' }} />
-        <span>Final Recall: <strong style={{ color: finalRecall > 0 ? '#dc2626' : '#475569' }}>{finalRecall}</strong></span>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
+        <HugeiconsIcon icon={UserBlock01Icon} size={15} strokeWidth={1.8} style={{ color: '#f87171' }} />
+        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Final Recall: <strong style={{ color: finalRecall > 0 ? '#f87171' : (isDark ? '#ffffff' : '#111827') }}>{finalRecall}</strong></span>
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
         <HugeiconsIcon icon={Cancel01Icon} size={15} strokeWidth={1.8} style={{ color: '#94a3b8' }} />
-        <span>Cancelled / Absent: <strong style={{ color: '#475569' }}>{absentCancelled}</strong></span>
+        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Cancelled / Absent: <strong style={{ color: isDark ? '#ffffff' : '#111827' }}>{absentCancelled}</strong></span>
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-        <HugeiconsIcon icon={UserBlock01Icon} size={15} strokeWidth={1.8} style={{ color: '#94a3b8' }} />
-        <span>No Response: <strong style={{ color: noResponse > 0 ? '#9333ea' : '#475569' }}>{noResponse}</strong></span>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
+        <HugeiconsIcon icon={UserBlock01Icon} size={15} strokeWidth={1.8} style={{ color: '#c084fc' }} />
+        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>No Response: <strong style={{ color: noResponse > 0 ? '#c084fc' : (isDark ? '#ffffff' : '#111827') }}>{noResponse}</strong></span>
       </Box>
     </Box>
   );
@@ -219,6 +276,8 @@ interface QueueProgressBarProps {
 }
 
 export function QueueProgressBar({ stats }: QueueProgressBarProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   if (!stats || stats.total <= 0) return null;
 
   const percentage = Math.min(100, Math.round((stats.completed / stats.total) * 100));
@@ -228,51 +287,64 @@ export function QueueProgressBar({ stats }: QueueProgressBarProps) {
     <Paper
       elevation={0}
       sx={{
-        border: '1px solid #e2e8f0',
-        borderRadius: 3,
-        bgcolor: 'background.paper',
+        borderRadius: '20px',
         p: 2.5,
         mt: 3,
         mb: 2,
+        ...(isDark
+          ? {
+              background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
+              border: '1px solid rgba(163, 230, 53, 0.3)',
+              boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12)',
+            }
+          : {
+              background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+              border: '1px solid rgba(16, 185, 129, 0.32)',
+              boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12)',
+            }),
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.25 }}>
-        <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#1e293b' }}>
-          Today's Progress
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+        <Typography sx={{ fontWeight: 800, fontSize: 14, color: isDark ? '#ffffff' : '#064e3b', letterSpacing: '-0.2px' }}>
+          Today's Queue Progress
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {secondChanceTotal > 0 && (
-            <Typography sx={{ fontSize: 11.5, color: '#ea580c', fontWeight: 600 }}>
+            <Typography sx={{ fontSize: 11.5, color: '#fb923c', fontWeight: 600 }}>
               ↩ {secondChanceTotal} in recall queue
             </Typography>
           )}
-          <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>
+          <Typography sx={{ fontSize: 12.5, color: isDark ? '#a7f3d0' : '#047857', fontWeight: 700 }}>
             {stats.completed} of {stats.total} completed ({percentage}%)
           </Typography>
         </Box>
       </Box>
 
       {/* Progress bar */}
-      <Box sx={{ position: 'relative', height: 7, borderRadius: 4, bgcolor: '#f1f5f9', overflow: 'hidden' }}>
+      <Box sx={{ position: 'relative', height: 8, borderRadius: 999, bgcolor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(16, 185, 129, 0.12)', overflow: 'hidden' }}>
         <LinearProgress
           variant="determinate"
           value={percentage}
           sx={{
-            height: 7,
-            borderRadius: 4,
+            height: 8,
+            borderRadius: 999,
             bgcolor: 'transparent',
-            '& .MuiLinearProgress-bar': { bgcolor: '#10b981', borderRadius: 4 },
+            '& .MuiLinearProgress-bar': {
+              background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)',
+              borderRadius: 999,
+              boxShadow: isDark ? '0 0 10px rgba(52, 211, 153, 0.5)' : 'none',
+            },
           }}
         />
       </Box>
 
       {stats.by_visit_type && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1.5 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1.75 }}>
           {Object.entries(stats.by_visit_type).map(([type, count]) => (
             <Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#10b981' }} />
-              <Typography sx={{ fontSize: 11.5, color: '#64748b' }}>
-                {VISIT_LABEL[type] ?? type}: <strong style={{ color: '#1e293b' }}>{String(count)}</strong>
+              <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#10b981', boxShadow: isDark ? '0 0 6px #34d399' : 'none' }} />
+              <Typography sx={{ fontSize: 11.5, color: isDark ? '#94a3b8' : '#4b5563' }}>
+                {VISIT_LABEL[type] ?? type}: <strong style={{ color: isDark ? '#ffffff' : '#111827' }}>{String(count)}</strong>
               </Typography>
             </Box>
           ))}

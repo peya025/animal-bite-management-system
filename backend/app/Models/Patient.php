@@ -40,6 +40,8 @@ class Patient extends Model
     protected $casts = [
         'date_of_birth' => 'date:Y-m-d',
         'registration_date' => 'datetime',
+        'contact_number' => \App\Casts\LegacyCompatibleEncrypted::class,
+        'address' => \App\Casts\LegacyCompatibleEncrypted::class,
     ];
 
     protected $appends = [

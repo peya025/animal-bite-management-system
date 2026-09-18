@@ -25,6 +25,7 @@ interface PatientDetailsModalProps {
   onClose: () => void;
   onEdit?: (patient: Patient) => void;
   onPatientUpdated?: (patient: any) => void;
+  readOnly?: boolean;
 }
 
 // ── Read-only Banner ─────────────────────────────────────────────────────────
@@ -34,10 +35,10 @@ function ReadOnlyBanner() {
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1.5,
       px: 2.5, py: 1.5, mb: 3,
-      bgcolor: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 2,
+      bgcolor: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 2,
     }}>
-      <LockIcon sx={{ fontSize: 16, color: '#d97706', flexShrink: 0 }} />
-      <Typography sx={{ fontSize: 13, color: '#92400e' }}>
+      <LockIcon sx={{ fontSize: 16, color: '#f59e0b', flexShrink: 0 }} />
+      <Typography sx={{ fontSize: 13, color: 'var(--text-b, #92400e)' }}>
         You are viewing this form in <strong>read-only mode</strong>.
       </Typography>
     </Box>
@@ -54,7 +55,7 @@ const TABS = [
 
 function TabBar({ active, onSelect }: { active: string; onSelect: (key: string) => void }) {
   return (
-    <Box sx={{ display: 'flex', borderBottom: '2px solid #f3f4f6', px: 0, bgcolor: '#fff' }}>
+    <Box sx={{ display: 'flex', borderBottom: '1px solid var(--border-glow, #f3f4f6)', px: 0, bgcolor: 'var(--card-bg-solid, #ffffff)' }}>
       {TABS.map(tab => {
         const isActive = active === tab.key;
         return (
@@ -71,7 +72,7 @@ function TabBar({ active, onSelect }: { active: string; onSelect: (key: string) 
               background: 'none',
               border: 'none',
               borderBottom: isActive ? '2px solid #10b981' : '2px solid transparent',
-              marginBottom: -2,
+              marginBottom: -1,
               cursor: 'pointer',
               fontFamily: 'inherit',
               transition: 'all 0.15s',
@@ -80,7 +81,7 @@ function TabBar({ active, onSelect }: { active: string; onSelect: (key: string) 
             <span style={{
               fontSize: 13.5,
               fontWeight: isActive ? 700 : 500,
-              color: isActive ? '#10b981' : '#6b7280',
+              color: isActive ? '#10b981' : 'var(--text-m, #6b7280)',
             }}>
               {tab.label}
             </span>
@@ -89,9 +90,9 @@ function TabBar({ active, onSelect }: { active: string; onSelect: (key: string) 
               fontWeight: 600,
               padding: '2px 8px',
               borderRadius: 999,
-              backgroundColor: isActive ? '#d1fae5' : '#f0fdf4',
-              color: isActive ? '#065f46' : '#9ca3af',
-              border: `1px solid ${isActive ? '#a7f3d0' : '#e5e7eb'}`,
+              backgroundColor: isActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(107, 114, 128, 0.1)',
+              color: isActive ? '#10b981' : 'var(--text-m, #9ca3af)',
+              border: `1px solid ${isActive ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-glow, #e5e7eb)'}`,
             }}>
               {tab.roleLabel}
             </span>
@@ -168,9 +169,9 @@ function asYesNo(value: unknown): string {
 
 function Form1Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Box sx={{ borderBottom: '1px solid #f3f4f6', p: 3, '&:last-of-type': { borderBottom: 'none' } }}>
+    <Box sx={{ borderBottom: '1px solid var(--border-glow, #f3f4f6)', p: 3, '&:last-of-type': { borderBottom: 'none' } }}>
       <Typography sx={{
-        fontSize: 13, fontWeight: 700, color: '#059669',
+        fontSize: 13, fontWeight: 700, color: '#10b981',
         textTransform: 'uppercase', letterSpacing: '0.5px', mb: 2,
       }}>
         {title}
@@ -184,13 +185,13 @@ function Form1Field({ label, value }: { label: string; value: string }) {
   return (
     <Box>
       <Typography sx={{
-        fontSize: 11, fontWeight: 600, color: '#9ca3af',
+        fontSize: 11, fontWeight: 600, color: 'var(--text-m, #9ca3af)',
         textTransform: 'uppercase', letterSpacing: '0.45px', mb: 0.5,
       }}>
         {label}
       </Typography>
       <Typography sx={{
-        fontSize: 14, color: '#111827', fontWeight: 500,
+        fontSize: 14, color: 'var(--text-h, #111827)', fontWeight: 500,
         wordBreak: 'break-word',
       }}>
         {value}
@@ -216,14 +217,14 @@ function Form1InlineView({ patient: p, onEdit }: { patient: any; onEdit?: () => 
   const spouseRaw = firstNonEmpty((details as any).spouse_name, (patient as any).spouse_name);
 
   return (
-    <Box sx={{ bgcolor: '#fff', borderRadius: 3, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+    <Box sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', borderRadius: 3, border: '1px solid var(--border-glow, #e5e7eb)', overflow: 'hidden' }}>
       {/* Card header */}
-      <Box sx={{ px: 3, py: 2, bgcolor: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Box sx={{ px: 3, py: 2, bgcolor: 'var(--card-bg, #f9fafb)', borderBottom: '1px solid var(--border-glow, #e5e7eb)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box>
-          <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'var(--text-h, #374151)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Patient Registration — Form 1
           </Typography>
-          <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: 0.25 }}>
+          <Typography sx={{ fontSize: 12, color: 'var(--text-m, #9ca3af)', mt: 0.25 }}>
             Patient Enrolment & Demographic Record
           </Typography>
         </Box>
@@ -327,6 +328,7 @@ export default function PatientDetailsModal({
   onClose,
   onEdit,
   onPatientUpdated,
+  readOnly = false,
 }: PatientDetailsModalProps) {
   const [printing, setPrinting] = useState(false);
   const [activeTab, setActiveTab] = useState('form1');
@@ -472,7 +474,7 @@ export default function PatientDetailsModal({
         return (
           <Box sx={{ p: 3 }}>
             <ReadOnlyBanner />
-            <Form1InlineView patient={p} onEdit={() => setShowEditModal(true)} />
+            <Form1InlineView patient={p} onEdit={readOnly ? undefined : () => setShowEditModal(true)} />
           </Box>
         );
       case 'form2':
@@ -514,45 +516,45 @@ export default function PatientDetailsModal({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}
+      slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden', bgcolor: 'var(--card-bg-solid, #ffffff)', border: '1px solid var(--border-glow, transparent)' } } }}
     >
       <DialogTitle sx={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        pb: 1.5, borderBottom: '1px solid #f3f4f6', bgcolor: '#fff', px: 3, pt: 2.5,
+        pb: 1.5, borderBottom: '1px solid var(--border-glow, #f3f4f6)', bgcolor: 'var(--card-bg-solid, #ffffff)', px: 3, pt: 2.5,
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box sx={{
-            width: 40, height: 40, borderRadius: '50%', bgcolor: '#d1fae5',
+            width: 40, height: 40, borderRadius: '50%', bgcolor: 'rgba(16, 185, 129, 0.15)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#065f46' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#10b981' }}>
               {[p.first_name, p.last_name].filter(Boolean).map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
             </Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontWeight: 700, color: '#111827', fontSize: 16, fontFamily: 'inherit' }}>
+            <Typography sx={{ fontWeight: 700, color: 'var(--text-h, #111827)', fontSize: 16, fontFamily: 'inherit' }}>
               {p.last_name}, {p.first_name} {p.middle_name ? p.middle_name[0] + '.' : ''}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
-              <Typography sx={{ fontSize: 12, color: '#6b7280', fontFamily: 'inherit' }}>
+              <Typography sx={{ fontSize: 12, color: 'var(--text-m, #6b7280)', fontFamily: 'inherit' }}>
                 {p.age}y · {p.gender ? p.gender.charAt(0).toUpperCase() + p.gender.slice(1) : ''}
               </Typography>
               <Chip
                 label={`#${p.patient_number || p.patient_id}`}
                 size="small"
-                sx={{ bgcolor: '#f3f4f6', color: '#374151', fontWeight: 700, fontFamily: 'monospace', height: 18, fontSize: 11 }}
+                sx={{ bgcolor: 'var(--input-bg, #f3f4f6)', color: 'var(--text-b, #374151)', fontWeight: 700, fontFamily: 'monospace', height: 18, fontSize: 11, border: '1px solid var(--border-glow, transparent)' }}
               />
             </Box>
           </Box>
         </Box>
-        <Icon name="patients" size={20} color="#d1d5db" />
+        <Icon name="patients" size={20} color="var(--text-m, #d1d5db)" />
       </DialogTitle>
 
       <TabBar active={activeTab} onSelect={setActiveTab} />
 
       {episodes.length > 1 && (
-        <Box sx={{ px: 3, py: 1.25, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+        <Box sx={{ px: 3, py: 1.25, bgcolor: 'var(--card-bg, #f8fafc)', borderBottom: '1px solid var(--border-glow, #e2e8f0)', display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-m, #475569)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
             Episodes / Incidents:
           </Typography>
           {episodes.map((ep) => {
@@ -573,33 +575,33 @@ export default function PatientDetailsModal({
       )}
 
       {historySummary?.has_history && episodes.length > 1 && (
-        <Box sx={{ px: 3, py: 1, bgcolor: '#ecfdf5', borderBottom: '1px solid #a7f3d0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography sx={{ fontSize: 12, color: '#065f46', fontWeight: 600 }}>
+        <Box sx={{ px: 3, py: 1, bgcolor: 'rgba(16, 185, 129, 0.1)', borderBottom: '1px solid var(--border-glow, #a7f3d0)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography sx={{ fontSize: 12, color: 'var(--text-h, #065f46)', fontWeight: 600 }}>
             🛡️ <strong>Immunization History Verified</strong>: Patient has documented rabies vaccination ({historySummary.confidence_label}).
           </Typography>
           <Chip
             label={historySummary.can_receive_booster ? 'Booster Eligible (RIG Withheld)' : 'Primary PEP Required'}
             size="small"
-            sx={{ bgcolor: '#d1fae5', color: '#047857', fontWeight: 700, fontSize: 10.5, height: 20 }}
+            sx={{ bgcolor: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontWeight: 700, fontSize: 10.5, height: 20 }}
           />
         </Box>
       )}
 
       {checkInSuccess && (
-        <Box sx={{ px: 3, py: 1.5, bgcolor: '#f0fdf4', borderBottom: '1px solid #bbf7d0', color: '#166534', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ px: 3, py: 1.5, bgcolor: 'rgba(16, 185, 129, 0.1)', borderBottom: '1px solid var(--border-glow, #bbf7d0)', color: '#10b981', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
           ✓ {checkInSuccess}
         </Box>
       )}
 
-      <DialogContent sx={{ p: 0, fontFamily: 'inherit', minHeight: 380, bgcolor: '#f9fafb' }}>
+      <DialogContent sx={{ p: 0, fontFamily: 'inherit', minHeight: 380, bgcolor: 'var(--bg-secondary, #f9fafb)' }}>
         {renderTabContent()}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', bgcolor: '#fff', justifyContent: 'space-between', gap: 1 }}>
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-glow, #e5e7eb)', bgcolor: 'var(--card-bg-solid, #ffffff)', justifyContent: 'space-between', gap: 1 }}>
         {(() => {
           const isCompletedSeries = episodes.length > 0 && episodes.every((e: any) => e.status === 'completed');
           const hasActiveTreatment = episodes.some((e: any) => e.status === 'active' || e.status === 'in_progress');
-          const canCheckInNewBite = (isCompletedSeries || historySummary?.has_history) && !hasActiveTreatment;
+          const canCheckInNewBite = !readOnly && (isCompletedSeries || historySummary?.has_history) && !hasActiveTreatment;
 
           if (!canCheckInNewBite) {
             return <div />;
@@ -633,9 +635,9 @@ export default function PatientDetailsModal({
               disabled={printing}
               startIcon={printing ? <CircularProgress size={14} sx={{ color: '#059669' }} /> : <Icon name="print" size={15} color="#059669" />}
               sx={{
-                borderColor: '#059669', color: '#059669', fontWeight: 600, fontSize: 13,
+                borderColor: '#10b981', color: '#10b981', fontWeight: 600, fontSize: 13,
                 textTransform: 'none', fontFamily: 'inherit',
-                '&:hover': { bgcolor: '#f0fdf4', borderColor: '#047857' },
+                '&:hover': { bgcolor: 'rgba(16, 185, 129, 0.1)', borderColor: '#059669' },
               }}
             >
               {printing ? 'Opening Printer…' : 'Print Form 1 (Enrolment)'}
@@ -643,7 +645,7 @@ export default function PatientDetailsModal({
           )}
           <Button
             onClick={onClose}
-            sx={{ color: '#6b7280', textTransform: 'none', fontWeight: 600, fontFamily: 'inherit' }}
+            sx={{ color: 'var(--text-m, #6b7280)', textTransform: 'none', fontWeight: 600, fontFamily: 'inherit' }}
           >
             Close
           </Button>

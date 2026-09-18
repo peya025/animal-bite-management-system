@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTheme } from '@mui/material/styles';
 import api from '../../../services/api';
 import tagoloanLogo from '../../../assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
 import rhuLogo from '../../../assets/rhu-logo.png';
@@ -140,25 +141,26 @@ const inputStyle: React.CSSProperties = {
   fontSize: 13,
   padding: '6px 10px',
   borderRadius: 6,
-  border: '1px solid #d1d5db',
+  border: '1px solid var(--input-border, #d1d5db)',
   outline: 'none',
   fontFamily: 'inherit',
-  background: '#fff',
+  background: 'var(--input-bg, #fff)',
+  color: 'var(--input-text, #111827)',
 };
 
 const selectStyle: React.CSSProperties = {
   fontSize: 13,
   padding: '6px 32px 6px 10px',
   borderRadius: 6,
-  border: '1px solid #d1d5db',
+  border: '1px solid var(--input-border, #d1d5db)',
   outline: 'none',
   fontFamily: 'inherit',
-  background: '#fff url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%236b7280\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 10px center',
+  background: 'var(--input-bg, #fff) url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%236b7280\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 10px center',
   appearance: 'none',
   WebkitAppearance: 'none',
   MozAppearance: 'none',
   cursor: 'pointer',
-  color: '#374151',
+  color: 'var(--input-text, #374151)',
   boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
   transition: 'all 0.15s ease-in-out',
 };
@@ -168,10 +170,10 @@ const tabStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 600,
   borderRadius: 6,
-  border: '1px solid #e5e7eb',
-  background: '#fff',
+  border: '1px solid var(--border-glow, #e5e7eb)',
+  background: 'var(--card-bg-solid, #fff)',
   cursor: 'pointer',
-  color: '#6b7280',
+  color: 'var(--text-secondary, #6b7280)',
   fontFamily: 'inherit',
   transition: 'all 0.15s',
 };
@@ -183,25 +185,30 @@ const tabActiveStyle: React.CSSProperties = {
 };
 
 const tableWrapStyle: React.CSSProperties = {
-  border: '1px solid #e5e7eb',
+  border: '1px solid var(--border-glow, #e5e7eb)',
   borderRadius: 10,
   overflow: 'hidden',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+  background: 'var(--card-bg-solid, #ffffff)',
+  boxShadow: 'var(--shadow, 0 1px 3px rgba(0,0,0,0.05))',
 };
 
 const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
 
 const thStyle: React.CSSProperties = {
-  background: '#f0fdf4',
-  color: 'var(--text-h)',
+  background: 'var(--table-header-bg, #f0fdf4)',
+  color: 'var(--text-h, #111827)',
   fontWeight: 600,
   padding: '10px 14px',
   textAlign: 'left',
-  borderBottom: '2px solid #10b981',
+  borderBottom: '2px solid var(--accent-green, #10b981)',
   whiteSpace: 'nowrap',
 };
 
-const tdStyle: React.CSSProperties = { padding: '9px 14px', borderBottom: '1px solid #f0f0f0' };
+const tdStyle: React.CSSProperties = {
+  padding: '9px 14px',
+  borderBottom: '1px solid var(--table-row-border, #f0f0f0)',
+  color: 'var(--text-primary, #1e293b)',
+};
 
 const overlayStyle: React.CSSProperties = {
   position: 'fixed',
@@ -216,14 +223,15 @@ const overlayStyle: React.CSSProperties = {
 };
 
 const modalStyle: React.CSSProperties = {
-  background: '#fff',
+  background: 'var(--card-bg-solid, #fff)',
   borderRadius: 16,
   width: '100%',
   maxWidth: 860,
   maxHeight: '90vh',
   display: 'flex',
   flexDirection: 'column',
-  boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+  border: '1px solid var(--border-glow, rgba(16, 185, 129, 0.2))',
+  boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
 };
 
 function btnStyle(bg: string, small = false): React.CSSProperties {
@@ -252,32 +260,49 @@ function StatBox({
 }: {
   label: string; value: string; color: string; sub?: string; loading: boolean; onClick?: () => void; active?: boolean;
 }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   return (
     <div
       onClick={onClick}
       style={{
-        background: active ? '#f0fdf4' : '#fff',
-        border: active ? '2px solid #10b981' : '1px solid #e5e7eb',
-        borderRadius: 10,
-        padding: '16px 14px',
+        background: active
+          ? isDark ? 'radial-gradient(ellipse at 30% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)' : 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 45%, #ffffff 100%)'
+          : isDark ? 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)' : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+        border: active
+          ? '2px solid #10b981'
+          : isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid rgba(16, 185, 129, 0.32)',
+        borderRadius: 20,
+        padding: '18px 20px',
         textAlign: 'center',
-        boxShadow: active ? '0 4px 12px rgba(16,185,129,0.2)' : '0 1px 3px rgba(0,0,0,0.05)',
+        boxShadow: isDark
+          ? '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)'
+          : '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.2s ease-in-out',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
         userSelect: 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        minHeight: 120,
       }}
       title={onClick ? `Click to inspect & print records for ${label}` : undefined}
     >
       {active && (
-        <div style={{ position: 'absolute', top: 5, right: 6, fontSize: 9, fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '1px 6px', borderRadius: 10 }}>
+        <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 9.5, fontWeight: 800, color: '#059669', background: '#d1fae5', border: '1px solid #a7f3d0', padding: '2px 7px', borderRadius: 999 }}>
           ✓ ACTIVE
         </div>
       )}
-      <div style={{ fontSize: 26, fontWeight: 800, color: loading ? '#d1d5db' : color, lineHeight: 1 }}>{loading ? '—' : value}</div>
-      <div style={{ fontSize: 11, fontWeight: 600, color: active ? '#065f46' : '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 6 }}>{label}</div>
-      {sub && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>{sub}</div>}
-      <div style={{ fontSize: 9, fontWeight: 600, color: active ? '#059669' : '#3b82f6', marginTop: 5, textDecoration: 'underline' }}>
+      <div style={{ fontSize: 26, fontWeight: 800, color: loading ? '#d1d5db' : isDark ? '#ffffff' : '#064e3b', lineHeight: 1.1, fontFamily: "'Poppins', sans-serif", textShadow: isDark ? '0 1px 3px rgba(0,0,0,0.5)' : 'none' }}>
+        {loading ? '—' : value}
+      </div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 6, fontFamily: "'Poppins', sans-serif" }}>
+        {label}
+      </div>
+      {sub && <div style={{ fontSize: 10.5, color: isDark ? '#94a3b8' : '#64748b', marginTop: 3 }}>{sub}</div>}
+      <div style={{ fontSize: 9.5, fontWeight: 700, color: active ? '#10b981' : isDark ? '#34d399' : '#059669', marginTop: 6, textDecoration: 'none' }}>
         {active ? 'Click to deselect' : 'Click to inspect & print'}
       </div>
     </div>
@@ -289,26 +314,45 @@ function CatBox({
 }: {
   cat: string; count?: number; color: string; desc: string; loading: boolean; active?: boolean;
 }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   return (
     <div
       style={{
-        background: active ? '#f0fdf4' : '#fff',
-        border: active ? '2.5px solid #10b981' : `2px solid ${color}`,
-        borderRadius: 10,
-        padding: '16px 18px',
-        boxShadow: active ? '0 4px 12px rgba(16,185,129,0.25)' : '0 1px 3px rgba(0,0,0,0.05)',
-        transition: 'all 0.2s ease-in-out',
+        background: active
+          ? isDark ? 'radial-gradient(ellipse at 30% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)' : 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 45%, #ffffff 100%)'
+          : isDark ? 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)' : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+        border: active
+          ? '2px solid #10b981'
+          : isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid rgba(16, 185, 129, 0.32)',
+        borderRadius: 20,
+        padding: '18px 20px',
+        boxShadow: isDark
+          ? '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)'
+          : '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
+        minHeight: 120,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
       }}
     >
       {active && (
-        <div style={{ position: 'absolute', top: 6, right: 8, fontSize: 10, fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '2px 8px', borderRadius: 10 }}>
+        <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 10, fontWeight: 800, color: '#059669', background: '#d1fae5', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: 999 }}>
           ✓ SELECTED
         </div>
       )}
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-h)', marginBottom: 6 }}>{cat}</div>
-      <div style={{ fontSize: 32, fontWeight: 800, color: loading ? '#d1d5db' : color, lineHeight: 1 }}>{loading ? '—' : (count ?? 0)}</div>
-      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>{desc}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: "'Poppins', sans-serif", marginBottom: 4 }}>
+        {cat}
+      </div>
+      <div style={{ fontSize: 32, fontWeight: 800, color: loading ? '#d1d5db' : isDark ? '#ffffff' : '#064e3b', lineHeight: 1.1, fontFamily: "'Poppins', sans-serif", textShadow: isDark ? '0 1px 3px rgba(0,0,0,0.5)' : 'none' }}>
+        {loading ? '—' : (count ?? 0)}
+      </div>
+      <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 4 }}>
+        {desc}
+      </div>
     </div>
   );
 }
@@ -553,9 +597,9 @@ function PrintPreviewModal({
   return (
     <div style={overlayStyle} onClick={onCancel} role="dialog" aria-modal="true" aria-labelledby="print-title">
       <div style={modalStyle} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 22px', borderBottom: '1px solid #e5e7eb', flexShrink: 0, background: '#fff', borderRadius: '16px 16px 0 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 22px', borderBottom: '1px solid var(--border, #e5e7eb)', flexShrink: 0, background: 'var(--card-bg-solid, #fff)', borderRadius: '16px 16px 0 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--accent-bg, #f0fdf4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5">
                 <polyline points="6 9 6 2 18 2 18 9"/>
                 <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
@@ -563,23 +607,23 @@ function PrintPreviewModal({
               </svg>
             </div>
             <div>
-              <h2 id="print-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-h)' }}>
+              <h2 id="print-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-h, #111827)' }}>
                 Formal Print Preview
               </h2>
-              <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary, #6b7280)' }}>
                 Strictly displays chosen dataset in form-style boxed table layout
               </p>
             </div>
           </div>
-          <button onClick={onCancel} aria-label="Close"
-            style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}>
+          <button onClick={onCancel} aria-label="Close" className="btn-icon"
+            style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border-glow, #e5e7eb)', background: 'var(--card-bg-solid, #fff)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary, #6b7280)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', background: '#f3f4f6' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', background: 'var(--bg-dark, #f3f4f6)' }}>
           <style>{`
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
             .print-modal-content h3.sec {
@@ -647,7 +691,7 @@ function PrintPreviewModal({
             }
           `}</style>
 
-          <div style={{ background: '#fff', borderRadius: 8, padding: '24px 28px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', minHeight: 500, fontSize: 13, color: '#000', fontFamily: "'Poppins', sans-serif" }}>
+          <div style={{ background: '#fff', borderRadius: 8, padding: '24px 28px', boxShadow: '0 2px 12px rgba(0,0,0,0.15)', minHeight: 500, fontSize: 13, color: '#000', fontFamily: "'Poppins', sans-serif" }}>
             {/* Header with Specified Logos: Left Tagoloan Flag, Right RHU Logo */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 4 }}>
               <img src={tagoloanLogo} alt="Tagoloan Flag" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
@@ -697,8 +741,8 @@ function PrintPreviewModal({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px solid #e5e7eb', flexShrink: 0, background: '#fafafa', borderRadius: '0 0 16px 16px' }}>
-          <button onClick={onCancel} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>Cancel</button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border, #e5e7eb)', flexShrink: 0, background: 'var(--card-bg-solid, #fafafa)', borderRadius: '0 0 16px 16px' }}>
+          <button onClick={onCancel} className="btn-action" style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border-glow, #d1d5db)', background: 'var(--card-bg-solid, #fff)', cursor: 'pointer', color: 'var(--text-primary, #374151)', fontFamily: 'inherit' }}>Cancel</button>
           <button onClick={onConfirm} style={btnStyle('#10b981')}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="6 9 6 2 18 2 18 9"/>

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './features/auth/pages/LoginPage';
 import SetupWizard from './features/clinic-setup/pages/SetupWizardPage';
@@ -33,10 +33,11 @@ const DeveloperDatabaseExplorerPage = lazy(() => import('./features/developer/pa
 const AppointmentDiagnosticsPage = lazy(() => import('./features/developer/pages/AppointmentDiagnosticsPage'));
 
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
-import { ROUTES } from './shared/config/routes';
+
 import { AppLayout } from './shared/components/layout/AppLayout';
 import { SimpleDashboardPage } from './features/dashboard/pages/SimpleDashboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import Unauthorized from './pages/Unauthorized';
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="/setup" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><SetupWizard /></ProtectedRoute>} />
           <Route path="/accept-invitation/:token" element={<AcceptInvitationPage />} />
           
@@ -59,12 +61,14 @@ function App() {
           
           {/* Authenticated Application Routes */}
           <Route path="/patients" element={<ProtectedRoute allowedRoles={['registration', 'admin', 'developer']}><AppLayout title="Patient Registration"><PatientList /></AppLayout></ProtectedRoute>} />
-          <Route path="/nurse/patients" element={<ProtectedRoute allowedRoles={['treatment', 'admin', 'developer']}><AppLayout title="Patients List"><NursePatientList /></AppLayout></ProtectedRoute>} />
+          <Route path="/patient-registry" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Patient Registry"><PatientList readOnly /></AppLayout></ProtectedRoute>} />
+          <Route path="/nurse/patients" element={<ProtectedRoute allowedRoles={['treatment', 'admin', 'developer']}><AppLayout title="Station 2 · Follow-up Doses"><NursePatientList /></AppLayout></ProtectedRoute>} />
           <Route path="/doctor/patients" element={<ProtectedRoute allowedRoles={['triage', 'admin', 'developer']}><AppLayout title="Patients List"><DoctorPatientList /></AppLayout></ProtectedRoute>} />
+          <Route path="/patients/doctor" element={<Navigate to="/doctor/patients" replace />} />
           <Route path="/inventory" element={<ProtectedRoute allowedRoles={['admin', 'treatment', 'developer']}><AppLayout title="Vaccine Inventory"><VaccineInventory /></AppLayout></ProtectedRoute>} />
           <Route path="/inventory/administrations" element={<ProtectedRoute allowedRoles={['admin', 'treatment', 'developer']}><AppLayout title="Inventory Transaction"><VaccineInventory initialTab="administrations" /></AppLayout></ProtectedRoute>} />
           <Route path="/inventory/types" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Vaccine Setup"><VaccineTypeManagementPage /></AppLayout></ProtectedRoute>} />
-          <Route path="/queue" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Patient Queue"><QueueDashboard /></AppLayout></ProtectedRoute>} />
+          <Route path="/queue" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Station 1 · New & Day 0"><QueueDashboard /></AppLayout></ProtectedRoute>} />
           <Route path="/queue/display" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><QueueDisplayPage /></ProtectedRoute>} />
           <Route path="/queue/:queueId/patient" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Patient Detail"><QueuePatientDetailPage /></AppLayout></ProtectedRoute>} />
           <Route path="/bite-cases" element={<ProtectedRoute allowedRoles={['triage', 'treatment', 'admin', 'developer']}><AppLayout title="Bite Cases Summary"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />

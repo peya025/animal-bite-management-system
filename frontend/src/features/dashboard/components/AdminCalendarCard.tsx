@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useTheme } from '@mui/material/styles';
 
 export interface CalendarEvent {
   date: string; // YYYY-MM-DD
@@ -19,6 +20,8 @@ export const AdminCalendarCard: React.FC<AdminCalendarCardProps> = ({
   onSelectDate,
   selectedDate: propSelectedDate,
 }) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const today = useMemo(() => new Date(), []);
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(
     () => new Date(today.getFullYear(), today.getMonth(), 1)
@@ -156,15 +159,20 @@ export const AdminCalendarCard: React.FC<AdminCalendarCardProps> = ({
   return (
     <div
       style={{
-        background: 'var(--card-bg, #ffffff)',
-        borderRadius: 16,
-        border: '1px solid var(--card-border, #e5e7eb)',
-        padding: '20px 22px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+        background: isDark
+          ? 'var(--card-bg)'
+          : '#ffffff',
+        borderRadius: 20,
+        border: isDark ? '1px solid var(--border-glow)' : '1px solid #e2e8f0',
+        padding: '18px 20px',
+        boxShadow: isDark
+          ? 'var(--card-shadow)'
+          : '0 1px 3px rgba(0, 0, 0, 0.05)',
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
         minHeight: 380,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
       {/* Header */}
@@ -181,12 +189,13 @@ export const AdminCalendarCard: React.FC<AdminCalendarCardProps> = ({
             style={{
               width: 34,
               height: 34,
-              borderRadius: 8,
-              background: 'rgba(16, 185, 129, 0.12)',
+              borderRadius: 10,
+              background: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.12)',
               color: '#10b981',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -202,13 +211,14 @@ export const AdminCalendarCard: React.FC<AdminCalendarCardProps> = ({
                 margin: 0,
                 fontSize: 16,
                 fontWeight: 700,
-                color: 'var(--text-h, #111827)',
+                color: isDark ? '#ffffff' : '#064e3b',
                 letterSpacing: '-0.2px',
+                fontFamily: "'Poppins', sans-serif",
               }}
             >
               {monthNames[month]} {year}
             </h3>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary, #6b7280)' }}>
+            <span style={{ fontSize: 11, color: isDark ? '#a7f3d0' : '#047857', fontWeight: 600 }}>
               ABTC Clinical Schedule
             </span>
           </div>

@@ -453,8 +453,8 @@ export default function PatientList() {
 
   // Preview table for the modal
   const th: React.CSSProperties = {
-    background: '#f0fdf4', color: 'var(--text-h)', fontWeight: 600,
-    padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #10b981',
+    background: '#f8fafc', color: '#475569', fontWeight: 600,
+    padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #e2e8f0',
     whiteSpace: 'nowrap', fontSize: 11,
   };
   const td: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid #f0f0f0', fontSize: 11 };
@@ -548,9 +548,9 @@ export default function PatientList() {
                     padding: '7px 12px',
                     fontSize: '13px',
                     borderRadius: '8px',
-                    border: '1px solid #d1d5db',
-                    backgroundColor: '#ffffff',
-                    color: '#374151',
+                    border: '1px solid var(--input-border, #d1d5db)',
+                    backgroundColor: 'var(--input-bg, #ffffff)',
+                    color: 'var(--input-text, #374151)',
                     fontWeight: 500,
                     outline: 'none',
                     cursor: 'pointer',
@@ -1078,13 +1078,13 @@ export default function PatientList() {
                 <span style={{ fontSize: '36px', fontWeight: 800, color: '#047857', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>
                   #{String(checkInModalData.queueNumber).padStart(3, '0')}
                 </span>
-                <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#059669', background: '#ffffff', padding: '2px 10px', borderRadius: '999px', border: '1px solid #a7f3d0' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#10b981', background: 'var(--card-bg-solid, #ffffff)', padding: '2px 10px', borderRadius: '999px', border: '1px solid var(--border-glow, #a7f3d0)' }}>
                   {checkInModalData.station}
                 </span>
               </div>
 
-              <div style={{ fontSize: '13.5px', color: '#4b5563', textAlign: 'center', lineHeight: 1.5 }}>
-                <strong style={{ color: '#111827' }}>{checkInModalData.patientName}</strong> has been successfully placed in the active queue.
+              <div style={{ fontSize: '13.5px', color: 'var(--text-m, #4b5563)', textAlign: 'center', lineHeight: 1.5 }}>
+                <strong style={{ color: 'var(--text-h, #111827)' }}>{checkInModalData.patientName}</strong> has been successfully placed in the active queue.
               </div>
             </div>
           }

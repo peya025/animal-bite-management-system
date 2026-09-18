@@ -14,6 +14,7 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import api from '../../../shared/services/api';
+import StatCard from '../../../components/common/StatCard/StatCard';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -132,56 +133,25 @@ export default function NursePatientListPage() {
     loadPatients(TABS[activeTab].key, search);
   }, [activeTab, search, loadPatients]);
 
-  // ── Stat cards ────────────────────────────────────────────
-
-  const STAT_CARDS = [
-    { label: 'Due Today',       value: stats.dueToday,       bg: '#fff3e0', border: '#ffe0b2', text: '#f57c00', sub: '#e65100', tab: 0 },
-    { label: 'Upcoming',        value: stats.upcoming,       bg: '#e3f2fd', border: '#bbdefb', text: '#1976d2', sub: '#0d47a1', tab: 1 },
-    { label: 'Overdue',         value: stats.overdue,        bg: '#ffebee', border: '#ffcdd2', text: '#d32f2f', sub: '#b71c1c', tab: 2 },
-    { label: 'Completed Today', value: stats.completedToday, bg: '#f0fdf4', border: '#bbf7d0', text: '#10b981', sub: '#065f46', tab: 3 },
-    { label: 'Total Tracked',   value: stats.all,            bg: '#f3f4f6', border: '#e5e7eb', text: '#6b7280', sub: '#374151', tab: 4 },
-  ];
-
   return (
-    <Box sx={{ px: 3, py: 2 }}>
-
-      {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 600, color: 'var(--text-h)', mb: 0.5 }}>
-            Treatment Patient List
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#77877d' }}>
-            Track vaccination schedules, online appointments, doses, and follow-ups
-          </Typography>
-        </Box>
-        <Tooltip title="Refresh">
-          <IconButton onClick={() => loadPatients(TABS[activeTab].key, search)} disabled={loading}>
-            <RefreshIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
-
+    <Box sx={{ p: 3 }}>
       {/* Stat Cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 2, mb: 3 }}>
-        {STAT_CARDS.map(c => (
-          <Paper
-            key={c.label}
-            onClick={() => setActiveTab(c.tab)}
-            sx={{
-              p: 2, textAlign: 'center', cursor: 'pointer',
-              bgcolor: c.bg, border: `1px solid ${c.border}`,
-              transition: 'transform .15s',
-              outline: activeTab === c.tab ? `2px solid ${c.text}` : 'none',
-              '&:hover': { transform: 'translateY(-2px)' },
-            }}
-          >
-            <Typography variant="h4" sx={{ fontWeight: 700, color: c.text }}>{c.value}</Typography>
-            <Typography variant="caption" sx={{ color: c.sub, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              {c.label}
-            </Typography>
-          </Paper>
-        ))}
+        <Box sx={{ cursor: 'pointer' }} onClick={() => setActiveTab(0)}>
+          <StatCard label="Due Today" value={stats.dueToday} color="warning" total={stats.all || 1} loading={loading} />
+        </Box>
+        <Box sx={{ cursor: 'pointer' }} onClick={() => setActiveTab(1)}>
+          <StatCard label="Upcoming" value={stats.upcoming} color="info" total={stats.all || 1} loading={loading} />
+        </Box>
+        <Box sx={{ cursor: 'pointer' }} onClick={() => setActiveTab(2)}>
+          <StatCard label="Overdue" value={stats.overdue} color="error" total={stats.all || 1} loading={loading} />
+        </Box>
+        <Box sx={{ cursor: 'pointer' }} onClick={() => setActiveTab(3)}>
+          <StatCard label="Completed Today" value={stats.completedToday} color="primary" total={stats.all || 1} loading={loading} />
+        </Box>
+        <Box sx={{ cursor: 'pointer' }} onClick={() => setActiveTab(4)}>
+          <StatCard label="Total Tracked" value={stats.all} color="primary" total={stats.all || 1} loading={loading} />
+        </Box>
       </Box>
 
       {/* Tabs + Search row */}

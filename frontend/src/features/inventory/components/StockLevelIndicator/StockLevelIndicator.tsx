@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Box, Typography, Stack, Chip, Tooltip,
   Dialog, DialogContent, DialogTitle, IconButton,
+  useTheme,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -10,6 +11,8 @@ import {
   LocalShipping as SupplierIcon,
   Vaccines as VialIcon,
   OpenInNew as DetailsIcon,
+  MoreHoriz as MoreIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import api from '../../../../services/api';
 import { daysUntil, formatDate } from '../../../../shared/utils';
@@ -56,10 +59,10 @@ export interface VaccineStockSummary {
   batch_count: number;
 }
 
-// ── Status tier evaluator ─────────────────────────────────────────────────────
 export function evaluateStockLevelTier(
   totalStock: number,
-  earliestExpiration?: string | null
+  earliestExpiration?: string | null,
+  isDark: boolean = false
 ): {
   tier: 'green' | 'yellow' | 'red';
   badgeLabel: string;
@@ -77,12 +80,12 @@ export function evaluateStockLevelTier(
     return {
       tier: 'red',
       badgeLabel: isExpired ? 'Expired' : 'Critical / Empty',
-      bg: '#fff5f5',
-      color: '#991b1b',
+      bg: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fff5f5',
+      color: isDark ? '#f87171' : '#991b1b',
       accent: '#ef4444',
-      border: '#fecaca',
-      badgeBg: '#fee2e2',
-      badgeColor: '#b91c1c',
+      border: isDark ? 'rgba(239, 68, 68, 0.35)' : '#fecaca',
+      badgeBg: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+      badgeColor: isDark ? '#f87171' : '#b91c1c',
     };
   }
 
@@ -91,24 +94,24 @@ export function evaluateStockLevelTier(
     return {
       tier: 'yellow',
       badgeLabel: isExpiring ? 'Expiring Soon' : 'Low Stock',
-      bg: '#fffdf5',
-      color: '#92400e',
+      bg: isDark ? 'rgba(245, 158, 11, 0.12)' : '#fffdf5',
+      color: isDark ? '#fbbf24' : '#92400e',
       accent: '#f59e0b',
-      border: '#fef08a',
-      badgeBg: '#fef3c7',
-      badgeColor: '#b45309',
+      border: isDark ? 'rgba(245, 158, 11, 0.35)' : '#fef08a',
+      badgeBg: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
+      badgeColor: isDark ? '#fbbf24' : '#b45309',
     };
   }
 
   return {
     tier: 'green',
     badgeLabel: 'Sufficient',
-    bg: '#f8fdfa',
-    color: '#166534',
+    bg: isDark ? 'rgba(16, 185, 129, 0.12)' : '#f8fdfa',
+    color: isDark ? '#a3e635' : '#166534',
     accent: '#10b981',
-    border: '#bbf7d0',
-    badgeBg: '#dcfce7',
-    badgeColor: '#15803d',
+    border: isDark ? 'rgba(163, 230, 53, 0.35)' : '#bbf7d0',
+    badgeBg: isDark ? 'rgba(163, 230, 53, 0.15)' : '#dcfce7',
+    badgeColor: isDark ? '#a3e635' : '#15803d',
   };
 }
 
@@ -133,7 +136,8 @@ function batchStatusVisual(batch: RawBatch) {
 interface StockLevelIndicatorProps {
   compact?: boolean;
   showLegend?: boolean;
-  variant?: 'cards' | 'strip';
+  collapsible?: boolean;
+  variant?: 'cards' | 'strip' | 'queue-list';
 }
 
 // ── Batch Details Modal ───────────────────────────────────────────────────────
@@ -144,7 +148,9 @@ function BatchDetailsModal({
   item: VaccineStockSummary;
   onClose: () => void;
 }) {
-  const mv = evaluateStockLevelTier(item.total_stock, item.earliest_expiration);
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const mv = evaluateStockLevelTier(item.total_stock, item.earliest_expiration, isDark);
 
   return (
     <Dialog
@@ -189,19 +195,19 @@ function BatchDetailsModal({
       </DialogTitle>
 
       <DialogContent sx={{ px: 2.5, py: 2.5 }}>
-        {/* Patient capacity summary (multidose) */}
-        {item.doses_per_vial > 1 && (
-          <Box sx={{ mb: 2, px: 1.5, py: 1, borderRadius: '8px', bgcolor: '#eff6ff', border: '1px solid #bfdbfe' }}>
-            <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>
+        {/* Patient capacity summary */}
+        {(
+          <Box sx={{ mb: 2, px: 1.5, py: 1, borderRadius: '8px', bgcolor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff', border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #bfdbfe' }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, color: isDark ? '#93c5fd' : '#1d4ed8' }}>
               Combined patient capacity: ≈ {item.patient_capacity} patients
-              <span style={{ fontWeight: 400, color: '#3b82f6' }}>
+              <span style={{ fontWeight: 400, color: isDark ? '#bfdbfe' : '#3b82f6' }}>
                 {' '}({item.sealed_capacity} sealed{item.open_vials_count > 0 ? ` + ${item.open_doses_remaining} from open vial` : ''})
               </span>
             </Typography>
           </Box>
         )}
 
-        <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#475569', mb: 1.25, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <Typography sx={{ fontSize: 11, fontWeight: 800, color: isDark ? '#a7f3d0' : '#475569', mb: 1.25, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           Batch Breakdown — {item.batch_count} batch{item.batch_count === 1 ? '' : 'es'}
         </Typography>
 
@@ -218,7 +224,9 @@ function BatchDetailsModal({
                 sx={{
                   p: 1.5, borderRadius: '10px',
                   border: `1px solid ${bv.border}`,
-                  bgcolor: bIdx === 0 && batch.is_fifo_priority ? '#f0fdf4' : '#fafbfc',
+                  bgcolor: isDark
+                    ? (bIdx === 0 && batch.is_fifo_priority ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.04)')
+                    : (bIdx === 0 && batch.is_fifo_priority ? '#f0fdf4' : '#fafbfc'),
                   position: 'relative',
                 }}
               >
@@ -227,8 +235,9 @@ function BatchDetailsModal({
                     sx={{
                       position: 'absolute', top: 8, right: 8,
                       px: 0.75, py: 0.2, borderRadius: '4px',
-                      bgcolor: '#dcfce7', border: '1px solid #86efac',
-                      fontSize: 9, fontWeight: 800, color: '#15803d', letterSpacing: '0.3px',
+                      bgcolor: isDark ? 'rgba(163, 230, 53, 0.2)' : '#dcfce7',
+                      border: isDark ? '1px solid rgba(163, 230, 53, 0.4)' : '1px solid #86efac',
+                      fontSize: 9, fontWeight: 800, color: isDark ? '#a3e635' : '#15803d', letterSpacing: '0.3px',
                     }}
                   >
                     FIFO NEXT
@@ -237,8 +246,8 @@ function BatchDetailsModal({
 
                 {/* Batch number + status */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, pr: batch.is_fifo_priority ? 8 : 0 }}>
-                  <BatchIcon sx={{ fontSize: 14, color: '#64748b', flexShrink: 0 }} />
-                  <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
+                  <BatchIcon sx={{ fontSize: 14, color: isDark ? '#94a3b8' : '#64748b', flexShrink: 0 }} />
+                  <Typography sx={{ fontSize: 13, fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', fontFamily: 'monospace' }}>
                     {batch.batch_number || '—'}
                   </Typography>
                   <Chip
@@ -297,12 +306,12 @@ function BatchDetailsModal({
 
                   {batch.received_from && (
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
-                      <SupplierIcon sx={{ fontSize: 13, color: '#64748b', mt: 0.15, flexShrink: 0 }} />
+                      <SupplierIcon sx={{ fontSize: 13, color: isDark ? '#94a3b8' : '#64748b', mt: 0.15, flexShrink: 0 }} />
                       <Box>
                         <Typography sx={{ fontSize: 9.5, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
                           Source / Supplier
                         </Typography>
-                        <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: '#334155' }}>
+                        <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: isDark ? '#e2e8f0' : '#334155' }}>
                           {batch.received_from}
                         </Typography>
                       </Box>
@@ -339,12 +348,16 @@ function BatchDetailsModal({
 export default function StockLevelIndicator({
   compact = false,
   showLegend = true,
+  collapsible = false,
   variant = 'cards',
 }: StockLevelIndicatorProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [stockList, setStockList] = useState<VaccineStockSummary[]>([]);
   const [loading, setLoading] = useState(true);
   // Which card's batch details are shown in the modal (null = closed)
   const [modalItem, setModalItem] = useState<VaccineStockSummary | null>(null);
+  const [isStripExpanded, setIsStripExpanded] = useState(!collapsible);
 
   const fetchStock = useCallback(async () => {
     try {
@@ -456,7 +469,109 @@ export default function StockLevelIndicator({
 
   if (loading && stockList.length === 0) return null;
 
+  const totalPatientCapacity = stockList.reduce((total, item) => total + item.patient_capacity, 0);
+
   // ── Strip variant (Queue Dashboard) — unchanged behaviour ────────────────
+  if (variant === 'queue-list') {
+    if (stockList.length === 0) return null;
+
+    return (
+      <>
+        <Box
+          sx={{
+            mb: 1.5,
+            border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #d1fae5',
+            borderRadius: 2.5,
+            bgcolor: isDark ? 'rgba(14, 24, 18, 0.9)' : '#ffffff',
+            overflow: 'hidden',
+            boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.4)' : '0 4px 14px rgba(16,185,129,0.06)',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+              px: 2, py: 1.1,
+              bgcolor: isDark ? 'rgba(16,185,129,0.08)' : '#f0fdf4',
+              borderBottom: isDark ? '1px solid rgba(163,230,53,0.12)' : '1px solid #d1fae5',
+            }}
+          >
+            <Box>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: isDark ? '#d1fae5' : '#065f46' }}>
+                Vaccine availability
+              </Typography>
+              <Typography sx={{ fontSize: 10.5, color: isDark ? '#94a3b8' : '#64748b', mt: 0.15 }}>
+                Select more details to check patient capacity, batches, and expiry.
+              </Typography>
+            </Box>
+            <Chip
+              label={`${stockList.length} type${stockList.length === 1 ? '' : 's'}`}
+              size="small"
+              sx={{ height: 21, fontSize: 10, fontWeight: 700, bgcolor: isDark ? 'rgba(16,185,129,0.14)' : '#dcfce7', color: isDark ? '#a7f3d0' : '#15803d' }}
+            />
+          </Box>
+
+          {stockList.map((item, idx) => {
+            const visual = evaluateStockLevelTier(item.total_stock, item.earliest_expiration, isDark);
+            return (
+              <Box
+                key={item.vaccine_type}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '34px minmax(0, 1fr) auto auto',
+                  alignItems: 'center',
+                  columnGap: { xs: 0.75, sm: 1.25 },
+                  px: { xs: 1.25, sm: 2 },
+                  py: 0.9,
+                  borderBottom: idx < stockList.length - 1 ? (isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #ecfdf5') : 'none',
+                  '&:hover': { bgcolor: isDark ? 'rgba(16,185,129,0.06)' : '#f8fffb' },
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 26, height: 26, display: 'grid', placeItems: 'center', borderRadius: 1.25,
+                    bgcolor: visual.badgeBg, color: visual.badgeColor, border: `1px solid ${visual.border}`,
+                    fontSize: 11, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {String(idx + 1).padStart(2, '0')}
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography noWrap sx={{ fontSize: 13, fontWeight: 700, color: isDark ? '#ffffff' : '#1e293b' }}>
+                    {item.vaccine_type}
+                  </Typography>
+                  <Typography noWrap sx={{ fontSize: 10.5, color: isDark ? '#94a3b8' : '#64748b', mt: 0.1 }}>
+                    {item.total_stock} sealed vial{item.total_stock === 1 ? '' : 's'} - {item.batch_count} batch{item.batch_count === 1 ? '' : 'es'}
+                  </Typography>
+                </Box>
+                <Chip
+                  label={visual.badgeLabel}
+                  size="small"
+                  sx={{ display: { xs: 'none', sm: 'inline-flex' }, height: 21, fontSize: 10, fontWeight: 700, bgcolor: visual.badgeBg, color: visual.badgeColor, border: `1px solid ${visual.border}`, borderRadius: 1 }}
+                />
+                <Tooltip title={`View ${item.vaccine_type} capacity and batch details`}>
+                  <IconButton
+                    size="small"
+                    aria-label={`View details for ${item.vaccine_type}`}
+                    onClick={() => setModalItem(item)}
+                    sx={{
+                      ml: { xs: 0, sm: 0.5 }, color: isDark ? '#a7f3d0' : '#047857',
+                      bgcolor: isDark ? 'rgba(16,185,129,0.12)' : '#ecfdf5',
+                      border: isDark ? '1px solid rgba(163,230,53,0.24)' : '1px solid #a7f3d0',
+                      '&:hover': { bgcolor: isDark ? 'rgba(16,185,129,0.22)' : '#d1fae5' },
+                    }}
+                  >
+                    <MoreIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            );
+          })}
+        </Box>
+        {modalItem && <BatchDetailsModal item={modalItem} onClose={() => setModalItem(null)} />}
+      </>
+    );
+  }
+
   if (variant === 'strip') {
     if (stockList.length === 0) return null;
 
@@ -464,15 +579,48 @@ export default function StockLevelIndicator({
       <Box
         sx={{
           mb: 1.5,
-          border: '1px solid #e2e8f0',
+          border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0',
           borderRadius: 2,
-          bgcolor: '#ffffff',
+          bgcolor: isDark ? 'rgba(14, 24, 18, 0.9)' : '#ffffff',
           overflow: 'hidden',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+          boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.4)' : '0 1px 2px rgba(0,0,0,0.02)',
         }}
       >
+        {collapsible && (
+          <Box
+            sx={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+              px: 2, py: 1,
+              bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : '#f0fdf4',
+              borderBottom: isStripExpanded ? (isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #d1fae5') : 'none',
+            }}
+          >
+            <Box>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: isDark ? '#d1fae5' : '#065f46' }}>
+                Vaccine availability
+              </Typography>
+              <Typography sx={{ fontSize: 10.5, color: isDark ? '#94a3b8' : '#64748b', mt: 0.15 }}>
+                Remaining doses can serve approximately <strong>{totalPatientCapacity} patient{totalPatientCapacity === 1 ? '' : 's'}</strong>.
+              </Typography>
+            </Box>
+            <Tooltip title={isStripExpanded ? 'Collapse vaccine availability' : 'Show vaccine availability'}>
+              <IconButton
+                size="small"
+                aria-label={isStripExpanded ? 'Collapse vaccine availability' : 'Show vaccine availability'}
+                aria-expanded={isStripExpanded}
+                onClick={() => setIsStripExpanded((expanded) => !expanded)}
+                sx={{ color: isDark ? '#a7f3d0' : '#047857', bgcolor: isDark ? 'rgba(16,185,129,0.12)' : '#ffffff', border: isDark ? '1px solid rgba(163,230,53,0.22)' : '1px solid #a7f3d0' }}
+              >
+                <ExpandMoreIcon sx={{ transition: 'transform 160ms ease', transform: isStripExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
+
+        {(!collapsible || isStripExpanded) && (
+          <>
         {stockList.map((item, idx) => {
-          const visual = evaluateStockLevelTier(item.total_stock, item.earliest_expiration);
+          const visual = evaluateStockLevelTier(item.total_stock, item.earliest_expiration, isDark);
           return (
             <Box
               key={item.vaccine_type}
@@ -483,8 +631,8 @@ export default function StockLevelIndicator({
                 px: 2,
                 py: 0.75,
                 minHeight: 38,
-                borderBottom: idx < stockList.length - 1 ? '1px solid #f1f5f9' : 'none',
-                bgcolor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
+                borderBottom: idx < stockList.length - 1 ? (isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #f1f5f9') : 'none',
+                bgcolor: isDark ? (idx % 2 === 0 ? 'transparent' : 'rgba(34, 197, 94, 0.03)') : (idx % 2 === 0 ? '#ffffff' : '#fafafa'),
                 fontSize: 12.5,
                 gap: 2,
                 flexWrap: 'wrap',
@@ -492,13 +640,13 @@ export default function StockLevelIndicator({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 200, flexWrap: 'wrap' }}>
                 <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: visual.accent, flexShrink: 0 }} />
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: isDark ? '#ffffff' : '#1e293b' }}>
                   {item.vaccine_type}
                 </Typography>
-                <Typography sx={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+                <Typography sx={{ fontSize: 12, color: isDark ? '#94a3b8' : '#64748b', fontWeight: 500 }}>
                   ({item.total_stock} sealed vial{item.total_stock === 1 ? '' : 's'}
                   {item.doses_per_vial > 1 && (
-                    <span style={{ color: '#0284c7', fontWeight: 600 }}>
+                    <span style={{ color: isDark ? '#38bdf8' : '#0284c7', fontWeight: 600 }}>
                       {' '}· ≈{item.patient_capacity} patient{item.patient_capacity === 1 ? '' : 's'}
                     </span>
                   )})
@@ -511,7 +659,14 @@ export default function StockLevelIndicator({
                         : `${item.open_vials_count} open`
                     }
                     size="small"
-                    sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#ecfeff', color: '#0e7490', border: '1px solid #a5f3fc' }}
+                    sx={{
+                      height: 20,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      bgcolor: isDark ? 'rgba(6, 182, 212, 0.15)' : '#ecfeff',
+                      color: isDark ? '#67e8f9' : '#0e7490',
+                      border: isDark ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid #a5f3fc',
+                    }}
                   />
                 )}
               </Box>
@@ -521,7 +676,7 @@ export default function StockLevelIndicator({
                   size="small"
                   sx={{ height: 20, fontSize: 10.5, fontWeight: 600, bgcolor: visual.badgeBg, color: visual.badgeColor, border: `1px solid ${visual.border}`, borderRadius: 1 }}
                 />
-                <Typography sx={{ fontSize: 11.5, color: '#64748b', whiteSpace: 'nowrap' }}>
+                <Typography sx={{ fontSize: 11.5, color: isDark ? '#94a3b8' : '#64748b', whiteSpace: 'nowrap' }}>
                   Earliest exp:{' '}
                   <span style={{ fontWeight: 600, color: visual.color }}>
                     {item.earliest_expiration ? formatDate(item.earliest_expiration) : 'N/A'}
@@ -531,6 +686,8 @@ export default function StockLevelIndicator({
             </Box>
           );
         })}
+          </>
+        )}
       </Box>
     );
   }
@@ -540,12 +697,21 @@ export default function StockLevelIndicator({
     <>
       <Box
         sx={{
-          p: compact ? 2 : 2.5,
+          p: compact ? 2 : '18px 20px',
           mb: compact ? 2.5 : 3,
-          backgroundColor: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '14px',
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
+          borderRadius: '20px',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          ...(isDark
+            ? {
+                background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
+                border: '1px solid rgba(163, 230, 53, 0.3)',
+                boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)',
+              }
+            : {
+                background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.32)',
+                boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
+              }),
         }}
       >
       {/* ── Header ── */}
@@ -558,7 +724,7 @@ export default function StockLevelIndicator({
           gap: 1.5,
           pb: 1.5,
           mb: 2,
-          borderBottom: '1px solid #f1f5f9',
+          borderBottom: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
@@ -566,16 +732,16 @@ export default function StockLevelIndicator({
             sx={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 28, height: 28, borderRadius: '8px',
-              bgcolor: '#ecfdf5', border: '1px solid #a7f3d0',
+              bgcolor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#ecfdf5', border: '1px solid rgba(16, 185, 129, 0.3)',
             }}
           >
             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981', boxShadow: '0 0 0 2px rgba(16,185,129,0.25)' }} />
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, color: isDark ? '#ffffff' : '#064e3b', lineHeight: 1.2, fontFamily: "'Poppins', sans-serif" }}>
               Vaccine Stock Status
             </Typography>
-            <Typography sx={{ fontSize: 11, color: '#64748b', mt: 0.2 }}>
+            <Typography sx={{ fontSize: 11, color: isDark ? '#a7f3d0' : '#047857', mt: 0.2 }}>
               Real-time inventory levels · click <strong>View Details</strong> on any card to see batch breakdown
             </Typography>
           </Box>
@@ -584,9 +750,9 @@ export default function StockLevelIndicator({
         {showLegend && (
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
             {[
-              { dot: '#16a34a', bg: '#f0fdf4', color: '#166534', border: '#bbf7d0', label: 'Sufficient (>10 vials)' },
-              { dot: '#d97706', bg: '#fffbeb', color: '#92400e', border: '#fde68a', label: 'Low / Expiring (≤10)' },
-              { dot: '#dc2626', bg: '#fef2f2', color: '#991b1b', border: '#fecaca', label: 'Critical / Empty (0)' },
+              { dot: '#16a34a', bg: isDark ? 'rgba(22, 163, 74, 0.2)' : '#f0fdf4', color: isDark ? '#4ade80' : '#166534', border: '#16a34a40', label: 'Sufficient (>10 vials)' },
+              { dot: '#d97706', bg: isDark ? 'rgba(217, 119, 6, 0.2)' : '#fffbeb', color: isDark ? '#fbbf24' : '#92400e', border: '#d9770640', label: 'Low / Expiring (≤10)' },
+              { dot: '#dc2626', bg: isDark ? 'rgba(220, 38, 38, 0.2)' : '#fef2f2', color: isDark ? '#f87171' : '#991b1b', border: '#dc262640', label: 'Critical / Empty (0)' },
             ].map((l) => (
               <Box
                 key={l.label}
@@ -606,7 +772,7 @@ export default function StockLevelIndicator({
 
       {/* ── Cards Grid ── */}
       {stockList.length === 0 ? (
-        <Typography sx={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic', py: 1 }}>
+        <Typography sx={{ fontSize: 13, color: isDark ? '#a7f3d0' : '#047857', fontStyle: 'italic', py: 1 }}>
           No active vaccine batches registered in clinic inventory.
         </Typography>
       ) : (
@@ -614,34 +780,39 @@ export default function StockLevelIndicator({
           sx={{
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(220px, 1fr))' },
-            gap: 1.5,
+            gap: 2,
           }}
         >
           {stockList.map((item) => {
-            const visual = evaluateStockLevelTier(item.total_stock, item.earliest_expiration);
+            const visual = evaluateStockLevelTier(item.total_stock, item.earliest_expiration, isDark);
 
             return (
               <Box
                 key={item.vaccine_type}
                 sx={{
-                  borderRadius: '10px',
-                  bgcolor: visual.bg,
-                  border: `1px solid ${visual.border}`,
+                  borderRadius: '20px',
+                  bgcolor: isDark ? 'rgba(16, 185, 129, 0.06)' : 'rgba(255, 255, 255, 0.85)',
+                  border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid rgba(16, 185, 129, 0.25)',
                   overflow: 'hidden',
-                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: isDark
+                    ? '0 4px 16px rgba(0, 0, 0, 0.4)'
+                    : '0 4px 14px rgba(16, 185, 129, 0.08)',
                   '&:hover': {
-                    borderColor: visual.accent,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+                    transform: 'translateY(-3px)',
+                    borderColor: isDark ? 'rgba(163, 230, 53, 0.5)' : 'rgba(16, 185, 129, 0.5)',
+                    boxShadow: isDark
+                      ? '0 8px 24px rgba(0, 0, 0, 0.6), 0 0 20px rgba(163, 230, 53, 0.2)'
+                      : '0 8px 20px rgba(16, 185, 129, 0.18)',
                   },
                 }}
               >
                 {/* ── Front Card Face (Compact) ── */}
-                <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5, minHeight: 160 }}>
+                <Box sx={{ p: '18px 20px', display: 'flex', flexDirection: 'column', gap: 1.5, minHeight: 160 }}>
 
                   {/* Row 1: Vaccine name + Status badge */}
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                    <Typography sx={{ fontSize: 16, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px', flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 16, fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.3px', flex: 1, minWidth: 0 }}>
                       {item.vaccine_type}
                     </Typography>
                     <Chip
@@ -663,14 +834,19 @@ export default function StockLevelIndicator({
                     >
                       {item.total_stock}
                     </Typography>
-                    <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#64748b' }}>
+                    <Typography sx={{ fontSize: 16, fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b' }}>
                       Vial{item.total_stock === 1 ? '' : 's'}
                     </Typography>
                     {item.open_vials_count > 0 && item.open_fraction_remaining && (
                       <Chip
                         label={`+ ${item.open_fraction_remaining} open`}
                         size="small"
-                        sx={{ height: 24, fontSize: 12, fontWeight: 700, bgcolor: '#ecfeff', color: '#0e7490', border: '1px solid #a5f3fc' }}
+                        sx={{
+                          height: 24, fontSize: 12, fontWeight: 700,
+                          bgcolor: isDark ? 'rgba(6, 182, 212, 0.15)' : '#ecfeff',
+                          color: isDark ? '#67e8f9' : '#0e7490',
+                          border: isDark ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid #a5f3fc',
+                        }}
                       />
                     )}
                   </Box>
@@ -686,11 +862,11 @@ export default function StockLevelIndicator({
                     role="button"
                     aria-label={`View batch details for ${item.vaccine_type}`}
                   >
-                    <DetailsIcon sx={{ fontSize: 15, color: '#94a3b8' }} />
+                    <DetailsIcon sx={{ fontSize: 15, color: isDark ? '#a7f3d0' : '#94a3b8' }} />
                     <Typography
                       className="vd-label"
                       sx={{
-                        fontSize: 13, fontWeight: 700, color: '#64748b',
+                        fontSize: 13, fontWeight: 700, color: isDark ? '#a7f3d0' : '#64748b',
                         transition: 'color 0.15s', userSelect: 'none',
                       }}
                     >

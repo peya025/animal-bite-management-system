@@ -38,10 +38,21 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     roles: ['registration', 'admin'],
   },
   {
-    label: 'Patient Queue',
-    path: ROUTES.QUEUE.DASHBOARD,
+    label: 'Treatment Queues',
     icon: GLOBAL_NAV_ICONS['Patient Queue'],
     roles: ['registration', 'triage', 'treatment', 'admin'],
+    submenu: [
+      {
+        label: 'Station 1: New & Day 0',
+        path: ROUTES.QUEUE.DASHBOARD,
+        roles: ['registration', 'triage', 'treatment', 'admin'],
+      },
+      {
+        label: 'Station 2: Follow-up Doses',
+        path: ROUTES.PATIENTS.NURSE_LIST,
+        roles: ['treatment'],
+      },
+    ],
   },
   {
     label: 'Patients List',
@@ -50,10 +61,10 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     roles: ['triage'],
   },
   {
-    label: 'Patients List',
-    path: ROUTES.PATIENTS.NURSE_LIST,
+    label: 'Patient Registry',
+    path: ROUTES.PATIENTS.REGISTRY,
     icon: GLOBAL_NAV_ICONS['Patients'],
-    roles: ['treatment'],
+    roles: ['developer', 'admin', 'registration', 'triage', 'treatment'],
   },
   {
     label: 'Bite Cases Summary',

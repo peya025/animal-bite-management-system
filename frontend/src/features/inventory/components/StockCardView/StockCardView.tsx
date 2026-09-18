@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  Box, Button, CircularProgress, Paper, Typography, Menu, MenuItem, Stack, Chip, Tooltip,
+  Box, Button, CircularProgress, Paper, Typography, Menu, MenuItem, Stack, Chip, Tooltip, useTheme,
 } from '@mui/material';
 import {
   Print as PrintIcon,
@@ -377,22 +377,24 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
     }, 350);
   };
 
-  const borderCol = '#cbd5e1';
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const borderCol = isDark ? 'rgba(163, 230, 53, 0.25)' : '#cbd5e1';
   const thStyle: React.CSSProperties = {
     border: `1px solid ${borderCol}`,
     padding: '8px 6px',
     fontSize: '12px',
     fontWeight: 700,
     textAlign: 'center',
-    background: '#f8fafc',
-    color: '#0f172a',
+    background: isDark ? '#121c15' : '#f8fafc',
+    color: isDark ? '#a7f3d0' : '#0f172a',
   };
   const tdStyle: React.CSSProperties = {
     border: `1px solid ${borderCol}`,
     padding: '5px 8px',
     fontSize: '13px',
     textAlign: 'center',
-    color: '#1e293b',
+    color: isDark ? '#f8fafc' : '#1e293b',
     height: '28px',
   };
 
@@ -400,11 +402,11 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
     <Paper
       elevation={0}
       sx={{
-        border: '1px solid #e2e8f0',
+        border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0',
         borderRadius: '8px',
         mb: 4,
         p: 3,
-        bgcolor: '#ffffff',
+        bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#ffffff',
       }}
     >
       {/* ── Top Toolbar with File Manager, Month Menu & Print Button ── */}
@@ -415,13 +417,13 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
             label={`Month: ${monthYear}`}
             variant="outlined"
             size="small"
-            sx={{ fontWeight: 700, borderColor: '#10b981', color: '#047857', bgcolor: '#f0fdf4' }}
+            sx={{ fontWeight: 700, borderColor: '#10b981', color: isDark ? '#34d399' : '#047857', bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4' }}
           />
           <Chip
             icon={<ClinicIcon sx={{ fontSize: 14 }} />}
             label={clinic.name}
             size="small"
-            sx={{ fontWeight: 600, bgcolor: '#f1f5f9', color: '#334155' }}
+            sx={{ fontWeight: 600, bgcolor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9', color: isDark ? '#cbd5e1' : '#334155' }}
           />
         </Box>
 

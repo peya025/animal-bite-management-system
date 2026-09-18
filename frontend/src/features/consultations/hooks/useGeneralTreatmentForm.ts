@@ -40,6 +40,7 @@ export function useGeneralTreatmentForm({
   const userRole = getCurrentUserRole();
   const shouldHideConsultationType =
     hideConsultationType ?? (userRole === 'triage' || userRole === 'doctor');
+  const selectedIncident = entry?.incident || entry?.bite_incident || entry?.biteIncident;
 
   const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
   const [saving, setSaving] = useState(false);
@@ -57,6 +58,7 @@ export function useGeneralTreatmentForm({
   // Medical-legal post-treatment lock: true if patient has >= 1 administered vaccine dose
   const [hasAdministeredVaccine, setHasAdministeredVaccine] = useState(false);
   const [isReturningNewBite, setIsReturningNewBite] = useState(false);
+  const [requiresReExposureDecision, setRequiresReExposureDecision] = useState(false);
   const [addendumNote, setAddendumNote] = useState('');
   const [savingAddendum, setSavingAddendum] = useState(false);
   const [addendumSuccess, setAddendumSuccess] = useState('');
@@ -74,6 +76,7 @@ export function useGeneralTreatmentForm({
   // If global readOnly is true, OR if patient has already received vaccines (strictly locked),
   // OR if an existing record exists and we are not in edit mode.
   const isFormDisabled = readOnly || hasAdministeredVaccine || (hasExistingRecord && !isEditing);
+  const isNatureOfVisitAutomatic = requiresReExposureDecision;
 
   // Fetch available vaccine names and live inventory stock
   useEffect(() => {
@@ -149,7 +152,7 @@ export function useGeneralTreatmentForm({
   useEffect(() => {
     if (!(open && entry?.patient)) return;
 
-    setFormData((prev) => ({
+    setFormData(() => ({
       ...INITIAL_FORM_DATA,
       last_name: entry.patient.last_name || '',
       first_name: entry.patient.first_name || '',
@@ -159,6 +162,7 @@ export function useGeneralTreatmentForm({
       address: entry.patient.address || 'Misamis Oriental',
       name_of_provider: currentUserName || '',
       medication_treatment: '',
+      nature_of_visit: '',
     }));
     setCheckedDiagnoses([]);
     setCheckedHistory([]);
@@ -167,8 +171,10 @@ export function useGeneralTreatmentForm({
     setEpisodeHistory([]);
     setFieldErrors({});
     setTouchedFields({});
+    setIsReturningNewBite(false);
+    setRequiresReExposureDecision(false);
 
-    const initialIncident = entry?.incident || entry?.bite_incident || entry?.biteIncident;
+    const initialIncident = selectedIncident;
     if (initialIncident) {
       setNewBiteData({
         new_bite_date: initialIncident.bite_date
@@ -203,8 +209,13 @@ export function useGeneralTreatmentForm({
         const record = data?.latest_treatment;
         const isVaccinated = Boolean(data?.has_administered_vaccine);
         const isReturning = Boolean(data?.is_returning_new_bite);
+        const needsReExposureDecision = Boolean(data?.requires_re_exposure_decision);
         setHasAdministeredVaccine(isVaccinated);
         setIsReturningNewBite(isReturning);
+        setRequiresReExposureDecision(needsReExposureDecision);
+        if (needsReExposureDecision) {
+          setFormData((prev) => ({ ...prev, nature_of_visit: 'new_consultation' }));
+        }
         setEpisodeHistory(data?.episode_history || []);
 
         const activeInc = data?.active_bite_incident || initialIncident;
@@ -224,13 +235,16 @@ export function useGeneralTreatmentForm({
           });
         }
 
+        const isNewSession =
+          entry?.visit_type === 'new_case' || entry?.visit_type === 'consultation' || isReturning;
         if (record && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
-          const isNewSession =
-            entry?.visit_type === 'new_case' || entry?.visit_type === 'consultation' || isReturning;
           setHasExistingRecord(true);
           setIsEditing(false);
           setExistingRecord(record);
           populateFormFromRecord(record, isNewSession);
+          if (isNewSession) {
+            setFormData((prev) => ({ ...prev, nature_of_visit: 'new_consultation' }));
+          }
         } else {
           setHasExistingRecord(false);
           setIsEditing(true);
@@ -243,7 +257,7 @@ export function useGeneralTreatmentForm({
         setIsEditing(true);
         setExistingRecord(null);
       });
-  }, [open, entry, currentUserName, populateFormFromRecord]);
+  }, [open, entry, currentUserName, populateFormFromRecord, selectedIncident]);
 
   const handleFieldBlur = (key: string) => () => {
     setTouchedFields((prev) => ({ ...prev, [key]: true }));
@@ -332,7 +346,12 @@ export function useGeneralTreatmentForm({
     setError('');
 
     try {
-      const data = await submitAddendumNote(patientId, addendumNote.trim());
+      const biteId = entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id || null;
+      if (!biteId) {
+        setError('Select a bite episode before adding a clinical note.');
+        return;
+      }
+      const data = await submitAddendumNote(patientId, addendumNote.trim(), biteId);
       setAddendumSuccess('Clinical addendum recorded successfully.');
       setAddendumNote('');
       if (data?.treatment_record) {
@@ -347,11 +366,7 @@ export function useGeneralTreatmentForm({
   };
 
   const handleSubmit = async () => {
-    const isNewExposure =
-      entry?.incident?.episode_type === 'pending_assessment' ||
-      entry?.bite_incident?.episode_type === 'pending_assessment' ||
-      entry?.biteIncident?.episode_type === 'pending_assessment';
-    if (isNewExposure && !treatmentPlan) {
+    if (requiresReExposureDecision && !treatmentPlan) {
       setError('Doctor treatment decision is required for this new exposure.');
       return;
     }
@@ -400,7 +415,7 @@ export function useGeneralTreatmentForm({
       const payload: TreatmentRecordPayload = {
         patient_id: patientId,
         queue_id: entry.queue_id || null,
-        bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || null,
+        bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
         treatment_plan: treatmentPlan || null,
         new_bite_date: newBiteData.new_bite_date || null,
         new_bite_place: newBiteData.new_bite_place || null,
@@ -484,6 +499,7 @@ export function useGeneralTreatmentForm({
     existingRecord,
     hasAdministeredVaccine,
     isReturningNewBite,
+    requiresReExposureDecision,
     addendumNote,
     setAddendumNote,
     savingAddendum,
@@ -498,6 +514,7 @@ export function useGeneralTreatmentForm({
     fieldErrors,
     touchedFields,
     isFormDisabled,
+    isNatureOfVisitAutomatic,
     shouldHideConsultationType,
     handleFieldChange,
     handleCheckboxChange,

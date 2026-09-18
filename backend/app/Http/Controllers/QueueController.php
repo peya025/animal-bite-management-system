@@ -143,7 +143,7 @@ class QueueController extends Controller
                         'patient:' . $this->patientFields(),
                         // The Doctor form must receive the episode state. Without it a
                         // newly registered exposure could look like an ordinary ticket.
-                        'biteIncident:bite_id,case_number,patient_id,episode_type,status,bite_date,exposure_type,severity,remarks,rig_decision_reason',
+                        'biteIncident:bite_id,case_number,patient_id,episode_number,episode_type,status,bite_date,exposure_type,severity,remarks,rig_decision_reason',
                         'biteIncident.treatmentPlan:treatment_plan_id,bite_id,plan_type,status,ordered_dose_days',
                         'handledBy:id,name,role,professional_license_no',
                         'handledByUser:id,name,role,professional_license_no',

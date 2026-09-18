@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box } from '@mui/material';
 import FormModal from '../../../components/forms/FormModal';
 import type { GeneralTreatmentFormProps } from '../types/consultation.types';
@@ -32,19 +31,18 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     existingRecord,
     hasAdministeredVaccine,
     isReturningNewBite,
+    requiresReExposureDecision,
     addendumNote,
     setAddendumNote,
     savingAddendum,
     addendumSuccess,
     treatmentPlan,
     setTreatmentPlan,
-    episodeHistory,
-    newBiteData,
-    setNewBiteData,
     checkedDiagnoses,
     checkedHistory,
     fieldErrors,
     isFormDisabled,
+    isNatureOfVisitAutomatic,
     shouldHideConsultationType,
     handleFieldChange,
     handleCheckboxChange,
@@ -98,6 +96,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
       <NatureOfVisitSection
         natureOfVisit={formData.nature_of_visit}
         isFormDisabled={isFormDisabled}
+        isAutomaticallySet={isNatureOfVisitAutomatic}
         error={fieldErrors.nature_of_visit}
         onChange={handleFieldChange('nature_of_visit')}
         onBlur={handleFieldBlur('nature_of_visit')}
@@ -125,7 +124,16 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         onClearDiagnoses={handleClearDiagnoses}
       />
 
-      {/* SECTION 7: Prescribed PEP Vaccine (Doctor's Order & Live Inventory Badge) */}
+      {/* SECTION 7: Doctor treatment decision follows the diagnosis */}
+      <ReExposureAssessmentSection
+        entry={entry}
+        requiresReExposureDecision={requiresReExposureDecision}
+        isFormDisabled={isFormDisabled}
+        treatmentPlan={treatmentPlan}
+        onUpdateTreatmentPlan={setTreatmentPlan}
+      />
+
+      {/* SECTION 8: Prescribed PEP Vaccine (Doctor's Order & Live Inventory Badge) */}
       <PrescribedVaccineSection
         prescribedVaccineType={formData.prescribed_vaccine_type}
         medicationTreatment={formData.medication_treatment}
@@ -133,20 +141,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         vaccineNames={vaccineNames}
         vaccineStockMap={vaccineStockMap}
         onChange={handlePrescribedVaccineChange}
-      />
-
-      {/* SECTION 8: Re-Exposure & New Bite Incident Assessment Card */}
-      <ReExposureAssessmentSection
-        entry={entry}
-        isReturningNewBite={isReturningNewBite}
-        episodeHistory={episodeHistory}
-        newBiteData={newBiteData}
-        isFormDisabled={isFormDisabled}
-        temperature={formData.temperature}
-        bloodPressure={formData.blood_pressure}
-        treatmentPlan={treatmentPlan}
-        onUpdateNewBiteData={setNewBiteData}
-        onUpdateTreatmentPlan={setTreatmentPlan}
       />
 
       {/* SECTION 9: Provider & Laboratory Findings */}

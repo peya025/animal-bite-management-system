@@ -38,10 +38,12 @@ export async function submitTreatmentRecord(payload: TreatmentRecordPayload): Pr
 
 export async function submitAddendumNote(
   patientId: number | string,
-  addendumNotes: string
+  addendumNotes: string,
+  biteId: number | string | null
 ): Promise<any> {
   const res = await api.post(`/treatment-records/patient/${patientId}/addendum`, {
     addendum_notes: addendumNotes,
+    bite_id: biteId,
   });
   return res.data;
 }

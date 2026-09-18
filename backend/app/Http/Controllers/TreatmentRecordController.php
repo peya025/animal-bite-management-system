@@ -85,7 +85,10 @@ class TreatmentRecordController extends Controller
         if ($activeIncident) {
             $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
-                ->where('bite_id', $activeIncident->bite_id)
+                ->where(function ($q) use ($activeIncident) {
+                    $q->where('bite_id', $activeIncident->bite_id)
+                      ->orWhereNull('bite_id');
+                })
                 ->whereNotNull('dose_number')
                 ->where(function($q) {
                     $q->where('status', 'completed')
@@ -171,7 +174,10 @@ class TreatmentRecordController extends Controller
         if ($activeIncident) {
             $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
-                ->where('bite_id', $activeIncident->bite_id)
+                ->where(function ($q) use ($activeIncident) {
+                    $q->where('bite_id', $activeIncident->bite_id)
+                      ->orWhereNull('bite_id');
+                })
                 ->whereNotNull('dose_number')
                 ->where(function($q) {
                     $q->where('status', 'completed')

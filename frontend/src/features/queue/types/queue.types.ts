@@ -79,16 +79,19 @@ export interface QueueEntry {
     id: number;
     name: string;
     role: string;
+    professional_license_no?: string;
   } | null;
   handledBy?: {
     id: number;
     name: string;
     role: string;
+    professional_license_no?: string;
   } | null;
   handled_by?: number | {
     id: number;
     name: string;
     role: string;
+    professional_license_no?: string;
   } | null;
   served_by?: number | null;
   servedBy?: {
@@ -96,6 +99,7 @@ export interface QueueEntry {
     name: string;
     role: string;
     signature_path?: string;
+    professional_license_no?: string;
   } | null;
   station_id?: number | null;
   station?: {

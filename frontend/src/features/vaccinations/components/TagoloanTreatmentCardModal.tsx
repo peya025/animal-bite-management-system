@@ -587,6 +587,9 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                   <tbody>
                     {periods.map((item, idx) => {
                       const rec = records.find((r) => r.dose_number === item.doseNum);
+                      const staff = rec?.administered_by || (rec as any)?.administeredBy;
+                      const staffName = typeof staff === 'object' ? staff?.name : null;
+                      const staffLicense = typeof staff === 'object' ? staff?.professional_license_no : null;
                       return (
                         <tr key={item.period} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
                           <td style={{ padding: '6px', border: '1px solid #cbd5e1', fontWeight: 600 }}>
@@ -607,10 +610,21 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                             {rec?.treatment_date ? new Date(rec.treatment_date).toLocaleDateString() : rec?.scheduled_date || '—'}
                           </td>
                           <td style={{ padding: '6px', border: '1px solid #cbd5e1' }}>
-                            {rec?.administered_by?.name || (rec?.status === 'completed' ? 'Nurse Staff' : '—')}
+                            {rec?.status === 'completed' || rec?.treatment_date ? (
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontWeight: 600 }}>{staffName || 'Nurse Staff'}</span>
+                                {staffLicense && (
+                                  <span style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 600 }}>
+                                    PRC: {staffLicense}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              '—'
+                            )}
                           </td>
                           <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: rec?.status === 'completed' ? 'var(--primary)' : '#64748b' }}>
-                            {rec?.status === 'completed' ? '✓ Signed' : rec?.status || 'Scheduled'}
+                            {rec?.status === 'completed' ? '✓ Signed (On File)' : rec?.status || 'Scheduled'}
                           </td>
                         </tr>
                       );

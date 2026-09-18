@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
+import { useAuth } from '../../../shared/contexts/AuthContext';
 import { formatPhilHealthNumber } from '../../../shared/utils';
 import {
   getNextFifoBatch,
@@ -74,7 +75,9 @@ interface VaccinationDose {
   schedule_drift_days?: number;
   schedule_adjustment_reason?: string;
   given_by: string;
+  license_no?: string;
   signature: string;
+  signature_path?: string;
   vaccine_type: string;
   inventory_units_used: string;
   batch_number: string;
@@ -104,7 +107,18 @@ interface ExistingVaccinationRecord {
   inventory_units_used?: number | null;
   signature?: string | null;
   remarks?: string | null;
-  administeredBy?: { name?: string | null } | null;
+  administered_by?: {
+    id?: number;
+    name?: string | null;
+    professional_license_no?: string | null;
+    signature_path?: string | null;
+  } | number | null;
+  administeredBy?: {
+    id?: number;
+    name?: string | null;
+    professional_license_no?: string | null;
+    signature_path?: string | null;
+  } | null;
   is_external?: boolean;
   external_facility_name?: string | null;
 }
@@ -308,6 +322,7 @@ const formatDateForInput = (dateString: string | null | undefined): string => {
 };
 
 export default function VaccinationRecordForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: VaccinationRecordFormProps) {
+  const { user: currentUser } = useAuth();
   const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
 
   // ── Place of Exposure address location (same hook as Add Patient) ──────────
@@ -462,10 +477,23 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
   };
 
+  const getAdministeredStaff = (record: ExistingVaccinationRecord) => {
+    if (record.administered_by && typeof record.administered_by === 'object') {
+      return record.administered_by;
+    }
+    if (record.administeredBy && typeof record.administeredBy === 'object') {
+      return record.administeredBy;
+    }
+    return null;
+  };
+
   const extractGivenBy = (remarks?: string | null, administeredByName?: string | null) => {
+    if (administeredByName && administeredByName.trim()) {
+      return administeredByName.trim();
+    }
     const match = remarks?.match(/Given by:\s*([^|]+)/i);
     if (match?.[1]) return match[1].trim();
-    return administeredByName || '';
+    return '';
   };
 
   const loadAllFormData = async () => {
@@ -568,12 +596,19 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         );
 
         if (isCompletedRecord && record) {
+          const staff = getAdministeredStaff(record);
+          const staffName = staff?.name || extractGivenBy(record.remarks, null) || (record.is_external ? (record.external_facility_name ? `External (${record.external_facility_name})` : 'External Clinic') : 'Staff Nurse');
+          const staffLicense = staff?.professional_license_no || '';
+          const signaturePath = staff?.signature_path || record.signature || '';
+
           return {
             ...dose,
             route: record.route || dose.route,
             date: formatDateForInput(record.treatment_date) || dose.date,
-            given_by: extractGivenBy(record.remarks, record.administeredBy?.name),
-            signature: record.signature || '',
+            given_by: staffName,
+            license_no: staffLicense,
+            signature: record.signature || (signaturePath ? 'On File' : ''),
+            signature_path: signaturePath,
             vaccine_type: record.vaccine_brand || record.vaccine_generic || '',
             inventory_units_used: (record.inventory_units_used !== null && record.inventory_units_used !== undefined) ? String(record.inventory_units_used) : '1',
             batch_number: record.batch_no || '',
@@ -637,8 +672,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             date: todayStr, // Administration date is today!
             ideal_date: scheduledDate || activeDose.ideal_date,
             schedule_drift_days: driftDays,
-            given_by: activeDose.given_by || staffInfo.name,
-            signature: activeDose.signature || staffInfo.signature,
+            given_by: currentUser?.name || activeDose.given_by || staffInfo.name || 'Staff Nurse',
+            license_no: currentUser?.professional_license_no || '',
+            signature: currentUser?.signature_path ? 'On File' : (staffInfo.signature || ''),
+            signature_path: currentUser?.signature_path || '',
             vaccine_type: activeDose.vaccine_type || preferredVaccine,
           };
 
@@ -939,6 +976,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       }
     }
 
+    // Validate that the administering nurse has a digital signature on file
+    const hasDoseToAdminister = filledDoses.some(d => !d.is_external && !d.inventory_linked);
+    if (hasDoseToAdminister && !currentUser?.signature_path && currentUser?.role !== 'developer') {
+      setError('Your digital signature is not yet on file. Please ask a clinic administrator to complete your staff profile with a digital signature before administering doses.');
+      return;
+    }
+
     setError('');
     setSaving(true);
 
@@ -962,8 +1006,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           period: d.period,
           route: d.route || null,
           date: d.date || todayStr,
-          given_by: d.given_by || null,
-          signature: d.signature || null,
+          given_by: currentUser?.name || d.given_by || null,
+          signature: currentUser?.signature_path || d.signature || null,
           vaccine_type: d.vaccine_type,
           inventory_units_used: d.is_external ? 0 : (parseInt(d.inventory_units_used, 10) || 0),
           is_external: Boolean(d.is_external),
@@ -1667,8 +1711,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 185 }}>Vaccine Type & Source</th>
                 <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 195 }}>FIFO Batch Preview</th>
                 <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 105 }}>Stock Units</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 120 }}>Given by</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 100 }}>Signature</th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 155 }}>Given by / Attended by</th>
+                <th style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 110 }}>Signature</th>
                 <th style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 100 }}>Status</th>
               </tr>
             </thead>
@@ -1702,14 +1746,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
                 const isLocked = readOnly || isCompleted || isPrerequisiteLocked;
                 const hasFifoError = Boolean(fifoErrors[dose.period]);
-                const isActivelyRecording = !isCompleted && !isPrerequisiteLocked && Boolean(dose.given_by || dose.signature || dose.vaccine_type || dose.is_external);
-                const showRequiredWarning = isActivelyRecording && !dose.is_external && !dose.vaccine_type;
-
                 const candidateList = manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
                   ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
                   : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period));
                 const activeCandidateIdx = candidateList.findIndex(d => !d.is_completed && !d.inventory_linked && !PREREQ[d.period]?.includes(doses.find(x => x.period === PREREQ[d.period])?.is_completed === false ? 'no' : 'yes'));
                 const isActiveFollowUp = !readOnly && !isCompleted && !isPrerequisiteLocked && index === activeCandidateIdx;
+                const isActivelyRecording = !isCompleted && !isPrerequisiteLocked && (isActiveFollowUp || Boolean(dose.vaccine_type || dose.is_external));
+                const showRequiredWarning = isActivelyRecording && !dose.is_external && !dose.vaccine_type;
 
                 return (
                   <tr
@@ -2029,44 +2072,148 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                       )}
                     </td>
 
-                    {/* 7. Given by */}
-                    <td style={{ padding: '8px 10px' }}>
-                      <input
-                        type="text"
-                        value={dose.given_by}
-                        onChange={(e) => handleDoseChange(index, 'given_by', e.target.value)}
-                        placeholder="Nurse name"
-                        disabled={isLocked}
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: 5,
-                          fontSize: 12,
-                          backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
-                          cursor: isCompleted ? 'not-allowed' : 'text',
-                        }}
-                      />
+                    {/* 7. Given by / Attended by */}
+                    <td style={{ padding: '8px 12px' }}>
+                      {isCompleted ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontWeight: 600, color: '#1e293b', fontSize: 12 }}>
+                              {dose.given_by || 'Staff Nurse'}
+                            </span>
+                            <span title="Verified Clinician" style={{ color: '#16a34a', fontSize: 12, fontWeight: 700 }}>✓</span>
+                          </div>
+                          {dose.license_no ? (
+                            <span style={{ fontSize: 10.5, color: '#0369a1', fontWeight: 600 }}>
+                              PRC: {dose.license_no}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 10, color: '#64748b' }}>
+                              Licensed Staff
+                            </span>
+                          )}
+                        </div>
+                      ) : dose.is_external ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#0369a1' }}>
+                            🏥 {dose.external_facility_name || dose.given_by || 'External Clinic'}
+                          </span>
+                          <span style={{ fontSize: 10, color: '#64748b' }}>External Clinician</span>
+                        </div>
+                      ) : (isActiveFollowUp || isActivelyRecording) ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ fontWeight: 600, color: '#1e293b', fontSize: 12 }}>
+                              {currentUser?.name || dose.given_by || 'Current Nurse'}
+                            </span>
+                            <span style={{
+                              fontSize: 9,
+                              fontWeight: 700,
+                              padding: '1px 5px',
+                              borderRadius: 4,
+                              backgroundColor: '#dbeafe',
+                              color: '#1d4ed8',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.04em',
+                            }}>
+                              Attending
+                            </span>
+                          </div>
+                          {(currentUser?.professional_license_no || dose.license_no) ? (
+                            <span style={{ fontSize: 10.5, color: '#0369a1', fontWeight: 600 }}>
+                              PRC: {currentUser?.professional_license_no || dose.license_no}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 10, color: '#64748b' }}>
+                              Registered Nurse
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 12, color: '#94a3b8' }}>—</span>
+                      )}
                     </td>
 
                     {/* 8. Signature */}
-                    <td style={{ padding: '8px 10px' }}>
-                      <input
-                        type="text"
-                        value={dose.signature}
-                        onChange={(e) => handleDoseChange(index, 'signature', e.target.value)}
-                        placeholder="Initial"
-                        disabled={isLocked}
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: 5,
-                          fontSize: 12,
-                          backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
-                          cursor: isCompleted ? 'not-allowed' : 'text',
-                        }}
-                      />
+                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                      {isCompleted ? (
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            backgroundColor: '#f0fdf4',
+                            border: '1px solid #bbf7d0',
+                            color: '#15803d',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                          }}
+                          title="Digital signature on file stamped on official record"
+                        >
+                          <span>✍️</span>
+                          <span>{dose.signature && dose.signature !== 'On File' ? dose.signature : 'On File'}</span>
+                          <span>✓</span>
+                        </div>
+                      ) : dose.is_external ? (
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          backgroundColor: '#f0f9ff',
+                          color: '#0369a1',
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}>
+                          External Card
+                        </span>
+                      ) : (isActiveFollowUp || isActivelyRecording) ? (
+                        (currentUser?.signature_path || dose.signature_path) ? (
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              backgroundColor: '#eff6ff',
+                              border: '1px solid #bfdbfe',
+                              color: '#1d4ed8',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="Digital signature on file will authenticate this dose upon saving"
+                          >
+                            <span>✍️</span>
+                            <span>On File</span>
+                            <span style={{ color: '#16a34a' }}>✓</span>
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              backgroundColor: '#fef2f2',
+                              border: '1px solid #fca5a5',
+                              color: '#dc2626',
+                              fontSize: 10.5,
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="No digital signature on file. Please configure your signature in staff profile."
+                          >
+                            <span>⚠️</span>
+                            <span>No Sig</span>
+                          </div>
+                        )
+                      ) : (
+                        <span style={{ fontSize: 12, color: '#94a3b8' }}>—</span>
+                      )}
                     </td>
 
                     {/* 9. Status Pill */}

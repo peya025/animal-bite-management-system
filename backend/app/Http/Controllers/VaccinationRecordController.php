@@ -143,7 +143,7 @@ class VaccinationRecordController extends Controller
                 })
                 ->with([
                     'patient.details',
-                    'administeredBy:id,name',
+                    'administeredBy:id,name,role,professional_license_no,signature_path',
                     'inventory:inventory_id,batch_number,vaccine_type,doses_per_vial',
                     'biteIncident:bite_id,case_number,bite_date,severity,exposure_type,wound_description',
                 ]);
@@ -251,6 +251,8 @@ class VaccinationRecordController extends Controller
                     'administered_at' => $r->administered_at ? Carbon::parse($r->administered_at)->format('Y-m-d H:i:s') : null,
                     'administered_by_id' => $r->administered_by,
                     'administered_by_name' => $r->administeredBy?->name ?: 'Staff',
+                    'administered_by_license' => $r->administeredBy?->professional_license_no,
+                    'administered_by_signature' => $r->administeredBy?->signature_path,
                     'is_external' => $isExternal,
                     'external_facility_name' => $r->external_facility_name,
                     'doses_per_vial' => $dpv,
@@ -411,6 +413,41 @@ class VaccinationRecordController extends Controller
                         $biteId = $newIncident->bite_id;
                     } elseif ($latestIncident) {
                         $biteId = $latestIncident->bite_id;
+                    } else {
+                        // Brand-new patient with no prior incident: create primary episode 1 upfront
+                        $patientObj = Patient::find($patientId);
+                        $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
+                        $severity = $severityMap[$request->exposure_category ?? ''] ?? 'moderate';
+                        $submittedPlace = trim((string)($request->place_of_exposure ?? ''));
+                        if (!empty($submittedPlace)) {
+                            $bitePlace = $submittedPlace;
+                        } else {
+                            $street = $patientObj?->details->address_purok ?? $patientObj?->address_purok ?? '';
+                            $brgy = $patientObj?->details->address_barangay ?? $patientObj?->address_barangay ?? '';
+                            $mun = $patientObj?->details->address_municipality ?? $patientObj?->address_municipality ?? '';
+                            if (!empty($brgy) && !empty($mun)) {
+                                $bitePlace = $street ? "{$street}, {$brgy}, {$mun}" : "{$brgy}, {$mun}";
+                            } else {
+                                $bitePlace = 'Poblacion, Tagoloan';
+                            }
+                        }
+                        $biteDate = $request->date_of_exposure ?: ($request->date_treatment_started ?: now()->toDateString());
+                        $animalType = $request->animal_type === 'other' ? ($request->animal_type_other ?: 'other') : ($request->animal_type ?: 'dog');
+
+                        $newIncident = BiteIncident::create([
+                            'clinic_id'      => $clinicId,
+                            'patient_id'     => $patientId,
+                            'episode_number' => 1,
+                            'episode_type'   => $request->episode_type === 're_exposure' ? 're_exposure' : 'primary',
+                            'bite_date'      => $biteDate,
+                            'bite_place'     => $bitePlace,
+                            'exposure_type'  => 'bite',
+                            'severity'       => $severity,
+                            'animal_type'    => $animalType,
+                            'status'         => 'active',
+                            'created_by'     => $userId,
+                        ]);
+                        $biteId = $newIncident->bite_id;
                     }
                 }
             }
@@ -470,7 +507,11 @@ class VaccinationRecordController extends Controller
 
                     $prereqCompleted = TreatmentRecord::where('clinic_id', $clinicId)
                         ->where('patient_id', $patientId)
-                        ->when($biteId, fn($q) => $q->where('bite_id', $biteId))
+                        ->when($biteId, function ($q) use ($biteId) {
+                            $q->where(function ($sub) use ($biteId) {
+                                $sub->where('bite_id', $biteId)->orWhereNull('bite_id');
+                            });
+                        })
                         ->where('dose_number', $prereqDoseNumber)
                         ->where('status', 'completed')
                         ->whereNotNull('treatment_date')
@@ -503,7 +544,9 @@ class VaccinationRecordController extends Controller
                 $existing = TreatmentRecord::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)
                     ->when($biteId, function ($q) use ($biteId) {
-                        return $q->where('bite_id', $biteId);
+                        return $q->where(function ($sub) use ($biteId) {
+                            $sub->where('bite_id', $biteId)->orWhereNull('bite_id');
+                        });
                     })
                     ->where('dose_number', $doseNumber)
                     ->where(function ($q) {
@@ -756,6 +799,17 @@ class VaccinationRecordController extends Controller
                 $card->update(['bite_id' => $incident->bite_id]);
             }
 
+            // Sync bite_id onto existing treatment records and appointments for this patient in existing tables
+            TreatmentRecord::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->whereNull('bite_id')
+                ->update(['bite_id' => $incident->bite_id]);
+
+            Appointment::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->whereNull('bite_id')
+                ->update(['bite_id' => $incident->bite_id]);
+
             $todayQueue = null; // initialize before the conditional block
 
             // ──────────────────────────────────────────────────────────────
@@ -862,7 +916,9 @@ class VaccinationRecordController extends Controller
                 Appointment::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)
                     ->when($biteId, function ($q) use ($biteId) {
-                        return $q->where('bite_id', $biteId);
+                        return $q->where(function ($sub) use ($biteId) {
+                            $sub->where('bite_id', $biteId)->orWhereNull('bite_id');
+                        });
                     })
                     ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
                     ->where(function ($q) use ($savedDoseNumbers) {
@@ -986,7 +1042,9 @@ class VaccinationRecordController extends Controller
             $pastDay0 = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->when($biteId, function ($q) use ($biteId) {
-                    return $q->where('bite_id', $biteId);
+                    return $q->where(function ($sub) use ($biteId) {
+                        $sub->where('bite_id', $biteId)->orWhereNull('bite_id');
+                    });
                 })
                 ->where('dose_number', 0)
                 ->where('status', 'completed')
@@ -1066,7 +1124,9 @@ class VaccinationRecordController extends Controller
                 $completedDose = TreatmentRecord::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)
                     ->when($biteId, function ($q) use ($biteId) {
-                        return $q->where('bite_id', $biteId);
+                        return $q->where(function ($sub) use ($biteId) {
+                            $sub->where('bite_id', $biteId)->orWhereNull('bite_id');
+                        });
                     })
                     ->where('dose_number', $doseNum)
                     ->where('status', 'completed')
@@ -1102,7 +1162,9 @@ class VaccinationRecordController extends Controller
             $existing = \App\Models\Appointment::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->when($biteId, function ($q) use ($biteId) {
-                    return $q->where('bite_id', $biteId);
+                    return $q->where(function ($sub) use ($biteId) {
+                        $sub->where('bite_id', $biteId)->orWhereNull('bite_id');
+                    });
                 })
                 ->where('dose_number', $doseNum)
                 ->where('status', '!=', 'cancelled')

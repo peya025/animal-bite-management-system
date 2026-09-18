@@ -142,8 +142,8 @@ class QueueController extends Controller
                     ->with([
                         'patient:' . $this->patientFields(),
                         'biteIncident:bite_id,case_number,patient_id,exposure_type,severity,remarks,rig_decision_reason',
-                        'handledBy:id,name,role',
-                        'handledByUser:id,name,role',
+                        'handledBy:id,name,role,professional_license_no',
+                        'handledByUser:id,name,role,professional_license_no',
                         'servedBy:id,name,role,signature_path,professional_license_no',
                         'station:id,name',
                     ])

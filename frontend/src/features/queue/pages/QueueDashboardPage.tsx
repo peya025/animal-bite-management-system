@@ -666,12 +666,17 @@ export default function QueueDashboard() {
           return <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography>;
         }
         return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
             <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'var(--text-h)', lineHeight: 1.2 }}>
               {staff.name}
             </Typography>
+            {staff.professional_license_no && (
+              <Typography sx={{ fontSize: 10, color: '#0284c7', fontWeight: 600, lineHeight: 1.1 }}>
+                PRC: {staff.professional_license_no}
+              </Typography>
+            )}
             {stationName && (
-              <Typography sx={{ fontSize: 10.5, color: '#0f766e', fontWeight: 500 }}>
+              <Typography sx={{ fontSize: 10.5, color: '#0f766e', fontWeight: 500, lineHeight: 1.1 }}>
                 {stationName}
               </Typography>
             )}

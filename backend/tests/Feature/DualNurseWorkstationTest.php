@@ -31,6 +31,7 @@ class DualNurseWorkstationTest extends TestCase
             'password' => bcrypt('password123'),
             'clinic_id' => $clinic->id,
             'role' => 'treatment',
+            'is_active' => true,
             'signature_path' => $withSignature ? 'signatures/' . strtolower(str_replace(' ', '_', $name)) . '.png' : null,
             'professional_license_no' => 'RN-' . rand(100000, 999999),
         ]);

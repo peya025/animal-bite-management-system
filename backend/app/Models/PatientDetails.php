@@ -38,7 +38,7 @@ class PatientDetails extends Model
     protected $casts = [
         'philhealth_member' => 'string',
         'philhealth_status' => 'string',
-        'philhealth_no' => \App\Casts\LegacyCompatibleEncrypted::class,
+        'philhealth_no' => 'string',
         'fourps_member' => 'string',
         'dswd_nhts' => 'string',
     ];

@@ -93,6 +93,7 @@ export default function ConfirmationDialog({
   autoClose,
 }: ConfirmationDialogProps) {
   const [internalLoading, setInternalLoading] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
   const isActionLoading = Boolean(loading || isLoading || internalLoading);
   const activeColorVariant = colorVariant || variant;
 
@@ -132,25 +133,44 @@ export default function ConfirmationDialog({
     }
   };
 
+  const effectiveAutoClose =
+    typeof autoClose === 'number'
+      ? autoClose
+      : (activeColorVariant === 'success' && hideCancel)
+      ? 2200
+      : 0;
+
   useEffect(() => {
-    if (autoClose && autoClose > 0) {
-      const timer = window.setTimeout(() => {
-        handleDismiss();
-      }, autoClose);
-      return () => window.clearTimeout(timer);
-    }
-  }, [autoClose]);
+    if (isActionLoading || effectiveAutoClose <= 0) return;
+
+    const fadeDuration = 250;
+    const fadeDelay = Math.max(0, effectiveAutoClose - fadeDuration);
+
+    const fadeTimer = window.setTimeout(() => {
+      setIsFadingOut(true);
+    }, fadeDelay);
+
+    const closeTimer = window.setTimeout(() => {
+      handleDismiss();
+    }, effectiveAutoClose);
+
+    return () => {
+      window.clearTimeout(fadeTimer);
+      window.clearTimeout(closeTimer);
+    };
+  }, [isActionLoading, effectiveAutoClose]);
 
   const showActions = !hideCancel || !hideConfirm;
 
   return (
     <Overlay
+      isFadingOut={isFadingOut}
       onClick={handleDismiss}
       role="dialog"
       aria-modal="true"
       aria-labelledby="cm-title"
     >
-      <Modal onClick={(e) => e.stopPropagation()}>
+      <Modal isFadingOut={isFadingOut} onClick={(e) => e.stopPropagation()}>
         <Icon variant={activeColorVariant} shouldShake={shakeIcon}>
           {ICONS[variant] || ICONS.confirm}
         </Icon>

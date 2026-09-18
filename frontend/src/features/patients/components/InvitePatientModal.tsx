@@ -28,6 +28,7 @@ import api from '../../../shared/services/api';
 import type { Patient } from '../types';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import ButtonSpinner from '../../../components/common/ButtonSpinner';
+import { Icon } from '../../../shared/components/ui/Icon';
 
 // ─── Local Error Boundary Component ───────────────────────────
 interface ErrorBoundaryProps {

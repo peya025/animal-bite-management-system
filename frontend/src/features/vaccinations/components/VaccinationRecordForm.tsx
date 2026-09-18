@@ -1065,7 +1065,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     || currentIncident?.episode_type === 're_exposure'
     || (currentIncident?.episode_number && Number(currentIncident.episode_number) > 1)
     || manualReExposure;
-  const isSingleBoosterPlan = doctorPlanType === 'single_booster';
   const orderedDosePeriods = doctorPlanType === 'single_booster'
     ? ['Day 0']
     : (doctorPlanType === 'two_dose_booster' || isBoosterPlan)
@@ -2558,7 +2557,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
 
         {/* ── Collapsible Prior Immunization History (Read Only) ── */}
-        {pastHistoryRecords.length > 0 && isBoosterPlan && (
+        {false && pastHistoryRecords.length > 0 && isBoosterPlan && (
           <div style={{ marginTop: 20, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
             <button
               type="button"

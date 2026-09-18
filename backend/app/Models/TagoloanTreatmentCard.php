@@ -59,6 +59,6 @@ class TagoloanTreatmentCard extends Model
 
     public function treatmentRecords()
     {
-        return $this->hasMany(TreatmentRecord::class, 'patient_id', 'patient_id');
+        return $this->hasMany(TreatmentRecord::class, 'bite_id', 'bite_id');
     }
 }

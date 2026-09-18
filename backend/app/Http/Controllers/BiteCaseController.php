@@ -46,6 +46,12 @@ class BiteCaseController extends Controller
         );
 
         return DB::transaction(function () use ($validated, $clinicId, $request) {
+            // Serialize episode numbering per permanent patient profile.
+            \App\Models\Patient::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
             $todayDate = Carbon::today()->toDateString();
             $episodeNumber = (BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
@@ -206,6 +212,12 @@ class BiteCaseController extends Controller
 
         DB::beginTransaction();
         try {
+            // Serialize episode numbering per permanent patient profile.
+            \App\Models\Patient::where('clinic_id', $request->user()->clinic_id)
+                ->where('patient_id', $request->patient_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             // Auto-compute next episode number for this patient
             $lastEpisode = BiteIncident::where('patient_id', $request->patient_id)->max('episode_number') ?? 0;
             $episodeNumber = $lastEpisode + 1;
@@ -262,6 +274,7 @@ class BiteCaseController extends Controller
                 ->where('queue_date', \Carbon\Carbon::today()->toDateString())
                 ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
                 ->whereIn('visit_type', ['new_case', 'follow_up', 'observation'])
+                ->whereNull('bite_id')
                 ->whereNull('deleted_at')
                 ->latest('queue_id')
                 ->first();
@@ -313,7 +326,7 @@ class BiteCaseController extends Controller
                 'vaccinationSchedules' => function ($query) {
                     $query->orderBy('dose_number');
                 },
-                'queueEntries',
+                'queues',
             ])
             ->findOrFail($id);
 
@@ -715,17 +728,25 @@ class BiteCaseController extends Controller
         try {
             $clinicId = $request->user()->clinic_id;
 
-            $patient = \App\Models\Patient::with(['details'])->findOrFail($patientId);
+            $patient = \App\Models\Patient::where('clinic_id', $clinicId)
+                ->with(['details'])
+                ->findOrFail($patientId);
 
-            $episodes = BiteIncident::where('patient_id', $patientId)
+            $episodes = BiteIncident::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
                 ->with([
                     'treatmentRecords' => function ($q) {
-                        $q->orderBy('dose_number');
+                        $q->orderByRaw('CASE WHEN dose_number IS NULL THEN 0 ELSE 1 END')
+                            ->orderBy('consultation_date')
+                            ->orderBy('dose_number')
+                            ->orderBy('scheduled_date');
                     },
+                    'treatmentPlan:treatment_plan_id,bite_id,plan_type,status,ordered_dose_days,doctor_decision_notes,decided_at',
                     'externalProofReviewer:id,name,role',
                     'createdBy:id,name',
                 ])
-                ->orderBy('episode_number', 'desc')
+                ->orderByDesc('episode_number')
+                ->orderByDesc('bite_id')
                 ->get();
 
             $historySummary = $patient->getImmunizationHistorySummary();

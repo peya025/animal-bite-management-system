@@ -233,6 +233,15 @@ export default function QueueDashboard() {
     return '';
   });
 
+  // A browser may retain the last nurse station in local storage. Doctor/Triage
+  // sessions must never inherit that filter, otherwise a new_case can be the
+  // "next" patient yet disappear from the Doctor's table.
+  useEffect(() => {
+    const isDoctorTriage = user?.role === 'triage'
+      || user?.roles?.some((role: any) => ['triage', 'doctor'].includes(role.slug));
+    if (isDoctorTriage) setVisitTypeFilter('');
+  }, [user?.role, user?.roles]);
+
   useEffect(() => {
     const onStationChanged = (e: CustomEvent) => {
       const mode = e.detail;
@@ -311,7 +320,8 @@ export default function QueueDashboard() {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
   const isRegistrationStaff = user?.role === 'registration';
-  const isTriageDoctor = user?.role === 'triage';
+  const isTriageDoctor = user?.role === 'triage'
+    || user?.roles?.some((role: any) => ['triage', 'doctor'].includes(role.slug));
   const isTreatmentNurse = user?.role === 'treatment' || user?.is_nursing || hasIntakeNurseRole || hasFollowUpNurseRole;
   const transferredToTreatmentEntries = isTriageDoctor
     ? queue.filter(entry =>

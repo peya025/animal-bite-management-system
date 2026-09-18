@@ -6,6 +6,7 @@ import { NATURE_OF_VISIT_OPTIONS } from '../../constants/consultation.constants'
 interface NatureOfVisitSectionProps {
   natureOfVisit: string;
   isFormDisabled: boolean;
+  isAutomaticallySet?: boolean;
   error?: string;
   onChange: (ev: React.ChangeEvent<HTMLInputElement>) => void;
   onBlur: () => void;
@@ -14,6 +15,7 @@ interface NatureOfVisitSectionProps {
 export default function NatureOfVisitSection({
   natureOfVisit,
   isFormDisabled,
+  isAutomaticallySet = false,
   error,
   onChange,
   onBlur,
@@ -42,34 +44,55 @@ export default function NatureOfVisitSection({
       >
         Nature of Visit <span style={{ color: '#ef4444' }}>*</span>
       </label>
-      <div style={{ display: 'flex', gap: 24 }}>
-        {NATURE_OF_VISIT_OPTIONS.map((option) => (
-          <label
-            key={option.value}
-            style={{ display: 'flex', alignItems: 'center', cursor: isFormDisabled ? 'default' : 'pointer' }}
-          >
-            <input
-              type="radio"
-              name="nature_of_visit"
-              value={option.value}
-              checked={natureOfVisit === option.value}
-              onChange={onChange}
-              onBlur={onBlur}
-              disabled={isFormDisabled}
-              style={{ marginRight: 8, accentColor: error ? '#ef4444' : undefined }}
-            />
-            <span
-              style={{
-                fontSize: 13,
-                color: error ? '#991b1b' : '#374151',
-                fontWeight: error ? 600 : 400,
-              }}
+      {isAutomaticallySet ? (
+        <div
+          role="status"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: 'fit-content',
+            padding: '8px 12px',
+            borderRadius: 8,
+            backgroundColor: '#ecfdf5',
+            border: '1px solid #a7f3d0',
+            color: '#065f46',
+            fontSize: 13,
+          }}
+        >
+          <strong>New Consultation</strong>
+          <span style={{ color: '#047857' }}>Set automatically for this new or re-exposure episode.</span>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 24 }}>
+          {NATURE_OF_VISIT_OPTIONS.map((option) => (
+            <label
+              key={option.value}
+              style={{ display: 'flex', alignItems: 'center', cursor: isFormDisabled ? 'default' : 'pointer' }}
             >
-              {option.label}
-            </span>
-          </label>
-        ))}
-      </div>
+              <input
+                type="radio"
+                name="nature_of_visit"
+                value={option.value}
+                checked={natureOfVisit === option.value}
+                onChange={onChange}
+                onBlur={onBlur}
+                disabled={isFormDisabled}
+                style={{ marginRight: 8, accentColor: error ? '#ef4444' : undefined }}
+              />
+              <span
+                style={{
+                  fontSize: 13,
+                  color: error ? '#991b1b' : '#374151',
+                  fontWeight: error ? 600 : 400,
+                }}
+              >
+                {option.label}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
       {error && (
         <div
           style={{

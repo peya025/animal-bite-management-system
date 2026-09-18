@@ -14,6 +14,8 @@ import {
   Stack,
   TextField,
   Paper,
+  Button,
+  Chip,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -74,7 +76,13 @@ function getDefaultTabForRole(userRole: string, visitType?: string): string {
   return 'form1';
 }
 
-function AwaitingTriageBanner({ isBoosterRequest = false }: { isBoosterRequest?: boolean }) {
+function isReExposureAssessment(entry: QueueEntry): boolean {
+  const incident = entry.biteIncident;
+  return incident?.episode_type === 're_exposure'
+    || (incident?.episode_type === 'pending_assessment' && Number(incident.episode_number) > 1);
+}
+
+function AwaitingTriageBanner({ isBoosterRequest = false, isReExposure = false }: { isBoosterRequest?: boolean; isReExposure?: boolean }) {
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1.5,
@@ -87,10 +95,14 @@ function AwaitingTriageBanner({ isBoosterRequest = false }: { isBoosterRequest?:
       <LockIcon sx={{ fontSize: 18, color: '#d97706', flexShrink: 0 }} />
       <Box>
         <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#92400e', mb: 0.25 }}>
-          {isBoosterRequest ? 'Booster Request — Doctor Assessment Required' : 'Awaiting Doctor Triage (Form 2 Required)'}
+          {isReExposure
+            ? 'Re-Exposure Assessment — Doctor Decision Required'
+            : isBoosterRequest ? 'Booster Request — Doctor Assessment Required' : 'Awaiting Doctor Triage (Form 2 Required)'}
         </Typography>
         <Typography sx={{ fontSize: 12, color: '#b45309' }}>
-          {isBoosterRequest
+          {isReExposure
+            ? 'This is a subsequent exposure episode. Complete Form 2 before treatment; the Doctor will determine whether a booster regimen, full PEP, or no vaccine is indicated.'
+            : isBoosterRequest
             ? 'Record the new booster request and complete Form 2. Only after the Doctor approves treatment may Dose 1 be sent to Station 1.'
             : 'This is a new bite case. The physician must complete the Form 2 clinical assessment and exposure grading before initial Dose 1 (Day 0) can be recorded.'}
         </Typography>
@@ -132,6 +144,7 @@ function ModalPatientHero({
 }) {
   const statusCfg  = STATUS_CFG[entry.status]  ?? STATUS_CFG.cancelled;
   const priorityCfg = PRIORITY_CFG[entry.priority] ?? PRIORITY_CFG.normal;
+  const reExposureAssessment = isReExposureAssessment(entry);
   const isActive   = ['waiting','called','in_consultation','serving','second_chance','final_recall'].includes(entry.status);
 
   const initials = entry.patient?.name
@@ -164,8 +177,13 @@ function ModalPatientHero({
               {entry.patient?.name}
             </Typography>
             <Box sx={{ px: 1.5, py: 0.25, bgcolor: '#eff6ff', borderRadius: 1.5, fontSize: 11, fontWeight: 600, color: '#2563eb' }}>
-              {VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
+              {reExposureAssessment ? 'Re-Exposure Assessment' : (VISIT_LABEL[entry.visit_type] ?? entry.visit_type)}
             </Box>
+            {reExposureAssessment && (
+              <Box sx={{ px: 1.5, py: 0.25, bgcolor: '#f5f3ff', borderRadius: 1.5, fontSize: 11, fontWeight: 600, color: '#6d28d9' }}>
+                Treatment decision pending
+              </Box>
+            )}
             <Box sx={{ px: 1.5, py: 0.25, bgcolor: priorityCfg.bg, borderRadius: 1.5, fontSize: 11, fontWeight: 600, color: priorityCfg.color }}>
               {getPriorityDisplayLabel(entry.priority, entry.queue_category)}
             </Box>
@@ -224,7 +242,7 @@ const TABS = [
   { key: 'form1', label: 'Form 1', roleLabel: 'Registration', owner: 'registration' as const },
   { key: 'form2', label: 'Form 2', roleLabel: 'Doctor',       owner: 'triage'        as const },
   { key: 'form3', label: 'Form 3', roleLabel: 'Nurse',        owner: 'treatment'     as const },
-  { key: 'history', label: 'Past Consultations', roleLabel: 'History', owner: 'triage' as const },
+  { key: 'history', label: 'Episode History', roleLabel: 'History', owner: 'triage' as const },
 ];
 
 function TabBar({ active, onSelect, userRole }: {
@@ -288,7 +306,7 @@ function TabBar({ active, onSelect, userRole }: {
 }
 
 // ─── Patient Consultation History Tab ───────────────────────────────────────
-function PatientConsultationHistoryTab({ patientId }: { patientId?: number }) {
+export function PatientConsultationHistoryTab({ patientId }: { patientId?: number }) {
   const [loading, setLoading] = useState(false);
   const [treatments, setTreatments] = useState<any[]>([]);
   const [searchFilter, setSearchFilter] = useState('');
@@ -456,6 +474,95 @@ function PatientConsultationHistoryTab({ patientId }: { patientId?: number }) {
   );
 }
 
+type EpisodeSummary = {
+  bite_id: number;
+  episode_number?: number;
+  episode_type?: string;
+  bite_date?: string;
+  status?: string;
+  treatment_plan?: { plan_type?: string; status?: string } | null;
+  treatmentPlan?: { plan_type?: string; status?: string } | null;
+  treatment_records?: any[];
+  treatmentRecords?: any[];
+};
+
+function episodeLabel(episode: EpisodeSummary) {
+  if (episode.episode_type === 're_exposure') return 'Re-exposure';
+  if (episode.episode_type === 'pending_assessment') return 'Awaiting assessment';
+  return 'Primary exposure';
+}
+
+function EpisodeHistoryTab({
+  patientId,
+  currentBiteId,
+  onOpenEpisode,
+}: {
+  patientId?: number;
+  currentBiteId?: number | null;
+  onOpenEpisode: (episode: EpisodeSummary, form: 'form2' | 'form3') => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [episodes, setEpisodes] = useState<EpisodeSummary[]>([]);
+
+  useEffect(() => {
+    if (!patientId) return;
+    setLoading(true);
+    api.get(`/cases/patient/${patientId}/episodes`)
+      .then((response) => setEpisodes(response.data?.episodes || []))
+      .catch((err) => console.error('Failed to load episode history:', err))
+      .finally(() => setLoading(false));
+  }, [patientId]);
+
+  if (loading) {
+    return <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /><Typography sx={{ mt: 1, fontSize: 13, color: '#6b7280' }}>Loading episode history…</Typography></Box>;
+  }
+
+  if (!episodes.length) {
+    return <Box sx={{ textAlign: 'center', py: 6, color: '#6b7280' }}><HugeiconsIcon icon={Clock01Icon} size={36} strokeWidth={1.5} /><Typography sx={{ mt: 1, fontSize: 13, fontWeight: 500 }}>No previous episodes are on file.</Typography></Box>;
+  }
+
+  return (
+    <Box>
+      <Box sx={{ mb: 2.25 }}>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Episode history</Typography>
+        <Typography sx={{ mt: 0.35, fontSize: 12.5, color: '#64748b' }}>
+          Select an episode to review its original Form 2 or Form 3 layout. Historical records are read-only.
+        </Typography>
+      </Box>
+      <Stack spacing={1.25}>
+        {episodes.map((episode) => {
+          const isCurrent = Number(episode.bite_id) === Number(currentBiteId);
+          const records = episode.treatment_records || episode.treatmentRecords || [];
+          const completedDoses = records.filter((record: any) => record.dose_number !== null && record.dose_number !== undefined && record.status === 'completed').length;
+          const plan = episode.treatment_plan || episode.treatmentPlan;
+          return (
+            <Paper key={episode.bite_id} elevation={0} sx={{ p: 2, border: isCurrent ? '1.5px solid #6ee7b7' : '1px solid #e2e8f0', borderRadius: 2.5, bgcolor: isCurrent ? '#f0fdf4' : '#fff' }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a' }}>Episode #{episode.episode_number || '—'}</Typography>
+                    <Chip label={isCurrent ? 'Current episode' : (episode.status || 'recorded')} size="small" color={isCurrent ? 'success' : 'default'} sx={{ height: 20, fontSize: 10.5, fontWeight: 700 }} />
+                  </Box>
+                  <Typography sx={{ mt: 0.55, fontSize: 12, color: '#475569' }}>
+                    {episodeLabel(episode)} · Bite date: {episode.bite_date || 'Not recorded'}
+                  </Typography>
+                  <Typography sx={{ mt: 0.35, fontSize: 11.5, color: '#64748b' }}>
+                    {plan?.plan_type ? `Plan: ${plan.plan_type.replaceAll('_', ' ')}` : 'Treatment plan not recorded'} · {completedDoses} completed dose{completedDoses === 1 ? '' : 's'}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form2')} sx={{ textTransform: 'none', fontWeight: 700 }}>View Form 2</Button>
+                  <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form3')} sx={{ textTransform: 'none', fontWeight: 700 }}>View Form 3</Button>
+                </Box>
+              </Box>
+            </Paper>
+          );
+        })}
+      </Stack>
+    </Box>
+  );
+}
+
 // ─── Main Modal Component ──────────────────────────────────────────────────
 export default function QueuePatientDetailModal({
   open,
@@ -467,6 +574,7 @@ export default function QueuePatientDetailModal({
 
   const [userRole] = useState<string>(() => getStoredUserRole());
   const [activeTab, setActiveTab] = useState(() => getDefaultTabForRole(getStoredUserRole()));
+  const [historicalEpisode, setHistoricalEpisode] = useState<EpisodeSummary | null>(null);
 
   useEffect(() => {
     if (entry?.visit_type) {
@@ -475,6 +583,10 @@ export default function QueuePatientDetailModal({
       }
     }
   }, [entry?.visit_type]);
+
+  useEffect(() => {
+    setHistoricalEpisode(null);
+  }, [queueId]);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -560,6 +672,31 @@ export default function QueuePatientDetailModal({
   const renderTabContent = () => {
     if (!entry) return null;
 
+    const formEntry = historicalEpisode
+      ? {
+          ...entry,
+          bite_id: historicalEpisode.bite_id,
+          incident: historicalEpisode,
+          bite_incident: historicalEpisode,
+          biteIncident: historicalEpisode,
+        }
+      : entry;
+
+    const episodeContext = historicalEpisode ? (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, mb: 2, px: 2, py: 1.25, border: '1px solid #fde68a', borderRadius: 2, bgcolor: '#fffbeb' }}>
+        <Box>
+          <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#92400e' }}>Viewing Episode #{historicalEpisode.episode_number || '—'} · historical record</Typography>
+          <Typography sx={{ mt: 0.2, fontSize: 11.5, color: '#a16207' }}>This is the original form layout. It cannot be edited from history.</Typography>
+        </Box>
+        <Button size="small" onClick={() => setHistoricalEpisode(null)} sx={{ textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}>Return to current episode</Button>
+      </Box>
+    ) : (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 2, px: 2, py: 1.15, border: '1px solid #bbf7d0', borderRadius: 2, bgcolor: '#f0fdf4' }}>
+        <Box><Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#166534' }}>Current episode · {(formEntry as any).incident?.episode_type === 're_exposure' ? 'Re-exposure' : 'Active assessment'}</Typography><Typography sx={{ fontSize: 11.5, color: '#15803d' }}>Save here only records this episode.</Typography></Box>
+        <Button size="small" onClick={() => setActiveTab('history')} sx={{ textTransform: 'none', fontWeight: 700, color: '#047857', whiteSpace: 'nowrap' }}>View previous episodes</Button>
+      </Box>
+    );
+
     switch (activeTab) {
       case 'form1': {
         const editable = canEdit(userRole, 'registration');
@@ -571,12 +708,13 @@ export default function QueuePatientDetailModal({
         );
       }
       case 'form2': {
-        const editable = canEdit(userRole, 'triage');
+        const editable = !historicalEpisode && canEdit(userRole, 'triage');
         return (
           <Box sx={{ p: 2.5 }}>
+            {episodeContext}
             <GeneralTreatmentForm
               open={true}
-              entry={entry}
+              entry={formEntry}
               onClose={onClose}
               onSave={() => {
                 toast('Form 2 saved successfully · Patient referred to Treatment');
@@ -591,19 +729,21 @@ export default function QueuePatientDetailModal({
         );
       }
       case 'form3': {
-        const editable = canEdit(userRole, 'treatment');
-        const isNewCaseAwaitingTriage = entry.visit_type === 'new_case' && !entry.consultation_notes?.includes('Form 2');
-        const isBoosterRequest = entry.check_in_notes?.toLowerCase().includes('booster request');
+        const editable = !historicalEpisode && canEdit(userRole, 'treatment');
+        const isNewCaseAwaitingTriage = !historicalEpisode && entry.visit_type === 'new_case' && !entry.consultation_notes?.includes('Form 2');
+        const isBoosterRequest = !historicalEpisode && entry.check_in_notes?.toLowerCase().includes('booster request');
+        const isReExposure = !historicalEpisode && isReExposureAssessment(entry);
         return (
           <Box sx={{ p: 2.5 }}>
+            {episodeContext}
             {isNewCaseAwaitingTriage ? (
-              <AwaitingTriageBanner isBoosterRequest={isBoosterRequest} />
+              <AwaitingTriageBanner isBoosterRequest={isBoosterRequest} isReExposure={isReExposure} />
             ) : !editable ? (
               <ReadOnlyBanner />
             ) : null}
             <VaccinationRecordForm
               open={true}
-              entry={entry}
+              entry={formEntry}
               onClose={onClose}
               onSave={() => {
                 toast('Vaccination record saved successfully · Queue ticket completed');
@@ -619,7 +759,14 @@ export default function QueuePatientDetailModal({
       case 'history': {
         return (
           <Box sx={{ p: 2.5 }}>
-            <PatientConsultationHistoryTab patientId={entry.patient?.patient_id} />
+            <EpisodeHistoryTab
+              patientId={entry.patient?.patient_id}
+              currentBiteId={(entry as any).bite_id || (entry as any).incident?.bite_id || entry.biteIncident?.bite_id}
+              onOpenEpisode={(episode, form) => {
+                setHistoricalEpisode(episode);
+                setActiveTab(form);
+              }}
+            />
           </Box>
         );
       }

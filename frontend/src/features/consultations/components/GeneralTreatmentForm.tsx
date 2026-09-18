@@ -1151,8 +1151,41 @@ export default function GeneralTreatmentForm({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Blood Pressure</label>
-            <input type="text" value={formData.blood_pressure} onChange={handleFieldChange('blood_pressure')} placeholder="120/80" disabled={isFormDisabled}
-              style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, backgroundColor: isFormDisabled ? '#f9fafb' : undefined }} />
+            {/* Split systolic / diastolic input — stores as "120/80" */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden', backgroundColor: isFormDisabled ? '#f9fafb' : '#fff' }}>
+              <input
+                type="number"
+                min={0}
+                max={300}
+                value={formData.blood_pressure.split('/')[0] ?? ''}
+                onChange={e => {
+                  const sys = e.target.value;
+                  const dia = formData.blood_pressure.split('/')[1] ?? '';
+                  const synth = { target: { value: `${sys}/${dia}` } } as React.ChangeEvent<HTMLInputElement>;
+                  handleFieldChange('blood_pressure')(synth);
+                }}
+                placeholder="120"
+                disabled={isFormDisabled}
+                style={{ width: '45%', padding: '8px 10px', border: 'none', outline: 'none', fontSize: 13, backgroundColor: 'transparent', textAlign: 'center', MozAppearance: 'textfield' }}
+              />
+              <span style={{ fontSize: 16, fontWeight: 700, color: '#6b7280', flexShrink: 0, userSelect: 'none' }}>/</span>
+              <input
+                type="number"
+                min={0}
+                max={200}
+                value={formData.blood_pressure.split('/')[1] ?? ''}
+                onChange={e => {
+                  const dia = e.target.value;
+                  const sys = formData.blood_pressure.split('/')[0] ?? '';
+                  const synth = { target: { value: `${sys}/${dia}` } } as React.ChangeEvent<HTMLInputElement>;
+                  handleFieldChange('blood_pressure')(synth);
+                }}
+                placeholder="80"
+                disabled={isFormDisabled}
+                style={{ width: '45%', padding: '8px 10px', border: 'none', outline: 'none', fontSize: 13, backgroundColor: 'transparent', textAlign: 'center', MozAppearance: 'textfield' }}
+              />
+            </div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>Systolic / Diastolic (mmHg)</div>
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Temperature (°C)</label>

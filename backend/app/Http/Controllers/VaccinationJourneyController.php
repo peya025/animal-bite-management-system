@@ -31,7 +31,7 @@ class VaccinationJourneyController extends Controller
         $today = Carbon::today();
 
         $query = Patient::with([
-            'biteIncidents',
+            'biteIncidents.treatmentPlan',
             'treatmentRecords.administeredBy',
             'appointments' => function ($q) {
                 $q->orderBy('scheduled_date', 'asc')->orderBy('appointment_date', 'asc');
@@ -77,34 +77,52 @@ class VaccinationJourneyController extends Controller
             if ($channelFilter === 'walk_in' && $isOnline) continue;
             if ($channelFilter === 'online' && !$isOnline) continue;
 
-            $treatmentRecords = $p->treatmentRecords->keyBy('dose_number');
+            $allTreatmentRecords = $p->treatmentRecords->whereNotNull('dose_number');
             $appointments = $p->appointments;
-            $biteIncident = $p->biteIncidents->first();
 
-            // Build standard PEP Doses list (Day 0, Day 3, Day 7 - DOH NRPCP 3-Dose Regimen)
+            // Separate primary episode and re-exposure episodes
+            $primaryIncident = $p->biteIncidents->firstWhere('episode_number', 1) 
+                ?? $p->biteIncidents->firstWhere('episode_type', 'primary') 
+                ?? $p->biteIncidents->first();
+
+            $reExposureIncidents = $p->biteIncidents->filter(function ($b) use ($primaryIncident) {
+                if ($b->episode_type === 're_exposure' || (int) $b->episode_number > 1) return true;
+                if ($primaryIncident && $b->bite_id !== $primaryIncident->bite_id) return true;
+                return false;
+            })->sortBy('episode_number');
+
+            $primaryRecords = $allTreatmentRecords->filter(function ($r) use ($primaryIncident) {
+                if ($primaryIncident && $r->bite_id) {
+                    return $r->bite_id === $primaryIncident->bite_id;
+                }
+                return true; // legacy record with null bite_id belongs to primary
+            })->keyBy('dose_number');
+
             $standardDoses = [0, 3, 7];
             $dosesMatrix = [];
-            $hasAnyDose = $treatmentRecords->isNotEmpty();
-            $hasForm2 = (bool) $biteIncident;
+            $hasAnyDose = $allTreatmentRecords->isNotEmpty();
+            $hasForm2 = (bool) $primaryIncident;
 
             $patientStatus = 'on_track';
             $nextAppt = null;
-            $maxDoseDone = -1;
+            $maxPrimaryDoseDone = -1;
 
+            // 1. Primary PEP Doses (Day 0, Day 3, Day 7)
             foreach ($standardDoses as $doseNum) {
-                $record = $treatmentRecords->get($doseNum);
-                $appt = $appointments->first(fn($a) => $a->dose_number === $doseNum);
+                $record = $primaryRecords->get($doseNum);
+                $appt = $appointments->first(fn($a) => $a->dose_number === $doseNum && (!$a->bite_id || ($primaryIncident && $a->bite_id === $primaryIncident->bite_id)));
 
-                if ($record) {
-                    $maxDoseDone = max($maxDoseDone, $doseNum);
+                if ($record && ($record->status === 'completed' || $record->treatment_date)) {
+                    $maxPrimaryDoseDone = max($maxPrimaryDoseDone, $doseNum);
                     $dosesMatrix[] = [
                         'dose_number' => $doseNum,
                         'label' => $doseNum === 0 ? 'Day 0 (Initial)' : "Day {$doseNum}",
                         'status' => 'completed',
-                        'administered_date' => $record->date_administered ? Carbon::parse($record->date_administered)->format('Y-m-d') : null,
+                        'is_booster' => false,
+                        'administered_date' => $record->treatment_date ? Carbon::parse($record->treatment_date)->format('Y-m-d') : ($record->date_administered ? Carbon::parse($record->date_administered)->format('Y-m-d') : null),
                         'vaccine_brand' => $record->vaccine_brand,
                         'route' => $record->route,
-                        'site' => $record->anatomical_site,
+                        'site' => $record->anatomical_site ?? $record->injection_site,
                         'administered_by' => $record->administeredBy ? $record->administeredBy->name : 'Staff Nurse',
                     ];
                 } elseif ($appt) {
@@ -142,6 +160,7 @@ class VaccinationJourneyController extends Controller
                         'dose_number' => $doseNum,
                         'label' => $doseNum === 0 ? 'Day 0 (Initial)' : "Day {$doseNum}",
                         'status' => $doseStatus,
+                        'is_booster' => false,
                         'scheduled_date' => $apptDate->format('Y-m-d'),
                         'appointment_id' => $appt->appointment_id,
                         'reminder_sent_count' => $appt->reminder_sent_count ?? 0,
@@ -152,23 +171,112 @@ class VaccinationJourneyController extends Controller
                         'dose_number' => $doseNum,
                         'label' => $doseNum === 0 ? 'Day 0 (Initial)' : "Day {$doseNum}",
                         'status' => 'pending',
+                        'is_booster' => false,
                     ];
                 }
+            }
+
+            // 2. Booster / Re-Exposure Doses
+            $hasBoosterRecord = false;
+            $hasBoosterDueOrMissed = false;
+            $processedTreatmentIds = [];
+
+            // If there is an active/past re-exposure incident
+            foreach ($reExposureIncidents as $reIncident) {
+                $plan = $reIncident->treatmentPlan;
+                $incidentRecords = $allTreatmentRecords->where('bite_id', $reIncident->bite_id);
+                $orderedDays = $plan?->ordered_dose_days ?? [0];
+
+                foreach ($orderedDays as $idx => $dayOffset) {
+                    $rec = $incidentRecords->firstWhere('dose_number', $dayOffset);
+                    $boosterLabel = count($orderedDays) > 1 
+                        ? ($dayOffset === 0 ? 'Booster (Day 0)' : "Booster (Day {$dayOffset})")
+                        : 'Booster (Day 0)';
+                    $boosterDoseNumber = 100 + $idx;
+
+                    if ($rec && ($rec->status === 'completed' || $rec->treatment_date)) {
+                        $hasBoosterRecord = true;
+                        $processedTreatmentIds[] = $rec->treatment_id;
+                        $dosesMatrix[] = [
+                            'treatment_id' => $rec->treatment_id,
+                            'dose_number' => $boosterDoseNumber,
+                            'label' => $boosterLabel,
+                            'status' => 'completed',
+                            'is_booster' => true,
+                            'episode_number' => $reIncident->episode_number,
+                            'administered_date' => $rec->treatment_date ? Carbon::parse($rec->treatment_date)->format('Y-m-d') : null,
+                            'vaccine_brand' => $rec->vaccine_brand,
+                            'route' => $rec->route,
+                            'site' => $rec->anatomical_site ?? $rec->injection_site,
+                            'administered_by' => $rec->administeredBy ? $rec->administeredBy->name : 'Staff Nurse',
+                        ];
+                    } else {
+                        // Check appointment
+                        $appt = $appointments->firstWhere('bite_id', $reIncident->bite_id);
+                        $apptDate = $appt ? Carbon::parse($appt->scheduled_date ?? $appt->appointment_date) : null;
+                        $isPast = $apptDate && $apptDate->lt($today) && $appt->status === 'scheduled';
+                        $isToday = $apptDate && $apptDate->isSameDay($today) && $appt->status === 'scheduled';
+
+                        $doseStatus = 'scheduled';
+                        if ($isPast) {
+                            $doseStatus = 'missed';
+                            $hasBoosterDueOrMissed = true;
+                        } elseif ($isToday) {
+                            $doseStatus = 'due_today';
+                            $hasBoosterDueOrMissed = true;
+                        }
+
+                        $dosesMatrix[] = [
+                            'dose_number' => $boosterDoseNumber,
+                            'label' => $boosterLabel,
+                            'status' => $doseStatus,
+                            'is_booster' => true,
+                            'episode_number' => $reIncident->episode_number,
+                            'scheduled_date' => $apptDate ? $apptDate->format('Y-m-d') : null,
+                            'appointment_id' => $appt?->appointment_id,
+                        ];
+                    }
+                }
+            }
+
+            // Also check for standalone booster records (e.g. dose 90 / 365) not linked to an incident
+            $unlinkedBoosters = $allTreatmentRecords->filter(function ($r) use ($primaryIncident, $processedTreatmentIds) {
+                if (in_array($r->treatment_id, $processedTreatmentIds)) return false;
+                if ($primaryIncident && $r->bite_id && $r->bite_id === $primaryIncident->bite_id) {
+                    return in_array((int)$r->dose_number, [90, 365, 100, 101]);
+                }
+                return in_array((int)$r->dose_number, [90, 365, 100, 101]);
+            });
+            foreach ($unlinkedBoosters as $bRec) {
+                $hasBoosterRecord = true;
+                $label = $bRec->dose_number === 90 ? 'Booster 1' : ($bRec->dose_number === 365 ? 'Booster 2' : 'Booster');
+                $dosesMatrix[] = [
+                    'treatment_id' => $bRec->treatment_id,
+                    'dose_number' => $bRec->dose_number,
+                    'label' => $label,
+                    'status' => $bRec->status === 'completed' ? 'completed' : 'scheduled',
+                    'is_booster' => true,
+                    'administered_date' => $bRec->treatment_date ? Carbon::parse($bRec->treatment_date)->format('Y-m-d') : null,
+                    'vaccine_brand' => $bRec->vaccine_brand,
+                    'route' => $bRec->route,
+                    'site' => $bRec->anatomical_site ?? $bRec->injection_site,
+                    'administered_by' => $bRec->administeredBy ? $bRec->administeredBy->name : 'Staff Nurse',
+                ];
             }
 
             // Determine overall patient compliance status
             if (!$hasForm2 && !$hasAnyDose) {
                 $patientStatus = 'awaiting_triage';
                 $kpi['awaiting_triage']++;
-            } elseif ($maxDoseDone >= 7) {
-                $patientStatus = 'completed';
-                $kpi['completed']++;
             } elseif ($nextAppt && $nextAppt['is_missed']) {
                 $patientStatus = 'overdue_missed';
                 $kpi['overdue_missed']++;
             } elseif ($nextAppt && $nextAppt['is_today']) {
                 $patientStatus = 'due_today';
                 $kpi['due_today']++;
+            } elseif ($maxPrimaryDoseDone >= 7 && !$hasBoosterDueOrMissed) {
+                $patientStatus = 'completed';
+                $kpi['completed']++;
             } else {
                 $patientStatus = 'on_track';
                 $kpi['on_track']++;
@@ -177,6 +285,8 @@ class VaccinationJourneyController extends Controller
             if ($statusFilter !== 'all' && $patientStatus !== $statusFilter) {
                 continue;
             }
+
+            $activeBite = $reExposureIncidents->last() ?? $primaryIncident;
 
             $matrix[] = [
                 'patient_id' => $p->patient_id,
@@ -188,13 +298,13 @@ class VaccinationJourneyController extends Controller
                 'email' => $p->email,
                 'channel' => $isOnline ? 'online' : 'walk_in',
                 'compliance_status' => $patientStatus,
-                'max_dose_done' => $maxDoseDone,
-                'bite_incident' => $biteIncident ? [
-                    'bite_id' => $biteIncident->bite_id,
-                    'bite_date' => $biteIncident->incident_date ? Carbon::parse($biteIncident->incident_date)->format('M j, Y') : null,
-                    'category' => $biteIncident->exposure_category ?? 'Category II',
-                    'animal_type' => $biteIncident->animal_type ?? 'Dog',
-                    'body_part' => $biteIncident->body_part ?? 'N/A',
+                'max_dose_done' => $maxPrimaryDoseDone,
+                'bite_incident' => $activeBite ? [
+                    'bite_id' => $activeBite->bite_id,
+                    'bite_date' => $activeBite->bite_date ? Carbon::parse($activeBite->bite_date)->format('M j, Y') : null,
+                    'category' => $activeBite->severity ? 'Category ' . ($activeBite->severity === 'severe' ? 'III' : ($activeBite->severity === 'minor' ? 'I' : 'II')) : 'Category II',
+                    'animal_type' => $activeBite->animal_type ?? 'Dog',
+                    'body_part' => $activeBite->site_number ?? 'N/A',
                 ] : null,
                 'doses' => $dosesMatrix,
                 'next_appointment' => $nextAppt,

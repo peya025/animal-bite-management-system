@@ -455,6 +455,18 @@ class VaccinationRecordController extends Controller
                     'doses' => 'The Doctor ordered one booster only. No follow-up dose may be recorded for this incident.',
                 ]);
             }
+            if ($planType === 'two_dose_booster') {
+                $hasInvalidBoosterDose = collect($request->doses)->contains(function ($dose) {
+                    return !empty($dose['date'])
+                        && !empty($dose['vaccine_type'])
+                        && !in_array($dose['period'] ?? '', ['Day 0', 'Day 3'], true);
+                });
+                if ($hasInvalidBoosterDose) {
+                    throw ValidationException::withMessages([
+                        'doses' => 'The Doctor ordered a 2-dose booster regimen (Day 0 and Day 3). Day 7 is not indicated.',
+                    ]);
+                }
+            }
 
             // This fallback is retained for historical records only. New episodes
             // have already resolved to an assessed bite ID above.

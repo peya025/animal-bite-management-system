@@ -51,20 +51,57 @@ class TagoloanTreatmentCardController extends Controller
 
         $clinic = Clinic::find($clinicId);
         $patient = Patient::with(['details'])->where('clinic_id', $clinicId)->findOrFail($patientId);
-        $latestBite = BiteIncident::where('clinic_id', $clinicId)->where('patient_id', $patientId)->orderBy('bite_date', 'desc')->first();
+        $requestedBiteId = $request->query('bite_id');
+        $latestBite = null;
+        if ($requestedBiteId) {
+            $latestBite = BiteIncident::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('bite_id', $requestedBiteId)
+                ->first();
+        }
+        if (!$latestBite) {
+            $latestBite = BiteIncident::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->orderBy('bite_date', 'desc')
+                ->latest('bite_id')
+                ->first();
+        }
+
         $latestIntake = BiteIncidentIntake::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest()->first();
         $treatmentRecords = TreatmentRecord::with('administeredBy')
             ->where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
+            ->when($latestBite, fn($q) => $q->where('bite_id', $latestBite->bite_id))
             ->orderBy('dose_number', 'asc')
             ->get();
-        $existingCard = TagoloanTreatmentCard::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest()->first();
-        $latestConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+
+        $existingCard = TagoloanTreatmentCard::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
-            ->whereNotNull('nature_of_visit')
-            ->orderBy('consultation_date', 'desc')
-            ->orderBy('consultation_time', 'desc')
+            ->when($latestBite, fn($q) => $q->where('bite_id', $latestBite->bite_id))
+            ->latest()
             ->first();
+        if (!$existingCard) {
+            $existingCard = TagoloanTreatmentCard::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest()->first();
+        }
+
+        $latestConsultation = null;
+        if ($latestBite) {
+            $latestConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('bite_id', $latestBite->bite_id)
+                ->whereNotNull('nature_of_visit')
+                ->orderBy('consultation_date', 'desc')
+                ->orderBy('consultation_time', 'desc')
+                ->first();
+        }
+        if (!$latestConsultation) {
+            $latestConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->whereNotNull('nature_of_visit')
+                ->orderBy('consultation_date', 'desc')
+                ->orderBy('consultation_time', 'desc')
+                ->first();
+        }
 
         // Resolve incident details from bite incident or mobile intake fallback
         $biteData = null;
@@ -75,10 +112,17 @@ class TagoloanTreatmentCardController extends Controller
                 'bite_date' => $latestBite->bite_date ? Carbon::parse($latestBite->bite_date)->format('Y-m-d') : null,
                 'bite_place' => $latestBite->bite_place,
                 'animal_type' => $latestBite->animal_type,
+                'animal_status' => $latestBite->animal_status,
                 'animal_type_others' => null,
                 'referred_from' => $latestBite->referred_from,
-                'mode_of_exposure' => $latestIntake?->exposure_type,
-                'body_part_exposed' => $latestIntake?->body_part_exposed,
+                'mode_of_exposure' => $latestBite->exposure_type ?? $latestIntake?->exposure_type,
+                'exposure_type' => $latestBite->exposure_type,
+                'severity' => $latestBite->severity,
+                'site_washed' => $latestBite->site_washed,
+                'body_part_exposed' => $latestBite->body_part_exposed ?? $latestIntake?->body_part_exposed,
+                'wound_description' => $latestBite->wound_description,
+                'episode_number' => $latestBite->episode_number,
+                'episode_type' => $latestBite->episode_type,
             ];
         } elseif ($latestIntake) {
             $biteData = [
@@ -87,10 +131,17 @@ class TagoloanTreatmentCardController extends Controller
                 'bite_date' => $latestIntake->bite_date ? Carbon::parse($latestIntake->bite_date)->format('Y-m-d') : null,
                 'bite_place' => $latestIntake->bite_place,
                 'animal_type' => $latestIntake->animal_type,
+                'animal_status' => null,
                 'animal_type_others' => $latestIntake->animal_type_others,
                 'referred_from' => null,
                 'mode_of_exposure' => $latestIntake->exposure_type,
+                'exposure_type' => $latestIntake->exposure_type,
+                'severity' => null,
+                'site_washed' => null,
                 'body_part_exposed' => $latestIntake->body_part_exposed,
+                'wound_description' => null,
+                'episode_number' => 1,
+                'episode_type' => 'primary',
             ];
         }
 

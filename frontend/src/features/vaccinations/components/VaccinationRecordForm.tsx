@@ -419,6 +419,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [pastHistoryRecords, setPastHistoryRecords] = useState<ExistingVaccinationRecord[]>([]);
   // Doctor's prescribed vaccine from Form 2 — hard-locks nurse's vaccine dropdown
   const [prescribedVaccineType, setPrescribedVaccineType] = useState('');
+  const [latestConsultation, setLatestConsultation] = useState<any>(null);
+  const [showHistoricalPEP, setShowHistoricalPEP] = useState(false);
 
   const isPhilHealthMember = Boolean(
     entry?.patient?.philhealth_member === 'yes' ||
@@ -506,7 +508,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       const activeBiteId = entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id;
       const biteIdParam = activeBiteId ? `?bite_id=${activeBiteId}` : '';
       const [cardRes, apptRes, vacRes, incidentRes] = await Promise.all([
-        api.get(`/tagoloan-treatment-cards/patient/${patientId}`).catch(() => null),
+        api.get(`/tagoloan-treatment-cards/patient/${patientId}${biteIdParam}`).catch(() => null),
         api.get(`/appointments?patient_id=${patientId}&status=scheduled`).catch(() => null),
         api.get(`/vaccination-records/patient/${patientId}${biteIdParam}`).catch(() => null),
         activeBiteId ? api.get(`/cases/${activeBiteId}`).catch(() => null) : Promise.resolve(null),
@@ -517,9 +519,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       setPastHistoryRecords(vacRes?.data?.past_history_records || []);
 
       const bite = vacRes?.data?.active_bite_incident || cardRes?.data?.bite_incident || entry?.incident;
-      setDoctorPlanType(incidentRes?.data?.incident?.treatment_plan?.plan_type || '');
       const card = cardRes?.data?.existing_card;
       const consultation = cardRes?.data?.latest_consultation;
+      setLatestConsultation(consultation || null);
+      setDoctorPlanType(incidentRes?.data?.incident?.treatment_plan?.plan_type || consultation?.treatment_plan || bite?.treatment_plan?.plan_type || '');
       const appointments = apptRes?.data?.data || [];
       const records: ExistingVaccinationRecord[] = vacRes?.data?.vaccination_records || [];
 
@@ -1027,12 +1030,19 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   if (!entry) return null;
 
+  const isBoosterPlan = doctorPlanType === 'single_booster'
+    || doctorPlanType === 'two_dose_booster'
+    || currentIncident?.episode_type === 're_exposure'
+    || (currentIncident?.episode_number && Number(currentIncident.episode_number) > 1)
+    || manualReExposure;
   const isSingleBoosterPlan = doctorPlanType === 'single_booster';
   const orderedDosePeriods = doctorPlanType === 'single_booster'
     ? ['Day 0']
-    : doctorPlanType === 'full_pep'
-      ? ['Day 0', 'Day 3', 'Day 7']
-      : null;
+    : (doctorPlanType === 'two_dose_booster' || isBoosterPlan)
+      ? ['Day 0', 'Day 3']
+      : doctorPlanType === 'full_pep'
+        ? ['Day 0', 'Day 3', 'Day 7']
+        : null;
 
   const formContent = (
     <div style={{ padding: inline ? '0' : '24px 32px' }}>
@@ -1609,16 +1619,204 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
       </div>
 
+      {/* ── SEPARATE SECTION: DOCTOR FINDINGS & NEW BITE EXPOSURE SUMMARY (BOOSTER / RE-EXPOSURE) ── */}
+      {(isBoosterPlan || isReturningNewBite || (currentIncident?.episode_number && Number(currentIncident.episode_number) > 1)) && (
+        <div style={{ marginBottom: 28 }}>
+          {/* Card 1: Doctor Triage Findings & Clinical Orders */}
+          <div style={{
+            padding: '18px 20px',
+            borderRadius: 12,
+            border: '1.5px solid #bfdbfe',
+            background: 'linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%)',
+            marginBottom: 16,
+            boxShadow: '0 2px 8px rgba(30, 58, 138, 0.06)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid #dbeafe', paddingBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>🩺</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#1e40af' }}>
+                    Doctor Consultation &amp; Triage Findings (Form 2)
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#475569' }}>
+                    Clinical triage vitals and prescribed rabies vaccination regimen from the attending physician.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', backgroundColor: '#dbeafe', padding: '3px 9px', borderRadius: 12 }}>
+                  Dr. {latestConsultation?.attending_provider || latestConsultation?.provider_name || 'Attending Physician'}
+                </span>
+                <span style={{ fontSize: 11, color: '#64748b' }}>
+                  {latestConsultation?.consultation_date || formData.date}
+                </span>
+              </div>
+            </div>
+
+            {/* Vitals Highlights: Temperature & Blood Pressure */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14, padding: '12px 16px', borderRadius: 8, backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}>
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Body Temperature</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                  <strong style={{ fontSize: 15, color: '#1e293b' }}>
+                    {latestConsultation?.temperature ? `${latestConsultation.temperature} °C` : 'Not recorded'}
+                  </strong>
+                  {latestConsultation?.temperature && (
+                    parseFloat(latestConsultation.temperature) >= 38.0 ? (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b91c1c', background: '#fee2e2', padding: '1px 6px', borderRadius: 4 }}>High Fever</span>
+                    ) : parseFloat(latestConsultation.temperature) >= 37.5 ? (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>Low Grade</span>
+                    ) : (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '1px 6px', borderRadius: 4 }}>Afebrile</span>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Blood Pressure</span>
+                <strong style={{ fontSize: 15, color: '#1e293b', display: 'block', marginTop: 3 }}>
+                  {latestConsultation?.blood_pressure ? `${latestConsultation.blood_pressure} mmHg` : '—'}
+                </strong>
+              </div>
+
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Weight / Height</span>
+                <span style={{ fontSize: 13, color: '#334155', fontWeight: 600, display: 'block', marginTop: 4 }}>
+                  {latestConsultation?.weight ? `${latestConsultation.weight} kg` : '—'} · {latestConsultation?.height ? `${latestConsultation.height} cm` : '—'}
+                </span>
+              </div>
+
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Doctor Prescribed Regimen</span>
+                <span style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: '#4338ca',
+                  backgroundColor: '#e0e7ff',
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  display: 'inline-block',
+                  marginTop: 3
+                }}>
+                  {doctorPlanType === 'two_dose_booster'
+                    ? '🛡️ 2-Dose Booster (Day 0, 3)'
+                    : doctorPlanType === 'single_booster'
+                      ? '🛡️ 1-Dose Booster (Day 0)'
+                      : doctorPlanType === 'full_pep'
+                        ? 'Full PEP (Day 0, 3, 7)'
+                        : 'Re-Exposure Regimen'}
+                </span>
+              </div>
+            </div>
+
+            {/* Doctor Clinical Impression & Orders */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 14, fontSize: 12.5 }}>
+              <div style={{ padding: '10px 12px', borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <strong style={{ color: '#334155', display: 'block', marginBottom: 3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  Doctor Diagnosis / Clinical Impression:
+                </strong>
+                <span style={{ color: '#0f172a' }}>
+                  {latestConsultation?.diagnosis || 'Animal bite exposure, awaiting clinical impression.'}
+                </span>
+                {latestConsultation?.chief_complaints && (
+                  <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
+                    <em>Chief complaint:</em> {latestConsultation.chief_complaints}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ padding: '10px 12px', borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <strong style={{ color: '#334155', display: 'block', marginBottom: 3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  Prescribed PEP Vaccine Brand:
+                </strong>
+                <span style={{ fontWeight: 700, color: prescribedVaccineType ? '#15803d' : '#b45309' }}>
+                  {prescribedVaccineType ? `💉 ${prescribedVaccineType}` : '⚠️ Follow clinic standard vaccine'}
+                </span>
+                {latestConsultation?.medication_treatment && (
+                  <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
+                    <em>Orders:</em> {latestConsultation.medication_treatment}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: New Bite Incident & Exposure Details */}
+          <div style={{
+            padding: '16px 20px',
+            borderRadius: 12,
+            border: '1.5px solid #fed7aa',
+            background: '#fffaf5',
+            boxShadow: '0 2px 6px rgba(234, 88, 12, 0.05)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid #ffedd5', paddingBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 18 }}>⚠️</span>
+                <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  New Bite Exposure Details (Episode #{currentIncident?.episode_number || 2})
+                </h4>
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#9a3412', backgroundColor: '#ffedd5', padding: '2px 8px', borderRadius: 10 }}>
+                {currentIncident?.episode_type === 're_exposure' ? 'Re-Exposure Case' : 'New Animal Incident'}
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, fontSize: 12.5, color: '#334155' }}>
+              <div>
+                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>EXPOSURE DATE</span>
+                <strong>{formData.date_of_exposure || currentIncident?.bite_date || 'Not recorded'}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>INCIDENT LOCATION</span>
+                <strong>{formData.place_of_exposure || currentIncident?.bite_place || 'Misamis Oriental'}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>CATEGORY &amp; NATURE</span>
+                <strong>Category {formData.exposure_category || currentIncident?.severity || 'II'} · {currentIncident?.exposure_type || 'Bite'}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>ANIMAL INVOLVED</span>
+                <strong>
+                  {formData.animal_type ? formData.animal_type.toUpperCase() : (currentIncident?.animal_type ? currentIncident.animal_type.toUpperCase() : 'CANINE')}
+                  {currentIncident?.animal_status ? ` (${currentIncident.animal_status})` : ''}
+                </strong>
+              </div>
+            </div>
+
+            {(formData.body_part_affected_text || currentIncident?.body_part_exposed || currentIncident?.wound_description) && (
+              <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed #fed7aa', display: 'flex', gap: 16, fontSize: 12, color: '#431407' }}>
+                {(formData.body_part_affected_text || currentIncident?.body_part_exposed) && (
+                  <div>
+                    <strong>Anatomical Site:</strong> {formData.body_part_affected_text || currentIncident?.body_part_exposed}
+                  </div>
+                )}
+                {currentIncident?.wound_description && (
+                  <div>
+                    <strong>Wound Characteristics:</strong> {currentIncident.wound_description}
+                  </div>
+                )}
+                {currentIncident?.site_washed !== undefined && (
+                  <div>
+                    <strong>Washed:</strong> {currentIncident.site_washed ? 'Yes (Soap & Water)' : 'No'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* SECTION 3: VACCINATION RECORD */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
           <div>
-            <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              PERIOD EXPOSURE VACCINATION RECORD
+            <h3 style={{ color: isBoosterPlan ? '#7c3aed' : '#10b981', fontSize: 14, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {isBoosterPlan ? '🛡️ RE-EXPOSURE BOOSTER VACCINE ADMINISTRATION' : 'PERIOD EXPOSURE VACCINATION RECORD'}
             </h3>
             <span style={{ fontSize: 12, color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-              Automatic FIFO Stock Deduction on Save • Cross-Clinic Continuity Supported
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: isBoosterPlan ? '#7c3aed' : '#10b981' }}></span>
+              {isBoosterPlan ? 'Dedicated Episode Booster Table • Historical Records Archived Below' : 'Automatic FIFO Stock Deduction on Save • Cross-Clinic Continuity Supported'}
             </span>
           </div>
 
@@ -1669,10 +1867,45 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
         </div>
 
-        {isSingleBoosterPlan ? (
-          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 6, color: '#3730a3', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>🛡️</span>
-            <span><strong>One-Booster Plan</strong>: Doctor ordered <strong>Day 0 only</strong>. No Station 2 follow-up dose is scheduled.</span>
+        {isBoosterPlan ? (
+          <div style={{
+            marginBottom: 16,
+            padding: '12px 16px',
+            backgroundColor: '#f5f3ff',
+            border: '1.5px solid #c4b5fd',
+            borderRadius: 8,
+            color: '#4c1d95',
+            fontSize: 13,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>🛡️</span>
+              <div>
+                <div style={{ fontWeight: 700 }}>
+                  {doctorPlanType === 'single_booster' ? 'Single-Dose Booster Regimen' : 'Two-Dose Booster Regimen (Day 0 & Day 3)'}
+                </div>
+                <div style={{ fontSize: 12, color: '#5b21b6', marginTop: 1 }}>
+                  {doctorPlanType === 'single_booster'
+                    ? 'Doctor ordered Day 0 booster only. Administer dose below and complete consultation.'
+                    : 'Doctor ordered Day 0 and Day 3 boosters per re-exposure management guidelines.'}
+                </div>
+              </div>
+            </div>
+            <span style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: '#5b21b6',
+              background: '#ede9fe',
+              padding: '4px 10px',
+              borderRadius: 14,
+              border: '1px solid #ddd6fe'
+            }}>
+              Episode #{currentIncident?.episode_number || 2} Active
+            </span>
           </div>
         ) : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
           <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid var(--border-glow, #a7f3d0)', borderRadius: 6, color: 'var(--text-h, #065f46)', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1783,7 +2016,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           {isCompleted && <span style={{ color: '#16a34a', fontSize: 14 }}>✓</span>}
                           {isPrerequisiteLocked && <span style={{ color: '#f59e0b', fontSize: 13 }}>🔒</span>}
-                          <span>{dose.period}</span>
+                          <span>{isBoosterPlan ? (dose.period === 'Day 0' ? 'Booster (Day 0)' : dose.period === 'Day 3' ? 'Booster (Day 3)' : dose.period) : dose.period}</span>
                           {isActiveFollowUp && (
                             <span style={{
                               fontSize: 10,
@@ -2290,6 +2523,80 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             </div>
           )}
         </div>
+
+        {/* ── Collapsible Prior Immunization History (Read Only) ── */}
+        {pastHistoryRecords.length > 0 && isBoosterPlan && (
+          <div style={{ marginTop: 20, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+            <button
+              type="button"
+              onClick={() => setShowHistoricalPEP(prev => !prev)}
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                background: '#f8fafc',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 16 }}>📁</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>
+                  Historical Primary PEP Immunization Course (Episode 1: {pastHistoryRecords.filter(r => r.status === 'completed').length} Completed Doses)
+                </span>
+              </div>
+              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                {showHistoricalPEP ? '▲ Hide Historical Records' : '▼ View Historical PEP Record'}
+              </span>
+            </button>
+
+            {showHistoricalPEP && (
+              <div style={{ padding: '12px 16px', background: '#ffffff', borderTop: '1px solid #e2e8f0' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Dose Period</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Date Administered</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Vaccine Brand</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Batch No.</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Administered By</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'center', color: '#475569' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pastHistoryRecords.map((r, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '8px 10px', fontWeight: 600, color: '#1e293b' }}>
+                          Day {r.dose_number}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#475569' }}>
+                          {r.treatment_date || '—'}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#475569' }}>
+                          {r.vaccine_brand || 'ARV'}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#475569' }}>
+                          {r.batch_no || '—'}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#475569' }}>
+                          {(typeof r.administered_by === 'object' && r.administered_by?.name) ? r.administered_by.name : (r.administeredBy?.name || 'Staff')}
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '1px 8px', borderRadius: 10 }}>
+                            Completed ✓
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* SECTION 4: ADDITIONAL MEDICATIONS & ICD CODE */}

@@ -74,7 +74,7 @@ function getDefaultTabForRole(userRole: string, visitType?: string): string {
   return 'form1';
 }
 
-function AwaitingTriageBanner() {
+function AwaitingTriageBanner({ isBoosterRequest = false }: { isBoosterRequest?: boolean }) {
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1.5,
@@ -87,10 +87,12 @@ function AwaitingTriageBanner() {
       <LockIcon sx={{ fontSize: 18, color: '#d97706', flexShrink: 0 }} />
       <Box>
         <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#92400e', mb: 0.25 }}>
-          Awaiting Doctor Triage (Form 2 Required)
+          {isBoosterRequest ? 'Booster Request — Doctor Assessment Required' : 'Awaiting Doctor Triage (Form 2 Required)'}
         </Typography>
         <Typography sx={{ fontSize: 12, color: '#b45309' }}>
-          This is a new bite case. The physician must complete the Form 2 clinical assessment and exposure grading before initial Dose 1 (Day 0) can be recorded.
+          {isBoosterRequest
+            ? 'Record the new booster request and complete Form 2. Only after the Doctor approves treatment may Dose 1 be sent to Station 1.'
+            : 'This is a new bite case. The physician must complete the Form 2 clinical assessment and exposure grading before initial Dose 1 (Day 0) can be recorded.'}
         </Typography>
       </Box>
     </Box>
@@ -591,10 +593,11 @@ export default function QueuePatientDetailModal({
       case 'form3': {
         const editable = canEdit(userRole, 'treatment');
         const isNewCaseAwaitingTriage = entry.visit_type === 'new_case' && !entry.consultation_notes?.includes('Form 2');
+        const isBoosterRequest = entry.check_in_notes?.toLowerCase().includes('booster request');
         return (
           <Box sx={{ p: 2.5 }}>
             {isNewCaseAwaitingTriage ? (
-              <AwaitingTriageBanner />
+              <AwaitingTriageBanner isBoosterRequest={isBoosterRequest} />
             ) : !editable ? (
               <ReadOnlyBanner />
             ) : null}

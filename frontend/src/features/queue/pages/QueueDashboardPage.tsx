@@ -66,7 +66,6 @@ const isFollowUpStationEntry = (entry: QueueEntry) => {
   const stationName = entry.station?.name?.toLowerCase() ?? '';
   // Station assignment is authoritative once a patient reaches treatment.
   return entry.visit_type === 'follow_up'
-    || entry.visit_type === 'booster'
     || stationName.includes('follow-up')
     || stationName.includes('follow up')
     || stationName.includes('station 2');

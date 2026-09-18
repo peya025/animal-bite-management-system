@@ -38,6 +38,16 @@ import { AppLayout } from './shared/components/layout/AppLayout';
 import { SimpleDashboardPage } from './features/dashboard/pages/SimpleDashboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Unauthorized from './pages/Unauthorized';
+import { NotFoundPage } from './components/404';
+import { useAuth } from './shared/contexts/AuthContext';
+
+function RegistrationRedirect() {
+  const { user, isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role === 'treatment') return <Navigate to="/nurse/patients" replace />;
+  if (user?.role === 'triage') return <Navigate to="/doctor/patients" replace />;
+  return <Navigate to="/patients" replace />;
+}
 
 function App() {
   return (
@@ -61,6 +71,8 @@ function App() {
           
           {/* Authenticated Application Routes */}
           <Route path="/patients" element={<ProtectedRoute allowedRoles={['registration', 'admin', 'developer']}><AppLayout title="Patient Registration"><PatientList /></AppLayout></ProtectedRoute>} />
+          <Route path="/registration" element={<RegistrationRedirect />} />
+          <Route path="/patient-registration" element={<RegistrationRedirect />} />
           <Route path="/patient-registry" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Patient Registry"><PatientList readOnly /></AppLayout></ProtectedRoute>} />
           <Route path="/nurse/patients" element={<ProtectedRoute allowedRoles={['treatment', 'admin', 'developer']}><AppLayout title="Station 2 · Follow-up Doses"><NursePatientList /></AppLayout></ProtectedRoute>} />
           <Route path="/doctor/patients" element={<ProtectedRoute allowedRoles={['triage', 'admin', 'developer']}><AppLayout title="Patients List"><DoctorPatientList /></AppLayout></ProtectedRoute>} />
@@ -90,6 +102,9 @@ function App() {
           <Route path="/setup/schedule" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Operating Schedule"><ClinicOperatingSchedulePage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/modules" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Module Configuration"><ModuleConfigPage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/staff-assignments" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Staff Assignments"><StaffAssignmentPage /></AppLayout></ProtectedRoute>} />
+          
+          {/* Catch-all 404 handler for unknown routes */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </AppStyleScope>

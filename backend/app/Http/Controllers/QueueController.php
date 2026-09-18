@@ -568,7 +568,7 @@ class QueueController extends Controller
             $serviceSeconds = $servedAt ? now()->diffInSeconds($servedAt) : null;
 
             $isTriageTransfer = in_array($request->user()->role, ['triage', 'doctor', 'admin'])
-                && in_array($queue->visit_type, ['new_case', 'follow_up', 'observation', 'consultation']);
+                && in_array($queue->visit_type, ['new_case', 'follow_up', 'observation', 'consultation', 'booster']);
 
             if ($isTriageTransfer) {
                 $transferNotes = collect([
@@ -763,18 +763,20 @@ class QueueController extends Controller
                 $visitType = 'vaccination';
             }
 
-            // Real-time Sync (Task 16.2): If patient has a scheduled booster appointment today, tag visit_type as booster
-            $hasBoosterToday = \App\Models\Appointment::where('patient_id', $request->patient_id)
-                ->where('status', 'scheduled')
-                ->where('appointment_type', 'booster')
-                ->where(function ($q) use ($todayDate) {
-                    $q->whereDate('scheduled_date', $todayDate)
-                      ->orWhereDate('appointment_date', $todayDate);
-                })
-                ->exists();
-
-            if ($hasBoosterToday) {
-                $visitType = 'booster';
+            // A booster request is a new clinical assessment, not a direct nurse
+            // appointment. Keep it in the Doctor queue until Form 2 approves the
+            // treatment; the approval transfer will then route its Day 0 dose to
+            // Station 1 just like any other newly assessed episode.
+            $isBoosterRequest = $visitType === 'booster';
+            if ($isBoosterRequest) {
+                $visitType = 'new_case';
+            }
+            $checkInNotes = $request->check_in_notes;
+            if ($isBoosterRequest) {
+                $checkInNotes = trim(implode(' | ', array_filter([
+                    $checkInNotes,
+                    'Booster request: Doctor assessment and Form 2 approval required before treatment.',
+                ])));
             }
 
             $queue = Queue::create([
@@ -789,7 +791,7 @@ class QueueController extends Controller
                 'status'         => 'waiting',
                 'checked_in_at'  => now(),
                 'checked_in_by'  => $request->user()->id,
-                'check_in_notes' => $request->check_in_notes,
+                'check_in_notes' => $checkInNotes,
                 'call_count'     => 0,
             ]);
 

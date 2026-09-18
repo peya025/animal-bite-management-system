@@ -5,14 +5,17 @@ import './styles/global.css'
 import App from './App.tsx'
 import { AppThemeProvider } from './shared/contexts/ThemeContext'
 import { AuthProvider } from './shared/contexts/AuthContext'
+import ErrorBoundary from './components/ErrorBoundary'
 
 createRoot(document.getElementById('root')!).render(
   <AppThemeProvider>
     <CssBaseline />
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </AppThemeProvider>,
 )

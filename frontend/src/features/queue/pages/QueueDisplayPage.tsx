@@ -25,18 +25,21 @@ const VISIT_LABEL: Record<string, string> = {
   booster:     'Booster',
 };
 
-// Treatment station handles vaccinations, follow-ups, observations, and boosters; everything else goes to triage
-const TREATMENT_TYPES = new Set(['vaccination', 'follow_up', 'observation', 'booster']);
-
-function getStation(visitType: string): 'triage' | 'treatment' {
-  return TREATMENT_TYPES.has(visitType) ? 'treatment' : 'triage';
-}
+// A booster request remains with the Doctor until assessment approval. Only
+// treatment-ready vaccinations and scheduled follow-up doses appear on the
+// nursing side of the public display.
+const TREATMENT_TYPES = new Set(['vaccination', 'follow_up', 'observation']);
 
 function isFollowUpEntry(entry: QueueEntry): boolean {
   const stationName = (entry.station?.name || '').toLowerCase();
   if (stationName.includes('follow-up') || stationName.includes('station 2')) return true;
   if (stationName.includes('intake') || stationName.includes('station 1')) return false;
-  return entry.visit_type === 'follow_up' || entry.visit_type === 'booster';
+  return entry.visit_type === 'follow_up';
+}
+
+function getDisplayLane(entry: QueueEntry): 'triage' | 'station1' | 'station2' {
+  if (!TREATMENT_TYPES.has(entry.visit_type)) return 'triage';
+  return isFollowUpEntry(entry) ? 'station2' : 'station1';
 }
 
 function waitTime(checkedIn: string): string {
@@ -262,13 +265,14 @@ export default function QueueDisplayPage() {
       if (newlyCalled) { setLastCall(newlyCalled); playChime(); }
       prevCalledRef.current = nowCalled;
 
-      // Auto-call: for each station, if no one is active (called/serving/in_consultation)
+      // Auto-call independently for Doctor, Station 1, and Station 2. One busy
+      // nurse must never hold the other treatment station's queue.
       // and there's a waiting patient, call them automatically
-      for (const station of ['triage', 'treatment'] as const) {
-        const inConsult = entries.find(e => ACTIVE_STATUSES.includes(e.status) && getStation(e.visit_type) === station);
+      for (const lane of ['triage', 'station1', 'station2'] as const) {
+        const inConsult = entries.find(e => ACTIVE_STATUSES.includes(e.status) && getDisplayLane(e) === lane);
         if (inConsult) continue; // station already has an active patient
 
-        const nextWaiting = entries.find(e => e.status === 'waiting' && getStation(e.visit_type) === station);
+        const nextWaiting = entries.find(e => e.status === 'waiting' && getDisplayLane(e) === lane);
         if (!nextWaiting) continue; // nobody waiting
 
         // Skip if we're already mid-call for this entry (prevents duplicate POSTs across polls)
@@ -294,23 +298,23 @@ export default function QueueDisplayPage() {
   const ACTIVE = (s: string) => ['called', 'serving', 'in_consultation'].includes(s);
 
   // 1. Triage (Doctor)
-  const triageWaiting    = queue.filter(q => q.status === 'waiting' && getStation(q.visit_type) === 'triage');
-  const triageInConsult  = queue.find(q => ACTIVE(q.status) && getStation(q.visit_type) === 'triage') ?? null;
+  const triageWaiting    = queue.filter(q => q.status === 'waiting' && getDisplayLane(q) === 'triage');
+  const triageInConsult  = queue.find(q => ACTIVE(q.status) && getDisplayLane(q) === 'triage') ?? null;
   const triageCurrent    = triageInConsult ?? triageWaiting[0] ?? null;
   const triageNext       = triageInConsult ? (triageWaiting[0] ?? null) : (triageWaiting[1] ?? null);
 
   // 2. Treatment (Nurses): Divided into Station 1 (Intake) and Station 2 (Follow-up)
-  const treatmentEntries = queue.filter(q => getStation(q.visit_type) === 'treatment');
+  const treatmentEntries = queue.filter(q => getDisplayLane(q) !== 'triage');
   const treatmentWaiting = treatmentEntries.filter(q => q.status === 'waiting');
 
   // Station 1 — Intake
-  const st1Waiting   = treatmentWaiting.filter(q => !isFollowUpEntry(q));
-  const st1InConsult = treatmentEntries.find(q => ACTIVE(q.status) && !isFollowUpEntry(q)) ?? null;
+  const st1Waiting   = treatmentWaiting.filter(q => getDisplayLane(q) === 'station1');
+  const st1InConsult = treatmentEntries.find(q => ACTIVE(q.status) && getDisplayLane(q) === 'station1') ?? null;
   const st1Current   = st1InConsult ?? st1Waiting[0] ?? null;
 
   // Station 2 — Follow-up
-  const st2Waiting   = treatmentWaiting.filter(q => isFollowUpEntry(q));
-  const st2InConsult = treatmentEntries.find(q => ACTIVE(q.status) && isFollowUpEntry(q)) ?? null;
+  const st2Waiting   = treatmentWaiting.filter(q => getDisplayLane(q) === 'station2');
+  const st2InConsult = treatmentEntries.find(q => ACTIVE(q.status) && getDisplayLane(q) === 'station2') ?? null;
   const st2Current   = st2InConsult ?? st2Waiting[0] ?? null;
 
   const clinicName = (() => {
@@ -594,7 +598,7 @@ export default function QueueDisplayPage() {
             <SubStationCard
               stationNumber={1}
               title="STATION 1 · INTAKE"
-              subtitle="Day 0 Initial Dose & RIG"
+              subtitle="Approved Day 0 & Booster Dose 1"
               accentColor="#059669"
               accentDark="#064e3b"
               gradient="linear-gradient(145deg, #064e3b 0%, #059669 100%)"
@@ -606,10 +610,10 @@ export default function QueueDisplayPage() {
             <SubStationCard
               stationNumber={2}
               title="STATION 2 · FOLLOW-UP"
-              subtitle="Day 3, 7, 28 & Boosters"
-              accentColor="#0d9488"
-              accentDark="#134e4a"
-              gradient="linear-gradient(145deg, #134e4a 0%, #0d9488 100%)"
+              subtitle="Scheduled Day 3, 7 & Later Doses"
+              accentColor="#6366f1"
+              accentDark="#3730a3"
+              gradient="linear-gradient(145deg, #3730a3 0%, #6366f1 100%)"
               current={st2Current}
               blink={blink}
             />
@@ -654,7 +658,7 @@ export default function QueueDisplayPage() {
                       <span style={{
                         fontSize: 18,
                         fontWeight: 900,
-                        color: isFollowUp ? '#0d9488' : '#059669',
+                        color: isFollowUp ? '#6366f1' : '#059669',
                         fontVariantNumeric: 'tabular-nums',
                       }}>
                         #{padNum(e.queue_number)}
@@ -667,8 +671,8 @@ export default function QueueDisplayPage() {
                         fontWeight: 800,
                         padding: '2px 8px',
                         borderRadius: 6,
-                        background: isFollowUp ? '#ccfbf1' : '#d1fae5',
-                        color: isFollowUp ? '#134e4a' : '#064e3b',
+                        background: isFollowUp ? '#e0e7ff' : '#d1fae5',
+                        color: isFollowUp ? '#3730a3' : '#064e3b',
                       }}>
                         {isFollowUp ? 'Follow-up' : 'Intake'}
                       </span>
@@ -745,11 +749,11 @@ export default function QueueDisplayPage() {
             {lastCall.patient.name}
           </div>
           <div style={{ fontSize: 13, color: '#a7f3d0', fontWeight: 600, marginTop: 4 }}>
-            ➔ Please proceed to {getStation(lastCall.visit_type) === 'triage'
+            ➔ Please proceed to {getDisplayLane(lastCall) === 'triage'
               ? "Doctor's Room"
-              : isFollowUpEntry(lastCall)
-              ? "Treatment Station 2 (Follow-up)"
-              : "Treatment Station 1 (Intake)"}
+              : getDisplayLane(lastCall) === 'station2'
+                ? "Treatment Station 2 (Scheduled Follow-up)"
+                : "Treatment Station 1 (Day 0 Treatment)"}
           </div>
           <button
             onClick={() => setLastCall(null)}

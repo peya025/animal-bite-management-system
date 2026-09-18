@@ -515,14 +515,27 @@ export default function NursePatientListPage() {
         const activeQueue = (patient as any).queues?.[0];
         const appt = getNextAppointment(patient);
         const isBoosterAppt = appt?.appointment_type === 'booster' || appt?.notes?.toLowerCase()?.includes('booster');
+
+        // Defensive UI guard for old appointments that may still be returned by
+        // a saved filter: a booster must be registered and approved in Form 2,
+        // never checked in or recorded directly from Station 2.
+        if (isBoosterAppt) {
+          return (
+            <Tooltip title="Register the booster request, then wait for Doctor assessment and Form 2 approval.">
+              <Chip
+                label="Doctor assessment required"
+                size="small"
+                sx={{ fontSize: 10.5, fontWeight: 700, bgcolor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+              />
+            </Tooltip>
+          );
+        }
         const hasCompletedTriage = Boolean(
           patient.latest_treatment_record ||
           (patient as any).latestTreatmentRecord ||
           (patient as any).latest_consultation_record ||
           (patient as any).latestConsultationRecord ||
-          isBoosterAppt ||
           activeQueue?.visit_type === 'vaccination' ||
-          activeQueue?.visit_type === 'booster' ||
           activeQueue?.consultation_notes?.includes('Form 2')
         );
         const isCheckedIn = appt?.status === 'confirmed';

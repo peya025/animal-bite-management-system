@@ -237,23 +237,27 @@ export default function PatientList() {
       const today = new Date().toISOString().slice(0, 10);
       const isBoosterToday = (p as any).appointments?.some((a: any) => 
         a.status === 'scheduled' && 
-        a.appointment_type === 'booster' &&
+        (a.appointment_type === 'booster' || a.notes?.toLowerCase().includes('booster')) &&
         ((a.appointment_date && a.appointment_date.startsWith(today)) || (a.scheduled_date && a.scheduled_date.startsWith(today)))
       );
 
-      // If returning years later or starting a new bite case, always route to Doctor Triage (new_case)
+      // A booster request requires a fresh Doctor assessment. It is intentionally
+      // queued as a new clinical case, not sent straight to the treatment nurse.
       const isInitialVisit = isNewBiteCase || !isFollowUpWithinRegimen;
-      const visitType = isBoosterToday ? 'booster' : (isInitialVisit ? 'new_case' : 'vaccination');
+      const visitType = (isBoosterToday || isInitialVisit) ? 'new_case' : 'vaccination';
 
       const res = await api.post('/queue', {
         patient_id: patientId,
         visit_type: visitType,
         queue_category: 'regular',
         priority: 'normal',
+        check_in_notes: isBoosterToday
+          ? 'Booster request: Doctor assessment and Form 2 approval required before treatment.'
+          : undefined,
       });
 
-      const station = visitType === 'booster'
-        ? 'Treatment Queue (Booster Vaccination)'
+      const station = isBoosterToday
+        ? 'Triage Queue (Booster Request: Doctor Assessment)'
         : (isInitialVisit ? 'Triage Queue (Doctor Assessment)' : 'Treatment Queue (Vaccination Desk)');
       setCheckInModalData({
         patientName: fullName(p),

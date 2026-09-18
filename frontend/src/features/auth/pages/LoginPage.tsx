@@ -59,7 +59,7 @@ function resolveLandingRoute(user: any): string {
 
   // Legacy role fallbacks
   if (user.role === 'triage') return '/queue';
-  if (user.role === 'registration') return '/registration';
+  if (user.role === 'registration') return '/patients';
   if (user.role === 'treatment') return '/queue';
 
   return '/dashboard';

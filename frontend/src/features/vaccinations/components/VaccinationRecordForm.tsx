@@ -412,6 +412,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [inventorySetupMessage, setInventorySetupMessage] = useState('');
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [currentIncident, setCurrentIncident] = useState<any>(null);
+  const [doctorPlanType, setDoctorPlanType] = useState<string>('');
   const [existingRecordsData, setExistingRecordsData] = useState<ExistingVaccinationRecord[]>([]);
   const [isReturningNewBite, setIsReturningNewBite] = useState(false);
   const [manualReExposure, setManualReExposure] = useState(false); // 8.2: staff-flagged re-bite
@@ -455,6 +456,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       setDoses(createInitialDoses());
       setFifoErrors({});
       setError('');
+      setDoctorPlanType('');
 
       void loadInventoryOptions();
       void loadAllFormData();
@@ -501,12 +503,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     if (!patientId) return;
 
     try {
-      const activeBiteId = entry?.bite_id || entry?.incident?.bite_id;
+      const activeBiteId = entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id;
       const biteIdParam = activeBiteId ? `?bite_id=${activeBiteId}` : '';
-      const [cardRes, apptRes, vacRes] = await Promise.all([
+      const [cardRes, apptRes, vacRes, incidentRes] = await Promise.all([
         api.get(`/tagoloan-treatment-cards/patient/${patientId}`).catch(() => null),
         api.get(`/appointments?patient_id=${patientId}&status=scheduled`).catch(() => null),
         api.get(`/vaccination-records/patient/${patientId}${biteIdParam}`).catch(() => null),
+        activeBiteId ? api.get(`/cases/${activeBiteId}`).catch(() => null) : Promise.resolve(null),
       ]);
 
       const isReturning = Boolean(vacRes?.data?.is_returning_new_bite);
@@ -514,6 +517,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       setPastHistoryRecords(vacRes?.data?.past_history_records || []);
 
       const bite = vacRes?.data?.active_bite_incident || cardRes?.data?.bite_incident || entry?.incident;
+      setDoctorPlanType(incidentRes?.data?.incident?.treatment_plan?.plan_type || '');
       const card = cardRes?.data?.existing_card;
       const consultation = cardRes?.data?.latest_consultation;
       const appointments = apptRes?.data?.data || [];
@@ -976,13 +980,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       }
     }
 
-    // Validate that the administering nurse has a digital signature on file
-    const hasDoseToAdminister = filledDoses.some(d => !d.is_external && !d.inventory_linked);
-    if (hasDoseToAdminister && !currentUser?.signature_path && currentUser?.role !== 'developer') {
-      setError('Your digital signature is not yet on file. Please ask a clinic administrator to complete your staff profile with a digital signature before administering doses.');
-      return;
-    }
-
     setError('');
     setSaving(true);
 
@@ -1013,7 +1010,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           is_external: Boolean(d.is_external),
           external_facility_name: d.external_facility_name || null,
         })),
-        bite_id: currentIncident?.bite_id || entry?.bite_id || entry?.incident?.bite_id || null,
+        bite_id: currentIncident?.bite_id || entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id || null,
         episode_type: manualReExposure ? 're_exposure' : (currentIncident?.episode_type || entry?.incident?.episode_type || 'primary'),
         additional_meds: additionalMeds,
         icd_code: icdCode || null,
@@ -1029,6 +1026,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   if (!entry) return null;
+
+  const isSingleBoosterPlan = doctorPlanType === 'single_booster';
+  const orderedDosePeriods = doctorPlanType === 'single_booster'
+    ? ['Day 0']
+    : doctorPlanType === 'full_pep'
+      ? ['Day 0', 'Day 3', 'Day 7']
+      : null;
 
   const formContent = (
     <div style={{ padding: inline ? '0' : '24px 32px' }}>
@@ -1307,7 +1311,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           {/* ── Label row: "Place of Exposure" label + toggle button side by side ── */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Place of Exposure</label>
-            {!readOnly && (
+            {false && !readOnly && (
               <button
                 type="button"
                 onClick={() => expLoc.setUseManual(!expLoc.useManual)}
@@ -1665,10 +1669,15 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
         </div>
 
-        {(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
+        {isSingleBoosterPlan ? (
+          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 6, color: '#3730a3', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>🛡️</span>
+            <span><strong>One-Booster Plan</strong>: Doctor ordered <strong>Day 0 only</strong>. No Station 2 follow-up dose is scheduled.</span>
+          </div>
+        ) : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
           <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid var(--border-glow, #a7f3d0)', borderRadius: 6, color: 'var(--text-h, #065f46)', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>🛡️</span>
-            <span><strong>2-Dose Booster Regimen Active (Re-Exposure Protocol)</strong>: Patient is scheduled for <strong>Day 0 & Day 3 ONLY</strong>. Doses 7 & 28 are not required per DOH/WHO re-exposure guidelines.</span>
+            <span><strong>Legacy re-exposure record</strong>: This historical schedule predates the Doctor-plan workflow. Follow its documented order; all new exposures require a Doctor decision before any dose is recorded.</span>
           </div>
         )}
 
@@ -1717,11 +1726,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               </tr>
             </thead>
             <tbody>
-              {(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
+              {(orderedDosePeriods
+                ? doses.filter(d => orderedDosePeriods.includes(d.period))
+                : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
                 ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
                 : showFullSchedule
                   ? doses
-                  : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period))
+                  : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period)))
               ).map((dose, index) => {
                 const isFilled = Boolean(dose.date);
                 const isLinked = dose.inventory_linked;
@@ -1746,9 +1757,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
                 const isLocked = readOnly || isCompleted || isPrerequisiteLocked;
                 const hasFifoError = Boolean(fifoErrors[dose.period]);
-                const candidateList = manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
+                const candidateList = orderedDosePeriods
+                  ? doses.filter(d => orderedDosePeriods.includes(d.period))
+                  : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
                   ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
-                  : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period));
+                  : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period)));
                 const activeCandidateIdx = candidateList.findIndex(d => !d.is_completed && !d.inventory_linked && !PREREQ[d.period]?.includes(doses.find(x => x.period === PREREQ[d.period])?.is_completed === false ? 'no' : 'yes'));
                 const isActiveFollowUp = !readOnly && !isCompleted && !isPrerequisiteLocked && index === activeCandidateIdx;
                 const isActivelyRecording = !isCompleted && !isPrerequisiteLocked && (isActiveFollowUp || Boolean(dose.vaccine_type || dose.is_external));
@@ -2198,17 +2211,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                               gap: 4,
                               padding: '3px 8px',
                               borderRadius: 6,
-                              backgroundColor: '#fef2f2',
-                              border: '1px solid #fca5a5',
-                              color: '#dc2626',
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            color: '#475569',
                               fontSize: 10.5,
                               fontWeight: 600,
                               whiteSpace: 'nowrap',
                             }}
-                            title="No digital signature on file. Please configure your signature in staff profile."
+                            title="Digital signature is optional. Sign the printed record by hand if required by your clinic."
                           >
                             <span>⚠️</span>
-                            <span>No Sig</span>
+                            <span>Hand-sign printout</span>
                           </div>
                         )
                       ) : (
@@ -2255,7 +2268,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </table>
 
           {/* 8.1 — Expand / Collapse Day 28 + Booster rows (primary regimen only) */}
-          {!(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && !readOnly && (
+          {false && !orderedDosePeriods && !(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && !readOnly && (
             <div style={{ textAlign: 'center', marginTop: 10 }}>
               <button
                 type="button"

@@ -684,7 +684,7 @@ export default function NursePatientListPage() {
             Station 2 · Follow-up Doses
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
-            {today} · Indigo Station 2: manage due today, overdue follow-ups, online bookings, and booster vaccinations
+            {today} · Indigo Station 2: manage Doctor-prescribed scheduled follow-up doses due today, overdue, or upcoming
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

@@ -337,10 +337,10 @@ class VaccinationRecordController extends Controller
         ]);
 
         $actingUser = $request->user();
-        if (!$actingUser || !$actingUser->signature_path) {
+        if (!$actingUser) {
             return response()->json([
-                'message' => 'Your signature is not yet on file. Ask a clinic admin to complete your staff profile before administering doses.',
-            ], 422);
+                'message' => 'An authenticated staff account is required to record a vaccine administration.',
+            ], 401);
         }
 
         DB::beginTransaction();
@@ -350,7 +350,8 @@ class VaccinationRecordController extends Controller
             $biteId = $request->bite_id;
             $userId = $actingUser->id;
 
-            // Resolve or create active BiteIncident for this episode
+            // Treatment never creates a clinical episode. Day 0 starts at
+            // Registration and becomes treatment-ready only after Doctor assessment.
             if (!$biteId) {
                 $activeIncident = BiteIncident::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)
@@ -358,9 +359,106 @@ class VaccinationRecordController extends Controller
                     ->latest('bite_id')
                     ->first();
 
-                if ($activeIncident) {
-                    $biteId = $activeIncident->bite_id;
-                } else {
+                if (!$activeIncident) {
+                    // Compatibility bridge for a current treatment ticket that was
+                    // handed off by the older Form 2 workflow, before bite episodes
+                    // and Doctor plans were stored together. This is deliberately
+                    // limited to an existing Doctor handoff; it cannot authorize an
+                    // unassessed walk-in.
+                    $queue = !empty($request->queue_id)
+                        ? Queue::where('clinic_id', $clinicId)
+                            ->where('queue_id', $request->queue_id)
+                            ->where('patient_id', $patientId)
+                            ->first()
+                        : null;
+                    $hasDoctorHandoff = $queue
+                        && $queue->visit_type === 'vaccination'
+                        && str_contains((string) $queue->consultation_notes, 'Doctor completed Form 2');
+                    $legacyDoctorRecord = $hasDoctorHandoff
+                        ? TreatmentRecord::where('clinic_id', $clinicId)
+                            ->where('patient_id', $patientId)
+                            ->whereNull('dose_number')
+                            ->where('status', 'completed')
+                            ->whereNotNull('prescribed_vaccine_type')
+                            ->latest('treatment_id')
+                            ->first()
+                        : null;
+
+                    if ($legacyDoctorRecord) {
+                        $nextEpisodeNumber = (BiteIncident::where('clinic_id', $clinicId)
+                            ->where('patient_id', $patientId)
+                            ->max('episode_number') ?? 0) + 1;
+                        $legacyAssessmentDate = $legacyDoctorRecord->consultation_date
+                            ?? $legacyDoctorRecord->treatment_date
+                            ?? Carbon::today();
+
+                        $activeIncident = BiteIncident::create([
+                            'clinic_id'      => $clinicId,
+                            'patient_id'     => $patientId,
+                            'episode_number' => $nextEpisodeNumber,
+                            'episode_type'   => 'primary',
+                            'bite_date'      => Carbon::parse($legacyAssessmentDate)->toDateString(),
+                            'exposure_type'  => 'bite',
+                            'severity'       => 'moderate',
+                            'animal_status'  => 'unknown',
+                            'status'         => 'active',
+                            'remarks'        => 'Episode linked from an existing Doctor Form 2 handoff.',
+                            'created_by'     => $legacyDoctorRecord->administered_by ?? $userId,
+                        ]);
+
+                        \App\Models\TreatmentPlan::create([
+                            'clinic_id'             => $clinicId,
+                            'bite_id'                => $activeIncident->bite_id,
+                            'patient_id'             => $patientId,
+                            'plan_type'              => 'full_pep',
+                            'status'                 => 'approved',
+                            'ordered_dose_days'       => [0, 3, 7],
+                            'doctor_decision_notes'  => 'Migrated from Doctor Form 2 prescription: ' . $legacyDoctorRecord->prescribed_vaccine_type,
+                            'decided_by'              => $legacyDoctorRecord->administered_by,
+                            'decided_at'              => $legacyDoctorRecord->consultation_date ?? $legacyDoctorRecord->created_at ?? now(),
+                        ]);
+
+                        $queue->update(['bite_id' => $activeIncident->bite_id]);
+                    } else {
+                        throw ValidationException::withMessages([
+                            'bite_id' => 'No active Doctor-approved treatment episode was found. Register the exposure and complete Doctor assessment before Treatment.',
+                        ]);
+                    }
+                }
+
+                if ($activeIncident->isAwaitingAssessment()) {
+                    throw ValidationException::withMessages([
+                        'bite_id' => 'This exposure is awaiting Doctor assessment and cannot be treated yet.',
+                    ]);
+                }
+
+                $biteId = $activeIncident->bite_id;
+            }
+
+            $treatmentIncident = BiteIncident::where('clinic_id', $clinicId)->find($biteId);
+            if (!$treatmentIncident || $treatmentIncident->isAwaitingAssessment()) {
+                throw ValidationException::withMessages([
+                    'bite_id' => 'This exposure is awaiting Doctor assessment and cannot be treated yet.',
+                ]);
+            }
+
+            $planType = \App\Models\TreatmentPlan::where('clinic_id', $clinicId)
+                ->where('bite_id', $biteId)
+                ->value('plan_type');
+            $hasNonDayZeroDose = collect($request->doses)->contains(function ($dose) {
+                return !empty($dose['date'])
+                    && !empty($dose['vaccine_type'])
+                    && ($dose['period'] ?? '') !== 'Day 0';
+            });
+            if ($planType === 'single_booster' && $hasNonDayZeroDose) {
+                throw ValidationException::withMessages([
+                    'doses' => 'The Doctor ordered one booster only. No follow-up dose may be recorded for this incident.',
+                ]);
+            }
+
+            // This fallback is retained for historical records only. New episodes
+            // have already resolved to an assessed bite ID above.
+            if (!$biteId) {
                     $latestIncident = BiteIncident::where('clinic_id', $clinicId)
                         ->where('patient_id', $patientId)
                         ->latest('bite_id')
@@ -450,7 +548,6 @@ class VaccinationRecordController extends Controller
                         $biteId = $newIncident->bite_id;
                     }
                 }
-            }
 
             // Map period names to dose numbers
             $periodMapping = [
@@ -762,13 +859,21 @@ class VaccinationRecordController extends Controller
             $biteDate = $request->date_of_exposure ?: ($request->date_treatment_started ?: now()->toDateString());
             $animalType = $request->animal_type === 'other' ? ($request->animal_type_other ?: 'other') : ($request->animal_type ?: 'dog');
 
+            $planType = $incident
+                ? \App\Models\TreatmentPlan::where('clinic_id', $clinicId)
+                    ->where('bite_id', $incident->bite_id)
+                    ->value('plan_type')
+                : null;
             $isReExposure = ($incident && $incident->isReExposure()) || $request->episode_type === 're_exposure';
+            if ($planType === 'full_pep') {
+                $isReExposure = false;
+            }
             // Determine if incident regimen is complete:
             // For 2-Dose Booster (re-exposure): completed when Day 3 is administered
             // For Standard PEP (primary): completed when Day 7 (DOH 2-site ID standard) is administered
-            $isRegimenComplete = $isReExposure
-                ? in_array(3, $savedDoseNumbers)
-                : in_array(7, $savedDoseNumbers);
+            $isRegimenComplete = $planType === 'single_booster'
+                ? in_array(0, $savedDoseNumbers)
+                : ($isReExposure ? in_array(3, $savedDoseNumbers) : in_array(7, $savedDoseNumbers));
             $incidentStatus = $isRegimenComplete ? 'completed' : 'active';
 
             if (!$incident) {
@@ -937,8 +1042,13 @@ class VaccinationRecordController extends Controller
             if ($biteId) {
                 $incident = BiteIncident::find($biteId);
                 if ($incident && $incident->status !== 'completed') {
+                    $planType = \App\Models\TreatmentPlan::where('clinic_id', $clinicId)
+                        ->where('bite_id', $incident->bite_id)
+                        ->value('plan_type');
                     $isBooster = $incident->isReExposure() || $request->episode_type === 're_exposure';
-                    if ($isBooster && in_array(3, $savedDoseNumbers)) {
+                    if ($planType === 'single_booster' && in_array(0, $savedDoseNumbers)) {
+                        $incident->update(['status' => 'completed']);
+                    } elseif ($isBooster && in_array(3, $savedDoseNumbers)) {
                         $incident->update(['status' => 'completed']);
                     } elseif (!$isBooster && in_array(7, $savedDoseNumbers)) {
                         $incident->update(['status' => 'completed']);
@@ -1062,6 +1172,27 @@ class VaccinationRecordController extends Controller
         $scheduleService = app(ClinicScheduleService::class);
         $clinic = \App\Models\Clinic::find($clinicId);
 
+        $treatmentPlan = !empty($biteId)
+            ? \App\Models\TreatmentPlan::where('clinic_id', $clinicId)
+                ->where('bite_id', $biteId)
+                ->first()
+            : null;
+
+        // A one-booster plan is intentionally a single Station 1 visit. Do not
+        // infer a Day 3 appointment from the episode type or previous history.
+        if ($treatmentPlan?->plan_type === 'single_booster') {
+            \App\Models\Appointment::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('bite_id', $biteId)
+                ->where('dose_number', '>', 0)
+                ->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                ->update([
+                    'status' => 'cancelled',
+                    'notes' => 'Cancelled: Doctor ordered a single-booster plan.',
+                ]);
+            return;
+        }
+
         $isReExposure = false;
         if (!empty($biteId)) {
             $incident = \App\Models\BiteIncident::find($biteId);
@@ -1069,6 +1200,9 @@ class VaccinationRecordController extends Controller
         }
         if (!$isReExposure && !empty($request->episode_type)) {
             $isReExposure = $request->episode_type === 're_exposure';
+        }
+        if ($treatmentPlan?->plan_type === 'full_pep') {
+            $isReExposure = false;
         }
 
         // Define follow-up schedule (2-Dose Booster for re-exposure vs Standard PEP)
@@ -1302,4 +1436,3 @@ class VaccinationRecordController extends Controller
         });
     }
 }
-

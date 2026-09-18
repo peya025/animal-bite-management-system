@@ -22,7 +22,7 @@ const VISIT_LABEL: Record<string, string> = {
   follow_up:   'Follow-up',
   vaccination: 'Vaccination',
   observation: 'Observation',
-  booster:     'Booster',
+  booster:     'Booster request',
 };
 
 // A booster request remains with the Doctor until assessment approval. Only
@@ -598,7 +598,7 @@ export default function QueueDisplayPage() {
             <SubStationCard
               stationNumber={1}
               title="STATION 1 · INTAKE"
-              subtitle="Approved Day 0 & Booster Dose 1"
+              subtitle="Doctor-approved Day 0 & one booster"
               accentColor="#059669"
               accentDark="#064e3b"
               gradient="linear-gradient(145deg, #064e3b 0%, #059669 100%)"

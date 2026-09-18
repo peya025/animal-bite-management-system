@@ -141,7 +141,10 @@ class QueueController extends Controller
                     ->whereNull('deleted_at')
                     ->with([
                         'patient:' . $this->patientFields(),
-                        'biteIncident:bite_id,case_number,patient_id,exposure_type,severity,remarks,rig_decision_reason',
+                        // The Doctor form must receive the episode state. Without it a
+                        // newly registered exposure could look like an ordinary ticket.
+                        'biteIncident:bite_id,case_number,patient_id,episode_type,status,bite_date,exposure_type,severity,remarks,rig_decision_reason',
+                        'biteIncident.treatmentPlan:treatment_plan_id,bite_id,plan_type,status,ordered_dose_days',
                         'handledBy:id,name,role,professional_license_no',
                         'handledByUser:id,name,role,professional_license_no',
                         'servedBy:id,name,role,signature_path,professional_license_no',
@@ -566,6 +569,18 @@ class QueueController extends Controller
                 ? now()->diffInSeconds($queue->checked_in_at)
                 : null;
             $serviceSeconds = $servedAt ? now()->diffInSeconds($servedAt) : null;
+
+            $incidentPlan = $queue->bite_id
+                ? \App\Models\TreatmentPlan::where('clinic_id', $queue->clinic_id)
+                    ->where('bite_id', $queue->bite_id)
+                    ->first()
+                : null;
+            $isPendingExposure = $queue->biteIncident?->isAwaitingAssessment() ?? false;
+            if ($isPendingExposure && !$incidentPlan) {
+                return response()->json([
+                    'message' => 'Doctor treatment decision is required before this new exposure can be transferred to treatment.',
+                ], 422);
+            }
 
             $isTriageTransfer = in_array($request->user()->role, ['triage', 'doctor', 'admin'])
                 && in_array($queue->visit_type, ['new_case', 'follow_up', 'observation', 'consultation', 'booster']);

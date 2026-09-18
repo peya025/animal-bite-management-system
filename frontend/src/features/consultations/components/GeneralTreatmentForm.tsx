@@ -284,6 +284,8 @@ export default function GeneralTreatmentForm({
   const [addendumNote, setAddendumNote] = useState('');
   const [savingAddendum, setSavingAddendum] = useState(false);
   const [addendumSuccess, setAddendumSuccess] = useState('');
+  const [treatmentPlan, setTreatmentPlan] = useState('');
+  const [episodeHistory, setEpisodeHistory] = useState<any[]>([]);
 
   const [checkedDiagnoses, setCheckedDiagnoses] = useState<string[]>([]);
   const [checkedHistory, setCheckedHistory] = useState<string[]>([]);
@@ -464,6 +466,8 @@ export default function GeneralTreatmentForm({
     setCheckedDiagnoses([]);
     setCheckedHistory([]);
     setError('');
+    setTreatmentPlan('');
+    setEpisodeHistory([]);
     setFieldErrors({});
     setTouchedFields({});
 
@@ -475,13 +479,15 @@ export default function GeneralTreatmentForm({
     }
 
     // Load existing record
-    api.get(`/treatment-records/patient/${patientId}`)
+    const biteId = entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id;
+    api.get(`/treatment-records/patient/${patientId}${biteId ? `?bite_id=${biteId}` : ''}`)
       .then((response) => {
         const record = response.data?.latest_treatment;
         const isVaccinated = Boolean(response.data?.has_administered_vaccine);
         const isReturning = Boolean(response.data?.is_returning_new_bite);
         setHasAdministeredVaccine(isVaccinated);
         setIsReturningNewBite(isReturning);
+        setEpisodeHistory(response.data?.episode_history || []);
 
         if (record && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
           // If returning patient or new consultation session, do NOT auto-fill old medication
@@ -622,6 +628,14 @@ export default function GeneralTreatmentForm({
   };
 
   const handleSubmit = async () => {
+    const isNewExposure = entry?.incident?.episode_type === 'pending_assessment'
+      || entry?.bite_incident?.episode_type === 'pending_assessment'
+      || entry?.biteIncident?.episode_type === 'pending_assessment';
+    if (isNewExposure && !treatmentPlan) {
+      setError('Doctor treatment decision is required for this new exposure.');
+      return;
+    }
+
     const newFieldErrors: Record<string, string> = {};
 
     if (!formData.nature_of_visit) {
@@ -683,6 +697,8 @@ export default function GeneralTreatmentForm({
       const res = await api.post('/treatment-records', {
         patient_id: patientId,
         queue_id: entry.queue_id || null,
+        bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || null,
+        treatment_plan: treatmentPlan || null,
         consultation_date: formData.date_of_consultation,
         consultation_time: formData.consultation_time,
         mode_of_transaction: formData.mode_of_transaction || 'walk-in',
@@ -728,6 +744,11 @@ export default function GeneralTreatmentForm({
   };
 
   if (!entry) return null;
+
+  const recordedExposureDate = entry?.incident?.bite_date
+    || entry?.bite_incident?.bite_date
+    || entry?.biteIncident?.bite_date
+    || '';
 
   // Effective read-only status:
   // If global readOnly is true, OR if patient has already received vaccines (strictly locked),
@@ -1523,6 +1544,49 @@ export default function GeneralTreatmentForm({
             }}
           />
         </div>
+
+        {(entry?.incident?.episode_type === 'pending_assessment'
+          || entry?.bite_incident?.episode_type === 'pending_assessment'
+          || entry?.biteIncident?.episode_type === 'pending_assessment') && (
+          <div style={{ marginBottom: 20, padding: '16px', borderRadius: 10, border: '1px solid #bfdbfe', background: '#eff6ff' }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1e3a8a', marginBottom: 5 }}>
+              Doctor treatment decision <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <p style={{ fontSize: 12, color: '#475569', margin: '0 0 10px' }}>
+              Previous doses are history only. Select management for this newly registered exposure.
+            </p>
+            <div style={{ margin: '0 0 10px', padding: '8px 10px', borderRadius: 7, background: '#fff', border: '1px solid #dbeafe', fontSize: 12, color: '#334155' }}>
+              <strong>Exposure date recorded by Registration:</strong> {recordedExposureDate || 'Not recorded'}
+            </div>
+            {episodeHistory.length > 0 && (
+              <div style={{ margin: '0 0 12px', padding: '10px 12px', borderRadius: 7, background: '#fff', border: '1px solid #dbeafe' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 6 }}>
+                  Previous episode history
+                </div>
+                {episodeHistory.slice(0, 3).map((episode) => (
+                  <div key={episode.bite_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12, color: '#334155', padding: '3px 0' }}>
+                    <span>Episode {episode.episode_number} · {episode.bite_date || 'date not recorded'}</span>
+                    <span style={{ fontWeight: 600 }}>
+                      {episode.plan?.plan_type?.replaceAll('_', ' ') || 'No prior Doctor plan'} · Doses: {episode.completed_dose_days?.length ? episode.completed_dose_days.map((day: number) => `Day ${day}`).join(', ') : 'none'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <select
+              value={treatmentPlan}
+              onChange={(event) => setTreatmentPlan(event.target.value)}
+              disabled={isFormDisabled}
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #93c5fd', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', background: '#fff' }}
+            >
+              <option value="">Select Doctor decision…</option>
+              <option value="full_pep">Start full PEP — Day 0, Day 3, Day 7</option>
+              <option value="single_booster">One booster — Day 0 only</option>
+              <option value="continue_existing_schedule">Continue existing prescribed schedule</option>
+              <option value="no_vaccine">No additional rabies vaccine indicated</option>
+            </select>
+          </div>
+        )}
 
         {/* Provider + Lab */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>

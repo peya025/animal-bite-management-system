@@ -284,13 +284,13 @@ export default function PatientList() {
       if (activeQueue.status === 'waiting') {
         const station = activeQueue.visit_type === 'new_case'
           ? 'Waiting in Triage'
-          : (activeQueue.visit_type === 'booster' ? 'Waiting in Treatment (Booster)' : 'Waiting in Treatment');
+          : (activeQueue.visit_type === 'booster' ? 'Waiting for Doctor assessment' : 'Waiting in Treatment');
         return { label: `Queue #${activeQueue.queue_number || ''} (${station})`, icon: Clock01Icon, bg: '#d1fae5', color: '#065f46' };
       }
       if (activeQueue.status === 'in_consultation' || activeQueue.status === 'called' || activeQueue.status === 'serving') {
         const station = activeQueue.visit_type === 'new_case'
           ? 'In Doctor Triage'
-          : (activeQueue.visit_type === 'booster' ? 'In Treatment (Booster)' : 'In Treatment');
+          : (activeQueue.visit_type === 'booster' ? 'In Doctor assessment' : 'In Treatment');
         return { label: `Queue #${activeQueue.queue_number || ''} (${station})`, icon: Stethoscope02Icon, bg: '#eff6ff', color: '#1d4ed8' };
       }
       if (activeQueue.status === 'second_chance' || activeQueue.status === 'final_recall') {
@@ -770,16 +770,19 @@ export default function PatientList() {
                             {canCheckIn ? (
                               <button
                                 className="pm-btn-checkin"
-                                title="Check-in new patient into Doctor Triage queue"
-                                disabled={checkingInId === patientId}
-                                onClick={() => handleCheckIn(p)}
+                                title="Register the bite or possible rabies exposure before Doctor assessment"
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  setSelectedViewPatient(p);
+                                  setShowViewModal(true);
+                                }}
                               >
-                                {checkingInId === patientId ? 'Checking in...' : 'Check In to Triage'}
+                                Register Exposure
                               </button>
                             ) : hasCompletedAllDoses && !activeQueue ? (
                               <button
                                 className="pm-btn-checkin"
-                                title="Patient completed previous doses and returned with a new animal bite exposure"
+                                title="Register a distinct new exposure before Doctor assessment"
                                 style={{
                                   backgroundColor: '#0284c7',
                                   borderColor: '#0284c7',
@@ -790,10 +793,13 @@ export default function PatientList() {
                                   fontWeight: 600,
                                   cursor: 'pointer',
                                 }}
-                                disabled={checkingInId === patientId}
-                                onClick={() => handleCheckIn(p, true)}
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  setSelectedViewPatient(p);
+                                  setShowViewModal(true);
+                                }}
                               >
-                                {checkingInId === patientId ? 'Checking in...' : '+ New Bite (Triage)'}
+                                + New Exposure
                               </button>
                             ) : isFollowUp && !activeQueue ? (
                               <span

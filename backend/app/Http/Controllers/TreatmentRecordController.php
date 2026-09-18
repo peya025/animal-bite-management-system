@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\TreatmentRecord;
 use App\Models\Patient;
+use App\Models\BiteIncident;
+use App\Models\Queue;
+use App\Models\TreatmentPlan;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -80,6 +83,36 @@ class TreatmentRecordController extends Controller
             ->orderBy('consultation_time', 'desc')
             ->get();
 
+        $episodeHistory = BiteIncident::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->with([
+                'treatmentPlan:treatment_plan_id,bite_id,plan_type,status,ordered_dose_days,decided_at',
+                'treatmentRecords' => function ($records) {
+                    $records->whereNotNull('dose_number')
+                        ->where('status', 'completed')
+                        ->orderBy('dose_number');
+                },
+            ])
+            ->latest('bite_id')
+            ->get()
+            ->map(function (BiteIncident $incident) {
+                return [
+                    'bite_id' => $incident->bite_id,
+                    'episode_number' => $incident->episode_number,
+                    'bite_date' => $incident->bite_date?->toDateString(),
+                    'status' => $incident->status,
+                    'plan' => $incident->treatmentPlan ? [
+                        'plan_type' => $incident->treatmentPlan->plan_type,
+                        'status' => $incident->treatmentPlan->status,
+                        'ordered_dose_days' => $incident->treatmentPlan->ordered_dose_days,
+                        'decided_at' => $incident->treatmentPlan->decided_at?->toDateString(),
+                    ] : null,
+                    'completed_dose_days' => $incident->treatmentRecords
+                        ->pluck('dose_number')
+                        ->values(),
+                ];
+            });
+
         // Medical-legal lock: only applies if current episode already has administered vaccines
         $hasAdministeredVaccine = false;
         if ($activeIncident) {
@@ -108,6 +141,7 @@ class TreatmentRecordController extends Controller
             'has_administered_vaccine' => $hasAdministeredVaccine,
             'is_returning_new_bite' => $isReturningNewBite,
             'active_bite_incident' => $activeIncident,
+            'episode_history' => $episodeHistory,
         ]);
     }
 
@@ -121,6 +155,8 @@ class TreatmentRecordController extends Controller
         $validated = $request->validate([
             'patient_id' => 'required|exists:patients,patient_id',
             'queue_id' => 'nullable|exists:queues,queue_id',
+            'bite_id' => 'nullable|exists:bite_incidents,bite_id',
+            'treatment_plan' => 'nullable|in:full_pep,single_booster,continue_existing_schedule,no_vaccine',
             
             // General Consultation Fields (NEW Form 2)
             'consultation_date' => 'nullable|date',
@@ -159,13 +195,18 @@ class TreatmentRecordController extends Controller
 
         // Resolve active BiteIncident
         $activeBiteId = $request->get('bite_id');
+        if (!$activeBiteId && !empty($validated['queue_id'])) {
+            $activeBiteId = Queue::where('clinic_id', $clinicId)
+                ->where('queue_id', $validated['queue_id'])
+                ->value('bite_id');
+        }
         $activeIncident = null;
         if ($activeBiteId) {
-            $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)->find($activeBiteId);
+            $activeIncident = BiteIncident::where('clinic_id', $clinicId)->find($activeBiteId);
         } else {
-            $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)
+            $activeIncident = BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
-                ->where('status', 'active')
+                ->whereIn('status', ['active', 'awaiting_assessment'])
                 ->latest('bite_id')
                 ->first();
         }
@@ -252,8 +293,37 @@ class TreatmentRecordController extends Controller
         ]);
 
         // ── Auto-advance queue: move patient from Triage/Doctor → Treatment/Vaccination station ──
+        $planType = $validated['treatment_plan'] ?? null;
+        if ($activeIncident && $planType) {
+            $orderedDoseDays = match ($planType) {
+                'full_pep' => [0, 3, 7],
+                'single_booster' => [0],
+                default => [],
+            };
+
+            TreatmentPlan::updateOrCreate(
+                ['bite_id' => $activeIncident->bite_id],
+                [
+                    'clinic_id' => $clinicId,
+                    'patient_id' => $validated['patient_id'],
+                    'plan_type' => $planType,
+                    'status' => $planType === 'no_vaccine' ? 'completed' : 'approved',
+                    'ordered_dose_days' => $orderedDoseDays,
+                    'doctor_decision_notes' => $validated['diagnosis'] ?? $validated['chief_complaints'],
+                    'decided_by' => $request->user()->id,
+                    'decided_at' => now(),
+                ]
+            );
+
+            $activeIncident->update([
+                'episode_type' => $planType === 'single_booster' ? 're_exposure' : 'primary',
+                'status' => $planType === 'no_vaccine' ? 'completed' : 'active',
+            ]);
+        }
+
         $todayQueue = null;
         $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral';
+        $planStopsImmediateTreatment = in_array($planType, ['continue_existing_schedule', 'no_vaccine'], true);
         $referredToFacility = $validated['referred_to'] ?? 'External Medical Facility';
 
         if (!empty($validated['queue_id'])) {
@@ -274,10 +344,16 @@ class TreatmentRecordController extends Controller
                 ->first();
         }
 
-        if ($isReferralOut) {
+        if ($isReferralOut || $planStopsImmediateTreatment) {
             // Case A: Patient referred to external hospital/facility — do not send to Treatment Queue
             if ($todayQueue) {
                 $referralNotes = "Referred to external facility: {$referredToFacility} — Visit Completed.";
+
+                if (!$isReferralOut) {
+                    $referralNotes = $planType === 'no_vaccine'
+                        ? 'Doctor decision: no additional rabies vaccine indicated.'
+                        : 'Doctor decision: continue the existing prescribed schedule; no immediate treatment ordered.';
+                }
 
                 \App\Models\QueueHistory::create([
                     'queue_id'     => $todayQueue->queue_id,

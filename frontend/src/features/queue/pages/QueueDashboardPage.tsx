@@ -73,12 +73,11 @@ const isFollowUpStationEntry = (entry: QueueEntry) => {
 
 const isIntakeStationEntry = (entry: QueueEntry) => {
   const stationName = entry.station?.name?.toLowerCase() ?? '';
-  // A cleared Day 0 case becomes visit_type=vaccination. It still belongs to
-  // Station 1, as the public display correctly shows, until its Day 0 dose ends.
-  if (stationName.includes('intake') || stationName.includes('station 1')) return true;
   if (stationName.includes('follow-up') || stationName.includes('follow up') || stationName.includes('station 2')) return false;
-  return TRIAGE_VISIT_TYPES.includes(entry.visit_type)
-    || (entry.visit_type === 'vaccination' && !isFollowUpStationEntry(entry));
+  // Station 1 starts only after the Doctor-approved handoff changes the ticket
+  // to a treatment visit. A waiting new_case always remains Doctor-only.
+  return ['vaccination', 'observation'].includes(entry.visit_type)
+    && (stationName.includes('intake') || stationName.includes('station 1') || !isFollowUpStationEntry(entry));
 };
 
 function getCategoryHugeicon(cat: string) {
@@ -331,7 +330,7 @@ export default function QueueDashboard() {
     ? []
     : stationScopedSecondChanceQueue;
   const roleScopedQueue = isTriageDoctor
-    ? stationScopedQueue.filter(isIntakeStationEntry)
+    ? queue.filter(entry => TRIAGE_VISIT_TYPES.includes(entry.visit_type))
     : stationScopedQueue;
   const stationStats = {
     ...stats,

@@ -277,6 +277,7 @@ export default function StaffActivityPage() {
               className="db-explorer-input"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
             />
           </div>
 

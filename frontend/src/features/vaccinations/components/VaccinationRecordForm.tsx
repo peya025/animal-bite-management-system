@@ -57,6 +57,10 @@ interface TreatmentFormData {
   };
   body_part_affected: {
     head_neck: boolean;
+    upper_extremities: boolean;
+    lower_extremities: boolean;
+    trunk_torso: boolean;
+    multiple_sites: boolean;
     other_parts: boolean;
     na_ingestion: boolean;
   };
@@ -291,6 +295,10 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   },
   body_part_affected: {
     head_neck: false,
+    upper_extremities: false,
+    lower_extremities: false,
+    trunk_torso: false,
+    multiple_sites: false,
     other_parts: false,
     na_ingestion: false,
   },
@@ -576,9 +584,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           handling_ingestion: mode === 'handling_ingestion_raw_meat',
         },
         body_part_affected: {
-          head_neck: bodyPart === 'head_neck',
-          other_parts: bodyPart === 'other_parts',
-          na_ingestion: bodyPart === 'na_ingestion',
+          head_neck:         bodyPart === 'head_neck',
+          upper_extremities: bodyPart === 'upper_extremities',
+          lower_extremities: bodyPart === 'lower_extremities',
+          trunk_torso:       bodyPart === 'trunk_torso',
+          multiple_sites:    bodyPart === 'multiple_sites',
+          other_parts:       bodyPart === 'other_parts',
+          na_ingestion:      bodyPart === 'na_ingestion',
         },
         body_part_affected_text: bodyPart === 'head_neck' ? 'Head and/or neck' : bodyPart === 'other_parts' ? 'Other parts of the body' : bodyPart === 'na_ingestion' ? 'N/A if Ingestion mode' : (bodyPart || ''),
         animal_type: animal.toLowerCase() === 'dog' ? 'dog' : animal.toLowerCase() === 'cat' ? 'cat' : animal ? 'other' : prev.animal_type,
@@ -900,6 +912,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
+    const today = new Date().toISOString().split('T')[0];
 
     if (isPhilHealthMember && formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
       newFieldErrors.philhealth_pin = 'PhilHealth PIN must be exactly 12 digits.';
@@ -909,7 +922,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
     if (!formData.date_of_exposure) {
       newFieldErrors.date_of_exposure = 'Please enter Date of Exposure';
+    } else if (formData.date_of_exposure > today) {
+      newFieldErrors.date_of_exposure = 'Date of Exposure cannot be a future date.';
     }
+    if (formData.date_treatment_started && formData.date_treatment_started > today) {
+      newFieldErrors.date_treatment_started = 'Date Treatment Started cannot be a future date.';
+    }
+
+    // Validate dose dates — only check doses the nurse is actually submitting now
+    // (has vaccine_type + date set, not already completed).
+    // Scheduled future rows (Day 3, Day 7) without a vaccine type selected are skipped.
+    // NOTE: actual check happens below after filledDoses is computed
 
     setFieldErrors(newFieldErrors);
 
@@ -968,6 +991,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     });
     if (filledDoses.length === 0) {
       setError("Please select a Vaccine Type for today's dose before saving.");
+      return;
+    }
+
+    // Validate: doses being submitted now cannot have future dates
+    const futureDose = filledDoses.find(d => d.date && d.date > todayStr);
+    if (futureDose) {
+      setError(`${futureDose.period} administration date cannot be a future date.`);
       return;
     }
 
@@ -1078,7 +1108,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date</label>
-            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
+            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} max={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
@@ -1281,6 +1311,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               type="date" 
               value={formData.date_of_exposure} 
               onChange={handleFieldChange('date_of_exposure')} 
+              max={new Date().toISOString().split('T')[0]}
               disabled={readOnly} 
               style={{ 
                 width: '100%', 
@@ -1304,6 +1335,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               type="date" 
               value={formData.date_treatment_started} 
               onChange={handleFieldChange('date_treatment_started')} 
+              max={new Date().toISOString().split('T')[0]}
               disabled={readOnly} 
               style={{ 
                 width: '100%', 
@@ -1471,8 +1503,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.upper_extremities} 
+                  onChange={handleCheckboxChange('body_part_affected', 'upper_extremities')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -1481,8 +1513,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.lower_extremities} 
+                  onChange={handleCheckboxChange('body_part_affected', 'lower_extremities')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -1491,8 +1523,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.trunk_torso} 
+                  onChange={handleCheckboxChange('body_part_affected', 'trunk_torso')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -1501,8 +1533,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.multiple_sites} 
+                  onChange={handleCheckboxChange('body_part_affected', 'multiple_sites')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -2083,6 +2115,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         value={dose.date}
                         onChange={(e) => handleDoseChange(index, 'date', e.target.value)}
                         disabled={isLocked}
+                        max={isActiveFollowUp ? new Date().toISOString().split('T')[0] : undefined}
                         style={{
                           width: '100%',
                           padding: '6px 8px',

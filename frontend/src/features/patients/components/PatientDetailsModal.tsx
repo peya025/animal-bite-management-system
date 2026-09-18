@@ -383,6 +383,11 @@ export default function PatientDetailsModal({
 
   const handleRegisterNewExposure = async () => {
     const patientId = p.patient_id || p.id;
+    // Validate: exposure date cannot be in the future
+    if (newExposure.bite_date && newExposure.bite_date > new Date().toISOString().split('T')[0]) {
+      alert('Exposure date cannot be a future date.');
+      return;
+    }
     setCheckingIn(true);
     try {
       const res = await api.post('/cases/new-exposure', {
@@ -687,7 +692,9 @@ export default function PatientDetailsModal({
           </Typography>
           <Box sx={{ maxWidth: 320 }}>
             <TextField label="Exposure date" type="date" required size="small" value={newExposure.bite_date}
-              onChange={(event) => setNewExposure({ ...newExposure, bite_date: event.target.value })} InputLabelProps={{ shrink: true }} />
+              onChange={(event) => setNewExposure({ ...newExposure, bite_date: event.target.value })}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ max: new Date().toISOString().split('T')[0] }} />
           </Box>
         </DialogContent>
         <DialogActions>

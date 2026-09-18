@@ -296,6 +296,7 @@ export const AdminFiltersSection: React.FC<AdminFiltersSectionProps> = ({
               type="date"
               value={filters.customDateTo || ''}
               onChange={(e) => onFilterChange({ customDateTo: e.target.value })}
+              max={new Date().toISOString().split('T')[0]}
               style={{ ...inputStyle, width: 'auto' }}
             />
           </div>

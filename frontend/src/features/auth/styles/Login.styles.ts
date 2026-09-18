@@ -187,6 +187,33 @@ export const LoginRoot = styled('div')`
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
   }
   .error-message svg { flex-shrink: 0; color: var(--error); }
+  .session-expired-message {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+    color: #92400e;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+    animation: slideDown 0.3s ease;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
+  }
+  .session-expired-message svg {
+    flex-shrink: 0;
+    color: #d97706;
+  }
+  [data-theme='dark'] & .session-expired-message {
+    background: rgba(146, 64, 14, 0.25);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #fef3c7;
+  }
+  [data-theme='dark'] & .session-expired-message svg {
+    color: #fbbf24;
+  }
   @keyframes slideDown {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }

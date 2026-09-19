@@ -39,8 +39,10 @@ Route::get('/test', function () {
 });
 
 // Public routes
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+if (config('app.public_registration_enabled', false)) {
+    Route::post('/register', [AuthController::class, 'register']);
+}
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 // Tier 9 — Google OAuth SSO for clinical staff (public, token-based)
 Route::post('/auth/google', [AuthController::class, 'googleLogin'])
     ->middleware('throttle:20,1');  // 20 attempts per minute
@@ -48,7 +50,7 @@ Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'get
 Route::get('/public/vaccine-availability', [VaccineInventoryController::class, 'publicAvailability']);
 
 // Form 1 Printout Route
-Route::get('/print/patient/{id}/enrolment', [PrintController::class, 'enrolment']);
+// Form 1 Printout moved to authenticated group with PatientPolicy
 
 // Public setup endpoints (no authentication required)
 Route::post('/setup/initialize', [ClinicSetupController::class, 'initialize'])
@@ -62,7 +64,11 @@ Route::get('/setup/check-needed', function () {
 use App\Http\Controllers\DeveloperDatabaseExplorerController;
 use App\Http\Controllers\Developer\AppointmentDiagnosticController;
 
-Route::middleware(['auth:sanctum', 'active.user', 'role:developer'])->group(function () {
+if (
+    app()->environment(['local', 'testing']) &&
+    config('app.developer_tools_enabled', false)
+) {
+    Route::middleware(['auth:sanctum', 'active.user', 'role:developer'])->group(function () {
     Route::post('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
     Route::put('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
 
@@ -74,12 +80,13 @@ Route::middleware(['auth:sanctum', 'active.user', 'role:developer'])->group(func
     Route::get('/developer/diagnostics/appointments', [AppointmentDiagnosticController::class, 'scan']);
     Route::post('/developer/diagnostics/appointments/repair-all', [AppointmentDiagnosticController::class, 'repairAll']);
     Route::post('/developer/diagnostics/appointments/repair-single', [AppointmentDiagnosticController::class, 'repairSingle']);
-});
+    });
+}
 
 Route::prefix('mobile')->group(function () {
     Route::post('/register', [PatientAccountAuthController::class, 'register']);
-    Route::post('/login', [PatientAccountAuthController::class, 'login']);
-    Route::post('/forgot-password', [PatientAccountAuthController::class, 'forgotPassword']);
+    Route::post('/login', [PatientAccountAuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('/forgot-password', [PatientAccountAuthController::class, 'forgotPassword'])->middleware('throttle:password-reset');
     // Tier 9 — Google OAuth SSO for mobile patients
     Route::post('/auth/google', [PatientAccountAuthController::class, 'googleLogin'])
         ->middleware('throttle:20,1');
@@ -117,12 +124,12 @@ Route::prefix('mobile')->group(function () {
 use App\Http\Controllers\PatientInvitationController;
 
 // Mobile Patient Invitation Activation (public, token-based)
-Route::post('/patient-invitations/activate', [PatientInvitationController::class, 'activate']);
+Route::post('/patient-invitations/activate', [PatientInvitationController::class, 'activate'])->middleware('throttle:invite-activation');
 
 // Invitation acceptance (public, token-based)
 Route::prefix('staff-invitations')->group(function () {
     Route::get('/validate/{token}', [StaffInvitationController::class, 'validateToken']);
-    Route::post('/accept/{token}', [StaffInvitationController::class, 'accept']);
+    Route::post('/accept/{token}', [StaffInvitationController::class, 'accept'])->middleware('throttle:invite-activation');
 });
 
 // Protected routes
@@ -192,6 +199,10 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::get('/', [StaffInvitationController::class, 'index']);
         Route::post('/{id}/cancel', [StaffInvitationController::class, 'cancel']);
     });
+
+    // Form 1 Printout (Protected and clinic-scoped by PatientPolicy)
+    Route::get('/print/patient/{patient}/enrolment', [PrintController::class, 'enrolment'])
+        ->middleware('can:printEnrolment,patient');
 
     // Patient Management (admin, registration, triage, treatment can view)
     Route::prefix('patients')->group(function () {

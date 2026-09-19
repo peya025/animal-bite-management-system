@@ -28,6 +28,12 @@ class PatientPolicy
         return $this->sameClinic($user, $patient) && $user->isAdmin();
     }
 
+    public function printEnrolment(User $user, Patient $patient): bool
+    {
+        return $this->sameClinic($user, $patient)
+            && in_array($user->role, ['admin', 'registration', 'triage', 'treatment'], true);
+    }
+
     private function sameClinic(User $user, ?Patient $patient): bool
     {
         return $user->is_active

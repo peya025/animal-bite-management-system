@@ -40,5 +40,26 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Queue::class, QueuePolicy::class);
         Gate::policy(TreatmentRecord::class, TreatmentRecordPolicy::class);
         Gate::policy(VaccineInventory::class, VaccineInventoryPolicy::class);
+
+        // Define rate limiters tailored to endpoint risk profiles
+        \Illuminate\Support\Facades\RateLimiter::for('login', function (\Illuminate\Http\Request $request) {
+            return [
+                \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by((string) $request->input('email') . '|' . $request->ip()),
+                \Illuminate\Cache\RateLimiting\Limit::perMinute(20)->by($request->ip()),
+            ];
+        });
+
+        \Illuminate\Support\Facades\RateLimiter::for('password-reset', function (\Illuminate\Http\Request $request) {
+            return [
+                \Illuminate\Cache\RateLimiting\Limit::perHour(3)->by((string) $request->input('email') . '|' . $request->ip()),
+                \Illuminate\Cache\RateLimiting\Limit::perHour(10)->by($request->ip()),
+            ];
+        });
+
+        \Illuminate\Support\Facades\RateLimiter::for('invite-activation', function (\Illuminate\Http\Request $request) {
+            return [
+                \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip()),
+            ];
+        });
     }
 }

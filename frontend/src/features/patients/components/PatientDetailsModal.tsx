@@ -423,7 +423,7 @@ export default function PatientDetailsModal({
       const token = localStorage.getItem('authToken') || '';
       const patientId = (patient as any).patient_id || (patient as any).id;
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-      const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment?token=${encodeURIComponent(token)}`;
+      const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment`;
 
       const response = await fetch(printUrl, {
         headers: {

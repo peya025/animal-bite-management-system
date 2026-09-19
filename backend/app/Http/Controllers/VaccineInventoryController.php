@@ -9,6 +9,7 @@ use App\Models\VaccineTypePreset;
 use App\Models\InventoryTransaction;
 use App\Services\VaccineInventoryUsageService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
@@ -24,8 +25,12 @@ class VaccineInventoryController extends Controller
         $query = VaccineInventory::where('clinic_id', $clinicId)
             ->withCount('transactions');
 
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
+        if ($request->has('status') && $request->status !== '') {
+            if ($request->status === 'archived') {
+                $query->onlyTrashed();
+            } else {
+                $query->where('status', $request->status);
+            }
         }
 
         if ($request->has('vaccine_type')) {
@@ -486,11 +491,19 @@ class VaccineInventoryController extends Controller
      */
     public function store(Request $request)
     {
+        $clinicId = $request->user()->clinic_id;
         $maxHours = config('inventory.open_vial_max_hours', 8);
 
         $request->validate([
             'vaccine_type'      => 'required|string|max:100',
-            'batch_number'      => 'required|string|max:100',
+            'batch_number'      => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('vaccine_inventory')->where(function ($query) use ($clinicId) {
+                    return $query->where('clinic_id', $clinicId);
+                }),
+            ],
             'quantity'          => 'required|integer|min:1',
             'expiration_date'   => 'required|date|after:today',
             'received_from'     => 'nullable|string|max:500',
@@ -499,53 +512,62 @@ class VaccineInventoryController extends Controller
             'open_vial_hours'   => 'nullable|integer|min:1|max:' . $maxHours,
             'cold_chain_notes'  => 'nullable|string|max:500',
             'remarks'           => 'nullable|string|max:500',
+        ], [
+            'batch_number.unique' => 'A batch with this batch / lot number already exists in your clinic inventory.',
         ]);
 
-        $clinicId = $request->user()->clinic_id;
+        try {
+            return DB::transaction(function () use ($request, $clinicId) {
+                $inventory = VaccineInventory::create([
+                    'clinic_id'          => $clinicId,
+                    'vaccine_type'       => $request->vaccine_type,
+                    'batch_number'       => $request->batch_number,
+                    'received_from'      => $request->received_from ?? 'DOH Central Supply (National Rabies Prevention Program)',
+                    'manufactured_date'  => $request->manufactured_date,
+                    'shelf_life_months'  => $request->shelf_life_months,
+                    'open_vial_hours'    => $request->open_vial_hours,
+                    'cold_chain_notes'   => $request->cold_chain_notes,
+                    'current_quantity'   => $request->quantity,
+                    'expiration_date'    => $request->expiration_date,
+                    'status'             => 'active',
+                    'open_vial_status'   => 'unopened',
+                ]);
 
-        return DB::transaction(function () use ($request, $clinicId) {
-            $inventory = VaccineInventory::create([
-                'clinic_id'          => $clinicId,
-                'vaccine_type'       => $request->vaccine_type,
-                'batch_number'       => $request->batch_number,
-                'received_from'      => $request->received_from ?? 'DOH Central Supply (National Rabies Prevention Program)',
-                'manufactured_date'  => $request->manufactured_date,
-                'shelf_life_months'  => $request->shelf_life_months,
-                'open_vial_hours'    => $request->open_vial_hours,
-                'cold_chain_notes'   => $request->cold_chain_notes,
-                'current_quantity'   => $request->quantity,
-                'expiration_date'    => $request->expiration_date,
-                'status'             => 'active',
-                'open_vial_status'   => 'unopened',
-            ]);
+                // Record the incoming transaction
+                InventoryTransaction::create([
+                    'inventory_id'     => $inventory->inventory_id,
+                    'staff_id'         => $request->user()->id,
+                    'transaction_type' => 'received',
+                    'quantity'         => $request->quantity,
+                    'quantity_received'=> $request->quantity,
+                    'received_from'    => $request->received_from ?? 'DOH Central Supply (National Rabies Prevention Program)',
+                    'balanced'         => $request->quantity,
+                    'remarks'          => $request->remarks ?? 'Initial stock received',
+                ]);
 
-            // Record the incoming transaction
-            InventoryTransaction::create([
-                'inventory_id'     => $inventory->inventory_id,
-                'staff_id'         => $request->user()->id,
-                'transaction_type' => 'received',
-                'quantity'         => $request->quantity,
-                'quantity_received'=> $request->quantity,
-                'received_from'    => $request->received_from ?? 'DOH Central Supply (National Rabies Prevention Program)',
-                'balanced'         => $request->quantity,
-                'remarks'          => $request->remarks ?? 'Initial stock received',
-            ]);
+                AuditLog::create([
+                    'user_id' => $request->user()->id,
+                    'clinic_id' => $clinicId,
+                    'action' => 'inventory.create',
+                    'model' => VaccineInventory::class,
+                    'model_id' => $inventory->inventory_id,
+                    'new_values' => $inventory->toArray(),
+                    'description' => "Initial inventory created for batch {$inventory->batch_number}",
+                ]);
 
-            AuditLog::create([
-                'user_id' => $request->user()->id,
-                'clinic_id' => $clinicId,
-                'action' => 'inventory.create',
-                'model' => VaccineInventory::class,
-                'model_id' => $inventory->inventory_id,
-                'new_values' => $inventory->toArray(),
-                'description' => "Initial inventory created for batch {$inventory->batch_number}",
-            ]);
-
-            return response()->json([
-                'message'   => 'Vaccine inventory added successfully',
-                'inventory' => $inventory,
-            ], 201);
-        });
+                return response()->json([
+                    'message'   => 'Vaccine inventory added successfully',
+                    'inventory' => $inventory,
+                ], 201);
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (($e->errorInfo[1] ?? null) == 1062 || str_contains($e->getMessage(), 'Duplicate entry') || str_contains($e->getMessage(), 'uniq_clinic_batch')) {
+                throw ValidationException::withMessages([
+                    'batch_number' => "A batch with batch number '{$request->batch_number}' already exists in your clinic inventory. Please use a unique batch number.",
+                ]);
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -565,11 +587,19 @@ class VaccineInventoryController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $clinicId = $request->user()->clinic_id;
         $maxHours = config('inventory.open_vial_max_hours', 8);
 
         $request->validate([
             'vaccine_type'      => 'sometimes|string|max:100',
-            'batch_number'      => 'sometimes|string|max:100',
+            'batch_number'      => [
+                'sometimes',
+                'string',
+                'max:100',
+                Rule::unique('vaccine_inventory')->where(function ($query) use ($clinicId) {
+                    return $query->where('clinic_id', $clinicId);
+                })->ignore($id, 'inventory_id'),
+            ],
             'received_from'     => 'nullable|string|max:500',
             'manufactured_date' => 'nullable|date',
             'shelf_life_months' => 'nullable|integer|min:1',
@@ -577,43 +607,54 @@ class VaccineInventoryController extends Controller
             'cold_chain_notes'  => 'nullable|string|max:500',
             'expiration_date'   => 'sometimes|date',
             'status'            => 'sometimes|in:active,expired,depleted',
+        ], [
+            'batch_number.unique' => 'A batch with this batch / lot number already exists in your clinic inventory.',
         ]);
 
-        return DB::transaction(function () use ($request, $id) {
-            $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
-                ->lockForUpdate()
-                ->findOrFail($id);
+        try {
+            return DB::transaction(function () use ($request, $id) {
+                $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
+                    ->lockForUpdate()
+                    ->findOrFail($id);
 
-            $oldValues = $inventory->toArray();
+                $oldValues = $inventory->toArray();
 
-            $inventory->update($request->only([
-                'vaccine_type',
-                'batch_number',
-                'received_from',
-                'manufactured_date',
-                'shelf_life_months',
-                'open_vial_hours',
-                'cold_chain_notes',
-                'expiration_date',
-                'status',
-            ]));
+                $inventory->update($request->only([
+                    'vaccine_type',
+                    'batch_number',
+                    'received_from',
+                    'manufactured_date',
+                    'shelf_life_months',
+                    'open_vial_hours',
+                    'cold_chain_notes',
+                    'expiration_date',
+                    'status',
+                ]));
 
-            AuditLog::create([
-                'user_id' => $request->user()->id,
-                'clinic_id' => $request->user()->clinic_id,
-                'action' => 'inventory.update',
-                'model' => VaccineInventory::class,
-                'model_id' => $inventory->inventory_id,
-                'old_values' => $oldValues,
-                'new_values' => $inventory->fresh()->toArray(),
-                'description' => "Updated batch {$inventory->batch_number}",
-            ]);
+                AuditLog::create([
+                    'user_id' => $request->user()->id,
+                    'clinic_id' => $request->user()->clinic_id,
+                    'action' => 'inventory.update',
+                    'model' => VaccineInventory::class,
+                    'model_id' => $inventory->inventory_id,
+                    'old_values' => $oldValues,
+                    'new_values' => $inventory->fresh()->toArray(),
+                    'description' => "Inventory updated for batch {$inventory->batch_number}",
+                ]);
 
-            return response()->json([
-                'message'   => 'Inventory updated successfully',
-                'inventory' => $inventory->fresh(),
-            ]);
-        });
+                return response()->json([
+                    'message'   => 'Vaccine inventory updated successfully',
+                    'inventory' => $inventory->fresh(),
+                ]);
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (($e->errorInfo[1] ?? null) == 1062 || str_contains($e->getMessage(), 'Duplicate entry') || str_contains($e->getMessage(), 'uniq_clinic_batch')) {
+                throw ValidationException::withMessages([
+                    'batch_number' => "A batch with batch number '{$request->batch_number}' already exists in your clinic inventory. Please use a unique batch number.",
+                ]);
+            }
+            throw $e;
+        }
     }
 
     /**

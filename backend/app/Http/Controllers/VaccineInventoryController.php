@@ -278,11 +278,13 @@ class VaccineInventoryController extends Controller
      */
     public function storePreset(Request $request)
     {
+        $maxHours = config('inventory.open_vial_max_hours', 8);
+
         $request->validate([
             'vaccine_name' => 'required|string|max:255',
             'category' => 'nullable|string|max:100',
             'default_shelf_life_months' => 'required|integer|min:1',
-            'default_open_vial_hours' => 'nullable|integer|min:1|max:48',
+            'default_open_vial_hours' => 'nullable|integer|min:1|max:' . $maxHours,
             'storage_temperature_notes' => 'nullable|string|max:500',
             'dosing_regimen_notes' => 'nullable|string|max:1000',
             'administration_route' => 'nullable|string|max:150',
@@ -327,11 +329,13 @@ class VaccineInventoryController extends Controller
             $q->whereNull('clinic_id')->orWhere('clinic_id', $clinicId);
         })->findOrFail($id);
 
+        $maxHours = config('inventory.open_vial_max_hours', 8);
+
         $request->validate([
             'vaccine_name' => 'required|string|max:255',
             'category' => 'nullable|string|max:100',
             'default_shelf_life_months' => 'required|integer|min:1',
-            'default_open_vial_hours' => 'nullable|integer|min:1|max:48',
+            'default_open_vial_hours' => 'nullable|integer|min:1|max:' . $maxHours,
             'storage_temperature_notes' => 'nullable|string|max:500',
             'dosing_regimen_notes' => 'nullable|string|max:1000',
             'administration_route' => 'nullable|string|max:150',

@@ -401,11 +401,12 @@ export default function VaccinationSchedulePage() {
         {/* Header Action Buttons */}
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
           <Tooltip title="Scheduled engine runs daily at 8:00 AM (SMS, Email, In-App)">
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleTriggerAutoRecall}
-              disabled={triggeringAuto}
+            <span>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleTriggerAutoRecall}
+                disabled={triggeringAuto}
               sx={{
                 textTransform: 'none',
                 fontWeight: 600,
@@ -425,7 +426,8 @@ export default function VaccinationSchedulePage() {
               <HugeiconsIcon icon={FlashIcon} size={16} />
               {triggeringAuto ? 'Running Auto-Sweep...' : 'Run Auto-Recall Sweep'}
             </Button>
-          </Tooltip>
+          </span>
+        </Tooltip>
 
           {kpi.overdue_missed > 0 && (
             <Button

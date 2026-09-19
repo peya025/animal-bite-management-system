@@ -31,7 +31,7 @@ import {
   Search as SearchIcon,
   Vaccines as VaccineIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
+  Archive as ArchiveIcon,
   CalendarMonth as CalendarIcon,
   AccessTime as TimeIcon,
   AcUnit as ColdChainIcon,
@@ -325,13 +325,13 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                               <EditIcon sx={{ fontSize: 16 }} />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Delete Profile">
+                          <Tooltip title="Archive / Remove Profile from Catalog">
                             <IconButton
                               size="small"
                               onClick={() => setDeleteTarget(preset)}
-                              sx={{ color: '#64748b', '&:hover': { color: '#dc2626', bgcolor: 'rgba(239, 68, 68, 0.15)' } }}
+                              sx={{ color: '#64748b', '&:hover': { color: '#d97706', bgcolor: 'rgba(217, 119, 6, 0.15)' } }}
                             >
-                              <DeleteIcon sx={{ fontSize: 16 }} />
+                              <ArchiveIcon sx={{ fontSize: 16 }} />
                             </IconButton>
                           </Tooltip>
                         </Stack>
@@ -444,11 +444,11 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
 
       {deleteTarget && (
         <ConfirmationDialog
-          variant="danger"
-          colorVariant="danger"
-          title="Delete Vaccine Type"
-          message={`Remove "${deleteTarget.vaccine_name}" from the catalog? Existing batch inventory records will remain intact, but staff will no longer be able to select this profile for new batches.`}
-          confirmLabel="Delete Profile"
+          variant="warning"
+          colorVariant="warning"
+          title="Archive Vaccine Profile"
+          message={`Remove "${deleteTarget.vaccine_name}" from the active catalog? Existing batch inventory records will remain intact, but staff will no longer be able to select this profile for new batches.`}
+          confirmLabel="Archive Profile"
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
         />

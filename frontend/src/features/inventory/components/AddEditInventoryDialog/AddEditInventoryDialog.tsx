@@ -1,12 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-
-type ApiError = {
-  response?: {
-    data?: {
-      message?: string;
-    };
-  };
-};
 import {
   Alert,
   Autocomplete,
@@ -367,8 +359,27 @@ export default function AddEditInventoryDialog({
       onSaved();
       onClose();
     } catch (err: unknown) {
-      const apiError = err as ApiError;
-      setErrors({ submit: apiError.response?.data?.message || 'Something went wrong while saving inventory.' });
+      const apiError = err as {
+        response?: {
+          data?: {
+            message?: string;
+            errors?: Record<string, string[]>;
+          };
+        };
+      };
+      const backendErrors = apiError.response?.data?.errors;
+      if (backendErrors && typeof backendErrors === 'object') {
+        const next: Record<string, string> = {};
+        Object.entries(backendErrors).forEach(([field, msgs]) => {
+          next[field] = Array.isArray(msgs) ? msgs[0] : String(msgs);
+        });
+        if (apiError.response?.data?.message) {
+          next.submit = apiError.response.data.message;
+        }
+        setErrors(next);
+      } else {
+        setErrors({ submit: apiError.response?.data?.message || 'Something went wrong while saving inventory.' });
+      }
     } finally {
       setSaving(false);
     }

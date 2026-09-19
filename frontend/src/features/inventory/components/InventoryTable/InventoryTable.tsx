@@ -536,11 +536,12 @@ export default function InventoryTable({
               <Select value={statusFilter} label="Stock Status" onChange={(e) => onStatusFilterChange(e.target.value)}>
                 <MenuItem value="">All statuses</MenuItem>
                 <MenuItem value="active">Available / Active</MenuItem>
-                <MenuItem value="low-stock">Low Stock (≤10 vials)</MenuItem>
-                <MenuItem value="expiring-soon">Expiring Soon (≤30 days)</MenuItem>
+                <MenuItem value="low-stock">Low Stock (≤ 10 vials)</MenuItem>
+                <MenuItem value="expiring-soon">Expiring Soon (≤ 30 days)</MenuItem>
                 <MenuItem value="expired">Expired</MenuItem>
                 <MenuItem value="depleted">Out of Stock / Depleted</MenuItem>
                 <MenuItem value="discard-pending">Open Vial — Discard Pending</MenuItem>
+                <MenuItem value="archived" sx={{ fontWeight: 700, color: '#b45309' }}>📦 Archived Batches</MenuItem>
               </Select>
             </FormControl>
           </Grid>

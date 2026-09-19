@@ -87,7 +87,7 @@ export function QueueFilterBar({
       border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border, #e2e8f0)',
       mb: 2,
     }}>
-      <Grid container spacing={1.5} alignItems="center">
+      <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
 
         {/* Search */}
         <Grid size={{ xs: 12, sm: onVisitTypeChange ? 3.5 : (onCategoryChange ? 5 : 8), md: onVisitTypeChange ? 3.5 : (onCategoryChange ? 5 : 8) }}>

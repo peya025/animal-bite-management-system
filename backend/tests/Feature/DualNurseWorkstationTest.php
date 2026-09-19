@@ -176,7 +176,7 @@ class DualNurseWorkstationTest extends TestCase
             ->assertJsonValidationErrors(['bite_id']);
     }
 
-    public function test_nurse_without_signature_on_file_cannot_administer_dose(): void
+    public function test_nurse_without_signature_on_file_can_administer_dose_with_optional_signature(): void
     {
         $clinic = $this->createClinic();
         $nurse = $this->createNurse($clinic, 'New Nurse', 'intake_nurse', withSignature: false);
@@ -200,8 +200,16 @@ class DualNurseWorkstationTest extends TestCase
         ];
 
         $response = $this->postJson('/api/vaccination-records', $payload);
-        $response->assertStatus(422)
-            ->assertJsonPath('message', 'Your signature is not yet on file. Ask a clinic admin to complete your staff profile before administering doses.');
+        $response->assertStatus(201);
+
+        $record = TreatmentRecord::where('clinic_id', $clinic->id)
+            ->where('patient_id', $patient->patient_id)
+            ->where('dose_number', 0)
+            ->first();
+
+        $this->assertNotNull($record);
+        $this->assertEquals($nurse->id, $record->administered_by);
+        $this->assertNull($record->signature);
     }
 
     public function test_administered_by_is_immutable_on_treatment_records(): void

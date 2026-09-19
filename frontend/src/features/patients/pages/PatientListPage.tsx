@@ -322,7 +322,29 @@ export default function PatientList() {
     // 5. Administered Treatment Record Summary (when no pending appointments)
     const record = (p as any).latest_treatment_record;
     if (record?.dose_number !== undefined && record?.dose_number !== null) {
-      const doseName = record.dose_number === 0 ? 'Day 0 (Initial) Done' : (record.dose_number >= 28 ? 'Regimen Completed' : `Day ${record.dose_number} Done`);
+      let doseName: string;
+      
+      // Map dose numbers to human-readable labels
+      if (record.dose_number === 0) {
+        doseName = 'Day 0 (Initial) Done';
+      } else if (record.dose_number === 365) {
+        doseName = 'Booster 2 Completed';
+      } else if (record.dose_number === 90) {
+        doseName = 'Booster 1 Completed';
+      } else if (record.dose_number === 28) {
+        doseName = 'Day 28 Completed';
+      } else if (record.dose_number === 7) {
+        doseName = 'Day 7 Completed';
+      } else if (record.dose_number === 3) {
+        doseName = 'Day 3 Completed';
+      } else if (record.dose_number > 365) {
+        doseName = 'All Boosters Completed';
+      } else if (record.dose_number > 28) {
+        doseName = 'Primary Series Completed';
+      } else {
+        doseName = `Day ${record.dose_number} Done`;
+      }
+      
       return { label: doseName, icon: CheckmarkCircle02Icon, bg: '#ecfdf5', color: '#059669' };
     }
 
@@ -638,7 +660,8 @@ export default function PatientList() {
                     );
                     const hasActiveIncident = latestIncident && (latestIncident.status === 'active' || latestIncident.status === 'in_progress');
                     const isOngoingTreatment = hasActiveIncident || hasPendingAppointments || (hasDosesAdministered && latestRecord.dose_number < 28);
-                    const hasCompletedAllDoses = hasDosesAdministered && latestRecord.dose_number >= 28 && !hasPendingAppointments;
+                    // Allow re-exposure registration after Day 3 (3rd dose) or later, when no pending appointments
+                    const hasCompletedMinimumDoses = hasDosesAdministered && latestRecord.dose_number >= 3 && !hasPendingAppointments;
                     const isFollowUp = (hasDosesAdministered || hasCompletedTriage) && isOngoingTreatment;
                     const canCheckIn = !activeQueue && !hasCompletedTriage;
                     const patientId = p.patient_id || p.id;
@@ -709,7 +732,7 @@ export default function PatientList() {
                               >
                                 Register Exposure
                               </button>
-                            ) : hasCompletedAllDoses && !activeQueue ? (
+                            ) : hasCompletedMinimumDoses && !activeQueue ? (
                               <button
                                 className="pm-btn-checkin"
                                 title="Register a distinct new exposure before Doctor assessment"

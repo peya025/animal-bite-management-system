@@ -113,13 +113,13 @@ class AppointmentController extends Controller
             $clinicId = $request->user()->clinic_id;
             
             $appointments = Appointment::where('clinic_id', $clinicId)
-                ->whereBetween('appointment_date', [
-                    Carbon::tomorrow(),
-                    Carbon::today()->addDays(7)
-                ])
-                ->where('status', 'scheduled')
+                ->where(function ($d) {
+                    $d->whereDate('appointment_date', '>=', Carbon::tomorrow())
+                      ->orWhereDate('scheduled_date', '>=', Carbon::tomorrow());
+                })
+                ->whereIn('status', ['scheduled', 'confirmed'])
                 ->with(['patient', 'biteIncident'])
-                ->orderBy('appointment_date')
+                ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC')
                 ->orderBy('appointment_time')
                 ->get();
 
@@ -332,12 +332,12 @@ class AppointmentController extends Controller
                     break;
 
                 case 'upcoming':
-                    // Returning doses scheduled in the next seven days.
+                    // Returning doses scheduled in the future.
                     $query->whereHas('appointments', function ($q) use ($followUpAppointment) {
                         $q->where(function ($d) {
-                            $d->whereBetween('appointment_date', [Carbon::tomorrow(), Carbon::today()->addDays(7)])
-                              ->orWhereBetween('scheduled_date', [Carbon::tomorrow(), Carbon::today()->addDays(7)]);
-                        })->where('status', 'scheduled');
+                            $d->whereDate('appointment_date', '>=', Carbon::tomorrow())
+                              ->orWhereDate('scheduled_date', '>=', Carbon::tomorrow());
+                        })->whereIn('status', ['scheduled', 'confirmed']);
                         $followUpAppointment($q);
                     })->whereDoesntHave('appointments', function ($q) use ($followUpAppointment) {
                         $q->where(function ($d) {
@@ -347,7 +347,7 @@ class AppointmentController extends Controller
                         $followUpAppointment($q);
                     })->with([
                         'appointments' => function ($q) use ($followUpAppointment) {
-                            $q->whereIn('status', ['scheduled', 'missed']);
+                            $q->whereIn('status', ['scheduled', 'missed', 'confirmed']);
                             $followUpAppointment($q);
                             $q->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC');
                         },
@@ -530,9 +530,9 @@ class AppointmentController extends Controller
 
             $upcomingCount = Patient::where('clinic_id', $clinicId)->whereHas('appointments', function ($q) use ($followUpAppointment) {
                 $q->where(function ($d) {
-                    $d->whereBetween('appointment_date', [Carbon::tomorrow(), Carbon::today()->addDays(7)])
-                      ->orWhereBetween('scheduled_date', [Carbon::tomorrow(), Carbon::today()->addDays(7)]);
-                })->where('status', 'scheduled');
+                    $d->whereDate('appointment_date', '>=', Carbon::tomorrow())
+                      ->orWhereDate('scheduled_date', '>=', Carbon::tomorrow());
+                })->whereIn('status', ['scheduled', 'confirmed']);
                 $followUpAppointment($q);
             })->whereDoesntHave('appointments', function ($q) use ($followUpAppointment) {
                 $q->where(function ($d) {
@@ -587,7 +587,7 @@ class AppointmentController extends Controller
 
             switch ($tab) {
                 case 'today':
-                    // Patients seen today OR currently active in queue
+                    // Patients seen today OR currently active in queue OR registered today
                     $query->where(function ($q) {
                         $q->whereHas('treatmentRecords', function ($tr) {
                             $tr->whereDate('consultation_date', Carbon::today())
@@ -595,7 +595,7 @@ class AppointmentController extends Controller
                         })->orWhereHas('queues', function ($qu) {
                             $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
                                ->whereDate('queue_date', Carbon::today());
-                        });
+                        })->orWhereDate('created_at', Carbon::today());
                     })->with([
                         'treatmentRecords' => function ($tr) {
                             $tr->whereDate('consultation_date', Carbon::today())

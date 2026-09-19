@@ -12,5 +12,10 @@ export default defineConfig({
         secure: false,
       }
     }
-  }
+  },
+  // lenis is loaded via an import-map in public/landing.html pointing to a CDN URL.
+  // Exclude it from pre-bundling so Vite does not try to resolve it from node_modules.
+  optimizeDeps: {
+    exclude: ['lenis'],
+  },
 })

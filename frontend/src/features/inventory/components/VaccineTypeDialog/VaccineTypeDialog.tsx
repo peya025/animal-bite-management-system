@@ -112,8 +112,8 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
     }
     if (form.is_multidose) {
       const hours = Number(form.default_open_vial_hours);
-      if (!form.default_open_vial_hours || isNaN(hours) || hours < 1 || hours > 48) {
-        next.default_open_vial_hours = 'Open vial discard timer must be between 1 and 48 hours per cold-chain standards.';
+      if (!form.default_open_vial_hours || isNaN(hours) || hours < 1 || hours > 8) {
+        next.default_open_vial_hours = 'Open-vial discard timer must be between 1 and 8 hours per clinical safety policy.';
       }
     }
     if (form.is_multidose && (!form.doses_per_vial || form.doses_per_vial < 1)) {
@@ -299,6 +299,7 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
                 fullWidth
                 size="small"
                 type="number"
+                placeholder="e.g. 6 or 8"
                 value={form.default_open_vial_hours ?? ''}
                 onChange={(e) => {
                   setForm((prev) => ({
@@ -311,11 +312,23 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
                 error={!!errors.default_open_vial_hours}
                 helperText={
                   !form.is_multidose
-                    ? 'Single-dose: hours valid once opened is not used.'
-                    : errors.default_open_vial_hours || '1 to 48 hours per cold-chain standards (e.g., 8h for ARV, 48h for RIG).'
+                    ? 'Single-dose: not applicable.'
+                    : errors.default_open_vial_hours || '1 to 8 hours maximum per clinical safety policy (standard: 6–8h).'
                 }
-                slotProps={{ htmlInput: { min: 1, max: 48 } }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+                slotProps={{ htmlInput: { min: 1, max: 8 } }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    bgcolor: '#f8fafc',
+                    fontFamily: "'Poppins', sans-serif",
+                    fontSize: 13,
+                  },
+                  '& .MuiFormHelperText-root': {
+                    fontSize: 11.5,
+                    fontFamily: "'Poppins', sans-serif",
+                    mt: 0.5,
+                  },
+                }}
               />
             </Grid>
 

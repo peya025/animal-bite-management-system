@@ -324,8 +324,8 @@ export default function AddEditInventoryDialog({
     if (!isEdit && expiryDays !== null && expiryDays <= 0) next.expiration_date = 'New stock must have a future expiration date.';
     if (form.open_vial_hours != null && (form.open_vial_hours as unknown as string) !== '') {
       const hours = Number(form.open_vial_hours);
-      if (isNaN(hours) || hours < 1 || hours > 48) {
-        next.open_vial_hours = 'Open vial discard timer must be between 1 and 48 hours per cold-chain standards.';
+      if (isNaN(hours) || hours < 1 || hours > 8) {
+        next.open_vial_hours = 'Open-vial discard timer must be between 1 and 8 hours per clinical safety policy.';
       }
     }
     setErrors(next);

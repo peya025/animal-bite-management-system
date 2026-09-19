@@ -10,7 +10,6 @@ import {
   Chip,
   CircularProgress,
   TextField,
-  MenuItem,
 } from '@mui/material';
 import { LockOutlined as LockIcon } from '@mui/icons-material';
 import { Icon } from '../../../shared/components/ui/Icon';
@@ -693,8 +692,10 @@ export default function PatientDetailsModal({
           <Box sx={{ maxWidth: 320 }}>
             <TextField label="Exposure date" type="date" required size="small" value={newExposure.bite_date}
               onChange={(event) => setNewExposure({ ...newExposure, bite_date: event.target.value })}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ max: new Date().toISOString().split('T')[0] }} />
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { max: new Date().toISOString().split('T')[0] },
+              }} />
           </Box>
         </DialogContent>
         <DialogActions>

@@ -264,9 +264,9 @@ function btnStyle(bg: string, small = false): React.CSSProperties {
 
 // ─── Sub-components ───────────────────────────────────────────
 function StatBox({
-  label, value, color, sub, loading, onClick, active
+  label, value, color: _color, sub, loading, onClick, active
 }: {
-  label: string; value: string; color: string; sub?: string; loading: boolean; onClick?: () => void; active?: boolean;
+  label: string; value: string; color?: string; sub?: string; loading: boolean; onClick?: () => void; active?: boolean;
 }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -442,9 +442,9 @@ function StatBox({
 }
 
 function CatBox({
-  cat, count, color, desc, loading, active
+  cat, count, color: _color, desc, loading, active
 }: {
-  cat: string; count?: number; color: string; desc: string; loading: boolean; active?: boolean;
+  cat: string; count?: number; color?: string; desc: string; loading: boolean; active?: boolean;
 }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';

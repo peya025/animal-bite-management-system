@@ -193,8 +193,7 @@ export default function FifoComplianceReport() {
 
       {/* Detailed FIFO Tables per Vaccine Type */}
       {Object.entries(recommendations).map(([vaccineType, recommendation]) => {
-        const { recommended_batch, all_batches_fifo } = recommendation;
-        const expiryStatus = getExpiryStatus(recommended_batch.expiration_date);
+        const { recommended_batch: _recommended_batch, all_batches_fifo } = recommendation;
 
         return (
           <Box key={vaccineType} sx={{ mb: 4 }}>

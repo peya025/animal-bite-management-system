@@ -1,4 +1,3 @@
-import React from 'react';
 import type { TreatmentFormData } from '../../types/consultation.types';
 
 interface PatientInfoSectionProps {

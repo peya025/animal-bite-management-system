@@ -1,4 +1,3 @@
-import React from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Stethoscope02Icon, LockIcon as HugeLockIcon } from '@hugeicons/core-free-icons';
 import type { VaccineStockMap } from '../../types/consultation.types';

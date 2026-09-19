@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Button, Typography, Chip, Alert, TextField } from '@mui/material';
 
 interface ClinicalAddendumSectionProps {

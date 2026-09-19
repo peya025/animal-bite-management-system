@@ -69,7 +69,6 @@ export default function PatientList() {
 
   const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue'>('today_queue');
   const [tabCounts,            setTabCounts]            = useState({ today_queue: 0, all: 0, online: 0, pre_registered: 0, overdue: 0 });
-  const [checkingInId,         setCheckingInId]         = useState<number | null>(null);
 
   // Bulk walk-in portal invite state
   const [selectedWalkinIds,    setSelectedWalkinIds]    = useState<number[]>([]);
@@ -210,67 +209,6 @@ export default function PatientList() {
       });
     } finally {
       setBulkInviting(false);
-    }
-  };
-
-
-  const handleCheckIn = async (p: Patient, isNewBiteCase: boolean = false) => {
-    const patientId = p.patient_id || p.id;
-    setCheckingInId(patientId);
-    try {
-      // Check if patient has an active uncompleted PEP regimen or scheduled appointments within current regimen window (<= 90 days)
-      const appts: any[] = (p as any).appointments || [];
-      const hasActiveAppointment = appts.some(a => a.status === 'scheduled');
-      const hasFollowUpDoseScheduled = appts.some(a => a.status === 'scheduled' && ((a.dose_number !== undefined && a.dose_number !== null && a.dose_number > 0) || a.appointment_type === 'vaccination'));
-      const latestRecord = (p as any).latest_treatment_record || (p as any).latestTreatmentRecord;
-      const latestRecordDate = latestRecord?.treatment_date || latestRecord?.created_at;
-      
-      let isFollowUpWithinRegimen = false;
-      if (hasFollowUpDoseScheduled) {
-        isFollowUpWithinRegimen = true;
-      } else if (hasActiveAppointment && latestRecordDate) {
-        const daysSinceLastDose = Math.floor((Date.now() - new Date(latestRecordDate).getTime()) / (1000 * 60 * 60 * 24));
-        if (daysSinceLastDose <= 90) {
-          isFollowUpWithinRegimen = true;
-        }
-      }
-
-      const today = new Date().toISOString().slice(0, 10);
-      const isBoosterToday = (p as any).appointments?.some((a: any) => 
-        a.status === 'scheduled' && 
-        (a.appointment_type === 'booster' || a.notes?.toLowerCase().includes('booster')) &&
-        ((a.appointment_date && a.appointment_date.startsWith(today)) || (a.scheduled_date && a.scheduled_date.startsWith(today)))
-      );
-
-      // A booster request requires a fresh Doctor assessment. It is intentionally
-      // queued as a new clinical case, not sent straight to the treatment nurse.
-      const isInitialVisit = isNewBiteCase || !isFollowUpWithinRegimen;
-      const visitType = (isBoosterToday || isInitialVisit) ? 'new_case' : 'vaccination';
-
-      const res = await api.post('/queue', {
-        patient_id: patientId,
-        visit_type: visitType,
-        queue_category: 'regular',
-        priority: 'normal',
-        check_in_notes: isBoosterToday
-          ? 'Booster request: Doctor assessment and Form 2 approval required before treatment.'
-          : undefined,
-      });
-
-      const station = isBoosterToday
-        ? 'Triage Queue (Booster Request: Doctor Assessment)'
-        : (isInitialVisit ? 'Triage Queue (Doctor Assessment)' : 'Treatment Queue (Vaccination Desk)');
-      setCheckInModalData({
-        patientName: fullName(p),
-        patientNumber: p.patient_number,
-        queueNumber: res.data?.queue_number || '1',
-        station,
-      });
-      fetchPatients();
-    } catch (err: any) {
-      setCheckInError(err.response?.data?.message || 'Failed to check in patient to queue');
-    } finally {
-      setCheckingInId(null);
     }
   };
 

@@ -335,7 +335,7 @@ export default function StaffAssignmentPage() {
 }
 
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+function StatCard({ label, value, color: _color }: { label: string; value: number; color?: string }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 

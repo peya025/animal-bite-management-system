@@ -10,7 +10,6 @@ import {
   Chip,
   CircularProgress,
   TextField,
-  MenuItem,
 } from '@mui/material';
 import { LockOutlined as LockIcon } from '@mui/icons-material';
 import { Icon } from '../../../shared/components/ui/Icon';
@@ -423,7 +422,7 @@ export default function PatientDetailsModal({
       const token = localStorage.getItem('authToken') || '';
       const patientId = (patient as any).patient_id || (patient as any).id;
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-      const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment?token=${encodeURIComponent(token)}`;
+      const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment`;
 
       const response = await fetch(printUrl, {
         headers: {
@@ -693,8 +692,10 @@ export default function PatientDetailsModal({
           <Box sx={{ maxWidth: 320 }}>
             <TextField label="Exposure date" type="date" required size="small" value={newExposure.bite_date}
               onChange={(event) => setNewExposure({ ...newExposure, bite_date: event.target.value })}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ max: new Date().toISOString().split('T')[0] }} />
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { max: new Date().toISOString().split('T')[0] },
+              }} />
           </Box>
         </DialogContent>
         <DialogActions>

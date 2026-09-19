@@ -18,6 +18,9 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
+        if (!config('app.public_registration_enabled', false)) {
+            abort(404);
+        }
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
@@ -171,8 +174,14 @@ class AuthController extends Controller
         }
 
         $data = $request->only(['name', 'phone']);
-        if ($request->filled('password')) $data['password'] = Hash::make($request->password);
+        if ($request->filled('password')) {
+            $data['password'] = Hash::make($request->password);
+        }
         $user->update($data);
+        if ($request->filled('password')) {
+            $user->tokens()->delete();
+        }
+
         return response()->json(['message' => 'Profile updated successfully', 'user' => $user->fresh()->load('clinic')]);
     }
 

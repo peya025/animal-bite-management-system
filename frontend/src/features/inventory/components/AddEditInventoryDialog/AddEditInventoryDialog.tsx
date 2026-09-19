@@ -13,7 +13,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -323,7 +322,7 @@ export default function AddEditInventoryDialog({
     if (!form.quantity || Number(form.quantity) < 1) next.quantity = isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
     if (!form.expiration_date) next.expiration_date = 'Expiration date is required.';
     if (!isEdit && expiryDays !== null && expiryDays <= 0) next.expiration_date = 'New stock must have a future expiration date.';
-    if (form.open_vial_hours !== null && form.open_vial_hours !== undefined && form.open_vial_hours !== '') {
+    if (form.open_vial_hours != null && (form.open_vial_hours as unknown as string) !== '') {
       const hours = Number(form.open_vial_hours);
       if (isNaN(hours) || hours < 1 || hours > 48) {
         next.open_vial_hours = 'Open vial discard timer must be between 1 and 48 hours per cold-chain standards.';
@@ -565,7 +564,7 @@ export default function AddEditInventoryDialog({
                           <Typography sx={{ fontSize: 13 }}>{option}</Typography>
                         </li>
                       )}
-                      ListboxProps={{ style: { maxHeight: 220 } }}
+                      slotProps={{ listbox: { style: { maxHeight: 220 } } }}
                     />
                   </Box>
                 )}

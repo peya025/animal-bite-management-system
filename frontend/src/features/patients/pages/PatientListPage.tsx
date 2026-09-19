@@ -69,7 +69,6 @@ export default function PatientList() {
 
   const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue'>('today_queue');
   const [tabCounts,            setTabCounts]            = useState({ today_queue: 0, all: 0, online: 0, pre_registered: 0, overdue: 0 });
-  const [checkingInId,         setCheckingInId]         = useState<number | null>(null);
 
   // Bulk walk-in portal invite state
   const [selectedWalkinIds,    setSelectedWalkinIds]    = useState<number[]>([]);
@@ -213,67 +212,6 @@ export default function PatientList() {
     }
   };
 
-
-  const handleCheckIn = async (p: Patient, isNewBiteCase: boolean = false) => {
-    const patientId = p.patient_id || p.id;
-    setCheckingInId(patientId);
-    try {
-      // Check if patient has an active uncompleted PEP regimen or scheduled appointments within current regimen window (<= 90 days)
-      const appts: any[] = (p as any).appointments || [];
-      const hasActiveAppointment = appts.some(a => a.status === 'scheduled');
-      const hasFollowUpDoseScheduled = appts.some(a => a.status === 'scheduled' && ((a.dose_number !== undefined && a.dose_number !== null && a.dose_number > 0) || a.appointment_type === 'vaccination'));
-      const latestRecord = (p as any).latest_treatment_record || (p as any).latestTreatmentRecord;
-      const latestRecordDate = latestRecord?.treatment_date || latestRecord?.created_at;
-      
-      let isFollowUpWithinRegimen = false;
-      if (hasFollowUpDoseScheduled) {
-        isFollowUpWithinRegimen = true;
-      } else if (hasActiveAppointment && latestRecordDate) {
-        const daysSinceLastDose = Math.floor((Date.now() - new Date(latestRecordDate).getTime()) / (1000 * 60 * 60 * 24));
-        if (daysSinceLastDose <= 90) {
-          isFollowUpWithinRegimen = true;
-        }
-      }
-
-      const today = new Date().toISOString().slice(0, 10);
-      const isBoosterToday = (p as any).appointments?.some((a: any) => 
-        a.status === 'scheduled' && 
-        (a.appointment_type === 'booster' || a.notes?.toLowerCase().includes('booster')) &&
-        ((a.appointment_date && a.appointment_date.startsWith(today)) || (a.scheduled_date && a.scheduled_date.startsWith(today)))
-      );
-
-      // A booster request requires a fresh Doctor assessment. It is intentionally
-      // queued as a new clinical case, not sent straight to the treatment nurse.
-      const isInitialVisit = isNewBiteCase || !isFollowUpWithinRegimen;
-      const visitType = (isBoosterToday || isInitialVisit) ? 'new_case' : 'vaccination';
-
-      const res = await api.post('/queue', {
-        patient_id: patientId,
-        visit_type: visitType,
-        queue_category: 'regular',
-        priority: 'normal',
-        check_in_notes: isBoosterToday
-          ? 'Booster request: Doctor assessment and Form 2 approval required before treatment.'
-          : undefined,
-      });
-
-      const station = isBoosterToday
-        ? 'Triage Queue (Booster Request: Doctor Assessment)'
-        : (isInitialVisit ? 'Triage Queue (Doctor Assessment)' : 'Treatment Queue (Vaccination Desk)');
-      setCheckInModalData({
-        patientName: fullName(p),
-        patientNumber: p.patient_number,
-        queueNumber: res.data?.queue_number || '1',
-        station,
-      });
-      fetchPatients();
-    } catch (err: any) {
-      setCheckInError(err.response?.data?.message || 'Failed to check in patient to queue');
-    } finally {
-      setCheckingInId(null);
-    }
-  };
-
   const getLiveStatus = (p: Patient): { label: string; icon?: any; bg: string; color: string; isPastAppt?: boolean } => {
     const activeQueue = (p as any).queues?.[0];
     const appts: any[] = (p as any).appointments || [];
@@ -384,7 +322,29 @@ export default function PatientList() {
     // 5. Administered Treatment Record Summary (when no pending appointments)
     const record = (p as any).latest_treatment_record;
     if (record?.dose_number !== undefined && record?.dose_number !== null) {
-      const doseName = record.dose_number === 0 ? 'Day 0 (Initial) Done' : (record.dose_number >= 28 ? 'Regimen Completed' : `Day ${record.dose_number} Done`);
+      let doseName: string;
+      
+      // Map dose numbers to human-readable labels
+      if (record.dose_number === 0) {
+        doseName = 'Day 0 (Initial) Done';
+      } else if (record.dose_number === 365) {
+        doseName = 'Booster 2 Completed';
+      } else if (record.dose_number === 90) {
+        doseName = 'Booster 1 Completed';
+      } else if (record.dose_number === 28) {
+        doseName = 'Day 28 Completed';
+      } else if (record.dose_number === 7) {
+        doseName = 'Day 7 Completed';
+      } else if (record.dose_number === 3) {
+        doseName = 'Day 3 Completed';
+      } else if (record.dose_number > 365) {
+        doseName = 'All Boosters Completed';
+      } else if (record.dose_number > 28) {
+        doseName = 'Primary Series Completed';
+      } else {
+        doseName = `Day ${record.dose_number} Done`;
+      }
+      
       return { label: doseName, icon: CheckmarkCircle02Icon, bg: '#ecfdf5', color: '#059669' };
     }
 
@@ -700,7 +660,8 @@ export default function PatientList() {
                     );
                     const hasActiveIncident = latestIncident && (latestIncident.status === 'active' || latestIncident.status === 'in_progress');
                     const isOngoingTreatment = hasActiveIncident || hasPendingAppointments || (hasDosesAdministered && latestRecord.dose_number < 28);
-                    const hasCompletedAllDoses = hasDosesAdministered && latestRecord.dose_number >= 28 && !hasPendingAppointments;
+                    // Allow re-exposure registration after Day 3 (3rd dose) or later, when no pending appointments
+                    const hasCompletedMinimumDoses = hasDosesAdministered && latestRecord.dose_number >= 3 && !hasPendingAppointments;
                     const isFollowUp = (hasDosesAdministered || hasCompletedTriage) && isOngoingTreatment;
                     const canCheckIn = !activeQueue && !hasCompletedTriage;
                     const patientId = p.patient_id || p.id;
@@ -771,7 +732,7 @@ export default function PatientList() {
                               >
                                 Register Exposure
                               </button>
-                            ) : hasCompletedAllDoses && !activeQueue ? (
+                            ) : hasCompletedMinimumDoses && !activeQueue ? (
                               <button
                                 className="pm-btn-checkin"
                                 title="Register a distinct new exposure before Doctor assessment"

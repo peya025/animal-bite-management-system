@@ -16,6 +16,7 @@ return new class extends Migration
             $table->enum('plan_type', [
                 'full_pep',
                 'single_booster',
+                'two_dose_booster',
                 'continue_existing_schedule',
                 'no_vaccine',
             ]);

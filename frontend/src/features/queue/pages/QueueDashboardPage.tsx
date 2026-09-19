@@ -332,13 +332,14 @@ export default function QueueDashboard() {
   const completedTreatmentEntries = isTreatmentNurse
     ? queue.filter(entry => entry.visit_type === 'vaccination' && entry.status === 'completed')
     : [];
+  const isAdminOrReg = user?.role === 'admin' || isRegistrationStaff;
   const stationScopedQueue = stationMode === 'intake'
-    ? queue.filter(isIntakeStationEntry)
+    ? queue.filter(entry => isIntakeStationEntry(entry) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(entry.visit_type)))
     : stationMode === 'follow_up'
       ? queue.filter(isFollowUpStationEntry)
       : queue;
   const stationScopedSecondChanceQueue = stationMode === 'intake'
-    ? secondChanceQueue.filter(isIntakeStationEntry)
+    ? secondChanceQueue.filter(entry => isIntakeStationEntry(entry) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(entry.visit_type)))
     : stationMode === 'follow_up'
       ? secondChanceQueue.filter(isFollowUpStationEntry)
       : secondChanceQueue;
@@ -408,7 +409,7 @@ export default function QueueDashboard() {
       // excludes new_case visit types, which are exactly what triage sees.
       matchVisitType = true;
     } else if (visitTypeFilter === 'intake') {
-      matchVisitType = isIntakeStationEntry(q);
+      matchVisitType = isIntakeStationEntry(q) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(q.visit_type));
     } else if (visitTypeFilter === 'follow_up_station') {
       matchVisitType = isFollowUpStationEntry(q);
     } else if (visitTypeFilter) {

@@ -20,7 +20,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
   const [error, setError]         = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const loc = useAddressLocation();
-  const isRegistrationStaff = role === 'registration';
+  const canQueuePatient = role !== 'patient';
 
   const handleFieldChange = (key: keyof EnrolmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -94,10 +94,10 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     } else if (enrolment.date_of_birth > new Date().toISOString().split('T')[0]) {
       newFieldErrors.date_of_birth = 'Date of Birth cannot be a future date.';
     }
-    if (isRegistrationStaff && !enrolment.queue_priority_group) {
+    if (canQueuePatient && !enrolment.queue_priority_group) {
       newFieldErrors.queue_priority_group = 'Queue category is required';
     }
-    if (isRegistrationStaff && enrolment.queue_priority_group !== 'normal' && !enrolment.queue_priority_level) {
+    if (canQueuePatient && enrolment.queue_priority_group !== 'normal' && !enrolment.queue_priority_level) {
       newFieldErrors.queue_priority_level = 'Priority is required';
     }
 
@@ -187,7 +187,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
         brgyName: loc.brgyName,
         purok: loc.purok,
       }, {
-        autoQueue: isRegistrationStaff,
+        autoQueue: canQueuePatient,
       });
       onSuccess();
     } catch (e: unknown) {
@@ -233,7 +233,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
       }
     >
       <PatientFormContent>
-        <PatientInfoSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} showQueueFields={isRegistrationStaff} />
+        <PatientInfoSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} showQueueFields={canQueuePatient} />
         <AddressSection loc={loc} errors={fieldErrors} />
         <ContactSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} />
         <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />

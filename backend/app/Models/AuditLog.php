@@ -8,6 +8,17 @@ use Illuminate\Support\Facades\Request;
 
 class AuditLog extends Model
 {
+    protected static function booted(): void
+    {
+        static::creating(function (AuditLog $log) {
+            if (empty($log->ip_address)) {
+                $log->ip_address = Request::ip() ?? '127.0.0.1';
+            }
+            if (empty($log->user_agent)) {
+                $log->user_agent = Request::userAgent() ?? 'System';
+            }
+        });
+    }
     protected $fillable = [
         'user_id',
         'clinic_id',

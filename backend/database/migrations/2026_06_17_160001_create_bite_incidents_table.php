@@ -41,7 +41,7 @@ return new class extends Migration
             $table->string('referred_from')->nullable(); // If from another facility
             
             // Case Management
-            $table->enum('status', ['active', 'completed', 'referred', 'abandoned'])->default('active');
+            $table->string('status', 50)->default('active');
             $table->text('remarks')->nullable();
             
             // Tracking

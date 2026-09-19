@@ -1,10 +1,10 @@
-# Assignment 2 — Vaccine Inventory Integrity & Audit Trail
+# Assignment 2 â€” Vaccine Inventory Integrity & Audit Trail
 
 **System:** Animal Bite Management System  
 **Branch:** `security-fix/inventory-integrity`  
 **Audit source:** `tasks/pre_deployment_system_change_audit.md`  
-**Priority items:** P0-6 · P0-7 (+ supporting P1-5, P1-6)  
-**Estimated complexity:** High — requires database transactions, row locking, audit log integration, and MySQL-level testing  
+**Priority items:** P0-6 Â· P0-7 (+ supporting P1-5, P1-6)  
+**Estimated complexity:** High â€” requires database transactions, row locking, audit log integration, and MySQL-level testing  
 
 ---
 
@@ -32,7 +32,7 @@ All work must be done on a dedicated `security-fix/inventory-integrity` branch. 
 
 ## Step-by-Step Tasks
 
-### TASK 1 — Wrap all inventory mutations in a database transaction with row locking (P0-6)
+### TASK 1 â€” Wrap all inventory mutations in a database transaction with row locking (P0-6)
 
 **Goal:** Concurrent administration cannot overspend stock or generate inconsistent open-vial state.
 
@@ -99,7 +99,7 @@ if ($forceBatchId) {
 
 ---
 
-### TASK 2 — Prevent hard deletion and enforce soft archival (P0-7)
+### TASK 2 â€” Prevent hard deletion and enforce soft archival (P0-7)
 
 **Goal:** No inventory record or its transaction history can be permanently erased. Only administrators can archive (soft-delete) records, with a mandatory reason.
 
@@ -135,7 +135,7 @@ $inventory->update([
     'archived_reason' => $request->input('reason'),
     'archived_by' => auth()->id(),
 ]);
-$inventory->delete(); // soft delete only — sets deleted_at
+$inventory->delete(); // soft delete only â€” sets deleted_at
 ```
 
 4. Restrict the route to `admin` only (remove `developer` from the allowed roles):
@@ -144,7 +144,7 @@ $inventory->delete(); // soft delete only — sets deleted_at
 Route::middleware(['auth:sanctum', 'role:admin'])->delete('/inventory/{id}', [VaccineInventoryController::class, 'destroy']);
 ```
 
-5. Update the database foreign key on `inventory_transactions` to **not cascade on delete** — transactions must persist even if the parent inventory is soft-deleted:
+5. Update the database foreign key on `inventory_transactions` to **not cascade on delete** â€” transactions must persist even if the parent inventory is soft-deleted:
 
 ```php
 // In a new migration:
@@ -157,7 +157,7 @@ $table->foreign('vaccine_inventory_id')
 
 ---
 
-### TASK 3 — Add audit log events to every inventory mutation (P0-7)
+### TASK 3 â€” Add audit log events to every inventory mutation (P0-7)
 
 **Goal:** Every create, update, open-vial, discard, adjust, use, and delete event is written atomically to the `AuditLog` table including actor, timestamp, before/after values, and a correlation ID.
 
@@ -165,8 +165,8 @@ $table->foreign('vaccine_inventory_id')
    - `user_id` (actor)
    - `action` (string: `inventory.create`, `inventory.update`, `inventory.delete`, `inventory.deduct`, `inventory.open_vial`, etc.)
    - `subject_type` and `subject_id` (polymorphic)
-   - `before` (JSON — state before the change)
-   - `after` (JSON — state after the change)
+   - `before` (JSON â€” state before the change)
+   - `after` (JSON â€” state after the change)
    - `reason` (nullable string)
    - `ip_address`
    - `created_at` (server-set, not fillable)
@@ -195,18 +195,18 @@ class AuditLogger
 ```
 
 4. Call `AuditLogger::log()` **inside the same `DB::transaction()`** for every inventory mutation:
-   - In `VaccineInventoryUsageService::deductForTreatment()` — log `inventory.deduct` with before/after `current_quantity`.
-   - In `openVial()` — log `inventory.open_vial`.
-   - In `VaccineInventoryController::store()` — log `inventory.create`.
-   - In `VaccineInventoryController::update()` — log `inventory.update` with before/after.
-   - In `VaccineInventoryController::destroy()` — log `inventory.archive` with before state and the reason.
-   - In any adjust/discard/write-off actions — log accordingly.
+   - In `VaccineInventoryUsageService::deductForTreatment()` â€” log `inventory.deduct` with before/after `current_quantity`.
+   - In `openVial()` â€” log `inventory.open_vial`.
+   - In `VaccineInventoryController::store()` â€” log `inventory.create`.
+   - In `VaccineInventoryController::update()` â€” log `inventory.update` with before/after.
+   - In `VaccineInventoryController::destroy()` â€” log `inventory.archive` with before state and the reason.
+   - In any adjust/discard/write-off actions â€” log accordingly.
 
-5. Make `created_at` on `AuditLog` **server-set only** — remove it from `$fillable` and set `$timestamps = true` with a custom `CREATED_AT` if needed. The `transaction_date` on `InventoryTransaction` must also be set server-side; remove it from `$fillable` on `InventoryTransaction` model (P1-5).
+5. Make `created_at` on `AuditLog` **server-set only** â€” remove it from `$fillable` and set `$timestamps = true` with a custom `CREATED_AT` if needed. The `transaction_date` on `InventoryTransaction` must also be set server-side; remove it from `$fillable` on `InventoryTransaction` model (P1-5).
 
 ---
 
-### TASK 4 — Add database-level integrity constraints (P1-5)
+### TASK 4 â€” Add database-level integrity constraints (P1-5)
 
 **Goal:** The database itself enforces integrity rules, not just application code.
 
@@ -232,11 +232,11 @@ InventoryTransaction::create([
 ]);
 ```
 
-3. Prevent direct external creation of `InventoryTransaction` records — they should only be created through the service methods. Add a comment to the model indicating this constraint.
+3. Prevent direct external creation of `InventoryTransaction` records â€” they should only be created through the service methods. Add a comment to the model indicating this constraint.
 
 ---
 
-### TASK 5 — Enforce server-side open-vial hour limits (P1-6)
+### TASK 5 â€” Enforce server-side open-vial hour limits (P1-6)
 
 **Goal:** `openVial()` cannot accept a request-provided hour value that exceeds the approved per-vaccine maximum.
 
@@ -262,9 +262,9 @@ if ($requestedHours > $maxHours) {
 }
 ```
 
-3. Do not hard-code a medical policy — the config value must be set by the clinic's authorized clinical authority, not by the developer. Add a note in `.env.example`:
+3. Do not hard-code a medical policy â€” the config value must be set by the clinic's authorized clinical authority, not by the developer. Add a note in `.env.example`:
    ```
-   # Open vial maximum hours — must be approved by the clinic's clinical authority before changing
+   # Open vial maximum hours â€” must be approved by the clinic's clinical authority before changing
    OPEN_VIAL_MAX_HOURS=8
    ```
 
@@ -277,27 +277,27 @@ if ($requestedHours > $maxHours) {
 Create test files in `backend/tests/Feature/Inventory/`:
 
 #### `ConcurrencyTest.php`
-- `test_concurrent_deductions_do_not_exceed_stock()` — Simulate two simultaneous deductions of the same batch; total deducted must not exceed available stock.
-- `test_stock_cannot_go_negative()` — Attempt to deduct more than available; expect exception and stock unchanged.
+- `test_concurrent_deductions_do_not_exceed_stock()` â€” Simulate two simultaneous deductions of the same batch; total deducted must not exceed available stock.
+- `test_stock_cannot_go_negative()` â€” Attempt to deduct more than available; expect exception and stock unchanged.
 
 #### `FifoTest.php`
-- `test_deduction_uses_earliest_expiry_batch()` — Given two batches with different expiry dates, deduction should consume the earlier one.
-- `test_non_fifo_force_batch_id_returns_422()` — Supplying a `force_batch_id` that is not the earliest expiry returns 422.
+- `test_deduction_uses_earliest_expiry_batch()` â€” Given two batches with different expiry dates, deduction should consume the earlier one.
+- `test_non_fifo_force_batch_id_returns_422()` â€” Supplying a `force_batch_id` that is not the earliest expiry returns 422.
 
 #### `AuditLogTest.php`
-- `test_inventory_create_generates_audit_log()` — After creating an inventory record, an `inventory.create` audit event exists.
-- `test_inventory_deduct_generates_audit_log()` — After deduction, an `inventory.deduct` audit event exists with correct before/after quantities.
-- `test_inventory_archive_generates_audit_log_with_reason()` — After soft-deleting, an `inventory.archive` event with a reason exists.
+- `test_inventory_create_generates_audit_log()` â€” After creating an inventory record, an `inventory.create` audit event exists.
+- `test_inventory_deduct_generates_audit_log()` â€” After deduction, an `inventory.deduct` audit event exists with correct before/after quantities.
+- `test_inventory_archive_generates_audit_log_with_reason()` â€” After soft-deleting, an `inventory.archive` event with a reason exists.
 
 #### `AuthorizationTest.php`
-- `test_nurse_cannot_delete_inventory()` — DELETE by a nurse role returns 403.
-- `test_developer_cannot_delete_inventory()` — DELETE by a developer role returns 403.
-- `test_admin_can_archive_inventory_with_reason()` — DELETE by admin with a reason returns 200 and soft-deletes.
-- `test_admin_delete_without_reason_returns_422()` — DELETE by admin without a reason returns 422.
+- `test_nurse_cannot_delete_inventory()` â€” DELETE by a nurse role returns 403.
+- `test_developer_cannot_delete_inventory()` â€” DELETE by a developer role returns 403.
+- `test_admin_can_archive_inventory_with_reason()` â€” DELETE by admin with a reason returns 200 and soft-deletes.
+- `test_admin_delete_without_reason_returns_422()` â€” DELETE by admin without a reason returns 422.
 
 #### `OpenVialTest.php`
-- `test_open_vial_hours_cannot_exceed_configured_max()` — Supplying hours > `OPEN_VIAL_MAX_HOURS` returns 422.
-- `test_open_vial_within_limit_succeeds()` — Valid hours within limit returns 200.
+- `test_open_vial_hours_cannot_exceed_configured_max()` â€” Supplying hours > `OPEN_VIAL_MAX_HOURS` returns 422.
+- `test_open_vial_within_limit_succeeds()` â€” Valid hours within limit returns 200.
 
 ### Run Commands
 
@@ -308,7 +308,7 @@ php artisan test --filter=FifoTest
 php artisan test --filter=AuditLogTest
 php artisan test --filter=AuthorizationTest
 php artisan test --filter=OpenVialTest
-php artisan test  # Full suite — 0 failures required
+php artisan test  # Full suite â€” 0 failures required
 ```
 
 > **Important:** Concurrency tests must be run against a **MySQL 8** database, not SQLite. SQLite does not support `lockForUpdate()`. Configure a MySQL test environment in `phpunit.xml` for these tests.
@@ -328,15 +328,15 @@ php artisan test  # Full suite — 0 failures required
 
 ## Success Criteria
 
-- [ ] All inventory mutations are wrapped in `DB::transaction()` with `lockForUpdate()`
-- [ ] Stock is re-verified inside the transaction after acquiring the lock
-- [ ] A non-FIFO `force_batch_id` returns 422 without changing stock
-- [ ] Hard deletion is replaced by soft archival with a mandatory reason
-- [ ] Only `admin` role can archive inventory records (developer removed)
-- [ ] Every inventory mutation emits an audit log event in the same transaction
-- [ ] `InventoryTransaction` cannot be created directly outside service methods
-- [ ] `transaction_date` is set server-side and removed from `$fillable`
-- [ ] Unique `(clinic_id, batch_number)` constraint added to migration
-- [ ] `open_vial_hours` is validated against config-controlled maximum
-- [ ] All new PHPUnit tests pass
-- [ ] `php artisan test` exits with 0 failures
+- [x] All inventory mutations are wrapped in `DB::transaction()` with `lockForUpdate()`
+- [x] Stock is re-verified inside the transaction after acquiring the lock
+- [x] A non-FIFO `force_batch_id` returns 422 without changing stock
+- [x] Hard deletion is replaced by soft archival with a mandatory reason
+- [x] Only `admin` role can archive inventory records (developer removed)
+- [x] Every inventory mutation emits an audit log event in the same transaction
+- [x] `InventoryTransaction` cannot be created directly outside service methods
+- [x] `transaction_date` is set server-side and removed from `$fillable`
+- [x] Unique `(clinic_id, batch_number)` constraint added to migration
+- [x] `open_vial_hours` is validated against config-controlled maximum
+- [x] All new PHPUnit tests pass
+- [x] `php artisan test` exits with 0 failures

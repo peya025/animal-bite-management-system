@@ -106,7 +106,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/inventory', { params: { per_page: 200 } });
+      const res = await api.get('/inventory', { params: { per_page: 200, with_archived: 1 } });
       const liveItems: InventoryItem[] = res.data?.data || res.data || [];
       setItems(Array.isArray(liveItems) ? liveItems : []);
     } catch (err: unknown) {
@@ -157,6 +157,9 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             break;
           case 'discard-pending':
             matchesStatus = derivedStatus === 'Discard-Pending';
+            break;
+          case 'archived':
+            matchesStatus = derivedStatus === 'Archived';
             break;
           default:
             matchesStatus = true;

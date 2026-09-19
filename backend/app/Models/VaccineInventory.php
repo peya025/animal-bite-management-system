@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class VaccineInventory extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'vaccine_inventory';
     protected $primaryKey = 'inventory_id';
@@ -29,6 +30,8 @@ class VaccineInventory extends Model
         'current_quantity',
         'expiration_date',
         'status',
+        'archived_reason',
+        'archived_by',
     ];
 
     protected $casts = [
@@ -41,6 +44,8 @@ class VaccineInventory extends Model
         'open_vial_hours' => 'integer',
         'doses_per_vial' => 'integer',
         'open_vial_doses_used' => 'integer',
+        'archived_by' => 'integer',
+        'deleted_at' => 'datetime',
     ];
 
     /**
@@ -65,5 +70,13 @@ class VaccineInventory extends Model
     public function treatmentRecords()
     {
         return $this->hasMany(TreatmentRecord::class, 'inventory_id', 'inventory_id');
+    }
+
+    /**
+     * Relationship: User who archived this batch
+     */
+    public function archivedBy()
+    {
+        return $this->belongsTo(User::class, 'archived_by', 'id');
     }
 }

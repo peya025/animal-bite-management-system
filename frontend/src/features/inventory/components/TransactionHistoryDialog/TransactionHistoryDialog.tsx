@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, Divider, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Typography,
+  TableHead, TableRow, Typography, Alert,
 } from '@mui/material';
 import { History as HistoryIcon } from '@mui/icons-material';
 import api from '../../../../services/api';
@@ -33,6 +33,10 @@ const TX_COLOR: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
   disposed: 'error',
 };
 
+type ApiError = {
+  response?: { data?: { message?: string } };
+};
+
 export default function TransactionHistoryDialog({
   open,
   item,
@@ -40,16 +44,24 @@ export default function TransactionHistoryDialog({
 }: TransactionHistoryDialogProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !item) return;
 
+    setFetchError(null);
     const timer = window.setTimeout(() => {
       setLoading(true);
       api
         .get(`/inventory/${item.inventory_id}/transactions`)
         .then((res) => setTransactions(res.data.transactions ?? []))
-        .catch(() => setTransactions([]))
+        .catch((err: ApiError) => {
+          setTransactions([]);
+          setFetchError(
+            err.response?.data?.message ||
+              'Unable to load transaction history. The batch may have been archived or removed.',
+          );
+        })
         .finally(() => setLoading(false));
     }, 0);
 
@@ -71,6 +83,10 @@ export default function TransactionHistoryDialog({
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress />
+          </Box>
+        ) : fetchError ? (
+          <Box sx={{ px: 3, py: 4 }}>
+            <Alert severity="error">{fetchError}</Alert>
           </Box>
         ) : transactions.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>

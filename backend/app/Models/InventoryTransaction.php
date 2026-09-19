@@ -5,6 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * InventoryTransaction Model
+ *
+ * NOTE: Direct client-side manipulation of InventoryTransaction is forbidden.
+ * Records must only be created server-side via VaccineInventoryUsageService or VaccineInventoryController.
+ * transaction_date is strictly managed by the server (now()) and cannot be user-supplied.
+ */
 class InventoryTransaction extends Model
 {
     use HasFactory;
@@ -23,7 +30,6 @@ class InventoryTransaction extends Model
         'transferred',
         'expired',
         'balanced',
-        'transaction_date',
         'reference_id',
         'remarks',
     ];
@@ -38,12 +44,21 @@ class InventoryTransaction extends Model
         'transaction_date' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function ($transaction) {
+            if (empty($transaction->transaction_date)) {
+                $transaction->transaction_date = now();
+            }
+        });
+    }
+
     /**
      * Relationship: InventoryTransaction belongs to VaccineInventory
      */
     public function inventory()
     {
-        return $this->belongsTo(VaccineInventory::class, 'inventory_id', 'inventory_id');
+        return $this->belongsTo(VaccineInventory::class, 'inventory_id', 'inventory_id')->withTrashed();
     }
 
     /**

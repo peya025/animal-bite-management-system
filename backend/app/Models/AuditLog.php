@@ -44,6 +44,34 @@ class AuditLog extends Model
     }
 
     /**
+     * Accessors for flexible auditing terminology
+     */
+    public function getBeforeAttribute()
+    {
+        return $this->old_values;
+    }
+
+    public function getAfterAttribute()
+    {
+        return $this->new_values;
+    }
+
+    public function getSubjectTypeAttribute()
+    {
+        return $this->model;
+    }
+
+    public function getSubjectIdAttribute()
+    {
+        return $this->model_id;
+    }
+
+    public function getReasonAttribute()
+    {
+        return $this->metadata['reason'] ?? $this->description;
+    }
+
+    /**
      * Log an action
      */
     public static function log(string $action, ?string $model = null, ?int $modelId = null, array $options = []): self
@@ -51,18 +79,18 @@ class AuditLog extends Model
         $user = Auth::user();
         
         return self::create([
-            'user_id' => $user?->id,
-            'clinic_id' => $user?->clinic_id,
+            'user_id' => $options['user_id'] ?? $user?->id,
+            'clinic_id' => $options['clinic_id'] ?? $user?->clinic_id,
             'action' => $action,
             'model' => $model,
             'model_id' => $modelId,
-            'ip_address' => Request::ip(),
+            'ip_address' => Request::ip() ?? '127.0.0.1',
             'user_agent' => Request::userAgent(),
-            'url' => Request::fullUrl(),
-            'method' => Request::method(),
-            'old_values' => $options['old_values'] ?? null,
-            'new_values' => $options['new_values'] ?? null,
-            'description' => $options['description'] ?? null,
+            'url' => Request::fullUrl() ?? 'system',
+            'method' => Request::method() ?? 'CLI',
+            'old_values' => $options['old_values'] ?? $options['before'] ?? null,
+            'new_values' => $options['new_values'] ?? $options['after'] ?? null,
+            'description' => $options['description'] ?? $options['reason'] ?? null,
             'metadata' => $options['metadata'] ?? null,
         ]);
     }
@@ -76,9 +104,9 @@ class AuditLog extends Model
             'user_id' => $user->id,
             'clinic_id' => $user->clinic_id,
             'action' => 'login',
-            'ip_address' => Request::ip(),
+            'ip_address' => Request::ip() ?? '127.0.0.1',
             'user_agent' => Request::userAgent(),
-            'url' => Request::fullUrl(),
+            'url' => Request::fullUrl() ?? 'system',
             'method' => 'POST',
             'description' => "User {$user->name} logged in",
         ]);
@@ -91,7 +119,7 @@ class AuditLog extends Model
             'user_id' => $user?->id,
             'clinic_id' => $user?->clinic_id,
             'action' => 'logout',
-            'ip_address' => Request::ip(),
+            'ip_address' => Request::ip() ?? '127.0.0.1',
             'user_agent' => Request::userAgent(),
             'description' => "User {$user?->name} logged out",
         ]);

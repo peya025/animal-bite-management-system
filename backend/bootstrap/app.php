@@ -8,6 +8,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\HandleCors;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -30,5 +31,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Return a clean, user-friendly 404 JSON response instead of the raw
+        // "No query results for model [App\Models\Xyz]" Laravel default message.
+        $exceptions->render(function (ModelNotFoundException $e, $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'The requested record was not found or you do not have access to it.',
+                ], 404);
+            }
+        });
     })->create();

@@ -1,7 +1,7 @@
 import type { InventoryItem } from '../types';
 import { daysUntil, formatDate, formatTime } from '../../../shared/utils';
 
-export type DerivedInventoryStatus = 'Active' | 'Expiring' | 'Expired' | 'Depleted' | 'Discard-Pending';
+export type DerivedInventoryStatus = 'Active' | 'Expiring' | 'Expired' | 'Depleted' | 'Discard-Pending' | 'Archived';
 
 export interface StatusVisual {
   label: DerivedInventoryStatus;
@@ -82,7 +82,8 @@ export function describeOpenVialCountdown(discardAt?: string | null) {
   };
 }
 
-export function deriveInventoryStatus(item: Pick<InventoryItem, 'current_quantity' | 'expiration_date' | 'open_vial_status'>): DerivedInventoryStatus {
+export function deriveInventoryStatus(item: Pick<InventoryItem, 'current_quantity' | 'expiration_date' | 'open_vial_status'> & { deleted_at?: string | null }): DerivedInventoryStatus {
+  if (item.deleted_at) return 'Archived';
   if ((item.current_quantity ?? 0) <= 0) return 'Depleted';
   if (item.open_vial_status === 'opened') return 'Discard-Pending';
 
@@ -94,6 +95,14 @@ export function deriveInventoryStatus(item: Pick<InventoryItem, 'current_quantit
 
 export function getStatusVisual(status: DerivedInventoryStatus): StatusVisual {
   switch (status) {
+    case 'Archived':
+      return {
+        label: status,
+        tone: 'neutral',
+        bg: '#f3e8ff',
+        color: '#7e22ce',
+        border: '#d8b4fe',
+      };
     case 'Discard-Pending':
       return {
         label: status,

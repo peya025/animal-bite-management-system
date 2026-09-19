@@ -20,7 +20,7 @@ class VaccineInventoryPolicy
 
     public function delete(User $user, VaccineInventory $inventory): bool
     {
-        return $this->sameClinic($user, $inventory->clinic_id) && $user->isAdmin();
+        return $this->sameClinic($user, $inventory->clinic_id) && $user->role === 'admin';
     }
 
     private function sameClinic(User $user, int|string|null $clinicId): bool

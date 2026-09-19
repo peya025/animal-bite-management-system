@@ -36,6 +36,13 @@ const actionBadges: Record<string, { bg: string; color: string; border: string; 
   updated: { bg: '#f0f9ff', color: '#0284c7', border: '#e0f2fe', icon: 'edit' },
   deleted: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5', icon: 'trash' },
   viewed: { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', icon: 'info' },
+  'inventory.create': { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd', icon: 'plus' },
+  'inventory.deduct': { bg: '#ecfdf5', color: '#047857', border: '#86efac', icon: 'check' },
+  'inventory.update': { bg: '#f0f9ff', color: '#0284c7', border: '#e0f2fe', icon: 'edit' },
+  'inventory.archive': { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5', icon: 'trash' },
+  'inventory.open_vial': { bg: '#f3e8ff', color: '#7e22ce', border: '#d8b4fe', icon: 'clock' },
+  'inventory.discard': { bg: '#fff7ed', color: '#c2410c', border: '#fdba74', icon: 'trash' },
+  'inventory.adjust': { bg: '#fef3c7', color: '#b45309', border: '#fcd34d', icon: 'edit' },
 };
 
 export default function StaffActivityPage() {
@@ -247,6 +254,12 @@ export default function StaffActivityPage() {
               <option value="">All Actions</option>
               <option value="login">Login</option>
               <option value="logout">Logout</option>
+              <option value="inventory.archive">Inventory Archived</option>
+              <option value="inventory.create">Inventory Created</option>
+              <option value="inventory.deduct">Vaccine Deducted / Administered</option>
+              <option value="inventory.open_vial">Vial Opened</option>
+              <option value="inventory.discard">Vial Discarded</option>
+              <option value="inventory.adjust">Stock Adjusted</option>
               <option value="created">Created</option>
               <option value="updated">Updated</option>
               <option value="deleted">Deleted</option>

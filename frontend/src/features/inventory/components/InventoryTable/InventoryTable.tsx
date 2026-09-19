@@ -18,7 +18,7 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  Delete as DeleteIcon,
+  Archive as ArchiveIcon,
   Edit as EditIcon,
   History as HistoryIcon,
   Inventory2 as InventoryIcon,
@@ -109,6 +109,7 @@ function StatusIcon({ status }: { status: ReturnType<typeof deriveInventoryStatu
 /** Plain-language label for each derived status */
 function statusPlainLabel(status: ReturnType<typeof deriveInventoryStatus>): string {
   switch (status) {
+    case 'Archived':        return 'Archived / Soft-Deleted';
     case 'Discard-Pending': return 'Opened vial — dispose';
     case 'Expired':         return 'Expired';
     case 'Depleted':        return 'Out of Stock';
@@ -490,9 +491,9 @@ export default function InventoryTable({
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="Delete batch">
-              <IconButton size="small" onClick={() => onDelete(item)} sx={{ color: '#6b7280', width: 30, height: 30, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
-                <DeleteIcon sx={{ fontSize: 17 }} />
+            <Tooltip title="Archive batch">
+              <IconButton size="small" onClick={() => onDelete(item)} sx={{ color: '#6b7280', width: 30, height: 30, '&:hover': { bgcolor: '#f3e8ff', color: '#7c3aed' } }}>
+                <ArchiveIcon sx={{ fontSize: 17 }} />
               </IconButton>
             </Tooltip>
           </Stack>
@@ -552,6 +553,7 @@ export default function InventoryTable({
                 <MenuItem value="expired">Expired</MenuItem>
                 <MenuItem value="depleted">Out of Stock / Depleted</MenuItem>
                 <MenuItem value="discard-pending">Open Vial — Discard Pending</MenuItem>
+                <MenuItem value="archived">Archived / Soft-Deleted</MenuItem>
               </Select>
             </FormControl>
           </Grid>

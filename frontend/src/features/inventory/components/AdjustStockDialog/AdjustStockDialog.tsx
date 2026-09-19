@@ -45,8 +45,17 @@ export default function AdjustStockDialog({ open, item, onClose, onSaved }: Adju
       });
       onSaved();
       onClose();
-    } catch {
-      setError('Failed to adjust stock. Please try again.');
+    } catch (err: unknown) {
+      const apiError = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+      const serverMessage = apiError.response?.data?.message;
+      const fieldErrors = apiError.response?.data?.errors;
+      if (fieldErrors?.quantity) {
+        setError(fieldErrors.quantity[0]);
+      } else if (serverMessage) {
+        setError(serverMessage);
+      } else {
+        setError('Failed to adjust stock. Please try again.');
+      }
     } finally {
       setSaving(false);
     }

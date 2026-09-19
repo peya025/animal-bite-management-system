@@ -416,7 +416,7 @@ export function useGeneralTreatmentForm({
         patient_id: patientId,
         queue_id: entry.queue_id || null,
         bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
-        treatment_plan: treatmentPlan || null,
+        treatment_plan: treatmentPlan || (!requiresReExposureDecision ? 'full_pep' : null),
         new_bite_date: newBiteData.new_bite_date || null,
         new_bite_place: newBiteData.new_bite_place || null,
         new_exposure_type: newBiteData.new_exposure_type || null,

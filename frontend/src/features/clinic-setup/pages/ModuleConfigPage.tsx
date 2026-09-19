@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles';
 import { clinicConfigApi } from '../../../services/clinicConfigApi';
 import { ROUTES } from '../../../shared/config/routes';
 import { Icon } from '../../../shared/components/ui/Icon';

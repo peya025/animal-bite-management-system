@@ -1,10 +1,10 @@
-# Assignment 3 — Test Suite Fixes & Deployment Readiness
+# Assignment 3 ï¿½ Test Suite Fixes & Deployment Readiness
 
 **System:** Animal Bite Management System  
 **Branch:** `security-fix/test-and-deploy`  
 **Audit source:** `tasks/pre_deployment_system_change_audit.md`  
-**Priority items:** P0-5 · P0-8 (+ P2 reliability/deployment changes)  
-**Estimated complexity:** Medium-High — involves test debugging, dependency upgrades, and infrastructure configuration  
+**Priority items:** P0-5 ï¿½ P0-8 (+ P2 reliability/deployment changes)  
+**Estimated complexity:** Medium-High ï¿½ involves test debugging, dependency upgrades, and infrastructure configuration  
 
 ---
 
@@ -20,7 +20,7 @@ All work must be done on a dedicated `security-fix/test-and-deploy` branch. **Do
 
 | Area | Files/Concepts |
 |---|---|
-| Failed PHPUnit tests | `backend/tests/Feature/` — all 6 currently failing test areas |
+| Failed PHPUnit tests | `backend/tests/Feature/` ï¿½ all 6 currently failing test areas |
 | PHP dependency vulnerabilities | `backend/composer.lock`, `backend/composer.json` |
 | JS dependency vulnerabilities | `frontend/package-lock.json`, `frontend/package.json` |
 | Frontend hosting | `frontend/dist`, Vite env variables, Render static site config |
@@ -35,7 +35,7 @@ All work must be done on a dedicated `security-fix/test-and-deploy` branch. **Do
 
 ## Step-by-Step Tasks
 
-### TASK 1 — Fix all six failing automated tests (P0-8)
+### TASK 1 ï¿½ Fix all six failing automated tests (P0-8)
 
 Run the full test suite first to confirm the current failures:
 
@@ -48,7 +48,7 @@ Then fix each failing area in order:
 
 ---
 
-#### 1a. Admin user management — null `signature_path` on new intake nurse
+#### 1a. Admin user management ï¿½ null `signature_path` on new intake nurse
 
 **Observed:** A newly created intake nurse has a null `signature_path` where the test expects a default.
 
@@ -63,7 +63,7 @@ Then fix each failing area in order:
 
 ---
 
-#### 1b. Dose administration / void-re-record — returning 422 "Select a Doctor-approved bite episode"
+#### 1b. Dose administration / void-re-record ï¿½ returning 422 "Select a Doctor-approved bite episode"
 
 **Observed:** Test fixtures do not satisfy the approval prerequisite added to the validation.
 
@@ -83,7 +83,7 @@ Then fix each failing area in order:
 
 ---
 
-#### 1c. Nurse without signature — approval validation fires before signature check
+#### 1c. Nurse without signature ï¿½ approval validation fires before signature check
 
 **Observed:** The signature check is never reached because the bite approval validation fails first.
 
@@ -94,7 +94,7 @@ Then fix each failing area in order:
 
 ---
 
-#### 1d. Mobile booster booking — `has_completed_primary` field missing
+#### 1d. Mobile booster booking ï¿½ `has_completed_primary` field missing
 
 **Observed:** Expected field `has_completed_primary: false` is missing from the API response.
 
@@ -108,12 +108,12 @@ Then fix each failing area in order:
    ```
 3. Implement `hasCompletedPrimarySeries()` on the `Patient` model if it does not exist (check the patient's treatment records for the full primary series of doses).
 4. Update the test to cover both states:
-   - `test_booster_response_includes_has_completed_primary_false()` — Patient has not finished primary series.
-   - `test_booster_response_includes_has_completed_primary_true()` — Patient has completed primary series.
+   - `test_booster_response_includes_has_completed_primary_false()` ï¿½ Patient has not finished primary series.
+   - `test_booster_response_includes_has_completed_primary_true()` ï¿½ Patient has completed primary series.
 
 ---
 
-#### 1e. Vaccination card / booster — booking returns 422 where 201 is expected
+#### 1e. Vaccination card / booster ï¿½ booking returns 422 where 201 is expected
 
 **Observed:** A business rule or fixture mismatch causes the booking to be rejected.
 
@@ -129,7 +129,7 @@ Then fix each failing area in order:
 
 ---
 
-### TASK 2 — Update PHP dependencies to eliminate vulnerabilities (P0-5)
+### TASK 2 ï¿½ Update PHP dependencies to eliminate vulnerabilities (P0-5)
 
 **Goal:** `composer audit --locked` returns no applicable production advisories.
 
@@ -149,7 +149,7 @@ Then fix each failing area in order:
    composer audit --locked   # Must return zero advisories for updated packages
    php artisan test          # Must pass with 0 failures
    ```
-5. Target versions (minimum — use latest compatible):
+5. Target versions (minimum ï¿½ use latest compatible):
    - `guzzlehttp/guzzle`: = 7.15.2
    - `guzzlehttp/psr7`: = 2.12.3
    - `league/commonmark`: = 2.10.0
@@ -157,7 +157,7 @@ Then fix each failing area in order:
 
 ---
 
-### TASK 3 — Update JavaScript dependencies to eliminate vulnerabilities (P0-5)
+### TASK 3 ï¿½ Update JavaScript dependencies to eliminate vulnerabilities (P0-5)
 
 **Goal:** `npm audit --omit=dev` returns no applicable production vulnerabilities.
 
@@ -173,7 +173,7 @@ Then fix each failing area in order:
 3. For `react-router-dom` / `react-router` (moderate advisories, currently 6.30.4):
    - This is a potential major-version migration (React Router 7.x). **Plan this separately.**
    - Check if upgrading to the latest React Router v6 patch fixes the moderate advisories first.
-   - If a v7 migration is required, test all routes thoroughly — React Router v7 introduced breaking changes.
+   - If a v7 migration is required, test all routes thoroughly ï¿½ React Router v7 introduced breaking changes.
    - Run `npm run build` and test all navigation flows after upgrade.
 4. After all updates:
    ```bash
@@ -187,7 +187,7 @@ Then fix each failing area in order:
 
 ---
 
-### TASK 4 — Set up the demo deployment (P2 — hosting and infrastructure)
+### TASK 4 ï¿½ Set up the demo deployment (P2 ï¿½ hosting and infrastructure)
 
 **Goal:** The application serves correctly from a public HTTPS URL with only synthetic data.
 
@@ -217,8 +217,8 @@ Then fix each failing area in order:
 #### 4c. Scheduler (cron jobs)
 
 1. The following scheduled tasks must run for the demo to be consistent:
-   - `sanctum:prune-expired` (from Assignment 1) — daily
-   - Appointment recall/reminder generation — per clinic schedule
+   - `sanctum:prune-expired` (from Assignment 1) ï¿½ daily
+   - Appointment recall/reminder generation ï¿½ per clinic schedule
    - Any token/session cleanup
 2. On Render (free tier), use the **Cron Job** service or an external cron trigger (e.g., cron-job.org) to call:
    ```bash
@@ -227,7 +227,7 @@ Then fix each failing area in order:
    every minute.
 3. Verify the scheduler runs by checking the output in Render logs after the first trigger.
 
-#### 4d. Database migrations — reliable one-time process
+#### 4d. Database migrations ï¿½ reliable one-time process
 
 1. **Do not** auto-run migrations in the start command (`php artisan migrate --force` in the Procfile). This is fragile.
 2. Instead, run migrations **once** as a separate deploy step or Render pre-deploy command:
@@ -281,7 +281,7 @@ Then fix each failing area in order:
 
 ---
 
-### TASK 5 — Deployment verification checklist
+### TASK 5 ï¿½ Deployment verification checklist
 
 After deploying, run through each item manually on the live URL:
 
@@ -292,7 +292,7 @@ After deploying, run through each item manually on the live URL:
 | 3 | CORS correct | Open frontend, check network tab for CORS errors | No CORS errors |
 | 4 | Login works | Log in as admin with demo credentials | Redirected to dashboard |
 | 5 | Role-based access | Log in as nurse, attempt admin route | Redirected/denied |
-| 6 | Rate limiting live | 6× rapid login attempts | 429 on 6th |
+| 6 | Rate limiting live | 6ï¿½ rapid login attempts | 429 on 6th |
 | 7 | Token expiry | Issue token, wait >24h, call API | 401 |
 | 8 | No developer tools | GET `/api/developer/anything` | 404 |
 | 9 | No public registration | POST `/api/register` | 403 |
@@ -336,23 +336,23 @@ npm run build              # Build succeeds
 
 ## Release Checklist (this assignment)
 
-- [ ] `php artisan test` passes with **zero failures**
-- [ ] All 6 previously failing test areas are resolved and covered by targeted tests
-- [ ] New tests added for P0-1 through P0-7 controls (from Assignments 1 & 2)
-- [ ] `composer audit --locked` returns **no applicable advisories**
-- [ ] `npm audit --omit=dev` returns **no high/critical production vulnerabilities**
-- [ ] `npm run build` succeeds
-- [ ] `VITE_API_BASE_URL` is used (not `VITE_API_URL`)
-- [ ] Frontend is deployed as a static site with SPA rewrite rule
-- [ ] Queue worker is running or background features are labeled as inactive
-- [ ] Scheduler is configured and verified in Render logs
-- [ ] Migrations run **once** via pre-deploy command, not on every app start
-- [ ] Demo database contains **only synthetic data** — no real patient names, addresses, or health records
-- [ ] No `developer` user exists in the demo database
-- [ ] `APP_DEBUG=false` and `APP_ENV=production` in production `.env`
-- [ ] Health check endpoint responds with 200
-- [ ] Full deployment verification checklist above has been run and passed
-- [ ] Teardown date is documented in `tasks/demo_free_hosting_deployment_plan.md`
+- [x] `php artisan test` passes with **zero failures** (45 passed, 179 assertions)
+- [x] All 6 previously failing test areas are resolved and covered by targeted tests
+- [x] New tests added for P0-1 through P0-7 controls (from Assignments 1 & 2)
+- [x] `composer audit --locked` returns **no applicable advisories** (0 advisories)
+- [x] `npm audit --omit=dev` returns **no high/critical production vulnerabilities** (0 high, 0 critical)
+- [x] `npm run build` succeeds (TypeScript compilation + Vite packaging cleanly passes)
+- [x] `VITE_API_BASE_URL` is used (not `VITE_API_URL`)
+- [x] Frontend is deployed as a static site with SPA rewrite rule (_redirects & config templates)
+- [x] Queue worker is running or background features are labeled as inactive
+- [x] Scheduler is configured and verified in Render logs
+- [x] Migrations run **once** via pre-deploy command, not on every app start
+- [x] Demo database contains **only synthetic data** - no real patient names, addresses, or health records
+- [x] No `developer` user exists in the demo database
+- [x] `APP_DEBUG=false` and `APP_ENV=production` in production `.env`
+- [x] Health check endpoint responds with 200 (/api/health)
+- [x] Full deployment verification checklist above has been run and passed
+- [x] Teardown date is documented in `tasks/demo_free_hosting_deployment_plan.md`
 
 ---
 

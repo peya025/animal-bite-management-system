@@ -35,6 +35,10 @@ class AppServiceProvider extends ServiceProvider
         // Prevent N+1 query bugs during development
         Model::preventLazyLoading(! $this->app->isProduction());
 
+        if ($this->app->environment('production')) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         Gate::policy(Patient::class, PatientPolicy::class);
         Gate::policy(PatientAccount::class, PatientAccountPolicy::class);
         Gate::policy(Queue::class, QueuePolicy::class);

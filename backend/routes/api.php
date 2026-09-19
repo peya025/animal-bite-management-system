@@ -29,6 +29,14 @@ use App\Http\Controllers\ClinicScheduleController;
 use App\Http\Controllers\VaccinationJourneyController;
 use Illuminate\Support\Facades\Route;
 
+// Health check endpoint for deployment monitoring
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now()->toISOString(),
+    ]);
+});
+
 // Test route - check if API is working
 Route::get('/test', function () {
     return response()->json([

@@ -7,6 +7,16 @@ const fadeIn = keyframes`
   to { opacity: 1; }
 `;
 
+const fadeOut = keyframes`
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.95); }
+`;
+
+const overlayFadeOut = keyframes`
+  from { opacity: 1; }
+  to { opacity: 0; }
+`;
+
 const scaleIn = keyframes`
   from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: scale(1); }
@@ -86,7 +96,9 @@ const buttonColors: Record<
   },
 };
 
-export const Overlay = styled('div')({
+export const Overlay = styled('div', {
+  shouldForwardProp: (prop) => prop !== 'isFadingOut',
+})<{ isFadingOut?: boolean }>(({ isFadingOut }) => ({
   position: 'fixed',
   inset: 0,
   background: 'rgba(0, 0, 0, 0.45)',
@@ -95,10 +107,12 @@ export const Overlay = styled('div')({
   alignItems: 'center',
   justifyContent: 'center',
   zIndex: 1400,
-  animation: `${fadeIn} 0.2s ease`,
-});
+  animation: isFadingOut ? `${overlayFadeOut} 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards` : `${fadeIn} 0.2s ease`,
+}));
 
-export const Modal = styled('div')({
+export const Modal = styled('div', {
+  shouldForwardProp: (prop) => prop !== 'isFadingOut',
+})<{ isFadingOut?: boolean }>(({ isFadingOut }) => ({
   background: 'var(--card-bg-solid, #ffffff)',
   borderRadius: 16,
   padding: '36px 32px 28px',
@@ -107,7 +121,8 @@ export const Modal = styled('div')({
   textAlign: 'center',
   boxShadow: '0 20px 60px rgba(0, 0, 0, 0.35)',
   border: '1px solid var(--border-glow, rgba(16, 185, 129, 0.2))',
-  animation: `${scaleIn} 0.25s ease`,
+  animation: isFadingOut ? `${fadeOut} 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards` : `${scaleIn} 0.25s ease`,
+  pointerEvents: isFadingOut ? 'none' : 'auto',
 
   '[data-theme="dark"] &': {
     background: '#0e1812',
@@ -119,7 +134,7 @@ export const Modal = styled('div')({
     margin: 16,
     padding: '28px 20px 22px',
   },
-});
+}));
 
 export const Icon = styled('div', {
   shouldForwardProp: (prop) => prop !== 'variant' && prop !== 'shouldShake',

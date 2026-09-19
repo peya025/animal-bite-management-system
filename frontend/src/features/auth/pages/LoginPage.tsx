@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { APP_NAME } from '../../../constants';
 import { LoginRoot } from '../styles/Login.styles';
 
@@ -59,13 +60,16 @@ function resolveLandingRoute(user: any): string {
 
   // Legacy role fallbacks
   if (user.role === 'triage') return '/queue';
-  if (user.role === 'registration') return '/registration';
+  if (user.role === 'registration') return '/patients';
   if (user.role === 'treatment') return '/queue';
 
   return '/dashboard';
 }
 
 export default function Login() {
+  const navigate = useNavigate();
+  const [searchParams]              = useSearchParams();
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState('');
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -77,9 +81,29 @@ export default function Login() {
   const [googleError, setGoogleError]     = useState('');
   const [gisReady, setGisReady]           = useState(false);
 
+  // Detect ?reason=idle-timeout, show user-friendly message, and clean URL with replace: true
   useEffect(() => {
-    const token    = localStorage.getItem('authToken');
+    const reason = searchParams.get('reason');
+    if (reason === 'idle-timeout') {
+      setSessionExpiredMessage('Your session expired due to inactivity. Please log in again to continue.');
+      navigate('/login', { replace: true });
+    }
+  }, [searchParams, navigate]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
     const userData = localStorage.getItem('userData');
+    const lastActivity = Number(localStorage.getItem('lastActivityAt') || 0);
+
+    // If session has expired, purge auth tokens to prevent redirect loops
+    if (token && lastActivity && Date.now() - lastActivity >= 15 * 60 * 1000) {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userData');
+      localStorage.removeItem('clinicData');
+      localStorage.removeItem('lastActivityAt');
+      return;
+    }
+
     if (token && userData) {
       try {
         const u = JSON.parse(userData);
@@ -137,6 +161,7 @@ export default function Login() {
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
+      localStorage.setItem('lastActivityAt', String(Date.now()));
 
       const role = data.user?.role as string ?? 'admin';
       window.location.replace(ROLE_DASHBOARD[role] ?? '/dashboard');
@@ -179,6 +204,7 @@ export default function Login() {
       localStorage.setItem('userData', JSON.stringify(data.user));
       // clinic is nested inside user in the backend response
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
+      localStorage.setItem('lastActivityAt', String(Date.now()));
       window.location.replace(resolveLandingRoute(data.user));
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
@@ -209,6 +235,7 @@ export default function Login() {
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
+      localStorage.setItem('lastActivityAt', String(Date.now()));
       window.location.replace(resolveLandingRoute(data.user));
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
@@ -242,6 +269,16 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
+          {sessionExpiredMessage && (
+            <div className="session-expired-message" role="alert">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span>{sessionExpiredMessage}</span>
+            </div>
+          )}
+
           {error && (
             <div className="error-message">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

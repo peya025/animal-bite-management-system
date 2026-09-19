@@ -21,6 +21,7 @@ import {
   Switch,
   FormControlLabel,
   Grid,
+  useTheme,
 } from '@mui/material';
 import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined, Lock } from '@mui/icons-material';
 import api from '../../../services/api';
@@ -234,6 +235,8 @@ function SoftActionButton({ label, variant, onClick }: { label: string; variant:
 }
 
 export default function UserListPage() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -298,7 +301,7 @@ export default function UserListPage() {
     password: '',
     professional_license_no: '',
     signature_data: '',
-    signature_path: 'signatures/default_nurse_signature.png',
+    signature_path: '',
     is_active: true,
   });
   const [creating, setCreating] = useState(false);
@@ -432,7 +435,7 @@ export default function UserListPage() {
         password: '',
         professional_license_no: '',
         signature_data: '',
-        signature_path: 'signatures/default_nurse_signature.png',
+        signature_path: '',
         is_active: true,
       });
       setSuccessModal({
@@ -537,9 +540,8 @@ export default function UserListPage() {
     },
     {
       key: 'signature',
-      label: 'Digital Signature',
+      label: 'Digital Signature (Optional)',
       render: (u) => {
-        const isNurse = getUserWorkstationInfo(u).isNurse;
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {u.signature_path ? (
@@ -550,14 +552,12 @@ export default function UserListPage() {
                 title={u.signature_path}
                 sx={{ bgcolor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontSize: '11px', height: '22px', fontWeight: 600 }}
               />
-            ) : isNurse ? (
+            ) : (
               <Chip
                 size="small"
-                label="Missing"
-                sx={{ bgcolor: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', fontSize: '11px', height: '22px', fontWeight: 600 }}
+                label="Not on file · optional"
+                sx={{ bgcolor: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db', fontSize: '11px', height: '22px', fontWeight: 600 }}
               />
-            ) : (
-              <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>Not Required</Typography>
             )}
           </Box>
         );
@@ -758,7 +758,7 @@ export default function UserListPage() {
       </Box>
 
       {/* Tabs */}
-      <Box sx={{ display: 'flex', gap: 0, mb: 3, borderBottom: '2px solid #e5e7eb' }}>
+      <Box sx={{ display: 'flex', gap: 0, mb: 3, borderBottom: isDark ? '2px solid rgba(16, 185, 129, 0.2)' : '2px solid #e5e7eb' }}>
         {[
           { key: 'staff',    label: 'Staff Users',      count: users.length },
           { key: 'patients', label: 'Patient Accounts', count: patientAccounts.length },
@@ -769,8 +769,8 @@ export default function UserListPage() {
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               padding: '10px 20px', fontSize: 14, fontWeight: 600,
-              fontFamily: 'inherit',
-              color: activeTab === tab.key ? '#10b981' : '#6b7280',
+              fontFamily: "'Poppins', sans-serif",
+              color: activeTab === tab.key ? '#10b981' : (isDark ? '#94a3b8' : '#6b7280'),
               borderBottom: activeTab === tab.key ? '2px solid #10b981' : '2px solid transparent',
               marginBottom: -2, transition: 'all 0.15s',
               display: 'flex', alignItems: 'center', gap: 8,
@@ -778,8 +778,8 @@ export default function UserListPage() {
           >
             {tab.label}
             <span style={{
-              background: activeTab === tab.key ? '#ecfdf5' : '#f3f4f6',
-              color: activeTab === tab.key ? '#059669' : '#9ca3af',
+              background: activeTab === tab.key ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#ecfdf5') : (isDark ? 'rgba(255, 255, 255, 0.06)' : '#f3f4f6'),
+              color: activeTab === tab.key ? '#34d399' : (isDark ? '#94a3b8' : '#9ca3af'),
               borderRadius: 999, padding: '1px 8px', fontSize: 12, fontWeight: 700,
             }}>
               {tab.count}
@@ -791,8 +791,20 @@ export default function UserListPage() {
       {/* Staff Users Tab */}
       {activeTab === 'staff' && (
         <Box>
-          <Box sx={{ mb: 2, maxWidth: 300 }}>
-            <FormControl size="small" fullWidth>
+          <Box sx={{ mb: 2, maxWidth: 320 }}>
+            <FormControl size="small" fullWidth sx={{
+              fontFamily: "'Poppins', sans-serif",
+              '& .MuiOutlinedInput-root': {
+                bgcolor: isDark ? '#111827' : '#ffffff',
+                borderRadius: 2,
+                fontFamily: "'Poppins', sans-serif",
+                '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
+                '&:hover fieldset': { borderColor: '#10b981' },
+                '&.Mui-focused fieldset': { borderColor: '#10b981' },
+              },
+              '& .MuiInputLabel-root': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#94a3b8' : undefined },
+              '& .MuiSelect-select': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
+            }}>
               <InputLabel>Filter by Role</InputLabel>
               <Select label="Filter by Role" value={filter} onChange={(e) => { setFilter(e.target.value); setStaffPage(0); }}>
                 <MenuItem value="">All Staff Roles ({users.length})</MenuItem>
@@ -804,7 +816,7 @@ export default function UserListPage() {
               </Select>
             </FormControl>
           </Box>
-          <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}>
             <DataTable
               columns={columns}
               rows={shown.slice(staffPage * staffRowsPerPage, staffPage * staffRowsPerPage + staffRowsPerPage)}
@@ -828,7 +840,7 @@ export default function UserListPage() {
       {/* Patient Accounts Tab */}
       {activeTab === 'patients' && (
         <Box>
-          <Box sx={{ border: '1px solid #e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}>
             <DataTable
               columns={patientColumns}
               rows={patientAccounts.slice(patientPage * patientRowsPerPage, patientPage * patientRowsPerPage + patientRowsPerPage)}
@@ -1172,7 +1184,7 @@ export default function UserListPage() {
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <Alert severity="info" sx={{ fontSize: '13px' }}>
-                  A default digital signature will be assigned automatically for nursing staff.
+                  Digital signature is optional. The staff member and timestamp are retained in the administration audit trail; printed records may be signed by hand.
                 </Alert>
               </Grid>
             </Grid>

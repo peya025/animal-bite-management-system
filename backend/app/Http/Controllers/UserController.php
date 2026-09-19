@@ -75,8 +75,6 @@ class UserController extends Controller
         $sigPath = $this->processSignature($request, $user);
         if ($sigPath) {
             $user->update(['signature_path' => $sigPath]);
-        } elseif ($legacyRole === 'treatment') {
-            $user->update(['signature_path' => 'signatures/default_nurse_signature.png']);
         }
 
         // Attach workstation roles

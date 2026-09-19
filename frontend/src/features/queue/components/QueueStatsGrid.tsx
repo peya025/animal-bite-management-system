@@ -181,7 +181,7 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
 
             {/* Metric Value */}
             <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-              <Typography sx={{ fontSize: 26, fontWeight: 800, color: isDark ? '#ffffff' : '#064e3b', lineHeight: 1, letterSpacing: '-0.5px' }}>
+              <Typography sx={{ fontSize: 38, fontWeight: 800, color: isDark ? '#ffffff' : '#064e3b', lineHeight: 1, letterSpacing: '-1px' }}>
                 {card.value}
               </Typography>
               {card.subtitle && (
@@ -189,20 +189,6 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
                   {card.subtitle}
                 </Typography>
               )}
-            </Box>
-
-            {/* Bottom mini glow progress bar */}
-            <Box sx={{ width: '100%', height: 4, bgcolor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(16, 185, 129, 0.12)', borderRadius: 999, overflow: 'hidden', mt: 1.25 }}>
-              <Box
-                sx={{
-                  width: `${Math.max(card.percent, 8)}%`,
-                  height: '100%',
-                  borderRadius: 999,
-                  bgcolor: card.color,
-                  boxShadow: isDark ? `0 0 6px ${card.color}` : 'none',
-                  transition: 'width 0.4s ease-out',
-                }}
-              />
             </Box>
           </Box>
         );

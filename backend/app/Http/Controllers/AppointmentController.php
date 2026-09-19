@@ -185,19 +185,42 @@ class AppointmentController extends Controller
 
             $query = Patient::where('clinic_id', $clinicId);
 
-            // Station 2 is for returning doses only, never Day 0 or consultations.
+            // Station 2 is for pre-approved scheduled doses only. A booster request
+            // is a new clinical visit and must remain out of the nurse worklist until
+            // Doctor assessment has approved its Day 0 treatment.
             $followUpAppointment = function ($appointmentQuery) {
-                $appointmentQuery->where(function ($stream) {
-                    $stream->where('dose_number', '>', 0)
-                        ->orWhere('appointment_type', 'booster')
-                        ->orWhere('notes', 'like', '%booster%');
-                });
+                $appointmentQuery->where('dose_number', '>', 0)
+                    ->where(function ($plan) {
+                        // Legacy episodes have no plan. New plan-driven episodes
+                        // reach Station 2 only when the Doctor ordered full PEP.
+                        $plan->whereDoesntHave('biteIncident.treatmentPlan')
+                            ->orWhereHas('biteIncident.treatmentPlan', function ($treatmentPlan) {
+                                $treatmentPlan->where('plan_type', 'full_pep')
+                                    ->where('status', 'approved');
+                            });
+                    })
+                    ->where(function ($stream) {
+                        $stream->whereNull('appointment_type')
+                            ->orWhere('appointment_type', '!=', 'booster');
+                    })
+                    ->where(function ($stream) {
+                        $stream->whereNull('notes')
+                            ->orWhere('notes', 'not like', '%booster%');
+                    });
             };
             $followUpQueue = function ($queueQuery) {
                 $queueQuery->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
                     ->whereDate('queue_date', Carbon::today())
+                    ->where('visit_type', '!=', 'booster')
+                    ->where(function ($plan) {
+                        $plan->whereDoesntHave('biteIncident.treatmentPlan')
+                            ->orWhereHas('biteIncident.treatmentPlan', function ($treatmentPlan) {
+                                $treatmentPlan->where('plan_type', 'full_pep')
+                                    ->where('status', 'approved');
+                            });
+                    })
                     ->where(function ($stream) {
-                        $stream->whereIn('visit_type', ['follow_up', 'booster'])
+                        $stream->where('visit_type', 'follow_up')
                             ->orWhereHas('station', function ($station) {
                                 $station->where('name', 'like', '%Follow-up%')
                                     ->orWhere('name', 'like', '%Follow up%');
@@ -248,20 +271,19 @@ class AppointmentController extends Controller
                     $todayDate = Carbon::today()->toDateString();
                     $query->whereHas('treatmentRecords', function ($tr) {
                         $tr->whereNotNull('dose_number')->where('status', 'completed');
-                    })->where(function ($q) use ($todayDate) {
-                        $q->whereHas('appointments', function ($app) use ($todayDate) {
+                    })->where(function ($q) use ($todayDate, $followUpAppointment, $followUpQueue) {
+                        $q->whereHas('appointments', function ($app) use ($todayDate, $followUpAppointment) {
                             $app->where(function ($d) use ($todayDate) {
                                 $d->whereDate('appointment_date', '<=', $todayDate)
                                   ->orWhereDate('scheduled_date', '<=', $todayDate);
                             })->whereIn('status', ['scheduled', 'missed', 'confirmed']);
-                        })->orWhereHas('queues', function ($qu) use ($todayDate) {
-                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
-                               ->whereDate('queue_date', $todayDate);
-                        });
+                            $followUpAppointment($app);
+                        })->orWhereHas('queues', $followUpQueue);
                     })->with([
-                        'appointments' => function ($app) {
+                        'appointments' => function ($app) use ($followUpAppointment) {
                             $app->whereIn('status', ['scheduled', 'missed', 'confirmed'])
                                 ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC');
+                            $followUpAppointment($app);
                         },
                         'biteIntakes' => function ($bi) {
                             $bi->latest();
@@ -270,10 +292,9 @@ class AppointmentController extends Controller
                             $bi->latest();
                         },
                         'latestTreatmentRecord',
-                        'queues' => function ($qu) use ($todayDate) {
-                            $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
-                               ->whereDate('queue_date', $todayDate)
-                               ->latest();
+                        'queues' => function ($qu) use ($followUpQueue) {
+                            $followUpQueue($qu);
+                            $qu->latest();
                         }
                     ]);
                     break;
@@ -473,16 +494,14 @@ class AppointmentController extends Controller
                 ->whereHas('treatmentRecords', function ($tr) {
                     $tr->whereNotNull('dose_number')->where('status', 'completed');
                 })
-                ->where(function ($q) use ($todayDate) {
-                    $q->whereHas('appointments', function ($app) use ($todayDate) {
+                ->where(function ($q) use ($todayDate, $followUpAppointment, $followUpQueue) {
+                    $q->whereHas('appointments', function ($app) use ($todayDate, $followUpAppointment) {
                         $app->where(function ($d) use ($todayDate) {
                             $d->whereDate('appointment_date', '<=', $todayDate)
                               ->orWhereDate('scheduled_date', '<=', $todayDate);
                         })->whereIn('status', ['scheduled', 'missed', 'confirmed']);
-                    })->orWhereHas('queues', function ($qu) use ($todayDate) {
-                        $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
-                           ->whereDate('queue_date', $todayDate);
-                    });
+                        $followUpAppointment($app);
+                    })->orWhereHas('queues', $followUpQueue);
                 })->count();
 
             $dueTodayCount = Patient::where('clinic_id', $clinicId)->where(function ($q) use ($followUpAppointment, $followUpQueue) {
@@ -660,6 +679,20 @@ class AppointmentController extends Controller
             ], 404);
         }
 
+        if ($this->isBoosterAppointment($appointment)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Booster requests must be registered and assessed by the Doctor before treatment.',
+            ], 422);
+        }
+
+        if (!$this->isScheduledFollowUp($appointment) && $appointment->appointment_type !== 'consultation') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Day 0 treatment requires Registration and Doctor assessment. Only a scheduled follow-up dose can check in directly at Treatment.',
+            ], 422);
+        }
+
         // Confirm the appointment first so Form 3 is unlocked
         if ($appointment->status !== 'confirmed') {
             $appointment->update(['status' => 'confirmed']);
@@ -715,47 +748,33 @@ class AppointmentController extends Controller
             ->first();
 
         if ($appointment) {
+            if ($this->isBoosterAppointment($appointment)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Booster requests must be registered and assessed by the Doctor before treatment.',
+                ], 422);
+            }
+
+            if (!$this->isScheduledFollowUp($appointment) && $appointment->appointment_type !== 'consultation') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Day 0 treatment requires Registration and Doctor assessment. Only a scheduled follow-up dose can check in directly at Treatment.',
+                ], 422);
+            }
             $appointment->update(['status' => 'confirmed']);
             return $this->processAppointmentCheckIn($request, (int) $patientId, $appointment);
         }
 
         // 3. No appointment found — derive next dose and auto-create one
-        $latestRecord = TreatmentRecord::where('clinic_id', $clinicId)
-            ->where('patient_id', $patientId)
-            ->whereNotNull('dose_number')
-            ->where('status', 'completed')
-            ->orderBy('dose_number', 'desc')
-            ->first();
+        return response()->json([
+            'success' => false,
+            'message' => 'No scheduled follow-up dose was found. Register a new exposure for Doctor assessment, or select the patient\'s scheduled follow-up appointment.',
+        ], 422);
 
-        $nextDose = 0;
-        if ($latestRecord) {
-            $prevDose = (int) $latestRecord->dose_number;
-            if ($prevDose === 0)                       $nextDose = 3;
-            elseif ($prevDose === 3)                   $nextDose = 7;
-            elseif ($prevDose === 7)                   $nextDose = 90;
-            elseif ($prevDose >= 28 && $prevDose < 90) $nextDose = 90;
-            elseif ($prevDose >= 90 && $prevDose < 365)$nextDose = 365;
-            elseif ($prevDose >= 365)                  $nextDose = 90;
-        }
-
-        $appointment = Appointment::create([
-            'clinic_id'        => $clinicId,
-            'patient_id'       => $patient->patient_id,
-            'scheduled_date'   => $todayDate,
-            'appointment_date' => $todayDate,
-            'appointment_type' => ($nextDose >= 90) ? 'booster' : 'vaccination',
-            'dose_number'      => $nextDose,
-            'status'           => 'confirmed',
-            'notes'            => 'Checked in directly via Nurse Patient List',
-            'created_by'       => $request->user()->id,
-        ]);
-
-        return $this->processAppointmentCheckIn($request, (int) $patientId, $appointment);
     }
 
     /**
-     * Common atomic check-in processing logic creating queue ticket and routing appropriately.
-     * Boosters route directly to Treatment Nurse (visit_type: 'booster').
+     * Common atomic check-in processing logic for scheduled follow-up doses.
      */
     private function processAppointmentCheckIn(Request $request, int $patientId, ?Appointment $appointment = null)
     {
@@ -764,6 +783,20 @@ class AppointmentController extends Controller
 
         return DB::transaction(function () use ($request, $clinicId, $patientId, $appointment, $todayDate) {
             $patient = Patient::where('clinic_id', $clinicId)->findOrFail($patientId);
+
+            if ($this->isBoosterAppointment($appointment)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Booster requests must be registered and assessed by the Doctor before treatment.',
+                ], 422);
+            }
+
+            if (!$this->isScheduledFollowUp($appointment) && $appointment?->appointment_type !== 'consultation') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Day 0 treatment requires Registration and Doctor assessment. Only a scheduled follow-up dose can check in directly at Treatment.',
+                ], 422);
+            }
 
             // Check if patient is already active in today's queue
             $activeStatuses = ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'];
@@ -789,14 +822,9 @@ class AppointmentController extends Controller
             }
 
             // Determine visit type based on appointment
-            $isBooster = ($appointment && ($appointment->appointment_type === 'booster' || str_contains(strtolower($appointment->notes ?? ''), 'booster')));
             $isConsultation = ($appointment && ($appointment->appointment_type === 'consultation' || str_contains(strtolower($appointment->notes ?? ''), 'consultation')));
 
-            if ($isBooster) {
-                $visitType = 'booster';
-                $stationName = 'Treatment Desk (Booster Vaccination)';
-                $targetStation = 'treatment';
-            } elseif ($isConsultation) {
+            if ($isConsultation) {
                 $visitType = 'new_case';
                 $stationName = 'Doctor Triage';
                 $targetStation = 'triage';
@@ -817,12 +845,13 @@ class AppointmentController extends Controller
             $nextQueueNumber = $lastQueue ? ($lastQueue->queue_number + 1) : 1;
 
             $doseInfo = $appointment && $appointment->dose_number !== null
-                ? ($isBooster ? "Booster Dose" : "Day {$appointment->dose_number} Dose")
+                ? "Day {$appointment->dose_number} Dose"
                 : null;
             $noteText = $doseInfo ? "Checked in for {$doseInfo}" : "Checked in via patient list";
 
-            // Assign station based on clinical visit type: follow-ups go to Follow-up station, initial/consultation to Intake
-            $isFollowUp = $isBooster || ($appointment && $appointment->dose_number > 0) || in_array($visitType, ['vaccination', 'booster', 'follow_up']);
+            // Scheduled doses after Day 0 belong at Station 2. New clinical cases,
+            // including Doctor-approved booster Day 0 treatment, are transferred to Station 1.
+            $isFollowUp = ($appointment && $appointment->dose_number > 0) || $visitType === 'follow_up';
             $stationQuery = \App\Models\Station::where('clinic_id', $clinicId)->where('is_active', true);
             $stationObj = $isFollowUp
                 ? (clone $stationQuery)->where('name', 'like', '%Follow-up%')->first()
@@ -864,5 +893,18 @@ class AppointmentController extends Controller
                 'visit_type'   => $visitType,
             ]);
         });
+    }
+
+    private function isBoosterAppointment(?Appointment $appointment): bool
+    {
+        return $appointment !== null && (
+            $appointment->appointment_type === 'booster'
+            || str_contains(strtolower($appointment->notes ?? ''), 'booster')
+        );
+    }
+
+    private function isScheduledFollowUp(?Appointment $appointment): bool
+    {
+        return $appointment !== null && (int) ($appointment->dose_number ?? 0) > 0;
     }
 }

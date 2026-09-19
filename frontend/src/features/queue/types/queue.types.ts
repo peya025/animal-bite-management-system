@@ -70,6 +70,9 @@ export interface QueueEntry {
   biteIncident?: {
     bite_id: number;
     case_number: string;
+    episode_number?: number;
+    episode_type?: 'primary' | 're_exposure' | 'pending_assessment';
+    status?: string;
     severity?: string;
     exposure_type?: string;
     remarks?: string;

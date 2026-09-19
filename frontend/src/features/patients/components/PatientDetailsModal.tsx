@@ -9,6 +9,8 @@ import {
   Typography,
   Chip,
   CircularProgress,
+  TextField,
+  MenuItem,
 } from '@mui/material';
 import { LockOutlined as LockIcon } from '@mui/icons-material';
 import { Icon } from '../../../shared/components/ui/Icon';
@@ -340,6 +342,10 @@ export default function PatientDetailsModal({
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkInSuccess, setCheckInSuccess] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [newExposureOpen, setNewExposureOpen] = useState(false);
+  const [newExposure, setNewExposure] = useState({
+    bite_date: new Date().toISOString().slice(0, 10),
+  });
 
   useEffect(() => {
     if (!open || !patient) {
@@ -375,17 +381,21 @@ export default function PatientDetailsModal({
   const p = (fullPatient || patient) as any;
   const currentEp = episodes.find((e) => e.bite_id === selectedEpisodeId) || episodes[0] || null;
 
-  const handleCheckInNewBite = async () => {
+  const handleRegisterNewExposure = async () => {
     const patientId = p.patient_id || p.id;
+    // Validate: exposure date cannot be in the future
+    if (newExposure.bite_date && newExposure.bite_date > new Date().toISOString().split('T')[0]) {
+      alert('Exposure date cannot be a future date.');
+      return;
+    }
     setCheckingIn(true);
     try {
-      const res = await api.post('/queue', {
+      const res = await api.post('/cases/new-exposure', {
         patient_id: patientId,
-        visit_type: 'new_case',
-        queue_category: 'regular',
-        priority: 'normal',
+        bite_date: newExposure.bite_date,
       });
-      setCheckInSuccess(`Successfully checked in to Doctor Triage (Queue #${res.data?.queue_number || '1'}).`);
+      setNewExposureOpen(false);
+      setCheckInSuccess(`New exposure registered. Sent to Doctor assessment (Queue #${res.data?.queue?.queue_number || '1'}).`);
       setTimeout(() => {
         setCheckInSuccess(null);
         onClose();
@@ -562,7 +572,7 @@ export default function PatientDetailsModal({
             return (
               <Chip
                 key={ep.bite_id}
-                label={`Episode #${ep.episode_number} (${ep.episode_type === 're_exposure' ? 'Re-Exposure Booster' : 'Primary PEP'} • ${ep.status})`}
+                label={`Episode #${ep.episode_number} (${ep.episode_type === 'pending_assessment' ? 'Awaiting Doctor Assessment' : ep.episode_type === 're_exposure' ? 'Doctor-Ordered Re-Exposure Plan' : 'Primary PEP'} • ${ep.status})`}
                 onClick={() => setSelectedEpisodeId(ep.bite_id)}
                 color={isSelected ? 'success' : 'default'}
                 variant={isSelected ? 'filled' : 'outlined'}
@@ -599,18 +609,16 @@ export default function PatientDetailsModal({
 
       <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-glow, #e5e7eb)', bgcolor: 'var(--card-bg-solid, #ffffff)', justifyContent: 'space-between', gap: 1 }}>
         {(() => {
-          const isCompletedSeries = episodes.length > 0 && episodes.every((e: any) => e.status === 'completed');
-          const hasActiveTreatment = episodes.some((e: any) => e.status === 'active' || e.status === 'in_progress');
-          const canCheckInNewBite = !readOnly && (isCompletedSeries || historySummary?.has_history) && !hasActiveTreatment;
+          const canRegisterNewExposure = !readOnly;
 
-          if (!canCheckInNewBite) {
+          if (!canRegisterNewExposure) {
             return <div />;
           }
 
           return (
             <Button
               variant="contained"
-              onClick={handleCheckInNewBite}
+              onClick={() => setNewExposureOpen(true)}
               disabled={checkingIn}
               sx={{
                 bgcolor: '#0284c7',
@@ -622,7 +630,7 @@ export default function PatientDetailsModal({
                 fontFamily: 'inherit',
               }}
             >
-              {checkingIn ? 'Checking In…' : '+ Check In for New Bite Episode (Triage)'}
+              + Register New Exposure
             </Button>
           );
         })()}
@@ -670,6 +678,33 @@ export default function PatientDetailsModal({
           if (onEdit) onEdit(updatedPatient);
         }}
       />
+
+      <Dialog
+        open={newExposureOpen}
+        onClose={() => !checkingIn && setNewExposureOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Check In New Exposure for Doctor</DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ fontSize: 13, color: '#475569', mb: 2 }}>
+            Record the exposure date, then send the patient to the Doctor. The Doctor completes the assessment and determines any treatment; Registration does not need to fill out another clinical form.
+          </Typography>
+          <Box sx={{ maxWidth: 320 }}>
+            <TextField label="Exposure date" type="date" required size="small" value={newExposure.bite_date}
+              onChange={(event) => setNewExposure({ ...newExposure, bite_date: event.target.value })}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ max: new Date().toISOString().split('T')[0] }} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewExposureOpen(false)} disabled={checkingIn}>Cancel</Button>
+          <Button variant="contained" onClick={handleRegisterNewExposure} disabled={checkingIn}
+            sx={{ bgcolor: '#0284c7', '&:hover': { bgcolor: '#0369a1' } }}>
+            {checkingIn ? 'Checking in…' : 'Check In to Doctor'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

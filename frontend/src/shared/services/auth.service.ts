@@ -31,12 +31,16 @@ class AuthService {
     };
   }
 
-  async logout(): Promise<void> {
-    // 1. Immediately purge local storage session synchronously to prevent UI flicker
+  clearAuthSession(): void {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
     localStorage.removeItem('clinicData');
     localStorage.removeItem('lastActivityAt');
+  }
+
+  async logout(): Promise<void> {
+    // 1. Immediately purge local storage session synchronously to prevent UI flicker
+    this.clearAuthSession();
 
     // 2. Fire background logout request to backend
     try {

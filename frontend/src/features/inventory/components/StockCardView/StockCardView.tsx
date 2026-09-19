@@ -61,8 +61,12 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
   const clinic = {
     clinic_id: item.clinic_id || authClinic?.id || 1,
     name: authClinic?.name || 'Animal Bite Treatment Center',
-    code: authClinic?.clinic_code || 'ABTC',
+    code: (authClinic as any)?.clinic_code || 'ABTC',
     address: authClinic?.address || '',
+    province: (authClinic as any)?.province || 'Misamis Oriental',
+    municipality: (authClinic as any)?.municipality || 'Municipality of Tagoloan',
+    office_name: (authClinic as any)?.office_name || 'MUNICIPAL HEALTH OFFICE - ANIMAL BITE TREATMENT CENTER',
+    phone: (authClinic as any)?.phone || '(088) 123-4567',
   };
 
   useEffect(() => {

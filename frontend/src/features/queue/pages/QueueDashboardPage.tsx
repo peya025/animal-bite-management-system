@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Alert, Box, CircularProgress, IconButton,
   Paper, Snackbar, Stack, Tooltip, Typography,
-  MenuItem, Select, FormControl,
+  MenuItem, Select, FormControl, useTheme,
 } from '@mui/material';
 import {
   AccessTime as WaitIcon,
@@ -66,7 +66,6 @@ const isFollowUpStationEntry = (entry: QueueEntry) => {
   const stationName = entry.station?.name?.toLowerCase() ?? '';
   // Station assignment is authoritative once a patient reaches treatment.
   return entry.visit_type === 'follow_up'
-    || entry.visit_type === 'booster'
     || stationName.includes('follow-up')
     || stationName.includes('follow up')
     || stationName.includes('station 2');
@@ -74,12 +73,11 @@ const isFollowUpStationEntry = (entry: QueueEntry) => {
 
 const isIntakeStationEntry = (entry: QueueEntry) => {
   const stationName = entry.station?.name?.toLowerCase() ?? '';
-  // A cleared Day 0 case becomes visit_type=vaccination. It still belongs to
-  // Station 1, as the public display correctly shows, until its Day 0 dose ends.
-  if (stationName.includes('intake') || stationName.includes('station 1')) return true;
   if (stationName.includes('follow-up') || stationName.includes('follow up') || stationName.includes('station 2')) return false;
-  return TRIAGE_VISIT_TYPES.includes(entry.visit_type)
-    || (entry.visit_type === 'vaccination' && !isFollowUpStationEntry(entry));
+  // Station 1 starts only after the Doctor-approved handoff changes the ticket
+  // to a treatment visit. A waiting new_case always remains Doctor-only.
+  return ['vaccination', 'observation'].includes(entry.visit_type)
+    && (stationName.includes('intake') || stationName.includes('station 1') || !isFollowUpStationEntry(entry));
 };
 
 function getCategoryHugeicon(cat: string) {
@@ -184,6 +182,8 @@ function getRegistrationStatusDisplay(entry: QueueEntry): { label: string; bg: s
 }
 
 export default function QueueDashboard() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -221,6 +221,10 @@ export default function QueueDashboard() {
   const [statusFilter,    setStatusFilter]    = useState('');
   const [categoryFilter,  setCategoryFilter]  = useState('');
   const [visitTypeFilter, setVisitTypeFilter] = useState<string>(() => {
+    // Triage doctors don't use nurse-station filters — their scope is already
+    // enforced by TRIAGE_VISIT_TYPES in roleScopedQueue. Giving them 'intake'
+    // would hide new_case entries (e.g. re-exposure registrations) from their view.
+    if (user?.role === 'triage') return '';
     const saved = localStorage.getItem('active_station_mode');
     if (saved === 'intake') return 'intake';
     if (saved === 'follow_up') return 'follow_up_station';
@@ -228,6 +232,15 @@ export default function QueueDashboard() {
     if (hasFollowUpNurseRole && !hasIntakeNurseRole) return 'follow_up_station';
     return '';
   });
+
+  // A browser may retain the last nurse station in local storage. Doctor/Triage
+  // sessions must never inherit that filter, otherwise a new_case can be the
+  // "next" patient yet disappear from the Doctor's table.
+  useEffect(() => {
+    const isDoctorTriage = user?.role === 'triage'
+      || user?.roles?.some((role: any) => ['triage', 'doctor'].includes(role.slug));
+    if (isDoctorTriage) setVisitTypeFilter('');
+  }, [user?.role, user?.roles]);
 
   useEffect(() => {
     const onStationChanged = (e: CustomEvent) => {
@@ -307,7 +320,8 @@ export default function QueueDashboard() {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
   const isRegistrationStaff = user?.role === 'registration';
-  const isTriageDoctor = user?.role === 'triage';
+  const isTriageDoctor = user?.role === 'triage'
+    || user?.roles?.some((role: any) => ['triage', 'doctor'].includes(role.slug));
   const isTreatmentNurse = user?.role === 'treatment' || user?.is_nursing || hasIntakeNurseRole || hasFollowUpNurseRole;
   const transferredToTreatmentEntries = isTriageDoctor
     ? queue.filter(entry =>
@@ -332,7 +346,7 @@ export default function QueueDashboard() {
     ? []
     : stationScopedSecondChanceQueue;
   const roleScopedQueue = isTriageDoctor
-    ? stationScopedQueue.filter(isIntakeStationEntry)
+    ? queue.filter(entry => TRIAGE_VISIT_TYPES.includes(entry.visit_type))
     : stationScopedQueue;
   const stationStats = {
     ...stats,
@@ -362,7 +376,7 @@ export default function QueueDashboard() {
           : isRegistrationStaff
             ? 'Registration Queue Dashboard'
             : user?.role === 'admin'
-              ? 'Admin Queue Dashboard'
+              ? 'Admin Queue'
               : 'Queue Dashboard';
   const queueSectionTitle = isTriageDoctor
     ? 'Triage Queue'
@@ -388,7 +402,12 @@ export default function QueueDashboard() {
     const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
 
     let matchVisitType = true;
-    if (visitTypeFilter === 'intake') {
+    if (isTriageDoctor) {
+      // Triage scope already enforced by roleScopedQueue (TRIAGE_VISIT_TYPES).
+      // Do NOT apply the nurse-station isIntakeStationEntry filter here — it
+      // excludes new_case visit types, which are exactly what triage sees.
+      matchVisitType = true;
+    } else if (visitTypeFilter === 'intake') {
       matchVisitType = isIntakeStationEntry(q);
     } else if (visitTypeFilter === 'follow_up_station') {
       matchVisitType = isFollowUpStationEntry(q);
@@ -914,26 +933,25 @@ export default function QueueDashboard() {
         id="queue-table-container"
         elevation={0}
         sx={{
-          border: '1px solid',
-          borderColor: 'divider',
+          border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-glow, #e2e8f0)',
           borderRadius: 3,
           overflow: 'hidden',
-          background: 'background.paper',
-          p: { xs: 1.5, sm: 2.5 },
-          mb: 2,
+          bgcolor: isDark ? '#111827' : '#ffffff',
+          p: { xs: 2, sm: 3 },
+          mb: 3,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-            <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'var(--text-h)' }}>
+            <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 16, color: isDark ? '#ffffff' : 'var(--text-h)' }}>
               {queueSectionTitle}
             </Typography>
-            <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
+            <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, color: isDark ? '#94a3b8' : 'var(--text-secondary)', fontWeight: 500 }}>
               ({stationStats.waiting} patients waiting)
             </Typography>
           </Box>
           {visibleSecondChanceQueue.length > 0 && (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500, fontFamily: "'Poppins', sans-serif" }}>
               <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={12} strokeWidth={2} />
               {visibleSecondChanceQueue.length} in Second Chance Queue
             </Box>
@@ -950,12 +968,23 @@ export default function QueueDashboard() {
             onCategoryChange={v => { setCategoryFilter(v); setPage(0); }}
             visitTypeFilter={visitTypeFilter}
             onVisitTypeChange={v => { setVisitTypeFilter(v); setPage(0); }}
-            lockedVisitTypeLabel={stationMode === 'intake' ? 'Station 1 · Day 0 / new episode' : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only' : undefined}
+            lockedVisitTypeLabel={
+              isTriageDoctor
+                ? undefined  // Triage Doctor has no nurse-station lock — they see all triage visit types
+                : stationMode === 'intake' ? 'Station 1 · Day 0 / new episode'
+                : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only'
+                : undefined
+            }
             onClear={() => {
               setSearch('');
               setStatusFilter('');
               setCategoryFilter('');
-              setVisitTypeFilter(stationMode === 'intake' ? 'intake' : stationMode === 'follow_up' ? 'follow_up_station' : '');
+              // Triage doctors reset to no filter (their scope is role-based, not station-based)
+              setVisitTypeFilter(
+                isTriageDoctor ? '' :
+                stationMode === 'intake' ? 'intake' :
+                stationMode === 'follow_up' ? 'follow_up_station' : ''
+              );
               setPage(0);
             }}
           />

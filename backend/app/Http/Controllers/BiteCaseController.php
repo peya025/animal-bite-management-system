@@ -4,14 +4,128 @@ namespace App\Http\Controllers;
 
 use App\Models\BiteIncident;
 use App\Models\BiteIncidentIntake;
+use App\Models\Queue;
+use App\Models\QueueHistory;
 use App\Models\VaccinationSchedule;
 use App\Services\GeocodingService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class BiteCaseController extends Controller
 {
+    /**
+     * Registration creates an incident and queues it for Doctor assessment.
+     * It deliberately does not choose a regimen or create treatment appointments.
+     */
+    public function registerNewExposure(Request $request)
+    {
+        $validated = $request->validate([
+            'patient_id' => 'required|exists:patients,patient_id',
+            'bite_date' => 'required|date|before_or_equal:today',
+            'bite_place' => 'nullable|string|max:255',
+            'site_washed' => 'nullable|boolean',
+            'exposure_type' => 'nullable|in:bite,scratch,lick,other',
+            'severity' => 'nullable|in:minor,moderate,severe',
+            'animal_type' => 'nullable|string|max:100',
+            'animal_status' => 'nullable|in:owned,stray,unknown',
+            'animal_captured' => 'nullable|boolean',
+            'animal_observation_status' => 'nullable|in:healthy,sick,died,unknown',
+            'site_number' => 'nullable|string|max:255',
+            'wound_description' => 'nullable|string',
+            'remarks' => 'nullable|string',
+        ]);
+
+        $clinicId = $request->user()->clinic_id;
+        abort_unless(
+            \App\Models\Patient::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->exists(),
+            404
+        );
+
+        return DB::transaction(function () use ($validated, $clinicId, $request) {
+            // Serialize episode numbering per permanent patient profile.
+            \App\Models\Patient::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $todayDate = Carbon::today()->toDateString();
+            $episodeNumber = (BiteIncident::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->max('episode_number') ?? 0) + 1;
+
+            // This is intentionally pending. Previous history informs the Doctor,
+            // but never selects full PEP, booster, or no vaccine automatically.
+            $incident = BiteIncident::create([
+                'clinic_id' => $clinicId,
+                'patient_id' => $validated['patient_id'],
+                'episode_number' => $episodeNumber,
+                'episode_type' => 'pending_assessment',
+                'is_previously_vaccinated' => false,
+                'bite_date' => $validated['bite_date'],
+                'bite_place' => $validated['bite_place'] ?? null,
+                'site_washed' => $validated['site_washed'] ?? false,
+                'exposure_type' => $validated['exposure_type'] ?? 'bite',
+                'severity' => $validated['severity'] ?? 'moderate',
+                'animal_type' => $validated['animal_type'] ?? null,
+                'animal_status' => $validated['animal_status'] ?? 'unknown',
+                'animal_captured' => $validated['animal_captured'] ?? false,
+                'animal_observation_status' => $validated['animal_observation_status'] ?? null,
+                'site_number' => $validated['site_number'] ?? null,
+                'wound_description' => $validated['wound_description'] ?? null,
+                'status' => 'awaiting_assessment',
+                'remarks' => $validated['remarks'] ?? null,
+                'created_by' => $request->user()->id,
+            ]);
+
+            $lastQueueNumber = Queue::where('clinic_id', $clinicId)
+                ->where('queue_date', $todayDate)
+                ->whereNull('deleted_at')
+                ->lockForUpdate()
+                ->max('queue_number') ?? 0;
+
+            $queue = Queue::create([
+                'clinic_id' => $clinicId,
+                'patient_id' => $validated['patient_id'],
+                'bite_id' => $incident->bite_id,
+                'queue_number' => $lastQueueNumber + 1,
+                'queue_date' => $todayDate,
+                'visit_type' => 'new_case',
+                'queue_category' => 'regular',
+                'priority' => 'normal',
+                'status' => 'waiting',
+                'checked_in_at' => now(),
+                'checked_in_by' => $request->user()->id,
+                'check_in_notes' => 'New exposure registered — Doctor assessment required before any treatment.',
+                'call_count' => 0,
+            ]);
+
+            QueueHistory::create([
+                'queue_id' => $queue->queue_id,
+                'clinic_id' => $clinicId,
+                'patient_id' => $queue->patient_id,
+                'action' => 'checked_in',
+                'from_status' => 'new',
+                'to_status' => 'waiting',
+                'call_count' => 0,
+                'performed_by' => $request->user()->id,
+                'notes' => 'New exposure registered and queued for Doctor assessment.',
+                'occurred_at' => now(),
+            ]);
+
+            Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
+
+            return response()->json([
+                'message' => 'New exposure registered and sent to Doctor assessment.',
+                'incident' => $incident,
+                'queue' => $queue->load(['patient', 'biteIncident']),
+            ], 201);
+        });
+    }
+
     /**
      * List all bite cases
      * Access: admin, triage, treatment
@@ -98,6 +212,12 @@ class BiteCaseController extends Controller
 
         DB::beginTransaction();
         try {
+            // Serialize episode numbering per permanent patient profile.
+            \App\Models\Patient::where('clinic_id', $request->user()->clinic_id)
+                ->where('patient_id', $request->patient_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             // Auto-compute next episode number for this patient
             $lastEpisode = BiteIncident::where('patient_id', $request->patient_id)->max('episode_number') ?? 0;
             $episodeNumber = $lastEpisode + 1;
@@ -154,6 +274,7 @@ class BiteCaseController extends Controller
                 ->where('queue_date', \Carbon\Carbon::today()->toDateString())
                 ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
                 ->whereIn('visit_type', ['new_case', 'follow_up', 'observation'])
+                ->whereNull('bite_id')
                 ->whereNull('deleted_at')
                 ->latest('queue_id')
                 ->first();
@@ -201,10 +322,11 @@ class BiteCaseController extends Controller
             ->with([
                 'patient',
                 'createdBy',
+                'treatmentPlan',
                 'vaccinationSchedules' => function ($query) {
                     $query->orderBy('dose_number');
                 },
-                'queueEntries',
+                'queues',
             ])
             ->findOrFail($id);
 
@@ -606,17 +728,25 @@ class BiteCaseController extends Controller
         try {
             $clinicId = $request->user()->clinic_id;
 
-            $patient = \App\Models\Patient::with(['details'])->findOrFail($patientId);
+            $patient = \App\Models\Patient::where('clinic_id', $clinicId)
+                ->with(['details'])
+                ->findOrFail($patientId);
 
-            $episodes = BiteIncident::where('patient_id', $patientId)
+            $episodes = BiteIncident::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
                 ->with([
                     'treatmentRecords' => function ($q) {
-                        $q->orderBy('dose_number');
+                        $q->orderByRaw('CASE WHEN dose_number IS NULL THEN 0 ELSE 1 END')
+                            ->orderBy('consultation_date')
+                            ->orderBy('dose_number')
+                            ->orderBy('scheduled_date');
                     },
+                    'treatmentPlan:treatment_plan_id,bite_id,plan_type,status,ordered_dose_days,doctor_decision_notes,decided_at',
                     'externalProofReviewer:id,name,role',
                     'createdBy:id,name',
                 ])
-                ->orderBy('episode_number', 'desc')
+                ->orderByDesc('episode_number')
+                ->orderByDesc('bite_id')
                 ->get();
 
             $historySummary = $patient->getImmunizationHistorySummary();

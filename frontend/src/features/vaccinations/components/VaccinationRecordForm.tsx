@@ -57,6 +57,10 @@ interface TreatmentFormData {
   };
   body_part_affected: {
     head_neck: boolean;
+    upper_extremities: boolean;
+    lower_extremities: boolean;
+    trunk_torso: boolean;
+    multiple_sites: boolean;
     other_parts: boolean;
     na_ingestion: boolean;
   };
@@ -291,6 +295,10 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   },
   body_part_affected: {
     head_neck: false,
+    upper_extremities: false,
+    lower_extremities: false,
+    trunk_torso: false,
+    multiple_sites: false,
     other_parts: false,
     na_ingestion: false,
   },
@@ -412,12 +420,15 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [inventorySetupMessage, setInventorySetupMessage] = useState('');
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [currentIncident, setCurrentIncident] = useState<any>(null);
+  const [doctorPlanType, setDoctorPlanType] = useState<string>('');
   const [existingRecordsData, setExistingRecordsData] = useState<ExistingVaccinationRecord[]>([]);
   const [isReturningNewBite, setIsReturningNewBite] = useState(false);
   const [manualReExposure, setManualReExposure] = useState(false); // 8.2: staff-flagged re-bite
   const [pastHistoryRecords, setPastHistoryRecords] = useState<ExistingVaccinationRecord[]>([]);
   // Doctor's prescribed vaccine from Form 2 — hard-locks nurse's vaccine dropdown
   const [prescribedVaccineType, setPrescribedVaccineType] = useState('');
+  const [latestConsultation, setLatestConsultation] = useState<any>(null);
+  const [showHistoricalPEP, setShowHistoricalPEP] = useState(false);
 
   const isPhilHealthMember = Boolean(
     entry?.patient?.philhealth_member === 'yes' ||
@@ -455,6 +466,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       setDoses(createInitialDoses());
       setFifoErrors({});
       setError('');
+      setDoctorPlanType('');
 
       void loadInventoryOptions();
       void loadAllFormData();
@@ -501,12 +513,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     if (!patientId) return;
 
     try {
-      const activeBiteId = entry?.bite_id || entry?.incident?.bite_id;
+      const activeBiteId = entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id;
       const biteIdParam = activeBiteId ? `?bite_id=${activeBiteId}` : '';
-      const [cardRes, apptRes, vacRes] = await Promise.all([
-        api.get(`/tagoloan-treatment-cards/patient/${patientId}`).catch(() => null),
+      const [cardRes, apptRes, vacRes, incidentRes] = await Promise.all([
+        api.get(`/tagoloan-treatment-cards/patient/${patientId}${biteIdParam}`).catch(() => null),
         api.get(`/appointments?patient_id=${patientId}&status=scheduled`).catch(() => null),
         api.get(`/vaccination-records/patient/${patientId}${biteIdParam}`).catch(() => null),
+        activeBiteId ? api.get(`/cases/${activeBiteId}`).catch(() => null) : Promise.resolve(null),
       ]);
 
       const isReturning = Boolean(vacRes?.data?.is_returning_new_bite);
@@ -516,6 +529,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       const bite = vacRes?.data?.active_bite_incident || cardRes?.data?.bite_incident || entry?.incident;
       const card = cardRes?.data?.existing_card;
       const consultation = cardRes?.data?.latest_consultation;
+      setLatestConsultation(consultation || null);
+      setDoctorPlanType(incidentRes?.data?.incident?.treatment_plan?.plan_type || consultation?.treatment_plan || bite?.treatment_plan?.plan_type || '');
       const appointments = apptRes?.data?.data || [];
       const records: ExistingVaccinationRecord[] = vacRes?.data?.vaccination_records || [];
 
@@ -569,9 +584,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           handling_ingestion: mode === 'handling_ingestion_raw_meat',
         },
         body_part_affected: {
-          head_neck: bodyPart === 'head_neck',
-          other_parts: bodyPart === 'other_parts',
-          na_ingestion: bodyPart === 'na_ingestion',
+          head_neck:         bodyPart === 'head_neck',
+          upper_extremities: bodyPart === 'upper_extremities',
+          lower_extremities: bodyPart === 'lower_extremities',
+          trunk_torso:       bodyPart === 'trunk_torso',
+          multiple_sites:    bodyPart === 'multiple_sites',
+          other_parts:       bodyPart === 'other_parts',
+          na_ingestion:      bodyPart === 'na_ingestion',
         },
         body_part_affected_text: bodyPart === 'head_neck' ? 'Head and/or neck' : bodyPart === 'other_parts' ? 'Other parts of the body' : bodyPart === 'na_ingestion' ? 'N/A if Ingestion mode' : (bodyPart || ''),
         animal_type: animal.toLowerCase() === 'dog' ? 'dog' : animal.toLowerCase() === 'cat' ? 'cat' : animal ? 'other' : prev.animal_type,
@@ -893,6 +912,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
+    const today = new Date().toISOString().split('T')[0];
 
     if (isPhilHealthMember && formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
       newFieldErrors.philhealth_pin = 'PhilHealth PIN must be exactly 12 digits.';
@@ -902,7 +922,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
     if (!formData.date_of_exposure) {
       newFieldErrors.date_of_exposure = 'Please enter Date of Exposure';
+    } else if (formData.date_of_exposure > today) {
+      newFieldErrors.date_of_exposure = 'Date of Exposure cannot be a future date.';
     }
+    if (formData.date_treatment_started && formData.date_treatment_started > today) {
+      newFieldErrors.date_treatment_started = 'Date Treatment Started cannot be a future date.';
+    }
+
+    // Validate dose dates — only check doses the nurse is actually submitting now
+    // (has vaccine_type + date set, not already completed).
+    // Scheduled future rows (Day 3, Day 7) without a vaccine type selected are skipped.
+    // NOTE: actual check happens below after filledDoses is computed
 
     setFieldErrors(newFieldErrors);
 
@@ -964,6 +994,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       return;
     }
 
+    // Validate: doses being submitted now cannot have future dates
+    const futureDose = filledDoses.find(d => d.date && d.date > todayStr);
+    if (futureDose) {
+      setError(`${futureDose.period} administration date cannot be a future date.`);
+      return;
+    }
+
     for (const d of filledDoses) {
       const units = parseInt(d.inventory_units_used, 10);
       if (isNaN(units) || units < 0) {
@@ -974,13 +1011,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         setError(`Cannot save dose ${d.period}: ${fifoErrors[d.period]}`);
         return;
       }
-    }
-
-    // Validate that the administering nurse has a digital signature on file
-    const hasDoseToAdminister = filledDoses.some(d => !d.is_external && !d.inventory_linked);
-    if (hasDoseToAdminister && !currentUser?.signature_path && currentUser?.role !== 'developer') {
-      setError('Your digital signature is not yet on file. Please ask a clinic administrator to complete your staff profile with a digital signature before administering doses.');
-      return;
     }
 
     setError('');
@@ -1013,7 +1043,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           is_external: Boolean(d.is_external),
           external_facility_name: d.external_facility_name || null,
         })),
-        bite_id: currentIncident?.bite_id || entry?.bite_id || entry?.incident?.bite_id || null,
+        bite_id: currentIncident?.bite_id || entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id || null,
         episode_type: manualReExposure ? 're_exposure' : (currentIncident?.episode_type || entry?.incident?.episode_type || 'primary'),
         additional_meds: additionalMeds,
         icd_code: icdCode || null,
@@ -1029,6 +1059,19 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   if (!entry) return null;
+
+  const isBoosterPlan = doctorPlanType === 'single_booster'
+    || doctorPlanType === 'two_dose_booster'
+    || currentIncident?.episode_type === 're_exposure'
+    || (currentIncident?.episode_number && Number(currentIncident.episode_number) > 1)
+    || manualReExposure;
+  const orderedDosePeriods = doctorPlanType === 'single_booster'
+    ? ['Day 0']
+    : (doctorPlanType === 'two_dose_booster' || isBoosterPlan)
+      ? ['Day 0', 'Day 3']
+      : doctorPlanType === 'full_pep'
+        ? ['Day 0', 'Day 3', 'Day 7']
+        : null;
 
   const formContent = (
     <div style={{ padding: inline ? '0' : '24px 32px' }}>
@@ -1064,7 +1107,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date</label>
-            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
+            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} max={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
@@ -1267,6 +1310,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               type="date" 
               value={formData.date_of_exposure} 
               onChange={handleFieldChange('date_of_exposure')} 
+              max={new Date().toISOString().split('T')[0]}
               disabled={readOnly} 
               style={{ 
                 width: '100%', 
@@ -1290,6 +1334,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               type="date" 
               value={formData.date_treatment_started} 
               onChange={handleFieldChange('date_treatment_started')} 
+              max={new Date().toISOString().split('T')[0]}
               disabled={readOnly} 
               style={{ 
                 width: '100%', 
@@ -1307,7 +1352,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           {/* ── Label row: "Place of Exposure" label + toggle button side by side ── */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Place of Exposure</label>
-            {!readOnly && (
+            {false && !readOnly && (
               <button
                 type="button"
                 onClick={() => expLoc.setUseManual(!expLoc.useManual)}
@@ -1457,8 +1502,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.upper_extremities} 
+                  onChange={handleCheckboxChange('body_part_affected', 'upper_extremities')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -1467,8 +1512,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.lower_extremities} 
+                  onChange={handleCheckboxChange('body_part_affected', 'lower_extremities')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -1477,8 +1522,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.trunk_torso} 
+                  onChange={handleCheckboxChange('body_part_affected', 'trunk_torso')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -1487,8 +1532,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
                 <input 
                   type="checkbox" 
-                  checked={formData.body_part_affected.other_parts} 
-                  onChange={handleCheckboxChange('body_part_affected', 'other_parts')} 
+                  checked={formData.body_part_affected.multiple_sites} 
+                  onChange={handleCheckboxChange('body_part_affected', 'multiple_sites')} 
                   disabled={isFormLocked} 
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
@@ -1605,16 +1650,204 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
       </div>
 
+      {/* ── SEPARATE SECTION: DOCTOR FINDINGS & NEW BITE EXPOSURE SUMMARY (BOOSTER / RE-EXPOSURE) ── */}
+      {(isBoosterPlan || isReturningNewBite || (currentIncident?.episode_number && Number(currentIncident.episode_number) > 1)) && (
+        <div style={{ marginBottom: 28 }}>
+          {/* Card 1: Doctor Triage Findings & Clinical Orders */}
+          <div style={{
+            padding: '18px 20px',
+            borderRadius: 12,
+            border: '1.5px solid #bfdbfe',
+            background: 'linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%)',
+            marginBottom: 16,
+            boxShadow: '0 2px 8px rgba(30, 58, 138, 0.06)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid #dbeafe', paddingBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>🩺</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#1e40af' }}>
+                    Doctor Consultation &amp; Triage Findings (Form 2)
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#475569' }}>
+                    Clinical triage vitals and prescribed rabies vaccination regimen from the attending physician.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', backgroundColor: '#dbeafe', padding: '3px 9px', borderRadius: 12 }}>
+                  Dr. {latestConsultation?.attending_provider || latestConsultation?.provider_name || 'Attending Physician'}
+                </span>
+                <span style={{ fontSize: 11, color: '#64748b' }}>
+                  {latestConsultation?.consultation_date || formData.date}
+                </span>
+              </div>
+            </div>
+
+            {/* Vitals Highlights: Temperature & Blood Pressure */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14, padding: '12px 16px', borderRadius: 8, backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}>
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Body Temperature</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                  <strong style={{ fontSize: 15, color: '#1e293b' }}>
+                    {latestConsultation?.temperature ? `${latestConsultation.temperature} °C` : 'Not recorded'}
+                  </strong>
+                  {latestConsultation?.temperature && (
+                    parseFloat(latestConsultation.temperature) >= 38.0 ? (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b91c1c', background: '#fee2e2', padding: '1px 6px', borderRadius: 4 }}>High Fever</span>
+                    ) : parseFloat(latestConsultation.temperature) >= 37.5 ? (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>Low Grade</span>
+                    ) : (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '1px 6px', borderRadius: 4 }}>Afebrile</span>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Blood Pressure</span>
+                <strong style={{ fontSize: 15, color: '#1e293b', display: 'block', marginTop: 3 }}>
+                  {latestConsultation?.blood_pressure ? `${latestConsultation.blood_pressure} mmHg` : '—'}
+                </strong>
+              </div>
+
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Weight / Height</span>
+                <span style={{ fontSize: 13, color: '#334155', fontWeight: 600, display: 'block', marginTop: 4 }}>
+                  {latestConsultation?.weight ? `${latestConsultation.weight} kg` : '—'} · {latestConsultation?.height ? `${latestConsultation.height} cm` : '—'}
+                </span>
+              </div>
+
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Doctor Prescribed Regimen</span>
+                <span style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: '#4338ca',
+                  backgroundColor: '#e0e7ff',
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  display: 'inline-block',
+                  marginTop: 3
+                }}>
+                  {doctorPlanType === 'two_dose_booster'
+                    ? '🛡️ 2-Dose Booster (Day 0, 3)'
+                    : doctorPlanType === 'single_booster'
+                      ? '🛡️ 1-Dose Booster (Day 0)'
+                      : doctorPlanType === 'full_pep'
+                        ? 'Full PEP (Day 0, 3, 7)'
+                        : 'Re-Exposure Regimen'}
+                </span>
+              </div>
+            </div>
+
+            {/* Doctor Clinical Impression & Orders */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 14, fontSize: 12.5 }}>
+              <div style={{ padding: '10px 12px', borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <strong style={{ color: '#334155', display: 'block', marginBottom: 3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  Doctor Diagnosis / Clinical Impression:
+                </strong>
+                <span style={{ color: '#0f172a' }}>
+                  {latestConsultation?.diagnosis || 'Animal bite exposure, awaiting clinical impression.'}
+                </span>
+                {latestConsultation?.chief_complaints && (
+                  <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
+                    <em>Chief complaint:</em> {latestConsultation.chief_complaints}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ padding: '10px 12px', borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <strong style={{ color: '#334155', display: 'block', marginBottom: 3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  Prescribed PEP Vaccine Brand:
+                </strong>
+                <span style={{ fontWeight: 700, color: prescribedVaccineType ? '#15803d' : '#b45309' }}>
+                  {prescribedVaccineType ? `💉 ${prescribedVaccineType}` : '⚠️ Follow clinic standard vaccine'}
+                </span>
+                {latestConsultation?.medication_treatment && (
+                  <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
+                    <em>Orders:</em> {latestConsultation.medication_treatment}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: New Bite Incident & Exposure Details */}
+          <div style={{
+            padding: '16px 20px',
+            borderRadius: 12,
+            border: '1.5px solid #fed7aa',
+            background: '#fffaf5',
+            boxShadow: '0 2px 6px rgba(234, 88, 12, 0.05)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid #ffedd5', paddingBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 18 }}>⚠️</span>
+                <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  New Bite Exposure Details (Episode #{currentIncident?.episode_number || 2})
+                </h4>
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#9a3412', backgroundColor: '#ffedd5', padding: '2px 8px', borderRadius: 10 }}>
+                {currentIncident?.episode_type === 're_exposure' ? 'Re-Exposure Case' : 'New Animal Incident'}
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, fontSize: 12.5, color: '#334155' }}>
+              <div>
+                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>EXPOSURE DATE</span>
+                <strong>{formData.date_of_exposure || currentIncident?.bite_date || 'Not recorded'}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>INCIDENT LOCATION</span>
+                <strong>{formData.place_of_exposure || currentIncident?.bite_place || 'Misamis Oriental'}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>CATEGORY &amp; NATURE</span>
+                <strong>Category {formData.exposure_category || currentIncident?.severity || 'II'} · {currentIncident?.exposure_type || 'Bite'}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>ANIMAL INVOLVED</span>
+                <strong>
+                  {formData.animal_type ? formData.animal_type.toUpperCase() : (currentIncident?.animal_type ? currentIncident.animal_type.toUpperCase() : 'CANINE')}
+                  {currentIncident?.animal_status ? ` (${currentIncident.animal_status})` : ''}
+                </strong>
+              </div>
+            </div>
+
+            {(formData.body_part_affected_text || currentIncident?.body_part_exposed || currentIncident?.wound_description) && (
+              <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed #fed7aa', display: 'flex', gap: 16, fontSize: 12, color: '#431407' }}>
+                {(formData.body_part_affected_text || currentIncident?.body_part_exposed) && (
+                  <div>
+                    <strong>Anatomical Site:</strong> {formData.body_part_affected_text || currentIncident?.body_part_exposed}
+                  </div>
+                )}
+                {currentIncident?.wound_description && (
+                  <div>
+                    <strong>Wound Characteristics:</strong> {currentIncident.wound_description}
+                  </div>
+                )}
+                {currentIncident?.site_washed !== undefined && (
+                  <div>
+                    <strong>Washed:</strong> {currentIncident.site_washed ? 'Yes (Soap & Water)' : 'No'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* SECTION 3: VACCINATION RECORD */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
           <div>
-            <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              PERIOD EXPOSURE VACCINATION RECORD
+            <h3 style={{ color: isBoosterPlan ? '#7c3aed' : '#10b981', fontSize: 14, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {isBoosterPlan ? '🛡️ RE-EXPOSURE BOOSTER VACCINE ADMINISTRATION' : 'PERIOD EXPOSURE VACCINATION RECORD'}
             </h3>
             <span style={{ fontSize: 12, color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-              Automatic FIFO Stock Deduction on Save • Cross-Clinic Continuity Supported
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: isBoosterPlan ? '#7c3aed' : '#10b981' }}></span>
+              {isBoosterPlan ? 'Dedicated Episode Booster Table • Historical Records Archived Below' : 'Automatic FIFO Stock Deduction on Save • Cross-Clinic Continuity Supported'}
             </span>
           </div>
 
@@ -1665,10 +1898,50 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
         </div>
 
-        {(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
+        {isBoosterPlan ? (
+          <div style={{
+            marginBottom: 16,
+            padding: '12px 16px',
+            backgroundColor: '#f5f3ff',
+            border: '1.5px solid #c4b5fd',
+            borderRadius: 8,
+            color: '#4c1d95',
+            fontSize: 13,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>🛡️</span>
+              <div>
+                <div style={{ fontWeight: 700 }}>
+                  {doctorPlanType === 'single_booster' ? 'Single-Dose Booster Regimen' : 'Two-Dose Booster Regimen (Day 0 & Day 3)'}
+                </div>
+                <div style={{ fontSize: 12, color: '#5b21b6', marginTop: 1 }}>
+                  {doctorPlanType === 'single_booster'
+                    ? 'Doctor ordered Day 0 booster only. Administer dose below and complete consultation.'
+                    : 'Doctor ordered Day 0 and Day 3 boosters per re-exposure management guidelines.'}
+                </div>
+              </div>
+            </div>
+            <span style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: '#5b21b6',
+              background: '#ede9fe',
+              padding: '4px 10px',
+              borderRadius: 14,
+              border: '1px solid #ddd6fe'
+            }}>
+              Episode #{currentIncident?.episode_number || 2} Active
+            </span>
+          </div>
+        ) : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
           <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid var(--border-glow, #a7f3d0)', borderRadius: 6, color: 'var(--text-h, #065f46)', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>🛡️</span>
-            <span><strong>2-Dose Booster Regimen Active (Re-Exposure Protocol)</strong>: Patient is scheduled for <strong>Day 0 & Day 3 ONLY</strong>. Doses 7 & 28 are not required per DOH/WHO re-exposure guidelines.</span>
+            <span><strong>Legacy re-exposure record</strong>: This historical schedule predates the Doctor-plan workflow. Follow its documented order; all new exposures require a Doctor decision before any dose is recorded.</span>
           </div>
         )}
 
@@ -1717,11 +1990,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               </tr>
             </thead>
             <tbody>
-              {(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
+              {(orderedDosePeriods
+                ? doses.filter(d => orderedDosePeriods.includes(d.period))
+                : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
                 ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
                 : showFullSchedule
                   ? doses
-                  : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period))
+                  : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period)))
               ).map((dose, index) => {
                 const isFilled = Boolean(dose.date);
                 const isLinked = dose.inventory_linked;
@@ -1746,9 +2021,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
                 const isLocked = readOnly || isCompleted || isPrerequisiteLocked;
                 const hasFifoError = Boolean(fifoErrors[dose.period]);
-                const candidateList = manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
+                const candidateList = orderedDosePeriods
+                  ? doses.filter(d => orderedDosePeriods.includes(d.period))
+                  : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
                   ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
-                  : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period));
+                  : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period)));
                 const activeCandidateIdx = candidateList.findIndex(d => !d.is_completed && !d.inventory_linked && !PREREQ[d.period]?.includes(doses.find(x => x.period === PREREQ[d.period])?.is_completed === false ? 'no' : 'yes'));
                 const isActiveFollowUp = !readOnly && !isCompleted && !isPrerequisiteLocked && index === activeCandidateIdx;
                 const isActivelyRecording = !isCompleted && !isPrerequisiteLocked && (isActiveFollowUp || Boolean(dose.vaccine_type || dose.is_external));
@@ -1770,7 +2047,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           {isCompleted && <span style={{ color: '#16a34a', fontSize: 14 }}>✓</span>}
                           {isPrerequisiteLocked && <span style={{ color: '#f59e0b', fontSize: 13 }}>🔒</span>}
-                          <span>{dose.period}</span>
+                          <span>{isBoosterPlan ? (dose.period === 'Day 0' ? 'Booster (Day 0)' : dose.period === 'Day 3' ? 'Booster (Day 3)' : dose.period) : dose.period}</span>
                           {isActiveFollowUp && (
                             <span style={{
                               fontSize: 10,
@@ -1837,6 +2114,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                         value={dose.date}
                         onChange={(e) => handleDoseChange(index, 'date', e.target.value)}
                         disabled={isLocked}
+                        max={isActiveFollowUp ? new Date().toISOString().split('T')[0] : undefined}
                         style={{
                           width: '100%',
                           padding: '6px 8px',
@@ -2198,17 +2476,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                               gap: 4,
                               padding: '3px 8px',
                               borderRadius: 6,
-                              backgroundColor: '#fef2f2',
-                              border: '1px solid #fca5a5',
-                              color: '#dc2626',
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            color: '#475569',
                               fontSize: 10.5,
                               fontWeight: 600,
                               whiteSpace: 'nowrap',
                             }}
-                            title="No digital signature on file. Please configure your signature in staff profile."
+                            title="Digital signature is optional. Sign the printed record by hand if required by your clinic."
                           >
                             <span>⚠️</span>
-                            <span>No Sig</span>
+                            <span>Hand-sign printout</span>
                           </div>
                         )
                       ) : (
@@ -2255,7 +2533,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </table>
 
           {/* 8.1 — Expand / Collapse Day 28 + Booster rows (primary regimen only) */}
-          {!(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && !readOnly && (
+          {false && !orderedDosePeriods && !(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && !readOnly && (
             <div style={{ textAlign: 'center', marginTop: 10 }}>
               <button
                 type="button"
@@ -2277,6 +2555,80 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             </div>
           )}
         </div>
+
+        {/* ── Collapsible Prior Immunization History (Read Only) ── */}
+        {false && pastHistoryRecords.length > 0 && isBoosterPlan && (
+          <div style={{ marginTop: 20, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+            <button
+              type="button"
+              onClick={() => setShowHistoricalPEP(prev => !prev)}
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                background: '#f8fafc',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 16 }}>📁</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>
+                  Historical Primary PEP Immunization Course (Episode 1: {pastHistoryRecords.filter(r => r.status === 'completed').length} Completed Doses)
+                </span>
+              </div>
+              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                {showHistoricalPEP ? '▲ Hide Historical Records' : '▼ View Historical PEP Record'}
+              </span>
+            </button>
+
+            {showHistoricalPEP && (
+              <div style={{ padding: '12px 16px', background: '#ffffff', borderTop: '1px solid #e2e8f0' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Dose Period</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Date Administered</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Vaccine Brand</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Batch No.</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Administered By</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'center', color: '#475569' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pastHistoryRecords.map((r, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '8px 10px', fontWeight: 600, color: '#1e293b' }}>
+                          Day {r.dose_number}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#475569' }}>
+                          {r.treatment_date || '—'}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#475569' }}>
+                          {r.vaccine_brand || 'ARV'}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#475569' }}>
+                          {r.batch_no || '—'}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#475569' }}>
+                          {(typeof r.administered_by === 'object' && r.administered_by?.name) ? r.administered_by.name : (r.administeredBy?.name || 'Staff')}
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '1px 8px', borderRadius: 10 }}>
+                            Completed ✓
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* SECTION 4: ADDITIONAL MEDICATIONS & ICD CODE */}

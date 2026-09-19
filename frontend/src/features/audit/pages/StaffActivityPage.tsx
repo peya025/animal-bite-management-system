@@ -52,7 +52,12 @@ export default function StaffActivityPage() {
   const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
 
+  // Pagination
+  const PAGE_SIZE = 15;
+  const [currentPage, setCurrentPage] = useState(1);
+
   useEffect(() => {
+    setCurrentPage(1);
     loadData();
     loadUsers();
   }, [selectedUser, selectedAction, dateFrom, dateTo, search]);
@@ -272,6 +277,7 @@ export default function StaffActivityPage() {
               className="db-explorer-input"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
             />
           </div>
 
@@ -321,99 +327,172 @@ export default function StaffActivityPage() {
             <div style={{ fontSize: '0.9rem', fontWeight: 500, color: '#475569' }}>No activity logs recorded</div>
             <div style={{ fontSize: '0.8rem', fontWeight: 400, color: '#94a3b8' }}>Staff actions will appear here automatically</div>
           </div>
-        ) : (
-          <div className="db-explorer-table-wrapper">
-            <table className="db-explorer-table">
-              <thead>
-                <tr>
-                  <th>Time & Date</th>
-                  <th>Staff Member</th>
-                  <th>Action</th>
-                  <th>Description</th>
-                  <th>IP Address</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => {
-                  const badge = actionBadges[log.action] || {
-                    bg: '#f8fafc',
-                    color: '#475569',
-                    border: '#e2e8f0',
-                    icon: 'info',
-                  };
-                  const afterHours = isAfterHours(log.created_at);
+        ) : (() => {
+          const totalPages = Math.ceil(logs.length / PAGE_SIZE);
+          const safePage   = Math.min(currentPage, totalPages);
+          const pagedLogs  = logs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-                  return (
-                    <tr key={log.id}>
-                      {/* Time */}
-                      <td>
-                        <div style={{ fontWeight: 400, color: '#1e293b' }}>{formatDate(log.created_at)}</div>
-                        {afterHours && (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.2rem',
-                              background: '#fffbe6',
-                              color: '#d48806',
-                              border: '1px solid #ffe58f',
-                              fontSize: '0.7rem',
-                              padding: '0.1rem 0.35rem',
-                              borderRadius: '0.25rem',
-                              marginTop: '0.2rem',
-                              fontWeight: 400,
-                            }}
-                          >
-                            <Icon name="warning" size={10} color="#d48806" />
-                            After hours
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Staff Member */}
-                      <td>
-                        <div style={{ fontWeight: 500, color: 'var(--text-h)' }}>{log.user?.name || 'Unknown Staff'}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{log.user?.role || '—'}</div>
-                      </td>
-
-                      {/* Action */}
-                      <td>
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.3rem',
-                            background: badge.bg,
-                            color: badge.color,
-                            border: `1px solid ${badge.border}`,
-                            fontSize: '0.75rem',
-                            padding: '0.15rem 0.5rem',
-                            borderRadius: '0.375rem',
-                            fontWeight: 500,
-                            textTransform: 'capitalize',
-                          }}
-                        >
-                          <Icon name={badge.icon} size={12} color={badge.color} />
-                          {log.action}
-                        </span>
-                      </td>
-
-                      {/* Description */}
-                      <td style={{ color: '#334155', fontWeight: 400, whiteSpace: 'normal', maxWidth: '360px' }}>
-                        {log.description}
-                      </td>
-
-                      {/* IP Address */}
-                      <td style={{ fontFamily: 'monospace', color: '#64748b', fontWeight: 400 }}>
-                        {log.ip_address}
-                      </td>
+          return (
+            <>
+              <div className="db-explorer-table-wrapper">
+                <table className="db-explorer-table">
+                  <thead>
+                    <tr>
+                      <th>Time & Date</th>
+                      <th>Staff Member</th>
+                      <th>Action</th>
+                      <th>Description</th>
+                      <th>IP Address</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                  </thead>
+                  <tbody>
+                    {pagedLogs.map((log) => {
+                      const badge = actionBadges[log.action] || {
+                        bg: '#f8fafc',
+                        color: '#475569',
+                        border: '#e2e8f0',
+                        icon: 'info',
+                      };
+                      const afterHours = isAfterHours(log.created_at);
+
+                      return (
+                        <tr key={log.id}>
+                          {/* Time */}
+                          <td>
+                            <div style={{ fontWeight: 400, color: '#1e293b' }}>{formatDate(log.created_at)}</div>
+                            {afterHours && (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.2rem',
+                                  background: '#fffbe6',
+                                  color: '#d48806',
+                                  border: '1px solid #ffe58f',
+                                  fontSize: '0.7rem',
+                                  padding: '0.1rem 0.35rem',
+                                  borderRadius: '0.25rem',
+                                  marginTop: '0.2rem',
+                                  fontWeight: 400,
+                                }}
+                              >
+                                <Icon name="warning" size={10} color="#d48806" />
+                                After hours
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Staff Member */}
+                          <td>
+                            <div style={{ fontWeight: 500, color: 'var(--text-h)' }}>{log.user?.name || 'Unknown Staff'}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{log.user?.role || '—'}</div>
+                          </td>
+
+                          {/* Action */}
+                          <td>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                background: badge.bg,
+                                color: badge.color,
+                                border: `1px solid ${badge.border}`,
+                                fontSize: '0.75rem',
+                                padding: '0.15rem 0.5rem',
+                                borderRadius: '0.375rem',
+                                fontWeight: 500,
+                                textTransform: 'capitalize',
+                              }}
+                            >
+                              <Icon name={badge.icon} size={12} color={badge.color} />
+                              {log.action}
+                            </span>
+                          </td>
+
+                          {/* Description */}
+                          <td style={{ color: '#334155', fontWeight: 400, whiteSpace: 'normal', maxWidth: '360px' }}>
+                            {log.description}
+                          </td>
+
+                          {/* IP Address */}
+                          <td style={{ fontFamily: 'monospace', color: '#64748b', fontWeight: 400 }}>
+                            {log.ip_address}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── Pagination bar ── */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border, #f0f7f2)', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {/* Result count */}
+                <span style={{ fontSize: '0.8125rem', color: '#77877d' }}>
+                  Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, logs.length)} of {logs.length} entries
+                </span>
+
+                {/* Page controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                  {/* First */}
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={safePage === 1}
+                    style={{ padding: '0.3rem 0.6rem', borderRadius: 6, border: '1px solid var(--border-glow, #e0eae3)', background: '#fff', color: safePage === 1 ? '#cbd5e1' : '#374151', cursor: safePage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+                  >«</button>
+
+                  {/* Prev */}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={safePage === 1}
+                    style={{ padding: '0.3rem 0.65rem', borderRadius: 6, border: '1px solid var(--border-glow, #e0eae3)', background: '#fff', color: safePage === 1 ? '#cbd5e1' : '#374151', cursor: safePage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.8125rem', fontWeight: 600 }}
+                  >‹</button>
+
+                  {/* Page number pills */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                    .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                      if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('…');
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((item, idx) =>
+                      item === '…' ? (
+                        <span key={`ellipsis-${idx}`} style={{ padding: '0.3rem 0.4rem', color: '#94a3b8', fontSize: '0.8125rem' }}>…</span>
+                      ) : (
+                        <button
+                          key={item}
+                          onClick={() => setCurrentPage(item as number)}
+                          style={{
+                            padding: '0.3rem 0.65rem', borderRadius: 6,
+                            border: `1px solid ${safePage === item ? 'var(--primary)' : 'var(--border-glow, #e0eae3)'}`,
+                            background: safePage === item ? 'var(--primary)' : '#fff',
+                            color: safePage === item ? '#fff' : '#374151',
+                            cursor: 'pointer', fontSize: '0.8125rem', fontWeight: safePage === item ? 700 : 500,
+                          }}
+                        >{item}</button>
+                      )
+                    )}
+
+                  {/* Next */}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={safePage === totalPages}
+                    style={{ padding: '0.3rem 0.65rem', borderRadius: 6, border: '1px solid var(--border-glow, #e0eae3)', background: '#fff', color: safePage === totalPages ? '#cbd5e1' : '#374151', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', fontSize: '0.8125rem', fontWeight: 600 }}
+                  >›</button>
+
+                  {/* Last */}
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={safePage === totalPages}
+                    style={{ padding: '0.3rem 0.6rem', borderRadius: 6, border: '1px solid var(--border-glow, #e0eae3)', background: '#fff', color: safePage === totalPages ? '#cbd5e1' : '#374151', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+                  >»</button>
+                </div>
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );

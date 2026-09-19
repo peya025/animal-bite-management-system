@@ -8,6 +8,7 @@ import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import { TablePaginator } from '../../../components/data-display';
 import api from '../../../shared/services/api';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -37,7 +38,7 @@ export default function PatientList() {
   const [search,               setSearch]               = useState('');
   const [searchTerm,           setSearchTerm]           = useState(''); // Debounced search term
   const [page,                 setPage]                 = useState(1);
-  const [totalPages,           setTotalPages]           = useState(1);
+  const [,                     setTotalPages]           = useState(1);
   const [total,                setTotal]                = useState(0);
   const [perPage, setPerPage] = useState(15);
   const [membershipFilter, setMembershipFilter] = useState('all');
@@ -237,23 +238,27 @@ export default function PatientList() {
       const today = new Date().toISOString().slice(0, 10);
       const isBoosterToday = (p as any).appointments?.some((a: any) => 
         a.status === 'scheduled' && 
-        a.appointment_type === 'booster' &&
+        (a.appointment_type === 'booster' || a.notes?.toLowerCase().includes('booster')) &&
         ((a.appointment_date && a.appointment_date.startsWith(today)) || (a.scheduled_date && a.scheduled_date.startsWith(today)))
       );
 
-      // If returning years later or starting a new bite case, always route to Doctor Triage (new_case)
+      // A booster request requires a fresh Doctor assessment. It is intentionally
+      // queued as a new clinical case, not sent straight to the treatment nurse.
       const isInitialVisit = isNewBiteCase || !isFollowUpWithinRegimen;
-      const visitType = isBoosterToday ? 'booster' : (isInitialVisit ? 'new_case' : 'vaccination');
+      const visitType = (isBoosterToday || isInitialVisit) ? 'new_case' : 'vaccination';
 
       const res = await api.post('/queue', {
         patient_id: patientId,
         visit_type: visitType,
         queue_category: 'regular',
         priority: 'normal',
+        check_in_notes: isBoosterToday
+          ? 'Booster request: Doctor assessment and Form 2 approval required before treatment.'
+          : undefined,
       });
 
-      const station = visitType === 'booster'
-        ? 'Treatment Queue (Booster Vaccination)'
+      const station = isBoosterToday
+        ? 'Triage Queue (Booster Request: Doctor Assessment)'
         : (isInitialVisit ? 'Triage Queue (Doctor Assessment)' : 'Treatment Queue (Vaccination Desk)');
       setCheckInModalData({
         patientName: fullName(p),
@@ -280,13 +285,13 @@ export default function PatientList() {
       if (activeQueue.status === 'waiting') {
         const station = activeQueue.visit_type === 'new_case'
           ? 'Waiting in Triage'
-          : (activeQueue.visit_type === 'booster' ? 'Waiting in Treatment (Booster)' : 'Waiting in Treatment');
+          : (activeQueue.visit_type === 'booster' ? 'Waiting for Doctor assessment' : 'Waiting in Treatment');
         return { label: `Queue #${activeQueue.queue_number || ''} (${station})`, icon: Clock01Icon, bg: '#d1fae5', color: '#065f46' };
       }
       if (activeQueue.status === 'in_consultation' || activeQueue.status === 'called' || activeQueue.status === 'serving') {
         const station = activeQueue.visit_type === 'new_case'
           ? 'In Doctor Triage'
-          : (activeQueue.visit_type === 'booster' ? 'In Treatment (Booster)' : 'In Treatment');
+          : (activeQueue.visit_type === 'booster' ? 'In Doctor assessment' : 'In Treatment');
         return { label: `Queue #${activeQueue.queue_number || ''} (${station})`, icon: Stethoscope02Icon, bg: '#eff6ff', color: '#1d4ed8' };
       }
       if (activeQueue.status === 'second_chance' || activeQueue.status === 'final_recall') {
@@ -529,16 +534,7 @@ export default function PatientList() {
 
           {/* Controls */}
           <div className="pm-controls">
-            <div className="pm-show-entries">
-              <span>Show</span>
-              <select className="pm-entries-select" value={perPage} onChange={e => setPerPage(Number(e.target.value))}>
-                <option value={15}>15</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-              <span>entries</span>
-            </div>
-            <div className="pm-controls-right">
+            <div className="pm-controls-right" style={{ width: '100%', justifyContent: 'flex-end' }}>
               <div className="pm-membership-filter-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>Program:</span>
                 <select
@@ -690,7 +686,7 @@ export default function PatientList() {
                     const statusInfo = getLiveStatus(p);
                     const isOnline = isOnlinePatient(p);
                     const activeQueue = (p as any).queues?.[0];
-                    const latestRecord = p.latest_treatment_record;
+                    const latestRecord = (p as any).latest_treatment_record;
                     const hasDosesAdministered = Boolean(latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined);
                     const hasCompletedTriage = Boolean(
                       (p as any).bite_incidents?.length ||
@@ -700,7 +696,7 @@ export default function PatientList() {
                     const latestIncident = (p as any).bite_incidents?.[0] || (p as any).biteIncidents?.[0];
                     const hasPendingAppointments = Boolean(
                       (p as any).appointments?.some((a: any) => a.status === 'scheduled') ||
-                      p.upcomingAppointment
+                      (p as any).upcomingAppointment
                     );
                     const hasActiveIncident = latestIncident && (latestIncident.status === 'active' || latestIncident.status === 'in_progress');
                     const isOngoingTreatment = hasActiveIncident || hasPendingAppointments || (hasDosesAdministered && latestRecord.dose_number < 28);
@@ -766,16 +762,19 @@ export default function PatientList() {
                             {canCheckIn ? (
                               <button
                                 className="pm-btn-checkin"
-                                title="Check-in new patient into Doctor Triage queue"
-                                disabled={checkingInId === patientId}
-                                onClick={() => handleCheckIn(p)}
+                                title="Register the bite or possible rabies exposure before Doctor assessment"
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  setSelectedViewPatient(p);
+                                  setShowViewModal(true);
+                                }}
                               >
-                                {checkingInId === patientId ? 'Checking in...' : 'Check In to Triage'}
+                                Register Exposure
                               </button>
                             ) : hasCompletedAllDoses && !activeQueue ? (
                               <button
                                 className="pm-btn-checkin"
-                                title="Patient completed previous doses and returned with a new animal bite exposure"
+                                title="Register a distinct new exposure before Doctor assessment"
                                 style={{
                                   backgroundColor: '#0284c7',
                                   borderColor: '#0284c7',
@@ -786,10 +785,13 @@ export default function PatientList() {
                                   fontWeight: 600,
                                   cursor: 'pointer',
                                 }}
-                                disabled={checkingInId === patientId}
-                                onClick={() => handleCheckIn(p, true)}
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  setSelectedViewPatient(p);
+                                  setShowViewModal(true);
+                                }}
                               >
-                                {checkingInId === patientId ? 'Checking in...' : '+ New Bite (Triage)'}
+                                + New Exposure
                               </button>
                             ) : isFollowUp && !activeQueue ? (
                               <span
@@ -859,45 +861,19 @@ export default function PatientList() {
                 </tbody>
               </table>
             )}
+            {!loading && !error && (
+              <TablePaginator
+                count={total}
+                page={page - 1}
+                rowsPerPage={perPage}
+                onPageChange={(p) => setPage(p + 1)}
+                onRowsPerPageChange={(r) => {
+                  setPerPage(r);
+                  setPage(1);
+                }}
+              />
+            )}
           </div>
-
-          {/* Pagination */}
-          {!loading && !error && totalPages > 1 && (
-            <div className="pm-pagination">
-              <span className="pm-page-info">Page {page} of {totalPages} ({total} total)</span>
-              <div className="pm-page-btns">
-                <button className="pm-page-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>← Prev</button>
-                {(() => {
-                  const pageButtons = [];
-                  const maxButtons = Math.min(5, totalPages);
-                  
-                  // Calculate start page to show centered around current page
-                  let startPage = Math.max(1, page - Math.floor(maxButtons / 2));
-                  const endPage = Math.min(totalPages, startPage + maxButtons - 1);
-                  
-                  // Adjust start if we're near the end
-                  if (endPage - startPage + 1 < maxButtons) {
-                    startPage = Math.max(1, endPage - maxButtons + 1);
-                  }
-                  
-                  for (let pg = startPage; pg <= endPage; pg++) {
-                    pageButtons.push(
-                      <button 
-                        key={`page-btn-${pg}`} 
-                        className={`pm-page-btn ${pg === page ? 'pm-page-btn--active' : ''}`} 
-                        onClick={() => setPage(pg)}
-                      >
-                        {pg}
-                      </button>
-                    );
-                  }
-                  
-                  return pageButtons;
-                })()}
-                <button className="pm-page-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next →</button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── Stat cards ── */}

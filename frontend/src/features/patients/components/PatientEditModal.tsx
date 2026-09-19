@@ -123,6 +123,12 @@ export default function PatientEditModal({
     if (!patient) return;
     const patientId = patient.patient_id || patient.id;
 
+    // Validate: date of birth cannot be in the future
+    if (formData.date_of_birth && formData.date_of_birth > new Date().toISOString().split('T')[0]) {
+      setError('Date of Birth cannot be a future date.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setSuccessMsg('');
@@ -273,6 +279,7 @@ export default function PatientEditModal({
                 type="date"
                 label="Date of Birth"
                 InputLabelProps={{ shrink: true }}
+                inputProps={{ max: new Date().toISOString().split('T')[0] }}
                 value={formData.date_of_birth}
                 onChange={handleChange('date_of_birth')}
                 disabled={!isAdminOrReg}

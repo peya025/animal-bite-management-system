@@ -110,6 +110,11 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
   };
 
   const handleSave = async () => {
+    // Validate: card date cannot be in the future
+    if (cardDate && cardDate > new Date().toISOString().split('T')[0]) {
+      alert('Card date cannot be a future date.');
+      return;
+    }
     setSaving(true);
     try {
       await api.post('/tagoloan-treatment-cards', {
@@ -295,6 +300,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                     type="date"
                     value={cardDate}
                     onChange={(e) => setCardDate(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
                     style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px' }}
                   />
                 </div>

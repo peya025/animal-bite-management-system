@@ -41,7 +41,7 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
           </div>
         </FormField>
         <FormField id="field-date_of_birth" label="Date of Birth" required error={!!errors.date_of_birth} errorText={errors.date_of_birth}>
-          <input className="fm-input" type="date" value={data.date_of_birth} onChange={onChange('date_of_birth')} style={errors.date_of_birth ? { borderColor: '#ef4444' } : undefined} />
+          <input className="fm-input" type="date" value={data.date_of_birth} onChange={onChange('date_of_birth')} max={new Date().toISOString().split('T')[0]} style={errors.date_of_birth ? { borderColor: '#ef4444' } : undefined} />
         </FormField>
         <FormField label="Blood Type">
           <select className="fm-select" value={data.blood_type} onChange={onChange('blood_type')}>

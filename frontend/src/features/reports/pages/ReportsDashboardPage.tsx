@@ -128,14 +128,14 @@ const filterBarStyle: React.CSSProperties = {
   justifyContent: 'space-between',
   flexWrap: 'wrap',
   gap: 12,
-  background: '#f9fafb',
-  border: '1px solid #e5e7eb',
-  borderRadius: 10,
-  padding: '12px 16px',
+  background: 'var(--card-bg-solid, #f9fafb)',
+  border: '1px solid var(--border-glow, #e5e7eb)',
+  borderRadius: 14,
+  padding: '14px 18px',
   marginBottom: 20,
 };
 
-const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#6b7280' };
+const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #6b7280)' };
 
 const inputStyle: React.CSSProperties = {
   fontSize: 13,
@@ -143,7 +143,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 6,
   border: '1px solid var(--input-border, #d1d5db)',
   outline: 'none',
-  fontFamily: 'inherit',
+  fontFamily: "'Poppins', sans-serif",
   background: 'var(--input-bg, #fff)',
   color: 'var(--input-text, #111827)',
 };
@@ -154,8 +154,8 @@ const selectStyle: React.CSSProperties = {
   borderRadius: 6,
   border: '1px solid var(--input-border, #d1d5db)',
   outline: 'none',
-  fontFamily: 'inherit',
-  background: 'var(--input-bg, #fff) url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%236b7280\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 10px center',
+  fontFamily: "'Poppins', sans-serif",
+  background: 'var(--input-bg, #fff) url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2310b981\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 10px center',
   appearance: 'none',
   WebkitAppearance: 'none',
   MozAppearance: 'none',
@@ -174,7 +174,7 @@ const tabStyle: React.CSSProperties = {
   background: 'var(--card-bg-solid, #fff)',
   cursor: 'pointer',
   color: 'var(--text-secondary, #6b7280)',
-  fontFamily: 'inherit',
+  fontFamily: "'Poppins', sans-serif",
   transition: 'all 0.15s',
 };
 
@@ -182,32 +182,40 @@ const tabActiveStyle: React.CSSProperties = {
   background: '#10b981',
   color: '#fff',
   border: '1px solid #10b981',
+  fontWeight: 700,
 };
 
 const tableWrapStyle: React.CSSProperties = {
-  border: '1px solid var(--border-glow, #e5e7eb)',
-  borderRadius: 10,
+  border: '1px solid var(--table-border, #e5e7eb)',
+  borderRadius: 14,
   overflow: 'hidden',
   background: 'var(--card-bg-solid, #ffffff)',
   boxShadow: 'var(--shadow, 0 1px 3px rgba(0,0,0,0.05))',
 };
 
-const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
+const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: "'Poppins', sans-serif" };
 
 const thStyle: React.CSSProperties = {
   background: 'var(--table-header-bg, #f0fdf4)',
-  color: 'var(--text-h, #111827)',
-  fontWeight: 600,
-  padding: '10px 14px',
+  color: 'var(--accent-green-bright, #047857)',
+  fontFamily: "'Poppins', sans-serif",
+  fontSize: 12,
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+  padding: '14px 18px',
   textAlign: 'left',
-  borderBottom: '2px solid var(--accent-green, #10b981)',
+  borderBottom: '1px solid var(--table-border, #10b981)',
   whiteSpace: 'nowrap',
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: '9px 14px',
+  padding: '14px 18px',
   borderBottom: '1px solid var(--table-row-border, #f0f0f0)',
-  color: 'var(--text-primary, #1e293b)',
+  color: 'var(--text, #1e293b)',
+  fontFamily: "'Poppins', sans-serif",
+  fontSize: 13,
+  fontWeight: 500,
 };
 
 const overlayStyle: React.CSSProperties = {
@@ -263,48 +271,172 @@ function StatBox({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
+  // Icon map by label keyword
+  const iconPath: Record<string, string> = {
+    patient:   'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+    case:      'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 18v-6M9 15h6',
+    completed: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+    ongoing:   'M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83',
+    new:       'M12 5v14M5 12h14',
+  };
+  const lbl = label.toLowerCase();
+  const d = lbl.includes('patient') ? iconPath.patient
+           : lbl.includes('complet') ? iconPath.completed
+           : lbl.includes('ongoing') || lbl.includes('on-going') ? iconPath.ongoing
+           : lbl.includes('new') ? iconPath.new
+           : iconPath.case;
+
+  // Progress percent from value (cap at 100 for display)
+  const numVal = parseInt(value.replace(/,/g, ''), 10) || 0;
+  const barPct = Math.min(100, Math.max(6, numVal > 0 ? Math.min(100, numVal * 8) : 6));
+
+  if (isDark) {
+    // ── DARK MODE: circular ring card (right sample image) ──
+    const ringSize = 64;
+    const radius = 26;
+    const circ = 2 * Math.PI * radius;
+    const dash = circ * Math.min(1, numVal > 0 ? 0.75 : 0.1);
+
+    return (
+      <div
+        onClick={onClick}
+        title={onClick ? `Click to inspect & print records for ${label}` : undefined}
+        style={{
+          background: active
+            ? 'radial-gradient(ellipse at 50% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)'
+            : 'radial-gradient(ellipse at 50% 0%, #1a2e20 0%, #111c15 55%, #090f0b 100%)',
+          border: active ? '2px solid #10b981' : '1.5px solid rgba(16,185,129,0.35)',
+          borderRadius: 20,
+          padding: '18px 16px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          minHeight: 130,
+          cursor: onClick ? 'pointer' : 'default',
+          transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+          userSelect: 'none',
+          position: 'relative',
+          boxShadow: active
+            ? '0 0 0 3px rgba(16,185,129,0.25), 0 10px 30px -5px rgba(0,0,0,0.7), 0 0 30px -4px rgba(16,185,129,0.4)'
+            : '0 10px 30px -5px rgba(0,0,0,0.6), 0 0 25px -4px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
+        }}
+      >
+        {active && (
+          <div style={{ position: 'absolute', top: 7, right: 9, fontSize: 9, fontWeight: 800, color: '#34d399', background: 'rgba(16,185,129,0.18)', border: '1px solid rgba(16,185,129,0.4)', padding: '1px 6px', borderRadius: 999 }}>
+            ✓ ACTIVE
+          </div>
+        )}
+        {/* Circular ring with number */}
+        <div style={{ position: 'relative', width: ringSize, height: ringSize, flexShrink: 0 }}>
+          <svg width={ringSize} height={ringSize} style={{ transform: 'rotate(-90deg)' }}>
+            {/* Track */}
+            <circle cx={ringSize/2} cy={ringSize/2} r={radius} fill="none" stroke="rgba(16,185,129,0.15)" strokeWidth={4} />
+            {/* Progress arc */}
+            <circle
+              cx={ringSize/2} cy={ringSize/2} r={radius}
+              fill="none"
+              stroke="#10b981"
+              strokeWidth={4}
+              strokeLinecap="round"
+              strokeDasharray={`${dash} ${circ}`}
+              style={{ filter: 'drop-shadow(0 0 5px #10b981)', transition: 'stroke-dasharray 0.5s ease' }}
+            />
+          </svg>
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: numVal > 999 ? 13 : 18,
+            fontWeight: 800,
+            color: loading ? '#4b5563' : '#ffffff',
+            lineHeight: 1,
+            letterSpacing: '-0.5px',
+          }}>
+            {loading ? '—' : value}
+          </div>
+        </div>
+        {/* Label */}
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: '#a7f3d0', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.3 }}>
+          {label}
+        </div>
+        {sub && <div style={{ fontSize: 9.5, color: '#64748b', textAlign: 'center', marginTop: -6 }}>{sub}</div>}
+        <div style={{ fontSize: 9, fontWeight: 600, color: active ? '#34d399' : '#4b6657', textAlign: 'center' }}>
+          {active ? 'Click to deselect' : 'Click to inspect'}
+        </div>
+      </div>
+    );
+  }
+
+  // ── LIGHT MODE: label top-left, icon top-right, big number, progress bar (left sample image) ──
   return (
     <div
       onClick={onClick}
+      title={onClick ? `Click to inspect & print records for ${label}` : undefined}
       style={{
         background: active
-          ? isDark ? 'radial-gradient(ellipse at 30% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)' : 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 45%, #ffffff 100%)'
-          : isDark ? 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)' : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-        border: active
-          ? '2px solid #10b981'
-          : isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid rgba(16, 185, 129, 0.32)',
+          ? 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 60%, #ffffff 100%)'
+          : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f7fdfb 55%, #ffffff 100%)',
+        border: active ? '2px solid #10b981' : '1px solid rgba(16,185,129,0.28)',
         borderRadius: 20,
-        padding: '18px 20px',
-        textAlign: 'center',
-        boxShadow: isDark
-          ? '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)'
-          : '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        position: 'relative',
-        userSelect: 'none',
+        padding: '16px 18px 14px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         minHeight: 120,
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+        userSelect: 'none',
+        position: 'relative',
+        boxShadow: active
+          ? '0 0 0 3px rgba(16,185,129,0.15), 0 8px 24px -4px rgba(16,185,129,0.2)'
+          : '0 4px 16px -4px rgba(16,185,129,0.12), inset 0 1px 0 rgba(255,255,255,1)',
       }}
-      title={onClick ? `Click to inspect & print records for ${label}` : undefined}
     >
+      {/* Row 1: label + icon */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          {label}
+        </span>
+        <div style={{
+          width: 32, height: 32, borderRadius: 10,
+          background: 'rgba(16,185,129,0.1)',
+          border: '1px solid rgba(16,185,129,0.22)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d={d} />
+          </svg>
+        </div>
+      </div>
+
+      {/* Row 2: big number */}
+      <div style={{ fontSize: 30, fontWeight: 800, color: loading ? '#d1d5db' : '#064e3b', lineHeight: 1, letterSpacing: '-0.5px' }}>
+        {loading ? '—' : value}
+      </div>
+
+      {/* Row 3: sub text */}
+      {sub && (
+        <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>{sub}</div>
+      )}
+
+      {/* Row 4: progress bar */}
+      <div style={{ marginTop: 8, width: '100%', height: 4, background: 'rgba(16,185,129,0.12)', borderRadius: 999, overflow: 'hidden' }}>
+        <div style={{
+          width: `${barPct}%`,
+          height: '100%',
+          background: active ? '#10b981' : 'linear-gradient(90deg, #10b981 0%, #34d399 100%)',
+          borderRadius: 999,
+          transition: 'width 0.5s ease',
+        }} />
+      </div>
+
       {active && (
-        <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 9.5, fontWeight: 800, color: '#059669', background: '#d1fae5', border: '1px solid #a7f3d0', padding: '2px 7px', borderRadius: 999 }}>
+        <div style={{ position: 'absolute', top: 7, right: 9, fontSize: 9, fontWeight: 800, color: '#059669', background: '#d1fae5', border: '1px solid #a7f3d0', padding: '1px 6px', borderRadius: 999 }}>
           ✓ ACTIVE
         </div>
       )}
-      <div style={{ fontSize: 26, fontWeight: 800, color: loading ? '#d1d5db' : isDark ? '#ffffff' : '#064e3b', lineHeight: 1.1, fontFamily: "'Poppins', sans-serif", textShadow: isDark ? '0 1px 3px rgba(0,0,0,0.5)' : 'none' }}>
-        {loading ? '—' : value}
-      </div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 6, fontFamily: "'Poppins', sans-serif" }}>
-        {label}
-      </div>
-      {sub && <div style={{ fontSize: 10.5, color: isDark ? '#94a3b8' : '#64748b', marginTop: 3 }}>{sub}</div>}
-      <div style={{ fontSize: 9.5, fontWeight: 700, color: active ? '#10b981' : isDark ? '#34d399' : '#059669', marginTop: 6, textDecoration: 'none' }}>
-        {active ? 'Click to deselect' : 'Click to inspect & print'}
-      </div>
     </div>
   );
 }
@@ -317,41 +449,119 @@ function CatBox({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  return (
-    <div
-      style={{
+  const numVal = count ?? 0;
+  // color per category
+  const catColor = cat.includes('III') ? '#ef4444' : cat.includes('II') ? '#f59e0b' : '#10b981';
+  const catGlow  = cat.includes('III') ? 'rgba(239,68,68,0.35)'  : cat.includes('II') ? 'rgba(245,158,11,0.35)' : 'rgba(16,185,129,0.35)';
+
+  if (isDark) {
+    const ringSize = 68;
+    const radius = 27;
+    const circ = 2 * Math.PI * radius;
+    const dash = circ * (numVal > 0 ? 0.72 : 0.08);
+
+    return (
+      <div style={{
         background: active
-          ? isDark ? 'radial-gradient(ellipse at 30% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)' : 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 45%, #ffffff 100%)'
-          : isDark ? 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)' : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-        border: active
-          ? '2px solid #10b981'
-          : isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid rgba(16, 185, 129, 0.32)',
+          ? 'radial-gradient(ellipse at 50% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)'
+          : 'radial-gradient(ellipse at 50% 0%, #1a2e20 0%, #111c15 55%, #090f0b 100%)',
+        border: active ? `2px solid ${catColor}` : `1.5px solid ${catGlow.replace('0.35','0.3')}`,
         borderRadius: 20,
-        padding: '18px 20px',
-        boxShadow: isDark
-          ? '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)'
-          : '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        position: 'relative',
-        minHeight: 120,
+        padding: '18px 16px 16px',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
-      }}
-    >
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        minHeight: 130,
+        transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+        position: 'relative',
+        boxShadow: active
+          ? `0 0 0 3px ${catGlow.replace('0.35','0.2')}, 0 10px 30px -5px rgba(0,0,0,0.7), 0 0 30px -4px ${catGlow}`
+          : `0 10px 30px -5px rgba(0,0,0,0.6), 0 0 22px -4px ${catGlow.replace('0.35','0.18')}, inset 0 1px 0 rgba(255,255,255,0.06)`,
+      }}>
+        {active && (
+          <div style={{ position: 'absolute', top: 7, right: 9, fontSize: 9, fontWeight: 800, color: catColor, background: `${catGlow.replace('0.35','0.18')}`, border: `1px solid ${catGlow}`, padding: '1px 6px', borderRadius: 999 }}>
+            ✓ SELECTED
+          </div>
+        )}
+        {/* Circular ring */}
+        <div style={{ position: 'relative', width: ringSize, height: ringSize, flexShrink: 0 }}>
+          <svg width={ringSize} height={ringSize} style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx={ringSize/2} cy={ringSize/2} r={radius} fill="none" stroke={`${catGlow.replace('0.35','0.15')}`} strokeWidth={4.5} />
+            <circle
+              cx={ringSize/2} cy={ringSize/2} r={radius}
+              fill="none" stroke={catColor} strokeWidth={4.5}
+              strokeLinecap="round"
+              strokeDasharray={`${dash} ${circ}`}
+              style={{ filter: `drop-shadow(0 0 6px ${catColor})`, transition: 'stroke-dasharray 0.5s ease' }}
+            />
+          </svg>
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: numVal > 999 ? 13 : 20, fontWeight: 800,
+            color: loading ? '#4b5563' : '#ffffff', lineHeight: 1,
+          }}>
+            {loading ? '—' : numVal}
+          </div>
+        </div>
+        {/* Category name */}
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: '#a7f3d0', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.3 }}>
+          {cat}
+        </div>
+        {/* Description */}
+        <div style={{ fontSize: 9.5, color: '#64748b', textAlign: 'center', lineHeight: 1.4 }}>{desc}</div>
+      </div>
+    );
+  }
+
+  // ── LIGHT MODE ──
+  const barPct = Math.min(100, Math.max(6, numVal > 0 ? Math.min(100, numVal * 12) : 6));
+
+  return (
+    <div style={{
+      background: active
+        ? 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 60%, #ffffff 100%)'
+        : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f7fdfb 55%, #ffffff 100%)',
+      border: active ? `2px solid ${catColor}` : '1px solid rgba(16,185,129,0.28)',
+      borderRadius: 20,
+      padding: '16px 18px 14px',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      minHeight: 120,
+      transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+      position: 'relative',
+      boxShadow: active
+        ? `0 0 0 3px ${catGlow.replace('0.35','0.12')}, 0 8px 24px -4px ${catGlow.replace('0.35','0.2')}`
+        : '0 4px 16px -4px rgba(16,185,129,0.12), inset 0 1px 0 rgba(255,255,255,1)',
+    }}>
       {active && (
-        <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 10, fontWeight: 800, color: '#059669', background: '#d1fae5', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: 999 }}>
+        <div style={{ position: 'absolute', top: 7, right: 9, fontSize: 9, fontWeight: 800, color: '#059669', background: '#d1fae5', border: '1px solid #a7f3d0', padding: '1px 6px', borderRadius: 999 }}>
           ✓ SELECTED
         </div>
       )}
-      <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: "'Poppins', sans-serif", marginBottom: 4 }}>
-        {cat}
+      {/* Row 1: category label + colored dot */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: catColor, boxShadow: `0 0 5px ${catColor}`, flexShrink: 0 }} />
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          {cat}
+        </span>
       </div>
-      <div style={{ fontSize: 32, fontWeight: 800, color: loading ? '#d1d5db' : isDark ? '#ffffff' : '#064e3b', lineHeight: 1.1, fontFamily: "'Poppins', sans-serif", textShadow: isDark ? '0 1px 3px rgba(0,0,0,0.5)' : 'none' }}>
-        {loading ? '—' : (count ?? 0)}
+      {/* Row 2: big number */}
+      <div style={{ fontSize: 34, fontWeight: 800, color: loading ? '#d1d5db' : '#064e3b', lineHeight: 1, letterSpacing: '-0.5px' }}>
+        {loading ? '—' : numVal}
       </div>
-      <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 4 }}>
-        {desc}
+      {/* Row 3: description */}
+      <div style={{ fontSize: 10.5, color: '#6b7280', lineHeight: 1.4 }}>{desc}</div>
+      {/* Row 4: progress bar in category color */}
+      <div style={{ marginTop: 8, width: '100%', height: 4, background: `${catGlow.replace('0.35','0.12')}`, borderRadius: 999, overflow: 'hidden' }}>
+        <div style={{
+          width: `${barPct}%`, height: '100%',
+          background: `linear-gradient(90deg, ${catColor} 0%, ${catColor}bb 100%)`,
+          borderRadius: 999, transition: 'width 0.5s ease',
+        }} />
       </div>
     </div>
   );
@@ -1272,7 +1482,7 @@ export default function ReportsDashboardPage() {
         {/* Row 2: Contextual Module Filters */}
         {/* 1. Summary Category & Period Filter */}
         {activeTab === 'summary' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid #e5e7eb' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid var(--border-glow, #e5e7eb)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <label style={labelStyle}>Period</label>
@@ -1313,7 +1523,7 @@ export default function ReportsDashboardPage() {
 
         {/* 2. Bite Cases Module Filters & Search Bar */}
         {activeTab === 'cases' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid #e5e7eb' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid var(--border-glow, #e5e7eb)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <label style={labelStyle}>Period</label>
@@ -1402,7 +1612,7 @@ export default function ReportsDashboardPage() {
 
         {/* 3. Patients Module Search Bar & Registration Filter */}
         {activeTab === 'patients' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid #e5e7eb' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid var(--border-glow, #e5e7eb)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <label style={labelStyle}>Period</label>
@@ -1665,12 +1875,12 @@ export default function ReportsDashboardPage() {
 
             {/* Clicked Card Data Inspection Table */}
             {cardData && (
-              <div style={{ marginTop: 24, marginBottom: 28, background: '#fff', border: '2px solid #10b981', borderRadius: 12, padding: 18, boxShadow: '0 4px 16px rgba(16,185,129,0.12)' }}>
+              <div style={{ marginTop: 24, marginBottom: 28, background: 'var(--card-bg-solid, #fff)', border: '2px solid #10b981', borderRadius: 14, padding: 18, boxShadow: '0 4px 16px rgba(16,185,129,0.12)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: '#d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669', fontWeight: 700 }}>✓</div>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', fontWeight: 700 }}>✓</div>
                   <div>
                     <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-h)' }}>{cardData.title}</h3>
-                    <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>
+                    <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary, #6b7280)' }}>
                       Showing strictly the records inside clicked card ({cardData.records.length} record{cardData.records.length !== 1 ? 's' : ''})
                     </p>
                   </div>
@@ -1684,9 +1894,9 @@ export default function ReportsDashboardPage() {
                       </thead>
                       <tbody>
                         {cardData.records.length === 0 ? (
-                          <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: '#6b7280' }}>No patient records found in this card.</td></tr>
+                          <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary, #6b7280)' }}>No patient records found in this card.</td></tr>
                         ) : cardData.records.map((p, i) => (
-                          <tr key={p.id} style={i % 2 !== 0 ? { background: '#f9fafb' } : {}}>
+                          <tr key={p.id}>
                             <td style={tdStyle}>{i+1}</td>
                             <td style={{ ...tdStyle, fontWeight: 600 }}>{p.first_name} {p.last_name}</td>
                             <td style={tdStyle}>{fmtDate(p.date_of_birth)}</td>
@@ -1705,9 +1915,9 @@ export default function ReportsDashboardPage() {
                       </thead>
                       <tbody>
                         {cardData.records.length === 0 ? (
-                          <tr><td colSpan={7} style={{ textAlign: 'center', padding: 24, color: '#6b7280' }}>No bite cases found in this card.</td></tr>
+                          <tr><td colSpan={7} style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary, #6b7280)' }}>No bite cases found in this card.</td></tr>
                         ) : cardData.records.map((c, i) => (
-                          <tr key={c.id} style={i % 2 !== 0 ? { background: '#f9fafb' } : {}}>
+                          <tr key={c.id}>
                             <td style={tdStyle}>{i+1}</td>
                             <td style={{ ...tdStyle, fontWeight: 600 }}>{c.patient_name ?? '—'}</td>
                             <td style={tdStyle}>{c.case_number || '—'}</td>
@@ -1750,7 +1960,7 @@ export default function ReportsDashboardPage() {
                   ) : filteredBiteCases.length === 0 ? (
                     <tr><td colSpan={7} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>No bite cases match the selected search or filter criteria.</td></tr>
                   ) : filteredBiteCases.map((c, i) => (
-                    <tr key={c.id} style={i % 2 !== 0 ? { background:'#f9fafb' } : {}}>
+                    <tr key={c.id}>
                       <td style={tdStyle}>{i+1}</td>
                       <td style={{ ...tdStyle, fontWeight: 600 }}>{c.patient_name ?? '—'}</td>
                       <td style={tdStyle}>{c.case_number || '—'}</td>
@@ -1790,7 +2000,7 @@ export default function ReportsDashboardPage() {
                   ) : filteredPatients.length === 0 ? (
                     <tr><td colSpan={5} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>No patients match the selected search or date filters.</td></tr>
                   ) : filteredPatients.map((p, i) => (
-                    <tr key={p.id} style={i % 2 !== 0 ? { background:'#f9fafb' } : {}}>
+                    <tr key={p.id}>
                       <td style={tdStyle}>{i+1}</td>
                       <td style={{ ...tdStyle, fontWeight: 600 }}>{p.first_name} {p.last_name}</td>
                       <td style={tdStyle}>{fmtDate(p.date_of_birth)}</td>
@@ -1820,9 +2030,9 @@ export default function ReportsDashboardPage() {
                     { label: 'Depleted Batches', value: invDisplayStats.depleted_batches, color: '#ef4444' },
                     { label: 'Expired Batches',  value: invDisplayStats.expired_batches,  color: '#6b7280' },
                   ].map(s => (
-                    <div key={s.label} style={{ background:'#fff', border:'1px solid #e5e7eb', borderRadius:10, padding:'14px 12px', textAlign:'center', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
-                      <div style={{ fontSize:24, fontWeight:800, color:s.color, lineHeight:1 }}>{s.value}</div>
-                      <div style={{ fontSize:10, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:0.5, marginTop:5 }}>{s.label}</div>
+                    <div key={s.label} style={{ background: 'var(--card-bg-solid, #fff)', border: '1px solid var(--border-glow, #e5e7eb)', borderRadius: 10, padding: '14px 12px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-secondary, #6b7280)', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 5 }}>{s.label}</div>
                     </div>
                   ))}
                 </div>
@@ -1866,7 +2076,7 @@ export default function ReportsDashboardPage() {
                     const wasteQty = item.status === 'expired' ? item.current_quantity : (item.discarded_vials ?? 0);
 
                     return (
-                      <tr key={item.inventory_id} style={i % 2 !== 0 ? { background:'#f9fafb' } : {}}>
+                      <tr key={item.inventory_id}>
                         <td style={tdStyle}>{i+1}</td>
                         <td style={{ ...tdStyle, fontWeight:600 }}>{item.vaccine_type}</td>
                         <td style={tdStyle}>{item.batch_number}</td>

@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\TreatmentRecord;
 use App\Models\Patient;
+use App\Models\BiteIncident;
+use App\Models\Queue;
+use App\Models\TreatmentPlan;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -22,36 +25,17 @@ class TreatmentRecordController extends Controller
 
         $requestedBiteId = $request->get('bite_id');
 
-        // Check if patient is returning with a new bite exposure (>90 days since last dose or completed episode)
-        $latestDose = TreatmentRecord::where('clinic_id', $clinicId)
-            ->where('patient_id', $patientId)
-            ->whereNotNull('dose_number')
-            ->where(function($q) {
-                $q->where('status', 'completed')
-                  ->orWhere(function($sub) {
-                      $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
-                  });
-            })
-            ->latest('treatment_date')
-            ->first();
-
         $activeIncident = null;
         if ($requestedBiteId) {
-            $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)->find($requestedBiteId);
+            $activeIncident = BiteIncident::where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->findOrFail($requestedBiteId);
         } else {
             $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->where('status', 'active')
                 ->latest('bite_id')
                 ->first();
-        }
-
-        $isReturningNewBite = false;
-        if ($latestDose && $latestDose->treatment_date) {
-            $daysSinceLastDose = Carbon::parse($latestDose->treatment_date)->diffInDays(now());
-            if ($daysSinceLastDose > 90) {
-                $isReturningNewBite = true;
-            }
         }
 
         // Get consultation record scoped to active episode if exists
@@ -64,15 +48,6 @@ class TreatmentRecordController extends Controller
                 ->latest('consultation_date')
                 ->first();
         }
-        if (!$latestTreatment && !$isReturningNewBite) {
-            $latestTreatment = TreatmentRecord::where('clinic_id', $clinicId)
-                ->where('patient_id', $patientId)
-                ->whereNull('dose_number')
-                ->orderBy('consultation_date', 'desc')
-                ->orderBy('consultation_time', 'desc')
-                ->first();
-        }
-
         // Get all treatment records for history
         $treatments = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
@@ -80,15 +55,43 @@ class TreatmentRecordController extends Controller
             ->orderBy('consultation_time', 'desc')
             ->get();
 
-        // Medical-legal lock: only applies if current episode already has administered vaccines
+        $episodeHistory = BiteIncident::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->with([
+                'treatmentPlan:treatment_plan_id,bite_id,plan_type,status,ordered_dose_days,decided_at',
+                'treatmentRecords' => function ($records) {
+                    $records->whereNotNull('dose_number')
+                        ->where('status', 'completed')
+                        ->orderBy('dose_number');
+                },
+            ])
+            ->latest('bite_id')
+            ->get()
+            ->map(function (BiteIncident $incident) {
+                return [
+                    'bite_id' => $incident->bite_id,
+                    'episode_number' => $incident->episode_number,
+                    'bite_date' => $incident->bite_date?->toDateString(),
+                    'status' => $incident->status,
+                    'plan' => $incident->treatmentPlan ? [
+                        'plan_type' => $incident->treatmentPlan->plan_type,
+                        'status' => $incident->treatmentPlan->status,
+                        'ordered_dose_days' => $incident->treatmentPlan->ordered_dose_days,
+                        'decided_at' => $incident->treatmentPlan->decided_at?->toDateString(),
+                    ] : null,
+                    'completed_dose_days' => $incident->treatmentRecords
+                        ->pluck('dose_number')
+                        ->values(),
+                ];
+            });
+
+        // Medical-legal lock: only applies if this selected episode already has
+        // administered vaccines.  Do not let a prior episode lock a new Form 2.
         $hasAdministeredVaccine = false;
         if ($activeIncident) {
             $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
-                ->where(function ($q) use ($activeIncident) {
-                    $q->where('bite_id', $activeIncident->bite_id)
-                      ->orWhereNull('bite_id');
-                })
+                ->where('bite_id', $activeIncident->bite_id)
                 ->whereNotNull('dose_number')
                 ->where(function($q) {
                     $q->where('status', 'completed')
@@ -97,17 +100,27 @@ class TreatmentRecordController extends Controller
                       });
                 })
                 ->exists();
-        } elseif (!$isReturningNewBite && $latestDose) {
-            $hasAdministeredVaccine = true;
         }
+
+        // A subsequent incident is only a re-exposure/booster assessment when
+        // the patient completed the primary Day 0, Day 3, and Day 7 doses.
+        // A pending primary or incomplete primary series continues through the
+        // standard Form 2 and must not show booster-only controls.
+        $requiresReExposureDecision = $activeIncident
+            && $activeIncident->isAwaitingAssessment()
+            && $this->hasCompletedPrimaryDayZeroToSeven($clinicId, $patientId, $activeIncident);
 
         return response()->json([
             'patient' => $patient,
             'latest_treatment' => $latestTreatment,
             'treatments' => $treatments,
             'has_administered_vaccine' => $hasAdministeredVaccine,
-            'is_returning_new_bite' => $isReturningNewBite,
+            // A re-exposure is determined by the Doctor's assessment, never by
+            // elapsed time since a previous dose.
+            'is_returning_new_bite' => (bool) ($activeIncident?->isReExposure()),
+            'requires_re_exposure_decision' => $requiresReExposureDecision,
             'active_bite_incident' => $activeIncident,
+            'episode_history' => $episodeHistory,
         ]);
     }
 
@@ -121,6 +134,19 @@ class TreatmentRecordController extends Controller
         $validated = $request->validate([
             'patient_id' => 'required|exists:patients,patient_id',
             'queue_id' => 'nullable|exists:queues,queue_id',
+            'bite_id' => 'nullable|exists:bite_incidents,bite_id',
+            'treatment_plan' => 'nullable|in:full_pep,single_booster,two_dose_booster,continue_existing_schedule,no_vaccine',
+
+            // Optional New Bite Incident updates from Doctor Form 2
+            'new_bite_date' => 'nullable|date',
+            'new_bite_place' => 'nullable|string|max:255',
+            'new_exposure_type' => 'nullable|in:bite,scratch,lick,other',
+            'new_severity' => 'nullable|in:minor,moderate,severe',
+            'new_animal_type' => 'nullable|string|max:100',
+            'new_animal_status' => 'nullable|in:owned,stray,unknown',
+            'new_site_washed' => 'nullable|boolean',
+            'new_body_part' => 'nullable|string|max:255',
+            'new_wound_description' => 'nullable|string',
             
             // General Consultation Fields (NEW Form 2)
             'consultation_date' => 'nullable|date',
@@ -159,25 +185,79 @@ class TreatmentRecordController extends Controller
 
         // Resolve active BiteIncident
         $activeBiteId = $request->get('bite_id');
+        $queueForEpisode = null;
+        if (!$activeBiteId && !empty($validated['queue_id'])) {
+            $queueForEpisode = Queue::where('clinic_id', $clinicId)
+                ->where('queue_id', $validated['queue_id'])
+                ->where('patient_id', $validated['patient_id'])
+                ->whereNull('deleted_at')
+                ->first();
+            $activeBiteId = $queueForEpisode?->bite_id;
+        }
         $activeIncident = null;
         if ($activeBiteId) {
-            $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)->find($activeBiteId);
-        } else {
-            $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)
+            $activeIncident = BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
-                ->where('status', 'active')
+                ->find($activeBiteId);
+        } else {
+            $activeIncident = BiteIncident::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->whereIn('status', ['active', 'awaiting_assessment'])
                 ->latest('bite_id')
                 ->first();
+        }
+
+        if (!$activeIncident && $queueForEpisode && $queueForEpisode->visit_type === 'new_case') {
+            // Older registration records were placed in the Doctor queue before
+            // an incident was created. Preserve that workflow by creating the
+            // primary episode at the first Form 2 save and linking this ticket.
+            $episodeNumber = (BiteIncident::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->max('episode_number') ?? 0) + 1;
+
+            $activeIncident = BiteIncident::create([
+                'clinic_id' => $clinicId,
+                'patient_id' => $validated['patient_id'],
+                'episode_number' => $episodeNumber,
+                'episode_type' => 'pending_assessment',
+                'is_previously_vaccinated' => false,
+                'bite_date' => $validated['new_bite_date'] ?? $validated['consultation_date'] ?? Carbon::today()->toDateString(),
+                'bite_place' => $validated['new_bite_place'] ?? null,
+                'site_washed' => $validated['new_site_washed'] ?? false,
+                'exposure_type' => $validated['new_exposure_type'] ?? 'bite',
+                'severity' => $validated['new_severity'] ?? 'moderate',
+                'animal_type' => $validated['new_animal_type'] ?? null,
+                'animal_status' => $validated['new_animal_status'] ?? 'unknown',
+                'site_number' => $validated['new_body_part'] ?? null,
+                'wound_description' => $validated['new_wound_description'] ?? null,
+                'status' => 'awaiting_assessment',
+                'remarks' => 'Primary episode created from Form 2 for a registration queue without a linked intake.',
+                'created_by' => $request->user()->id,
+            ]);
+
+            $queueForEpisode->update(['bite_id' => $activeIncident->bite_id]);
+        }
+
+        if (!$activeIncident) {
+            return response()->json([
+                'message' => 'This queue ticket is not linked to a bite episode. Return to registration and record the exposure first.',
+            ], 422);
+        }
+
+        $requiresReExposureDecision = $activeIncident->isAwaitingAssessment()
+            && $this->hasCompletedPrimaryDayZeroToSeven($clinicId, (int) $validated['patient_id'], $activeIncident);
+
+        if ($requiresReExposureDecision && empty($validated['treatment_plan'])) {
+            return response()->json([
+                'message' => 'Record the Doctor treatment decision for this re-exposure episode before referring it to Treatment.',
+            ], 422);
         }
 
         // Medical-Legal Protection: Check if vaccination has already been administered for THIS episode
         if ($activeIncident) {
             $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
-                ->where(function ($q) use ($activeIncident) {
-                    $q->where('bite_id', $activeIncident->bite_id)
-                      ->orWhereNull('bite_id');
-                })
+                ->where('bite_id', $activeIncident->bite_id)
                 ->whereNotNull('dose_number')
                 ->where(function($q) {
                     $q->where('status', 'completed')
@@ -252,12 +332,63 @@ class TreatmentRecordController extends Controller
         ]);
 
         // ── Auto-advance queue: move patient from Triage/Doctor → Treatment/Vaccination station ──
+        $planType = $validated['treatment_plan'] ?? null;
+        if ($activeIncident && $planType) {
+            $orderedDoseDays = match ($planType) {
+                'full_pep' => [0, 3, 7],
+                'single_booster' => [0],
+                'two_dose_booster' => [0, 3],
+                default => [],
+            };
+
+            TreatmentPlan::updateOrCreate(
+                ['bite_id' => $activeIncident->bite_id],
+                [
+                    'clinic_id' => $clinicId,
+                    'patient_id' => $validated['patient_id'],
+                    'plan_type' => $planType,
+                    'status' => $planType === 'no_vaccine' ? 'completed' : 'approved',
+                    'ordered_dose_days' => $orderedDoseDays,
+                    'doctor_decision_notes' => $validated['diagnosis'] ?? $validated['chief_complaints'],
+                    'decided_by' => $request->user()->id,
+                    'decided_at' => now(),
+                ]
+            );
+
+            $incidentUpdates = [
+                'episode_type' => in_array($planType, ['single_booster', 'two_dose_booster'], true) ? 're_exposure' : 'primary',
+                'status' => $planType === 'no_vaccine' ? 'completed' : 'active',
+            ];
+
+            if (!empty($validated['new_bite_date'])) $incidentUpdates['bite_date'] = $validated['new_bite_date'];
+            if (!empty($validated['new_bite_place'])) $incidentUpdates['bite_place'] = $validated['new_bite_place'];
+            if (!empty($validated['new_exposure_type'])) $incidentUpdates['exposure_type'] = $validated['new_exposure_type'];
+            if (!empty($validated['new_severity'])) $incidentUpdates['severity'] = $validated['new_severity'];
+            if (!empty($validated['new_animal_type'])) $incidentUpdates['animal_type'] = $validated['new_animal_type'];
+            if (!empty($validated['new_animal_status'])) $incidentUpdates['animal_status'] = $validated['new_animal_status'];
+            if (isset($validated['new_site_washed'])) $incidentUpdates['site_washed'] = (bool) $validated['new_site_washed'];
+            if (!empty($validated['new_body_part'])) $incidentUpdates['site_number'] = $validated['new_body_part'];
+            if (!empty($validated['new_wound_description'])) $incidentUpdates['wound_description'] = $validated['new_wound_description'];
+
+            $activeIncident->update($incidentUpdates);
+        } elseif ($activeIncident && $activeIncident->isAwaitingAssessment()) {
+            // Standard primary-case Form 2: no booster decision is needed.
+            // Mark the episode active so its normal vaccination schedule can continue.
+            $activeIncident->update([
+                'episode_type' => 'primary',
+                'status' => 'active',
+            ]);
+        }
+
         $todayQueue = null;
         $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral';
+        $planStopsImmediateTreatment = in_array($planType, ['continue_existing_schedule', 'no_vaccine'], true);
         $referredToFacility = $validated['referred_to'] ?? 'External Medical Facility';
 
         if (!empty($validated['queue_id'])) {
             $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->where('bite_id', $activeIncident->bite_id)
                 ->where('queue_id', $validated['queue_id'])
                 ->whereNull('deleted_at')
                 ->first();
@@ -266,6 +397,7 @@ class TreatmentRecordController extends Controller
         if (!$todayQueue) {
             $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
+                ->where('bite_id', $activeIncident->bite_id)
                 ->where('queue_date', Carbon::today()->toDateString())
                 ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving', 'second_chance', 'final_recall'])
                 ->whereIn('visit_type', ['new_case', 'follow_up', 'observation', 'consultation'])
@@ -274,10 +406,16 @@ class TreatmentRecordController extends Controller
                 ->first();
         }
 
-        if ($isReferralOut) {
+        if ($isReferralOut || $planStopsImmediateTreatment) {
             // Case A: Patient referred to external hospital/facility — do not send to Treatment Queue
             if ($todayQueue) {
                 $referralNotes = "Referred to external facility: {$referredToFacility} — Visit Completed.";
+
+                if (!$isReferralOut) {
+                    $referralNotes = $planType === 'no_vaccine'
+                        ? 'Doctor decision: no additional rabies vaccine indicated.'
+                        : 'Doctor decision: continue the existing prescribed schedule; no immediate treatment ordered.';
+                }
 
                 \App\Models\QueueHistory::create([
                     'queue_id'     => $todayQueue->queue_id,
@@ -320,6 +458,7 @@ class TreatmentRecordController extends Controller
                 ]);
 
                 $todayQueue->update([
+                    'bite_id'            => $activeIncident->bite_id,
                     'visit_type'         => 'vaccination',
                     'status'             => 'waiting',
                     'called_at'          => null,
@@ -341,6 +480,7 @@ class TreatmentRecordController extends Controller
                 $todayQueue = \App\Models\Queue::create([
                     'clinic_id'          => $clinicId,
                     'patient_id'         => $validated['patient_id'],
+                    'bite_id'            => $activeIncident->bite_id,
                     'queue_number'       => $lastQueueNumber + 1,
                     'queue_date'         => $todayDate,
                     'visit_type'         => 'vaccination',
@@ -375,6 +515,39 @@ class TreatmentRecordController extends Controller
             'treatment_record' => $treatmentRecord->load('patient'),
             'queue' => $todayQueue?->fresh(),
         ], 201);
+    }
+
+    /**
+     * A patient qualifies for a re-exposure decision only after completing
+     * Day 0, Day 3, and Day 7 in an earlier primary episode.
+     */
+    private function hasCompletedPrimaryDayZeroToSeven(int $clinicId, int $patientId, BiteIncident $activeIncident): bool
+    {
+        if ((int) $activeIncident->episode_number <= 1) {
+            return false;
+        }
+
+        $priorPrimaryIds = BiteIncident::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->where('episode_number', '<', $activeIncident->episode_number)
+            ->where('episode_type', 'primary')
+            ->pluck('bite_id');
+
+        if ($priorPrimaryIds->isEmpty()) {
+            return false;
+        }
+
+        $completedDays = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->whereIn('bite_id', $priorPrimaryIds)
+            ->whereIn('dose_number', [0, 3, 7])
+            ->where('status', 'completed')
+            ->distinct()
+            ->pluck('dose_number')
+            ->map(fn ($day) => (int) $day)
+            ->all();
+
+        return count(array_intersect([0, 3, 7], $completedDays)) === 3;
     }
 
     /**
@@ -427,6 +600,7 @@ class TreatmentRecordController extends Controller
 
         $validated = $request->validate([
             'addendum_notes' => 'required|string|min:3',
+            'bite_id' => 'required|exists:bite_incidents,bite_id',
         ]);
 
         $patient = Patient::where('clinic_id', $clinicId)->findOrFail($patientId);
@@ -434,6 +608,7 @@ class TreatmentRecordController extends Controller
         // Find existing general consultation record
         $consultation = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
+            ->where('bite_id', $validated['bite_id'])
             ->whereNull('dose_number')
             ->latest('treatment_id')
             ->first();
@@ -452,6 +627,7 @@ class TreatmentRecordController extends Controller
             $record = TreatmentRecord::create([
                 'clinic_id' => $clinicId,
                 'patient_id' => $patientId,
+                'bite_id' => $validated['bite_id'],
                 'treatment_date' => now(),
                 'consultation_date' => now()->toDateString(),
                 'consultation_time' => now()->format('H:i'),

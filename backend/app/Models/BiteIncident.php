@@ -66,6 +66,12 @@ class BiteIncident extends Model
         return $this->episode_type === 'primary';
     }
 
+    public function isAwaitingAssessment(): bool
+    {
+        return $this->episode_type === 'pending_assessment'
+            || $this->status === 'awaiting_assessment';
+    }
+
     public function isTransferredOut(): bool
     {
         return $this->status === 'transferred_out' || !empty($this->transferred_to_facility);
@@ -141,6 +147,22 @@ class BiteIncident extends Model
         return $this->hasMany(TreatmentRecord::class, 'bite_id', 'bite_id');
     }
 
+    /**
+     * Doctor/Form 2 records for this episode.  Form 2 and Form 3 share the
+     * treatment_records table, so a null dose_number is the existing Form 2
+     * discriminator.
+     */
+    public function consultationRecords()
+    {
+        return $this->treatmentRecords()->whereNull('dose_number');
+    }
+
+    /** Vaccine administrations and scheduled doses for this episode. */
+    public function vaccinationRecords()
+    {
+        return $this->treatmentRecords()->whereNotNull('dose_number');
+    }
+
     public function vaccinationSchedules()
     {
         return $this->hasMany(VaccinationSchedule::class, 'bite_id', 'bite_id');
@@ -149,6 +171,11 @@ class BiteIncident extends Model
     public function queues()
     {
         return $this->hasMany(Queue::class, 'bite_id', 'bite_id');
+    }
+
+    public function treatmentPlan()
+    {
+        return $this->hasOne(TreatmentPlan::class, 'bite_id', 'bite_id');
     }
 
     /**

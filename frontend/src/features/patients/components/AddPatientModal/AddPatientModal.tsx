@@ -91,6 +91,8 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     }
     if (!enrolment.date_of_birth) {
       newFieldErrors.date_of_birth = 'Date of Birth is required';
+    } else if (enrolment.date_of_birth > new Date().toISOString().split('T')[0]) {
+      newFieldErrors.date_of_birth = 'Date of Birth cannot be a future date.';
     }
     if (isRegistrationStaff && !enrolment.queue_priority_group) {
       newFieldErrors.queue_priority_group = 'Queue category is required';

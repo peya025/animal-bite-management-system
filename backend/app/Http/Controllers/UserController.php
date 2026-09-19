@@ -136,11 +136,6 @@ class UserController extends Controller
 
         $user->update($data);
 
-        // Security: If password changed or account deactivated, revoke all existing API tokens
-        if ($request->filled('password') || ($request->has('is_active') && !$user->is_active)) {
-            $user->tokens()->delete();
-        }
-
         // Process signature update if provided
         $sigPath = $this->processSignature($request, $user);
         if ($sigPath) {

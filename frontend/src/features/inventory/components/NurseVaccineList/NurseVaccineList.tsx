@@ -266,7 +266,7 @@ export default function NurseVaccineList() {
               color: '#f59e0b',
             },
           ].map((c) => (
-            <Grid size={{ xs: 12, sm: 4 }} key={c.id}>
+            <Grid item xs={12} sm={4} key={c.id}>
               <Paper
                 elevation={0}
                 sx={{
@@ -346,9 +346,9 @@ export default function NurseVaccineList() {
           boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 2px 12px rgba(16,185,129,0.06)',
         }}
       >
-        <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
+        <Grid container spacing={1.5} alignItems="center">
           {/* Patient Search */}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
               size="small"
@@ -358,21 +358,19 @@ export default function NurseVaccineList() {
                 setSearch(e.target.value);
                 setPage(0);
               }}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon sx={{ color: isDark ? '#a7f3d0' : '#94a3b8', fontSize: 19 }} />
-                    </InputAdornment>
-                  ),
-                  sx: { fontSize: 13, borderRadius: '8px' },
-                },
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: isDark ? '#a7f3d0' : '#94a3b8', fontSize: 19 }} />
+                  </InputAdornment>
+                ),
+                sx: { fontSize: 13, borderRadius: '8px' },
               }}
             />
           </Grid>
 
           {/* Vaccine Filter */}
-          <Grid size={{ xs: 6, sm: 3, md: 2.5 }}>
+          <Grid item xs={6} sm={3} md={2.5}>
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: 13 }}>Vaccine</InputLabel>
               <Select
@@ -395,7 +393,7 @@ export default function NurseVaccineList() {
           </Grid>
 
           {/* Dose Filter */}
-          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+          <Grid item xs={6} sm={3} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: 13 }}>Dose</InputLabel>
               <Select
@@ -417,7 +415,7 @@ export default function NurseVaccineList() {
           </Grid>
 
           {/* Date Range: From */}
-          <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
+          <Grid item xs={6} sm={3} md={1.75}>
             <TextField
               fullWidth
               size="small"
@@ -429,16 +427,14 @@ export default function NurseVaccineList() {
                 setQuickDate('all');
                 setPage(0);
               }}
-              slotProps={{
-                inputLabel: { shrink: true },
-                htmlInput: { style: { fontSize: 12.5 } },
-              }}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ style: { fontSize: 12.5 } }}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
             />
           </Grid>
 
           {/* Date Range: To */}
-          <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
+          <Grid item xs={6} sm={3} md={1.75}>
             <TextField
               fullWidth
               size="small"
@@ -450,16 +446,14 @@ export default function NurseVaccineList() {
                 setQuickDate('all');
                 setPage(0);
               }}
-              slotProps={{
-                inputLabel: { shrink: true },
-                htmlInput: { style: { fontSize: 12.5 } },
-              }}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ style: { fontSize: 12.5 } }}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
             />
           </Grid>
 
           {/* Clear / Reset Filter Button */}
-          <Grid size={{ xs: 12, sm: 6, md: 1 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Grid item xs={12} sm={6} md={1} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Tooltip title="Reset all filters">
               <Button
                 variant="outlined"

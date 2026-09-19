@@ -265,12 +265,24 @@ export default function ModuleConfigPage() {
     'Treatment & Vaccination':   true,
   });
 
+  // Map section title → DB field name
+  const SECTION_DB_KEY: Record<string, string> = {
+    'Patient Registration':      'patient_registration_enabled',
+    'Address Information':       'address_section_enabled',
+    'Socioeconomic Information': 'socioeconomic_section_enabled',
+    'Government Programs':       'gov_programs_section_enabled',
+    'Bite Incident Intake':      'bite_intake_section_enabled',
+    'Triage & Assessment':       'triage_section_enabled',
+    'Treatment & Vaccination':   'treatment_section_enabled',
+  };
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // ── Tier 9: Google SSO configuration state ────────────────────────────
   const [ssoEnabled,    setSsoEnabled]    = useState(false);
   const [ssoRoles,      setSsoRoles]      = useState<string[]>(['admin', 'registration', 'triage', 'treatment']);
   const [ssoDomain,     setSsoDomain]     = useState('');
+  const SSO_ALL_ROLES = ['admin', 'registration', 'triage', 'treatment'] as const;
 
   useEffect(() => {
     loadConfig();
@@ -530,7 +542,7 @@ export default function ModuleConfigPage() {
                 whenOn: 'Nurses can record vaccinations and perform check-ins.',
                 whenOff: 'Treatment desk disabled. Form 3 and vaccine recording unavailable.',
               },
-            ].map(({ key, label, desc, icon: _icon, enabled, setEnabled, color, whenOn, whenOff }) => (
+            ].map(({ key, label, desc, icon, enabled, setEnabled, color, whenOn, whenOff }) => (
               <div
                 key={key}
                 style={{
@@ -697,7 +709,7 @@ export default function ModuleConfigPage() {
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                   <div style={{ marginRight: '0.5rem', minWidth: '70px' }}>{getFieldRuleBadge(fieldRules[field.key] as FieldRuleValue)}</div>
-                                  <select className="db-explorer-input" value={fieldRules[field.key] || 'optional'} onChange={e => handleFieldRuleChange(String(field.key), e.target.value as FieldRuleValue)} style={{ minWidth: '120px' }}>
+                                  <select className="db-explorer-input" value={fieldRules[field.key] || 'optional'} onChange={e => handleFieldRuleChange(field.key, e.target.value as FieldRuleValue)} style={{ minWidth: '120px' }}>
                                     <option value="required">Required</option>
                                     <option value="optional">Optional</option>
                                     <option value="hidden">Hidden</option>
@@ -775,7 +787,7 @@ export default function ModuleConfigPage() {
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                   <div style={{ marginRight: '0.5rem', minWidth: '70px' }}>{getFieldRuleBadge(fieldRules[field.key] as FieldRuleValue)}</div>
-                                  <select className="db-explorer-input" value={fieldRules[field.key] || 'optional'} onChange={e => handleFieldRuleChange(String(field.key), e.target.value as FieldRuleValue)} style={{ minWidth: '120px' }}>
+                                  <select className="db-explorer-input" value={fieldRules[field.key] || 'optional'} onChange={e => handleFieldRuleChange(field.key, e.target.value as FieldRuleValue)} style={{ minWidth: '120px' }}>
                                     <option value="required">Required</option>
                                     <option value="optional">Optional</option>
                                     <option value="hidden">Hidden</option>
@@ -853,7 +865,7 @@ export default function ModuleConfigPage() {
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                   <div style={{ marginRight: '0.5rem', minWidth: '70px' }}>{getFieldRuleBadge(fieldRules[field.key] as FieldRuleValue)}</div>
-                                  <select className="db-explorer-input" value={fieldRules[field.key] || 'optional'} onChange={e => handleFieldRuleChange(String(field.key), e.target.value as FieldRuleValue)} style={{ minWidth: '120px' }}>
+                                  <select className="db-explorer-input" value={fieldRules[field.key] || 'optional'} onChange={e => handleFieldRuleChange(field.key, e.target.value as FieldRuleValue)} style={{ minWidth: '120px' }}>
                                     <option value="required">Required</option>
                                     <option value="optional">Optional</option>
                                     <option value="hidden">Hidden</option>

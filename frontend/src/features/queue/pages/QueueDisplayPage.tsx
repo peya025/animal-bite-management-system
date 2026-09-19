@@ -17,6 +17,14 @@ interface QueueEntry {
   servedBy?: { id: number; name: string; role?: string } | null;
 }
 
+const VISIT_LABEL: Record<string, string> = {
+  new_case:    'New Case',
+  follow_up:   'Follow-up',
+  vaccination: 'Vaccination',
+  observation: 'Observation',
+  booster:     'Booster request',
+};
+
 // A booster request remains with the Doctor until assessment approval. Only
 // treatment-ready vaccinations and scheduled follow-up doses appear on the
 // nursing side of the public display.
@@ -32,6 +40,13 @@ function isFollowUpEntry(entry: QueueEntry): boolean {
 function getDisplayLane(entry: QueueEntry): 'triage' | 'station1' | 'station2' {
   if (!TREATMENT_TYPES.has(entry.visit_type)) return 'triage';
   return isFollowUpEntry(entry) ? 'station2' : 'station1';
+}
+
+function waitTime(checkedIn: string): string {
+  const diff = Math.floor((Date.now() - new Date(checkedIn).getTime()) / 60_000);
+  if (diff < 1) return '< 1 min';
+  if (diff < 60) return `${diff} min`;
+  return `${Math.floor(diff / 60)}h ${diff % 60}m`;
 }
 
 function padNum(n: number) { return String(n).padStart(3, '0'); }
@@ -197,6 +212,7 @@ function SubStationCard({
 export default function QueueDisplayPage() {
   const [now, setNow]         = useState(new Date());
   const [queue, setQueue]     = useState<QueueEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [blink, setBlink]     = useState(true);
   const [lastCall, setLastCall] = useState<QueueEntry | null>(null);
   const prevCalledRef  = useRef<Set<number>>(new Set());
@@ -269,6 +285,7 @@ export default function QueueDisplayPage() {
           .finally(() => autoCallingRef.current.delete(nextWaiting.queue_id));
       }
     } catch { /* ignore */ }
+    finally { setLoading(false); }
   }, [playChime]);
 
   useEffect(() => {

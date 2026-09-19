@@ -11,6 +11,7 @@ import {
   Visibility as ViewIcon,
   LocalHospital as DoseIcon,
   Search as SearchIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import api from '../../../shared/services/api';
 import StatCard from '../../../components/common/StatCard/StatCard';

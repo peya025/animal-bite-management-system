@@ -13,5 +13,3 @@ Schedule::command('appointments:auto-recall')->dailyAt('08:00');
 
 // Daily Queue Auto-Expiry Sweep after midnight (00:05)
 Schedule::command('queue:auto-expire')->dailyAt('00:05');
-// Daily Pruning of Expired Sanctum Personal Access Tokens (older than 24 hours)
-Schedule::command('sanctum:prune-expired --hours=24')->daily();

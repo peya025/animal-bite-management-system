@@ -4,6 +4,7 @@ import { useTheme } from '@mui/material/styles';
 import api from '../../../shared/services/api';
 import { ROUTES } from '../../../shared/config/routes';
 import DashboardLayout from '../../../components/Layout/DashboardLayout';
+import { AdminDashboardView } from '../components/AdminDashboardView';
 
 import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
@@ -719,7 +720,7 @@ export function SimpleDashboardPage() {
                   {/* Bite Map link button */}
                   <button
                     type="button"
-                    onClick={() => navigate((ROUTES as any).BITE_MAP || '/bite-cases/map')}
+                    onClick={() => navigate(ROUTES.BITE_MAP || '/bite-cases/map')}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',

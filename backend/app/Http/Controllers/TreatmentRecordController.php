@@ -33,7 +33,7 @@ class TreatmentRecordController extends Controller
         } else {
             $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
-                ->whereIn('status', ['active', 'awaiting_assessment'])
+                ->where('status', 'active')
                 ->latest('bite_id')
                 ->first();
         }
@@ -332,13 +332,7 @@ class TreatmentRecordController extends Controller
         ]);
 
         // ── Auto-advance queue: move patient from Triage/Doctor → Treatment/Vaccination station ──
-        $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral';
         $planType = $validated['treatment_plan'] ?? null;
-        if (!$planType && !$isReferralOut) {
-            // A completed Form 2 consultation that is not referred out approves standard Full PEP.
-            $planType = 'full_pep';
-        }
-
         if ($activeIncident && $planType) {
             $orderedDoseDays = match ($planType) {
                 'full_pep' => [0, 3, 7],
@@ -387,16 +381,14 @@ class TreatmentRecordController extends Controller
         }
 
         $todayQueue = null;
+        $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral';
         $planStopsImmediateTreatment = in_array($planType, ['continue_existing_schedule', 'no_vaccine'], true);
         $referredToFacility = $validated['referred_to'] ?? 'External Medical Facility';
 
         if (!empty($validated['queue_id'])) {
             $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
-                ->where(function ($q) use ($activeIncident) {
-                    $q->where('bite_id', $activeIncident->bite_id)
-                      ->orWhereNull('bite_id');
-                })
+                ->where('bite_id', $activeIncident->bite_id)
                 ->where('queue_id', $validated['queue_id'])
                 ->whereNull('deleted_at')
                 ->first();
@@ -405,10 +397,7 @@ class TreatmentRecordController extends Controller
         if (!$todayQueue) {
             $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
-                ->where(function ($q) use ($activeIncident) {
-                    $q->where('bite_id', $activeIncident->bite_id)
-                      ->orWhereNull('bite_id');
-                })
+                ->where('bite_id', $activeIncident->bite_id)
                 ->where('queue_date', Carbon::today()->toDateString())
                 ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving', 'second_chance', 'final_recall'])
                 ->whereIn('visit_type', ['new_case', 'follow_up', 'observation', 'consultation'])

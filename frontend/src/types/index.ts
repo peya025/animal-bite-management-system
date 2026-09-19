@@ -205,25 +205,12 @@ export interface FieldRules {
   medication_given: FieldRuleValue;
   adverse_reaction: FieldRuleValue;
   cost_recovery: FieldRuleValue;
-  [key: string]: FieldRuleValue;
 }
 
 export interface ClinicModuleConfig {
   id: number;
   clinic_id: number;
   triage_module_enabled: boolean;
-  registration_module_enabled?: boolean;
-  treatment_module_enabled?: boolean;
-  patient_registration_enabled?: boolean;
-  address_section_enabled?: boolean;
-  socioeconomic_section_enabled?: boolean;
-  gov_programs_section_enabled?: boolean;
-  bite_intake_section_enabled?: boolean;
-  triage_section_enabled?: boolean;
-  treatment_section_enabled?: boolean;
-  google_sso_enabled?: boolean;
-  google_sso_roles?: string[];
-  google_sso_domain?: string | null;
   field_rules: FieldRules;
   created_at: string;
   updated_at: string;

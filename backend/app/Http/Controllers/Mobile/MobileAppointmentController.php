@@ -133,11 +133,11 @@ class MobileAppointmentController extends Controller
             ->wherePivotIn('status', ['pending', 'verified'])
             ->firstOrFail();
 
-        // A booster appointment requires completion of the primary series (Days 0, 3, and 7)
-        if ($validated['appointment_type'] === 'booster' && !$patient->has_completed_primary) {
+        // A booster is never self-scheduled. It is a new-exposure request and must
+        // be registered and assessed by a Doctor before Treatment receives an order.
+        if ($validated['appointment_type'] === 'booster') {
             return response()->json([
-                'message' => 'A booster appointment requires completion of the primary vaccine series (Days 0, 3, and 7).',
-                'has_completed_primary' => false,
+                'message' => 'Please register this as a new bite or possible rabies exposure. A Doctor must assess it and issue any vaccine order before Treatment can schedule an injection.',
             ], 422);
         }
 

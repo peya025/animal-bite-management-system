@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\VaccineInventory;
-use App\Models\AuditLog;
-use Illuminate\Support\Facades\DB;
 use App\Models\VaccineTypePreset;
 use App\Models\InventoryTransaction;
 use App\Services\VaccineInventoryUsageService;
@@ -406,56 +404,84 @@ class VaccineInventoryController extends Controller
      */
     public function openVial(Request $request, $id)
     {
-        $maxHours = config('inventory.open_vial_max_hours', 8);
+        $maxHours = (int) config('inventory.open_vial_max_hours', 8);
 
-        if ($request->has('open_vial_hours') && (int) $request->input('open_vial_hours') > $maxHours) {
+        $requestedHours = $request->input('open_vial_hours');
+        if ($requestedHours !== null && (int)$requestedHours > $maxHours) {
             return response()->json([
-                'message' => "Open-vial hours cannot exceed {$maxHours} hours per clinical safety policy.",
+                'message' => "Open-vial hours cannot exceed {$maxHours} hours per policy.",
+                'errors' => [
+                    'open_vial_hours' => ["Open-vial hours cannot exceed {$maxHours} hours per policy."],
+                ],
             ], 422);
         }
 
-        return DB::transaction(function () use ($request, $id, $maxHours) {
-            $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
-                ->lockForUpdate()
-                ->findOrFail($id);
+        try {
+            return DB::transaction(function () use ($request, $id, $maxHours) {
+                $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
+                    ->lockForUpdate()
+                    ->findOrFail($id);
 
-            $hours = $inventory->open_vial_hours ?: ($request->input('open_vial_hours') ?: 6);
-            $hours = min((int) $hours, $maxHours);
+                $hours = (int) ($request->input('open_vial_hours') ?: ($inventory->open_vial_hours ?: min(6, $maxHours)));
 
-            $openedAt = Carbon::now();
-            $discardAt = (clone $openedAt)->addHours($hours);
+                if ($hours > $maxHours) {
+                    return response()->json([
+                        'message' => "Open-vial hours cannot exceed {$maxHours} hours per policy.",
+                        'errors' => [
+                            'open_vial_hours' => ["Open-vial hours cannot exceed {$maxHours} hours per policy."],
+                        ],
+                    ], 422);
+                }
 
-            $inventory->update([
-                'opened_at' => $openedAt,
-                'open_vial_discard_at' => $discardAt,
-                'open_vial_status' => 'opened',
-            ]);
+                $beforeState = [
+                    'opened_at' => $inventory->opened_at?->toDateTimeString(),
+                    'open_vial_discard_at' => $inventory->open_vial_discard_at?->toDateTimeString(),
+                    'open_vial_status' => $inventory->open_vial_status,
+                ];
 
-            // Log transaction note
-            InventoryTransaction::create([
-                'inventory_id' => $inventory->inventory_id,
-                'staff_id' => $request->user()->id,
-                'transaction_type' => 'adjusted',
-                'quantity' => 0,
-                'remarks' => "Vial marked OPENED by {$request->user()->name}. Discard countdown ({$hours}h) active until {$discardAt->format('M d, Y h:i A')}.",
-            ]);
+                $openedAt = Carbon::now();
+                $discardAt = (clone $openedAt)->addHours($hours);
 
-            AuditLog::create([
-                'user_id' => $request->user()->id,
-                'clinic_id' => $request->user()->clinic_id,
-                'action' => 'inventory.open_vial',
-                'model' => VaccineInventory::class,
-                'model_id' => $inventory->inventory_id,
-                'old_values' => ['open_vial_status' => 'unopened'],
-                'new_values' => ['open_vial_status' => 'opened', 'open_vial_discard_at' => $discardAt->toIso8601String()],
-                'description' => "Vial opened manually for batch {$inventory->batch_number}",
-            ]);
+                $inventory->update([
+                    'opened_at' => $openedAt,
+                    'open_vial_discard_at' => $discardAt,
+                    'open_vial_status' => 'opened',
+                ]);
 
+                InventoryTransaction::create([
+                    'inventory_id' => $inventory->inventory_id,
+                    'staff_id' => $request->user()->id,
+                    'transaction_type' => 'adjusted',
+                    'quantity' => 0,
+                    'remarks' => "Vial marked OPENED by {$request->user()->name}. Discard countdown ({$hours}h) active until {$discardAt->format('M d, Y h:i A')}.",
+                ]);
+
+                $afterState = [
+                    'opened_at' => $openedAt->toDateTimeString(),
+                    'open_vial_discard_at' => $discardAt->toDateTimeString(),
+                    'open_vial_status' => 'opened',
+                ];
+
+                AuditLogger::log(
+                    'inventory.open_vial',
+                    $inventory,
+                    $beforeState,
+                    $afterState,
+                    "Vial opened ({$hours}h limit) by {$request->user()->name}",
+                    $request->user()->id,
+                    $request->user()->clinic_id
+                );
+
+                return response()->json([
+                    'message' => "Vial opened successfully. Discard by {$discardAt->format('g:i A')}.",
+                    'inventory' => $inventory->fresh(),
+                ]);
+            });
+        } catch (ModelNotFoundException) {
             return response()->json([
-                'message' => "Vial opened successfully. Discard by {$discardAt->format('g:i A')}.",
-                'inventory' => $inventory->fresh(),
-            ]);
-        });
+                'message' => 'Vaccine batch not found or has been archived.',
+            ], 404);
+        }
     }
 
     /**
@@ -534,12 +560,23 @@ class VaccineInventoryController extends Controller
             'received_from'     => 'nullable|string|max:500',
             'manufactured_date' => 'nullable|date',
             'shelf_life_months' => 'nullable|integer|min:1',
-            'open_vial_hours'   => 'nullable|integer|min:1|max:' . $maxHours,
+            'open_vial_hours'   => "nullable|integer|min:1|max:{$maxHours}",
             'cold_chain_notes'  => 'nullable|string|max:500',
             'remarks'           => 'nullable|string|max:500',
         ]);
 
         $clinicId = $request->user()->clinic_id;
+
+        // Verify unique batch for clinic
+        $existing = VaccineInventory::where('clinic_id', $clinicId)
+            ->where('batch_number', $request->batch_number)
+            ->first();
+
+        if ($existing) {
+            throw ValidationException::withMessages([
+                'batch_number' => "A batch with number '{$request->batch_number}' already exists in your clinic inventory.",
+            ]);
+        }
 
         return DB::transaction(function () use ($request, $clinicId) {
             $inventory = VaccineInventory::create([
@@ -557,7 +594,6 @@ class VaccineInventoryController extends Controller
                 'open_vial_status'   => 'unopened',
             ]);
 
-            // Record the incoming transaction
             InventoryTransaction::create([
                 'inventory_id'     => $inventory->inventory_id,
                 'staff_id'         => $request->user()->id,
@@ -569,15 +605,15 @@ class VaccineInventoryController extends Controller
                 'remarks'          => $request->remarks ?? 'Initial stock received',
             ]);
 
-            AuditLog::create([
-                'user_id' => $request->user()->id,
-                'clinic_id' => $clinicId,
-                'action' => 'inventory.create',
-                'model' => VaccineInventory::class,
-                'model_id' => $inventory->inventory_id,
-                'new_values' => $inventory->toArray(),
-                'description' => "Initial inventory created for batch {$inventory->batch_number}",
-            ]);
+            AuditLogger::log(
+                'inventory.create',
+                $inventory,
+                [],
+                $inventory->toArray(),
+                "Vaccine inventory batch #{$inventory->batch_number} ({$inventory->vaccine_type}, qty: {$inventory->current_quantity}) created",
+                $request->user()->id,
+                $clinicId
+            );
 
             return response()->json([
                 'message'   => 'Vaccine inventory added successfully',
@@ -617,47 +653,54 @@ class VaccineInventoryController extends Controller
             'received_from'     => 'nullable|string|max:500',
             'manufactured_date' => 'nullable|date',
             'shelf_life_months' => 'nullable|integer|min:1',
-            'open_vial_hours'   => 'nullable|integer|min:1|max:' . $maxHours,
+            'open_vial_hours'   => "nullable|integer|min:1|max:{$maxHours}",
             'cold_chain_notes'  => 'nullable|string|max:500',
             'expiration_date'   => 'sometimes|date',
             'status'            => 'sometimes|in:active,expired,depleted',
         ]);
 
-        return DB::transaction(function () use ($request, $id) {
-            $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
-                ->lockForUpdate()
-                ->findOrFail($id);
+        try {
+            return DB::transaction(function () use ($request, $id) {
+                $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
+                    ->lockForUpdate()
+                    ->findOrFail($id);
 
-            $oldValues = $inventory->toArray();
+                $beforeState = $inventory->toArray();
 
-            $inventory->update($request->only([
-                'vaccine_type',
-                'batch_number',
-                'received_from',
-                'manufactured_date',
-                'shelf_life_months',
-                'open_vial_hours',
-                'cold_chain_notes',
-                'expiration_date',
-                'status',
-            ]));
+                $inventory->update($request->only([
+                    'vaccine_type',
+                    'batch_number',
+                    'received_from',
+                    'manufactured_date',
+                    'shelf_life_months',
+                    'open_vial_hours',
+                    'cold_chain_notes',
+                    'expiration_date',
+                    'status',
+                ]));
 
-            AuditLog::create([
-                'user_id' => $request->user()->id,
-                'clinic_id' => $request->user()->clinic_id,
-                'action' => 'inventory.update',
-                'model' => VaccineInventory::class,
-                'model_id' => $inventory->inventory_id,
-                'old_values' => $oldValues,
-                'new_values' => $inventory->fresh()->toArray(),
-                'description' => "Updated batch {$inventory->batch_number}",
-            ]);
+                $afterState = $inventory->fresh()->toArray();
 
+                AuditLogger::log(
+                    'inventory.update',
+                    $inventory,
+                    $beforeState,
+                    $afterState,
+                    "Vaccine batch #{$inventory->batch_number} updated",
+                    $request->user()->id,
+                    $request->user()->clinic_id
+                );
+
+                return response()->json([
+                    'message'   => 'Inventory updated successfully',
+                    'inventory' => $inventory->fresh(),
+                ]);
+            });
+        } catch (ModelNotFoundException) {
             return response()->json([
-                'message'   => 'Inventory updated successfully',
-                'inventory' => $inventory->fresh(),
-            ]);
-        });
+                'message' => 'Vaccine batch not found or has been archived.',
+            ], 404);
+        }
     }
 
     /**
@@ -665,38 +708,59 @@ class VaccineInventoryController extends Controller
      */
     public function destroy(Request $request, $id)
     {
+        // Enforce strict admin-only deletion policy (developers & nurses prohibited)
+        if ($request->user()->role === 'developer' || ($request->user()->role !== 'admin' && !$request->user()->hasRole('clinic_admin'))) {
+            return response()->json([
+                'message' => 'Unauthorized. Only clinic administrators can archive inventory records.',
+            ], 403);
+        }
+
         $request->validate([
             'reason' => 'required|string|min:5|max:500',
         ]);
 
-        return DB::transaction(function () use ($request, $id) {
-            $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
-                ->lockForUpdate()
-                ->findOrFail($id);
+        try {
+            return DB::transaction(function () use ($request, $id) {
+                $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
+                    ->lockForUpdate()
+                    ->findOrFail($id);
 
-            $oldState = $inventory->toArray();
-            $reason = $request->input('reason');
+                $beforeState = $inventory->toArray();
+                $reason = $request->input('reason');
 
-            $inventory->update([
-                'archived_reason' => $reason,
-                'archived_by' => $request->user()->id,
-            ]);
+                $inventory->update([
+                    'archived_reason' => $reason,
+                    'archived_by'     => $request->user()->id,
+                ]);
 
-            $inventory->delete();
+                $inventory->delete(); // Soft delete only
 
-            AuditLog::create([
-                'user_id' => $request->user()->id,
-                'clinic_id' => $request->user()->clinic_id,
-                'action' => 'inventory.archive',
-                'model' => VaccineInventory::class,
-                'model_id' => $inventory->inventory_id,
-                'old_values' => $oldState,
-                'new_values' => ['archived_reason' => $reason, 'deleted_at' => now()->toIso8601String()],
-                'description' => "Inventory batch {$inventory->batch_number} archived: {$reason}",
-            ]);
+                $afterState = array_merge($beforeState, [
+                    'deleted_at'      => now()->toDateTimeString(),
+                    'archived_reason' => $reason,
+                    'archived_by'     => $request->user()->id,
+                ]);
 
-            return response()->json(['message' => 'Inventory record archived successfully']);
-        });
+                AuditLogger::log(
+                    'inventory.archive',
+                    $inventory,
+                    $beforeState,
+                    $afterState,
+                    $reason,
+                    $request->user()->id,
+                    $request->user()->clinic_id
+                );
+
+                return response()->json([
+                    'message' => 'Inventory record archived successfully',
+                    'inventory' => $inventory,
+                ]);
+            });
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Inventory batch not found or does not belong to your clinic.',
+            ], 404);
+        }
     }
 
     /**
@@ -775,36 +839,6 @@ class VaccineInventoryController extends Controller
                 'message' => 'Vaccine batch not found or has been archived.',
             ], 404);
         }
-
-        $oldQty = (int) $inventory->current_quantity;
-        $inventory->update([
-            'current_quantity' => $newQty,
-            'status'           => $newQty === 0 ? 'depleted' : $inventory->status,
-        ]);
-
-        InventoryTransaction::create([
-            'inventory_id'     => $inventory->inventory_id,
-            'staff_id'         => $request->user()->id,
-            'transaction_type' => $type,
-            'quantity'         => $quantity,
-            'remarks'          => $request->remarks,
-        ]);
-
-        AuditLog::create([
-            'user_id' => $request->user()->id,
-            'clinic_id' => $request->user()->clinic_id,
-            'action' => 'inventory.adjust',
-            'model' => VaccineInventory::class,
-            'model_id' => $inventory->inventory_id,
-            'old_values' => ['current_quantity' => $oldQty],
-            'new_values' => ['current_quantity' => $newQty, 'transaction_type' => $type],
-            'description' => "Stock adjusted for batch {$inventory->batch_number}: {$type} {$quantity}",
-        ]);
-
-        return response()->json([
-            'message'   => 'Stock adjusted successfully',
-            'inventory' => $inventory->fresh(),
-        ]);
     }
 
     /**

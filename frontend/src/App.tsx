@@ -61,7 +61,7 @@ function App() {
           
           {/* Authenticated Application Routes */}
           <Route path="/patients" element={<ProtectedRoute allowedRoles={['registration', 'admin', 'developer']}><AppLayout title="Patient Registration"><PatientList /></AppLayout></ProtectedRoute>} />
-          <Route path="/patient-registry" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Patient Registry"><PatientList /></AppLayout></ProtectedRoute>} />
+          <Route path="/patient-registry" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Patient Registry"><PatientList readOnly /></AppLayout></ProtectedRoute>} />
           <Route path="/nurse/patients" element={<ProtectedRoute allowedRoles={['treatment', 'admin', 'developer']}><AppLayout title="Station 2 · Follow-up Doses"><NursePatientList /></AppLayout></ProtectedRoute>} />
           <Route path="/doctor/patients" element={<ProtectedRoute allowedRoles={['triage', 'admin', 'developer']}><AppLayout title="Patients List"><DoctorPatientList /></AppLayout></ProtectedRoute>} />
           <Route path="/patients/doctor" element={<Navigate to="/doctor/patients" replace />} />

@@ -42,7 +42,7 @@ export default function Form1PrintPreviewModal({
     const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
     
     // Normalize print endpoint to API base URL (CORS enabled)
-    const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment`;
+    const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment?token=${token}`;
 
     fetch(printUrl, {
       headers: {

@@ -79,6 +79,17 @@ interface InventoryTableProps {
   onAddFirst: () => void;
 }
 
+const fieldSx = {
+  '& .MuiOutlinedInput-root': {
+    bgcolor: '#f9fafb',
+    '& fieldset': { borderColor: '#e5e7eb' },
+    '&:hover fieldset': { borderColor: '#9ca3af' },
+    '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '2px' },
+  },
+  '& .MuiOutlinedInput-input': { fontSize: '13px', padding: '9px 12px' },
+  '& .MuiInputLabel-root': { fontSize: '13px' },
+} as const;
+
 function StatusIcon({ status }: { status: ReturnType<typeof deriveInventoryStatus> }) {
   switch (status) {
     case 'Discard-Pending':

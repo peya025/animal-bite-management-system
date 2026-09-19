@@ -13,10 +13,9 @@ export const clinicConfigApi = {
   /**
    * Update module configuration (Admin only)
    */
-  updateModuleConfig: async (data: Partial<ClinicModuleConfig> & {
-    triage_module_enabled?: boolean;
-    field_rules?: FieldRules;
-    [key: string]: any;
+  updateModuleConfig: async (data: {
+    triage_module_enabled: boolean;
+    field_rules: FieldRules;
   }): Promise<ClinicModuleConfig> => {
     const response = await api.put('/setup/module-config', data);
     return response.data.config;

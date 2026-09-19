@@ -402,10 +402,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [doses, setDoses] = useState<VaccinationDose[]>(createInitialDoses());
   
   // ── Immutability Logic: Lock patient info & exposure fields if ANY dose is completed ──────────
-  // NOTE: This only locks for CURRENT incident. Re-exposure creates NEW incident with NEW doses.
-  // For new incidents, all doses are is_completed=false, so form stays unlocked.
-  const hasCompletedDoseInCurrentIncident = doses.some(dose => dose.is_completed || dose.inventory_linked);
-  const isFormLocked = readOnly || hasCompletedDoseInCurrentIncident;
+  const hasCompletedDose = doses.some(dose => dose.is_completed || dose.inventory_linked);
+  const isFormLocked = readOnly || hasCompletedDose;
   
   const [showFullSchedule, setShowFullSchedule] = useState(false); // 8.1: expand to show Day 28 + Boosters
   const [additionalMeds, setAdditionalMeds] = useState<AdditionalMeds>({
@@ -1078,7 +1076,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const formContent = (
     <div style={{ padding: inline ? '0' : '24px 32px' }}>
       {/* Lock Alert - Show when form has completed doses */}
-      {hasCompletedDoseInCurrentIncident && !readOnly && (
+      {hasCompletedDose && !readOnly && (
         <div style={{
           backgroundColor: '#fffbeb',
           border: '1px solid #fbbf24',
@@ -1095,7 +1093,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               Patient Information & Exposure Details Locked
             </div>
             <div style={{ fontSize: 12, color: '#78350f' }}>
-              These fields cannot be edited because at least one dose has been administered for this incident. Only future doses can be recorded. For re-exposure cases, create a new treatment card.
+              These fields cannot be edited because at least one dose has been administered. Only future doses can be recorded.
             </div>
           </div>
         </div>

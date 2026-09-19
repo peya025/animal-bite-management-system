@@ -370,32 +370,6 @@ class VaccinationRecordController extends Controller
             $planType = \App\Models\TreatmentPlan::where('clinic_id', $clinicId)
                 ->where('bite_id', $biteId)
                 ->value('plan_type');
-
-            // If plan_type is missing but this episode is active and has a Doctor consultation, auto-heal as full_pep
-            if (!$planType && $treatmentIncident && $treatmentIncident->status === 'active' && $treatmentIncident->isPrimary()) {
-                $hasConsultation = TreatmentRecord::where('clinic_id', $clinicId)
-                    ->where('bite_id', $biteId)
-                    ->whereNull('dose_number')
-                    ->exists();
-
-                if ($hasConsultation) {
-                    \App\Models\TreatmentPlan::updateOrCreate(
-                        ['bite_id' => $biteId],
-                        [
-                            'clinic_id' => $clinicId,
-                            'patient_id' => $patientId,
-                            'plan_type' => 'full_pep',
-                            'status' => 'approved',
-                            'ordered_dose_days' => [0, 3, 7],
-                            'doctor_decision_notes' => 'Primary series - approved from Doctor consultation.',
-                            'decided_by' => $treatmentIncident->created_by ?? $userId,
-                            'decided_at' => now(),
-                        ]
-                    );
-                    $planType = 'full_pep';
-                }
-            }
-
             if (!in_array($planType, ['full_pep', 'single_booster', 'two_dose_booster'], true)) {
                 throw ValidationException::withMessages([
                     'bite_id' => 'This episode has no Doctor-approved vaccine treatment order.',
@@ -424,9 +398,6 @@ class VaccinationRecordController extends Controller
                 }
             }
 
-            // Digital signature is optional. If staff has a digital signature on file,
-            // it will be stamped on the record; otherwise, the dose is recorded and hand-signed on the printed card.
-
             // Map period names to dose numbers
             $periodMapping = [
                 'Day 0' => 0,
@@ -435,12 +406,6 @@ class VaccinationRecordController extends Controller
                 'Day 28' => 28,
                 'Booster 1' => 90,  // Approximate day 90
                 'Booster 2' => 365, // Approximate day 365
-                'day_0' => 0,
-                'day_3' => 3,
-                'day_7' => 7,
-                'day_28' => 28,
-                'booster_1' => 90,
-                'booster_2' => 365,
             ];
 
             $inventoryUsageService = app(VaccineInventoryUsageService::class);

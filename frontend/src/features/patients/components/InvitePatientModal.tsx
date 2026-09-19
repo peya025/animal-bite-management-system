@@ -195,6 +195,16 @@ function InvitePatientModalContent({
   const contactPhone = patient.contact_number || (patient as any).phone || '';
   const hasPhone = Boolean(contactPhone && contactPhone.trim().length >= 10);
 
+  const formatDateSafe = (dateStr?: string) => {
+    if (!dateStr) return 'N/A';
+    try {
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
+    } catch {
+      return 'N/A';
+    }
+  };
+
   const statusLabel = (invitation?.status || 'PENDING').toString().toUpperCase();
 
   return (

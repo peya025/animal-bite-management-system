@@ -623,7 +623,7 @@ export default function BiteMapPage() {
                       border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : 'none',
                     },
                   },
-                  list: { sx: { p: 0.5 } },
+                  list: { p: 0.5 },
                 },
               }}
             >

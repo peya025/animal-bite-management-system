@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
   Typography,
   Button,
   Chip,
+  IconButton,
   TextField,
   InputAdornment,
   MenuItem,
@@ -13,7 +14,9 @@ import {
   InputLabel,
   Snackbar,
   Alert,
+  Divider,
   LinearProgress,
+  Tooltip,
   useTheme,
 } from '@mui/material';
 import {
@@ -23,12 +26,15 @@ import {
   CheckCircle as HealthyIcon,
   Warning as WarningIcon,
   Error as CriticalIcon,
+  Info as InfoIcon,
   Search as SearchIcon,
   HowToReg as RegistrationIcon,
   MedicalServices as DoctorIcon,
   Vaccines as NurseIcon,
   CalendarMonth as ScheduleIcon,
   Terminal as ConsoleIcon,
+  PlayArrow as RunIcon,
+  DoneAll as DoneAllIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import Loader from '../../../components/Loader';
@@ -535,14 +541,12 @@ export const AppointmentDiagnosticsPage: React.FC = () => {
               placeholder="Search by patient, rule, or issue description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon sx={{ color: '#9ca3af', fontSize: 18 }} />
-                    </InputAdornment>
-                  ),
-                },
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: '#9ca3af', fontSize: 18 }} />
+                  </InputAdornment>
+                ),
               }}
               fullWidth
             />

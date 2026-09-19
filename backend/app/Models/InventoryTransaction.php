@@ -16,15 +16,6 @@ class InventoryTransaction extends Model
 {
     use HasFactory;
 
-    protected static function booted(): void
-    {
-        static::creating(function (InventoryTransaction $transaction) {
-            if (empty($transaction->transaction_date)) {
-                $transaction->transaction_date = now();
-            }
-        });
-    }
-
     protected $table = 'inventory_transactions';
     protected $primaryKey = 'transaction_id';
 
@@ -39,7 +30,7 @@ class InventoryTransaction extends Model
         'transferred',
         'expired',
         'balanced',
-                'reference_id',
+        'reference_id',
         'remarks',
     ];
 

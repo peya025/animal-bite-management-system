@@ -342,11 +342,6 @@ class Patient extends Model
     {
         return $this->hasOne(TreatmentRecord::class, 'patient_id', 'patient_id')
             ->whereNotNull('dose_number')
-            ->where(function ($q) {
-                $q->where('status', 'completed')
-                  ->orWhereNotNull('treatment_date');
-            })
-            ->orderBy('dose_number', 'desc')
             ->orderBy('treatment_date', 'desc')
             ->orderBy('treatment_id', 'desc');
     }
@@ -367,12 +362,9 @@ class Patient extends Model
     public function upcomingAppointment()
     {
         return $this->hasOne(Appointment::class, 'patient_id', 'patient_id')
-            ->where(function ($q) {
-                $q->whereDate('appointment_date', '>=', now()->toDateString())
-                  ->orWhereDate('scheduled_date', '>=', now()->toDateString());
-            })
-            ->whereIn('status', ['scheduled', 'confirmed'])
-            ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC');
+            ->where('appointment_date', '>=', now()->toDateString())
+            ->where('status', 'scheduled')
+            ->orderBy('appointment_date');
     }
 
     /**

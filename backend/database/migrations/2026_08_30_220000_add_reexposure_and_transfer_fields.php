@@ -18,7 +18,7 @@ return new class extends Migration
                 $table->unsignedInteger('episode_number')->default(1)->after('patient_id');
             }
             if (!Schema::hasColumn('bite_incidents', 'episode_type')) {
-                $table->string('episode_type', 50)->default('primary')->after('episode_number');
+                $table->enum('episode_type', ['primary', 're_exposure'])->default('primary')->after('episode_number');
             }
             if (!Schema::hasColumn('bite_incidents', 'is_previously_vaccinated')) {
                 $table->boolean('is_previously_vaccinated')->default(false)->after('episode_type');

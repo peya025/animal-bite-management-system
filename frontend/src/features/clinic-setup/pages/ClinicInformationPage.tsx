@@ -326,6 +326,19 @@ export default function ClinicInformation() {
     setClinic(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleHoursChange = (day: string, field: 'open' | 'close' | 'is_open', value: string | boolean) => {
+    setClinic(prev => ({
+      ...prev,
+      opening_hours: {
+        ...prev.opening_hours,
+        [day]: {
+          ...prev.opening_hours[day],
+          [field]: value,
+        },
+      },
+    }));
+  };
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleSubmit = async () => {

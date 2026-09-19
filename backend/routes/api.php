@@ -337,7 +337,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::post('/', [VaccineInventoryController::class, 'store']);
         Route::get('/{id}', [VaccineInventoryController::class, 'show']);
         Route::put('/{id}', [VaccineInventoryController::class, 'update']);
-        Route::delete('/{id}', [VaccineInventoryController::class, 'destroy'])->middleware('role:admin,developer');
+        Route::delete('/{id}', [VaccineInventoryController::class, 'destroy'])->middleware('role:admin');
         Route::post('/{id}/adjust', [VaccineInventoryController::class, 'adjustStock'])->middleware('role:admin,developer,treatment');
         Route::post('/{id}/open-vial', [VaccineInventoryController::class, 'openVial']);
         Route::post('/{id}/discard-vial', [VaccineInventoryController::class, 'discardVial']);

@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class VaccineInventory extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'vaccine_inventory';
     protected $primaryKey = 'inventory_id';
@@ -29,6 +30,8 @@ class VaccineInventory extends Model
         'current_quantity',
         'expiration_date',
         'status',
+        'archived_reason',
+        'archived_by',
     ];
 
     protected $casts = [

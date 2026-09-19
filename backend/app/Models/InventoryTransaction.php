@@ -5,6 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * InventoryTransaction Model
+ *
+ * NOTE: Prevent direct external creation of InventoryTransaction records.
+ * Records must only be created through authorized service methods (e.g., VaccineInventoryUsageService)
+ * within database transactions to maintain strict inventory integrity.
+ */
 class InventoryTransaction extends Model
 {
     use HasFactory;

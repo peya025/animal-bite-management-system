@@ -12,4 +12,5 @@ return [
     |
     */
     'open_vial_max_hours' => (int) env('OPEN_VIAL_MAX_HOURS', 8),
+    'open_vial_allowed_overrides' => false, // Require clinical approval to change
 ];

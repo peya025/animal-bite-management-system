@@ -18,7 +18,7 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  Delete as DeleteIcon,
+  Archive as ArchiveIcon,
   Edit as EditIcon,
   History as HistoryIcon,
   Inventory2 as InventoryIcon,
@@ -479,9 +479,9 @@ export default function InventoryTable({
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="Delete batch">
-              <IconButton size="small" onClick={() => onDelete(item)} sx={{ color: '#6b7280', width: 30, height: 30, '&:hover': { bgcolor: '#fee2e2', color: '#dc2626' } }}>
-                <DeleteIcon sx={{ fontSize: 17 }} />
+            <Tooltip title="Archive batch">
+              <IconButton size="small" onClick={() => onDelete(item)} sx={{ color: '#6b7280', width: 30, height: 30, '&:hover': { bgcolor: '#fef3c7', color: '#d97706' } }}>
+                <ArchiveIcon sx={{ fontSize: 17 }} />
               </IconButton>
             </Tooltip>
           </Stack>

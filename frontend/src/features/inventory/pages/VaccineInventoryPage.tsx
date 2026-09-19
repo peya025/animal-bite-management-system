@@ -504,7 +504,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
         onClose={() => setDeleteItem(null)}
         onDeleted={() => {
           loadData();
-          showSuccess('Inventory batch deleted.');
+          showSuccess('Inventory batch archived successfully.');
         }}
       />
 

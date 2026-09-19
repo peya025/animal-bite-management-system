@@ -398,6 +398,12 @@ class VaccinationRecordController extends Controller
                 }
             }
 
+            if (empty($actingUser->signature_path)) {
+                throw ValidationException::withMessages([
+                    'signature' => 'Your signature is not yet on file. Ask a clinic admin to complete your staff profile before administering doses.',
+                ]);
+            }
+
             // Map period names to dose numbers
             $periodMapping = [
                 'Day 0' => 0,
@@ -406,6 +412,12 @@ class VaccinationRecordController extends Controller
                 'Day 28' => 28,
                 'Booster 1' => 90,  // Approximate day 90
                 'Booster 2' => 365, // Approximate day 365
+                'day_0' => 0,
+                'day_3' => 3,
+                'day_7' => 7,
+                'day_28' => 28,
+                'booster_1' => 90,
+                'booster_2' => 365,
             ];
 
             $inventoryUsageService = app(VaccineInventoryUsageService::class);

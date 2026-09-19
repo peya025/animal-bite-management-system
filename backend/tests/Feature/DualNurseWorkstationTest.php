@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\BiteIncident;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\Queue;
 use App\Models\Role;
+use App\Models\TreatmentPlan;
 use App\Models\TreatmentRecord;
 use App\Models\User;
 use App\Models\VaccineInventory;
@@ -74,6 +76,34 @@ class DualNurseWorkstationTest extends TestCase
         ]);
     }
 
+    private function createApprovedBiteEpisode(Clinic $clinic, Patient $patient, ?int $createdBy = null, string $planType = 'full_pep'): BiteIncident
+    {
+        $bite = BiteIncident::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'episode_number' => 1,
+            'episode_type' => 'primary',
+            'status' => 'active',
+            'bite_date' => now()->toDateString(),
+            'exposure_type' => 'bite',
+            'animal_type' => 'dog',
+            'created_by' => $createdBy ?? 1,
+        ]);
+
+        TreatmentPlan::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $bite->bite_id,
+            'plan_type' => $planType,
+            'status' => 'approved',
+            'ordered_dose_days' => [0, 3, 7, 28],
+            'decided_by' => $createdBy ?? 1,
+            'decided_at' => now(),
+        ]);
+
+        return $bite;
+    }
+
     public function test_auth_me_returns_roles_and_license_attributes(): void
     {
         $clinic = $this->createClinic();
@@ -89,6 +119,38 @@ class DualNurseWorkstationTest extends TestCase
     }
 
     public function test_dose_administration_stamps_server_side_identity_and_signature(): void
+    {
+        $clinic = $this->createClinic();
+        $nurse = $this->createNurse($clinic, 'Maria Santos', 'intake_nurse');
+        $patient = $this->createPatient($clinic);
+        $this->createInventory($clinic, 'Speeda');
+        $bite = $this->createApprovedBiteEpisode($clinic, $patient);
+
+        Sanctum::actingAs($nurse);
+
+        $payload = [
+            'patient_id' => $patient->patient_id,
+            'bite_id'    => $bite->bite_id,
+            'doses' => [
+                [
+                    'period' => 'day_0',
+                    'date' => now()->toDateString(),
+                    'route' => 'ID',
+                    'vaccine_type' => 'Speeda',
+                ]
+            ],
+        ];
+
+        $response = $this->postJson('/api/vaccination-records', $payload);
+        $response->assertCreated();
+
+        $record = TreatmentRecord::first();
+        $this->assertNotNull($record);
+        $this->assertEquals($nurse->id, $record->administered_by);
+        $this->assertEquals($nurse->signature_path, $record->signature_path);
+    }
+
+    public function test_dose_administration_rejects_unapproved_bite_episode(): void
     {
         $clinic = $this->createClinic();
         $nurse = $this->createNurse($clinic, 'Maria Santos', 'intake_nurse');
@@ -110,12 +172,8 @@ class DualNurseWorkstationTest extends TestCase
         ];
 
         $response = $this->postJson('/api/vaccination-records', $payload);
-        $response->assertCreated();
-
-        $record = TreatmentRecord::first();
-        $this->assertNotNull($record);
-        $this->assertEquals($nurse->id, $record->administered_by);
-        $this->assertEquals($nurse->signature_path, $record->signature_path);
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['bite_id']);
     }
 
     public function test_nurse_without_signature_on_file_cannot_administer_dose(): void
@@ -124,11 +182,13 @@ class DualNurseWorkstationTest extends TestCase
         $nurse = $this->createNurse($clinic, 'New Nurse', 'intake_nurse', withSignature: false);
         $patient = $this->createPatient($clinic);
         $this->createInventory($clinic, 'Speeda');
+        $bite = $this->createApprovedBiteEpisode($clinic, $patient);
 
         Sanctum::actingAs($nurse);
 
         $payload = [
             'patient_id' => $patient->patient_id,
+            'bite_id'    => $bite->bite_id,
             'doses' => [
                 [
                     'period' => 'day_0',
@@ -239,12 +299,14 @@ class DualNurseWorkstationTest extends TestCase
         $nurse = $this->createNurse($clinic, 'Nurse A');
         $patient = $this->createPatient($clinic);
         $this->createInventory($clinic, 'Speeda');
+        $bite = $this->createApprovedBiteEpisode($clinic, $patient);
 
         $record = TreatmentRecord::create([
             'clinic_id' => $clinic->id,
             'patient_id' => $patient->patient_id,
-            'dose_number' => 3,
-            'day_number' => 3,
+            'bite_id' => $bite->bite_id,
+            'dose_number' => 0,
+            'day_number' => 0,
             'treatment_date' => now()->toDateString(),
             'administered_by' => $nurse->id,
             'signature_path' => $nurse->signature_path,
@@ -264,12 +326,13 @@ class DualNurseWorkstationTest extends TestCase
         $this->assertEquals($nurse->id, $record->voided_by);
         $this->assertEquals('Incorrect batch number entered', $record->void_reason);
 
-        // Re-recording dose 3 is now permitted since live dose constraint checks whereNull('voided_at')
+        // Re-recording dose 0 is now permitted since live dose constraint checks whereNull('voided_at')
         $reRecordRes = $this->postJson('/api/vaccination-records', [
             'patient_id' => $patient->patient_id,
+            'bite_id'    => $bite->bite_id,
             'doses' => [
                 [
-                    'period' => 'day_3',
+                    'period' => 'day_0',
                     'date' => now()->toDateString(),
                     'route' => 'ID',
                     'vaccine_type' => 'Speeda',

@@ -267,7 +267,6 @@ export default function NurseVaccineList() {
             },
           ].map((c) => (
             <Grid size={{ xs: 12, sm: 4 }} key={c.id}>
-            <Grid size={{ xs: 12, sm: 4 }} key={c.id}>
               <Paper
                 elevation={0}
                 sx={{
@@ -436,7 +435,6 @@ export default function NurseVaccineList() {
           </Grid>
 
           {/* Date Range: To */}
-          <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
           <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
             <TextField
               fullWidth

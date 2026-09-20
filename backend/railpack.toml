@@ -1,4 +1,4 @@
-[php]
+[phases.extensions]
 extensions = [
     "pdo_mysql"
 ]

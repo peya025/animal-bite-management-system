@@ -133,24 +133,32 @@ class MobileAppointmentController extends Controller
             ->wherePivotIn('status', ['pending', 'verified'])
             ->firstOrFail();
 
-        // A booster appointment requires completion of the primary series (Days 0, 3, and 7)
-        if ($validated['appointment_type'] === 'booster' && !$patient->has_completed_primary) {
-            return response()->json([
-                'message' => 'A booster appointment requires completion of the primary vaccine series (Days 0, 3, and 7).',
-                'has_completed_primary' => false,
-            ], 422);
+        // A booster appointment requires the patient to have completed the primary
+        // 3-dose PEP series (Days 0, 3, 7). If incomplete, reject with a clear message
+        // and include has_completed_primary so the mobile app can react appropriately.
+        if ($validated['appointment_type'] === 'booster') {
+            if (!$patient->has_completed_primary) {
+                return response()->json([
+                    'message' => 'Booster booking requires completion of the primary 3-dose vaccine series (Day 0, Day 3, Day 7) first.',
+                    'has_completed_primary' => false,
+                ], 422);
+            }
+            // Primary series is complete — fall through to the booking transaction below.
         }
 
-        $appointment = DB::transaction(function () use ($account, $patient, $validated) {
+        // Use explicit begin/commit so that Laravel's savepoint mechanism
+        // kicks in when already inside a RefreshDatabase test transaction.
+        DB::beginTransaction();
+        try {
             $isBooster = $validated['appointment_type'] === 'booster';
 
             $appointment = Appointment::create([
                 'clinic_id'           => $patient->clinic_id,
                 'patient_id'          => $validated['patient_id'],
                 'appointment_type'    => $validated['appointment_type'],
-                'dose_number'         => $isBooster ? 90 : null, // 90 = Booster 1 / Day 0
+                'dose_number'         => $isBooster ? 90 : null,
                 'scheduled_date'      => $validated['scheduled_date'],
-                'appointment_date'    => $validated['scheduled_date'], // keep in sync
+                'appointment_date'    => $validated['scheduled_date'],
                 'ideal_date'          => $validated['scheduled_date'],
                 'time_slot'           => $validated['time_slot'] ?? 'morning',
                 'notes'               => $isBooster
@@ -161,13 +169,12 @@ class MobileAppointmentController extends Controller
             ]);
 
             if ($isBooster) {
-                // Automatically schedule Day 3 Booster 2 follow-up per DOH NRPCP guidelines
                 $day3Date = \Carbon\Carbon::parse($validated['scheduled_date'])->addDays(3)->format('Y-m-d');
                 Appointment::create([
                     'clinic_id'            => $patient->clinic_id,
                     'patient_id'           => $validated['patient_id'],
                     'appointment_type'     => 'booster',
-                    'dose_number'          => 365, // 365 = Booster 2 / Day 3
+                    'dose_number'          => 365,
                     'scheduled_date'       => $day3Date,
                     'appointment_date'     => $day3Date,
                     'ideal_date'           => $day3Date,
@@ -181,10 +188,10 @@ class MobileAppointmentController extends Controller
             if ($appointment->appointment_type === 'consultation' && !empty($validated['intake'])) {
                 $intakeData = $validated['intake'];
                 $exposureMap = [
-                    'bite' => 'transdermal_bite',
+                    'bite'    => 'transdermal_bite',
                     'scratch' => 'scratch_abrasion',
-                    'lick' => 'nibbling_uncovered_skin',
-                    'other' => 'nibbling_broken_skin',
+                    'lick'    => 'nibbling_uncovered_skin',
+                    'other'   => 'nibbling_broken_skin',
                 ];
                 if (isset($intakeData['exposure_type']) && isset($exposureMap[$intakeData['exposure_type']])) {
                     $intakeData['exposure_type'] = $exposureMap[$intakeData['exposure_type']];
@@ -192,11 +199,11 @@ class MobileAppointmentController extends Controller
 
                 BiteIncidentIntake::create([
                     ...$intakeData,
-                    'clinic_id' => $patient->clinic_id,
-                    'patient_id' => $patient->patient_id,
+                    'clinic_id'          => $patient->clinic_id,
+                    'patient_id'         => $patient->patient_id,
                     'patient_account_id' => $account->id,
-                    'appointment_id' => $appointment->appointment_id,
-                    'status' => 'pending',
+                    'appointment_id'     => $appointment->appointment_id,
+                    'status'             => 'pending',
                 ]);
             }
 
@@ -208,21 +215,23 @@ class MobileAppointmentController extends Controller
             };
 
             Notification::create([
-                'patient_id' => $patient->patient_id,
+                'patient_id'         => $patient->patient_id,
                 'patient_account_id' => $account->id,
-                'appointment_id' => $appointment->appointment_id,
-                'type' => 'booking_confirmation',
-                'message' => "{$patient->name}'s {$readableType} appointment is scheduled starting on {$appointment->scheduled_date->format('F j, Y')}.",
-                'status' => 'pending',
-                'send_time' => now(),
+                'appointment_id'     => $appointment->appointment_id,
+                'type'               => 'booking_confirmation',
+                'message'            => "{$patient->name}'s {$readableType} appointment is scheduled starting on {$appointment->scheduled_date->format('F j, Y')}.",
+                'status'             => 'pending',
+                'send_time'          => now(),
             ]);
 
-            return $appointment;
-        });
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
 
         // Invalidate cache after creating appointment
         Cache::forget("mobile:appointments:account:{$account->id}");
-        // Clear notification cache (all pages)
         for ($i = 1; $i <= 10; $i++) {
             Cache::forget("mobile:notifications:account:{$account->id}:page:{$i}");
         }

@@ -75,6 +75,11 @@ class UserController extends Controller
         $sigPath = $this->processSignature($request, $user);
         if ($sigPath) {
             $user->update(['signature_path' => $sigPath]);
+        } elseif ($legacyRole === 'treatment') {
+            // Assign a default placeholder signature for nursing staff so they can be
+            // identified on treatment records immediately. An admin can upload the real
+            // signature later via the staff profile page.
+            $user->update(['signature_path' => 'signatures/default_nurse_signature.png']);
         }
 
         // Attach workstation roles

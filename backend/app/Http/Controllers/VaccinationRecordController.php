@@ -335,14 +335,19 @@ class VaccinationRecordController extends Controller
             ], 401);
         }
 
+        // Signature guard — must check BEFORE opening any transaction
+        if (empty($actingUser->signature_path)) {
+            return response()->json([
+                'message' => 'Your signature is not yet on file. Ask a clinic admin to complete your staff profile before administering doses.',
+            ], 422);
+        }
+
         DB::beginTransaction();
         try {
             $clinicId = $actingUser->clinic_id;
             $patientId = $request->patient_id;
             $biteId = $request->bite_id;
             $userId = $actingUser->id;
-
-            // Treatment can only use an existing, selected episode.  It must
             // never manufacture an episode or attach a new dose to the latest
             // patient-wide case based on elapsed time.
             if (!$biteId && $request->filled('queue_id')) {
@@ -1186,17 +1191,17 @@ class VaccinationRecordController extends Controller
 
         $clinicId = $request->user()->clinic_id;
 
-        return DB::transaction(function () use ($request, $clinicId, $id) {
-            $record = TreatmentRecord::where('clinic_id', $clinicId)
-                ->lockForUpdate()
-                ->findOrFail($id);
+        // Fetch before opening transaction so early exits don't leave orphaned transactions
+        $record = TreatmentRecord::where('clinic_id', $clinicId)->findOrFail($id);
 
-            if ($record->voided_at) {
-                return response()->json([
-                    'message' => 'This treatment record has already been voided.',
-                ], 400);
-            }
+        if ($record->voided_at) {
+            return response()->json([
+                'message' => 'This treatment record has already been voided.',
+            ], 400);
+        }
 
+        DB::beginTransaction();
+        try {
             $record->update([
                 'voided_at'   => now(),
                 'voided_by'   => $request->user()->id,
@@ -1212,10 +1217,15 @@ class VaccinationRecordController extends Controller
                 ],
             ]);
 
-            return response()->json([
-                'message' => 'Treatment record voided successfully.',
-                'record'  => $record->fresh()->load(['administeredBy', 'voidedBy']),
-            ]);
-        });
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        return response()->json([
+            'message' => 'Treatment record voided successfully.',
+            'record'  => $record->fresh()->load(['administeredBy', 'voidedBy']),
+        ]);
     }
 }

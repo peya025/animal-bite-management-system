@@ -197,6 +197,7 @@ function SubStationCard({
 export default function QueueDisplayPage() {
   const [now, setNow]         = useState(new Date());
   const [queue, setQueue]     = useState<QueueEntry[]>([]);
+  const [, setLoading] = useState(true);
   const [blink, setBlink]     = useState(true);
   const [lastCall, setLastCall] = useState<QueueEntry | null>(null);
   const prevCalledRef  = useRef<Set<number>>(new Set());

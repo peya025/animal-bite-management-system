@@ -36,16 +36,24 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('google_id');
-        });
+        if (Schema::hasColumn('users', 'google_id')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropUnique('users_google_id_unique');
+                $table->dropColumn('google_id');
+            });
+        }
 
-        Schema::table('patient_accounts', function (Blueprint $table) {
-            $table->dropColumn('google_id');
-        });
+        if (Schema::hasColumn('patient_accounts', 'google_id')) {
+            Schema::table('patient_accounts', function (Blueprint $table) {
+                $table->dropUnique('patient_accounts_google_id_unique');
+                $table->dropColumn('google_id');
+            });
+        }
 
-        Schema::table('clinic_module_configs', function (Blueprint $table) {
-            $table->dropColumn(['google_sso_enabled', 'google_sso_roles', 'google_sso_domain']);
-        });
+        if (Schema::hasColumn('clinic_module_configs', 'google_sso_enabled')) {
+            Schema::table('clinic_module_configs', function (Blueprint $table) {
+                $table->dropColumn(['google_sso_enabled', 'google_sso_roles', 'google_sso_domain']);
+            });
+        }
     }
 };

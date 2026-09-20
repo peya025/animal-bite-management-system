@@ -338,37 +338,46 @@ class QueueController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     public function call(Request $request, $id)
     {
-        return DB::transaction(function () use ($request, $id) {
-            $queue = Queue::where('clinic_id', $request->user()->clinic_id)
+        $clinicId = $request->user()->clinic_id;
+        $userId   = $request->user()->id;
+
+        DB::beginTransaction();
+        try {
+            $queue = Queue::where('clinic_id', $clinicId)
                 ->whereNull('deleted_at')
                 ->lockForUpdate()
                 ->findOrFail($id);
 
             if ($queue->status !== 'waiting') {
+                DB::rollBack();
                 return response()->json([
                     'message' => 'Only waiting patients can be called. Current status: ' . $queue->status,
                 ], 400);
             }
 
-            $this->logHistory($queue, 'called', 'called', $request->user()->id);
+            $this->logHistory($queue, 'called', 'called', $userId);
 
             $queue->update([
                 'status'             => 'called',
                 'called_at'          => now(),
                 'call_count'         => ($queue->call_count ?? 0) + 1,
-                'handled_by'         => $request->user()->id,
-                'served_by'          => $request->user()->id,
+                'handled_by'         => $userId,
+                'served_by'          => $userId,
                 'serving_started_at' => now(),
                 'station_id'         => $request->get('station_id') ?: $queue->station_id,
             ]);
 
             $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
 
-            return response()->json([
-                'message' => "Called #{$queue->queue_number} · {$queue->patient->name}",
-                'queue'   => $queue->fresh()->load(['patient', 'biteIncident', 'servedBy', 'station']),
-            ]);
-        });
+        return response()->json([
+            'message' => "Called #{$queue->queue_number} · {$queue->patient->name}",
+            'queue'   => $queue->fresh()->load(['patient', 'biteIncident', 'servedBy', 'station']),
+        ]);
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -376,24 +385,29 @@ class QueueController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     public function serve(Request $request, $id)
     {
-        return DB::transaction(function () use ($request, $id) {
-            $queue = Queue::where('clinic_id', $request->user()->clinic_id)
+        $clinicId = $request->user()->clinic_id;
+        $userId   = $request->user()->id;
+
+        DB::beginTransaction();
+        try {
+            $queue = Queue::where('clinic_id', $clinicId)
                 ->whereNull('deleted_at')
                 ->lockForUpdate()
                 ->findOrFail($id);
 
             if (!in_array($queue->status, ['waiting', 'called', 'serving', 'second_chance', 'final_recall', 'in_consultation'])) {
+                DB::rollBack();
                 return response()->json([
                     'message' => 'Cannot serve queue ticket with status: ' . $queue->status,
                 ], 400);
             }
 
-            $userId = $request->user()->id;
             $staleThresholdMinutes = 30;
             $isStale = $queue->serving_started_at && Carbon::parse($queue->serving_started_at)->diffInMinutes(now()) >= $staleThresholdMinutes;
 
             if ($queue->status === 'serving' && $queue->served_by && $queue->served_by !== $userId && !$isStale) {
                 $attendingNurse = $queue->servedBy?->name ?? 'another staff member';
+                DB::rollBack();
                 return response()->json([
                     'error'   => 'conflict',
                     'message' => "Patient is currently being attended by {$attendingNurse}.",
@@ -412,17 +426,20 @@ class QueueController extends Controller
                 'serving_started_at' => ($queue->serving_started_at && !$isStale) ? $queue->serving_started_at : now(),
                 'served_by'          => $userId,
                 'station_id'         => $request->get('station_id') ?: $queue->station_id,
-                // Reset recall_stage so subsequent misses start fresh
                 'recall_stage'       => null,
             ]);
 
             $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
 
-            return response()->json([
-                'message' => "Patient #{$queue->queue_number} is now being served",
-                'queue'   => $queue->fresh()->load(['patient', 'biteIncident', 'servedBy', 'station']),
-            ]);
-        });
+        return response()->json([
+            'message' => "Patient #{$queue->queue_number} is now being served",
+            'queue'   => $queue->fresh()->load(['patient', 'biteIncident', 'servedBy', 'station']),
+        ]);
     }
 
     // ────────────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+﻿import { useState, useEffect, type ReactNode } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -692,10 +692,7 @@ export default function PatientDetailsModal({
           <Box sx={{ maxWidth: 320 }}>
             <TextField label="Exposure date" type="date" required size="small" value={newExposure.bite_date}
               onChange={(event) => setNewExposure({ ...newExposure, bite_date: event.target.value })}
-              slotProps={{
-                inputLabel: { shrink: true },
-                htmlInput: { max: new Date().toISOString().split('T')[0] },
-              }} />
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: new Date().toISOString().split('T')[0] } }} />
           </Box>
         </DialogContent>
         <DialogActions>

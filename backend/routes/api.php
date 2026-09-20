@@ -46,6 +46,14 @@ Route::get('/test', function () {
     ]);
 });
 
+// Health check endpoint (Task 4f — used by Render health-check URL)
+Route::get('/health', function () {
+    return response()->json([
+        'status'    => 'ok',
+        'timestamp' => now()->toISOString(),
+    ]);
+});
+
 // Public routes
 if (config('app.public_registration_enabled', false)) {
     Route::post('/register', [AuthController::class, 'register']);

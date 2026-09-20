@@ -9,7 +9,7 @@ import { AuthProvider } from './shared/contexts/AuthContext'
 createRoot(document.getElementById('root')!).render(
   <AppThemeProvider>
     <CssBaseline />
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter>
       <AuthProvider>
         <App />
       </AuthProvider>

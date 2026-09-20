@@ -1,5 +1,17 @@
 # Deployment Instructions
 
+> **Production demo safety:** Do not expose an empty database or the Setup Wizard publicly. Provision a fresh, dedicated database with `DemoSeeder` before sharing the URL. Keep `PUBLIC_SETUP_ENABLED=false`, `PUBLIC_REGISTRATION_ENABLED=false`, `DEVELOPER_TOOLS_ENABLED=false`, `APP_ENV=production`, and `APP_DEBUG=false` in the hosting environment.
+
+## Instructor demo production procedure
+
+1. Use a fresh MySQL database containing synthetic data only. Take an encrypted backup first.
+2. Run `php artisan migrate --force` once as a controlled pre-deploy/release command; never include migrations in the web-service start command.
+3. Run `php artisan db:seed --class=DemoSeeder` only against that fresh demo database.
+4. Configure the frontend build environment with `VITE_API_BASE_URL=https://<backend-domain>/api` and publish `frontend/dist` with the included SPA rewrite file.
+5. For the short instructor demo, set `QUEUE_CONNECTION=sync` and label background mail/reminder features as simulated. For any asynchronous deployment, run `php artisan queue:work --sleep=3 --tries=3 --max-time=3600` as a monitored worker.
+6. Schedule `php artisan schedule:run` at least once per minute and retain logs proving scheduled jobs run. This includes daily recall processing and expired Sanctum-token pruning.
+7. Verify `/api/health`, CORS, HTTPS, role controls, rate limiting, token expiry, safe print authorization, and the MySQL concurrency suite before sharing the URL.
+
 ## Fresh Installation (Client/Production)
 
 For a clean installation where the Setup Wizard should appear:

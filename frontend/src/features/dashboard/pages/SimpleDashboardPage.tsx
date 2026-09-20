@@ -13,6 +13,7 @@ import type { PsgcItem } from '../../patients/types';
 
 const PSGC_API = 'https://psgc.gitlab.io/api';
 const MIS_OR_CODE = '104300000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 function isAuthenticated(): boolean {
   const token = localStorage.getItem('authToken');
@@ -198,7 +199,7 @@ export function SimpleDashboardPage() {
   useEffect(() => {
     const checkSetupNeeded = async () => {
       try {
-        const response = await fetch('/api/setup/check-needed', {
+        const response = await fetch(`${API_BASE_URL}/setup/check-needed`, {
           method: 'GET',
           headers: { 'Accept': 'application/json' },
         });
@@ -237,7 +238,7 @@ export function SimpleDashboardPage() {
       if (localUser?.role === 'admin') {
         try {
           const token = localStorage.getItem('authToken');
-          const response = await fetch('http://localhost:8000/api/me', {
+          const response = await fetch(`${API_BASE_URL}/me`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Accept': 'application/json',

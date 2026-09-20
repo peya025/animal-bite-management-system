@@ -179,7 +179,7 @@ Use an explicit demo seeder only after verifying it cannot create known default 
 7. Generate a Railway public domain and test these endpoints without revealing any sensitive data:
 
 ```text
-GET  https://<railway-api-domain>/api/test       (remove this endpoint before sharing)
+GET  https://<railway-api-domain>/api/health
 POST https://<railway-api-domain>/api/login
 GET  https://<railway-api-domain>/api/me
 ```
@@ -221,7 +221,7 @@ Perform verification in an incognito/private browser session as the instructor w
 - [ ] No browser console CORS, mixed-content, or exposed-stack-trace errors appear.
 - [ ] Logs do not contain tokens, passwords, or patient-like data.
 - [ ] A duplicate/non-FIFO/concurrent inventory test behaves according to the critical fixes.
-- [ ] The print route is not used until the query-token design is removed.
+- [ ] An authorized staff print request works without a token in the URL; query-string tokens alone return 401.
 
 Record the deployed frontend URL, backend URL, Railway credit balance, deploy date, and teardown date in a private team note.
 

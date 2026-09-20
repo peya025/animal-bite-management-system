@@ -42,6 +42,7 @@ return [
     'debug' => (bool) env('APP_DEBUG', false),
 
     'public_registration_enabled' => (bool) env('PUBLIC_REGISTRATION_ENABLED', false),
+    'public_setup_enabled' => (bool) env('PUBLIC_SETUP_ENABLED', false),
     'developer_tools_enabled' => (bool) env('DEVELOPER_TOOLS_ENABLED', false),
 
     /*

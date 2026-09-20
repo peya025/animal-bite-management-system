@@ -3,6 +3,8 @@ import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog'
 import { SetupWizardRoot } from '../styles/SetupWizard.styles';
 import { ROUTES } from '../../../shared/config/routes';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
 export default function SetupWizard() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -108,7 +110,7 @@ export default function SetupWizard() {
       }
 
       try {
-        const response = await fetch('http://localhost:8000/api/setup/initialize', {
+        const response = await fetch(`${API_BASE_URL}/setup/initialize`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -201,7 +203,7 @@ export default function SetupWizard() {
       };
       
       // Step 1: Update clinic information
-      const updateResponse = await fetch('http://localhost:8000/api/setup/clinic', {
+      const updateResponse = await fetch(`${API_BASE_URL}/setup/clinic`, {
         method: 'PUT',
         headers: jsonHeaders,
         body: JSON.stringify({
@@ -232,7 +234,7 @@ export default function SetupWizard() {
       await updateResponse.json();
 
       // Step 2: Mark setup as complete
-      const completeResponse = await fetch('http://localhost:8000/api/setup/complete', {
+      const completeResponse = await fetch(`${API_BASE_URL}/setup/complete`, {
         method: 'POST',
         headers: jsonHeaders,
       });

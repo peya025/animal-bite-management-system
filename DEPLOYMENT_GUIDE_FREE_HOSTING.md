@@ -194,7 +194,7 @@ cmds = [
 ]
 
 [start]
-cmd = 'cd backend && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=$PORT'
+cmd = 'cd backend && php artisan serve --host=0.0.0.0 --port=$PORT'
 ```
 
 ### Step 3: Deploy on Railway
@@ -266,9 +266,8 @@ LOG_LEVEL=error
 7. **Access Your App:**
    - Copy the Railway URL: `https://your-app.up.railway.app`
    - Visit in browser
-   - Login with default credentials:
-     - Email: `admin@clinic.com`
-     - Password: `password123`
+   - Sign in only with unique demo credentials supplied through the hosting environment.
+     Never deploy or document default credentials.
 
 ### Step 4: Custom Domain (Optional)
 
@@ -302,7 +301,6 @@ services:
       npm run build
     startCommand: |
       cd backend
-      php artisan migrate --force
       php artisan config:cache
       php artisan route:cache
       php artisan serve --host=0.0.0.0 --port=$PORT
@@ -508,8 +506,8 @@ curl -X POST https://your-app.up.railway.app/api/login \
 # Railway: Open terminal in dashboard
 cd backend && php artisan migrate --force
 
-# Seed default data (if needed)
-php artisan db:seed --class=DefaultClinicSeeder
+# Seed synthetic data only, on a fresh dedicated demo database
+php artisan db:seed --class=DemoSeeder
 ```
 
 ### 3. Update Default Passwords

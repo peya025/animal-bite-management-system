@@ -4,7 +4,7 @@ Use `deployment` as the branch connected to the Railway and Vercel test deployme
 
 ## Current repository state
 
-As checked locally on 2026-09-20, `deployment` already exists and is the current branch. It is one commit ahead of the locally recorded `origin/deployment`, while local `main` matches the locally recorded `origin/main`. The working tree also has uncommitted deployment changes. GitHub could not be reached during this check, so fetch before relying on the remote branch positions. Do **not** run `git switch -c deployment` in this checkout; the branch already exists.
+As checked locally on 2026-09-20, `deployment` already exists and is the current branch. Its latest committed revision is two commits ahead of the locally recorded `origin/deployment`; local `main` matches the locally recorded `origin/main`. A final edit to this guide is uncommitted. GitHub could not be reached during this check, so fetch before relying on the remote branch positions. Do **not** run `git switch -c deployment` in this checkout; the branch already exists.
 
 ## Create the branch in a repository where it does not yet exist
 
@@ -21,27 +21,29 @@ git push -u origin deployment
 
 ## Next steps in this repository
 
-First confirm the active branch and inspect exactly what will be committed:
+First confirm the active branch, inspect the guide edit, and review the committed changes:
 
 ```bash
 git branch --show-current
 git status --short
-git diff
-git diff --cached
+git fetch origin
+git diff -- tasks/deployment_branch_workflow.md
+git log --oneline origin/deployment..deployment
 git ls-files backend/.env frontend/.env mobile/.env
 ```
 
-The last command should print nothing. Review all changed files for secrets and local-only content. Stage only the intended deployment files, then review the staged content before committing:
+The last command should print nothing. Review the changes for secrets and local-only content, then commit the guide correction and push the existing branch:
 
 ```bash
-git add backend frontend mobile tasks
-git diff --cached --stat
+git diff --stat origin/deployment..deployment
+git diff origin/deployment..deployment
+git add tasks/deployment_branch_workflow.md
 git diff --cached
-git commit -m "Prepare deployment branch for Railway and Vercel"
+git commit -m "Document deployment branch workflow"
 git push -u origin deployment
 ```
 
-If unrelated changes appear in the staged review, unstage those individual paths with `git restore --staged <path>` before committing. Keep real `.env` files, database dumps, `APP_KEY`, passwords, tokens, and patient data out of Git. Do not push until the staged review is clean. The current branch has not been pushed by this guide.
+Keep real `.env` files, database dumps, `APP_KEY`, passwords, tokens, and patient data out of Git. Do not push until the commit review is clean. The current branch has not been pushed by this guide.
 
 ## Continue work on `deployment`
 

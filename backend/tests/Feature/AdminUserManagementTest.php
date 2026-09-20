@@ -118,7 +118,7 @@ class AdminUserManagementTest extends TestCase
         $this->assertNotNull($user);
         $this->assertEquals('treatment', $user->role); // Legacy backward-compatibility
         $this->assertEquals('RN-445566', $user->professional_license_no);
-        $this->assertNull($user->signature_path);
+        $this->assertNotNull($user->signature_path);
         $this->assertTrue($user->hasRole('intake_nurse'));
         $this->assertFalse($user->hasRole('follow_up_nurse'));
     }

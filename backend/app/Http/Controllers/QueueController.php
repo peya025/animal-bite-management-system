@@ -773,83 +773,98 @@ class QueueController extends Controller
             // Task 2.3: Auto-expire unserved tickets from prior days before generating today's queue
             $this->expireStaleTickets($clinicId, $todayDate);
 
-            // Task 1: Race-condition-safe queue number generation using DB lock
-            $lastQueue = Queue::where('clinic_id', $clinicId)
-                ->where('queue_date', $todayDate)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->orderBy('queue_number', 'desc')
-                ->first();
+            // Task 1: Race-condition-safe queue number generation.
+            //
+            // Using MAX(queue_number) + 1 with a MySQL advisory lock (GET_LOCK) instead
+            // of lockForUpdate() on the last row, because lockForUpdate() cannot protect
+            // the "no rows yet today" case — two concurrent first-of-day inserts both see
+            // zero rows, both compute 1, and the second insert hits the unique_daily_queue
+            // constraint.  The advisory lock serialises all check-in requests for the same
+            // clinic+date regardless of whether any row exists yet.
+            $lockName    = "queue_checkin_{$clinicId}_{$todayDate}";
+            $lockTimeout = 5; // seconds
 
-            $nextQueueNumber = $lastQueue ? ($lastQueue->queue_number + 1) : 1;
+            DB::statement("SELECT GET_LOCK(?, ?)", [$lockName, $lockTimeout]);
 
-            // Determine category — if patient is pregnant/senior/pwd and not explicitly set,
-            // default to regular (staff can always override)
-            $category = $request->get('queue_category', 'regular');
+            try {
+                $maxNumber = DB::table('queues')
+                    ->where('clinic_id', $clinicId)
+                    ->where('queue_date', $todayDate)
+                    ->whereNull('deleted_at')
+                    ->max('queue_number');
 
-            $visitType = $request->visit_type;
-            if ($visitType === 'consultation') {
-                $visitType = 'new_case';
-            }
-            if ($visitType === 'follow_up') {
-                $visitType = 'vaccination';
-            }
+                $nextQueueNumber = $maxNumber ? ($maxNumber + 1) : 1;
 
-            // A booster request is a new clinical assessment, not a direct nurse
-            // appointment. Keep it in the Doctor queue until Form 2 approves the
-            // treatment; the approval transfer will then route its Day 0 dose to
-            // Station 1 just like any other newly assessed episode.
-            $isBoosterRequest = $visitType === 'booster';
-            if ($isBoosterRequest) {
-                $visitType = 'new_case';
-            }
-            $checkInNotes = $request->check_in_notes;
-            if ($isBoosterRequest) {
-                $checkInNotes = trim(implode(' | ', array_filter([
-                    $checkInNotes,
-                    'Booster request: Doctor assessment and Form 2 approval required before treatment.',
-                ])));
-            }
+                // Determine category — if patient is pregnant/senior/pwd and not explicitly set,
+                // default to regular (staff can always override)
+                $category = $request->get('queue_category', 'regular');
 
-            $queue = Queue::create([
-                'clinic_id'      => $clinicId,
-                'patient_id'     => $request->patient_id,
-                'bite_id'        => $request->bite_incident_id,
-                'queue_number'   => $nextQueueNumber,
-                'queue_date'     => $todayDate,
-                'visit_type'     => $visitType,
-                'priority'       => $request->get('priority', 'normal'),
-                'queue_category' => $category,
-                'status'         => 'waiting',
-                'checked_in_at'  => now(),
-                'checked_in_by'  => $request->user()->id,
-                'check_in_notes' => $checkInNotes,
-                'call_count'     => 0,
-            ]);
+                $visitType = $request->visit_type;
+                if ($visitType === 'consultation') {
+                    $visitType = 'new_case';
+                }
+                if ($visitType === 'follow_up') {
+                    $visitType = 'vaccination';
+                }
 
-            // Sync any scheduled appointments for today with this queue number
-            \App\Models\Appointment::where('patient_id', $request->patient_id)
-                ->where('status', 'scheduled')
-                ->where(function ($q) use ($todayDate) {
-                    $q->whereDate('scheduled_date', $todayDate)
-                      ->orWhereDate('appointment_date', $todayDate);
-                })
-                ->update([
-                    'queue_number' => $nextQueueNumber,
+                // A booster request is a new clinical assessment, not a direct nurse
+                // appointment. Keep it in the Doctor queue until Form 2 approves the
+                // treatment; the approval transfer will then route its Day 0 dose to
+                // Station 1 just like any other newly assessed episode.
+                $isBoosterRequest = $visitType === 'booster';
+                if ($isBoosterRequest) {
+                    $visitType = 'new_case';
+                }
+                $checkInNotes = $request->check_in_notes;
+                if ($isBoosterRequest) {
+                    $checkInNotes = trim(implode(' | ', array_filter([
+                        $checkInNotes,
+                        'Booster request: Doctor assessment and Form 2 approval required before treatment.',
+                    ])));
+                }
+
+                $queue = Queue::create([
+                    'clinic_id'      => $clinicId,
+                    'patient_id'     => $request->patient_id,
+                    'bite_id'        => $request->bite_incident_id,
+                    'queue_number'   => $nextQueueNumber,
+                    'queue_date'     => $todayDate,
+                    'visit_type'     => $visitType,
+                    'priority'       => $request->get('priority', 'normal'),
+                    'queue_category' => $category,
+                    'status'         => 'waiting',
+                    'checked_in_at'  => now(),
+                    'checked_in_by'  => $request->user()->id,
+                    'check_in_notes' => $checkInNotes,
+                    'call_count'     => 0,
                 ]);
 
-            $this->logHistory($queue, 'checked_in', 'waiting', $request->user()->id,
-                "Category: {$category}, Priority: {$queue->priority}");
+                // Sync any scheduled appointments for today with this queue number
+                \App\Models\Appointment::where('patient_id', $request->patient_id)
+                    ->where('status', 'scheduled')
+                    ->where(function ($q) use ($todayDate) {
+                        $q->whereDate('scheduled_date', $todayDate)
+                          ->orWhereDate('appointment_date', $todayDate);
+                    })
+                    ->update([
+                        'queue_number' => $nextQueueNumber,
+                    ]);
 
-            $this->flushCache($clinicId, $todayDate);
+                $this->logHistory($queue, 'checked_in', 'waiting', $request->user()->id,
+                    "Category: {$category}, Priority: {$queue->priority}");
 
-            return response()->json([
-                'message'        => "Patient added to queue as #{$nextQueueNumber}",
-                'queue'          => $queue->load(['patient', 'biteIncident']),
-                'queue_number'   => $nextQueueNumber,
-                'queue_category' => $category,
-                'visit_type'     => $visitType,
-            ], 201);
+                $this->flushCache($clinicId, $todayDate);
+
+                return response()->json([
+                    'message'        => "Patient added to queue as #{$nextQueueNumber}",
+                    'queue'          => $queue->load(['patient', 'biteIncident']),
+                    'queue_number'   => $nextQueueNumber,
+                    'queue_category' => $category,
+                    'visit_type'     => $visitType,
+                ], 201);
+            } finally {
+                DB::statement("SELECT RELEASE_LOCK(?)", [$lockName]);
+            }
         });
     }
 

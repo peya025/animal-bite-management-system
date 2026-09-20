@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { APP_NAME } from '../../../constants';
 import { LoginRoot } from '../styles/Login.styles';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
 // Tier 9 — Google Identity Services type declaration (loaded via CDN script in index.html)
 declare global {
   interface Window {
@@ -145,7 +147,7 @@ export default function Login() {
     setGoogleError('');
     setError('');
     try {
-      const res = await fetch('http://localhost:8000/api/auth/google', {
+      const res = await fetch(`${API_BASE_URL}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ credential: response.credential }),
@@ -192,7 +194,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/login', {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -224,7 +226,7 @@ export default function Login() {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/login', {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ email: roleEmail, password: 'password123' }),

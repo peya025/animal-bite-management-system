@@ -460,30 +460,63 @@ class VaccineInventoryController extends Controller
      */
     public function discardVial(Request $request, $id)
     {
-        $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
-            ->findOrFail($id);
-
-        $reason = $request->input('reason', 'Discarded remaining open vial doses');
-
-        $inventory->update([
-            'open_vial_status' => 'unopened',
-            'opened_at' => null,
-            'open_vial_discard_at' => null,
+        $validated = $request->validate([
+            'reason' => 'required|string|min:5|max:500',
         ]);
 
-        InventoryTransaction::create([
-            'inventory_id' => $inventory->inventory_id,
-            'staff_id' => $request->user()->id,
-            'transaction_type' => 'disposed',
-            'quantity' => 0,
-            'transaction_date' => Carbon::now(),
-            'remarks' => "Open vial closed/cleared by {$request->user()->name}: {$reason}",
-        ]);
+        return DB::transaction(function () use ($request, $id, $validated) {
+            $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
+                ->lockForUpdate()
+                ->findOrFail($id);
 
-        return response()->json([
-            'message' => 'Open vial discard record updated.',
-            'inventory' => $inventory->fresh(),
-        ]);
+            if ($inventory->open_vial_status !== 'opened') {
+                throw ValidationException::withMessages([
+                    'inventory' => 'Only an opened vial can be discarded.',
+                ]);
+            }
+
+            $oldValues = [
+                'open_vial_status' => $inventory->open_vial_status,
+                'opened_at' => $inventory->opened_at?->toIso8601String(),
+                'open_vial_discard_at' => $inventory->open_vial_discard_at?->toIso8601String(),
+            ];
+
+            $inventory->update([
+                'open_vial_status' => 'unopened',
+                'opened_at' => null,
+                'open_vial_discard_at' => null,
+            ]);
+
+            InventoryTransaction::create([
+                'inventory_id' => $inventory->inventory_id,
+                'staff_id' => $request->user()->id,
+                'transaction_type' => 'disposed',
+                'quantity' => 0,
+                'balanced' => $inventory->current_quantity,
+                'remarks' => "Open vial discarded by {$request->user()->name}: {$validated['reason']}",
+            ]);
+
+            AuditLog::create([
+                'user_id' => $request->user()->id,
+                'clinic_id' => $request->user()->clinic_id,
+                'action' => 'inventory.discard_vial',
+                'model' => VaccineInventory::class,
+                'model_id' => $inventory->inventory_id,
+                'old_values' => $oldValues,
+                'new_values' => [
+                    'open_vial_status' => 'unopened',
+                    'opened_at' => null,
+                    'open_vial_discard_at' => null,
+                    'current_quantity' => $inventory->current_quantity,
+                ],
+                'description' => "Open vial discarded for batch {$inventory->batch_number}: {$validated['reason']}",
+            ]);
+
+            return response()->json([
+                'message' => 'Open vial discard record updated.',
+                'inventory' => $inventory->fresh(),
+            ]);
+        });
     }
 
     /**
@@ -702,30 +735,42 @@ class VaccineInventoryController extends Controller
      */
     public function adjustStock(Request $request, $id)
     {
-        $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
-            ->findOrFail($id);
-
-        $request->validate([
+        $validated = $request->validate([
             'transaction_type' => 'required|in:received,adjusted,expired,disposed',
             'quantity'         => 'required|integer|min:1',
             'remarks'          => 'nullable|string|max:500',
         ]);
 
-        $type     = $request->transaction_type;
-        $quantity = $request->quantity;
+        return DB::transaction(function () use ($request, $id, $validated) {
+            $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            $type = $validated['transaction_type'];
+            $quantity = (int) $validated['quantity'];
+            $oldQty = (int) $inventory->current_quantity;
+            $oldStatus = $inventory->status;
+
+            if (in_array($type, ['expired', 'disposed'], true) && $quantity > $oldQty) {
+                throw ValidationException::withMessages([
+                    'quantity' => 'The requested stock removal exceeds the available quantity.',
+                ]);
+            }
 
         // Determine new stock level
-        if ($type === 'received' || $type === 'adjusted') {
-            $newQty = $inventory->current_quantity + $quantity;
+        if (in_array($type, ['received', 'adjusted'], true)) {
+            $newQty = $oldQty + $quantity;
         } else {
             // expired / disposed — reduce stock
-            $newQty = max(0, $inventory->current_quantity - $quantity);
+            $newQty = $oldQty - $quantity;
         }
 
-        $oldQty = (int) $inventory->current_quantity;
+        $newStatus = $newQty === 0
+            ? 'depleted'
+            : ($oldStatus === 'depleted' ? 'active' : $oldStatus);
         $inventory->update([
             'current_quantity' => $newQty,
-            'status'           => $newQty === 0 ? 'depleted' : $inventory->status,
+            'status'           => $newStatus,
         ]);
 
         InventoryTransaction::create([
@@ -733,7 +778,8 @@ class VaccineInventoryController extends Controller
             'staff_id'         => $request->user()->id,
             'transaction_type' => $type,
             'quantity'         => $quantity,
-            'remarks'          => $request->remarks,
+            'balanced'         => $newQty,
+            'remarks'          => $validated['remarks'] ?? null,
         ]);
 
         AuditLog::create([
@@ -742,8 +788,8 @@ class VaccineInventoryController extends Controller
             'action' => 'inventory.adjust',
             'model' => VaccineInventory::class,
             'model_id' => $inventory->inventory_id,
-            'old_values' => ['current_quantity' => $oldQty],
-            'new_values' => ['current_quantity' => $newQty, 'transaction_type' => $type],
+            'old_values' => ['current_quantity' => $oldQty, 'status' => $oldStatus],
+            'new_values' => ['current_quantity' => $newQty, 'status' => $newStatus, 'transaction_type' => $type],
             'description' => "Stock adjusted for batch {$inventory->batch_number}: {$type} {$quantity}",
         ]);
 
@@ -751,6 +797,7 @@ class VaccineInventoryController extends Controller
             'message'   => 'Stock adjusted successfully',
             'inventory' => $inventory->fresh(),
         ]);
+        });
     }
 
     /**
@@ -867,4 +914,3 @@ class VaccineInventoryController extends Controller
         ]);
     }
 }
-

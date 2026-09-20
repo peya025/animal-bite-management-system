@@ -4,6 +4,7 @@ use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\EnsureEmailIsVerified;
 use App\Http\Middleware\EnsurePatientAccount;
 use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Middleware\EnsurePublicSetupIsAvailable;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => CheckRole::class,
             'patient.account' => EnsurePatientAccount::class,
             'active.user' => EnsureActiveUser::class,
+            'public.setup' => EnsurePublicSetupIsAvailable::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\Patient;
+use App\Models\PatientAccount;
 use App\Models\User;
 
 class PatientPolicy
@@ -28,8 +29,14 @@ class PatientPolicy
         return $this->sameClinic($user, $patient) && $user->isAdmin();
     }
 
-    public function printEnrolment(User $user, Patient $patient): bool
+    public function printEnrolment(User|PatientAccount $user, Patient $patient): bool
     {
+        // Enrolment forms are staff documents. Patient accounts use only their
+        // dedicated mobile APIs and cannot print any patient's enrolment form.
+        if ($user instanceof PatientAccount) {
+            return false;
+        }
+
         return $this->sameClinic($user, $patient)
             && in_array($user->role, ['admin', 'registration', 'triage', 'treatment'], true);
     }

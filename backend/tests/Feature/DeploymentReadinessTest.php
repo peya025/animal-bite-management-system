@@ -27,7 +27,15 @@ class DeploymentReadinessTest extends TestCase
 
     public function test_demo_seeder_populates_only_synthetic_data_and_no_developer(): void
     {
-        $this->seed(DemoSeeder::class);
+        putenv('DEMO_ADMIN_PASSWORD=TestOnlyAdminPassword123!');
+        putenv('DEMO_STAFF_PASSWORD=TestOnlyStaffPassword123!');
+
+        try {
+            $this->seed(DemoSeeder::class);
+        } finally {
+            putenv('DEMO_ADMIN_PASSWORD');
+            putenv('DEMO_STAFF_PASSWORD');
+        }
 
         // Verify admin exists
         $this->assertDatabaseHas('users', [
@@ -59,5 +67,9 @@ class DeploymentReadinessTest extends TestCase
         $this->assertDatabaseMissing('roles', [
             'slug' => 'developer',
         ]);
+        $this->assertDatabaseHas('clinic_module_configs', [
+            'clinic_id' => User::where('email', 'admin@demo-clinic.example.com')->value('clinic_id'),
+        ]);
+        $this->assertDatabaseCount('clinic_schedules', 7);
     }
 }

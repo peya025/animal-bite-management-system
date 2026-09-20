@@ -37,6 +37,8 @@ Route::get('/health', function () {
     ]);
 });
 
+// Diagnostic route is local/testing-only and requires the explicit developer flag.
+if (app()->environment(['local', 'testing']) && config('app.developer_tools_enabled', false)) {
 // Test route - check if API is working
 Route::get('/test', function () {
     return response()->json([
@@ -45,6 +47,7 @@ Route::get('/test', function () {
         'laravel_version' => app()->version(),
     ]);
 });
+}
 
 // Health check endpoint (Task 4f — used by Render health-check URL)
 Route::get('/health', function () {
@@ -70,12 +73,12 @@ Route::get('/public/vaccine-availability', [VaccineInventoryController::class, '
 
 // Public setup endpoints (no authentication required)
 Route::post('/setup/initialize', [ClinicSetupController::class, 'initialize'])
-    ->middleware('throttle:5,60'); // 5 attempts per 60 minutes
+    ->middleware(['throttle:5,60', 'public.setup']); // 5 attempts per 60 minutes
 Route::get('/setup/check-needed', function () {
     return response()->json([
         'needs_setup' => \App\Models\Clinic::count() === 0,
     ]);
-});
+})->middleware('public.setup');
 
 use App\Http\Controllers\DeveloperDatabaseExplorerController;
 use App\Http\Controllers\Developer\AppointmentDiagnosticController;

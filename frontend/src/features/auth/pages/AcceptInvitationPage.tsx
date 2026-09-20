@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { LoginRoot } from '../styles/Login.styles';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
 export default function AcceptInvitationPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
@@ -23,7 +25,7 @@ export default function AcceptInvitationPage() {
 
   const validateToken = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/staff-invitations/validate/${token}`, {
+      const response = await fetch(`${API_BASE_URL}/staff-invitations/validate/${token}`, {
         headers: { 'Accept': 'application/json' },
       });
       
@@ -70,7 +72,7 @@ export default function AcceptInvitationPage() {
     setSubmitting(true);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/staff-invitations/accept/${token}`, {
+      const response = await fetch(`${API_BASE_URL}/staff-invitations/accept/${token}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

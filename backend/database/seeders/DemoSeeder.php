@@ -11,7 +11,7 @@ use App\Models\User;
 use App\Models\VaccineInventory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
  * Demo Seeder for Safe Public Demonstrations
@@ -24,6 +24,9 @@ class DemoSeeder extends Seeder
 {
     public function run(): void
     {
+        $adminPassword = $this->requiredPassword('DEMO_ADMIN_PASSWORD');
+        $staffPassword = $this->requiredPassword('DEMO_STAFF_PASSWORD');
+
         // 1. Synthetic Clinic
         $clinic = Clinic::firstOrCreate(
             ['name' => 'Synthetic Demo Animal Bite Center'],
@@ -57,8 +60,7 @@ class DemoSeeder extends Seeder
             ['name' => 'receptionist', 'display_name' => 'Receptionist', 'default_route' => '/patients']
         );
 
-        // 3. Demo Admin User (password from environment or random)
-        $adminPassword = env('DEMO_ADMIN_PASSWORD', Str::random(16));
+        // 3. Demo Admin User (password supplied only by the deployment environment)
         $admin = User::updateOrCreate(
             ['email' => 'admin@demo-clinic.example.com'],
             [
@@ -77,7 +79,7 @@ class DemoSeeder extends Seeder
             [
                 'clinic_id' => $clinic->id,
                 'name' => 'Dr. Alex Mercer',
-                'password' => Hash::make('StaffDemoPass123!'),
+                'password' => Hash::make($staffPassword),
                 'role' => 'triage',
                 'is_active' => true,
                 'signature_path' => 'signatures/dr_mercer.png',
@@ -92,7 +94,7 @@ class DemoSeeder extends Seeder
             [
                 'clinic_id' => $clinic->id,
                 'name' => 'Nurse Clara Vance',
-                'password' => Hash::make('StaffDemoPass123!'),
+                'password' => Hash::make($staffPassword),
                 'role' => 'treatment',
                 'is_active' => true,
                 'signature_path' => 'signatures/nurse_clara.png',
@@ -107,7 +109,7 @@ class DemoSeeder extends Seeder
             [
                 'clinic_id' => $clinic->id,
                 'name' => 'Nurse Julian Croft',
-                'password' => Hash::make('StaffDemoPass123!'),
+                'password' => Hash::make($staffPassword),
                 'role' => 'treatment',
                 'is_active' => true,
                 'signature_path' => 'signatures/nurse_julian.png',
@@ -177,5 +179,22 @@ class DemoSeeder extends Seeder
                 'decided_at' => now(),
             ]
         );
+
+        // Required system defaults for a fresh demo database.
+        $this->call([
+            DefaultClinicConfigSeeder::class,
+            ClinicScheduleSeeder::class,
+        ]);
+    }
+
+    private function requiredPassword(string $variable): string
+    {
+        $password = (string) env($variable, '');
+
+        if (strlen($password) < 12) {
+            throw new RuntimeException("{$variable} must be set to a unique password of at least 12 characters before running DemoSeeder.");
+        }
+
+        return $password;
     }
 }

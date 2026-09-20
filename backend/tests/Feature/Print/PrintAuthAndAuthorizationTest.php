@@ -4,6 +4,7 @@ namespace Tests\Feature\Print;
 
 use App\Models\Clinic;
 use App\Models\Patient;
+use App\Models\PatientAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -92,5 +93,27 @@ class PrintAuthAndAuthorizationTest extends TestCase
             'Accept' => 'text/html',
         ]);
         $response->assertStatus(200);
+    }
+
+    public function test_patient_account_cannot_print_any_enrolment_record(): void
+    {
+        $clinic = $this->createClinic('Clinic A');
+        $patient = $this->createPatient($clinic);
+        $account = PatientAccount::create([
+            'name' => 'Patient Account',
+            'email' => 'patient.account@example.test',
+            'password' => bcrypt('secret123'),
+            'is_active' => true,
+        ]);
+        $account->patients()->attach($patient, [
+            'relationship' => 'self',
+            'is_primary' => true,
+            'status' => 'verified',
+        ]);
+
+        Sanctum::actingAs($account);
+
+        $this->getJson('/api/print/patient/' . $patient->patient_id . '/enrolment')
+            ->assertForbidden();
     }
 }

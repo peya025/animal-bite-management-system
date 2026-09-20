@@ -10,6 +10,10 @@ class LandingPageSetting extends Model
 {
     use HasFactory;
 
+    protected $attributes = [
+        'abtc_description' => 'Animal Bite Management & Monitoring System',
+    ];
+
     protected $fillable = [
         'clinic_id',
         'app_short_name',

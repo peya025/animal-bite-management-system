@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('app_short_name')->default('TABTA');
             $table->string('app_full_name')->default('TAGOLOAN ANIMAL BITE TREATMENT CENTER');
             $table->string('abtc_brand_title')->default('ABTC');
-            $table->text('abtc_description')->default('Animal Bite Management & Monitoring System');
+            $table->text('abtc_description')->nullable();
             $table->string('developed_for_text')->default('Developed for Animal Bite Treatment Center');
             $table->json('quick_links')->nullable();
             $table->json('support_links')->nullable();

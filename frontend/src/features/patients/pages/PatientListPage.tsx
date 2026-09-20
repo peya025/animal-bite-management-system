@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../../shared/contexts/AuthContext';
+import { ROUTES } from '../../../shared/config/routes';
 import AddPatientModal from '../components/AddPatientModal';
 import InvitePatientModal from '../components/InvitePatientModal';
 import PatientEditModal from '../components/PatientEditModal';
@@ -32,6 +34,8 @@ const fullName = (p: Patient) =>
 // ─── Main Component ───────────────────────────────────────────
 export default function PatientList() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const [patients,             setPatients]             = useState<Patient[]>([]);
   const [loading,              setLoading]              = useState(true);
   const [error,                setError]                = useState('');
@@ -63,9 +67,14 @@ export default function PatientList() {
 
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
-  const userRole   = userData   ? (JSON.parse(userData)?.role  ?? '') : '';
-  const printedBy  = userData   ? (JSON.parse(userData)?.name  ?? 'Unknown') : 'Unknown';
+  const userRole   = user?.role || (userData ? (JSON.parse(userData)?.role ?? '') : '');
+  const printedBy  = user?.name || (userData ? (JSON.parse(userData)?.name ?? 'Unknown') : 'Unknown');
   const clinicName = clinicData ? (JSON.parse(clinicData)?.name ?? 'Animal Bite Treatment Center') : 'Animal Bite Treatment Center';
+
+  // Only authorized staff responsible for patient registration can add new patients (exclude Treatment Nurse & Triage Doctor)
+  const isTreatmentOrTriage = ['treatment', 'triage'].includes(userRole);
+  const isAuthorizedRegistrationRole = ['registration', 'admin', 'developer'].includes(userRole);
+  const canAddPatient = isAuthorizedRegistrationRole && !isTreatmentOrTriage;
 
   const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue'>('today_queue');
   const [tabCounts,            setTabCounts]            = useState({ today_queue: 0, all: 0, online: 0, pre_registered: 0, overdue: 0 });
@@ -431,26 +440,36 @@ export default function PatientList() {
         <div className="pm-main-panel">
           <div className="pm-panel-header">
             <div>
-              <h1 className="pm-title">Patient Management</h1>
-              <p className="pm-subtitle">Manage and track all registered walk-in and online patients</p>
+              <h1 className="pm-title">
+                {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Management'}
+              </h1>
+              <p className="pm-subtitle">
+                {location.pathname.includes('patient-registry')
+                  ? 'View and access all registered patient records in the clinic registry'
+                  : 'Manage and track all registered walk-in and online patients'}
+              </p>
               {/* Breadcrumb */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
                 <button
-                  onClick={() => { window.location.href = '/dashboard'; }}
+                  onClick={() => navigate(ROUTES.DASHBOARD)}
                   style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
                 >
                   Dashboard
                 </button>
                 <span style={{ color: '#9ca3af' }}>›</span>
-                <span style={{ color: '#6b7280' }}>Patients</span>
+                <span style={{ color: '#6b7280' }}>
+                  {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Registration'}
+                </span>
               </div>
             </div>
-            <button className="pm-add-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowAddModal(true); }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Add Patient
-            </button>
+            {canAddPatient && (
+              <button className="pm-add-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowAddModal(true); }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add Patient
+              </button>
+            )}
           </div>
 
           {/* Unified Filter Tabs */}
@@ -880,7 +899,7 @@ export default function PatientList() {
       </div>
 
       {/* ── Modals ── */}
-      {showAddModal && (
+      {canAddPatient && showAddModal && (
         <AddPatientModal
           role={userRole}
           onClose={() => setShowAddModal(false)}

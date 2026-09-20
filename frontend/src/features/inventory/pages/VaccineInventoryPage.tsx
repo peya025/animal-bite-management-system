@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
+import { ROUTES } from '../../../shared/config/routes';
 import StatCard from '../../../components/common/StatCard';
 import AddEditInventoryDialog from '../components/AddEditInventoryDialog/AddEditInventoryDialog';
 import AdjustStockDialog from '../components/AdjustStockDialog/AdjustStockDialog';
@@ -266,7 +267,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
             <Typography component="h1" sx={{ fontWeight: 700, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', m: 0 }}>
-              Vaccine Inventory
+              {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
             </Typography>
             <Chip
               icon={<VerifiedIcon style={{ fontSize: 16 }} />}
@@ -278,19 +279,25 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             />
           </Box>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#64748b', mt: 0.5 }}>
-            Add stock, monitor expiry, and manage opened-vial discard timers from one operational view.
+            {view === 'administrations'
+              ? 'View nurse administration records, patient logs, and consumption details.'
+              : 'Add stock, monitor expiry, and manage opened-vial discard timers from one operational view.'}
           </Typography>
 
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
             <button
-              onClick={() => { window.location.href = '/dashboard'; }}
+              onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
             >
               Dashboard
             </button>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Vaccine Inventory</span>
+            <span style={{ color: '#6b7280' }}>Vaccine Stock Management</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>
+              {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
+            </span>
           </div>
 
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.25, mt: 1.25, px: 1.5, py: 0.75, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 2, flexWrap: 'wrap' }}>

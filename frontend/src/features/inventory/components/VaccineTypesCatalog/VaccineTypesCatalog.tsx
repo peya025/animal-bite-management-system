@@ -39,6 +39,7 @@ import {
   AddShoppingCart as AddStockIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../../shared/config/routes';
 import { useAuth } from '../../../../shared/contexts/AuthContext';
 import { getVaccinePresets, deleteVaccinePreset } from '../../services/vaccineInventoryService';
 import VaccineTypeDialog from '../VaccineTypeDialog/VaccineTypeDialog';
@@ -155,13 +156,15 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
             >
               Dashboard
             </button>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Vaccine Type Setup</span>
+            <span style={{ color: '#6b7280' }}>Vaccine Stock Management</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Vaccine Setup</span>
           </div>
         </Box>
 

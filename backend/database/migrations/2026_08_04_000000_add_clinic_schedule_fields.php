@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -13,18 +14,32 @@ return new class extends Migration
     {
         Schema::table('clinics', function (Blueprint $table) {
             // Operating hours
-            $table->time('opening_time')->default('08:00:00')->after('is_setup_complete');
-            $table->time('closing_time')->default('17:00:00')->after('opening_time');
+            if (!Schema::hasColumn('clinics', 'opening_time')) {
+                $table->time('opening_time')->default('08:00:00')->after('is_setup_complete');
+            }
+            if (!Schema::hasColumn('clinics', 'closing_time')) {
+                $table->time('closing_time')->default('17:00:00')->after('opening_time');
+            }
             
             // Working days (JSON array: [1,2,3,4,5] for Mon-Fri)
-            $table->json('working_days')->default('[1,2,3,4,5]')->after('closing_time');
+            if (!Schema::hasColumn('clinics', 'working_days')) {
+                $table->json('working_days')->nullable()->after('closing_time');
+            }
             
             // Holidays/Non-working dates (JSON array of dates)
-            $table->json('holiday_dates')->nullable()->after('working_days');
+            if (!Schema::hasColumn('clinics', 'holiday_dates')) {
+                $table->json('holiday_dates')->nullable()->after('working_days');
+            }
             
             // Special schedule notes
-            $table->text('schedule_notes')->nullable()->after('holiday_dates');
+            if (!Schema::hasColumn('clinics', 'schedule_notes')) {
+                $table->text('schedule_notes')->nullable()->after('holiday_dates');
+            }
         });
+
+        DB::table('clinics')->whereNull('working_days')->update([
+            'working_days' => '[1,2,3,4,5]',
+        ]);
     }
 
     /**

@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Clinic extends Model
 {
+    protected $attributes = [
+        'working_days' => '[1,2,3,4,5]',
+    ];
+
     protected $fillable = [
         'name',
         'address',

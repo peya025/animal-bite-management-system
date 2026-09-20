@@ -335,12 +335,10 @@ class VaccinationRecordController extends Controller
             ], 401);
         }
 
-        // Signature guard — must check BEFORE opening any transaction
-        if (empty($actingUser->signature_path)) {
-            return response()->json([
-                'message' => 'Your signature is not yet on file. Ask a clinic admin to complete your staff profile before administering doses.',
-            ], 422);
-        }
+        // Signature is optional — if the staff member has a digital signature on
+        // file it will be stamped on the treatment record; otherwise the dose is
+        // recorded and the nurse hand-signs the printed vaccination card.
+        // A missing signature_path no longer blocks saving the record.
 
         DB::beginTransaction();
         try {

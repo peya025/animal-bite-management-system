@@ -182,7 +182,7 @@ class DualNurseWorkstationTest extends TestCase
         $this->assertEquals($nurse->signature_path, $record->signature_path);
     }
 
-    public function test_dose_administration_rejects_unapproved_bite_episode(): void
+    public function test_dose_administration_succeeds_when_nurse_has_no_signature_on_file(): void
     {
         $clinic  = $this->createClinic();
         $nurse   = $this->createNurse($clinic, 'New Nurse', 'intake_nurse', withSignature: false);
@@ -201,6 +201,8 @@ class DualNurseWorkstationTest extends TestCase
 
         Sanctum::actingAs($nurse);
 
+        // Signature is now optional — record must save even without one on file.
+        // The nurse will hand-sign the printed vaccination card instead.
         $this->postJson('/api/vaccination-records', [
             'patient_id' => $patient->patient_id,
             'bite_id'    => $incident->bite_id,
@@ -210,8 +212,14 @@ class DualNurseWorkstationTest extends TestCase
                 'route'        => 'ID',
                 'vaccine_type' => 'Speeda',
             ]],
-        ])->assertStatus(422)
-            ->assertJsonPath('message', 'Your signature is not yet on file. Ask a clinic admin to complete your staff profile before administering doses.');
+        ])->assertCreated();
+
+        $record = TreatmentRecord::where('patient_id', $patient->patient_id)
+            ->whereNotNull('dose_number')
+            ->first();
+        $this->assertNotNull($record);
+        $this->assertEquals($nurse->id, $record->administered_by);
+        $this->assertNull($record->signature); // no digital signature — hand-signed on card
     }
 
     public function test_administered_by_is_immutable_on_treatment_records(): void

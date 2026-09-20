@@ -787,10 +787,12 @@ class QueueController extends Controller
             DB::statement("SELECT GET_LOCK(?, ?)", [$lockName, $lockTimeout]);
 
             try {
+                // MAX must scan ALL rows for today (including soft-deleted) because the
+                // unique_daily_queue index is not filtered by deleted_at — a soft-deleted
+                // row still physically occupies its queue_number slot.
                 $maxNumber = DB::table('queues')
                     ->where('clinic_id', $clinicId)
                     ->where('queue_date', $todayDate)
-                    ->whereNull('deleted_at')
                     ->max('queue_number');
 
                 $nextQueueNumber = $maxNumber ? ($maxNumber + 1) : 1;

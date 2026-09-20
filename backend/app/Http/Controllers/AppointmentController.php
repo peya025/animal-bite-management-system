@@ -834,15 +834,12 @@ class AppointmentController extends Controller
                 $targetStation = 'treatment';
             }
 
-            // Generate next queue number safely with DB lock
-            $lastQueue = Queue::where('clinic_id', $clinicId)
+            // Generate next queue number — must scan ALL rows including soft-deleted
+            // because the unique_daily_queue index covers deleted rows too.
+            $nextQueueNumber = (DB::table('queues')
+                ->where('clinic_id', $clinicId)
                 ->where('queue_date', $todayDate)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->orderBy('queue_number', 'desc')
-                ->first();
-
-            $nextQueueNumber = $lastQueue ? ($lastQueue->queue_number + 1) : 1;
+                ->max('queue_number') ?? 0) + 1;
 
             $doseInfo = $appointment && $appointment->dose_number !== null
                 ? "Day {$appointment->dose_number} Dose"

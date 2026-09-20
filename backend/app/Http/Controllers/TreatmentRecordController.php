@@ -483,9 +483,11 @@ class TreatmentRecordController extends Controller
             } else {
                 // Patient had no prior queue ticket today — auto-generate one for Treatment Desk
                 $todayDate = Carbon::today()->toDateString();
-                $lastQueueNumber = \App\Models\Queue::where('clinic_id', $clinicId)
+                // Must scan ALL rows (including soft-deleted) because the
+                // unique_daily_queue index covers deleted rows too.
+                $lastQueueNumber = \App\Models\Queue::withoutGlobalScopes()
+                    ->where('clinic_id', $clinicId)
                     ->where('queue_date', $todayDate)
-                    ->whereNull('deleted_at')
                     ->max('queue_number') ?? 0;
 
                 $todayQueue = \App\Models\Queue::create([

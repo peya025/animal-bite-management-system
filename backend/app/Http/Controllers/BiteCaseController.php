@@ -81,10 +81,11 @@ class BiteCaseController extends Controller
                 'created_by' => $request->user()->id,
             ]);
 
-            $lastQueueNumber = Queue::where('clinic_id', $clinicId)
+            // Must scan ALL rows (including soft-deleted) because the
+            // unique_daily_queue index covers deleted rows too.
+            $lastQueueNumber = DB::table('queues')
+                ->where('clinic_id', $clinicId)
                 ->where('queue_date', $todayDate)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
                 ->max('queue_number') ?? 0;
 
             $queue = Queue::create([

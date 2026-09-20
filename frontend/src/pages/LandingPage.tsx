@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from '../shared/services/api';
 import { APP_SHORT_NAME } from '../constants';
 import GlobalStyles from '@mui/material/GlobalStyles';
 import { landingPageStyles } from '../styles/LandingPage.styles';
@@ -66,7 +67,7 @@ export default function LandingPage() {
   const [loadingVaccines, setLoadingVaccines] = useState(true);
 
   useEffect(() => {
-    fetch('/api/landing-page-settings')
+    fetch(`${API_BASE_URL}/landing-page-settings`)
       .then(res => res.json())
       .then(data => {
         if (data && data.app_short_name) {
@@ -79,7 +80,7 @@ export default function LandingPage() {
       .catch(() => console.log('Using default landing page settings'));
 
     // Fetch Live Vaccine Availability & Catalog
-    fetch('/api/public/vaccine-availability')
+    fetch(`${API_BASE_URL}/public/vaccine-availability`)
       .then(res => res.json())
       .then(data => {
         setVaccineInfo(data);
@@ -92,7 +93,7 @@ export default function LandingPage() {
     // Check if setup is needed on page load
     const checkSetup = async () => {
       try {
-        const response = await fetch('/api/setup/check-needed', {
+        const response = await fetch(`${API_BASE_URL}/setup/check-needed`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -120,7 +121,7 @@ export default function LandingPage() {
   const handleSignIn = async () => {
     // Check if setup is needed BEFORE redirecting to login
     try {
-      const response = await fetch('/api/setup/check-needed', {
+      const response = await fetch(`${API_BASE_URL}/setup/check-needed`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',

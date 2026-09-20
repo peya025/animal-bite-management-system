@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './features/auth/pages/LoginPage';
-import SetupWizard from './features/clinic-setup/pages/SetupWizardPage';
+import InitialSetupRoute from './components/InitialSetupRoute';
 import AcceptInvitationPage from './features/auth/pages/AcceptInvitationPage';
 import PatientList from './features/patients/pages/PatientListPage';
 import NursePatientList from './features/patients/pages/NursePatientListPage';
@@ -53,7 +53,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route path="/setup" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><SetupWizard /></ProtectedRoute>} />
+          <Route path="/setup" element={<InitialSetupRoute />} />
           <Route path="/accept-invitation/:token" element={<AcceptInvitationPage />} />
           
           {/* Authenticated Dashboard */}

@@ -1,0 +1,2 @@
+[php.extensions]
+pdo_mysql = true

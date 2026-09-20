@@ -1,3 +1,4 @@
+# enable mysql driver
 [phases.extensions]
 extensions = [
   "pdo_mysql"

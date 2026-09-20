@@ -174,13 +174,13 @@ Choose one approach and document it:
 
 ### P1-4 — Fix tracked frontend environment configuration
 
-**Implementation status (2026-09-20):** Implemented: `frontend/.env` was removed from version control, ignored, and the affected direct API calls now use `VITE_API_BASE_URL`.
+**Implementation status (2026-09-20):** Implemented: `frontend/.env` was removed from version control, ignored, and the affected direct API calls now prefer `VITE_API_URL` (with `VITE_API_BASE_URL` retained as a backwards-compatible fallback).
 
 **Problem:** `frontend/.env` is tracked and includes obsolete `VITE_API_URL` alongside `VITE_API_BASE_URL`.
 
-**Task:** Move safe defaults to `frontend/.env.example`, ignore `frontend/.env`, remove `VITE_API_URL` if unused, and inject the real `VITE_API_BASE_URL` only through the hosting environment.
+**Task:** Move safe defaults to `frontend/.env.example`, ignore `frontend/.env`, and inject the real `VITE_API_URL` only through the hosting environment. `VITE_API_BASE_URL` may remain as a transitional compatibility fallback.
 
-**Acceptance:** No real environment file is tracked; the frontend production build uses `VITE_API_BASE_URL` only.
+**Acceptance:** No real environment file is tracked; the frontend production build prefers `VITE_API_URL` and supports the existing `VITE_API_BASE_URL` configuration as a fallback.
 
 ### P1-5 — Reconcile old deployment documentation
 
@@ -211,7 +211,7 @@ DEVELOPER_TOOLS_ENABLED=false
 SESSION_SECURE_COOKIE=true
 SESSION_SAME_SITE=lax
 LOG_LEVEL=warning
-VITE_API_BASE_URL=https://<backend-domain>/api
+VITE_API_URL=https://<backend-domain>/api
 ```
 
 Generate a new production `APP_KEY`; set unique, non-default demo credentials through secret environment variables.
@@ -227,7 +227,7 @@ Generate a new production `APP_KEY`; set unique, non-default demo credentials th
 ### P2-3 — Configure frontend, worker, and scheduler
 
 1. Deploy the frontend as a static site with `npm run build`, publish directory `dist`, and SPA rewrite `/* -> /index.html`.
-2. Configure the frontend's `VITE_API_BASE_URL` to the exact HTTPS backend API origin.
+2. Configure the frontend's `VITE_API_URL` to the exact HTTPS backend API origin.
 3. Select and document either:
    - a monitored queue worker, or
    - `QUEUE_CONNECTION=sync` plus clearly labelled inactive background features for the short demo.

@@ -3,7 +3,7 @@ import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog'
 import { SetupWizardRoot } from '../styles/SetupWizard.styles';
 import { ROUTES } from '../../../shared/config/routes';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export default function SetupWizard() {
   const [currentStep, setCurrentStep] = useState(0);

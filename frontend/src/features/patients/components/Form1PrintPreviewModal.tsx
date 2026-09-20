@@ -39,7 +39,7 @@ export default function Form1PrintPreviewModal({
 
     const token = localStorage.getItem('authToken') || '';
     const patientId = patient.patient_id || patient.id;
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+    const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
     
     // Normalize print endpoint to API base URL (CORS enabled)
     const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment`;

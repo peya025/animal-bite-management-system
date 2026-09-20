@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { APP_NAME } from '../../../constants';
 import { LoginRoot } from '../styles/Login.styles';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 // Tier 9 — Google Identity Services type declaration (loaded via CDN script in index.html)
 declare global {

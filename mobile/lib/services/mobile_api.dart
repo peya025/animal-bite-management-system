@@ -27,11 +27,15 @@ class MobileApi {
 
   static final instance = MobileApi._();
 
-  // Load from .env file - change .env when switching networks
-  static String get _baseUrl =>
-      (dotenv.env['API_BASE_URL'] ?? 'http://192.168.18.53:8000/api/mobile')
-          .trim()
-          .replaceAll(' ', '');
+  // API endpoint is deployment configuration, not a hard-coded LAN address.
+  static String get _baseUrl {
+    final baseUrl = dotenv.env['API_BASE_URL']?.trim().replaceAll(' ', '');
+    if (baseUrl == null || baseUrl.isEmpty) {
+      throw StateError('API_BASE_URL must be configured in mobile/.env.');
+    }
+
+    return baseUrl;
+  }
   static int get clinicId => int.parse(dotenv.env['CLINIC_ID'] ?? '1');
 
   static const _tokenKey = 'patient_account_token';

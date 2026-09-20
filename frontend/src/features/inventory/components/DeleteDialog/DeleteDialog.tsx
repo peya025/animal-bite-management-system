@@ -78,7 +78,7 @@ export default function DeleteDialog({ open, item, onClose, onDeleted }: DeleteD
 
       <DialogContent sx={{ pt: 1 }}>
         <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 2, fontSize: 12.5, fontFamily: "'Poppins', sans-serif" }}>
-          <strong>Clinical Audit Safeguard:</strong> Hard deletion is permanently disabled. Archiving will deactivate this batch and record the transaction in the immutable audit log. Historical patient records and dispensing ledgers remain fully intact.
+          <strong>Note:</strong> Archiving removes this batch from active stock without deleting past records. All previous patient vaccinations and stock card history remain safely saved.
         </Alert>
 
         <Box sx={{ p: 1.5, mb: 2.5, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
@@ -101,7 +101,7 @@ export default function DeleteDialog({ open, item, onClose, onDeleted }: DeleteD
 
         <Stack spacing={1}>
           <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#1e293b', fontFamily: "'Poppins', sans-serif" }}>
-            Mandatory Reason for Archival <span style={{ color: '#dc2626' }}>*</span>
+            Reason for Archival <span style={{ color: '#dc2626' }}>*</span>
           </Typography>
           <TextField
             fullWidth
@@ -114,8 +114,8 @@ export default function DeleteDialog({ open, item, onClose, onDeleted }: DeleteD
               if (error) setError('');
             }}
             disabled={archiving}
-            error={!!error && reason.trim().length < 5}
-            helperText={`${reason.trim().length}/500 characters (min 5 required)`}
+            error={!!error}
+            helperText={error || `${reason.trim().length}/500 characters (min 5 required)`}
             sx={{
               fontFamily: "'Poppins', sans-serif",
               '& .MuiOutlinedInput-root': {
@@ -138,7 +138,7 @@ export default function DeleteDialog({ open, item, onClose, onDeleted }: DeleteD
         <Button
           variant="contained"
           onClick={handleArchive}
-          disabled={archiving || reason.trim().length < 5}
+          disabled={archiving}
           startIcon={archiving ? <CircularProgress size={16} color="inherit" /> : <ArchiveIcon />}
           sx={{
             bgcolor: '#d97706',

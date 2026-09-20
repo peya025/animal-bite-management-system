@@ -1,2 +1,4 @@
-[php.extensions]
-pdo_mysql = true
+[php]
+extensions = [
+    "pdo_mysql"
+]

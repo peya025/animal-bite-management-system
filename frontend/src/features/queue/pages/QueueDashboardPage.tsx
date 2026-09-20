@@ -57,6 +57,7 @@ import {
   PatientHistoryLookupModal,
 } from '../components';
 import { useAuth } from '../../../contexts/AuthContext';
+import { ROUTES } from '../../../shared/config/routes';
 import StockLevelIndicator from '../../inventory/components/StockLevelIndicator/StockLevelIndicator';
 
 const TRIAGE_VISIT_TYPES = ['new_case', 'consultation'];
@@ -811,16 +812,18 @@ export default function QueueDashboard() {
             </Typography>
           </Box>
 
-          {/* Breadcrumb — same style as Patient Management page */}
+          {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
             >
               Dashboard
             </button>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Patient Queue</span>
+            <span style={{ color: '#6b7280' }}>Treatment Queues</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Station 1: New & Day 0</span>
           </div>
         </Box>
 

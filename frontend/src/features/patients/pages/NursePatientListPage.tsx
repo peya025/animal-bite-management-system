@@ -33,6 +33,8 @@ import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 
 import api from '../../../shared/services/api';
 
@@ -58,6 +60,7 @@ interface Patient {
 }
 
 export default function NursePatientListPage() {
+  const navigate = useNavigate();
 
   // Station 2 begins with the patients expected for a follow-up dose today.
   const [tab, setTab] = useState<'needs_action' | 'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('due_today');
@@ -686,6 +689,19 @@ export default function NursePatientListPage() {
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
             {today} · Indigo Station 2: manage Doctor-prescribed scheduled follow-up doses due today, overdue, or upcoming
           </Typography>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Treatment Queues</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Station 2: Follow-up Doses</span>
+          </div>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {loading && <CircularProgress size={18} sx={{ color: '#6366f1' }} />}

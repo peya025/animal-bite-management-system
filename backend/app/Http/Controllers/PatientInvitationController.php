@@ -27,10 +27,10 @@ class PatientInvitationController extends Controller
     {
         $patient = Patient::findOrFail($request->patient_id);
 
-        // Check if patient has a contact number
-        if (empty($patient->contact_number)) {
+        // Require a valid email; phone is optional
+        if (!filter_var(trim((string) $patient->email), FILTER_VALIDATE_EMAIL)) {
             return response()->json([
-                'message' => 'Patient does not have a contact number on record. Please update patient contact details first.',
+                'message' => 'Patient does not have a valid email address on record. Please update the patient email first.',
             ], 422);
         }
 
@@ -58,24 +58,20 @@ class PatientInvitationController extends Controller
             'clinic_id' => $patient->clinic_id,
             'patient_id' => $patient->patient_id,
             'invited_by' => auth()->id(),
-            'phone' => $patient->contact_number,
+            'phone' => $patient->contact_number ?: null,
             'token' => $token,
             'status' => 'pending',
             'expires_at' => $expiresAt,
         ]);
 
-        // Send SMS & Email to patient
-        $this->sendInvitationSms($invitation->phone, $invitation->token, $patient);
-        $this->sendInvitationEmail($patient->email, $invitation->token, $patient);
-
-        $channels = ['SMS'];
-        if (!empty($patient->email)) {
-            $channels[] = 'Email';
+        if (!$this->sendInvitationEmail($patient->email, $invitation->token, $patient)) {
+            $invitation->update(['status' => 'expired']);
+            return response()->json([
+                'message' => 'Invitation email could not be sent. Check the email service configuration and try again.',
+            ], 503);
         }
-        $channelText = implode(' and ', $channels);
-
         return response()->json([
-            'message' => "Patient invitation sent successfully via {$channelText}.",
+            'message' => 'Patient invitation sent successfully via email.',
             'invitation' => $invitation->load(['patient', 'invitedBy']),
         ], 201);
     }
@@ -99,10 +95,10 @@ class PatientInvitationController extends Controller
         $patients = Patient::whereIn('patient_id', $patientIds)->get();
 
         foreach ($patients as $patient) {
-            // Check if patient has a contact number
-            if (empty($patient->contact_number)) {
+            // Require a valid email; phone is optional
+            if (!filter_var(trim((string) $patient->email), FILTER_VALIDATE_EMAIL)) {
                 $skippedCount++;
-                $errors[] = "Patient {$patient->first_name} {$patient->last_name} (#{$patient->patient_number}) has no contact number.";
+                $errors[] = "Patient {$patient->first_name} {$patient->last_name} (#{$patient->patient_number}) has no valid email address.";
                 continue;
             }
 
@@ -130,21 +126,23 @@ class PatientInvitationController extends Controller
                 'clinic_id' => $patient->clinic_id,
                 'patient_id' => $patient->patient_id,
                 'invited_by' => auth()->id(),
-                'phone' => $patient->contact_number,
+                'phone' => $patient->contact_number ?: null,
                 'token' => $token,
                 'status' => 'pending',
                 'expires_at' => $expiresAt,
             ]);
 
-            // Send SMS & Email
-            $this->sendInvitationSms($invitation->phone, $invitation->token, $patient);
-            $this->sendInvitationEmail($patient->email, $invitation->token, $patient);
-
+            if (!$this->sendInvitationEmail($patient->email, $invitation->token, $patient)) {
+                $invitation->update(['status' => 'expired']);
+                $skippedCount++;
+                $errors[] = "Email could not be sent for patient #{$patient->patient_number}.";
+                continue;
+            }
             $sentCount++;
         }
 
         return response()->json([
-            'message' => "Successfully sent {$sentCount} portal invitation(s)." . ($skippedCount > 0 ? " ({$skippedCount} skipped due to missing phone or existing account)" : ""),
+            'message' => "Successfully sent {$sentCount} portal invitation(s)." . ($skippedCount > 0 ? " ({$skippedCount} skipped due to invalid email, existing account, or email delivery failure)" : ""),
             'sent_count' => $sentCount,
             'skipped_count' => $skippedCount,
             'errors' => $errors,
@@ -238,20 +236,25 @@ class PatientInvitationController extends Controller
             ], 422);
         }
 
+        $patient = $invitation->patient;
+        if (!$patient || !filter_var(trim((string) $patient->email), FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['message' => 'Please update the patient with a valid email address first.'], 422);
+        }
+
         $newToken = Str::random(64);
-        $newExpiresAt = now()->addDays(7);
+        if (!$this->sendInvitationEmail($patient->email, $newToken, $patient)) {
+            return response()->json([
+                'message' => 'Invitation email could not be sent. Check the email service configuration and try again.',
+            ], 503);
+        }
 
         $invitation->update([
             'token' => $newToken,
             'status' => 'pending',
-            'expires_at' => $newExpiresAt,
+            'expires_at' => now()->addDays(7),
         ]);
-
-        $this->sendInvitationSms($invitation->phone, $invitation->token, $invitation->patient);
-        $this->sendInvitationEmail($invitation->patient->email, $invitation->token, $invitation->patient);
-
         return response()->json([
-            'message' => 'Invitation code resent successfully via SMS and Email.',
+            'message' => 'Invitation code resent successfully via email.',
             'invitation' => $invitation,
         ]);
     }
@@ -306,40 +309,40 @@ class PatientInvitationController extends Controller
     }
 
     /**
-     * Internal helper to send SMS with invitation token.
+     * Return success only when a delivery mailer accepts the invitation.
      */
-    protected function sendInvitationSms(string $phone, string $token, Patient $patient): void
+    protected function sendInvitationEmail(?string $email, string $token, Patient $patient): bool
     {
-        $message = "ABTC Clinic: Hello {$patient->first_name}, you have been invited to join our Patient Portal. Use activation code: {$token} in your app within 7 days.";
-
-        // Log SMS dispatch for development / SMS Gateway integration
-        Log::info("SMS Dispatched to [{$phone}]: {$message}");
-    }
-
-    /**
-     * Internal helper to send Email with invitation token via SMTP / Mailtrap.
-     */
-    protected function sendInvitationEmail(?string $email, string $token, Patient $patient): void
-    {
-        if (empty($email)) {
-            return;
+        $email = trim((string) $email);
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
         }
-
+        $mailer = config('mail.default');
+        $transport = config("mail.mailers.{$mailer}.transport");
+        // Logging and log fallbacks do not count as delivery.
+        if (!in_array($transport, ['smtp', 'sendmail', 'mailgun', 'ses', 'ses-v2', 'postmark', 'resend'], true)) {
+            Log::warning('Portal invitation requires a delivery mailer.', ['mailer' => $mailer]);
+            return false;
+        }
         try {
             Mail::raw(
                 "Hello {$patient->first_name},\n\n" .
-                "You have been invited to join the Animal Bite Treatment Center Mobile Patient Portal.\n\n" .
-                "Your Account Activation Code is:\n{$token}\n\n" .
-                "Please download our mobile app and enter this code within 7 days to activate your portal account.\n\n" .
+                "You have been invited to join ABTCare, the Animal Bite Treatment Center patient app.\n\n" .
+                "Your activation code is:\n{$token}\n\n" .
+                "Open ABTCare and select account activation. Paste this code, enter your email, and create a password. This code expires in 7 days.\n\n" .
+                "If you do not have the app, ask your clinic for the installation link. Do not share this code with anyone.\n\n" .
                 "Thank you,\nAnimal Bite Treatment Center",
-                function ($message) use ($email, $patient) {
-                    $message->to($email)
-                            ->subject("Animal Bite Center - Mobile Portal Invitation ({$patient->first_name})");
+                function ($message) use ($email) {
+                    $message->to($email)->subject('ABTCare - Patient Portal Invitation');
                 }
             );
-            Log::info("Portal Invitation Email sent to [{$email}] for Patient #{$patient->patient_id}");
+            return true;
         } catch (\Exception $e) {
-            Log::error("Failed to send portal invitation email to [{$email}]: " . $e->getMessage());
+            Log::error('Portal invitation email failed.', [
+                'patient_id' => $patient->patient_id,
+                'exception' => get_class($e),
+            ]);
+            return false;
         }
     }
 }

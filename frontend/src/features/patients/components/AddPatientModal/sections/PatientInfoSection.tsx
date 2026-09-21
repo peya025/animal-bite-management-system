@@ -12,20 +12,21 @@ interface PatientInfoSectionProps {
 export function PatientInfoSection({ data, onChange, errors = {}, showQueueFields = false }: PatientInfoSectionProps) {
   return (
     <div className="fm-section">
-      <p className="fm-section-title">I. Patient Information</p>
+      <h3 className="fm-section-title">I. Patient Information</h3>
+      <div className="registration-patient-grid">
 
       <div className="fm-grid fm-grid--4" style={{ marginBottom: 14 }}>
         <FormField id="field-last_name" label="Last Name" required error={!!errors.last_name} errorText={errors.last_name}>
-          <input className="fm-input" value={data.last_name} onChange={onChange('last_name')} placeholder="Dela Cruz" style={errors.last_name ? { borderColor: '#ef4444' } : undefined} />
+          <input className="fm-input" name="last_name" value={data.last_name} onChange={onChange('last_name')} placeholder="Dela Cruz" style={errors.last_name ? { borderColor: '#ef4444' } : undefined} />
         </FormField>
         <FormField id="field-first_name" label="First Name" required error={!!errors.first_name} errorText={errors.first_name}>
-          <input className="fm-input" value={data.first_name} onChange={onChange('first_name')} placeholder="Juan" style={errors.first_name ? { borderColor: '#ef4444' } : undefined} />
+          <input className="fm-input" name="first_name" value={data.first_name} onChange={onChange('first_name')} placeholder="Juan" style={errors.first_name ? { borderColor: '#ef4444' } : undefined} />
         </FormField>
         <FormField label="Middle Name">
-          <input className="fm-input" value={data.middle_name} onChange={onChange('middle_name')} placeholder="Santos" />
+          <input className="fm-input" name="middle_name" value={data.middle_name} onChange={onChange('middle_name')} placeholder="Santos" />
         </FormField>
         <FormField label="Suffix">
-          <input className="fm-input" value={data.suffix} onChange={onChange('suffix')} placeholder="Jr." />
+          <input className="fm-input" name="suffix" value={data.suffix} onChange={onChange('suffix')} placeholder="Jr." />
         </FormField>
       </div>
 
@@ -41,10 +42,10 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
           </div>
         </FormField>
         <FormField id="field-date_of_birth" label="Date of Birth" required error={!!errors.date_of_birth} errorText={errors.date_of_birth}>
-          <input className="fm-input" type="date" value={data.date_of_birth} onChange={onChange('date_of_birth')} max={new Date().toISOString().split('T')[0]} style={errors.date_of_birth ? { borderColor: '#ef4444' } : undefined} />
+          <input className="fm-input" type="date" name="date_of_birth" value={data.date_of_birth} onChange={onChange('date_of_birth')} max={new Date().toISOString().split('T')[0]} style={errors.date_of_birth ? { borderColor: '#ef4444' } : undefined} />
         </FormField>
         <FormField label="Blood Type">
-          <select className="fm-select" value={data.blood_type} onChange={onChange('blood_type')}>
+          <select className="fm-select" name="blood_type" value={data.blood_type} onChange={onChange('blood_type')}>
             <option value="">— Select —</option>
             {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(t => (
               <option key={t}>{t}</option>
@@ -55,10 +56,10 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
 
       <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
         <FormField label="Mother's Maiden Name">
-          <input className="fm-input" value={data.mother_maiden_name} onChange={onChange('mother_maiden_name')} placeholder="Last, First Middle" />
+          <input className="fm-input" name="mother_maiden_name" value={data.mother_maiden_name} onChange={onChange('mother_maiden_name')} placeholder="Last, First Middle" />
         </FormField>
         <FormField label="Civil Status">
-          <select className="fm-select" value={data.civil_status} onChange={onChange('civil_status')}>
+          <select className="fm-select" name="civil_status" value={data.civil_status} onChange={onChange('civil_status')}>
             <option value="">— Select —</option>
             <option value="single">Single</option>
             <option value="married">Married</option>
@@ -73,7 +74,7 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
       {showQueueFields && (
         <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
           <FormField id="field-queue_priority_group" label="Queue Category" required error={!!errors.queue_priority_group} errorText={errors.queue_priority_group}>
-            <select className="fm-select" value={data.queue_priority_group} onChange={onChange('queue_priority_group')} style={errors.queue_priority_group ? { borderColor: '#ef4444' } : undefined}>
+            <select className="fm-select" name="queue_priority_group" value={data.queue_priority_group} onChange={onChange('queue_priority_group')} style={errors.queue_priority_group ? { borderColor: '#ef4444' } : undefined}>
               <option value="normal">Normal</option>
               <option value="pregnant">Pregnant</option>
               <option value="senior">Senior Citizen</option>
@@ -84,7 +85,7 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
             <FormField id="field-queue_priority_level" label="Priority" required error={!!errors.queue_priority_level} errorText={errors.queue_priority_level}>
               <select
                 className="fm-select"
-                value={data.queue_priority_level}
+                name="queue_priority_level" value={data.queue_priority_level}
                 onChange={onChange('queue_priority_level')}
                 style={errors.queue_priority_level ? { borderColor: '#ef4444' } : undefined}
               >
@@ -97,12 +98,13 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
       )}
 
       {data.civil_status === 'married' && (
-        <div style={{ marginBottom: 14 }}>
+        <div className="registration-conditional" style={{ marginBottom: 14 }}>
           <FormField label="Spouse's Name">
-            <input className="fm-input" value={data.spouse_name} onChange={onChange('spouse_name')} />
+            <input className="fm-input" name="spouse_name" value={data.spouse_name} onChange={onChange('spouse_name')} />
           </FormField>
         </div>
       )}
+      </div>
     </div>
   );
 }

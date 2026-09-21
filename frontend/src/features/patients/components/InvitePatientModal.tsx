@@ -193,6 +193,8 @@ function InvitePatientModalContent({
     .join(' ') || 'Unknown Patient';
 
   const contactPhone = patient.contact_number || (patient as any).phone || '';
+  const emailAddress = patient.email?.trim() || '';
+  const hasEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAddress);
   const hasPhone = Boolean(contactPhone && contactPhone.trim().length >= 10);
 
   const statusLabel = (invitation?.status || 'PENDING').toString().toUpperCase();
@@ -264,14 +266,14 @@ function InvitePatientModalContent({
 
               <Box>
                 <Typography sx={{ fontSize: 12, color: 'var(--text-m, #6b7280)' }}>Mobile Contact Phone</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: hasPhone ? 'var(--text-h, #111827)' : '#ef4444', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: hasPhone ? 'var(--text-h, #111827)' : 'var(--text-m, #9ca3af)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   {hasPhone ? (
                     <>
                       <Icon name="phone" size={14} color="#10b981" /> {contactPhone}
                     </>
                   ) : (
                     <>
-                      <Icon name="warning" size={14} color="#ef4444" /> No contact number on record
+                      No contact number (optional)
                     </>
                   )}
                 </Typography>
@@ -293,9 +295,9 @@ function InvitePatientModalContent({
           </Paper>
 
           {/* Invitation Notice */}
-          {!hasPhone && (
+          {!hasEmail && (
             <Alert severity="warning" sx={{ borderRadius: 2 }}>
-              Patient has no valid mobile phone number recorded. Please update the patient profile before sending a portal invitation.
+              Patient has no valid email address recorded. Please update the patient email before sending a portal invitation.
             </Alert>
           )}
 
@@ -372,9 +374,9 @@ function InvitePatientModalContent({
               How Patient Portal Works:
             </Typography>
             <Typography sx={{ fontSize: 11.5, color: 'var(--text-b, #1d4ed8)', lineHeight: 1.6 }}>
-              1. The patient receives an SMS link with a 6-digit PIN token.<br />
-              2. They open the web app to view their upcoming rabies vaccine doses, schedule, and treatment record card.<br />
-              3. No complex username or password needed — quick and secure OTP verification.
+              1. The patient receives an email with an activation code valid for 7 days.<br />
+              2. They open ABTCare, select account activation, and paste the code from their email.<br />
+              3. They enter their email and create a password to access their linked clinic records.
             </Typography>
           </Box>
         </Stack>
@@ -389,7 +391,7 @@ function InvitePatientModalContent({
           <Button
             variant="outlined"
             onClick={handleResendInvite}
-            disabled={sending || !hasPhone}
+            disabled={sending || !hasEmail}
             startIcon={sending ? <ButtonSpinner size={16} /> : <ResendIcon fontSize="small" />}
             sx={{
               borderColor: '#059669',
@@ -399,13 +401,13 @@ function InvitePatientModalContent({
               '&:hover': { bgcolor: '#f0fdf4', borderColor: '#047857' },
             }}
           >
-            {sending ? 'Resending Code…' : 'Resend Invite Code'}
+            {sending ? 'Resending Code…' : 'Resend Invite Email'}
           </Button>
         ) : (
           <Button
             variant="contained"
             onClick={handleSendInvite}
-            disabled={sending || !hasPhone || invitation?.status === 'accepted'}
+            disabled={sending || !hasEmail || invitation?.status === 'accepted'}
             startIcon={sending ? <ButtonSpinner size={16} /> : <SendIcon fontSize="small" />}
             sx={{
               bgcolor: '#059669',
@@ -414,7 +416,7 @@ function InvitePatientModalContent({
               '&:hover': { bgcolor: '#047857' },
             }}
           >
-            {sending ? 'Sending Invite…' : patient.email ? 'Send Portal Invite (SMS & Email)' : 'Send Portal Invite SMS'}
+            {sending ? 'Sending Invite…' : 'Send Portal Invite (Email)'}
           </Button>
         )}
       </DialogActions>
@@ -424,7 +426,7 @@ function InvitePatientModalContent({
         <ConfirmationDialog
           variant="success"
           title="Invitation Sent"
-          message={<>Mobile Portal invitation token has been dispatched to <strong>{patientFullName}</strong> ({contactPhone}).</>}
+          message={<>An email with the ABTCare activation code has been sent to <strong>{patientFullName}</strong> ({emailAddress}).</>}
           confirmLabel="OK"
           hideCancel
           onConfirm={() => setShowSuccessModal(false)}

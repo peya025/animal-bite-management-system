@@ -10,10 +10,10 @@ interface SocioeconomicSectionProps {
 export function SocioeconomicSection({ data, onChange }: SocioeconomicSectionProps) {
   return (
     <div className="fm-section">
-      <p className="fm-section-title">Socioeconomic Information</p>
+      <h3 className="fm-section-title">Socioeconomic Information</h3>
       <div className="fm-grid fm-grid--3" style={{ marginBottom: 14 }}>
         <FormField label="Educational Attainment">
-          <select className="fm-select" value={data.educational_attainment} onChange={onChange('educational_attainment')}>
+          <select className="fm-select" name="educational_attainment" value={data.educational_attainment} onChange={onChange('educational_attainment')}>
             <option value="">— Select —</option>
             <option value="no_formal">No Formal Education</option>
             <option value="elementary">Elementary</option>
@@ -26,7 +26,7 @@ export function SocioeconomicSection({ data, onChange }: SocioeconomicSectionPro
           </select>
         </FormField>
         <FormField label="Employment Status">
-          <select className="fm-select" value={data.employment_status} onChange={onChange('employment_status')}>
+          <select className="fm-select" name="employment_status" value={data.employment_status} onChange={onChange('employment_status')}>
             <option value="">— Select —</option>
             <option value="employed">Employed</option>
             <option value="unemployed">None/Unemployed</option>
@@ -36,7 +36,7 @@ export function SocioeconomicSection({ data, onChange }: SocioeconomicSectionPro
           </select>
         </FormField>
         <FormField label="Family Member Position">
-          <select className="fm-select" value={data.family_member} onChange={onChange('family_member')}>
+          <select className="fm-select" name="family_member" value={data.family_member} onChange={onChange('family_member')}>
             <option value="">— Select —</option>
             <option value="father">Father (Ama)</option>
             <option value="mother">Mother (Ina)</option>

@@ -180,7 +180,7 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
 
   return (
     <div className="fm-section">
-      <p className="fm-section-title">II. Government Program Information</p>
+      <h3 className="fm-section-title">II. Government Program Information</h3>
       
       {/* ── Yes / No Radio Choices ── */}
       <FormField label="Any Government Program / Other Membership?">
@@ -244,7 +244,7 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                     <FormField label={`Membership ${rows.length > 1 ? `#${index + 1}` : ''}`}>
                       <select 
                         className="fm-select" 
-                        value={selectedProgram} 
+                        name={"membership-" + index} value={selectedProgram}
                         onChange={(e) => handleProgramSelectChange(index, e.target.value)}
                         style={{ fontWeight: selectedProgram ? 600 : 400 }}
                       >
@@ -300,11 +300,11 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
 
                 {/* ── Sub-fields conditional on selectedProgram ── */}
                 {selectedProgram === 'philhealth' && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
+                  <div className="registration-program-card" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <div className="fm-grid fm-grid--2">
                         <FormField label="Status Type">
-                          <select className="fm-select" value={data.philhealth_status} onChange={onChange('philhealth_status')}>
+                          <select className="fm-select" name="philhealth_status" value={data.philhealth_status} onChange={onChange('philhealth_status')}>
                             <option value="">— Select —</option>
                             <option value="member">Member</option>
                             <option value="dependent">Dependent</option>
@@ -318,7 +318,7 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                         >
                           <input
                             className="fm-input"
-                            value={data.philhealth_no}
+                            name="philhealth_no" value={data.philhealth_no}
                             onChange={onChange('philhealth_no')}
                             maxLength={14}
                             placeholder="XX-XXXXXXXXX-X"
@@ -327,7 +327,7 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                         </FormField>
                       </div>
                       <FormField label="Category">
-                        <select className="fm-select" value={data.philhealth_category} onChange={onChange('philhealth_category')}>
+                        <select className="fm-select" name="philhealth_category" value={data.philhealth_category} onChange={onChange('philhealth_category')}>
                           <option value="">— Select —</option>
                           <option value="fe_private">FE – Private</option>
                           <option value="fe_government">FE – Government</option>
@@ -340,10 +340,10 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                 )}
 
                 {selectedProgram === 'fourps' && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
+                  <div className="registration-program-card" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <FormField label="4Ps Membership Category">
-                        <select className="fm-select" value={data.fourps_category || ''} onChange={handleFourpsCategoryChange}>
+                        <select className="fm-select" name="fourps_category" value={data.fourps_category || ''} onChange={handleFourpsCategoryChange}>
                           <option value="">— Select —</option>
                           <option value="Beneficiary">Beneficiary</option>
                           <option value="Member of Beneficiary">Member of Beneficiary</option>
@@ -352,14 +352,14 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                       {data.fourps_category === 'Member of Beneficiary' && (
                         <div className="fm-grid fm-grid--2">
                           <FormField label="Registered 4Ps Beneficiary">
-                            <select className="fm-select" value={data.registered_fourps_beneficiary || ''} onChange={onChange('registered_fourps_beneficiary')}>
+                            <select className="fm-select" name="registered_fourps_beneficiary" value={data.registered_fourps_beneficiary || ''} onChange={onChange('registered_fourps_beneficiary')}>
                               <option value="">— Select —</option>
                               <option value="Mother">Mother</option>
                               <option value="Father">Father</option>
                             </select>
                           </FormField>
                           <FormField label="Relationship to Registered 4Ps Beneficiary">
-                            <select className="fm-select" value={data.fourps_relationship || ''} onChange={onChange('fourps_relationship')}>
+                            <select className="fm-select" name="fourps_relationship" value={data.fourps_relationship || ''} onChange={onChange('fourps_relationship')}>
                               <option value="">— Select —</option>
                               <option value="Daughter">Daughter</option>
                               <option value="Son">Son</option>
@@ -372,17 +372,17 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                 )}
 
                 {selectedProgram === 'dswd_nhts' && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '10px 14px', marginTop: 12, fontSize: 13, color: '#065f46', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="registration-program-card" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '10px 14px', marginTop: 12, fontSize: 13, color: '#065f46', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span>✓</span> Enrolled under DSWD NHTS (National Household Targeting System)
                   </div>
                 )}
 
                 {selectedProgram === 'senior_citizen' && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
+                  <div className="registration-program-card" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
                     <FormField label="Senior Citizen ID No.">
                       <input
                         className="fm-input"
-                        value={data.senior_citizen_id}
+                        name="senior_citizen_id" value={data.senior_citizen_id}
                         onChange={onChange('senior_citizen_id')}
                         maxLength={20}
                         placeholder="Enter Senior Citizen ID number"
@@ -392,7 +392,7 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                 )}
 
                 {selectedProgram === 'pwd' && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
+                  <div className="registration-program-card" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
                     <FormField
                       id="field-pwd_id"
                       label="PWD ID No."
@@ -401,7 +401,7 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                     >
                       <input
                         className="fm-input"
-                        value={data.pwd_id}
+                        name="pwd_id" value={data.pwd_id}
                         onChange={e => {
                           const formatted = formatPWDNumber(e.target.value);
                           onDirectChange('pwd_id', formatted);
@@ -415,11 +415,11 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                 )}
 
                 {selectedProgram === 'indigenous_member' && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
+                  <div className="registration-program-card" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
                     <FormField label="Tribe / Ethnicity">
                       <input
                         className="fm-input"
-                        value={data.indigenous_tribe}
+                        name="indigenous_tribe" value={data.indigenous_tribe}
                         onChange={onChange('indigenous_tribe')}
                         maxLength={50}
                         placeholder="Enter tribe or ethnicity (e.g. Higaonon)"
@@ -429,12 +429,12 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                 )}
 
                 {selectedProgram === 'others' && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
+                  <div className="registration-program-card" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
                     <div className="fm-grid fm-grid--2">
                       <FormField label="Specify Membership Name">
                         <input
                           className="fm-input"
-                          value={data.other_membership_custom_name}
+                          name="other_membership_custom_name" value={data.other_membership_custom_name}
                           onChange={onChange('other_membership_custom_name')}
                           maxLength={50}
                           placeholder="e.g. Solo Parent, Farmer's Association"
@@ -443,7 +443,7 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                       <FormField label="Membership ID / Certificate No.">
                         <input
                           className="fm-input"
-                          value={data.other_membership_custom_id}
+                          name="other_membership_custom_id" value={data.other_membership_custom_id}
                           onChange={onChange('other_membership_custom_id')}
                           maxLength={50}
                           placeholder="Enter ID number / details"

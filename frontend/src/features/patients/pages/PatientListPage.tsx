@@ -1074,7 +1074,7 @@ export default function PatientList() {
           message={
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <p style={{ margin: 0, fontSize: '13.5px', color: '#374151' }}>
-                Are you sure you want to send Mobile Patient Portal invitations via SMS and Email to{' '}
+                Are you sure you want to send Mobile Patient Portal invitations via email to{' '}
                 <strong>{selectedWalkinIds.length} selected walk-in patient(s)</strong>?
               </p>
               <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>

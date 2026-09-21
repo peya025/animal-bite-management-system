@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { RegistrationDialog } from './RegistrationDialog.styles';
+import { RegistrationAddressSection } from './RegistrationAddressSection';
+import { RegistrationErrors, advanceOnEnter, focusFirstError, registrationServerErrors } from './registrationAccessibility';
 import FormModal from '../../../../components/forms/FormModal';
 import { formatPhilHealthNumber, formatPWDNumber } from '../../../../shared/utils';
 import { PatientFormContent } from '../../styles/AddPatientModal.styles';
@@ -8,7 +11,6 @@ import { useAddressLocation } from '../../hooks';
 import { createPatientRecord } from '../../services';
 import {
   PatientInfoSection,
-  AddressSection,
   ContactSection,
   SocioeconomicSection,
   GovProgramsSection,
@@ -20,6 +22,40 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
   const [error, setError]         = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const loc = useAddressLocation();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const summaryRef = useRef<HTMLParagraphElement>(null);
+  const savingRef = useRef(false);
+  const focusErrorsRef = useRef(false);
+
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    formRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    return () => { previous?.focus(); };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (formRef.current && focusErrorsRef.current && Object.keys(fieldErrors).length) {
+      focusErrorsRef.current = false;
+      focusFirstError(formRef.current, summaryRef.current);
+    }
+  }, [fieldErrors]);
+
+  const closeDialog = () => { if (!savingRef.current) onClose(); };
+
+  const handleDialogKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      closeDialog();
+    }
+    if (event.key !== 'Tab') return;
+    const items = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button, input, select, textarea, [tabindex="0"]') || [])
+      .filter(el => !el.matches(':disabled') && el.tabIndex >= 0 && el.getClientRects().length > 0);
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  };
   const canQueuePatient = role !== 'patient';
 
   const handleFieldChange = (key: keyof EnrolmentFormData) => (
@@ -78,6 +114,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
   };
 
   const handleSubmit = async () => {
+    if (savingRef.current) return;
     const newFieldErrors: Record<string, string> = {};
 
     if (!enrolment.last_name.trim()) {
@@ -129,55 +166,19 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
       }
     }
 
+    focusErrorsRef.current = true;
     setFieldErrors(newFieldErrors);
 
     if (Object.keys(newFieldErrors).length > 0) {
       const errorList = Object.values(newFieldErrors);
       setError(`Required: ${errorList.slice(0, 3).join(' • ')}${errorList.length > 3 ? ` (+${errorList.length - 3} more)` : ''}`);
 
-      const fieldOrder = [
-        'last_name',
-        'first_name',
-        'sex',
-        'date_of_birth',
-        'visit_type',
-        'follow_up_date',
-        'queue_priority_group',
-        'queue_priority_level',
-        'address',
-        'contact_number',
-        'emergency_contact_phone',
-        'philhealth_no',
-        'other_membership_no',
-        'pwd_id',
-      ];
-      const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]) || Object.keys(newFieldErrors)[0];
-
-      if (firstErrorKey) {
-        setTimeout(() => {
-          const el = document.getElementById(`field-${firstErrorKey}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            const scrollParent = el.closest('[class*="Body"]') || el.closest('.fm-body');
-            if (scrollParent) {
-              const rect = el.getBoundingClientRect();
-              const parentRect = scrollParent.getBoundingClientRect();
-              if (rect.top < parentRect.top || rect.bottom > parentRect.bottom) {
-                scrollParent.scrollBy({ top: rect.top - parentRect.top - 40, behavior: 'smooth' });
-              }
-            }
-            const focusable = el.querySelector('input, select, textarea') as HTMLElement;
-            if (focusable) {
-              focusable.focus({ preventScroll: true });
-            }
-          }
-        }, 50);
-      }
       return;
     }
 
     setError('');
     setFieldErrors({});
+    savingRef.current = true;
     setSaving(true);
 
     try {
@@ -192,53 +193,54 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
       onSuccess();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to save patient record.';
+      const serverErrors = registrationServerErrors(e, enrolment);
+      focusErrorsRef.current = true;
+      setFieldErrors(serverErrors);
       setError(message);
+      if (!Object.keys(serverErrors).length) requestAnimationFrame(() => summaryRef.current?.focus());
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   return (
+    <RegistrationDialog ref={dialogRef} onKeyDown={handleDialogKeys}>
     <FormModal
       title="Patient Registration"
       subtitle="Form 1 — Patient Enrolment"
-      onClose={onClose}
-      maxWidth={850}
+      onClose={closeDialog}
+      maxWidth={900}
       footer={
         <>
-          {error && (
-            <p
-              style={{
-                flex: 1,
-                fontSize: 12.5,
-                fontWeight: 600,
-                color: '#dc2626',
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                margin: '0 12px 0 0',
-                alignSelf: 'center',
-                lineHeight: 1.4,
-              }}
-            >
-              ⚠ {error}
-            </p>
-          )}
-          <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Patient Record'}
+          <button type="button" className="fm-btn fm-btn--cancel" onClick={closeDialog} disabled={saving}>Cancel</button>
+          <button type="button" className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
+            {saving ? 'Saving\u2026' : 'Save Patient Record'}
           </button>
         </>
       }
     >
       <PatientFormContent>
-        <PatientInfoSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} showQueueFields={canQueuePatient} />
-        <AddressSection loc={loc} errors={fieldErrors} />
-        <ContactSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} />
-        <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
-        <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} errors={fieldErrors} />
+        <RegistrationErrors.Provider value={fieldErrors}>
+        <form ref={formRef} className="registration-form" noValidate aria-label="Patient registration" aria-busy={saving}
+          onSubmit={event => event.preventDefault()}
+          onKeyDown={event => advanceOnEnter(event, handleSubmit)}
+          onChange={event => {
+            const target: EventTarget = event.target;
+            const name = target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement ? target.name : '';
+            if (name && fieldErrors[name]) setFieldErrors(previous => { const next = { ...previous }; delete next[name]; return next; });
+          }}>
+          <p className="registration-intro"><strong>Required fields are marked with *.</strong> Press Enter in a text field to move to the next field, or use Tab.</p>
+          {error && <p ref={summaryRef} tabIndex={-1} role="alert" className="registration-error">{error}</p>}
+          <PatientInfoSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} showQueueFields={canQueuePatient} />
+          <RegistrationAddressSection loc={loc} errors={fieldErrors} />
+          <ContactSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} />
+          <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
+          <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} errors={fieldErrors} />
+        </form>
+        </RegistrationErrors.Provider>
       </PatientFormContent>
     </FormModal>
+    </RegistrationDialog>
   );
 }

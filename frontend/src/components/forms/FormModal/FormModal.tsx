@@ -29,7 +29,7 @@ export default function FormModal({
   maxWidth = 720,
 }: FormModalProps) {
   return (
-    <Overlay onClick={onClose} role="dialog" aria-modal="true">
+    <Overlay onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
       <Modal
         maxWidth={maxWidth}
         onClick={e => e.stopPropagation()}

@@ -11,7 +11,7 @@ interface ContactSectionProps {
 export function ContactSection({ data, onChange, errors = {} }: ContactSectionProps) {
   return (
     <div className="fm-section">
-      <p className="fm-section-title">Contact Information</p>
+      <h3 className="fm-section-title">Contact Information</h3>
       <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
         <FormField
           id="field-contact_number"
@@ -21,21 +21,21 @@ export function ContactSection({ data, onChange, errors = {} }: ContactSectionPr
         >
           <input
             className="fm-input"
-            value={data.contact_number}
+            name="contact_number" value={data.contact_number}
             onChange={onChange('contact_number')}
             placeholder="09XXXXXXXXX"
             maxLength={11}
-            type="tel"
+            type="tel" inputMode="numeric"
             style={errors.contact_number ? { borderColor: '#ef4444' } : undefined}
           />
         </FormField>
         <FormField label="Email Address (Optional)">
-          <input className="fm-input" value={data.email} onChange={onChange('email')} placeholder="patient@example.com" type="email" />
+          <input className="fm-input" name="email" value={data.email} onChange={onChange('email')} placeholder="patient@example.com" type="email" />
         </FormField>
       </div>
       <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
         <FormField label="Emergency Contact Name">
-          <input className="fm-input" value={data.emergency_contact_name} onChange={onChange('emergency_contact_name')} />
+          <input className="fm-input" name="emergency_contact_name" value={data.emergency_contact_name} onChange={onChange('emergency_contact_name')} />
         </FormField>
         <FormField
           id="field-emergency_contact_phone"
@@ -45,11 +45,11 @@ export function ContactSection({ data, onChange, errors = {} }: ContactSectionPr
         >
           <input
             className="fm-input"
-            value={data.emergency_contact_phone}
+            name="emergency_contact_phone" value={data.emergency_contact_phone}
             onChange={onChange('emergency_contact_phone')}
             placeholder="09XXXXXXXXX"
             maxLength={11}
-            type="tel"
+            type="tel" inputMode="numeric"
             style={errors.emergency_contact_phone ? { borderColor: '#ef4444' } : undefined}
           />
         </FormField>

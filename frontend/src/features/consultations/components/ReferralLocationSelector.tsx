@@ -184,29 +184,19 @@ export default function ReferralLocationSelector({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151' }}>
-        {label}
-      </label>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: 10 }}>
+    <div className="fm-field" style={{ gridColumn: '1 / -1' }}>
+      <label className="fm-label">{label}</label>
+      <div className="fm-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 16px' }}>
         {/* 1. City / Municipality */}
         <div>
-          <span style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', marginBottom: 4 }}>
+          <span style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary, #6b7280)', marginBottom: 6 }}>
             1. City / Municipality
           </span>
           <select
+            className="fm-select"
             value={municipalityCode}
             onChange={handleMunicipalityChange}
             disabled={disabled}
-            style={{
-              width: '100%',
-              padding: '8px 10px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 12,
-              backgroundColor: disabled ? '#f9fafb' : '#ffffff',
-              outline: 'none',
-            }}
           >
             <option value="">— Select Municipality —</option>
             {MISAMIS_ORIENTAL_MUNICIPALITIES.map(m => (
@@ -220,22 +210,14 @@ export default function ReferralLocationSelector({
 
         {/* 2. Barangay */}
         <div>
-          <span style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', marginBottom: 4 }}>
+          <span style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary, #6b7280)', marginBottom: 6 }}>
             2. Barangay
           </span>
           <select
+            className="fm-select"
             value={barangayName}
             onChange={handleBarangayChange}
             disabled={disabled || municipalityCode === 'other' || !municipalityCode}
-            style={{
-              width: '100%',
-              padding: '8px 10px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 12,
-              backgroundColor: disabled || municipalityCode === 'other' || !municipalityCode ? '#f9fafb' : '#ffffff',
-              outline: 'none',
-            }}
           >
             <option value="">
               {loadingBrgy ? 'Loading…' : !municipalityCode ? '— Select Municipality First —' : '— Select Barangay —'}
@@ -250,26 +232,16 @@ export default function ReferralLocationSelector({
 
         {/* 3. Health Center / Facility Name */}
         <div>
-          <span style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', marginBottom: 4 }}>
+          <span style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary, #6b7280)', marginBottom: 6 }}>
             3. Health Center / Facility Name
           </span>
           <input
+            className="fm-input"
             type="text"
             value={value}
             onChange={e => onChange(e.target.value)}
             placeholder="e.g. Barangay Health Station"
             disabled={disabled}
-            style={{
-              width: '100%',
-              padding: '8px 10px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 12,
-              backgroundColor: disabled ? '#f9fafb' : '#ffffff',
-              outline: 'none',
-              fontWeight: 500,
-              color: '#111827',
-            }}
           />
         </div>
       </div>

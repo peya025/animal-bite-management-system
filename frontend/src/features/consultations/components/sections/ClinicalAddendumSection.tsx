@@ -1,4 +1,4 @@
-import { Box, Button, Typography, Chip, Alert, TextField } from '@mui/material';
+import { FormField } from '../FormField';
 
 interface ClinicalAddendumSectionProps {
   hasExistingRecord: boolean;
@@ -26,114 +26,105 @@ export default function ClinicalAddendumSection({
   if (!hasExistingRecord) return null;
 
   return (
-    <Box sx={{ mt: 4, mb: 3, pt: 3, borderTop: '2px dashed #e5e7eb' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-        <Typography
-          sx={{
-            fontSize: 13.5,
-            fontWeight: 700,
-            color: '#374151',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-          }}
-        >
+    <div className="fm-section" style={{ marginTop: 28, paddingTop: 20, borderTop: '2px dashed var(--border-glow, #e2e8f0)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <h3 className="fm-section-title" style={{ margin: 0, border: 'none', padding: 0 }}>
           Clinical Addendum & Progress Notes
-        </Typography>
+        </h3>
         {hasAdministeredVaccine && (
-          <Chip
-            label="Post-Treatment Addenda Active"
-            size="small"
-            sx={{ bgcolor: '#ecfdf5', color: '#065f46', fontSize: 11, fontWeight: 600 }}
-          />
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              background: 'var(--nav-item-active-bg, #ecfdf5)',
+              color: 'var(--nav-item-active-color, #047857)',
+              borderRadius: 99,
+              padding: '2px 10px',
+              border: '1px solid var(--input-border, #a7f3d0)',
+            }}
+          >
+            Post-Treatment Addenda Active
+          </span>
         )}
-      </Box>
+      </div>
 
       {/* Display existing notes if present */}
-      {existingRecord?.administration_notes ? (
-        <Box
-          sx={{
-            p: 2,
-            mb: 2,
-            bgcolor: 'var(--card-bg-solid, #f9fafb)',
-            border: '1px solid var(--border-glow, #e5e7eb)',
-            borderRadius: 2,
-            fontSize: 13,
-            color: 'var(--text-b, #374151)',
-            whiteSpace: 'pre-wrap',
-            lineHeight: 1.6,
-          }}
-        >
-          {existingRecord.administration_notes}
-        </Box>
-      ) : (
-        <Typography
-          sx={{
-            fontSize: 12.5,
-            color: 'var(--text-m, #9ca3af)',
-            fontStyle: 'italic',
-            mb: 2,
-          }}
-        >
-          No clinical addenda recorded yet.
-        </Typography>
-      )}
+      <div style={{ marginTop: 12, marginBottom: 16 }}>
+        {existingRecord?.administration_notes ? (
+          <div
+            style={{
+              padding: '12px 16px',
+              backgroundColor: 'var(--bg-secondary, #f8fafc)',
+              border: '1px solid var(--card-border, #e2e8f0)',
+              borderRadius: 8,
+              fontSize: 13,
+              color: 'var(--text-h, #334155)',
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.6,
+            }}
+          >
+            {existingRecord.administration_notes}
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: 'var(--text-secondary, #94a3b8)', fontStyle: 'italic', margin: 0 }}>
+            No clinical addenda recorded yet.
+          </p>
+        )}
+      </div>
 
       {/* Addendum Entry Form */}
       {hasAdministeredVaccine && !readOnly && (
-        <Box
-          sx={{
-            bgcolor: 'rgba(16, 185, 129, 0.1)',
-            p: 2,
-            borderRadius: 2,
-            border: '1px solid var(--border-glow, #bbf7d0)',
+        <div
+          style={{
+            backgroundColor: 'var(--nav-item-active-bg, #f0fdf4)',
+            padding: 16,
+            borderRadius: 8,
+            border: '1px solid var(--input-border, #a7f3d0)',
           }}
         >
-          <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-h, #166534)', mb: 1 }}>
-            ✍️ Append Clinical Addendum Note (Physician / Clinical Staff)
-          </Typography>
-          <TextField
-            fullWidth
-            multiline
-            rows={2}
-            size="small"
-            placeholder="Enter clinical progress note or diagnostic update here..."
-            value={addendumNote}
-            onChange={(e) => onAddendumNoteChange(e.target.value)}
-            sx={{
-              bgcolor: 'var(--input-bg, #ffffff)',
-              borderRadius: 1.5,
-              mb: 1.5,
-              '& .MuiOutlinedInput-root': {
-                color: 'var(--input-text, #111827)',
-                '& fieldset': { borderColor: 'var(--input-border, #e5e7eb)' },
-              },
-            }}
-          />
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button
-              size="small"
-              variant="contained"
-              onClick={onSaveAddendum}
-              disabled={savingAddendum || !addendumNote.trim()}
-              sx={{
-                bgcolor: '#10b981',
-                color: '#fff',
-                fontSize: 12,
-                fontWeight: 600,
-                textTransform: 'none',
-                '&:hover': { bgcolor: '#059669' },
-              }}
-            >
-              {savingAddendum ? 'Saving Addendum...' : 'Append Addendum'}
-            </Button>
-          </Box>
-          {addendumSuccess && (
-            <Alert severity="success" sx={{ mt: 1, py: 0.25, fontSize: 12 }}>
-              {addendumSuccess}
-            </Alert>
-          )}
-        </Box>
+          <div className="fm-grid fm-grid--1">
+            <FormField label="Append Clinical Addendum Note (Physician / Clinical Staff)">
+              <textarea
+                className="fm-textarea"
+                name="addendum_note"
+                rows={2}
+                placeholder="Enter clinical progress note or diagnostic update here..."
+                value={addendumNote}
+                onChange={(e) => onAddendumNoteChange(e.target.value)}
+                disabled={savingAddendum}
+              />
+            </FormField>
+
+            {addendumSuccess && (
+              <div
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                  backgroundColor: '#ecfdf5',
+                  color: '#065f46',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: '1px solid #a7f3d0',
+                }}
+              >
+                ✓ {addendumSuccess}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+              <button
+                type="button"
+                className="fm-btn fm-btn--submit"
+                onClick={onSaveAddendum}
+                disabled={savingAddendum || !addendumNote.trim()}
+                style={{ minHeight: 38, padding: '6px 18px', fontSize: 13 }}
+              >
+                {savingAddendum ? 'Saving Note…' : '+ Add Clinical Note'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-    </Box>
+    </div>
   );
 }

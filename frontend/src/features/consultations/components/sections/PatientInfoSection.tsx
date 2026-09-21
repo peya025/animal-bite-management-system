@@ -1,4 +1,5 @@
 import type { TreatmentFormData } from '../../types/consultation.types';
+import { FormField } from '../FormField';
 
 interface PatientInfoSectionProps {
   formData: TreatmentFormData;
@@ -6,136 +7,69 @@ interface PatientInfoSectionProps {
 
 export default function PatientInfoSection({ formData }: PatientInfoSectionProps) {
   return (
-    <div style={{ marginBottom: 32 }}>
-      <h3
-        style={{
-          color: '#10b981',
-          fontSize: 14,
-          fontWeight: 700,
-          marginBottom: 16,
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px',
-        }}
-      >
-        I. Patient Information (Impormasyon ng Pasyente)
-      </h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Last Name (Apelyido)
-          </label>
+    <div className="fm-section">
+      <h3 className="fm-section-title">I. Patient Information (Impormasyon ng Pasyente)</h3>
+      <div className="fm-grid">
+        <FormField label="Last Name (Apelyido)">
           <input
+            className="fm-input"
             type="text"
+            name="last_name"
             value={formData.last_name}
             readOnly
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: '#f9fafb',
-              color: '#6b7280',
-            }}
+            disabled
           />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            First Name (Pangalan)
-          </label>
+        </FormField>
+        <FormField label="First Name (Pangalan)">
           <input
+            className="fm-input"
             type="text"
+            name="first_name"
             value={formData.first_name}
             readOnly
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: '#f9fafb',
-              color: '#6b7280',
-            }}
+            disabled
           />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Middle Name (Gitnang Pangalan)
-          </label>
+        </FormField>
+        <FormField label="Middle Name (Gitnang Pangalan)">
           <input
+            className="fm-input"
             type="text"
+            name="middle_name"
             value={formData.middle_name}
             readOnly
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: '#f9fafb',
-              color: '#6b7280',
-            }}
+            disabled
           />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Suffix (e.g. Jr., Sr., II, III)
-          </label>
+        </FormField>
+        <FormField label="Suffix (e.g. Jr., Sr., II, III)">
           <input
+            className="fm-input"
             type="text"
+            name="suffix"
             value={formData.suffix}
             readOnly
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: '#f9fafb',
-              color: '#6b7280',
-            }}
+            disabled
           />
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16, marginTop: 16 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Age (Edad)
-          </label>
+        </FormField>
+        <FormField label="Age (Edad)">
           <input
+            className="fm-input"
             type="text"
+            name="age"
             value={formData.age}
             readOnly
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: '#f9fafb',
-              color: '#6b7280',
-            }}
+            disabled
           />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Residential Address (Tirahan) <span style={{ color: '#ef4444' }}>*</span>
-          </label>
+        </FormField>
+        <FormField label="Residential Address (Tirahan)">
           <input
+            className="fm-input"
             type="text"
+            name="address"
             value={formData.address}
             readOnly
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: '#f9fafb',
-              color: '#6b7280',
-            }}
+            disabled
           />
-        </div>
+        </FormField>
       </div>
     </div>
   );

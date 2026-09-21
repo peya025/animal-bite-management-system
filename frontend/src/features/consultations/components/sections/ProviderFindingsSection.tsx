@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TreatmentFormData } from '../../types/consultation.types';
+import { FormField } from '../FormField';
 
 interface ProviderFindingsSectionProps {
   formData: TreatmentFormData;
@@ -15,69 +16,44 @@ export default function ProviderFindingsSection({
   onFieldChange,
 }: ProviderFindingsSectionProps) {
   return (
-    <div style={{ marginBottom: 32 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Name of Health Care Provider
-          </label>
+    <div className="fm-section">
+      <h3 className="fm-section-title">VIII. Laboratory Findings & Diagnostic Impression</h3>
+
+      <div className="fm-grid">
+        <FormField label="Name of Health Care Provider">
           <input
+            className="fm-input"
             type="text"
+            name="name_of_provider"
             value={formData.name_of_provider}
             readOnly
             disabled
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: '#f9fafb',
-              color: '#6b7280',
-              cursor: 'not-allowed',
-            }}
           />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Performed Laboratory Test
-          </label>
+        </FormField>
+
+        <FormField label="Performed Laboratory Test">
           <input
+            className="fm-input"
             type="text"
+            name="performed_lab_test"
             value={formData.performed_lab_test}
             onChange={onFieldChange('performed_lab_test')}
             disabled={isFormDisabled}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: isFormDisabled ? '#f9fafb' : undefined,
-            }}
+            placeholder="e.g. Gram Stain, CBC, Culture & Sensitivity"
           />
-        </div>
-      </div>
-      <div>
-        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-          Laboratory Findings / Impression
-        </label>
-        <textarea
-          value={formData.laboratory_findings}
-          onChange={onFieldChange('laboratory_findings')}
-          rows={3}
-          disabled={isFormDisabled}
-          style={{
-            width: '100%',
-            padding: '8px 12px',
-            border: '1px solid #d1d5db',
-            borderRadius: 6,
-            fontSize: 13,
-            fontFamily: 'inherit',
-            resize: 'vertical',
-            backgroundColor: isFormDisabled ? '#f9fafb' : undefined,
-          }}
-        />
+        </FormField>
+
+        <FormField label="Laboratory Findings / Impression" className="fm-grid--full">
+          <textarea
+            className="fm-textarea"
+            name="laboratory_findings"
+            value={formData.laboratory_findings}
+            onChange={onFieldChange('laboratory_findings')}
+            rows={3}
+            disabled={isFormDisabled}
+            placeholder="Enter laboratory findings or diagnostic impressions..."
+          />
+        </FormField>
       </div>
     </div>
   );

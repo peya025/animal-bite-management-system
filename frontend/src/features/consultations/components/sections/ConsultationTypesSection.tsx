@@ -1,8 +1,7 @@
 import React from 'react';
-import { HugeiconsIcon } from '@hugeicons/react';
-import { AlertCircleIcon } from '@hugeicons/core-free-icons';
 import type { ConsultationTypesMap } from '../../types/consultation.types';
 import { CONSULTATION_TYPE_ITEMS } from '../../constants/consultation.constants';
+import { FormField } from '../FormField';
 
 interface ConsultationTypesSectionProps {
   consultationTypes: ConsultationTypesMap;
@@ -20,69 +19,50 @@ export default function ConsultationTypesSection({
   onChange,
 }: ConsultationTypesSectionProps) {
   return (
-    <div
-      id="field-consultation_types"
-      style={{
-        marginBottom: 32,
-        padding: error ? '16px' : '0px',
-        border: error ? '2px solid #ef4444' : 'none',
-        borderRadius: '10px',
-        backgroundColor: error ? '#fef2f2' : 'transparent',
-        boxShadow: error ? '0 0 0 4px rgba(239, 68, 68, 0.12)' : 'none',
-        transition: 'all 0.25s ease',
-      }}
-    >
-      <h3
-        style={{
-          color: error ? '#dc2626' : '#10b981',
-          fontSize: 14,
-          fontWeight: 700,
-          marginBottom: 16,
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px',
-        }}
-      >
-        Type of Consultation / Purpose of Visit <span style={{ color: '#ef4444' }}>*</span>
-      </h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 24px' }}>
-        {CONSULTATION_TYPE_ITEMS.map((type) => (
-          <label
-            key={type.key}
-            style={{ display: 'flex', alignItems: 'center', cursor: isFormDisabled ? 'default' : 'pointer' }}
-          >
-            <input
-              type="checkbox"
-              checked={consultationTypes[type.key]}
-              onChange={onChange(type.key)}
-              disabled={isFormDisabled}
-              style={{ marginRight: 8, accentColor: error ? '#ef4444' : undefined }}
-            />
-            <span
-              style={{
-                fontSize: 13,
-                color: error ? '#991b1b' : '#374151',
-              }}
-            >
-              {type.label}
-            </span>
-          </label>
-        ))}
-      </div>
-      {error && (
-        <div
-          style={{
-            color: '#dc2626',
-            fontSize: 12,
-            fontWeight: 600,
-            marginTop: 10,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-          }}
+    <div className="fm-section">
+      <h3 className="fm-section-title">V. Type of Consultation / Purpose of Visit</h3>
+
+      <div className="fm-grid">
+        <FormField
+          id="field-consultation_types"
+          label="Purpose of Visit"
+          required
+          error={!!error}
+          errorText={error}
+          className="fm-grid--full"
         >
-          <HugeiconsIcon icon={AlertCircleIcon} size={14} strokeWidth={2} /> {error}
-        </div>
-      )}
+          <div className="fm-grid fm-grid--2" style={{ gap: '10px 20px', marginTop: 4 }}>
+            {CONSULTATION_TYPE_ITEMS.map((type) => (
+              <label
+                key={type.key}
+                className="fm-radio"
+                style={{
+                  cursor: isFormDisabled ? 'default' : 'pointer',
+                  padding: '4px 8px',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  name={`consultation_types_${type.key}`}
+                  checked={consultationTypes[type.key]}
+                  onChange={onChange(type.key)}
+                  disabled={isFormDisabled}
+                  style={{
+                    accentColor: '#047857',
+                    width: 16,
+                    height: 16,
+                    flexShrink: 0,
+                    cursor: isFormDisabled ? 'default' : 'pointer',
+                  }}
+                />
+                <span style={{ fontSize: 13, color: 'var(--text, #374151)' }}>
+                  {type.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </FormField>
+      </div>
     </div>
   );
 }

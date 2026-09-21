@@ -1,6 +1,3 @@
-import { Box, Button, Typography } from '@mui/material';
-import { LockOutlined as LockIcon } from '@mui/icons-material';
-
 interface ConsultationBannersProps {
   isReturningNewBite: boolean;
   hasAdministeredVaccine: boolean;
@@ -24,63 +21,62 @@ export default function ConsultationBanners({
     <>
       {/* 🛡️ Returning Patient Banner */}
       {isReturningNewBite && !hasAdministeredVaccine && (
-        <Box
-          sx={{
+        <div
+          style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 1.5,
-            px: 2.5,
-            py: 1.75,
-            mb: 3,
-            bgcolor: '#ecfdf5',
-            border: '1.5px solid #a7f3d0',
-            borderRadius: 2,
+            gap: 12,
+            padding: '12px 18px',
+            marginBottom: 24,
+            backgroundColor: 'var(--nav-item-active-bg, #ecfdf5)',
+            border: '1.5px solid var(--input-border, #a7f3d0)',
+            borderRadius: 8,
           }}
         >
-          <Typography sx={{ fontSize: 20 }}>🛡️</Typography>
-          <Box>
-            <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#065f46' }}>
+          <span style={{ fontSize: 20 }}>🛡️</span>
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-h, #065f46)' }}>
               Prior Immunization History Verified — New Bite Assessment
-            </Typography>
-            <Typography sx={{ fontSize: 12, color: '#047857', mt: 0.25 }}>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary, #047857)', marginTop: 2 }}>
               Patient has documented rabies vaccination on file and returned with a new animal bite exposure. Record clinical assessment and exposure details below.
-            </Typography>
-          </Box>
-        </Box>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 🔒 Medical-Legal Post-Treatment Lock Banner */}
       {hasAdministeredVaccine ? (
-        <Box
-          sx={{
+        <div
+          style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            px: 2.5,
-            py: 1.75,
-            mb: 3,
-            bgcolor: '#fffbeb',
+            padding: '12px 18px',
+            marginBottom: 24,
+            backgroundColor: '#fffbeb',
             border: '1.5px solid #f59e0b',
-            borderRadius: 2,
+            borderRadius: 8,
+            gap: 12,
+            flexWrap: 'wrap',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <LockIcon sx={{ fontSize: 20, color: '#d97706', flexShrink: 0 }} />
-            <Box>
-              <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#92400e' }}>
-                🔒 Clinical Assessment Locked (Post-Treatment)
-              </Typography>
-              <Typography sx={{ fontSize: 12, color: '#b45309', mt: 0.25 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 20 }}>🔒</span>
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#92400e' }}>
+                Clinical Assessment Locked (Post-Treatment)
+              </div>
+              <div style={{ fontSize: 12, color: '#b45309', marginTop: 2 }}>
                 Exposure diagnosis and clinical orders cannot be modified after vaccination has started. Use the Addendum section below to append clinical notes.
-              </Typography>
-            </Box>
-          </Box>
-          <Box
-            sx={{
-              px: 1.5,
-              py: 0.5,
-              bgcolor: '#fef3c7',
-              borderRadius: 1.5,
+              </div>
+            </div>
+          </div>
+          <div
+            style={{
+              padding: '4px 12px',
+              backgroundColor: '#fef3c7',
+              borderRadius: 6,
               fontSize: 11,
               fontWeight: 700,
               color: '#92400e',
@@ -89,86 +85,83 @@ export default function ConsultationBanners({
             }}
           >
             Vaccinated · Read Only
-          </Box>
-        </Box>
+          </div>
+        </div>
       ) : hasExistingRecord && !isEditing ? (
-        <Box
-          sx={{
+        <div
+          style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            px: 2.5,
-            py: 1.5,
-            mb: 3,
-            bgcolor: '#fffbeb',
-            border: '1px solid #fcd34d',
-            borderRadius: 2,
+            padding: '12px 18px',
+            marginBottom: 24,
+            backgroundColor: 'var(--bg-secondary, #f8fafc)',
+            border: '1.5px solid var(--border-glow, #cbd5e1)',
+            borderRadius: 8,
+            gap: 12,
+            flexWrap: 'wrap',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <LockIcon sx={{ fontSize: 16, color: '#d97706', flexShrink: 0 }} />
-            <Typography sx={{ fontSize: 13, color: '#92400e' }}>
-              You are viewing this form in <strong>read-only mode</strong>.
-            </Typography>
-          </Box>
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-h, #334155)' }}>
+              📄 Existing Treatment Record (Form 2)
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)', marginTop: 2 }}>
+              A consultation record is currently saved. Click "Edit Record" to update diagnosis or orders before vaccination starts.
+            </div>
+          </div>
           {!readOnly && (
-            <Button
-              size="small"
-              variant="outlined"
+            <button
+              type="button"
+              className="fm-btn fm-btn--submit"
               onClick={onStartEdit}
-              sx={{
-                borderColor: '#d97706',
-                color: '#b45309',
-                fontSize: 12,
-                fontWeight: 600,
-                textTransform: 'none',
-                py: 0.25,
-                px: 1.5,
-                '&:hover': { bgcolor: '#fef3c7', borderColor: '#b45309' },
+              style={{
+                minHeight: 38,
+                padding: '6px 18px',
+                fontSize: 13,
               }}
             >
-              ✏️ Edit Form 2
-            </Button>
+              ✏️ Edit Record
+            </button>
           )}
-        </Box>
-      ) : null}
-
-      {/* Edit Mode Notification Banner */}
-      {hasExistingRecord && isEditing && !readOnly && (
-        <Box
-          sx={{
+        </div>
+      ) : hasExistingRecord && isEditing ? (
+        <div
+          style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            px: 2.5,
-            py: 1.25,
-            mb: 3,
-            bgcolor: '#ecfdf5',
-            border: '1px solid #a7f3d0',
-            borderRadius: 2,
+            padding: '12px 18px',
+            marginBottom: 24,
+            backgroundColor: '#eff6ff',
+            border: '1.5px solid #93c5fd',
+            borderRadius: 8,
+            gap: 12,
+            flexWrap: 'wrap',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-            <span style={{ fontSize: 14 }}>✏️</span>
-            <Typography sx={{ fontSize: 13, color: '#065f46', fontWeight: 600 }}>
-              Editing Consultation Record — make your adjustments below and save.
-            </Typography>
-          </Box>
-          <Button
-            size="small"
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1e40af' }}>
+              ✏️ Editing Active Assessment (Form 2)
+            </div>
+            <div style={{ fontSize: 12, color: '#3b82f6', marginTop: 2 }}>
+              Modifications will update this patient's existing clinical assessment record.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="fm-btn fm-btn--cancel"
             onClick={onCancelEdit}
-            sx={{
-              color: '#6b7280',
-              fontSize: 12,
-              fontWeight: 600,
-              textTransform: 'none',
-              '&:hover': { color: '#111827', bgcolor: 'transparent' },
+            style={{
+              minHeight: 38,
+              padding: '6px 18px',
+              fontSize: 13,
             }}
           >
             Cancel Edit
-          </Button>
-        </Box>
-      )}
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }

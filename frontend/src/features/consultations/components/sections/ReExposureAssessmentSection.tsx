@@ -1,4 +1,5 @@
 import { DOCTOR_RE_EXPOSURE_OPTIONS } from '../../constants/consultation.constants';
+import { FormField } from '../FormField';
 
 interface ReExposureAssessmentSectionProps {
   entry: any;
@@ -9,8 +10,8 @@ interface ReExposureAssessmentSectionProps {
 }
 
 /**
- * Re-exposure remains the standard Form 2. The incident is collected at
- * check-in, so this control only captures the physician's decision.
+ * Re-exposure remains standard Form 2. The incident is collected at
+ * check-in, so this control captures the physician's clinical decision.
  */
 export default function ReExposureAssessmentSection({
   entry,
@@ -25,31 +26,36 @@ export default function ReExposureAssessmentSection({
   if (!needsDecision) return null;
 
   return (
-    <div style={{ marginTop: 28, padding: '16px 18px', borderRadius: 10, border: '1px solid #bfdbfe', background: '#f8fbff' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+    <div className="fm-section" style={{ background: 'var(--nav-item-active-bg, #f0fdf4)', padding: '16px 20px', borderRadius: 10, border: '1px solid var(--input-border, #a7f3d0)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
         <div>
-          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1e3a8a' }}>Doctor treatment decision</h4>
-          <p style={{ margin: '3px 0 0', fontSize: 12, color: '#475569' }}>
-            Episode #{incident?.episode_number || '—'} is documented above using the standard Form 2.
+          <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: 'var(--text-h, #065f46)' }}>
+            Doctor Treatment Decision (Re-exposure Protocol)
+          </h4>
+          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-secondary, #047857)' }}>
+            Episode #{incident?.episode_number || '—'} documented under DOH Rabies Guidelines.
           </p>
         </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', background: '#dbeafe', borderRadius: 999, padding: '4px 9px' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#065f46', background: '#dcfce7', borderRadius: 999, padding: '4px 10px', border: '1px solid #86efac' }}>
           RE-EXPOSURE
         </span>
       </div>
-      <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#1e3a8a', marginBottom: 6 }}>
-        Treatment plan <span style={{ color: '#dc2626' }}>*</span>
-      </label>
-      <select
-        value={treatmentPlan}
-        onChange={(event) => onUpdateTreatmentPlan(event.target.value)}
-        disabled={isFormDisabled}
-        style={{ width: '100%', padding: '10px 12px', border: '1px solid #93c5fd', borderRadius: 7, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#fff', color: '#1e3a8a' }}
-      >
-        {DOCTOR_RE_EXPOSURE_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>{option.label}</option>
-        ))}
-      </select>
+
+      <div className="fm-grid fm-grid--1">
+        <FormField label="Treatment Plan" required>
+          <select
+            className="fm-select"
+            name="treatment_plan"
+            value={treatmentPlan}
+            onChange={(event) => onUpdateTreatmentPlan(event.target.value)}
+            disabled={isFormDisabled}
+          >
+            {DOCTOR_RE_EXPOSURE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </FormField>
+      </div>
     </div>
   );
 }

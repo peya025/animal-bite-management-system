@@ -1,7 +1,6 @@
 import React from 'react';
-import { HugeiconsIcon } from '@hugeicons/react';
-import { AlertCircleIcon } from '@hugeicons/core-free-icons';
 import { NATURE_OF_VISIT_OPTIONS } from '../../constants/consultation.constants';
+import { FormField } from '../FormField';
 
 interface NatureOfVisitSectionProps {
   natureOfVisit: string;
@@ -21,93 +20,59 @@ export default function NatureOfVisitSection({
   onBlur,
 }: NatureOfVisitSectionProps) {
   return (
-    <div
-      id="field-nature_of_visit"
-      style={{
-        marginBottom: 32,
-        padding: error ? '16px' : '0px',
-        border: error ? '2px solid #ef4444' : 'none',
-        borderRadius: '10px',
-        backgroundColor: error ? '#fef2f2' : 'transparent',
-        boxShadow: error ? '0 0 0 4px rgba(239, 68, 68, 0.12)' : 'none',
-        transition: 'all 0.25s ease',
-      }}
-    >
-      <label
-        style={{
-          display: 'block',
-          fontSize: 13,
-          fontWeight: 700,
-          color: error ? '#dc2626' : '#374151',
-          marginBottom: 8,
-        }}
-      >
-        Nature of Visit <span style={{ color: '#ef4444' }}>*</span>
-      </label>
-      {isAutomaticallySet ? (
-        <div
-          role="status"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            width: 'fit-content',
-            padding: '8px 12px',
-            borderRadius: 8,
-            backgroundColor: '#ecfdf5',
-            border: '1px solid #a7f3d0',
-            color: '#065f46',
-            fontSize: 13,
-          }}
+    <div className="fm-section">
+      <h3 className="fm-section-title">IV. Nature of Visit</h3>
+
+      <div className="fm-grid">
+        <FormField
+          id="field-nature_of_visit"
+          label="Nature of Visit"
+          required
+          error={!!error}
+          errorText={error}
+          className="fm-grid--full"
         >
-          <strong>New Consultation</strong>
-          <span style={{ color: '#047857' }}>Set automatically for this new or re-exposure episode.</span>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', gap: 24 }}>
-          {NATURE_OF_VISIT_OPTIONS.map((option) => (
-            <label
-              key={option.value}
-              style={{ display: 'flex', alignItems: 'center', cursor: isFormDisabled ? 'default' : 'pointer' }}
+          {isAutomaticallySet ? (
+            <div
+              role="status"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                width: 'fit-content',
+                padding: '8px 14px',
+                borderRadius: 8,
+                backgroundColor: 'var(--nav-item-active-bg, #ecfdf5)',
+                border: '1px solid var(--input-border, #a7f3d0)',
+                color: 'var(--text-h, #065f46)',
+                fontSize: 13,
+              }}
             >
-              <input
-                type="radio"
-                name="nature_of_visit"
-                value={option.value}
-                checked={natureOfVisit === option.value}
-                onChange={onChange}
-                onBlur={onBlur}
-                disabled={isFormDisabled}
-                style={{ marginRight: 8, accentColor: error ? '#ef4444' : undefined }}
-              />
-              <span
-                style={{
-                  fontSize: 13,
-                  color: error ? '#991b1b' : '#374151',
-                  fontWeight: error ? 600 : 400,
-                }}
-              >
-                {option.label}
+              <strong>New Consultation</strong>
+              <span style={{ color: 'var(--nav-item-active-color, #047857)' }}>
+                Set automatically for this new or re-exposure episode.
               </span>
-            </label>
-          ))}
-        </div>
-      )}
-      {error && (
-        <div
-          style={{
-            color: '#dc2626',
-            fontSize: 12,
-            fontWeight: 600,
-            marginTop: 8,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-          }}
-        >
-          <HugeiconsIcon icon={AlertCircleIcon} size={14} strokeWidth={2} /> {error}
-        </div>
-      )}
+            </div>
+          ) : (
+            <div className="fm-radio-group">
+              {NATURE_OF_VISIT_OPTIONS.map((option) => (
+                <label key={option.value} className="fm-radio">
+                  <input
+                    type="radio"
+                    name="nature_of_visit"
+                    value={option.value}
+                    checked={natureOfVisit === option.value}
+                    onChange={onChange}
+                    onBlur={onBlur}
+                    disabled={isFormDisabled}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </FormField>
+      </div>
     </div>
   );
 }

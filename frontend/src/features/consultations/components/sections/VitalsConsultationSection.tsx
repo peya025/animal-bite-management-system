@@ -2,6 +2,7 @@ import React from 'react';
 import type { TreatmentFormData } from '../../types/consultation.types';
 import ReferralLocationSelector from '../ReferralLocationSelector';
 import { splitBloodPressure, combineBloodPressure } from '../../utils/consultationHelpers';
+import { FormField } from '../FormField';
 
 interface VitalsConsultationSectionProps {
   formData: TreatmentFormData;
@@ -35,201 +36,148 @@ export default function VitalsConsultationSection({
   };
 
   return (
-    <div style={{ marginBottom: 32 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 16 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Date of Consultation
-          </label>
+    <div className="fm-section">
+      <h3 className="fm-section-title">III. Consultation Details & Vitals</h3>
+
+      <div className="fm-grid">
+        <FormField label="Date of Consultation">
           <input
+            className="fm-input"
             type="date"
+            name="date_of_consultation"
             value={formData.date_of_consultation}
             onChange={onFieldChange('date_of_consultation')}
             disabled={isFormDisabled}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: isFormDisabled ? '#f9fafb' : undefined,
-            }}
           />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Consultation Time (AM/PM)
-          </label>
+        </FormField>
+
+        <FormField label="Consultation Time (AM/PM)">
           <input
+            className="fm-input"
             type="time"
+            name="consultation_time"
             value={formData.consultation_time}
             onChange={onFieldChange('consultation_time')}
             disabled={isFormDisabled}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: isFormDisabled ? '#f9fafb' : undefined,
-            }}
           />
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Blood Pressure
-          </label>
-          {/* Split systolic / diastolic input — stores as "120/80" */}
+        </FormField>
+
+        <FormField label="Blood Pressure (mmHg)" hint="Systolic / Diastolic">
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
+              border: '1px solid var(--text-secondary, #6b7280)',
+              borderRadius: 8,
+              minHeight: 46,
+              height: 46,
+              background: isFormDisabled ? 'var(--bg-secondary, #f1f5f9)' : 'var(--input-bg, #fff)',
               overflow: 'hidden',
-              backgroundColor: isFormDisabled ? '#f9fafb' : '#fff',
+              boxSizing: 'border-box',
+              padding: '0 8px',
             }}
           >
             <input
               type="number"
               min={0}
               max={300}
+              name="bp_systolic"
               value={systolic}
               onChange={handleSystolicChange}
               placeholder="120"
               disabled={isFormDisabled}
               style={{
                 width: '45%',
-                padding: '8px 10px',
+                padding: '8px',
                 border: 'none',
                 outline: 'none',
-                fontSize: 13,
+                fontSize: 14,
                 backgroundColor: 'transparent',
                 textAlign: 'center',
-                MozAppearance: 'textfield',
+                color: 'var(--input-text, #111827)',
+                fontFamily: 'inherit',
               }}
             />
-            <span style={{ fontSize: 16, fontWeight: 700, color: '#6b7280', flexShrink: 0, userSelect: 'none' }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-secondary, #6b7280)', userSelect: 'none' }}>
               /
             </span>
             <input
               type="number"
               min={0}
               max={200}
+              name="bp_diastolic"
               value={diastolic}
               onChange={handleDiastolicChange}
               placeholder="80"
               disabled={isFormDisabled}
               style={{
                 width: '45%',
-                padding: '8px 10px',
+                padding: '8px',
                 border: 'none',
                 outline: 'none',
-                fontSize: 13,
+                fontSize: 14,
                 backgroundColor: 'transparent',
                 textAlign: 'center',
-                MozAppearance: 'textfield',
+                color: 'var(--input-text, #111827)',
+                fontFamily: 'inherit',
               }}
             />
           </div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>Systolic / Diastolic (mmHg)</div>
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Temperature (°C)
-          </label>
+        </FormField>
+
+        <FormField label="Temperature (°C)">
           <input
+            className="fm-input"
             type="text"
+            name="temperature"
             value={formData.temperature}
             onChange={onFieldChange('temperature')}
             placeholder="36.5"
             disabled={isFormDisabled}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: isFormDisabled ? '#f9fafb' : undefined,
-            }}
           />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Height (cm)
-          </label>
+        </FormField>
+
+        <FormField label="Height (cm)">
           <input
+            className="fm-input"
             type="text"
+            name="height"
             value={formData.height}
             onChange={onFieldChange('height')}
             placeholder="170"
             disabled={isFormDisabled}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: isFormDisabled ? '#f9fafb' : undefined,
-            }}
           />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            Weight (kg)
-          </label>
+        </FormField>
+
+        <FormField label="Weight (kg)">
           <input
+            className="fm-input"
             type="text"
+            name="weight"
             value={formData.weight}
             onChange={onFieldChange('weight')}
             placeholder="70"
             disabled={isFormDisabled}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 13,
-              backgroundColor: isFormDisabled ? '#f9fafb' : undefined,
-            }}
           />
-        </div>
-      </div>
+        </FormField>
 
-      {/* Provider Details */}
-      <div style={{ marginTop: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Name of Attending Provider
-            </label>
-            <input
-              type="text"
-              value={formData.name_of_attending_provider}
-              onChange={onFieldChange('name_of_attending_provider')}
-              disabled={isFormDisabled}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: isFormDisabled ? '#f9fafb' : undefined,
-              }}
-            />
-          </div>
-          <div>
-            <ReferralLocationSelector
-              label="Referred by"
-              value={formData.referred_by}
-              onChange={onSetReferredBy}
-              disabled={isFormDisabled}
-            />
-          </div>
-        </div>
+        <FormField label="Name of Attending Provider" className="fm-grid--full">
+          <input
+            className="fm-input"
+            type="text"
+            name="name_of_attending_provider"
+            value={formData.name_of_attending_provider}
+            onChange={onFieldChange('name_of_attending_provider')}
+            disabled={isFormDisabled}
+          />
+        </FormField>
+
+        <ReferralLocationSelector
+          label="Referred by"
+          value={formData.referred_by}
+          onChange={onSetReferredBy}
+          disabled={isFormDisabled}
+        />
       </div>
     </div>
   );

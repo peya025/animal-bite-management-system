@@ -118,7 +118,7 @@ class _PatientActivationViewState extends State<PatientActivationView> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Enter your activation code sent via SMS to link your clinic records to the mobile app.',
+                    'Enter your activation code sent by email to link your clinic records to the mobile app.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: Colors.grey.shade600,

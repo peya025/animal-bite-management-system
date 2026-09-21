@@ -17,7 +17,7 @@ class AnimalCareApp extends StatelessWidget {
       listenable: LanguageController.instance,
       builder: (context, _) {
         return MaterialApp(
-          title: 'Animal Bite Management System',
+          title: 'ABTCare',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           locale: LanguageController.instance.currentLocale,

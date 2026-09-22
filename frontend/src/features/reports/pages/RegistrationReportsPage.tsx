@@ -3,10 +3,13 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Alert, Box, Button, Chip, CircularProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { DownloadOutlined, PrintOutlined, ArrowForward, Refresh } from '@mui/icons-material';
 import api from '../../../services/api';
+import DohExposureRegistryTab from '../components/DohExposureRegistryTab';
+import DohMonthlyReportTab from '../components/DohMonthlyReportTab';
+import DohCohortReportTab from '../components/DohCohortReportTab';
 import './RegistrationReports.css';
 
 type Report = 'summary' | 'pep' | 'followup' | 'awaiting' | 'surveillance' | 'referrals';
-type ReportTab = 'overview' | 'pep' | 'surveillance';
+type ReportTab = 'overview' | 'pep' | 'surveillance' | 'registry' | 'monthly' | 'cohort';
 type Counts = { label: string; count: number }[];
 type Completion = { eligible: number; completed: number; rate: number | null; excluded: number };
 type Filters = { from: string; to: string; category: string };
@@ -107,16 +110,19 @@ export default function RegistrationReportsPage() {
   const error = loading ? '' : result?.error ?? '';
 
   useEffect(() => {
+    if (!['overview', 'pep', 'surveillance'].includes(tab)) return;
     const controller = new AbortController();
     api.get<ReportData>('/reports/registration', { params: { ...filters, report, page }, signal: controller.signal })
       .then(response => { if (!controller.signal.aborted) setResult({ key: requestKey, data: response.data }); })
       .catch(() => { if (!controller.signal.aborted) setResult({ key: requestKey, error: 'Unable to load reports. Check your connection and try again.' }); });
     return () => controller.abort();
-  }, [filters, report, page, requestKey]);
+  }, [tab, filters, report, page, requestKey]);
 
-  const selectReport = (next: Report) => {
+  const selectReport = (next: Report, switchTab: boolean = true) => {
     setReport(next); setPage(1);
-    setTab(next === 'summary' ? 'overview' : ['pep', 'followup', 'awaiting'].includes(next) ? 'pep' : 'surveillance');
+    if (switchTab) {
+      setTab(next === 'summary' ? 'overview' : ['pep', 'followup', 'awaiting'].includes(next) ? 'pep' : 'surveillance');
+    }
   };
 
   const exportReport = async (format: 'csv' | 'print') => {
@@ -134,14 +140,62 @@ export default function RegistrationReportsPage() {
         const columns = Object.keys(result.records.columns);
 
         const printHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(result.meta.title)}</title><style>
-          @page{size:A4 ${orientation};margin:12mm}body{font:12px system-ui,sans-serif;color:#111827;margin:24px}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:0 0 12px}p{line-height:1.5;margin:4px 0}table{border-collapse:collapse;width:100%;font-size:${orientation === 'portrait' ? '10px' : '11px'};margin-top:12px}th,td{border:1px solid #ddd;padding:${orientation === 'portrait' ? '5px 4px' : '7px'};text-align:left;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}th{background:#f3f4f6}.notes{font-size:10px;color:#475569;margin-top:12px}
+          @page{size:A4 ${orientation};margin:10mm}
+          body{font:11px system-ui,-apple-system,sans-serif;color:#111827;margin:12px;line-height:1.4}
+          .header-box{text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:12px}
+          .header-box .republic{font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#374151}
+          .header-box .lgu{font-size:11px;font-weight:700;color:#111827}
+          .header-box .office{font-size:13px;font-weight:800;color:#047857;margin-top:2px}
+          .header-box .clinic{font-size:10px;font-weight:600;color:#4b5563}
+          .doc-title{text-align:center;margin:10px 0}
+          .doc-title h2{font-size:14px;font-weight:800;text-transform:uppercase;margin:0;text-decoration:underline}
+          .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;font-size:10px;border:1px solid #d1d5db;background:#f9fafb;padding:8px 12px;margin-bottom:12px;border-radius:4px}
+          .meta-grid span.lbl{color:#6b7280;font-weight:600}
+          .meta-grid span.val{color:#111827;font-weight:700}
+          table{border-collapse:collapse;width:100%;font-size:${orientation === 'portrait' ? '9.5px' : '10.5px'};margin-top:8px}
+          th,td{border:1px solid #d1d5db;padding:${orientation === 'portrait' ? '5px 4px' : '6px 7px'};text-align:left;overflow-wrap:anywhere}
+          thead{display:table-header-group}
+          tr{break-inside:avoid;page-break-inside:avoid}
+          th{background:#f3f4f6;font-weight:700;color:#111827}
+          .total-count{margin-top:8px;font-size:10px;font-weight:700}
+          .notes{font-size:9px;color:#64748b;margin-top:10px;line-height:1.3;break-inside:avoid}
+          .sig-section{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:40px;break-inside:avoid;page-break-inside:avoid}
+          .sig-block{border-top:1px solid #000;padding-top:4px}
+          .sig-name{font-weight:700;font-size:10px;text-transform:uppercase}
+          .sig-title{font-size:9px;color:#4b5563}
           @media print{body{margin:0}}
-          </style></head><body><h1>${escapeHtml(result.meta.clinic)}</h1><h2>${escapeHtml(result.meta.title)}</h2>
-          <p>Period: ${escapeHtml(result.period.from)} to ${escapeHtml(result.period.to)} · Category: ${escapeHtml(result.period.category)}<br>
-          Prepared by: ${escapeHtml(result.meta.prepared_by)} · Generated: ${escapeHtml(result.meta.generated_at)}<br>${escapeHtml(result.meta.basis)}</p>
+          </style></head><body>
+          <div class="header-box">
+            <div class="republic">Republic of the Philippines · Province of Misamis Oriental</div>
+            <div class="lgu">MUNICIPALITY OF TAGOLOAN</div>
+            <div class="office">MUNICIPAL HEALTH OFFICE — ANIMAL BITE TREATMENT CENTER</div>
+            <div class="clinic">${escapeHtml(result.meta.clinic)}</div>
+          </div>
+          <div class="doc-title">
+            <h2>${escapeHtml(result.meta.title)}</h2>
+          </div>
+          <div class="meta-grid">
+            <div><span class="lbl">Reporting Period: </span><span class="val">${escapeHtml(result.period.from)} to ${escapeHtml(result.period.to)}</span></div>
+            <div><span class="lbl">Category: </span><span class="val">${escapeHtml(result.period.category)}</span></div>
+            <div><span class="lbl">Prepared by: </span><span class="val">${escapeHtml(result.meta.prepared_by)}</span></div>
+            <div><span class="lbl">Date Generated: </span><span class="val">${new Date(result.meta.generated_at).toLocaleString()}</span></div>
+          </div>
           <table><thead><tr>${Object.values(result.records.columns).map(label => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead><tbody>
           ${result.records.rows.length ? result.records.rows.map(row => `<tr>${columns.map(key => `<td>${escapeHtml(display(row[key]))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${columns.length}">No matching records.</td></tr>`}
-          </tbody></table><p style="margin-top:8px"><strong>Total:</strong> ${result.records.total} record(s)</p><div class="notes">${result.meta.notes.map(note => `<p>${escapeHtml(note)}</p>`).join('')}</div></body></html>`;
+          </tbody></table>
+          <div class="total-count">Total: ${result.records.total} record(s)</div>
+          <div class="notes">${result.meta.notes.map(note => `<p>${escapeHtml(note)}</p>`).join('')}</div>
+          <div class="sig-section">
+            <div class="sig-block">
+              <div class="sig-name">${escapeHtml(result.meta.prepared_by)}</div>
+              <div class="sig-title">Prepared by (Registration Staff / Officer)</div>
+            </div>
+            <div class="sig-block">
+              <div class="sig-name">____________________________</div>
+              <div class="sig-title">Noted &amp; Approved by (Medical Officer / Doctor in Charge)</div>
+            </div>
+          </div>
+          </body></html>`;
 
         const iframe = document.createElement('iframe');
         iframe.setAttribute('data-testid', 'print-frame');
@@ -183,29 +237,54 @@ export default function RegistrationReportsPage() {
   const stats = data?.stats;
   return <Box className="registration-reports" sx={{ color: 'text.primary', bgcolor: 'background.default' }}>
     <header className="rr-header"><div><Typography component="h1">Reports &amp; Analytics</Typography><p>Treatment outcomes, follow-up priorities, and bite surveillance</p><small>Dashboard / Reports</small></div>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-        <ToggleButtonGroup
-          size="small"
-          value={orientation}
-          exclusive
-          onChange={(_, val) => { if (val) setOrientation(val); }}
-          aria-label="Print orientation"
-          sx={{ height: 36, bgcolor: 'background.paper' }}
-        >
-          <ToggleButton value="portrait" sx={{ textTransform: 'none', px: 1.5, py: 0.5, fontSize: '0.8125rem' }}>
-            Portrait
-          </ToggleButton>
-          <ToggleButton value="landscape" sx={{ textTransform: 'none', px: 1.5, py: 0.5, fontSize: '0.8125rem' }}>
-            Landscape
-          </ToggleButton>
-        </ToggleButtonGroup>
-        <Button variant="outlined" startIcon={<DownloadOutlined />} disabled={!data || loading || exporting} onClick={() => void exportReport('csv')}>Export CSV</Button>
-        <Button variant="contained" disableElevation startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!data || loading || exporting} onClick={() => void exportReport('print')}>Print Report</Button>
-      </Stack>
+      {['overview', 'pep', 'surveillance'].includes(tab) && (
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <ToggleButtonGroup
+            size="small"
+            value={orientation}
+            exclusive
+            onChange={(_, val) => { if (val) setOrientation(val); }}
+            aria-label="Print orientation"
+            sx={{ height: 36, bgcolor: 'background.paper' }}
+          >
+            <ToggleButton value="portrait" sx={{ textTransform: 'none', px: 1.5, py: 0.5, fontSize: '0.8125rem' }}>
+              Portrait
+            </ToggleButton>
+            <ToggleButton value="landscape" sx={{ textTransform: 'none', px: 1.5, py: 0.5, fontSize: '0.8125rem' }}>
+              Landscape
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Button variant="outlined" startIcon={<DownloadOutlined />} disabled={!data || loading || exporting} onClick={() => void exportReport('csv')}>Export CSV</Button>
+          <Button variant="contained" disableElevation startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!data || loading || exporting} onClick={() => void exportReport('print')}>Print Report</Button>
+        </Stack>
+      )}
     </header>
-    <Tabs value={tab} onChange={(_, value: ReportTab) => selectReport(value === 'overview' ? 'summary' : value === 'pep' ? 'pep' : 'surveillance')} variant="scrollable" allowScrollButtonsMobile aria-label="Registration report sections">
-      <Tab value="overview" label="Overview" /><Tab value="pep" label="PEP & Follow-up" /><Tab value="surveillance" label="Bite Surveillance" />
+    <Tabs
+      value={tab}
+      onChange={(_, value: ReportTab) => {
+        setTab(value);
+        if (value === 'overview') selectReport('summary', false);
+        else if (value === 'pep') selectReport('pep', false);
+        else if (value === 'surveillance') selectReport('surveillance', false);
+      }}
+      variant="scrollable"
+      allowScrollButtonsMobile
+      aria-label="Registration report sections"
+      sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
+    >
+      <Tab value="overview" label="Overview" />
+      <Tab value="pep" label="PEP & Follow-up" />
+      <Tab value="surveillance" label="Bite Surveillance" />
+      <Tab value="registry" label="Rabies Exposure Registry" />
+      <Tab value="monthly" label="ABTC Monthly Report" />
+      <Tab value="cohort" label="Cohort Report" />
     </Tabs>
+
+    {tab === 'registry' && <DohExposureRegistryTab />}
+    {tab === 'monthly' && <DohMonthlyReportTab />}
+    {tab === 'cohort' && <DohCohortReportTab />}
+
+    {['overview', 'pep', 'surveillance'].includes(tab) && <>
     <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={event => { event.preventDefault(); if (valid) { setFilters({ ...draft }); setPage(1); } }}>
       <div className="rr-filter-row">
         <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
@@ -241,7 +320,27 @@ export default function RegistrationReportsPage() {
           <Paper elevation={0} className="rr-panel rr-metric"><h2>Average time to first dose</h2><strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong><p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p><small>{stats.delay.samples} courses · Calendar days from exposure to D0</small></Paper>
           <Paper elevation={0} className="rr-panel rr-metric"><h2>Patients needing follow-up</h2><strong>{stats.overdue_patients}</strong><p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p><small>All incident dates · Not confirmed loss to follow-up</small><Button size="small" onClick={() => selectReport('followup')}>View follow-up list</Button></Paper>
         </div>
-        {(stats.overdue_patients > 0 || stats.awaiting_d0 > 0) && <Alert severity="warning" action={<Button color="inherit" onClick={() => selectReport(stats.overdue_patients ? 'followup' : 'awaiting')}>View list</Button>}>Current actions: {stats.overdue_patients} patient(s) overdue · {stats.awaiting_d0} episode(s) awaiting D0. As of {data.period.as_of}, across all incident dates.</Alert>}
+        {(stats.overdue_patients > 0 || stats.awaiting_d0 > 0) && (
+          <Alert
+            severity="warning"
+            action={
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                {stats.overdue_patients > 0 && (
+                  <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('followup', false)}>
+                    View Overdue ({stats.overdue_patients})
+                  </Button>
+                )}
+                {stats.awaiting_d0 > 0 && (
+                  <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('awaiting', false)}>
+                    View Awaiting D0 ({stats.awaiting_d0})
+                  </Button>
+                )}
+              </Stack>
+            }
+          >
+            Current actions: {stats.overdue_patients} patient(s) overdue · {stats.awaiting_d0} episode(s) awaiting D0. As of {data.period.as_of}, across all incident dates.
+          </Alert>
+        )}
         <div className="rr-grid rr-grid-two"><CategoryTrend months={data.months} /><Bars title="Top recorded incident barangays" rows={data.breakdowns.barangays.filter(row => row.label !== 'Not recorded')} limit={5} note={`${data.breakdowns.barangays.find(row => row.label === 'Not recorded')?.count ?? 0} incident(s) have no recorded barangay. Percentages use known locations.`} /></div>
         <div className="rr-activity"><span><b>{stats.patients}</b> patients with incidents</span><span><b>{stats.incidents}</b> bite episodes</span><span><b>{stats.pep_starts}</b> PEP starts</span><Button component={RouterLink} to="/bite-map" endIcon={<ArrowForward />} size="small">Open Bite Map</Button></div>
       </>}
@@ -257,10 +356,26 @@ export default function RegistrationReportsPage() {
         <div className="rr-grid rr-grid-two"><CategoryTrend months={data.months} /><Bars title="Age at incident" rows={data.breakdowns.ages} note="Counts bite episodes. A patient with separate incidents can appear more than once." /><Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} note="Recorded bite locations only. Open Bite Map for the geographic view." /><Bars title="Incident day of week" rows={data.breakdowns.weekdays} note="Hourly patterns are unavailable because incident times are not recorded." /><Bars title="Animal type" rows={data.breakdowns.animals} /><Bars title="Animal ownership" rows={data.breakdowns.ownership} note="Ownership and vaccination are different attributes. Animal vaccination status is not currently recorded as a structured field." /><Bars title="Recorded animal observation status" rows={data.breakdowns.observation} /></div>
       </>}
       <Paper elevation={0} className="rr-panel">
-        <div className="rr-record-header"><div><h2 className="rr-section-title">{TITLES[report]}</h2><p className="rr-note">{data.records.total} record(s) · {data.meta.basis}</p></div>
-          {tab !== 'overview' && <TextField select size="small" label="Report" value={report} onChange={e => selectReport(e.target.value as Report)} sx={{ minWidth: 240 }}>
-            {(tab === 'pep' ? ['pep', 'followup', 'awaiting'] as Report[] : ['surveillance', 'referrals'] as Report[]).map(value => <MenuItem key={value} value={value}>{TITLES[value]}</MenuItem>)}
-          </TextField>}
+        <div className="rr-record-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h2 className="rr-section-title">{TITLES[report]}</h2>
+            <p className="rr-note">{data.records.total} record(s) · {data.meta.basis}</p>
+          </div>
+          <TextField
+            select
+            size="small"
+            label="Report / Patient List"
+            value={report}
+            onChange={e => selectReport(e.target.value as Report, false)}
+            sx={{ minWidth: 280 }}
+          >
+            <MenuItem value="surveillance">Patient Bite Incident List (Category, Animal, Location)</MenuItem>
+            <MenuItem value="followup">Overdue Patients &amp; Follow-up</MenuItem>
+            <MenuItem value="awaiting">Patients Awaiting First Dose (D0)</MenuItem>
+            <MenuItem value="pep">PEP Treatment Outcomes</MenuItem>
+            <MenuItem value="referrals">Referrals &amp; Transfers</MenuItem>
+            <MenuItem value="summary">Clinic Summary (Key Metrics)</MenuItem>
+          </TextField>
         </div>
         <div className="rr-table-scroll" tabIndex={0} role="region" aria-label={TITLES[report]}><table className="rr-table"><thead><tr>{Object.values(data.records.columns).map(label => <th key={label} scope="col">{label}</th>)}</tr></thead><tbody>
           {data.records.rows.length ? data.records.rows.map((row, index) => <tr key={`${page}-${index}`}>{Object.keys(data.records.columns).map(key => <td key={key}>{key === 'category' ? <Chip size="small" variant="outlined" label={`Category ${display(row[key])}`} /> : display(row[key])}</td>)}</tr>) : <tr><td colSpan={Object.keys(data.records.columns).length} className="rr-empty">No matching records.</td></tr>}
@@ -273,6 +388,7 @@ export default function RegistrationReportsPage() {
         <p>{stats.delay.excluded} D0 course(s) excluded from delay calculations because exposure-to-dose dates are invalid or unavailable. Zero means a measured zero; “Not available” means no eligible observations.</p>
       </details>
       <p className="rr-note rr-updated">Updated {new Date(data.meta.generated_at).toLocaleString()} · {data.meta.clinic}</p>
+    </>}
     </>}
   </Box>;
 }

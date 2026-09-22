@@ -3,6 +3,8 @@ import type { TreatmentFormData } from '../../types/consultation.types';
 import ReferralLocationSelector from '../ReferralLocationSelector';
 import { splitBloodPressure, combineBloodPressure } from '../../utils/consultationHelpers';
 import { FormField } from '../FormField';
+import VitalStatusIndicator from '../VitalStatusIndicator';
+import { getBloodPressureStatus, getTemperatureStatus } from '../../utils/vitalSignStatus';
 
 interface VitalsConsultationSectionProps {
   formData: TreatmentFormData;
@@ -20,6 +22,8 @@ export default function VitalsConsultationSection({
   onSetReferredBy,
 }: VitalsConsultationSectionProps) {
   const { systolic, diastolic } = splitBloodPressure(formData.blood_pressure);
+  const bloodPressureStatus = getBloodPressureStatus(systolic, diastolic);
+  const temperatureStatus = getTemperatureStatus(formData.temperature);
 
   const handleSystolicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const sys = e.target.value;
@@ -67,11 +71,11 @@ export default function VitalsConsultationSection({
             style={{
               display: 'flex',
               alignItems: 'center',
-              border: '1px solid var(--text-secondary, #6b7280)',
+              border: `1px solid ${bloodPressureStatus?.borderColor || 'var(--text-secondary, #6b7280)'}`,
               borderRadius: 8,
               minHeight: 46,
               height: 46,
-              background: isFormDisabled ? 'var(--bg-secondary, #f1f5f9)' : 'var(--input-bg, #fff)',
+              background: bloodPressureStatus?.backgroundColor || (isFormDisabled ? 'var(--bg-secondary, #f1f5f9)' : 'var(--input-bg, #fff)'),
               overflow: 'hidden',
               boxSizing: 'border-box',
               padding: '0 8px',
@@ -123,6 +127,7 @@ export default function VitalsConsultationSection({
               }}
             />
           </div>
+          {bloodPressureStatus && <VitalStatusIndicator status={bloodPressureStatus} />}
         </FormField>
 
         <FormField label="Temperature (°C)">
@@ -134,7 +139,12 @@ export default function VitalsConsultationSection({
             onChange={onFieldChange('temperature')}
             placeholder="36.5"
             disabled={isFormDisabled}
+            style={temperatureStatus ? {
+              borderColor: temperatureStatus.borderColor,
+              backgroundColor: temperatureStatus.backgroundColor,
+            } : undefined}
           />
+          {temperatureStatus && <VitalStatusIndicator status={temperatureStatus} />}
         </FormField>
 
         <FormField label="Height (cm)">

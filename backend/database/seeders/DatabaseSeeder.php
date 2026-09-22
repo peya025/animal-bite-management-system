@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             $this->command->info('🌱 Seeding default clinic and test users...');
             $this->call([
                 DefaultClinicSeeder::class,
+                DualNurseDemoSeeder::class,
                 DefaultClinicConfigSeeder::class,
             ]);
         } else {

@@ -3,6 +3,8 @@ import { useTheme } from '@mui/material/styles';
 import api from '../../../services/api';
 import tagoloanLogo from '../../../assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
 import rhuLogo from '../../../assets/rhu-logo.png';
+import { useAuth } from '../../../contexts/AuthContext';
+import RegistrationReportsPage from './RegistrationReportsPage';
 
 // ─── Types ────────────────────────────────────────────────────
 interface ReportStats {
@@ -969,6 +971,11 @@ function PrintPreviewModal({
 
 // ─── Main Component ───────────────────────────────────────────
 export default function ReportsDashboardPage() {
+  const { user } = useAuth();
+  return user?.role === 'registration' ? <RegistrationReportsPage /> : <LegacyReportsDashboardPage />;
+}
+
+function LegacyReportsDashboardPage() {
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
   const todayStr = today.toISOString().split('T')[0];

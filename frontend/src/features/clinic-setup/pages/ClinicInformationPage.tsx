@@ -486,6 +486,7 @@ export default function ClinicInformation() {
           <IconButton
             onClick={loadClinicData}
             disabled={loading}
+            title="Reload Clinic Information"
             sx={{ 
               border: '1px solid #e0eae3',
               borderRadius: 1.5,
@@ -496,27 +497,6 @@ export default function ClinicInformation() {
           >
             <RefreshIcon fontSize="small" />
           </IconButton>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSubmit}
-            disabled={saving}
-            disableElevation
-            sx={{
-              bgcolor: '#10b981',
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '14px',
-              px: 3,
-              py: 1.25,
-              borderRadius: 1.5,
-              '&:hover': {
-                bgcolor: '#059669',
-              },
-            }}
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
         </Box>
       </Box>
 
@@ -969,6 +949,31 @@ export default function ClinicInformation() {
             </Box>
           </Box>
         </Paper>
+
+        {/* Bottom-right Save Changes Button */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', pt: 1, pb: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSubmit}
+            disabled={saving}
+            disableElevation
+            sx={{
+              bgcolor: '#10b981',
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '14px',
+              px: 3,
+              py: 1.25,
+              borderRadius: 1.5,
+              '&:hover': {
+                bgcolor: '#059669',
+              },
+            }}
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </Box>
       </Box>
 
       {/* Success Modal */}

@@ -35,17 +35,22 @@ export interface User {
 export interface Clinic {
   id: number;
   name: string;
+  subtitle?: string;
   address?: string;
   phone?: string;
   email?: string;
+  contact_number?: string;
   license_number?: string;
   hospital_no?: string;
   doh_accreditation_no?: string;
   philhealth_accreditation_no?: string;
+  opening_hours?: any;
+  logo_path?: string | null;
+  logo_url?: string | null;
   setup_completed?: boolean;
   is_setup_complete?: boolean;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface LoginCredentials {
@@ -66,6 +71,7 @@ export interface AuthContextType {
   token: string | null;
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void> | void;
+  updateClinic?: (clinic: Clinic) => void;
   isAuthenticated: boolean;
   isLoading: boolean;
 }

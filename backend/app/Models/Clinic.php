@@ -13,6 +13,7 @@ class Clinic extends Model
 
     protected $fillable = [
         'name',
+        'subtitle',
         'address',
         'phone',
         'email',
@@ -45,6 +46,21 @@ class Clinic extends Model
         'health_officer_name',
         'population',
     ];
+
+    protected $appends = [
+        'logo_url',
+    ];
+
+    /**
+     * Get the full URL to the clinic logo if uploaded
+     */
+    public function getLogoUrlAttribute(): ?string
+    {
+        if ($this->logo_path) {
+            return asset('storage/' . $this->logo_path);
+        }
+        return null;
+    }
 
     protected $casts = [
         'is_setup_complete' => 'boolean',

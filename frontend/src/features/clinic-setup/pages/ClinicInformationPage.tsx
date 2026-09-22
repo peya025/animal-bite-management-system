@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import {
@@ -26,8 +26,14 @@ import {
   Settings as SettingsIcon,
   Edit as EditIcon,
   Place as PlaceIcon,
+  CloudUpload as CloudUploadIcon,
+  DeleteOutlined as DeleteOutlineIcon,
+  Subtitles as SubtitlesIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
+import defaultLogo from '../../../assets/abtcare-app-icon.png';
+import { API_BASE_URL } from '../../../shared/services/api';
+import { useAuth } from '../../../shared/contexts/AuthContext';
 import { DAYS } from '../components/WorkingHoursModal/WorkingHoursModal';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 
@@ -67,6 +73,7 @@ function FieldLabel({ children, required }: { children: ReactNode; required?: bo
 
 interface ClinicData {
   name: string;
+  subtitle: string;
   address: string;
   contact_number: string;
   email: string;
@@ -74,6 +81,8 @@ interface ClinicData {
   hospital_no: string;
   doh_accreditation_no: string;
   philhealth_accreditation_no: string;
+  logo_path?: string | null;
+  logo_url?: string | null;
   opening_hours: {
     [key: string]: { open: string; close: string; is_open: boolean };
   };
@@ -81,10 +90,12 @@ interface ClinicData {
 
 export default function ClinicInformation() {
   const navigate = useNavigate();
+  const { updateClinic } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clinic, setClinic] = useState<ClinicData>({
     name: '',
+    subtitle: '',
     address: '',
     contact_number: '',
     email: '',
@@ -92,8 +103,14 @@ export default function ClinicInformation() {
     hospital_no: '',
     doh_accreditation_no: '',
     philhealth_accreditation_no: '',
+    logo_path: null,
+    logo_url: null,
     opening_hours: {},
   });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [removeLogo, setRemoveLogo] = useState(false);
+
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -291,6 +308,7 @@ export default function ClinicInformation() {
 
       setClinic({
         name: data.name || '',
+        subtitle: data.subtitle || '',
         address: data.address || '',
         contact_number: data.contact_number || '',
         email: data.email || '',
@@ -298,8 +316,14 @@ export default function ClinicInformation() {
         hospital_no: data.hospital_no || '',
         doh_accreditation_no: data.doh_accreditation_no || '',
         philhealth_accreditation_no: data.philhealth_accreditation_no || '',
+        logo_path: data.logo_path || null,
+        logo_url: data.logo_url || null,
         opening_hours: defaultHours,
       });
+
+      setLogoFile(null);
+      setLogoPreview(null);
+      setRemoveLogo(false);
 
       parseClinicAddress(data.address || '', data.municipality, data.province);
     } catch (error: any) {
@@ -326,21 +350,92 @@ export default function ClinicInformation() {
     setClinic(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSnackbar({
+        open: true,
+        message: 'Logo image must not exceed 2MB in size.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+    setRemoveLogo(false);
+  };
+
+  const handleResetLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setRemoveLogo(true);
+  };
+
+  const backendBase = API_BASE_URL.replace(/\/api\/?$/, '');
+  const displayLogoSrc = logoPreview
+    ? logoPreview
+    : removeLogo
+      ? defaultLogo
+      : clinic.logo_url
+        ? clinic.logo_url
+        : clinic.logo_path
+          ? `${backendBase}/storage/${clinic.logo_path}`
+          : defaultLogo;
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleSubmit = async () => {
     setSaving(true);
     try {
-      const payload = {
-        ...clinic,
-        municipality: selectedMunicipality,
-        province: selectedProvince,
-        opening_hours: JSON.stringify(clinic.opening_hours),
-      };
+      const formData = new FormData();
+      formData.append('name', clinic.name || '');
+      formData.append('subtitle', clinic.subtitle || '');
+      formData.append('address', clinic.address || '');
+      formData.append('contact_number', clinic.contact_number || '');
+      formData.append('email', clinic.email || '');
+      formData.append('license_number', clinic.license_number || '');
+      formData.append('hospital_no', clinic.hospital_no || '');
+      formData.append('doh_accreditation_no', clinic.doh_accreditation_no || '');
+      formData.append('philhealth_accreditation_no', clinic.philhealth_accreditation_no || '');
+      formData.append('municipality', selectedMunicipality);
+      formData.append('province', selectedProvince);
+      formData.append('opening_hours', JSON.stringify(clinic.opening_hours));
 
-      const res = await api.put('/setup/clinic', payload);
+      if (logoFile) {
+        formData.append('logo', logoFile);
+      }
+      if (removeLogo) {
+        formData.append('remove_logo', '1');
+      }
+
+      const res = await api.post('/setup/clinic', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
       if (res.data?.clinic) {
-        localStorage.setItem('clinicData', JSON.stringify(res.data.clinic));
+        const updatedClinic = res.data.clinic;
+        if (updateClinic) {
+          updateClinic(updatedClinic);
+        } else {
+          localStorage.setItem('clinicData', JSON.stringify(updatedClinic));
+          window.dispatchEvent(new CustomEvent('clinic-updated', { detail: updatedClinic }));
+        }
+
+        setClinic(prev => ({
+          ...prev,
+          name: updatedClinic.name || prev.name,
+          subtitle: updatedClinic.subtitle || '',
+          logo_path: updatedClinic.logo_path || null,
+          logo_url: updatedClinic.logo_url || null,
+        }));
+        setLogoFile(null);
+        setLogoPreview(null);
+        setRemoveLogo(false);
       }
 
       setShowSuccessModal(true);
@@ -426,8 +521,8 @@ export default function ClinicInformation() {
       </Box>
 
       {/* Full-width layout */}
-      <Box>
-        {/* Left Column - Clinic Information */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* Card 1: Branding & Application Identity */}
         <Paper
           elevation={0}
           sx={{
@@ -438,21 +533,140 @@ export default function ClinicInformation() {
           }}
         >
           <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            CLINIC INFORMATION
+            BRANDING & APPLICATION IDENTITY
           </Typography>
           <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
 
+          {/* Logo Uploader Block */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 3,
+              p: 2.5,
+              bgcolor: 'var(--bg-subtle, #f8fafc)',
+              border: '1px solid var(--border-glow, #e2e8f0)',
+              borderRadius: 2,
+              mb: 3,
+            }}
+          >
+            {/* Logo Preview Container */}
+            <Box
+              sx={{
+                width: 76,
+                height: 76,
+                borderRadius: 2,
+                border: '2px dashed #10b981',
+                bgcolor: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                p: 1,
+                flexShrink: 0,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                overflow: 'hidden',
+              }}
+            >
+              <img
+                src={displayLogoSrc}
+                alt="Clinic Logo"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  if (target.src !== defaultLogo) {
+                    target.src = defaultLogo;
+                  }
+                }}
+              />
+            </Box>
+
+            {/* Logo Actions */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.5 }}>
+                Clinic & Application Logo
+              </Typography>
+              <Typography sx={{ fontSize: '12px', color: '#64748b', mb: 1.5, lineHeight: 1.4 }}>
+                This logo is displayed in the sidebar header across the entire application. If no custom logo is uploaded, the default mobile application logo is used.
+              </Typography>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <input
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  id="clinic-logo-upload"
+                  type="file"
+                  style={{ display: 'none' }}
+                  onChange={handleLogoChange}
+                />
+                <label htmlFor="clinic-logo-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    size="small"
+                    startIcon={<CloudUploadIcon />}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      color: '#059669',
+                      borderColor: '#10b981',
+                      '&:hover': {
+                        borderColor: '#059669',
+                        bgcolor: '#ecfdf5',
+                      },
+                    }}
+                  >
+                    Upload Custom Logo
+                  </Button>
+                </label>
+
+                {(clinic.logo_path || logoPreview || (clinic.logo_url && clinic.logo_url !== defaultLogo)) && !removeLogo && (
+                  <Button
+                    variant="text"
+                    size="small"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={handleResetLogo}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '12.5px',
+                      fontWeight: 500,
+                      color: '#ef4444',
+                      '&:hover': {
+                        bgcolor: '#fef2f2',
+                      },
+                    }}
+                  >
+                    Reset to Default Logo
+                  </Button>
+                )}
+
+                {logoFile && (
+                  <Typography sx={{ fontSize: '12px', color: '#10b981', fontWeight: 500 }}>
+                    • Selected: {logoFile.name} (Click &quot;Save Changes&quot; to apply)
+                  </Typography>
+                )}
+                {removeLogo && (
+                  <Typography sx={{ fontSize: '12px', color: '#f59e0b', fontWeight: 500 }}>
+                    • Logo will reset to default mobile logo on save
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Title and Subtitle Inputs */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
-            {/* Clinic Name */}
+            {/* Main Title / Clinic Name */}
             <Box>
-              <FieldLabel required>Clinic Name</FieldLabel>
+              <FieldLabel required>Main Title (Clinic Name)</FieldLabel>
               <TextField
                 fullWidth
                 size="small"
-                placeholder="Enter clinic name"
+                placeholder="e.g. Animal Bite Treatment Center"
                 value={clinic.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
                 sx={cleanFieldSx}
+                helperText="Primary clinic name shown at the top of the sidebar"
                 slotProps={{
                   input: {
                     startAdornment: (
@@ -464,6 +678,48 @@ export default function ClinicInformation() {
                 }}
               />
             </Box>
+
+            {/* Subtitle */}
+            <Box>
+              <FieldLabel>Subtitle (Application Tagline)</FieldLabel>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. Tagoloan Animal Bite Treatment Application"
+                value={clinic.subtitle}
+                onChange={(e) => handleInputChange('subtitle', e.target.value)}
+                sx={cleanFieldSx}
+                helperText="Secondary tagline displayed below the clinic name in the sidebar"
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SubtitlesIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Card 2 - Facility & Accreditation Information */}
+        <Paper
+          elevation={0}
+          sx={{
+            border: '1px solid var(--border-glow, #e0eae3)',
+            borderRadius: 2,
+            p: 3,
+            bgcolor: 'var(--card-bg-solid, #fff)',
+          }}
+        >
+          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            FACILITY & ACCREDITATION INFORMATION
+          </Typography>
+          <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
 
             {/* License Number */}
             <Box>

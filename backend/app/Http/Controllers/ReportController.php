@@ -28,7 +28,8 @@ class ReportController extends Controller
             toDate: $request->query('to'),
             quarter: $request->query('quarter'),
             year: $request->query('year') ? (int) $request->query('year') : null,
-            user: $user
+            user: $user,
+            category: $request->query('category')
         );
 
         return response()->json($data);
@@ -47,7 +48,10 @@ class ReportController extends Controller
         $data = $this->dohReportService->getMonthlyReport(
             clinicId: (int) $clinicId,
             monthStr: $request->query('month'),
-            user: $user
+            user: $user,
+            category: $request->query('category'),
+            fromDate: $request->query('from'),
+            toDate: $request->query('to')
         );
 
         return response()->json($data);
@@ -66,7 +70,8 @@ class ReportController extends Controller
         $data = $this->dohReportService->getCohortReport(
             clinicId: (int) $clinicId,
             yearParam: $request->query('year') ? (int) $request->query('year') : null,
-            user: $user
+            user: $user,
+            category: $request->query('category')
         );
 
         return response()->json($data);

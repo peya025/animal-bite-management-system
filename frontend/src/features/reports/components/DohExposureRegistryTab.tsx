@@ -59,6 +59,21 @@ interface RegistryRow {
   pct_erig: string;
 }
 
+export interface PatientCase {
+  case_number: string;
+  patient_name: string;
+  age: number | string;
+  gender: string;
+  bite_date: string;
+  category: string;
+  animal_type: string;
+  animal_status: string;
+  place_of_exposure: string;
+  pep_given: string;
+  rig_given: string;
+  status: string;
+}
+
 interface RegistryData {
   report_type: string;
   clinic: string;
@@ -68,8 +83,10 @@ interface RegistryData {
   year: number;
   from: string;
   to: string;
+  category?: string;
   data: RegistryRow[];
   totals: RegistryRow;
+  patient_cases?: PatientCase[];
   prepared_by: string;
   prepared_designation: string;
   noted_by: string;
@@ -77,10 +94,14 @@ interface RegistryData {
   date_signed: string;
 }
 
-export default function DohExposureRegistryTab() {
+interface Props {
+  filters?: { from: string; to: string; category: string };
+}
+
+export default function DohExposureRegistryTab({ filters }: Props) {
   const defaultDates = getQuarterRange();
-  const [from, setFrom] = useState(defaultDates.from);
-  const [to, setTo] = useState(defaultDates.to);
+  const [from, setFrom] = useState(filters?.from || defaultDates.from);
+  const [to, setTo] = useState(filters?.to || defaultDates.to);
   const [quarter, setQuarter] = useState(currentQuarter);
   const [year, setYear] = useState(currentYear);
 
@@ -89,12 +110,29 @@ export default function DohExposureRegistryTab() {
   const [error, setError] = useState<string | null>(null);
   const [reportData, setReportData] = useState<RegistryData | null>(null);
 
+  // Sync with parent filters when changed
+  useEffect(() => {
+    if (filters?.from && filters?.to) {
+      setFrom(filters.from);
+      setTo(filters.to);
+    }
+  }, [filters?.from, filters?.to]);
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
+      const activeFrom = filters?.from || from;
+      const activeTo = filters?.to || to;
+      const activeCategory = filters?.category || 'ALL';
       const response = await api.get<RegistryData>('/reports/exposure-registry', {
-        params: { from, to, quarter, year },
+        params: {
+          from: activeFrom,
+          to: activeTo,
+          quarter,
+          year,
+          category: activeCategory,
+        },
       });
       setReportData(response.data);
     } catch (err: any) {
@@ -106,12 +144,21 @@ export default function DohExposureRegistryTab() {
 
   useEffect(() => {
     loadData();
-  }, [from, to, quarter, year]);
+  }, [from, to, quarter, year, filters?.category, filters?.from, filters?.to]);
 
   const handlePrint = async () => {
     setPrinting(true);
     try {
-      await silentPrintReport('exposure-registry', { from, to, quarter, year });
+      const activeFrom = filters?.from || from;
+      const activeTo = filters?.to || to;
+      const activeCategory = filters?.category || 'ALL';
+      await silentPrintReport('exposure-registry', {
+        from: activeFrom,
+        to: activeTo,
+        quarter,
+        year,
+        category: activeCategory,
+      });
     } catch (err: any) {
       setError(err.message || 'Printing failed');
     } finally {
@@ -399,6 +446,48 @@ export default function DohExposureRegistryTab() {
               </tbody>
             </table>
           </Box>
+          {/* Patient Cases Breakdown Table */}
+          {reportData.patient_cases && reportData.patient_cases.length > 0 && (
+            <Box sx={{ mt: 3, mb: 3 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                Matching Bite Exposure Incidents in this Reporting Period ({reportData.patient_cases.length} cases)
+              </Typography>
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 700 }}>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Case No.</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Patient</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Age/Sex</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Bite Date</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Category</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Animal</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Exposure Place</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>PEP</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>RIG</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData.patient_cases.map((pc, i) => (
+                      <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px', fontWeight: 600 }}>{pc.case_number}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.patient_name}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.age} / {pc.gender}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.bite_date}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px', fontWeight: 700 }}>Cat {pc.category}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.animal_type} ({pc.animal_status})</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.place_of_exposure}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.pep_given}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.rig_given}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            </Box>
+          )}
 
           {/* Signatures Footer */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3, pt: 2, fontSize: '0.85rem' }}>

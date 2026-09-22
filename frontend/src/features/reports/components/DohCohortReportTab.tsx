@@ -31,11 +31,27 @@ interface QuarterGroup {
   total: CategoryData;
 }
 
+export interface PatientCase {
+  case_number: string;
+  patient_name: string;
+  age: number | string;
+  gender: string;
+  bite_date: string;
+  category: string;
+  animal_type: string;
+  animal_status: string;
+  place_of_exposure: string;
+  pep_given: string;
+  rig_given: string;
+  status: string;
+}
+
 interface CohortData {
   report_type: string;
   province: string;
   abtc: string;
   year: number;
+  category?: string;
   quarters: {
     q1: QuarterGroup;
     q2: QuarterGroup;
@@ -43,6 +59,7 @@ interface CohortData {
     q4: QuarterGroup;
     annual: QuarterGroup;
   };
+  patient_cases?: PatientCase[];
   prepared_by: string;
   prepared_designation: string;
   noted_by: string;
@@ -50,19 +67,35 @@ interface CohortData {
   date_signed: string;
 }
 
-export default function DohCohortReportTab() {
-  const [year, setYear] = useState<number>(currentYear);
+interface Props {
+  filters?: { from: string; to: string; category: string };
+}
+
+export default function DohCohortReportTab({ filters }: Props) {
+  const [year, setYear] = useState<number>(filters?.from ? Number(filters.from.slice(0, 4)) : currentYear);
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportData, setReportData] = useState<CohortData | null>(null);
+
+  useEffect(() => {
+    if (filters?.from) {
+      const parsedYear = Number(filters.from.slice(0, 4));
+      if (!isNaN(parsedYear) && parsedYear > 2000) {
+        setYear(parsedYear);
+      }
+    }
+  }, [filters?.from]);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await api.get<CohortData>('/reports/cohort', {
-        params: { year },
+        params: {
+          year,
+          category: filters?.category || 'ALL',
+        },
       });
       setReportData(response.data);
     } catch (err: any) {
@@ -74,12 +107,15 @@ export default function DohCohortReportTab() {
 
   useEffect(() => {
     loadData();
-  }, [year]);
+  }, [year, filters?.category]);
 
   const handlePrint = async () => {
     setPrinting(true);
     try {
-      await silentPrintReport('cohort', { year });
+      await silentPrintReport('cohort', {
+        year,
+        category: filters?.category || 'ALL',
+      });
     } catch (err: any) {
       setError(err.message || 'Printing failed');
     } finally {
@@ -399,6 +435,49 @@ export default function DohCohortReportTab() {
               </tbody>
             </table>
           </Box>
+
+          {/* Patient Cases Breakdown Table */}
+          {reportData.patient_cases && reportData.patient_cases.length > 0 && (
+            <Box sx={{ mt: 3, mb: 3 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                Matching Bite Exposure Cases in Calendar Year {reportData.year} ({reportData.patient_cases.length} cases)
+              </Typography>
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 700 }}>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Case No.</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Patient</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Age/Sex</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Bite Date</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Category</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Animal</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Exposure Place</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>PEP</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>RIG</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData.patient_cases.map((pc, i) => (
+                      <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px', fontWeight: 600 }}>{pc.case_number}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.patient_name}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.age} / {pc.gender}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.bite_date}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px', fontWeight: 700 }}>Cat {pc.category}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.animal_type} ({pc.animal_status})</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.place_of_exposure}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.pep_given}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.rig_given}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            </Box>
+          )}
 
           {/* Signatures matching Image 3 */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3, pt: 2, fontSize: '0.85rem' }}>

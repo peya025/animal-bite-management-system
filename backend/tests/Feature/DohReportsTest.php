@@ -152,4 +152,49 @@ class DohReportsTest extends TestCase
         $resCohort = $this->get('/print/reports/cohort?clinic_id=' . $this->clinic->id . '&year=2024');
         $resCohort->assertOk()->assertSee('Cohort Report');
     }
+
+    public function test_category_filter_works_dynamically(): void
+    {
+        // When filtering for Cat II, our seeded Cat III incident should not be counted
+        $response = $this->getJson('/api/reports/exposure-registry?from=2024-07-01&to=2024-07-31&category=II');
+        $response->assertOk()
+            ->assertJsonPath('totals.total', 0)
+            ->assertJsonPath('totals.cat_3', 0);
+
+        // When filtering for Cat III, it should be counted
+        $responseCat3 = $this->getJson('/api/reports/exposure-registry?from=2024-07-01&to=2024-07-31&category=III');
+        $responseCat3->assertOk()
+            ->assertJsonPath('totals.total', 1)
+            ->assertJsonPath('totals.cat_3', 1);
+    }
+
+    public function test_reports_use_dynamic_clinic_and_user_data_without_hardcoded_strings(): void
+    {
+        $customClinic = Clinic::create([
+            'name' => 'Custom Community Bite Clinic',
+            'municipality' => 'Balingasag',
+            'province' => 'Misamis Oriental',
+            'population' => 42000,
+            'health_officer_name' => 'Dr. Maria Santos MD',
+        ]);
+
+        $customStaff = User::factory()->create([
+            'clinic_id' => $customClinic->id,
+            'role' => 'registration',
+            'name' => 'Nurse Juancho Dela Rosa',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($customStaff);
+
+        $response = $this->getJson('/api/reports/exposure-registry?from=2024-07-01&to=2024-07-31');
+        $response->assertOk()
+            ->assertJsonPath('clinic', 'Custom Community Bite Clinic')
+            ->assertJsonPath('municipality', 'Balingasag')
+            ->assertJsonPath('province', 'Misamis Oriental')
+            ->assertJsonPath('totals.human_population', 42000)
+            ->assertJsonPath('prepared_by', 'Nurse Juancho Dela Rosa')
+            ->assertJsonPath('prepared_designation', 'Registration Staff')
+            ->assertJsonPath('noted_by', 'Dr. Maria Santos MD');
+    }
 }

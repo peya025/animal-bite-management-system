@@ -32,12 +32,30 @@ interface MonthlyRow {
   given_rig: number;
 }
 
+export interface PatientCase {
+  case_number: string;
+  patient_name: string;
+  age: number | string;
+  gender: string;
+  bite_date: string;
+  category: string;
+  animal_type: string;
+  animal_status: string;
+  place_of_exposure: string;
+  pep_given: string;
+  rig_given: string;
+  status: string;
+}
+
 interface MonthlyData {
   report_type: string;
   province: string;
   abtc: string;
   month: string;
   month_label: string;
+  from?: string;
+  to?: string;
+  category?: string;
   male: number;
   female: number;
   given_pep: number;
@@ -53,6 +71,7 @@ interface MonthlyData {
   completion_rate: string;
   rows: MonthlyRow[];
   totals: MonthlyRow;
+  patient_cases?: PatientCase[];
   prepared_by: string;
   prepared_designation: string;
   contact_no: string;
@@ -61,19 +80,35 @@ interface MonthlyData {
   date_signed: string;
 }
 
-export default function DohMonthlyReportTab() {
-  const [month, setMonth] = useState<string>(currentMonth);
+interface Props {
+  filters?: { from: string; to: string; category: string };
+}
+
+export default function DohMonthlyReportTab({ filters }: Props) {
+  const [month, setMonth] = useState<string>(filters?.from ? filters.from.slice(0, 7) : currentMonth);
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportData, setReportData] = useState<MonthlyData | null>(null);
 
+  useEffect(() => {
+    if (filters?.from) {
+      setMonth(filters.from.slice(0, 7));
+    }
+  }, [filters?.from]);
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
+      const activeMonth = filters?.from ? filters.from.slice(0, 7) : month;
       const response = await api.get<MonthlyData>('/reports/monthly', {
-        params: { month },
+        params: {
+          month: activeMonth,
+          from: filters?.from,
+          to: filters?.to,
+          category: filters?.category || 'ALL',
+        },
       });
       setReportData(response.data);
     } catch (err: any) {
@@ -85,12 +120,18 @@ export default function DohMonthlyReportTab() {
 
   useEffect(() => {
     loadData();
-  }, [month]);
+  }, [month, filters?.from, filters?.to, filters?.category]);
 
   const handlePrint = async () => {
     setPrinting(true);
     try {
-      await silentPrintReport('monthly', { month });
+      const activeMonth = filters?.from ? filters.from.slice(0, 7) : month;
+      await silentPrintReport('monthly', {
+        month: activeMonth,
+        from: filters?.from,
+        to: filters?.to,
+        category: filters?.category || 'ALL',
+      });
     } catch (err: any) {
       setError(err.message || 'Printing failed');
     } finally {
@@ -304,6 +345,49 @@ export default function DohMonthlyReportTab() {
               </tbody>
             </table>
           </Box>
+
+          {/* Patient Cases Breakdown Table */}
+          {reportData.patient_cases && reportData.patient_cases.length > 0 && (
+            <Box sx={{ mt: 3, mb: 3 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                Matching Bite Exposure Incidents in this Monthly Reporting Period ({reportData.patient_cases.length} cases)
+              </Typography>
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 700 }}>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Case No.</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Patient</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Age/Sex</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Bite Date</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Category</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Animal</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Exposure Place</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>PEP</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>RIG</th>
+                      <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData.patient_cases.map((pc, i) => (
+                      <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px', fontWeight: 600 }}>{pc.case_number}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.patient_name}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.age} / {pc.gender}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.bite_date}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px', fontWeight: 700 }}>Cat {pc.category}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.animal_type} ({pc.animal_status})</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.place_of_exposure}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.pep_given}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.rig_given}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>{pc.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            </Box>
+          )}
 
           {/* Bottom Section: Prepared by, Completion Rate box, Noted by */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mt: 3, pt: 2, fontSize: '0.85rem' }}>

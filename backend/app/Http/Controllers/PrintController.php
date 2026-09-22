@@ -55,7 +55,8 @@ class PrintController extends Controller
             toDate: $request->query('to'),
             quarter: $request->query('quarter'),
             year: $request->query('year') ? (int) $request->query('year') : null,
-            user: $user
+            user: $user,
+            category: $request->query('category')
         );
 
         return view('prints.exposure-registry', $data);
@@ -74,7 +75,10 @@ class PrintController extends Controller
         $data = $this->dohReportService->getMonthlyReport(
             clinicId: (int) $clinicId,
             monthStr: $request->query('month'),
-            user: $user
+            user: $user,
+            category: $request->query('category'),
+            fromDate: $request->query('from'),
+            toDate: $request->query('to')
         );
 
         return view('prints.monthly-report', $data);
@@ -93,7 +97,8 @@ class PrintController extends Controller
         $data = $this->dohReportService->getCohortReport(
             clinicId: (int) $clinicId,
             yearParam: $request->query('year') ? (int) $request->query('year') : null,
-            user: $user
+            user: $user,
+            category: $request->query('category')
         );
 
         return view('prints.cohort-report', $data);

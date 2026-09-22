@@ -12,7 +12,7 @@ class DohReportService
      * REPORT 1 — Rabies Exposure Registry (Weekly)
      * Matches Image 2 & 4 — DOH Rabies Exposure Registry form
      */
-    public function getExposureRegistry(int $clinicId, ?string $fromDate = null, ?string $toDate = null, ?string $quarter = null, ?int $year = null, $user = null): array
+    public function getExposureRegistry(int $clinicId, ?string $fromDate = null, ?string $toDate = null, ?string $quarter = null, ?int $year = null, $user = null, ?string $category = null): array
     {
         $clinic = Clinic::find($clinicId);
         $from = $fromDate ? Carbon::parse($fromDate)->startOfDay() : now()->startOfQuarter();
@@ -25,13 +25,28 @@ class DohReportService
         }
 
         $weeks = $this->generateWeekRanges($from, $to);
-        $population = $clinic?->population ?? 70000;
+        $population = (int) ($clinic?->population ?? 0);
 
-        $rows = collect($weeks)->map(function ($week) use ($clinicId, $population) {
-            $cases = BiteIncident::where('clinic_id', $clinicId)
+        $allPeriodCases = collect();
+
+        $rows = collect($weeks)->map(function ($week) use ($clinicId, $population, $category, &$allPeriodCases) {
+            $query = BiteIncident::where('clinic_id', $clinicId)
                 ->whereBetween('bite_date', [$week['start'], $week['end']])
-                ->with(['patient', 'intake', 'treatmentRecords'])
-                ->get();
+                ->with(['patient', 'intake', 'treatmentRecords']);
+
+            if ($category && $category !== 'ALL') {
+                $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
+                $sev = $severityMap[$category] ?? null;
+                $query->where(function ($q) use ($category, $sev) {
+                    $q->whereHas('intake', fn($sub) => $sub->where('bite_category', $category));
+                    if ($sev) {
+                        $q->orWhere('severity', $sev);
+                    }
+                });
+            }
+
+            $cases = $query->get();
+            $allPeriodCases = $allPeriodCases->concat($cases);
 
             $total = $cases->count();
             $male = $cases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'male')->count();
@@ -50,7 +65,10 @@ class DohReportService
 
             $dog = $cases->filter(fn($c) => strtolower($c->intake?->animal_type ?? $c->animal_type ?? '') === 'dog')->count();
             $cat = $cases->filter(fn($c) => strtolower($c->intake?->animal_type ?? $c->animal_type ?? '') === 'cat')->count();
-            $others = $cases->filter(fn($c) => !in_array(strtolower($c->intake?->animal_type ?? $c->animal_type ?? ''), ['dog', 'cat'], true))->count();
+            $others = $cases->filter(function ($c) {
+                $type = strtolower(trim($c->intake?->animal_type ?? $c->animal_type ?? ''));
+                return $type !== '' && !in_array($type, ['dog', 'cat'], true);
+            })->count();
 
             return [
                 'inclusive_dates' => $week['label'],
@@ -128,18 +146,20 @@ class DohReportService
 
         return [
             'report_type' => 'exposure_registry',
-            'clinic' => $clinic?->name ?? 'TAGOLOAN ABTC',
-            'municipality' => $clinic?->municipality ?? 'Tagoloan',
-            'province' => $clinic?->province ?? 'Misamis Oriental',
+            'clinic' => $clinic?->name ?? 'Animal Bite Treatment Center',
+            'municipality' => $clinic?->municipality ?? '—',
+            'province' => $clinic?->province ?? '—',
             'quarter' => $quarter ?? $quarterName,
             'year' => $year ?? $from->year,
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
+            'category' => $category ?? 'ALL',
             'data' => $rows,
             'totals' => $totals,
-            'prepared_by' => $user?->name ?? 'MARITES L. BUENO RM,BSM',
-            'prepared_designation' => 'MIDWIFE - IV ABTC STAFF',
-            'noted_by' => $clinic?->health_officer_name ?? 'JENNIFER L. ADVINCULA MD',
+            'patient_cases' => $this->formatPatientCases($allPeriodCases),
+            'prepared_by' => $user?->name ?: 'Staff',
+            'prepared_designation' => $this->getDesignation($user),
+            'noted_by' => $clinic?->health_officer_name ?: 'Municipal Health Officer',
             'noted_designation' => 'Municipal Health Officer',
             'date_signed' => now()->format('n/j/Y'),
         ];
@@ -149,16 +169,39 @@ class DohReportService
      * REPORT 2 — ABTC Monthly Report
      * Matches Image 1 — National Rabies Prevention and Control Program monthly form
      */
-    public function getMonthlyReport(int $clinicId, ?string $monthStr = null, $user = null): array
+    public function getMonthlyReport(int $clinicId, ?string $monthStr = null, $user = null, ?string $category = null, ?string $fromDate = null, ?string $toDate = null): array
     {
         $clinic = Clinic::find($clinicId);
-        $month = $monthStr ? Carbon::parse($monthStr) : now();
+        if ($fromDate) {
+            $month = Carbon::parse($fromDate);
+            $startDate = Carbon::parse($fromDate)->startOfDay();
+            $endDate = $toDate ? Carbon::parse($toDate)->endOfDay() : $startDate->copy()->endOfMonth();
+        } elseif ($monthStr) {
+            $month = Carbon::parse($monthStr);
+            $startDate = $month->copy()->startOfMonth();
+            $endDate = $month->copy()->endOfMonth();
+        } else {
+            $month = now();
+            $startDate = $month->copy()->startOfMonth();
+            $endDate = $month->copy()->endOfMonth();
+        }
 
-        $cases = BiteIncident::where('clinic_id', $clinicId)
-            ->whereYear('bite_date', $month->year)
-            ->whereMonth('bite_date', $month->month)
-            ->with(['patient', 'intake', 'treatmentRecords'])
-            ->get();
+        $query = BiteIncident::where('clinic_id', $clinicId)
+            ->whereBetween('bite_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->with(['patient', 'intake', 'treatmentRecords']);
+
+        if ($category && $category !== 'ALL') {
+            $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
+            $sev = $severityMap[$category] ?? null;
+            $query->where(function ($q) use ($category, $sev) {
+                $q->whereHas('intake', fn($sub) => $sub->where('bite_category', $category));
+                if ($sev) {
+                    $q->orWhere('severity', $sev);
+                }
+            });
+        }
+
+        $cases = $query->get();
 
         $male = $cases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'male')->count();
         $female = $cases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'female')->count();
@@ -176,13 +219,25 @@ class DohReportService
 
         $givenRig = $cases->filter(fn($c) => !empty($c->intake?->rig_type ?? $c->rig_type))->count();
 
-        // Weekly breakdown rows for the month
-        $weeks = $this->generateWeekRanges($month->copy()->startOfMonth(), $month->copy()->endOfMonth());
-        $weeklyRows = collect($weeks)->map(function ($week) use ($clinicId) {
-            $wCases = BiteIncident::where('clinic_id', $clinicId)
+        // Weekly breakdown rows for the period
+        $weeks = $this->generateWeekRanges($startDate, $endDate);
+        $weeklyRows = collect($weeks)->map(function ($week) use ($clinicId, $category) {
+            $wQuery = BiteIncident::where('clinic_id', $clinicId)
                 ->whereBetween('bite_date', [$week['start'], $week['end']])
-                ->with(['patient', 'intake', 'treatmentRecords'])
-                ->get();
+                ->with(['patient', 'intake', 'treatmentRecords']);
+
+            if ($category && $category !== 'ALL') {
+                $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
+                $sev = $severityMap[$category] ?? null;
+                $wQuery->where(function ($q) use ($category, $sev) {
+                    $q->whereHas('intake', fn($sub) => $sub->where('bite_category', $category));
+                    if ($sev) {
+                        $q->orWhere('severity', $sev);
+                    }
+                });
+            }
+
+            $wCases = $wQuery->get();
 
             $wMale = $wCases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'male')->count();
             $wFemale = $wCases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'female')->count();
@@ -233,10 +288,13 @@ class DohReportService
 
         return [
             'report_type' => 'monthly',
-            'province' => $clinic?->province ?? 'MISAMIS ORIENTAL',
-            'abtc' => $clinic?->name ?? 'RHU TAGOLOAN ABTC',
+            'province' => $clinic?->province ?? '—',
+            'abtc' => $clinic?->name ?? 'Animal Bite Treatment Center',
             'month' => $month->format('Y-m'),
             'month_label' => $month->format('F Y'),
+            'from' => $startDate->toDateString(),
+            'to' => $endDate->toDateString(),
+            'category' => $category ?? 'ALL',
             'male' => $male,
             'female' => $female,
             'given_pep' => $givenPep,
@@ -252,10 +310,11 @@ class DohReportService
             'completion_rate' => $this->computeCompletionRate($cases),
             'rows' => $weeklyRows,
             'totals' => $totals,
-            'prepared_by' => $user?->name ?? 'MARITES BUENO',
-            'prepared_designation' => 'Midwife - ABTC Staff',
-            'contact_no' => $clinic?->phone ?? $clinic?->contact_number ?? '(088) 890-4770',
-            'noted_by' => $clinic?->health_officer_name ?? 'JENNIFER L. ADVINCULA MD',
+            'patient_cases' => $this->formatPatientCases($cases),
+            'prepared_by' => $user?->name ?: 'Staff',
+            'prepared_designation' => $this->getDesignation($user),
+            'contact_no' => $clinic?->contact_number ?? $clinic?->phone ?? '—',
+            'noted_by' => $clinic?->health_officer_name ?: 'Municipal Health Officer',
             'noted_designation' => 'Municipal Health Officer',
             'date_signed' => now()->format('n/j/Y'),
         ];
@@ -265,7 +324,7 @@ class DohReportService
      * REPORT 3 — Cohort Report (Quarterly)
      * Matches Image 3 — Quarterly cohort by category with completion rate
      */
-    public function getCohortReport(int $clinicId, ?int $yearParam = null, $user = null): array
+    public function getCohortReport(int $clinicId, ?int $yearParam = null, $user = null, ?string $category = null): array
     {
         $clinic = Clinic::find($clinicId);
         $year = (int) ($yearParam ?? now()->year);
@@ -285,11 +344,26 @@ class DohReportService
             'total' => ['cases' => 0, 'given_pep' => 0, 'completed' => 0, 'given_rig' => 0],
         ];
 
+        $allYearCases = collect();
+
         foreach ($quarters as $q => [$start, $end]) {
-            $cases = BiteIncident::where('clinic_id', $clinicId)
+            $query = BiteIncident::where('clinic_id', $clinicId)
                 ->whereBetween('bite_date', [$start->toDateString(), $end->toDateString()])
-                ->with(['intake', 'treatmentRecords', 'patient'])
-                ->get();
+                ->with(['intake', 'treatmentRecords', 'patient']);
+
+            if ($category && $category !== 'ALL') {
+                $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
+                $sev = $severityMap[$category] ?? null;
+                $query->where(function ($qB) use ($category, $sev) {
+                    $qB->whereHas('intake', fn($sub) => $sub->where('bite_category', $category));
+                    if ($sev) {
+                        $qB->orWhere('severity', $sev);
+                    }
+                });
+            }
+
+            $cases = $query->get();
+            $allYearCases = $allYearCases->concat($cases);
 
             $qCasesTotal = 0;
             $qPepTotal = 0;
@@ -346,13 +420,15 @@ class DohReportService
 
         return [
             'report_type' => 'cohort',
-            'province' => $clinic?->province ?? 'MISAMIS ORIENTAL',
-            'abtc' => $clinic?->name ?? 'TAGOLOAN',
+            'province' => $clinic?->province ?? '—',
+            'abtc' => $clinic?->name ?? 'Animal Bite Treatment Center',
             'year' => $year,
+            'category' => $category ?? 'ALL',
             'quarters' => $result,
-            'prepared_by' => $user?->name ?? 'MARITES BUENO',
-            'prepared_designation' => 'Midwife - ABTC Staff',
-            'noted_by' => $clinic?->health_officer_name ?? 'JENNIFER ADVINCULA, MD',
+            'patient_cases' => $this->formatPatientCases($allYearCases),
+            'prepared_by' => $user?->name ?: 'Staff',
+            'prepared_designation' => $this->getDesignation($user),
+            'noted_by' => $clinic?->health_officer_name ?: 'Municipal Health Officer',
             'noted_designation' => 'Municipal Health Officer',
             'date_signed' => now()->format('n/j/Y'),
         ];
@@ -373,6 +449,40 @@ class DohReportService
             $curr->addWeek();
         }
         return $weeks;
+    }
+
+    protected function formatPatientCases($cases): array
+    {
+        return $cases->unique('bite_id')->map(function ($c) {
+            return [
+                'case_number' => $c->case_number ?? ('BC-' . $c->bite_id),
+                'patient_name' => $c->patient ? trim($c->patient->first_name . ' ' . $c->patient->last_name) : 'Unknown',
+                'age' => $c->patient?->age ?? '—',
+                'gender' => $c->patient?->gender ? ucfirst($c->patient->gender) : '—',
+                'bite_date' => $c->bite_date ? Carbon::parse($c->bite_date)->format('Y-m-d') : '—',
+                'category' => $c->intake?->bite_category ?? $c->bite_category ?? '—',
+                'animal_type' => ucfirst($c->intake?->animal_type ?? $c->animal_type ?? '—'),
+                'animal_status' => ucfirst($c->intake?->animal_status ?? $c->animal_status ?? '—'),
+                'place_of_exposure' => $c->intake?->place_of_bite ?? $c->bite_location ?? '—',
+                'pep_given' => $c->treatmentRecords->count() > 0 ? 'Yes' : 'No',
+                'rig_given' => ($c->intake?->rig_type ?? $c->rig_type) ?: 'None',
+                'status' => ucfirst($c->status ?? 'Active'),
+            ];
+        })->values()->toArray();
+    }
+
+    protected function getDesignation($user): string
+    {
+        if (!$user) {
+            return 'ABTC Staff';
+        }
+        return match ($user->role) {
+            'registration' => 'Registration Staff',
+            'triage' => 'Triage Nurse',
+            'treatment' => 'Clinic Nurse',
+            'admin' => 'Clinic Administrator',
+            default => 'ABTC Staff',
+        };
     }
 
     private function getCompleted($cases, string $category): int

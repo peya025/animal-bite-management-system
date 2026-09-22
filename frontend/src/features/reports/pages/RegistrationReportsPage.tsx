@@ -280,11 +280,7 @@ export default function RegistrationReportsPage() {
       <Tab value="cohort" label="Cohort Report" />
     </Tabs>
 
-    {tab === 'registry' && <DohExposureRegistryTab />}
-    {tab === 'monthly' && <DohMonthlyReportTab />}
-    {tab === 'cohort' && <DohCohortReportTab />}
-
-    {['overview', 'pep', 'surveillance'].includes(tab) && <>
+    {/* Unified Global Filters for all report tabs */}
     <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={event => { event.preventDefault(); if (valid) { setFilters({ ...draft }); setPage(1); } }}>
       <div className="rr-filter-row">
         <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
@@ -307,6 +303,12 @@ export default function RegistrationReportsPage() {
       {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
       <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
     </Paper>
+
+    {tab === 'registry' && <DohExposureRegistryTab filters={filters} />}
+    {tab === 'monthly' && <DohMonthlyReportTab filters={filters} />}
+    {tab === 'cohort' && <DohCohortReportTab filters={filters} />}
+
+    {['overview', 'pep', 'surveillance'].includes(tab) && <>
     {exportError && <Alert severity="error" onClose={() => setExportError('')}>{exportError}</Alert>}
     {error && <Alert severity="error" action={<Button color="inherit" startIcon={<Refresh />} onClick={() => setRefresh(n => n + 1)}>Retry</Button>}>{error}</Alert>}
     {loading && <div aria-label="Loading reports" aria-busy="true"><div className="rr-grid rr-grid-three">{[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={160} />)}</div><Skeleton variant="rounded" height={250} sx={{ mt: 2 }} /></div>}

@@ -338,12 +338,20 @@ export default function QueueDashboard() {
     ? queue.filter(entry => isIntakeStationEntry(entry) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(entry.visit_type)))
     : stationMode === 'follow_up'
       ? queue.filter(isFollowUpStationEntry)
-      : queue;
+      // Combined mode: treatment nurses must never see triage-only entries
+      // (new_case / consultation). Those belong exclusively to the Triage Doctor
+      // and must only appear there after the Doctor completes Form 2 and the
+      // queue entry is updated to visit_type 'vaccination'.
+      : isTreatmentNurse
+        ? queue.filter(entry => TREATMENT_VISIT_TYPES.includes(entry.visit_type))
+        : queue;
   const stationScopedSecondChanceQueue = stationMode === 'intake'
     ? secondChanceQueue.filter(entry => isIntakeStationEntry(entry) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(entry.visit_type)))
     : stationMode === 'follow_up'
       ? secondChanceQueue.filter(isFollowUpStationEntry)
-      : secondChanceQueue;
+      : isTreatmentNurse
+        ? secondChanceQueue.filter(entry => TREATMENT_VISIT_TYPES.includes(entry.visit_type))
+        : secondChanceQueue;
   const visibleSecondChanceQueue = (isTreatmentNurse && !isSoloNurse && hasFollowUpNurseRole && !hasIntakeNurseRole)
     ? []
     : stationScopedSecondChanceQueue;

@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { APP_NAME } from '../../constants';
 import ConfirmationDialog from '../feedback/ConfirmationDialog';
 import { DashboardLayoutRoot } from './DashboardLayout.styles';
+import defaultLogo from '../../assets/abtcare-app-icon.png';
+import { API_BASE_URL } from '../../shared/services/api';
 import {
   getNavItemsForRole,
   isRouteActive,
@@ -113,6 +115,16 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
     }
   };
 
+  const backendBase = API_BASE_URL.replace(/\/api\/?$/, '');
+  const clinicLogoSrc = clinic?.logo_url
+    ? clinic.logo_url
+    : clinic?.logo_path
+      ? `${backendBase}/storage/${clinic.logo_path}`
+      : defaultLogo;
+
+  const dynClinicName = clinic?.name?.trim() || 'Animal Bite Treatment Center';
+  const dynSubtitle = clinic?.subtitle?.trim() || APP_NAME;
+
   return (
     <DashboardLayoutRoot>
 
@@ -132,14 +144,20 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
           {sidebarOpen ? (
             <>
               <div className="clinic-logo">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
+                <img
+                  src={clinicLogoSrc}
+                  alt={dynClinicName}
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (target.src !== defaultLogo) {
+                      target.src = defaultLogo;
+                    }
+                  }}
+                />
               </div>
               <div className="clinic-info">
-                <h2>{clinic?.name || 'Clinic'}</h2>
-                <p className="app-name">{APP_NAME}</p>
+                <h2 title={dynClinicName}>{dynClinicName}</h2>
+                <p className="app-name" title={dynSubtitle}>{dynSubtitle}</p>
               </div>
             </>
           ) : (
@@ -148,12 +166,28 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
               onClick={() => setSidebarOpen(true)}
               title="Expand Sidebar"
               type="button"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="4" y1="12" x2="20" y2="12"></line>
-                <line x1="4" y1="6" x2="20" y2="6"></line>
-                <line x1="4" y1="18" x2="20" y2="18"></line>
-              </svg>
+              <div className="clinic-logo" style={{ width: 34, height: 34 }}>
+                <img
+                  src={clinicLogoSrc}
+                  alt={dynClinicName}
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (target.src !== defaultLogo) {
+                      target.src = defaultLogo;
+                    }
+                  }}
+                />
+              </div>
             </button>
           )}
         </div>

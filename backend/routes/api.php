@@ -24,6 +24,7 @@ use App\Http\Controllers\TreatmentRecordController;
 use App\Http\Controllers\VaccinationRecordController;
 use App\Http\Controllers\VaccineInventoryController;
 use App\Http\Controllers\PrintController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\LandingPageSettingsController;
 use App\Http\Controllers\ClinicScheduleController;
 use App\Http\Controllers\VaccinationJourneyController;
@@ -156,6 +157,13 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::get('/reports/registration', [\App\Http\Controllers\RegistrationReportController::class, 'index'])
         ->middleware('role:registration,admin,developer');
 
+    // DOH Official Reports
+    Route::prefix('reports')->middleware('role:registration,admin,nurse,doctor,triage,treatment,staff,developer')->group(function () {
+        Route::get('/exposure-registry', [ReportController::class, 'exposureRegistry']);
+        Route::get('/monthly', [ReportController::class, 'monthlyReport']);
+        Route::get('/cohort', [ReportController::class, 'cohortReport']);
+    });
+
     // Auth routes
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
@@ -184,7 +192,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::prefix('setup')->middleware('role:admin')->group(function () {
         Route::get('/status', [ClinicSetupController::class, 'checkSetup']);
         Route::get('/clinic', [ClinicSetupController::class, 'getProfile']);
-        Route::put('/clinic', [ClinicSetupController::class, 'updateClinic']);
+        Route::match(['put', 'post'], '/clinic', [ClinicSetupController::class, 'updateClinic']);
         Route::post('/complete', [ClinicSetupController::class, 'completeSetup']);
     });
 
@@ -225,6 +233,13 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     // Form 1 Printout (Protected and clinic-scoped by PatientPolicy)
     Route::get('/print/patient/{patient}/enrolment', [PrintController::class, 'enrolment'])
         ->middleware('can:printEnrolment,patient');
+
+    // DOH Official Reports Print Endpoints
+    Route::prefix('print/reports')->group(function () {
+        Route::get('/exposure-registry', [PrintController::class, 'exposureRegistry']);
+        Route::get('/monthly', [PrintController::class, 'monthlyReport']);
+        Route::get('/cohort', [PrintController::class, 'cohortReport']);
+    });
 
     // Patient Management (admin, registration, triage, treatment can view)
     Route::prefix('patients')->group(function () {

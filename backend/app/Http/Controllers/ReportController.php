@@ -2,50 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Patient;
 use App\Services\DohReportService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Laravel\Sanctum\PersonalAccessToken;
 
-class PrintController extends Controller
+class ReportController extends Controller
 {
     public function __construct(
         protected DohReportService $dohReportService
     ) {}
 
     /**
-     * Helper to authenticate user either via Sanctum session/bearer or query token
+     * REPORT 1 — Rabies Exposure Registry (Weekly)
+     * Matches Image 2 & 4 — DOH Rabies Exposure Registry form
      */
-    protected function resolveAuthenticatedUser(Request $request)
+    public function exposureRegistry(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user && $request->query('token')) {
-            $tokenModel = PersonalAccessToken::findToken($request->query('token'));
-            if ($tokenModel) {
-                $user = $tokenModel->tokenable;
-            }
-        }
-        return $user;
-    }
-
-    /**
-     * Display DOH iCLINICSYS Patient Enrolment Record (Form 1 Printout)
-     * GET /print/patient/{patient}/enrolment
-     */
-    public function enrolment(Request $request, Patient $patient)
-    {
-        $patient->load(['clinic', 'details']);
-
-        return view('prints.patient-enrolment', compact('patient'));
-    }
-
-    /**
-     * REPORT 1 — Rabies Exposure Registry (Weekly)
-     * GET /print/reports/exposure-registry
-     */
-    public function exposureRegistry(Request $request)
-    {
-        $user = $this->resolveAuthenticatedUser($request);
         $clinicId = $user?->clinic_id ?? $request->query('clinic_id');
         abort_unless($clinicId, 403, 'A clinic assignment is required.');
 
@@ -59,16 +32,16 @@ class PrintController extends Controller
             category: $request->query('category')
         );
 
-        return view('prints.exposure-registry', $data);
+        return response()->json($data);
     }
 
     /**
      * REPORT 2 — ABTC Monthly Report
-     * GET /print/reports/monthly
+     * Matches Image 1 — National Rabies Prevention and Control Program monthly form
      */
-    public function monthlyReport(Request $request)
+    public function monthlyReport(Request $request): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
+        $user = $request->user();
         $clinicId = $user?->clinic_id ?? $request->query('clinic_id');
         abort_unless($clinicId, 403, 'A clinic assignment is required.');
 
@@ -81,16 +54,16 @@ class PrintController extends Controller
             toDate: $request->query('to')
         );
 
-        return view('prints.monthly-report', $data);
+        return response()->json($data);
     }
 
     /**
      * REPORT 3 — Cohort Report (Quarterly)
-     * GET /print/reports/cohort
+     * Matches Image 3 — Quarterly cohort by category with completion rate
      */
-    public function cohortReport(Request $request)
+    public function cohortReport(Request $request): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
+        $user = $request->user();
         $clinicId = $user?->clinic_id ?? $request->query('clinic_id');
         abort_unless($clinicId, 403, 'A clinic assignment is required.');
 
@@ -101,6 +74,6 @@ class PrintController extends Controller
             category: $request->query('category')
         );
 
-        return view('prints.cohort-report', $data);
+        return response()->json($data);
     }
 }

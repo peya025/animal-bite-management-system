@@ -46,6 +46,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, [navigate]);
 
+  // Sync clinic updates across components / events
+  useEffect(() => {
+    const handleClinicUpdate = (event: CustomEvent<Clinic>) => {
+      if (event.detail) {
+        setClinic(event.detail);
+        localStorage.setItem('clinicData', JSON.stringify(event.detail));
+      }
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'clinicData' && event.newValue) {
+        try {
+          setClinic(JSON.parse(event.newValue));
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener('clinic-updated' as any, handleClinicUpdate);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('clinic-updated' as any, handleClinicUpdate);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  // Dynamically update document title and favicon based on active clinic branding
+  useEffect(() => {
+    if (clinic?.name) {
+      document.title = clinic.subtitle ? `${clinic.name} — ${clinic.subtitle}` : clinic.name;
+    }
+
+    const backendBase = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '');
+    const activeFavicon = clinic?.logo_url
+      ? clinic.logo_url
+      : clinic?.logo_path
+        ? `${backendBase}/storage/${clinic.logo_path}`
+        : '/assets/abtcare-app-icon.png';
+
+    const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+    if (link) {
+      link.href = activeFavicon;
+    }
+  }, [clinic]);
+
   // Active idle-timeout watcher and user activity listeners
   useEffect(() => {
     if (!token || !user) return;
@@ -86,6 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [token, user, navigate]);
 
+  const updateClinic = (newClinic: Clinic) => {
+    setClinic(newClinic);
+    localStorage.setItem('clinicData', JSON.stringify(newClinic));
+    window.dispatchEvent(new CustomEvent('clinic-updated', { detail: newClinic }));
+  };
+
   const login = async (credentials: LoginCredentials) => {
     setIsLoading(true);
     try {
@@ -121,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     token,
     login,
     logout,
+    updateClinic,
     isAuthenticated: !!token && !!user,
     isLoading,
   };

@@ -167,8 +167,8 @@ export default function VitalsConsultationSection({
             type="text"
             name="name_of_attending_provider"
             value={formData.name_of_attending_provider}
-            onChange={onFieldChange('name_of_attending_provider')}
-            disabled={isFormDisabled}
+            readOnly
+            disabled
           />
         </FormField>
 

@@ -29,24 +29,52 @@ class TreatmentRecordController extends Controller
         if ($requestedBiteId) {
             $activeIncident = BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
-                ->findOrFail($requestedBiteId);
+                ->find($requestedBiteId);
         } else {
-            $activeIncident = \App\Models\BiteIncident::where('clinic_id', $clinicId)
+            $activeIncident = BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->whereIn('status', ['active', 'awaiting_assessment'])
                 ->latest('bite_id')
                 ->first();
+            if (!$activeIncident) {
+                $activeIncident = BiteIncident::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->latest('bite_id')
+                    ->first();
+            }
         }
 
         // Get consultation record scoped to active episode if exists
         $latestTreatment = null;
         if ($activeIncident) {
-            $latestTreatment = TreatmentRecord::where('clinic_id', $clinicId)
+            $latestTreatment = TreatmentRecord::with('administeredBy')
+                ->where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->where('bite_id', $activeIncident->bite_id)
                 ->whereNull('dose_number')
                 ->latest('consultation_date')
+                ->latest('treatment_id')
                 ->first();
+        }
+        if (!$latestTreatment) {
+            $latestTreatment = TreatmentRecord::with('administeredBy')
+                ->where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->whereNull('dose_number')
+                ->latest('consultation_date')
+                ->latest('treatment_id')
+                ->first();
+        }
+
+        // If latest treatment was completed by a Doctor, dynamically reflect the Doctor's updated name
+        if ($latestTreatment) {
+            $adminUser = $latestTreatment->administeredBy;
+            if ($adminUser && in_array(strtolower($adminUser->role ?? ''), ['doctor', 'triage', 'physician', 'triage_doctor'])) {
+                if (!empty($adminUser->name)) {
+                    $latestTreatment->attending_provider = $adminUser->name;
+                    $latestTreatment->provider_name = $adminUser->name;
+                }
+            }
         }
         // Get all treatment records for history
         $treatments = TreatmentRecord::where('clinic_id', $clinicId)
@@ -324,8 +352,8 @@ class TreatmentRecordController extends Controller
             'performed_lab_test' => $validated['performed_lab_test'] ?? null,
             
             // Provider details
-            'provider_name' => $validated['provider_name'] ?? null,
-            'attending_provider' => $validated['attending_provider'] ?? null,
+            'provider_name' => $validated['provider_name'] ?? $request->user()->name,
+            'attending_provider' => $validated['attending_provider'] ?? $request->user()->name,
             
             'status' => 'completed', // General consultation is completed when Form 2 is saved
             'administered_by' => $request->user()->id,

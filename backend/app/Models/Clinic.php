@@ -43,6 +43,8 @@ class Clinic extends Model
         'urgent_referral_facility_address',
         'urgent_referral_facility_contact',
         'urgent_referral_instructions',
+        'health_officer_name',
+        'population',
     ];
 
     protected $appends = [

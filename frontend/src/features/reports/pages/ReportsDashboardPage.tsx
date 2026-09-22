@@ -5,6 +5,7 @@ import tagoloanLogo from '../../../assets/Flag_of_Tagoloan,_Misamis_Oriental.png
 import rhuLogo from '../../../assets/rhu-logo.png';
 import { useAuth } from '../../../contexts/AuthContext';
 import RegistrationReportsPage from './RegistrationReportsPage';
+import DohReportsSection from '../components/DohReportsSection';
 
 // ─── Types ────────────────────────────────────────────────────
 interface ReportStats {
@@ -1454,6 +1455,8 @@ function LegacyReportsDashboardPage() {
           Print Report
         </button>
       </div>
+
+      <DohReportsSection />
 
       {/* Primary Navigation & Date Range Bar */}
       <div style={{ ...filterBarStyle, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>

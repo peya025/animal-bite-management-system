@@ -178,6 +178,49 @@ class BiteIncident extends Model
         return $this->hasOne(TreatmentPlan::class, 'bite_id', 'bite_id');
     }
 
+    public function intake()
+    {
+        return $this->hasOne(BiteIncidentIntake::class, 'bite_id', 'bite_id');
+    }
+
+    public function getIncidentDateAttribute()
+    {
+        return $this->bite_date;
+    }
+
+    public function getBiteCategoryAttribute(): string
+    {
+        if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->bite_category)) {
+            return (string) $this->intake->bite_category;
+        }
+        $sev = strtolower(trim((string) ($this->severity ?? '')));
+        if (in_array($sev, ['severe', 'category iii', 'iii', '3'], true)) {
+            return 'III';
+        }
+        if (in_array($sev, ['minor', 'category i', 'i', '1'], true)) {
+            return 'I';
+        }
+        return 'II';
+    }
+
+    public function getRigTypeAttribute(): ?string
+    {
+        if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->rig_type)) {
+            return (string) $this->intake->rig_type;
+        }
+        if ($this->relationLoaded('treatmentRecords')) {
+            $hasHrig = $this->treatmentRecords->contains(fn($r) => strtoupper((string) ($r->medication_given ?? '')) === 'HRIG');
+            if ($hasHrig) return 'HRIG';
+            $hasErig = $this->treatmentRecords->contains(fn($r) => strtoupper((string) ($r->medication_given ?? '')) === 'ERIG');
+            if ($hasErig) return 'ERIG';
+        }
+        if (!empty($this->rig_decision_reason)) {
+            if (stripos($this->rig_decision_reason, 'hrig') !== false) return 'HRIG';
+            if (stripos($this->rig_decision_reason, 'erig') !== false) return 'ERIG';
+        }
+        return null;
+    }
+
     /**
      * Helper: Check if WHO protocol requires vaccination
      */

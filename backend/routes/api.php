@@ -153,6 +153,9 @@ Route::prefix('staff-invitations')->group(function () {
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
+    Route::get('/reports/registration', [\App\Http\Controllers\RegistrationReportController::class, 'index'])
+        ->middleware('role:registration,admin,developer');
+
     // Auth routes
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);

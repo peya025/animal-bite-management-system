@@ -17,6 +17,8 @@ import {
   asText,
   getCurrentUserName,
   getCurrentUserRole,
+  resolveAttendingProvider,
+  resolveHealthCareProvider,
   syncChecklistWithText,
   scrollToFirstError,
 } from '../utils/consultationHelpers';
@@ -135,8 +137,8 @@ export function useGeneralTreatmentForm({
       diagnosis: diagText,
       medication_treatment: record.prescribed_vaccine_type || medText,
       prescribed_vaccine_type: record.prescribed_vaccine_type || '',
-      name_of_provider: record.provider_name || currentUserName || prev.name_of_provider,
-      name_of_attending_provider: record.attending_provider || '',
+      name_of_provider: resolveHealthCareProvider(record) || prev.name_of_provider,
+      name_of_attending_provider: resolveAttendingProvider(entry, record) || prev.name_of_attending_provider,
       laboratory_findings: record.laboratory_findings || '',
       performed_lab_test: record.performed_lab_test || '',
     }));
@@ -146,11 +148,14 @@ export function useGeneralTreatmentForm({
 
     const histText = asText(record.pertinent_history);
     setCheckedHistory(PERTINENT_HISTORY_OPTIONS.filter((h) => histText.includes(h)));
-  }, [currentUserName]);
+  }, [entry]);
 
   // Load existing treatment record when opening form
   useEffect(() => {
     if (!(open && entry?.patient)) return;
+
+    const initialAttending = resolveAttendingProvider(entry);
+    const initialProvider = resolveHealthCareProvider();
 
     setFormData(() => ({
       ...INITIAL_FORM_DATA,
@@ -160,7 +165,8 @@ export function useGeneralTreatmentForm({
       suffix: entry.patient.suffix || '',
       age: String(entry.patient.age || ''),
       address: entry.patient.address || 'Misamis Oriental',
-      name_of_provider: currentUserName || '',
+      name_of_provider: initialProvider,
+      name_of_attending_provider: initialAttending,
       medication_treatment: '',
       nature_of_visit: '',
     }));
@@ -249,6 +255,10 @@ export function useGeneralTreatmentForm({
           setHasExistingRecord(false);
           setIsEditing(true);
           setExistingRecord(null);
+          const resolvedAttending = resolveAttendingProvider(entry, null, data?.patient);
+          if (resolvedAttending) {
+            setFormData((prev) => ({ ...prev, name_of_attending_provider: resolvedAttending }));
+          }
         }
       })
       .catch((err) => {
@@ -257,7 +267,7 @@ export function useGeneralTreatmentForm({
         setIsEditing(true);
         setExistingRecord(null);
       });
-  }, [open, entry, currentUserName, populateFormFromRecord, selectedIncident]);
+  }, [open, entry, populateFormFromRecord, selectedIncident]);
 
   const handleFieldBlur = (key: string) => () => {
     setTouchedFields((prev) => ({ ...prev, [key]: true }));

@@ -132,6 +132,7 @@ class ClinicSetupController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'subtitle' => 'nullable|string|max:255',
             'address' => 'nullable|string',
             'contact_number' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
@@ -141,12 +142,21 @@ class ClinicSetupController extends Controller
             'philhealth_accreditation_no' => 'nullable|string|max:100',
             'opening_hours' => 'nullable|string',
             'logo' => 'nullable|image|max:2048', // 2MB max
+            'remove_logo' => 'nullable',
         ]);
 
         $clinic = $request->user()->clinic;
         
-        $data = $request->except('logo');
+        $data = $request->except(['logo', 'remove_logo']);
         
+        // Handle logo removal
+        if ($request->boolean('remove_logo') || $request->input('remove_logo') === '1' || $request->input('remove_logo') === 'true') {
+            if ($clinic->logo_path) {
+                Storage::disk('public')->delete($clinic->logo_path);
+            }
+            $data['logo_path'] = null;
+        }
+
         // Handle logo upload
         if ($request->hasFile('logo')) {
             // Delete old logo if exists

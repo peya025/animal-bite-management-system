@@ -54,13 +54,18 @@ export const DashboardLayoutRoot = styled('div')`
   .clinic-logo {
     width: 38px;
     height: 38px;
-    background: var(--nav-item-active-bg);
-    border: 1px solid var(--border-glow-subtle);
-    border-radius: 10px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    overflow: hidden;
+  }
+  .clinic-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
   }
   .clinic-info {
     overflow: hidden;

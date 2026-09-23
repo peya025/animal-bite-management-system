@@ -4,7 +4,6 @@ import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../models/patient_account_profile.dart';
 import '../services/api.dart';
-import '../widgets/menu/booster_guidance_banner.dart';
 import '../widgets/menu/campaign_banner.dart';
 import '../widgets/menu/guidelines_section.dart';
 import '../widgets/menu/information_panels.dart';
@@ -13,10 +12,14 @@ import '../widgets/menu/patient_action_button.dart';
 import '../widgets/menu/quick_actions_section.dart';
 import '../widgets/menu/schedule_section.dart';
 import '../widgets/menu/search_header.dart';
+import '../widgets/re_exposure_protocol_card.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
 
 class MenuView extends StatefulWidget {
-  const MenuView({super.key});
+  const MenuView({super.key, this.hasCompletedPEP});
+
+  /// Optional override for testing or navigation with pre-computed PEP status.
+  final bool? hasCompletedPEP;
 
   @override
   State<MenuView> createState() => _MenuViewState();
@@ -25,10 +28,14 @@ class MenuView extends StatefulWidget {
 class _MenuViewState extends State<MenuView> {
   int _selectedIndex = 0;
   String? _userName;
+  bool _hasCompletedPEP = false;
 
   @override
   void initState() {
     super.initState();
+    if (widget.hasCompletedPEP != null) {
+      _hasCompletedPEP = widget.hasCompletedPEP!;
+    }
     _loadUser();
   }
 
@@ -44,11 +51,18 @@ class _MenuViewState extends State<MenuView> {
             ? selfProfile.name.trim()
             : account.name.trim();
 
-        if (resolvedName.isNotEmpty) {
-          setState(() {
+        final hasCompleted = account.patients.any(
+          (p) => p.hasCompletedPrimary,
+        );
+
+        setState(() {
+          if (resolvedName.isNotEmpty) {
             _userName = resolvedName;
-          });
-        }
+          }
+          if (widget.hasCompletedPEP == null) {
+            _hasCompletedPEP = hasCompleted;
+          }
+        });
       }
     } catch (_) {
       // Keep default fallback
@@ -86,47 +100,54 @@ class _MenuViewState extends State<MenuView> {
                   ).pushNamed(AppRoutes.notifications),
                 ),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const CampaignBanner(),
-                        const SizedBox(height: 20),
-                        const BoosterGuidanceBanner(),
-                        const SizedBox(height: 20),
-                        ScheduleSection(
-                          onOpenAppointments: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.appointments),
-                          onOpenCalendar: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.calendar),
-                        ),
-                        const SizedBox(height: 20),
-                        QuickActionsSection(
-                          onCalendar: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.calendar),
-                          onBook: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.booking),
-                          onProfiles: () async {
-                            await Navigator.of(
+                  child: RefreshIndicator(
+                    onRefresh: _loadUser,
+                    color: AppColors.primary,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const CampaignBanner(),
+                          const SizedBox(height: 20),
+                          ScheduleSection(
+                            onOpenAppointments: () => Navigator.of(
                               context,
-                            ).pushNamed(AppRoutes.settings);
-                            if (mounted) _loadUser();
-                          },
-                          onPatientCard: _openPatientCard,
-                          onHistory: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.history),
-                        ),
-                        const SizedBox(height: 20),
-                        const GuidelinesSection(),
-                        const SizedBox(height: 20),
-                        const InformationPanels(),
-                      ],
+                            ).pushNamed(AppRoutes.appointments),
+                            onOpenCalendar: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.calendar),
+                          ),
+                          if (_hasCompletedPEP) ...[
+                            const SizedBox(height: 12),
+                            const ReExposureProtocolCard(),
+                          ],
+                          const SizedBox(height: 20),
+                          QuickActionsSection(
+                            onCalendar: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.calendar),
+                            onBook: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.booking),
+                            onProfiles: () async {
+                              await Navigator.of(
+                                context,
+                              ).pushNamed(AppRoutes.settings);
+                              if (mounted) _loadUser();
+                            },
+                            onPatientCard: _openPatientCard,
+                            onHistory: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.history),
+                          ),
+                          const SizedBox(height: 20),
+                          const GuidelinesSection(),
+                          const SizedBox(height: 20),
+                          const InformationPanels(),
+                        ],
+                      ),
                     ),
                   ),
                 ),

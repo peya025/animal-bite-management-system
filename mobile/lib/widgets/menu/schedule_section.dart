@@ -54,13 +54,16 @@ class _ScheduleSectionState extends State<ScheduleSection> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'UPCOMING SCHEDULES',
-              style: TextStyle(
-                color: Color(0xFF9CA3AF),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+            const Expanded(
+              child: Text(
+                'UPCOMING SCHEDULES',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Color(0xFF9CA3AF),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
             Row(

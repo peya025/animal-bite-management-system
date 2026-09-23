@@ -44,6 +44,7 @@ dependencies:
   lucide_icons_flutter: ^3.1.17
   # Tier 9 — Google OAuth Identity Federation
   google_sign_in: ^6.2.2
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

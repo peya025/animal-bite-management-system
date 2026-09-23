@@ -679,6 +679,13 @@ class AppointmentController extends Controller
             ], 404);
         }
 
+        if ($this->isMobileBiteConsultation($appointment)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mobile bite consultations must be checked in from Registration using the submitted bite intake before they enter the Doctor queue.',
+            ], 422);
+        }
+
         if ($this->isBoosterAppointment($appointment)) {
             return response()->json([
                 'success' => false,
@@ -731,6 +738,13 @@ class AppointmentController extends Controller
             ->first();
 
         if ($existingConfirmed) {
+            if ($this->isMobileBiteConsultation($existingConfirmed)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mobile bite consultations must be checked in from Registration using the submitted bite intake before they enter the Doctor queue.',
+                ], 422);
+            }
+
             // Still run through processAppointmentCheckIn — it handles the "already in queue" 200 case
             return $this->processAppointmentCheckIn($request, (int) $patientId, $existingConfirmed);
         }
@@ -748,6 +762,13 @@ class AppointmentController extends Controller
             ->first();
 
         if ($appointment) {
+            if ($this->isMobileBiteConsultation($appointment)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mobile bite consultations must be checked in from Registration using the submitted bite intake before they enter the Doctor queue.',
+                ], 422);
+            }
+
             if ($this->isBoosterAppointment($appointment)) {
                 return response()->json([
                     'success' => false,
@@ -783,6 +804,13 @@ class AppointmentController extends Controller
 
         return DB::transaction(function () use ($request, $clinicId, $patientId, $appointment, $todayDate) {
             $patient = Patient::where('clinic_id', $clinicId)->findOrFail($patientId);
+
+            if ($this->isMobileBiteConsultation($appointment)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mobile bite consultations must be checked in from Registration using the submitted bite intake before they enter the Doctor queue.',
+                ], 422);
+            }
 
             if ($this->isBoosterAppointment($appointment)) {
                 return response()->json([
@@ -903,5 +931,13 @@ class AppointmentController extends Controller
     private function isScheduledFollowUp(?Appointment $appointment): bool
     {
         return $appointment !== null && (int) ($appointment->dose_number ?? 0) > 0;
+    }
+
+    private function isMobileBiteConsultation(?Appointment $appointment): bool
+    {
+        return $appointment !== null
+            && $appointment->booked_by_account_id !== null
+            && $appointment->appointment_type === 'consultation'
+            && $appointment->biteIntake()->exists();
     }
 }

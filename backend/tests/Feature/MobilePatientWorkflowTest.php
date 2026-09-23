@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\PatientAccount;
+use App\Models\Role;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -48,6 +50,27 @@ class MobilePatientWorkflowTest extends TestCase
             'wound_location'      => 'Left hand',
             'patient_description' => 'Small visible puncture.',
         ];
+    }
+
+    private function registrationStaff(Clinic $clinic): User
+    {
+        $staff = User::create([
+            'name' => 'Registration Clerk',
+            'email' => fake()->unique()->safeEmail(),
+            'password' => bcrypt('password123'),
+            'clinic_id' => $clinic->id,
+            'role' => 'registration',
+            'is_active' => true,
+        ]);
+
+        $role = Role::firstOrCreate(['slug' => 'registration'], [
+            'name' => 'registration',
+            'display_name' => 'Registration',
+            'default_route' => '/patients',
+        ]);
+        $staff->roles()->attach($role->id, ['assigned_at' => now()]);
+
+        return $staff;
     }
 
     public function test_account_can_create_one_self_profile_and_dependents(): void
@@ -201,6 +224,71 @@ class MobilePatientWorkflowTest extends TestCase
             'site_washed'        => true,
             'status'             => 'pending',
         ]);
+    }
+
+    public function test_mobile_bite_intake_requires_registration_check_in_before_it_reaches_doctor_queue(): void
+    {
+        $clinic = Clinic::create(['name' => 'Test Clinic']);
+        $account = $this->account();
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'first_name' => 'Juan',
+            'last_name' => 'Dela Cruz',
+            'gender' => 'male',
+            'registration_source' => 'mobile',
+        ]);
+        $account->patients()->attach($patient, ['relationship' => 'self', 'status' => 'verified']);
+
+        Sanctum::actingAs($account);
+        $booking = $this->postJson('/api/mobile/appointments', [
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date' => now()->toDateString(),
+            'intake' => $this->intakePayload(),
+        ])->assertCreated();
+
+        $appointmentId = $booking->json('appointment_id');
+        $intakeId = $booking->json('bite_intake.intake_id');
+
+        // Booking data by itself is not a live queue ticket.
+        $this->assertDatabaseMissing('queues', ['appointment_id' => $appointmentId]);
+        $this->assertDatabaseHas('bite_incident_intakes', ['intake_id' => $intakeId, 'status' => 'pending']);
+
+        $staff = $this->registrationStaff($clinic);
+        Sanctum::actingAs($staff);
+
+        // The generic appointment endpoint cannot bypass intake confirmation.
+        $this->postJson("/api/appointments/{$appointmentId}/check-in")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Mobile bite consultations must be checked in from Registration using the submitted bite intake before they enter the Doctor queue.');
+        $this->assertDatabaseMissing('queues', ['appointment_id' => $appointmentId]);
+
+        $this->postJson("/api/bite-intakes/{$intakeId}/check-in")
+            ->assertCreated()
+            ->assertJsonPath('queue.appointment_id', $appointmentId)
+            ->assertJsonPath('queue.visit_type', 'new_case')
+            ->assertJsonPath('incident.status', 'awaiting_assessment');
+
+        $this->assertDatabaseHas('appointments', [
+            'appointment_id' => $appointmentId,
+            'status' => 'confirmed',
+        ]);
+        $this->assertDatabaseHas('bite_incident_intakes', [
+            'intake_id' => $intakeId,
+            'status' => 'converted',
+        ]);
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $appointmentId,
+            'patient_id' => $patient->patient_id,
+            'visit_type' => 'new_case',
+            'status' => 'waiting',
+        ]);
+
+        // Repeating the action is safe and does not create a ghost duplicate.
+        $this->postJson("/api/bite-intakes/{$intakeId}/check-in")
+            ->assertOk()
+            ->assertJsonPath('already_checked_in', true);
+        $this->assertDatabaseCount('queues', 1);
     }
 
     public function test_booking_accepts_the_current_manila_date_at_the_utc_day_boundary(): void

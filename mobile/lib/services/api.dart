@@ -10,8 +10,10 @@ export 'mobile_api.dart' show ApiException;
 
 /// Get the appropriate API instance based on USE_MOCK_DATA setting
 dynamic get api {
-  final useMockData = dotenv.env['USE_MOCK_DATA']?.toLowerCase() == 'true';
-  
+  final useMockData = dotenv.isInitialized
+      ? dotenv.env['USE_MOCK_DATA']?.toLowerCase() == 'true'
+      : true;
+
   if (useMockData) {
     return MockMobileApi.instance;
   } else {
@@ -21,5 +23,7 @@ dynamic get api {
 
 /// Check if running in mock mode
 bool get isMockMode {
-  return dotenv.env['USE_MOCK_DATA']?.toLowerCase() == 'true';
+  return dotenv.isInitialized
+      ? dotenv.env['USE_MOCK_DATA']?.toLowerCase() == 'true'
+      : true;
 }

@@ -64,6 +64,7 @@ export default function PatientList() {
     station: string;
   } | null>(null);
   const [checkInError,         setCheckInError]         = useState('');
+  const [checkingInIntakeId,   setCheckingInIntakeId]   = useState<number | null>(null);
 
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
@@ -113,6 +114,53 @@ export default function PatientList() {
     const isMobileRegistered = p.registration_source === 'mobile' || p.registration_source === 'online' || Boolean((p as any).accounts && (p as any).accounts.length > 0);
 
     return hasIntake || hasConfirmedBooking || isMobileRegistered;
+  };
+
+  const getMobileIntakeReadyForCheckIn = (p: Patient) => {
+    const intakes = (p as any).bite_intakes || (p as any).biteIntakes || [];
+    const appointments = (p as any).appointments || [];
+
+    return intakes.find((intake: any) => {
+      const appointment = appointments.find((item: any) => item.appointment_id === intake.appointment_id);
+      return intake.status === 'pending'
+        && appointment?.booked_by_account_id
+        && appointment?.appointment_type === 'consultation'
+        && ['scheduled', 'missed'].includes(appointment?.status);
+    });
+  };
+
+  const isMobileIntakeDueForCheckIn = (p: Patient, intake: any) => {
+    const appointment = ((p as any).appointments || [])
+      .find((item: any) => item.appointment_id === intake.appointment_id);
+    const scheduledDate = String(appointment?.scheduled_date || appointment?.appointment_date || '').slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+
+    return Boolean(scheduledDate && scheduledDate <= today);
+  };
+
+  const handleMobileIntakeCheckIn = async (patient: Patient, intake: any) => {
+    const intakeId = Number(intake?.intake_id ?? intake?.id);
+    if (!Number.isInteger(intakeId) || intakeId <= 0) {
+      setCheckInError('The mobile bite intake could not be identified. Please refresh the patient list and try again.');
+      return;
+    }
+
+    setCheckingInIntakeId(intakeId);
+    try {
+      const response = await api.post(`/bite-intakes/${intakeId}/check-in`);
+      const queue = response.data?.queue;
+      setCheckInModalData({
+        patientName: fullName(patient),
+        patientNumber: patient.patient_number || '',
+        queueNumber: queue?.queue_number || '',
+        station: 'Doctor Assessment',
+      });
+      fetchPatients();
+    } catch (err: any) {
+      setCheckInError(err.response?.data?.message || 'Unable to check in this mobile bite intake.');
+    } finally {
+      setCheckingInIntakeId(null);
+    }
   };
 
   // Debounce search input (wait 400ms after user stops typing)
@@ -683,6 +731,10 @@ export default function PatientList() {
                     const hasCompletedMinimumDoses = hasDosesAdministered && latestRecord.dose_number >= 3 && !hasPendingAppointments;
                     const isFollowUp = (hasDosesAdministered || hasCompletedTriage) && isOngoingTreatment;
                     const canCheckIn = !activeQueue && !hasCompletedTriage;
+                    const mobileIntakeForCheckIn = !activeQueue ? getMobileIntakeReadyForCheckIn(p) : undefined;
+                    const mobileIntakeIsDue = Boolean(
+                      mobileIntakeForCheckIn && isMobileIntakeDueForCheckIn(p, mobileIntakeForCheckIn)
+                    );
                     const patientId = p.patient_id || p.id;
 
                     return (
@@ -739,7 +791,36 @@ export default function PatientList() {
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <div className="pm-actions" style={{ justifyContent: 'center', gap: '6px' }}>
-                            {canCheckIn ? (
+                            {mobileIntakeIsDue && mobileIntakeForCheckIn ? (
+                              <button
+                                className="pm-btn-checkin"
+                                title="Confirm the patient has arrived, then send their submitted bite intake to the Doctor queue"
+                                disabled={checkingInIntakeId === mobileIntakeForCheckIn.intake_id}
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  handleMobileIntakeCheckIn(p, mobileIntakeForCheckIn);
+                                }}
+                              >
+                                {checkingInIntakeId === mobileIntakeForCheckIn.intake_id ? 'Checking In…' : 'Check In to Triage'}
+                              </button>
+                            ) : mobileIntakeForCheckIn ? (
+                              <span
+                                title="This patient has a submitted mobile bite intake. Check in the patient on the scheduled appointment date."
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  backgroundColor: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  border: '1px solid #bfdbfe',
+                                }}
+                              >
+                                Booked — Awaiting Check-In
+                              </span>
+                            ) : canCheckIn ? (
                               <button
                                 className="pm-btn-checkin"
                                 title="Register the bite or possible rabies exposure before Doctor assessment"

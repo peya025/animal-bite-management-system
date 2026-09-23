@@ -276,6 +276,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::prefix('bite-intakes')->middleware('role:admin,registration,triage')->group(function () {
         Route::get('/', [BiteIncidentIntakeController::class, 'index']);
         Route::get('/{intake}', [BiteIncidentIntakeController::class, 'show']);
+        Route::post('/{intake}/check-in', [BiteIncidentIntakeController::class, 'checkIn']);
         Route::post('/{intake}/reviewed', [BiteIncidentIntakeController::class, 'markReviewed']);
     });
 

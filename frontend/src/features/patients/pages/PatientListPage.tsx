@@ -859,23 +859,6 @@ export default function PatientList() {
                               >
                                 + New Exposure
                               </button>
-                            ) : isFollowUp && !activeQueue ? (
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  backgroundColor: '#f0fdf4',
-                                  color: '#166534',
-                                  border: '1px solid #bbf7d0',
-                                }}
-                                title="Follow-up doses check in directly at the Nurse Treatment Desk"
-                              >
-                                Direct to Treatment
-                              </span>
                             ) : null}
                             {!isOnline && canSendPortalInvite && (
                               <button

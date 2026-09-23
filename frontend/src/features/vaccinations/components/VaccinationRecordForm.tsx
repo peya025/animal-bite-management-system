@@ -13,6 +13,8 @@ import DohTransferSlipModal from './DohTransferSlipModal';
 import {
   useAddressLocation,
 } from '../../patients/hooks/useAddressLocation';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
 type ApiError = {
   response?: {
@@ -331,6 +333,18 @@ const formatDateForInput = (dateString: string | null | undefined): string => {
 
 export default function VaccinationRecordForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: VaccinationRecordFormProps) {
   const { user: currentUser } = useAuth();
+
+  // Draft key is scoped to patient + bite episode so each case has an isolated draft
+  const vacDraftPatientId = entry?.patient?.patient_id ?? entry?.patient?.id ?? null;
+  const vacDraftBiteId = entry?.bite_id ?? entry?.incident?.bite_id ?? entry?.bite_incident?.bite_id ?? entry?.biteIncident?.bite_id ?? null;
+  const vacDraftQueueId = entry?.queue_id ?? null;
+  const vacDraftKey = open && vacDraftPatientId && !readOnly
+    ? `vaccination-${vacDraftPatientId}${vacDraftBiteId ? `-b${vacDraftBiteId}` : ''}${vacDraftQueueId ? `-q${vacDraftQueueId}` : ''}`
+    : null;
+  const draft = useFormDraft(vacDraftKey);
+  // Whether to skip restoring the draft (once-per-open flag, flipped after first restore attempt)
+  const draftRestored = useState(false);
+
   const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
 
   // ── Place of Exposure address location (same hook as Add Patient) ──────────
@@ -912,6 +926,16 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
   };
 
+  // ── Auto-save draft whenever formData or non-completed dose fields change ───
+  // We only draft when the form is actively being edited (not readOnly, not locked).
+  // The dependency on formData / doses triggers a debounced write via useFormDraft.
+  useEffect(() => {
+    if (!open || readOnly || isFormLocked) return;
+    const pendingDoses = doses.filter(d => !d.is_completed && !d.inventory_linked);
+    draft.saveDraft({ formData, pendingDoses });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, doses]);
+
   const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
     const today = new Date().toISOString().split('T')[0];
@@ -1052,6 +1076,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       });
 
       onSave();
+      draft.clearDraft();
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to save treatment record');
@@ -2671,7 +2696,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       {/* Inline footer buttons */}
       {inline && (
-        <div style={{ marginTop: 32, paddingTop: 20, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+        <div style={{ marginTop: 32, paddingTop: 20, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: 12, alignItems: 'center' }}>
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
           {!readOnly && (
             <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
@@ -2701,6 +2727,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       maxWidth={1000}
       footer={
         <>
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
           <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>{readOnly ? 'Close' : 'Cancel'}</button>
           {!readOnly && (

@@ -18,9 +18,16 @@ import {
 import api from '../../../services/api';
 import AppButton from '../../../components/button';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
 export default function UserCreatePage() {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'registration', password: '' });
+  const draft = useFormDraft('create-user');
+
+  const [form, setForm] = useState(() => {
+    const saved = draft.readDraft<{ name: string; email: string; phone: string; role: string; password: string }>();
+    return saved ?? { name: '', email: '', phone: '', role: 'registration', password: '' };
+  });
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmCreate, setConfirmCreate] = useState(false);
@@ -35,7 +42,11 @@ export default function UserCreatePage() {
     if (key === 'phone') {
       cleanVal = value.replace(/\D/g, '').slice(0, 11);
     }
-    setForm(f => ({ ...f, [key]: cleanVal }));
+    setForm(f => {
+      const next = { ...f, [key]: cleanVal };
+      draft.saveDraft(next);
+      return next;
+    });
     // 23.1 live recovery — clear error as soon as value becomes valid
     if (fieldErrors[key]) {
       setFieldErrors(prev => {
@@ -118,6 +129,7 @@ export default function UserCreatePage() {
       setCreatedUserName(name);
       setShowSuccessModal(true);
       setForm({ name: '', email: '', phone: '', role: 'registration', password: '' });
+      draft.clearDraft();
       setFieldErrors({});
       setTouched({});
     } catch {
@@ -213,7 +225,8 @@ export default function UserCreatePage() {
           />
 
           {/* 23.4 — Primary action in-line at the bottom of the form stack */}
-          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+            <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
             <AppButton type="button" variant="secondary" onClick={() => window.location.href = '/users'}>
               Cancel
             </AppButton>

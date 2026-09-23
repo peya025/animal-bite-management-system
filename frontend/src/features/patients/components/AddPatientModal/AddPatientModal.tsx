@@ -9,6 +9,8 @@ import type { AddPatientModalProps, EnrolmentFormData } from '../../types';
 import { INITIAL_ENROLMENT_DATA } from '../../types';
 import { useAddressLocation } from '../../hooks';
 import { createPatientRecord } from '../../services';
+import { useFormDraft } from '../../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../../shared/components/DraftStatusBadge';
 import {
   PatientInfoSection,
   ContactSection,
@@ -17,7 +19,12 @@ import {
 } from './sections';
 
 export default function AddPatientModal({ onClose, onSuccess, role }: AddPatientModalProps) {
-  const [enrolment, setEnrolment] = useState<EnrolmentFormData>(INITIAL_ENROLMENT_DATA);
+  const draft = useFormDraft('add-patient');
+
+  const [enrolment, setEnrolment] = useState<EnrolmentFormData>(() => {
+    const saved = draft.readDraft<EnrolmentFormData>();
+    return saved ?? INITIAL_ENROLMENT_DATA;
+  });
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -63,12 +70,14 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
   ) => {
     let value = ev.target.value;
     if (key === 'visit_type' && value !== 'follow_up') {
-      setEnrolment(prev => ({ ...prev, visit_type: value as EnrolmentFormData['visit_type'], follow_up_date: '' }));
+      const next = { ...enrolment, visit_type: value as EnrolmentFormData['visit_type'], follow_up_date: '' };
+      setEnrolment(next);
+      draft.saveDraft(next);
       if (fieldErrors.follow_up_date) {
         setFieldErrors(prev => {
-          const next = { ...prev };
-          delete next.follow_up_date;
-          return next;
+          const e = { ...prev };
+          delete e.follow_up_date;
+          return e;
         });
       }
       return;
@@ -76,17 +85,15 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     if (key === 'queue_priority_group') {
       const nextGroup = value as EnrolmentFormData['queue_priority_group'];
       const forcedPriority = nextGroup === 'normal' ? 'normal' : 'priority';
-      setEnrolment(prev => ({
-        ...prev,
-        queue_priority_group: nextGroup,
-        queue_priority_level: forcedPriority,
-      }));
+      const next = { ...enrolment, queue_priority_group: nextGroup, queue_priority_level: forcedPriority };
+      setEnrolment(next);
+      draft.saveDraft(next);
       if (fieldErrors.queue_priority_group || fieldErrors.queue_priority_level) {
         setFieldErrors(prev => {
-          const next = { ...prev };
-          delete next.queue_priority_group;
-          delete next.queue_priority_level;
-          return next;
+          const e = { ...prev };
+          delete e.queue_priority_group;
+          delete e.queue_priority_level;
+          return e;
         });
       }
       return;
@@ -98,19 +105,25 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     } else if (key === 'other_membership_no' && enrolment.other_membership === 'pwd') {
       value = formatPWDNumber(value);
     }
-    setEnrolment(prev => ({ ...prev, [key]: value }));
+    const next = { ...enrolment, [key]: value };
+    setEnrolment(next);
+    draft.saveDraft(next);
     if (fieldErrors[key]) {
       setFieldErrors(prev => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
+        const e = { ...prev };
+        delete e[key];
+        return e;
       });
     }
   };
 
   // Direct setter for array values or non-string fields (used by GovProgramsSection)
   const handleDirectChange = (key: keyof EnrolmentFormData, value: EnrolmentFormData[keyof EnrolmentFormData]) => {
-    setEnrolment(prev => ({ ...prev, [key]: value }));
+    setEnrolment(prev => {
+      const next = { ...prev, [key]: value };
+      draft.saveDraft(next);
+      return next;
+    });
   };
 
   const handleSubmit = async () => {
@@ -190,6 +203,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
       }, {
         autoQueue: canQueuePatient,
       });
+      draft.clearDraft();
       onSuccess();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to save patient record.';
@@ -213,6 +227,14 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
       maxWidth={900}
       footer={
         <>
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
+          {draft.hasDraft && draft.status === 'idle' && (
+            <button type="button" className="fm-btn fm-btn--cancel" style={{ fontSize: 12, padding: '4px 10px' }}
+              onClick={() => { setEnrolment(INITIAL_ENROLMENT_DATA); draft.clearDraft(); }}
+              disabled={saving}>
+              Discard draft
+            </button>
+          )}
           <button type="button" className="fm-btn fm-btn--cancel" onClick={closeDialog} disabled={saving}>Cancel</button>
           <button type="button" className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
             {saving ? 'Saving\u2026' : 'Save Patient Record'}
@@ -229,6 +251,9 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
             const target: EventTarget = event.target;
             const name = target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement ? target.name : '';
             if (name && fieldErrors[name]) setFieldErrors(previous => { const next = { ...previous }; delete next[name]; return next; });
+            // Also schedule a draft save from the current enrolment state captured in next render
+            // (handleFieldChange already calls saveDraft for direct changes; this catches
+            //  any edge-case native changes that may bypass handleFieldChange)
           }}>
           <p className="registration-intro"><strong>Required fields are marked with *.</strong> Press Enter in a text field to move to the next field, or use Tab.</p>
           {error && <p ref={summaryRef} tabIndex={-1} role="alert" className="registration-error">{error}</p>}

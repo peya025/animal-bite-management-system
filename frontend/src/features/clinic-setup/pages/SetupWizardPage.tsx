@@ -2,32 +2,49 @@
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { SetupWizardRoot } from '../styles/SetupWizard.styles';
 import { ROUTES } from '../../../shared/config/routes';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export default function SetupWizard() {
-  const [currentStep, setCurrentStep] = useState(0);
+  const draft = useFormDraft('setup-wizard');
+
+  const [currentStep, setCurrentStep] = useState(1);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [setupData, setSetupData] = useState({
-    // Step 1: Admin Account
-    clinicName: '',
-    adminName: '',
-    adminEmail: '',
-    adminPassword: '',
-    adminPasswordConfirm: '',
-    
-    // Step 2: Customize
-    appName: 'Animal Bite Center',
-    logo: null as File | null,
-    primaryColor: '#10b981',
-    
-    // Step 3: Clinic Profile
-    address: '',
-    phone: '',
-    email: '',
+  const [setupData, setSetupData] = useState(() => {
+    // Restore draft if one exists — never restore passwords
+    const saved = draft.readDraft<{
+      clinicName: string;
+      adminName: string;
+      adminEmail: string;
+      appName: string;
+      primaryColor: string;
+      address: string;
+      phone: string;
+      email: string;
+    }>();
+    return {
+      // Step 1: Admin Account
+      clinicName: saved?.clinicName ?? '',
+      adminName: saved?.adminName ?? '',
+      adminEmail: saved?.adminEmail ?? '',
+      adminPassword: '',           // never persisted
+      adminPasswordConfirm: '',    // never persisted
+
+      // Step 2: Customize
+      appName: saved?.appName ?? 'Animal Bite Center',
+      logo: null as File | null,
+      primaryColor: saved?.primaryColor ?? '#10b981',
+
+      // Step 3: Clinic Profile
+      address: saved?.address ?? '',
+      phone: saved?.phone ?? '',
+      email: saved?.email ?? '',
+    };
   });
 
   const steps = [
@@ -184,6 +201,25 @@ export default function SetupWizard() {
     }
   };
 
+  /** Wraps setSetupData to also persist a draft of non-sensitive fields */
+  const setSetupDataWithDraft: typeof setSetupData = (valOrUpdater) => {
+    setSetupData(prev => {
+      const next = typeof valOrUpdater === 'function' ? valOrUpdater(prev) : valOrUpdater;
+      draft.saveDraft({
+        clinicName:   next.clinicName,
+        adminName:    next.adminName,
+        adminEmail:   next.adminEmail,
+        // passwords intentionally excluded
+        appName:      next.appName,
+        primaryColor: next.primaryColor,
+        address:      next.address,
+        phone:        next.phone,
+        email:        next.email,
+      });
+      return next;
+    });
+  };
+
   const handleCompleteSetup = async () => {
     setShowConfirmModal(false);
     
@@ -257,6 +293,7 @@ export default function SetupWizard() {
         localStorage.setItem('userData', JSON.stringify(userData));
 
         setShowSuccessModal(true);
+        draft.clearDraft();
         setTimeout(() => {
           window.location.href = ROUTES.DASHBOARD;
         }, 2000);
@@ -408,13 +445,13 @@ export default function SetupWizard() {
             {/* Stepper Card Content */}
             <div className="setup-content">
               {currentStep === 1 && (
-                <AdminAccountStep data={setupData} setData={setSetupData} errors={errors} setErrors={setErrors} />
+                <AdminAccountStep data={setupData} setData={setSetupDataWithDraft} errors={errors} setErrors={setErrors} />
               )}
               {currentStep === 2 && (
-                <CustomizeStep data={setupData} setData={setSetupData} />
+                <CustomizeStep data={setupData} setData={setSetupDataWithDraft} />
               )}
               {currentStep === 3 && (
-                <ClinicProfileStep data={setupData} setData={setSetupData} errors={errors} setErrors={setErrors} />
+                <ClinicProfileStep data={setupData} setData={setSetupDataWithDraft} errors={errors} setErrors={setErrors} />
               )}
               {currentStep === 4 && (
                 <ConfirmStep data={setupData} />
@@ -426,6 +463,7 @@ export default function SetupWizard() {
 
             {/* Actions Bar */}
             <div className="setup-actions">
+              <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto', alignSelf: 'center' }} />
               {currentStep > 1 && currentStep < 5 && (
                 <button className="btn-back" onClick={handleBack}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

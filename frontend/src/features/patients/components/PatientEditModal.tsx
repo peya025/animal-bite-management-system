@@ -19,6 +19,8 @@ import { LockOutlined as LockIcon, CheckCircleOutlined as CheckIcon } from '@mui
 import api from '../../../shared/services/api';
 import type { Patient } from '../types';
 import ButtonSpinner from '../../../components/common/ButtonSpinner';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
 interface PatientEditModalProps {
   open: boolean;
@@ -46,6 +48,9 @@ export default function PatientEditModal({
 }: PatientEditModalProps) {
   const [userRole] = useState<string>(() => getStoredUserRole());
   const isAdminOrReg = ['admin', 'registration', 'developer'].includes(userRole);
+
+  const patientDraftKey = patient ? `patient-demographics-${patient.patient_id ?? patient.id}` : null;
+  const draft = useFormDraft(open ? patientDraftKey : null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -101,7 +106,14 @@ export default function PatientEditModal({
       });
     };
 
-    populate(patient);
+    // Restore draft if one exists — server data won't overwrite it
+    const savedDraft = draft.readDraft<typeof formData>();
+    if (savedDraft) {
+      setFormData(savedDraft);
+    } else {
+      populate(patient);
+    }
+
     setError('');
     setSuccessMsg('');
 
@@ -109,14 +121,18 @@ export default function PatientEditModal({
     if (patientId) {
       api.get(`/patients/${patientId}`)
         .then(({ data }) => {
-          if (data) populate(data);
+          if (data && !savedDraft) populate(data);
         })
         .catch(() => {});
     }
-  }, [open, patient]);
+  }, [open, patient]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+    setFormData((prev) => {
+      const next = { ...prev, [field]: e.target.value };
+      draft.saveDraft(next);
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -158,6 +174,7 @@ export default function PatientEditModal({
 
       const res = await api.put(`/patients/${patientId}`, payload);
       setSuccessMsg('Patient details updated successfully!');
+      draft.clearDraft();
       setTimeout(() => {
         onSave(res.data?.patient || { ...patient, ...payload });
         onClose();
@@ -409,7 +426,8 @@ export default function PatientEditModal({
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb' }}>
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', gap: 1 }}>
+        <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
         <Button onClick={onClose} disabled={loading} sx={{ textTransform: 'none', color: '#6b7280' }}>
           Cancel
         </Button>

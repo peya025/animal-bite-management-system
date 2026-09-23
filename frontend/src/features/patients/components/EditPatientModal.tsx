@@ -7,6 +7,8 @@ import { INITIAL_ENROLMENT_DATA } from '../types';
 import { useAddressLocation } from '../hooks';
 import api from '../../../shared/services/api';
 import { buildEnrolmentFromPatient, buildLegacyMembershipFields, toRecord } from '../utils/memberships';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 import {
   PatientInfoSection,
   AddressSection,
@@ -23,6 +25,9 @@ interface EditPatientModalProps {
 }
 
 export default function EditPatientModal({ open, patient, onClose, onSuccess }: EditPatientModalProps) {
+  const patientId = patient ? (patient.patient_id ?? patient.id) : null;
+  const draft = useFormDraft(patientId ? `edit-patient-${patientId}` : null);
+
   const [enrolment, setEnrolment] = useState<EnrolmentFormData>(INITIAL_ENROLMENT_DATA);
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
@@ -36,17 +41,27 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     }
 
     setFullPatient(patient);
-    setEnrolment(buildEnrolmentFromPatient(patient));
+
+    // If there's a saved draft for this patient, restore it instead of the server data
+    const savedDraft = draft.readDraft<EnrolmentFormData>();
+    if (savedDraft) {
+      setEnrolment(savedDraft);
+    } else {
+      setEnrolment(buildEnrolmentFromPatient(patient));
+    }
 
     if (patient.address) {
       setPurok(patient.address);
     }
 
-    const patientId = patient.patient_id || patient.id;
-    api.get(`/patients/${patientId}`)
+    const pid = patient.patient_id || patient.id;
+    api.get(`/patients/${pid}`)
       .then(({ data }) => {
         setFullPatient(data as Record<string, unknown>);
-        setEnrolment(buildEnrolmentFromPatient(data as Record<string, unknown>));
+        // Only overwrite with server data if we did not restore a draft
+        if (!savedDraft) {
+          setEnrolment(buildEnrolmentFromPatient(data as Record<string, unknown>));
+        }
         if (typeof data?.address === 'string') {
           setPurok(data.address);
         }
@@ -54,7 +69,7 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       .catch(() => {
         setFullPatient(patient);
       });
-  }, [open, patient, setPurok]);
+  }, [open, patient, setPurok]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open || !patient) return null;
 
@@ -69,11 +84,19 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     } else if (key === 'other_membership_no' && enrolment.other_membership === 'pwd') {
       value = formatPWDNumber(value);
     }
-    setEnrolment(prev => ({ ...prev, [key]: value }));
+    setEnrolment(prev => {
+      const next = { ...prev, [key]: value };
+      draft.saveDraft(next);
+      return next;
+    });
   };
 
   const handleDirectChange = (key: keyof EnrolmentFormData, value: unknown) => {
-    setEnrolment(prev => ({ ...prev, [key]: value }));
+    setEnrolment(prev => {
+      const next = { ...prev, [key]: value };
+      draft.saveDraft(next);
+      return next;
+    });
   };
 
   const handleSubmit = async () => {
@@ -159,6 +182,7 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
 
     try {
       await api.put(`/patients/${patientId}`, payload);
+      draft.clearDraft();
       onSuccess();
       onClose();
     } catch (e: unknown) {
@@ -179,6 +203,7 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       maxWidth={850}
       footer={
         <>
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
           <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>Cancel</button>
           <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>

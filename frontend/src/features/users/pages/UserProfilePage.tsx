@@ -4,8 +4,14 @@ import { Alert, Box, Divider, Paper, Snackbar, Stack, TextField, Typography } fr
 import api from '../../../services/api';
 import AppButton from '../../../components/button';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
 export default function UserProfilePage() {
+  // Draft persists name + phone changes. We intentionally never persist
+  // password fields to avoid writing credentials to localStorage.
+  const draft = useFormDraft('user-profile');
+
   const [form, setForm] = useState({ name: '', email: '', phone: '', current_password: '', password: '', password_confirmation: '' });
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
@@ -13,16 +19,32 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     api.get('/me')
-      .then(({ data }) => setForm(f => ({ ...f, name: data.name || '', email: data.email || '', phone: data.phone || '' })))
+      .then(({ data }) => {
+        const serverData = { name: data.name || '', email: data.email || '', phone: data.phone || '' };
+        // Restore draft for name + phone only (not email which comes from server)
+        const saved = draft.readDraft<{ name: string; phone: string }>();
+        setForm(f => ({
+          ...f,
+          ...serverData,
+          ...(saved ? { name: saved.name ?? serverData.name, phone: saved.phone ?? serverData.phone } : {}),
+        }));
+      })
       .catch(() => setMessage('Unable to load your profile.'));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (key: keyof typeof form, value: string) => {
     let cleanVal = value;
     if (key === 'phone') {
       cleanVal = value.replace(/\D/g, '').slice(0, 11);
     }
-    setForm(f => ({ ...f, [key]: cleanVal }));
+    setForm(f => {
+      const next = { ...f, [key]: cleanVal };
+      // Only draft non-sensitive fields
+      if (key !== 'current_password' && key !== 'password' && key !== 'password_confirmation') {
+        draft.saveDraft({ name: next.name, phone: next.phone });
+      }
+      return next;
+    });
   };
 
   const submit = (event: React.FormEvent) => {
@@ -43,6 +65,7 @@ export default function UserProfilePage() {
       const { data } = await api.put('/me', { name, phone, ...(password ? { current_password, password, password_confirmation } : {}) });
       localStorage.setItem('userData', JSON.stringify(data.user));
       setForm(f => ({ ...f, current_password: '', password: '', password_confirmation: '' }));
+      draft.clearDraft();
       setShowSuccessModal(true);
     } catch {
       setMessage('Unable to update profile. Check your current password and try again.');
@@ -73,7 +96,8 @@ export default function UserProfilePage() {
           <TextField type="password" label="Current password" value={form.current_password} onChange={e => set('current_password', e.target.value)} />
           <TextField type="password" label="New password" helperText="At least 8 characters" value={form.password} onChange={e => set('password', e.target.value)} />
           <TextField type="password" label="Confirm new password" value={form.password_confirmation} onChange={e => set('password_confirmation', e.target.value)} />
-          <Box textAlign="right">
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.5 }}>
+            <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
             <AppButton type="submit" disabled={saving}>Save profile</AppButton>
           </Box>
         </Stack>

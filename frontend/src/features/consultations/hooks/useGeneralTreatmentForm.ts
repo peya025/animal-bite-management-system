@@ -29,6 +29,7 @@ import {
   submitTreatmentRecord,
   submitAddendumNote,
 } from '../services/consultationService';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 
 export function useGeneralTreatmentForm({
   open,
@@ -43,6 +44,21 @@ export function useGeneralTreatmentForm({
   const shouldHideConsultationType =
     hideConsultationType ?? (userRole === 'triage' || userRole === 'doctor');
   const selectedIncident = entry?.incident || entry?.bite_incident || entry?.biteIncident;
+
+  // Build a stable draft key from patient + bite so each clinical episode
+  // has its own isolated draft.
+  const patientId = entry?.patient?.patient_id ?? entry?.patient?.id ?? null;
+  const biteId =
+    entry?.bite_id ??
+    entry?.incident?.bite_id ??
+    entry?.bite_incident?.bite_id ??
+    entry?.biteIncident?.bite_id ??
+    null;
+  const draftKey =
+    open && patientId && !readOnly
+      ? `treatment-${patientId}${biteId ? `-${biteId}` : ''}`
+      : null;
+  const draft = useFormDraft(draftKey);
 
   const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
   const [saving, setSaving] = useState(false);
@@ -197,20 +213,20 @@ export function useGeneralTreatmentForm({
       });
     }
 
-    const patientId = entry.patient.patient_id || entry.patient.id;
-    if (!patientId) {
+    const pid = entry.patient.patient_id || entry.patient.id;
+    if (!pid) {
       setHasExistingRecord(false);
       setIsEditing(true);
       return;
     }
 
-    const biteId =
+    const fetchBiteId =
       entry?.bite_id ||
       entry?.incident?.bite_id ||
       entry?.bite_incident?.bite_id ||
       entry?.biteIncident?.bite_id;
 
-    fetchPatientTreatmentRecord(patientId, biteId)
+    fetchPatientTreatmentRecord(pid, fetchBiteId)
       .then((data) => {
         const record = data?.latest_treatment;
         const isVaccinated = Boolean(data?.has_administered_vaccine);
@@ -259,6 +275,19 @@ export function useGeneralTreatmentForm({
           if (resolvedAttending) {
             setFormData((prev) => ({ ...prev, name_of_attending_provider: resolvedAttending }));
           }
+
+          // Restore draft for a new (unsaved) record after the server
+          // population is complete so draft values win over the fresh defaults.
+          const savedDraft = draft.readDraft<{
+            formData: TreatmentFormData;
+            checkedDiagnoses: string[];
+            checkedHistory: string[];
+          }>();
+          if (savedDraft) {
+            setFormData(savedDraft.formData);
+            setCheckedDiagnoses(savedDraft.checkedDiagnoses ?? []);
+            setCheckedHistory(savedDraft.checkedHistory ?? []);
+          }
         }
       })
       .catch((err) => {
@@ -266,11 +295,34 @@ export function useGeneralTreatmentForm({
         setHasExistingRecord(false);
         setIsEditing(true);
         setExistingRecord(null);
-      });
-  }, [open, entry, populateFormFromRecord, selectedIncident]);
 
-  const handleFieldBlur = (key: string) => () => {
-    setTouchedFields((prev) => ({ ...prev, [key]: true }));
+        // Still try to restore draft even on fetch error
+        const savedDraft = draft.readDraft<{
+          formData: TreatmentFormData;
+          checkedDiagnoses: string[];
+          checkedHistory: string[];
+        }>();
+        if (savedDraft) {
+          setFormData(savedDraft.formData);
+          setCheckedDiagnoses(savedDraft.checkedDiagnoses ?? []);
+          setCheckedHistory(savedDraft.checkedHistory ?? []);
+        }
+      });
+  }, [open, entry, populateFormFromRecord, selectedIncident]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Save the complete form snapshot to draft storage */
+  const saveDraftSnapshot = useCallback(
+    (nextFormData: TreatmentFormData, nextDiagnoses?: string[], nextHistory?: string[]) => {
+      draft.saveDraft({
+        formData: nextFormData,
+        checkedDiagnoses: nextDiagnoses ?? checkedDiagnoses,
+        checkedHistory: nextHistory ?? checkedHistory,
+      });
+    },
+    [draft, checkedDiagnoses, checkedHistory],
+  );
+
+  const handleFieldBlur = (key: string) => () => {    setTouchedFields((prev) => ({ ...prev, [key]: true }));
     const newErrors: Record<string, string> = { ...fieldErrors };
     if (key === 'nature_of_visit' && !formData.nature_of_visit) {
       newErrors.nature_of_visit = 'Please select Nature of Visit';
@@ -288,7 +340,11 @@ export function useGeneralTreatmentForm({
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    setFormData((prev) => ({ ...prev, [key]: ev.target.value }));
+    setFormData((prev) => {
+      const next = { ...prev, [key]: ev.target.value };
+      saveDraftSnapshot(next);
+      return next;
+    });
     if (fieldErrors[key]) {
       setFieldErrors((prev) => {
         const next = { ...prev };
@@ -310,7 +366,9 @@ export function useGeneralTreatmentForm({
           return next;
         });
       }
-      return { ...prev, consultation_types: updatedTypes };
+      const next = { ...prev, consultation_types: updatedTypes };
+      saveDraftSnapshot(next);
+      return next;
     });
   };
 
@@ -321,12 +379,20 @@ export function useGeneralTreatmentForm({
       formData.diagnosis
     );
     setCheckedDiagnoses(nextChecked);
-    setFormData((prev) => ({ ...prev, diagnosis: nextText }));
+    setFormData((prev) => {
+      const next = { ...prev, diagnosis: nextText };
+      saveDraftSnapshot(next, nextChecked, checkedHistory);
+      return next;
+    });
   };
 
   const handleClearDiagnoses = () => {
     setCheckedDiagnoses([]);
-    setFormData((p) => ({ ...p, diagnosis: '' }));
+    setFormData((p) => {
+      const next = { ...p, diagnosis: '' };
+      saveDraftSnapshot(next, [], checkedHistory);
+      return next;
+    });
   };
 
   const toggleHistory = (item: string) => {
@@ -336,15 +402,23 @@ export function useGeneralTreatmentForm({
       formData.pertinent_history
     );
     setCheckedHistory(nextChecked);
-    setFormData((prev) => ({ ...prev, pertinent_history: nextText }));
+    setFormData((prev) => {
+      const next = { ...prev, pertinent_history: nextText };
+      saveDraftSnapshot(next, checkedDiagnoses, nextChecked);
+      return next;
+    });
   };
 
   const handlePrescribedVaccineChange = (vaccineType: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      prescribed_vaccine_type: vaccineType,
-      medication_treatment: vaccineType,
-    }));
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        prescribed_vaccine_type: vaccineType,
+        medication_treatment: vaccineType,
+      };
+      saveDraftSnapshot(next);
+      return next;
+    });
   };
 
   const handleSaveAddendum = async () => {
@@ -478,6 +552,7 @@ export function useGeneralTreatmentForm({
         setExistingRecord(res.treatment_record);
       }
 
+      draft.clearDraft();
       onSave();
       if (!inline) {
         onClose();
@@ -536,5 +611,8 @@ export function useGeneralTreatmentForm({
     handleSaveAddendum,
     handleSubmit,
     handleCancelEdit,
+    // Draft auto-save status — consumed by the form UI to show the badge
+    draftStatus: draft.status,
+    draftSavedAt: draft.savedAt,
   };
 }

@@ -50,6 +50,8 @@ import {
   formatDateInput,
   getStatusVisual,
 } from '../../utils/inventoryStatus';
+import { useFormDraft } from '../../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../../shared/components/DraftStatusBadge';
 
 interface AddEditInventoryDialogProps {
   open: boolean;
@@ -126,6 +128,10 @@ export default function AddEditInventoryDialog({
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const isEdit = Boolean(editItem);
+
+  // Draft only makes sense for new stock entries (edit forms are already persisted server-side)
+  const draftKey = open && !isEdit ? 'new-inventory' : null;
+  const draft = useFormDraft(draftKey);
 
   const [form, setForm] = useState({
     clinic_id: 1,
@@ -209,6 +215,20 @@ export default function AddEditInventoryDialog({
         remarks: '',
       });
       setErrors({});
+
+      // Restore draft for new entries (not when editing an existing batch)
+      if (!editItem) {
+        const savedDraft = draft.readDraft<{
+          form: typeof form;
+          sourceOfSupply: SourceOfSupply;
+          supplierOther: string;
+        }>();
+        if (savedDraft?.form) {
+          setForm(savedDraft.form);
+          if (savedDraft.sourceOfSupply) setSourceOfSupply(savedDraft.sourceOfSupply);
+          if (savedDraft.supplierOther !== undefined) setSupplierOther(savedDraft.supplierOther);
+        }
+      }
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -218,6 +238,13 @@ export default function AddEditInventoryDialog({
     if (!form.manufactured_date) return '';
     return addMonthsToDate(form.manufactured_date, Number(form.shelf_life_months) || 0);
   }, [form.manufactured_date, form.shelf_life_months]);
+
+  // Auto-save draft whenever the new-entry form changes (not for edits)
+  useEffect(() => {
+    if (!open || isEdit) return;
+    draft.saveDraft({ form, sourceOfSupply, supplierOther });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, sourceOfSupply, supplierOther]);
 
   /** 23.1 — Blur-first validation: validate a single field when focus leaves it.
    *  If the field already has a visible error, clear it as soon as the value is valid (live recovery).
@@ -357,6 +384,7 @@ export default function AddEditInventoryDialog({
       }
 
       onSaved();
+      draft.clearDraft();
       onClose();
     } catch (err: unknown) {
       const apiError = err as {
@@ -857,10 +885,13 @@ export default function AddEditInventoryDialog({
           </Stack>
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Button onClick={onClose} variant="outlined" color="inherit" sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>
-            Cancel
-          </Button>
+        <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Button onClick={onClose} variant="outlined" color="inherit" sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>
+              Cancel
+            </Button>
+            {!isEdit && <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} />}
+          </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
             {!!submitDisabledReason && (

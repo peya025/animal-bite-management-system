@@ -36,6 +36,8 @@ import { API_BASE_URL } from '../../../shared/services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { DAYS } from '../components/WorkingHoursModal/WorkingHoursModal';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
 
 // Clean, minimal field style matching the reference design
@@ -91,6 +93,7 @@ interface ClinicData {
 export default function ClinicInformation() {
   const navigate = useNavigate();
   const { updateClinic } = useAuth();
+  const draft = useFormDraft('clinic-info');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clinic, setClinic] = useState<ClinicData>({
@@ -321,6 +324,12 @@ export default function ClinicInformation() {
         opening_hours: defaultHours,
       });
 
+      // If the user had unsaved changes (a draft), restore them on top of the server data
+      const savedDraft = draft.readDraft<Partial<Omit<ClinicData, 'logo_path' | 'logo_url' | 'opening_hours'>>>();
+      if (savedDraft) {
+        setClinic(prev => ({ ...prev, ...savedDraft }));
+      }
+
       setLogoFile(null);
       setLogoPreview(null);
       setRemoveLogo(false);
@@ -347,7 +356,13 @@ export default function ClinicInformation() {
   }, []);
 
   const handleInputChange = (field: keyof Omit<ClinicData, 'opening_hours'>, value: string) => {
-    setClinic(prev => ({ ...prev, [field]: value }));
+    setClinic(prev => {
+      const next = { ...prev, [field]: value };
+      // Persist draft of text fields only (not logo paths or opening_hours objects)
+      const { logo_path, logo_url, opening_hours, ...draftable } = next;
+      draft.saveDraft(draftable);
+      return next;
+    });
   };
 
   const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -439,6 +454,7 @@ export default function ClinicInformation() {
       }
 
       setShowSuccessModal(true);
+      draft.clearDraft();
     } catch (error: any) {
       setSnackbar({
         open: true,
@@ -951,7 +967,8 @@ export default function ClinicInformation() {
         </Paper>
 
         {/* Bottom-right Save Changes Button */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', pt: 1, pb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', pt: 1, pb: 2, gap: 1.5 }}>
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           <Button
             variant="contained"
             startIcon={<SaveIcon />}

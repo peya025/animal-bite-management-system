@@ -9,6 +9,8 @@ import { VISIT_LABEL } from '../types';
 import { completeQueueConsultation } from '../services';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import ButtonSpinner from '../../../components/common/ButtonSpinner';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
 interface CompleteDialogProps {
   open: boolean;
@@ -19,13 +21,22 @@ interface CompleteDialogProps {
 }
 
 export function CompleteDialog({ open, entry, onClose, onDone, mode = 'complete' }: CompleteDialogProps) {
-  const [notes, setNotes]             = useState('');
+  // Draft keyed per queue entry + mode so each action has its own isolated notes draft
+  const draftKey = open && entry ? `complete-queue-${entry.queue_id}-${mode}` : null;
+  const draft = useFormDraft(draftKey);
+
+  const [notes, setNotes] = useState(() => {
+    if (!entry) return '';
+    const saved = draft.readDraft<{ notes: string }>();
+    return saved?.notes ?? '';
+  });
   const [saving, setSaving]           = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError]             = useState('');
 
   const resetState = () => {
     setNotes('');
+    draft.clearDraft();
     setShowConfirm(false);
     setError('');
   };
@@ -112,11 +123,15 @@ export function CompleteDialog({ open, entry, onClose, onDone, mode = 'complete'
             label={notesLabel}
             placeholder={notesPlaceholder}
             value={notes}
-            onChange={e => setNotes(e.target.value)}
+            onChange={e => {
+              setNotes(e.target.value);
+              draft.saveDraft({ notes: e.target.value });
+            }}
             sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
           />
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           <Button onClick={handleClose} disabled={saving}>Cancel</Button>
           <Button
             variant="contained"

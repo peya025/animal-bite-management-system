@@ -8,6 +8,7 @@ import {
   advanceOnEnter,
   focusFirstError,
 } from '../accessibility/consultationAccessibility';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
 import ConsultationBanners from './sections/ConsultationBanners';
 import PatientInfoSection from './sections/PatientInfoSection';
@@ -65,6 +66,8 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     handleSaveAddendum,
     handleSubmit,
     handleCancelEdit,
+    draftStatus,
+    draftSavedAt,
   } = useGeneralTreatmentForm(props);
 
   useLayoutEffect(() => {
@@ -254,6 +257,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
               flexWrap: 'wrap',
             }}
           >
+            <DraftStatusBadge status={draftStatus} savedAt={draftSavedAt} style={{ marginRight: 'auto' }} />
             {hasAdministeredVaccine ? (
               <div
                 style={{
@@ -327,6 +331,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         maxWidth={920}
         footer={
           <>
+            <DraftStatusBadge status={draftStatus} savedAt={draftSavedAt} style={{ marginRight: 'auto' }} />
             {hasAdministeredVaccine ? (
               <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>
                 Close (Locked)

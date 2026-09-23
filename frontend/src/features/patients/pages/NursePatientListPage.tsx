@@ -576,7 +576,7 @@ export default function NursePatientListPage() {
                   '&:hover': { bgcolor: '#dbeafe', borderColor: '#60a5fa' },
                 }}
               >
-                Completed · Record Card
+                Completed · View Card
               </Button>
             ) : needsCheckIn ? (
               <Button

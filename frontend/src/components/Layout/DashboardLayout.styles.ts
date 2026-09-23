@@ -34,6 +34,7 @@ export const DashboardLayoutRoot = styled('div')`
   }
   .sidebar-toggle-collapsed:hover {
     background: var(--nav-item-hover-bg);
+    border-color: var(--accent-green);
     color: var(--accent-green);
     box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
   }

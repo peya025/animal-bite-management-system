@@ -155,29 +155,14 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
               className="sidebar-toggle-collapsed"
               onClick={() => setSidebarOpen(true)}
               title="Expand Sidebar"
+              aria-label="Expand Sidebar"
               type="button"
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
             >
-              <div className="clinic-logo" style={{ width: 34, height: 34 }}>
-                <img
-                  src={clinicLogoSrc}
-                  alt={dynClinicName}
-                  onError={(e) => {
-                    const target = e.currentTarget as HTMLImageElement;
-                    if (target.src !== defaultLogo) {
-                      target.src = defaultLogo;
-                    }
-                  }}
-                />
-              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="12" x2="20" y2="12"></line>
+                <line x1="4" y1="6" x2="20" y2="6"></line>
+                <line x1="4" y1="18" x2="20" y2="18"></line>
+              </svg>
             </button>
           )}
         </div>

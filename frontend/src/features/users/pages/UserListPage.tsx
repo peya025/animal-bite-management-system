@@ -1511,7 +1511,7 @@ export default function UserListPage() {
                         onClick={() => handleViewPatientDetails(targetPatientId)}
                         startIcon={<HugeiconsIcon icon={ViewIcon} size={14} />}
                       >
-                        Record
+                        View Profile
                       </AppButton>
                       {!p.has_active_case && (
                         <AppButton

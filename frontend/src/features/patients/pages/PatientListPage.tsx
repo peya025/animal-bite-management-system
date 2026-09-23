@@ -76,6 +76,7 @@ export default function PatientList() {
   const isTreatmentOrTriage = ['treatment', 'triage'].includes(userRole);
   const isAuthorizedRegistrationRole = ['registration', 'admin', 'developer'].includes(userRole);
   const canAddPatient = isAuthorizedRegistrationRole && !isTreatmentOrTriage;
+  const isAdmin = ['admin', 'administrator'].includes(userRole?.toLowerCase());
 
   const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue'>('today_queue');
   const [tabCounts,            setTabCounts]            = useState({ today_queue: 0, all: 0, online: 0, pre_registered: 0, overdue: 0 });
@@ -832,7 +833,7 @@ export default function PatientList() {
                               >
                                 Register Exposure
                               </button>
-                            ) : hasCompletedMinimumDoses && !activeQueue ? (
+                            ) : hasCompletedMinimumDoses && !activeQueue && !isAdmin ? (
                               <button
                                 className="pm-btn-checkin"
                                 title="Register a distinct new exposure before Doctor assessment"

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -17,6 +17,7 @@ import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmen
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import PatientEditModal from './PatientEditModal';
 import api from '../../../shared/services/api';
+import { useAuth } from '../../../shared/contexts/AuthContext';
 import type { Patient } from '../types';
 import { getMembershipByType, getPatientMemberships } from '../utils/memberships';
 
@@ -331,6 +332,11 @@ export default function PatientDetailsModal({
   onPatientUpdated,
   readOnly = false,
 }: PatientDetailsModalProps) {
+  const { user } = useAuth();
+  const userData = localStorage.getItem('userData');
+  const userRole = user?.role || (userData ? (JSON.parse(userData)?.role ?? '') : '');
+  const isAdmin = ['admin', 'administrator'].includes(userRole?.toLowerCase());
+
   const [printing, setPrinting] = useState(false);
   const [activeTab, setActiveTab] = useState('form1');
   const [fullPatient, setFullPatient] = useState<any>(null);
@@ -608,7 +614,7 @@ export default function PatientDetailsModal({
 
       <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-glow, #e5e7eb)', bgcolor: 'var(--card-bg-solid, #ffffff)', justifyContent: 'space-between', gap: 1 }}>
         {(() => {
-          const canRegisterNewExposure = !readOnly;
+          const canRegisterNewExposure = !readOnly && !isAdmin;
 
           if (!canRegisterNewExposure) {
             return <div />;

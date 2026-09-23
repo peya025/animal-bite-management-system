@@ -23,7 +23,8 @@ declare global {
 /** Role → dashboard path mapping for Google SSO redirect */
 const ROLE_DASHBOARD: Record<string, string> = {
   treatment:    '/nurse/patients',
-  triage:       '/doctor/patients',
+  triage:       '/queue',
+  doctor:       '/queue',
   registration: '/patients',
   admin:        '/dashboard',
   developer:    '/dashboard',
@@ -55,13 +56,22 @@ function resolveLandingRoute(user: any): string {
     return '/nurse/patients';
   }
 
+  // Doctor / Triage: Station 1: New & Day 0
+  const isDoctor =
+    user.role === 'triage' ||
+    user.role === 'doctor' ||
+    roles.some((r: any) => r.slug === 'doctor' || r.name === 'doctor' || r.slug === 'triage' || r.name === 'triage');
+  if (isDoctor) {
+    return '/queue';
+  }
+
   // Roles with default_route from backend roles table
   if (roles.length > 0 && roles[0].default_route) {
     return roles[0].default_route;
   }
 
   // Legacy role fallbacks
-  if (user.role === 'triage') return '/queue';
+  if (user.role === 'triage' || user.role === 'doctor') return '/queue';
   if (user.role === 'registration') return '/patients';
   if (user.role === 'treatment') return '/queue';
 
@@ -166,7 +176,7 @@ export default function Login() {
       localStorage.setItem('lastActivityAt', String(Date.now()));
 
       const role = data.user?.role as string ?? 'admin';
-      window.location.replace(ROLE_DASHBOARD[role] ?? '/dashboard');
+      window.location.replace(resolveLandingRoute(data.user) || ROLE_DASHBOARD[role] || '/dashboard');
     } catch {
       setGoogleError('Google Sign-In failed. Please try again or use email & password.');
     } finally {

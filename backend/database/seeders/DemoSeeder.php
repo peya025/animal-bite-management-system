@@ -45,8 +45,11 @@ class DemoSeeder extends Seeder
         );
         $doctorRole = Role::firstOrCreate(
             ['slug' => 'doctor'],
-            ['name' => 'doctor', 'display_name' => 'Doctor / Triage Officer', 'default_route' => '/doctor/patients']
+            ['name' => 'doctor', 'display_name' => 'Doctor / Triage Officer', 'default_route' => '/queue']
         );
+        if ($doctorRole->default_route !== '/queue') {
+            $doctorRole->update(['default_route' => '/queue']);
+        }
         $intakeNurseRole = Role::firstOrCreate(
             ['slug' => 'intake_nurse'],
             ['name' => 'intake_nurse', 'display_name' => 'Intake Nurse', 'default_route' => '/queue']

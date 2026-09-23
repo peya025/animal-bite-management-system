@@ -77,6 +77,10 @@ export default function PatientList() {
   const isAuthorizedRegistrationRole = ['registration', 'admin', 'developer'].includes(userRole);
   const canAddPatient = isAuthorizedRegistrationRole && !isTreatmentOrTriage;
   const isAdmin = ['admin', 'administrator'].includes(userRole?.toLowerCase());
+  const isDoctor = ['triage', 'doctor'].includes(userRole?.toLowerCase());
+  const isTreatmentNurse = ['treatment', 'nurse'].includes(userRole?.toLowerCase());
+  const canRegisterExposure = ['registration', 'developer'].includes(userRole?.toLowerCase());
+  const canSendPortalInvite = ['registration'].includes(userRole?.toLowerCase());
 
   const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue'>('today_queue');
   const [tabCounts,            setTabCounts]            = useState({ today_queue: 0, all: 0, online: 0, pre_registered: 0, overdue: 0 });
@@ -614,7 +618,7 @@ export default function PatientList() {
           </div>
 
           {/* Bulk Walk-in Portal Invite Action Bar */}
-          {selectedWalkinIds.length > 0 && (
+          {canSendPortalInvite && selectedWalkinIds.length > 0 && (
             <div className="pm-bulk-bar">
               <div className="pm-bulk-bar-info">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -691,7 +695,7 @@ export default function PatientList() {
                 <thead>
                   <tr>
                     <th style={{ width: '40px', textAlign: 'center' }}>
-                      {visibleWalkins.length > 0 && (
+                      {canSendPortalInvite && visibleWalkins.length > 0 && (
                         <input
                           type="checkbox"
                           className="pm-checkbox"
@@ -741,7 +745,7 @@ export default function PatientList() {
                     return (
                       <tr key={`patient-${patientId}`}>
                         <td style={{ textAlign: 'center' }}>
-                          {!isOnline ? (
+                          {canSendPortalInvite && !isOnline ? (
                             <input
                               type="checkbox"
                               className="pm-checkbox"
@@ -821,7 +825,7 @@ export default function PatientList() {
                               >
                                 Booked — Awaiting Check-In
                               </span>
-                            ) : canCheckIn ? (
+                            ) : canCheckIn && canRegisterExposure ? (
                               <button
                                 className="pm-btn-checkin"
                                 title="Register the bite or possible rabies exposure before Doctor assessment"
@@ -833,7 +837,7 @@ export default function PatientList() {
                               >
                                 Register Exposure
                               </button>
-                            ) : hasCompletedMinimumDoses && !activeQueue && !isAdmin ? (
+                            ) : hasCompletedMinimumDoses && !activeQueue && canRegisterExposure ? (
                               <button
                                 className="pm-btn-checkin"
                                 title="Register a distinct new exposure before Doctor assessment"
@@ -873,7 +877,7 @@ export default function PatientList() {
                                 Direct to Treatment
                               </span>
                             ) : null}
-                            {!isOnline && (
+                            {!isOnline && canSendPortalInvite && (
                               <button
                                 className="pm-btn-invite"
                                 title="Invite Walk-in Patient to Mobile Portal"

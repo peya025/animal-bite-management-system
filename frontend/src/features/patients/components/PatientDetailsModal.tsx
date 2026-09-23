@@ -335,7 +335,7 @@ export default function PatientDetailsModal({
   const { user } = useAuth();
   const userData = localStorage.getItem('userData');
   const userRole = user?.role || (userData ? (JSON.parse(userData)?.role ?? '') : '');
-  const isAdmin = ['admin', 'administrator'].includes(userRole?.toLowerCase());
+  const canRegisterExposure = ['registration', 'developer'].includes(userRole?.toLowerCase());
 
   const [printing, setPrinting] = useState(false);
   const [activeTab, setActiveTab] = useState('form1');
@@ -614,7 +614,7 @@ export default function PatientDetailsModal({
 
       <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-glow, #e5e7eb)', bgcolor: 'var(--card-bg-solid, #ffffff)', justifyContent: 'space-between', gap: 1 }}>
         {(() => {
-          const canRegisterNewExposure = !readOnly && !isAdmin;
+          const canRegisterNewExposure = !readOnly && canRegisterExposure;
 
           if (!canRegisterNewExposure) {
             return <div />;

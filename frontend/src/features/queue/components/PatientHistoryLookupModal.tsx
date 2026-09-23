@@ -280,7 +280,7 @@ export function PatientHistoryLookupModal({ open, onClose }: PatientHistoryLooku
                           </Typography>
                         )}
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5, mt: 0.5, color: '#10b981', fontSize: 11.5, fontWeight: 600 }}>
-                          <span>View History</span>
+                          <span>Record</span>
                           <HugeiconsIcon icon={EyeIcon} size={13} strokeWidth={2.2} />
                         </Box>
                       </Box>

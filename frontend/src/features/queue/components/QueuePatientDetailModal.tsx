@@ -551,8 +551,8 @@ function EpisodeHistoryTab({
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form2')} sx={{ textTransform: 'none', fontWeight: 700 }}>View Form 2</Button>
-                  <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form3')} sx={{ textTransform: 'none', fontWeight: 700 }}>View Form 3</Button>
+                  <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form2')} sx={{ textTransform: 'none', fontWeight: 700 }}>Record Form 2</Button>
+                  <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form3')} sx={{ textTransform: 'none', fontWeight: 700 }}>Record Form 3</Button>
                 </Box>
               </Box>
             </Paper>
@@ -693,7 +693,7 @@ export default function QueuePatientDetailModal({
     ) : (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 2, px: 2, py: 1.15, border: '1px solid #bbf7d0', borderRadius: 2, bgcolor: '#f0fdf4' }}>
         <Box><Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#166534' }}>Current episode · {(formEntry as any).incident?.episode_type === 're_exposure' ? 'Re-exposure' : 'Active assessment'}</Typography><Typography sx={{ fontSize: 11.5, color: '#15803d' }}>Save here only records this episode.</Typography></Box>
-        <Button size="small" onClick={() => setActiveTab('history')} sx={{ textTransform: 'none', fontWeight: 700, color: '#047857', whiteSpace: 'nowrap' }}>View previous episodes</Button>
+        <Button size="small" onClick={() => setActiveTab('history')} sx={{ textTransform: 'none', fontWeight: 700, color: '#047857', whiteSpace: 'nowrap' }}>Previous episodes record</Button>
       </Box>
     );
 

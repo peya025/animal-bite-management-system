@@ -378,7 +378,7 @@ export default function BiteCaseRiskDashboard() {
             '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
           }}
         >
-          View Bite Info
+          Record
         </Button>
       ),
     },

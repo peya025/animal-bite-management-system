@@ -726,7 +726,7 @@ export default function QueueDashboard() {
       },
     },
     {
-      key: 'view', header: 'View', align: 'center' as const, width: '85px',
+      key: 'view', header: 'Record', align: 'center' as const, width: '85px',
       render: e => (
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Tooltip title="View Patient Details & Forms">
@@ -741,7 +741,7 @@ export default function QueueDashboard() {
               onMouseEnter={el => { (el.currentTarget as HTMLElement).style.background = '#d1fae5'; }}
               onMouseLeave={el => { (el.currentTarget as HTMLElement).style.background = '#ecfdf5'; }}
             >
-              View <HugeiconsIcon icon={ArrowUpRight01Icon} size={12} strokeWidth={2.2} />
+              Record <HugeiconsIcon icon={ArrowUpRight01Icon} size={12} strokeWidth={2.2} />
             </button>
           </Tooltip>
         </Box>

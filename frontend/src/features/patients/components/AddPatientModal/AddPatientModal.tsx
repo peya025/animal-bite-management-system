@@ -84,7 +84,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     }
     if (key === 'queue_priority_group') {
       const nextGroup = value as EnrolmentFormData['queue_priority_group'];
-      const forcedPriority = nextGroup === 'normal' ? 'normal' : 'priority';
+      const forcedPriority = (nextGroup === 'normal' ? 'normal' : 'priority') as 'normal' | 'priority';
       const next = { ...enrolment, queue_priority_group: nextGroup, queue_priority_level: forcedPriority };
       setEnrolment(next);
       draft.saveDraft(next);

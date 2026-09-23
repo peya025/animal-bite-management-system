@@ -282,7 +282,7 @@ export default function DoctorPatientListPage() {
                 el.style.color = '#059669';
               }}
             >
-              Record
+              View
               <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />
             </button>
           </Tooltip>

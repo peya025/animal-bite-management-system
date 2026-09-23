@@ -138,12 +138,15 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
 export const INITIAL_NEW_BITE_DATA: NewBiteData = {
   new_bite_date: '',
   new_bite_place: '',
-  new_exposure_type: 'bite',
-  new_severity: 'moderate',
-  new_animal_type: 'dog',
-  new_animal_status: 'unknown',
-  new_site_washed: true,
+  new_exposure_type: '',
+  new_exposure_mode: '',
+  new_severity: '',
+  new_animal_type: '',
+  new_animal_status: '',
+  new_animal_available: null,
+  new_site_washed: null,
   new_body_part: '',
+  new_laterality: '',
   new_wound_description: '',
 };
 

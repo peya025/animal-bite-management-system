@@ -43,7 +43,7 @@ class MobilePatientWorkflowTest extends TestCase
             'bite_date'           => now()->toDateString(),
             'bite_place'          => 'Home',
             'site_washed'         => true,
-            'exposure_type'       => 'bite',
+            'exposure_type'       => 'transdermal_bite',
             'animal_type'         => 'dog',
             'animal_status'       => 'owned',
             'animal_captured'     => true,
@@ -276,6 +276,16 @@ class MobilePatientWorkflowTest extends TestCase
         $this->assertDatabaseHas('bite_incident_intakes', [
             'intake_id' => $intakeId,
             'status' => 'converted',
+            'exposure_type' => 'transdermal_bite',
+            'checked_in_by' => $staff->id,
+        ]);
+        $this->assertDatabaseHas('bite_incidents', [
+            'patient_id' => $patient->patient_id,
+            'exposure_type' => 'unassessed',
+            'severity' => 'unassessed',
+            'animal_status' => 'unassessed',
+            'is_previously_vaccinated' => null,
+            'status' => 'awaiting_assessment',
         ]);
         $this->assertDatabaseHas('queues', [
             'appointment_id' => $appointmentId,
@@ -283,6 +293,11 @@ class MobilePatientWorkflowTest extends TestCase
             'visit_type' => 'new_case',
             'status' => 'waiting',
         ]);
+
+        $this->getJson("/api/tagoloan-treatment-cards/patient/{$patient->patient_id}")
+            ->assertOk()
+            ->assertJsonPath('form3_ready', false)
+            ->assertJsonPath('bite_incident.mode_of_exposure', null);
 
         // Repeating the action is safe and does not create a ghost duplicate.
         $this->postJson("/api/bite-intakes/{$intakeId}/check-in")

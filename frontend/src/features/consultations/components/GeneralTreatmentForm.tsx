@@ -21,6 +21,7 @@ import PrescribedVaccineSection from './sections/PrescribedVaccineSection';
 import ReExposureAssessmentSection from './sections/ReExposureAssessmentSection';
 import ProviderFindingsSection from './sections/ProviderFindingsSection';
 import ClinicalAddendumSection from './sections/ClinicalAddendumSection';
+import ExposureAssessmentSection from './sections/ExposureAssessmentSection';
 
 export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
   const { entry, onClose, readOnly = false, inline = false } = props;
@@ -50,6 +51,12 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     addendumSuccess,
     treatmentPlan,
     setTreatmentPlan,
+    newBiteData,
+    setNewBiteData,
+    patientReportedIntake,
+    requiresIncidentConfirmation,
+    clinicalAssessmentConfirmed,
+    setClinicalAssessmentConfirmed,
     checkedDiagnoses,
     checkedHistory,
     fieldErrors,
@@ -140,6 +147,17 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
 
         {/* SECTION 1: Patient Information */}
         <PatientInfoSection formData={formData} />
+
+        {/* SECTION 2: CHU / RHU Personnel Only */}
+        <ExposureAssessmentSection
+          patientReportedIntake={patientReportedIntake}
+          data={newBiteData}
+          disabled={isFormDisabled}
+          required={requiresIncidentConfirmation}
+          confirmed={clinicalAssessmentConfirmed}
+          onChange={setNewBiteData}
+          onConfirm={setClinicalAssessmentConfirmed}
+        />
 
         {/* SECTION 2: CHU / RHU Personnel Only */}
         <ReferralSection

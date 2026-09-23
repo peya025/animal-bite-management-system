@@ -14,8 +14,11 @@ class BiteIncidentIntake extends Model
         'patient_account_id',
         'appointment_id',
         'bite_date',
+        'incident_time',
         'bite_place',
         'site_washed',
+        'wash_method',
+        'wash_duration_minutes',
         'exposure_type',
         'animal_type',
         'animal_type_others',
@@ -23,8 +26,21 @@ class BiteIncidentIntake extends Model
         'animal_captured',
         'wound_location',
         'body_part_exposed',
+        'laterality',
         'patient_description',
+        'animal_available',
+        'animal_condition_reported',
+        'care_received',
+        'referral_facility',
+        'prior_rabies_vaccination',
+        'prior_vaccination_date',
+        'prior_vaccination_facility',
         'status',
+        'submitted_at',
+        'checked_in_by',
+        'checked_in_at',
+        'clinically_reviewed_by',
+        'clinically_reviewed_at',
         'reviewed_by',
         'reviewed_at',
         'bite_id',
@@ -34,6 +50,12 @@ class BiteIncidentIntake extends Model
         'bite_date' => 'date:Y-m-d',
         'site_washed' => 'boolean',
         'animal_captured' => 'boolean',
+        'animal_available' => 'boolean',
+        'wash_duration_minutes' => 'integer',
+        'prior_vaccination_date' => 'date:Y-m-d',
+        'submitted_at' => 'datetime',
+        'checked_in_at' => 'datetime',
+        'clinically_reviewed_at' => 'datetime',
         'reviewed_at' => 'datetime',
     ];
 
@@ -55,6 +77,16 @@ class BiteIncidentIntake extends Model
     public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function checkedInBy()
+    {
+        return $this->belongsTo(User::class, 'checked_in_by');
+    }
+
+    public function clinicallyReviewedBy()
+    {
+        return $this->belongsTo(User::class, 'clinically_reviewed_by');
     }
 
     public function biteIncident()

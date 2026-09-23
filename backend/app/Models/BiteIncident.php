@@ -28,13 +28,17 @@ class BiteIncident extends Model
         'bite_place',
         'site_washed',
         'exposure_type',
+        'exposure_mode',
         'victim_of_exposure',
         'severity',
         'animal_type',
         'animal_status',
         'animal_captured',
+        'animal_available',
         'animal_observation_status',
         'site_number',
+        'body_part_exposed',
+        'laterality',
         'wound_description',
         'wound_condition',
         'photo_path',
@@ -44,6 +48,8 @@ class BiteIncident extends Model
         'transferred_at',
         'transfer_reason',
         'remarks',
+        'confirmed_by',
+        'confirmed_at',
         'created_by',
     ];
 
@@ -51,9 +57,11 @@ class BiteIncident extends Model
         'bite_date' => 'date:Y-m-d',
         'site_washed' => 'boolean',
         'animal_captured' => 'boolean',
+        'animal_available' => 'boolean',
         'is_previously_vaccinated' => 'boolean',
         'external_proof_reviewed_at' => 'datetime',
         'transferred_at' => 'datetime',
+        'confirmed_at' => 'datetime',
     ];
 
     public function isReExposure(): bool
@@ -80,6 +88,11 @@ class BiteIncident extends Model
     public function externalProofReviewer()
     {
         return $this->belongsTo(User::class, 'external_proof_reviewed_by');
+    }
+
+    public function confirmedBy()
+    {
+        return $this->belongsTo(User::class, 'confirmed_by');
     }
 
     /**
@@ -190,9 +203,6 @@ class BiteIncident extends Model
 
     public function getBiteCategoryAttribute(): string
     {
-        if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->bite_category)) {
-            return (string) $this->intake->bite_category;
-        }
         $sev = strtolower(trim((string) ($this->severity ?? '')));
         if (in_array($sev, ['severe', 'category iii', 'iii', '3'], true)) {
             return 'III';
@@ -200,7 +210,15 @@ class BiteIncident extends Model
         if (in_array($sev, ['minor', 'category i', 'i', '1'], true)) {
             return 'I';
         }
-        return 'II';
+        if (in_array($sev, ['moderate', 'category ii', 'ii', '2'], true)) {
+            return 'II';
+        }
+        // Legacy clinic-entered intakes may already contain a category. New
+        // mobile submissions cannot set this field.
+        if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->bite_category)) {
+            return (string) $this->intake->bite_category;
+        }
+        return 'Unassessed';
     }
 
     public function getRigTypeAttribute(): ?string
@@ -236,15 +254,11 @@ class BiteIncident extends Model
      */
     public function getWhoCategory(): string
     {
-        if ($this->exposure_type === 'lick' && !$this->site_washed) {
-            return 'Category I'; // No vaccination needed
-        }
-        
-        if ($this->exposure_type === 'scratch' || 
-            ($this->exposure_type === 'bite' && $this->severity === 'minor')) {
-            return 'Category II'; // Vaccination + wound treatment
-        }
-        
-        return 'Category III'; // Vaccination + immunoglobulin + wound treatment
+        return match ($this->severity) {
+            'minor' => 'Category I',
+            'moderate' => 'Category II',
+            'severe' => 'Category III',
+            default => 'Unassessed',
+        };
     }
 }

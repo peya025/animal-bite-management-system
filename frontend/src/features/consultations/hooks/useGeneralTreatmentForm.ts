@@ -6,6 +6,7 @@ import type {
   GeneralTreatmentFormProps,
   ConsultationTypesMap,
   TreatmentRecordPayload,
+  PatientReportedIntake,
 } from '../types/consultation.types';
 import {
   INITIAL_FORM_DATA,
@@ -30,6 +31,32 @@ import {
   submitAddendumNote,
 } from '../services/consultationService';
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+
+const exposureTypeFromMode = (mode?: string): NewBiteData['new_exposure_type'] => {
+  switch (mode) {
+    case 'scratch_abrasion': return 'scratch';
+    case 'nibbling_uncovered_skin': return 'lick';
+    case 'nibbling_broken_skin':
+    case 'handling_ingestion_raw_meat': return 'other';
+    case 'transdermal_bite': return 'bite';
+    default: return '';
+  }
+};
+
+const clinicalModeFromReport = (mode?: string): NewBiteData['new_exposure_mode'] => {
+  const allowed: NewBiteData['new_exposure_mode'][] = [
+    'nibbling_uncovered_skin',
+    'nibbling_broken_skin',
+    'scratch_abrasion',
+    'transdermal_bite',
+    'handling_ingestion_raw_meat',
+  ];
+  return allowed.includes(mode as NewBiteData['new_exposure_mode'])
+    ? mode as NewBiteData['new_exposure_mode']
+    : '';
+};
+
+const dateOnly = (value?: string | null) => value ? String(value).split('T')[0] : '';
 
 export function useGeneralTreatmentForm({
   open,
@@ -83,6 +110,9 @@ export function useGeneralTreatmentForm({
   const [treatmentPlan, setTreatmentPlan] = useState('');
   const [episodeHistory, setEpisodeHistory] = useState<any[]>([]);
   const [newBiteData, setNewBiteData] = useState<NewBiteData>(INITIAL_NEW_BITE_DATA);
+  const [patientReportedIntake, setPatientReportedIntake] = useState<PatientReportedIntake | null>(null);
+  const [requiresIncidentConfirmation, setRequiresIncidentConfirmation] = useState(false);
+  const [clinicalAssessmentConfirmed, setClinicalAssessmentConfirmed] = useState(false);
 
   const [checkedDiagnoses, setCheckedDiagnoses] = useState<string[]>([]);
   const [checkedHistory, setCheckedHistory] = useState<string[]>([]);
@@ -195,21 +225,32 @@ export function useGeneralTreatmentForm({
     setTouchedFields({});
     setIsReturningNewBite(false);
     setRequiresReExposureDecision(false);
+    setPatientReportedIntake(null);
+    setRequiresIncidentConfirmation(false);
+    setClinicalAssessmentConfirmed(false);
 
     const initialIncident = selectedIncident;
     if (initialIncident) {
+      const intake = initialIncident.intake || null;
+      setPatientReportedIntake(intake);
+      const isUnassessed = initialIncident.status === 'awaiting_assessment'
+        || initialIncident.exposure_type === 'unassessed'
+        || initialIncident.severity === 'unassessed';
+      setRequiresIncidentConfirmation(isUnassessed);
+      setClinicalAssessmentConfirmed(!isUnassessed);
       setNewBiteData({
-        new_bite_date: initialIncident.bite_date
-          ? String(initialIncident.bite_date).split('T')[0]
-          : new Date().toISOString().split('T')[0],
-        new_bite_place: initialIncident.bite_place || 'Misamis Oriental',
-        new_exposure_type: (initialIncident.exposure_type as any) || 'bite',
-        new_severity: (initialIncident.severity as any) || 'moderate',
-        new_animal_type: (initialIncident.animal_type as any) || 'dog',
-        new_animal_status: (initialIncident.animal_status as any) || 'unknown',
-        new_site_washed: initialIncident.site_washed !== undefined ? Boolean(initialIncident.site_washed) : true,
-        new_body_part: initialIncident.body_part_exposed || initialIncident.site_number || '',
-        new_wound_description: initialIncident.wound_description || '',
+        new_bite_date: dateOnly(initialIncident.bite_date || intake?.bite_date) || new Date().toISOString().split('T')[0],
+        new_bite_place: initialIncident.bite_place || intake?.bite_place || '',
+        new_exposure_type: initialIncident.exposure_type !== 'unassessed' ? (initialIncident.exposure_type as any) : exposureTypeFromMode(intake?.exposure_type),
+        new_exposure_mode: initialIncident.exposure_mode || clinicalModeFromReport(intake?.exposure_type),
+        new_severity: initialIncident.severity !== 'unassessed' ? (initialIncident.severity as any) : '',
+        new_animal_type: initialIncident.animal_type || intake?.animal_type || '',
+        new_animal_status: initialIncident.animal_status !== 'unassessed' ? (initialIncident.animal_status as any) : (intake?.animal_status || ''),
+        new_animal_available: initialIncident.animal_available ?? intake?.animal_available ?? null,
+        new_site_washed: initialIncident.site_washed ?? intake?.site_washed ?? null,
+        new_body_part: initialIncident.body_part_exposed || initialIncident.site_number || intake?.wound_location || intake?.body_part_exposed || '',
+        new_laterality: (initialIncident.laterality || intake?.laterality || '') as any,
+        new_wound_description: initialIncident.wound_description || intake?.patient_description || '',
       });
     }
 
@@ -242,18 +283,26 @@ export function useGeneralTreatmentForm({
 
         const activeInc = data?.active_bite_incident || initialIncident;
         if (activeInc) {
+          const intake = activeInc.intake || null;
+          const isUnassessed = activeInc.status === 'awaiting_assessment'
+            || activeInc.exposure_type === 'unassessed'
+            || activeInc.severity === 'unassessed';
+          setPatientReportedIntake(intake);
+          setRequiresIncidentConfirmation(isUnassessed);
+          setClinicalAssessmentConfirmed(!isUnassessed);
           setNewBiteData({
-            new_bite_date: activeInc.bite_date
-              ? String(activeInc.bite_date).split('T')[0]
-              : new Date().toISOString().split('T')[0],
-            new_bite_place: activeInc.bite_place || 'Misamis Oriental',
-            new_exposure_type: (activeInc.exposure_type as any) || 'bite',
-            new_severity: (activeInc.severity as any) || 'moderate',
-            new_animal_type: (activeInc.animal_type as any) || 'dog',
-            new_animal_status: (activeInc.animal_status as any) || 'unknown',
-            new_site_washed: activeInc.site_washed !== undefined ? Boolean(activeInc.site_washed) : true,
-            new_body_part: activeInc.body_part_exposed || activeInc.site_number || '',
-            new_wound_description: activeInc.wound_description || '',
+            new_bite_date: dateOnly(activeInc.bite_date || intake?.bite_date) || new Date().toISOString().split('T')[0],
+            new_bite_place: activeInc.bite_place || intake?.bite_place || '',
+            new_exposure_type: activeInc.exposure_type !== 'unassessed' ? (activeInc.exposure_type as any) : exposureTypeFromMode(intake?.exposure_type),
+            new_exposure_mode: activeInc.exposure_mode || clinicalModeFromReport(intake?.exposure_type),
+            new_severity: activeInc.severity !== 'unassessed' ? (activeInc.severity as any) : '',
+            new_animal_type: activeInc.animal_type || intake?.animal_type || '',
+            new_animal_status: activeInc.animal_status !== 'unassessed' ? (activeInc.animal_status as any) : (intake?.animal_status || ''),
+            new_animal_available: activeInc.animal_available ?? intake?.animal_available ?? null,
+            new_site_washed: activeInc.site_washed ?? intake?.site_washed ?? null,
+            new_body_part: activeInc.body_part_exposed || activeInc.site_number || intake?.wound_location || intake?.body_part_exposed || '',
+            new_laterality: (activeInc.laterality || intake?.laterality || '') as any,
+            new_wound_description: activeInc.wound_description || intake?.patient_description || '',
           });
         }
 
@@ -455,6 +504,20 @@ export function useGeneralTreatmentForm({
       return;
     }
 
+    if (requiresIncidentConfirmation) {
+      const missingAssessment = !newBiteData.new_bite_date
+        || !newBiteData.new_exposure_mode
+        || !newBiteData.new_severity
+        || !newBiteData.new_animal_type
+        || !newBiteData.new_animal_status
+        || newBiteData.new_site_washed === null
+        || !newBiteData.new_body_part;
+      if (missingAssessment || !clinicalAssessmentConfirmed) {
+        setError('Complete and explicitly confirm the clinician exposure assessment before saving Form 2.');
+        return;
+      }
+    }
+
     const newFieldErrors: Record<string, string> = {};
 
     if (!formData.nature_of_visit) {
@@ -504,12 +567,16 @@ export function useGeneralTreatmentForm({
         new_bite_date: newBiteData.new_bite_date || null,
         new_bite_place: newBiteData.new_bite_place || null,
         new_exposure_type: newBiteData.new_exposure_type || null,
+        new_exposure_mode: newBiteData.new_exposure_mode || null,
         new_severity: newBiteData.new_severity || null,
         new_animal_type: newBiteData.new_animal_type || null,
         new_animal_status: newBiteData.new_animal_status || null,
+        new_animal_available: newBiteData.new_animal_available,
         new_site_washed: newBiteData.new_site_washed,
         new_body_part: newBiteData.new_body_part || null,
+        new_laterality: newBiteData.new_laterality || null,
         new_wound_description: newBiteData.new_wound_description || null,
+        clinical_assessment_confirmed: clinicalAssessmentConfirmed,
         consultation_date: formData.date_of_consultation,
         consultation_time: formData.consultation_time,
         mode_of_transaction: formData.mode_of_transaction || 'walk-in',
@@ -594,6 +661,10 @@ export function useGeneralTreatmentForm({
     episodeHistory,
     newBiteData,
     setNewBiteData,
+    patientReportedIntake,
+    requiresIncidentConfirmation,
+    clinicalAssessmentConfirmed,
+    setClinicalAssessmentConfirmed,
     checkedDiagnoses,
     checkedHistory,
     fieldErrors,

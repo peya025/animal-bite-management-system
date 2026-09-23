@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\BiteIncident;
-use App\Models\BiteIncidentIntake;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\TagoloanTreatmentCard;
+use App\Models\TreatmentPlan;
 use App\Models\TreatmentRecord;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -57,17 +57,17 @@ class TagoloanTreatmentCardController extends Controller
             $latestBite = BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->where('bite_id', $requestedBiteId)
-                ->first();
-        }
-        if (!$latestBite) {
+                ->firstOrFail();
+        } else {
             $latestBite = BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->orderBy('bite_date', 'desc')
                 ->latest('bite_id')
                 ->first();
         }
+        $latestBite?->loadMissing(['intake', 'treatmentPlan']);
 
-        $latestIntake = BiteIncidentIntake::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest()->first();
+        $latestIntake = $latestBite?->intake;
         $treatmentRecords = TreatmentRecord::with('administeredBy')
             ->where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
@@ -80,9 +80,6 @@ class TagoloanTreatmentCardController extends Controller
             ->when($latestBite, fn($q) => $q->where('bite_id', $latestBite->bite_id))
             ->latest()
             ->first();
-        if (!$existingCard) {
-            $existingCard = TagoloanTreatmentCard::where('clinic_id', $clinicId)->where('patient_id', $patientId)->latest()->first();
-        }
 
         $latestConsultation = null;
         if ($latestBite) {
@@ -94,16 +91,17 @@ class TagoloanTreatmentCardController extends Controller
                 ->orderBy('consultation_time', 'desc')
                 ->first();
         }
-        if (!$latestConsultation) {
-            $latestConsultation = TreatmentRecord::where('clinic_id', $clinicId)
-                ->where('patient_id', $patientId)
-                ->whereNotNull('nature_of_visit')
-                ->orderBy('consultation_date', 'desc')
-                ->orderBy('consultation_time', 'desc')
-                ->first();
-        }
+        $planAllowsTreatment = $latestBite
+            && $latestBite->treatmentPlan
+            && $latestBite->treatmentPlan->status === 'approved'
+            && in_array($latestBite->treatmentPlan->plan_type, ['full_pep', 'single_booster', 'two_dose_booster'], true);
+        $form3Ready = (bool) ($latestBite
+            && $latestBite->confirmed_at
+            && $latestConsultation
+            && $planAllowsTreatment);
 
-        // Resolve incident details from bite incident or mobile intake fallback
+        // Form 3 only consumes clinician-confirmed Form 2 data. Raw intake is
+        // returned separately for provenance and is never promoted implicitly.
         $biteData = null;
         if ($latestBite) {
             $biteData = [
@@ -115,33 +113,20 @@ class TagoloanTreatmentCardController extends Controller
                 'animal_status' => $latestBite->animal_status,
                 'animal_type_others' => null,
                 'referred_from' => $latestBite->referred_from,
-                'mode_of_exposure' => $latestBite->exposure_type ?? $latestIntake?->exposure_type,
+                'mode_of_exposure' => $latestBite->exposure_mode,
                 'exposure_type' => $latestBite->exposure_type,
+                'exposure_category' => match ($latestBite->severity) {
+                    'minor' => 'I',
+                    'moderate' => 'II',
+                    'severe' => 'III',
+                    default => null,
+                },
                 'severity' => $latestBite->severity,
                 'site_washed' => $latestBite->site_washed,
-                'body_part_exposed' => $latestBite->body_part_exposed ?? $latestIntake?->body_part_exposed,
+                'body_part_exposed' => $latestBite->body_part_exposed ?? $latestBite->site_number,
                 'wound_description' => $latestBite->wound_description,
                 'episode_number' => $latestBite->episode_number,
                 'episode_type' => $latestBite->episode_type,
-            ];
-        } elseif ($latestIntake) {
-            $biteData = [
-                'bite_id' => $latestIntake->bite_id,
-                'case_number' => null,
-                'bite_date' => $latestIntake->bite_date ? Carbon::parse($latestIntake->bite_date)->format('Y-m-d') : null,
-                'bite_place' => $latestIntake->bite_place,
-                'animal_type' => $latestIntake->animal_type,
-                'animal_status' => null,
-                'animal_type_others' => $latestIntake->animal_type_others,
-                'referred_from' => null,
-                'mode_of_exposure' => $latestIntake->exposure_type,
-                'exposure_type' => $latestIntake->exposure_type,
-                'severity' => null,
-                'site_washed' => null,
-                'body_part_exposed' => $latestIntake->body_part_exposed,
-                'wound_description' => null,
-                'episode_number' => 1,
-                'episode_type' => 'primary',
             ];
         }
 
@@ -167,6 +152,11 @@ class TagoloanTreatmentCardController extends Controller
                 'hospital_no' => $patient->details->hospital_no ?? null,
             ],
             'bite_incident' => $biteData,
+            'patient_reported_intake' => $latestIntake,
+            'form3_ready' => $form3Ready,
+            'form3_block_reason' => $form3Ready
+                ? null
+                : 'Form 3 is available after a Doctor confirms Form 2 and approves a vaccine treatment plan.',
             'existing_card' => $existingCard,
             'latest_consultation' => $latestConsultation,
             'treatment_records' => $treatmentRecords,
@@ -182,7 +172,7 @@ class TagoloanTreatmentCardController extends Controller
 
         $validated = $request->validate([
             'patient_id' => 'required|exists:patients,patient_id',
-            'bite_id' => 'nullable|exists:bite_incidents,bite_id',
+            'bite_id' => 'required|exists:bite_incidents,bite_id',
             'card_date' => 'required|date',
             'registry_no' => 'nullable|string|max:100',
             'hospital_no' => 'nullable|string|max:100',
@@ -198,13 +188,45 @@ class TagoloanTreatmentCardController extends Controller
             'icd10_code' => 'nullable|string|max:50',
         ]);
 
+        $incident = BiteIncident::where('clinic_id', $clinicId)
+            ->where('patient_id', $validated['patient_id'])
+            ->where('bite_id', $validated['bite_id'])
+            ->first();
+        $plan = TreatmentPlan::where('clinic_id', $clinicId)
+            ->where('bite_id', $validated['bite_id'])
+            ->first();
+        $hasConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $validated['patient_id'])
+            ->where('bite_id', $validated['bite_id'])
+            ->whereNull('dose_number')
+            ->where('status', 'completed')
+            ->exists();
+
+        if (!$incident || !$incident->confirmed_at || !$hasConsultation
+            || !$plan || $plan->status !== 'approved'
+            || !in_array($plan->plan_type, ['full_pep', 'single_booster', 'two_dose_booster'], true)) {
+            return response()->json([
+                'message' => 'Form 3 cannot be saved until a Doctor confirms Form 2 and approves a vaccine treatment plan for this episode.',
+            ], 422);
+        }
+
         $card = TagoloanTreatmentCard::updateOrCreate(
             [
                 'clinic_id' => $clinicId,
                 'patient_id' => $validated['patient_id'],
+                'bite_id' => $validated['bite_id'],
             ],
             array_merge($validated, [
                 'clinic_id' => $clinicId,
+                'exposure_category' => match ($incident->severity) {
+                    'minor' => 'I',
+                    'moderate' => 'II',
+                    'severe' => 'III',
+                    default => null,
+                },
+                'mode_of_exposure' => $incident->exposure_mode,
+                'body_part_exposed' => $incident->body_part_exposed ?: $incident->site_number,
+                'animal_type' => $incident->animal_type,
                 'created_by' => $request->user()->id,
             ])
         );
@@ -215,47 +237,9 @@ class TagoloanTreatmentCardController extends Controller
             $patient->details->update(['hospital_no' => $validated['hospital_no']]);
         }
 
-        // Auto-create or update BiteIncident for this patient so classified exposure shows on Bite Map
-        if ($patient) {
-            $severityMap = [
-                'I' => 'minor',
-                'II' => 'moderate',
-                'III' => 'severe',
-            ];
-            $severity = $severityMap[$validated['exposure_category'] ?? ''] ?? 'moderate';
-
-            $street = $patient->details->address_purok ?? $patient->address_purok ?? 'Zone 1';
-            $brgy = $patient->details->address_barangay ?? $patient->address_barangay ?? 'Poblacion';
-            $mun = $patient->details->address_municipality ?? $patient->address_municipality ?? 'Tagoloan';
-            $bitePlace = "{$street}, {$brgy}, {$mun}";
-
-            $incident = BiteIncident::where('patient_id', $validated['patient_id'])->first();
-            if (!$incident) {
-                $incident = BiteIncident::create([
-                    'clinic_id' => $clinicId,
-                    'patient_id' => $validated['patient_id'],
-                    'bite_date' => $validated['card_date'] ?? date('Y-m-d'),
-                    'bite_place' => $bitePlace,
-                    'exposure_type' => 'bite',
-                    'severity' => $severity,
-                    'animal_type' => $validated['animal_type'] ?? 'dog',
-                    'status' => 'completed',
-                    'created_by' => $request->user()->id,
-                ]);
-            } else {
-                $incident->update([
-                    'severity' => $severity,
-                    'bite_place' => $incident->bite_place ?: $bitePlace,
-                    'status' => 'completed',
-                ]);
-            }
-
-            // Link card to bite incident
-            $card->update(['bite_id' => $incident->bite_id]);
-
-            // Clear bite map cache
-            \Illuminate\Support\Facades\Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
-        }
+        // Form 3 never creates or reclassifies an incident. It consumes the
+        // Doctor-confirmed Form 2 episode and only invalidates its display cache.
+        \Illuminate\Support\Facades\Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
 
         return response()->json([
             'message' => 'Tagoloan Treatment Card saved successfully',

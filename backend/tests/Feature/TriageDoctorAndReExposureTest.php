@@ -192,8 +192,14 @@ class TriageDoctorAndReExposureTest extends TestCase
             'diagnosis' => 'Category III dog bite',
             'new_bite_date' => Carbon::today()->toDateString(),
             'new_exposure_type' => 'bite',
+            'new_exposure_mode' => 'transdermal_bite',
             'new_severity' => 'moderate',
             'new_animal_type' => 'dog',
+            'new_animal_status' => 'owned',
+            'new_site_washed' => true,
+            'new_body_part' => 'left arm',
+            'new_laterality' => 'left',
+            'clinical_assessment_confirmed' => true,
         ]);
 
         $response->assertStatus(201);
@@ -218,6 +224,42 @@ class TriageDoctorAndReExposureTest extends TestCase
         $this->assertNotNull($plan);
         $this->assertEquals('full_pep', $plan->plan_type);
         $this->assertEquals('approved', $plan->status);
+
+        $incident = BiteIncident::findOrFail($queue->bite_id);
+        $this->assertNotNull($incident->confirmed_at);
+        $this->assertSame($doctor->id, $incident->confirmed_by);
+        $this->assertSame('transdermal_bite', $incident->exposure_mode);
+
+        $this->getJson("/api/tagoloan-treatment-cards/patient/{$patient->patient_id}?bite_id={$incident->bite_id}")
+            ->assertOk()
+            ->assertJsonPath('form3_ready', true)
+            ->assertJsonPath('bite_incident.mode_of_exposure', 'transdermal_bite')
+            ->assertJsonPath('bite_incident.exposure_category', 'II');
+
+        $nurse = $this->createStaff($clinic, 'treatment');
+        Sanctum::actingAs($nurse);
+        $this->postJson('/api/tagoloan-treatment-cards', [
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'card_date' => Carbon::today()->toDateString(),
+            // Form 3 cannot override these Doctor-confirmed values.
+            'exposure_category' => 'III',
+            'mode_of_exposure' => 'scratch_abrasion',
+            'body_part_exposed' => 'right foot',
+            'animal_type' => 'cat',
+            'past_bite_history' => false,
+            'past_pep_completed' => false,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('tagoloan_treatment_cards', [
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'exposure_category' => 'II',
+            'mode_of_exposure' => 'transdermal_bite',
+            'body_part_exposed' => 'left arm',
+            'animal_type' => 'dog',
+        ]);
     }
 
     public function test_doctor_can_save_re_exposure_decision_and_refer_to_treatment()
@@ -294,6 +336,16 @@ class TriageDoctorAndReExposureTest extends TestCase
             'consultation_types' => ['consultation'],
             'chief_complaints' => 'Cat scratch on right hand',
             'diagnosis' => 'Category II re-exposure',
+            'new_bite_date' => Carbon::today()->toDateString(),
+            'new_exposure_type' => 'scratch',
+            'new_exposure_mode' => 'scratch_abrasion',
+            'new_severity' => 'moderate',
+            'new_animal_type' => 'cat',
+            'new_animal_status' => 'owned',
+            'new_site_washed' => true,
+            'new_body_part' => 'right hand',
+            'new_laterality' => 'right',
+            'clinical_assessment_confirmed' => true,
         ]);
 
         $response->assertStatus(201);

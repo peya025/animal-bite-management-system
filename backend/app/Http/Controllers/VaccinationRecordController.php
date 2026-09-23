@@ -609,25 +609,14 @@ class VaccinationRecordController extends Controller
             // ──────────────────────────────────────────────────────────────
             // ✨ SAVE / UPDATE TAGOLOAN TREATMENT CARD (FORM 3 FULL DATA)
             // ──────────────────────────────────────────────────────────────
-            $modeMap = [
-                'nibbling_uncovered' => 'nibbling_uncovered_skin',
-                'nibbling_wounded'   => 'nibbling_broken_skin',
-                'scratch_abrasion'   => 'scratch_abrasion',
-                'transdermal_bite'   => 'transdermal_bite',
-                'handling_ingestion' => 'handling_ingestion_raw_meat',
-            ];
-            $rawMode = is_array($request->mode_of_exposure) ? ($request->mode_of_exposure[0] ?? null) : $request->mode_of_exposure;
-            $modeOfExposure = $modeMap[$rawMode] ?? $rawMode;
-
-            $bodyMap = [
-                'head_neck'    => 'head_neck',
-                'other_parts'  => 'other_parts',
-                'na_ingestion' => 'na_ingestion',
-            ];
-            $rawBody = is_array($request->body_part_affected)
-                ? implode(', ', array_filter($request->body_part_affected))
-                : ($request->body_part_affected ?? $request->body_part_exposed);
-            $bodyPartExposed = $bodyMap[$rawBody] ?? $rawBody;
+            $modeOfExposure = $treatmentIncident->exposure_mode;
+            $bodyPartExposed = $treatmentIncident->body_part_exposed ?: $treatmentIncident->site_number;
+            $exposureCategory = match ($treatmentIncident->severity) {
+                'minor' => 'I',
+                'moderate' => 'II',
+                'severe' => 'III',
+                default => null,
+            };
 
             $card = TagoloanTreatmentCard::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
@@ -645,11 +634,11 @@ class VaccinationRecordController extends Controller
                 'registry_no'        => $request->registry_no,
                 'hospital_no'        => $request->hospital_no,
                 'referred_by'        => $request->referred_by,
-                'exposure_category'  => $request->exposure_category,
+                'exposure_category'  => $exposureCategory,
                 'mode_of_exposure'   => $modeOfExposure,
                 'body_part_exposed'  => $bodyPartExposed,
-                'animal_type'        => $request->animal_type ?: 'dog',
-                'animal_type_others' => $request->animal_type_other,
+                'animal_type'        => $treatmentIncident->animal_type,
+                'animal_type_others' => null,
                 'past_bite_history'  => $request->past_history_bite === 'yes',
                 'past_pep_completed' => $request->pep_completed === 'yes',
                 'icd10_code'         => $request->icd_code,

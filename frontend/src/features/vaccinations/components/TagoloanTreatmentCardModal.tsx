@@ -9,11 +9,12 @@ interface Props {
   open: boolean;
   onClose: () => void;
   patientId: number | null;
+  biteId?: number | null;
   onSaved?: () => void;
   initialExposureCategory?: 'I' | 'II' | 'III' | '';
 }
 
-export default function TagoloanTreatmentCardModal({ open, onClose, patientId, onSaved, initialExposureCategory = '' }: Props) {
+export default function TagoloanTreatmentCardModal({ open, onClose, patientId, biteId, onSaved, initialExposureCategory = '' }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cardData, setCardData] = useState<any>(null);
@@ -39,12 +40,13 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
       setExposureCategory(initialExposureCategory);
       loadCardData();
     }
-  }, [open, patientId]);
+  }, [open, patientId, biteId]);
 
   const loadCardData = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/tagoloan-treatment-cards/patient/${patientId}`);
+      const episodeQuery = biteId ? `?bite_id=${biteId}` : '';
+      const res = await api.get(`/tagoloan-treatment-cards/patient/${patientId}${episodeQuery}`);
       setCardData(res.data);
 
       const clinicRaw = localStorage.getItem('clinicData');
@@ -110,6 +112,10 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
   };
 
   const handleSave = async () => {
+    if (!cardData?.form3_ready) {
+      alert(cardData?.form3_block_reason || 'Form 3 is waiting for a Doctor-confirmed Form 2 treatment plan.');
+      return;
+    }
     // Validate: card date cannot be in the future
     if (cardDate && cardDate > new Date().toISOString().split('T')[0]) {
       alert('Card date cannot be a future date.');
@@ -137,8 +143,9 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
 
       if (onSaved) onSaved();
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save treatment card', err);
+      alert(err?.response?.data?.message || 'Failed to save the treatment card.');
     } finally {
       setSaving(false);
     }
@@ -382,6 +389,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                           name="exposure_cat"
                           checked={exposureCategory === cat}
                           onChange={() => setExposureCategory(cat)}
+                          disabled
                         /> ({cat})
                       </label>
                     ))}
@@ -412,6 +420,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                         name="mode_of_exposure"
                         checked={modeOfExposure === opt.key}
                         onChange={() => setModeOfExposure(opt.key)}
+                        disabled
                       />{' '}
                       ( ) {opt.label}
                     </label>
@@ -427,6 +436,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                       type="text"
                       value={bodyPartExposed}
                       onChange={(e) => setBodyPartExposed(e.target.value)}
+                      disabled
                       placeholder="e.g. Left hand, Right lower leg, Head / Neck"
                       style={{
                         width: '100%',
@@ -449,6 +459,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                         <button
                           key={preset}
                           type="button"
+                          disabled
                           onClick={() => setBodyPartExposed((prev) => (prev ? `${prev}, ${preset}` : preset))}
                           style={{
                             background: '#f1f5f9',
@@ -479,6 +490,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                             setAnimalType('Dog');
                             setAnimalTypeOthers('');
                           }}
+                          disabled
                         /> Dog
                       </label>
                       <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
@@ -490,6 +502,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                             setAnimalType('Cat');
                             setAnimalTypeOthers('');
                           }}
+                          disabled
                         /> Cat
                       </label>
                       <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
@@ -498,6 +511,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                           name="animal_type"
                           checked={animalType === 'Others'}
                           onChange={() => setAnimalType('Others')}
+                          disabled
                         /> Others:
                       </label>
                       {animalType === 'Others' && (
@@ -505,6 +519,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                           type="text"
                           value={animalTypeOthers}
                           onChange={(e) => setAnimalTypeOthers(e.target.value)}
+                          disabled
                           placeholder="Specify animal (e.g. Monkey, Bat, Rat)"
                           style={{
                             border: '1px solid #cbd5e1',
@@ -685,9 +700,14 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
             >
               Cancel
             </button>
+            {!cardData?.form3_ready && (
+              <span style={{ maxWidth: 430, color: '#b45309', fontSize: 12, fontWeight: 600 }}>
+                {cardData?.form3_block_reason || 'Complete Doctor Form 2 before saving Form 3.'}
+              </span>
+            )}
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !cardData?.form3_ready}
               style={{
                 background: 'var(--primary)',
                 color: '#ffffff',
@@ -695,7 +715,8 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
                 padding: '0.5rem 1.5rem',
                 borderRadius: '8px',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: saving || !cardData?.form3_ready ? 'not-allowed' : 'pointer',
+                opacity: saving || !cardData?.form3_ready ? 0.55 : 1,
                 boxShadow: '0 2px 6px rgba(23, 101, 58, 0.3)',
               }}
             >

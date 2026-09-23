@@ -19,6 +19,7 @@ const _exposureTypeOptions = <String, String>{
   'nibbling_uncovered_skin': 'Nibbling / licking of uncovered skin',
   'nibbling_broken_skin': 'Nibbling / licking of wounded skin',
   'handling_ingestion_raw_meat': 'Handling / ingestion of raw infected meat',
+  'unsure': 'Unsure',
 };
 
 const _bodyPartOptions = <String, String>{
@@ -49,6 +50,25 @@ const _animalStatusOptions = <String, String>{
   'unknown': 'Unknown',
 };
 
+const _animalTypeOptions = ['Dog', 'Cat', 'Bat', 'Monkey', 'Unknown', 'Others'];
+
+const _lateralityOptions = <String, String>{
+  'left': 'Left',
+  'right': 'Right',
+  'bilateral': 'Both sides',
+  'multiple': 'Multiple sites',
+  'not_applicable': 'Not applicable',
+  'unknown': 'Unsure',
+};
+
+const _washMethodOptions = <String, String>{
+  'soap_and_water': 'Soap and running water',
+  'water_only': 'Water only',
+  'antiseptic': 'Antiseptic',
+  'other': 'Other',
+  'unknown': 'Unsure',
+};
+
 // ─── View ─────────────────────────────────────────────────────────────────────
 
 class BiteIntakeView extends StatefulWidget {
@@ -66,8 +86,14 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   final _purokController = TextEditingController();
   final _animalTypeOthers = TextEditingController();
   final _description = TextEditingController();
+  final _washDuration = TextEditingController();
+  final _careReceived = TextEditingController();
+  final _referralFacility = TextEditingController();
+  final _priorVaccinationFacility = TextEditingController();
 
   late DateTime _selectedBiteDate;
+  TimeOfDay? _incidentTime;
+  DateTime? _priorVaccinationDate;
 
   // Address (place of incident)
   List<PsgcLocation> _municipalities = [];
@@ -83,14 +109,18 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   String? _exposureType;
   String? _bodyPartExposed;
   String? _woundLocation;
+  String? _laterality;
 
   // Animal
   String _animalType = 'Dog';
   String? _animalStatus;
+  bool? _animalAvailable;
+  String? _animalConditionReported;
 
   // Wound care
   bool? _siteWashed;
-  bool _animalCaptured = false;
+  String? _washMethod;
+  String? _priorRabiesVaccination;
 
   bool _submitting = false;
   String? _error;
@@ -109,6 +139,10 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
     _purokController.dispose();
     _animalTypeOthers.dispose();
     _description.dispose();
+    _washDuration.dispose();
+    _careReceived.dispose();
+    _referralFacility.dispose();
+    _priorVaccinationFacility.dispose();
     super.dispose();
   }
 
@@ -139,10 +173,12 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       _selectedBarangayName = null;
     });
     try {
-      final list = await api.locationBarangays(municipalityCode: municipalityCode) as List<PsgcLocation>;
+      final list =
+          await api.locationBarangays(municipalityCode: municipalityCode)
+              as List<PsgcLocation>;
       if (mounted) setState(() => _barangays = list);
-    } catch (_) {}
-    finally {
+    } catch (_) {
+    } finally {
       if (mounted) setState(() => _loadingBarangays = false);
     }
   }
@@ -172,6 +208,29 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
     });
   }
 
+  Future<void> _chooseIncidentTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _incidentTime ?? TimeOfDay.now(),
+    );
+    if (time != null && mounted) setState(() => _incidentTime = time);
+  }
+
+  Future<void> _choosePriorVaccinationDate() async {
+    final today = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _priorVaccinationDate ?? DateUtils.dateOnly(today),
+      firstDate: DateTime(today.year - 80),
+      lastDate: DateUtils.dateOnly(today),
+    );
+    if (date != null && mounted) setState(() => _priorVaccinationDate = date);
+  }
+
+  String? get _incidentTimeValue => _incidentTime == null
+      ? null
+      : '${_incidentTime!.hour.toString().padLeft(2, '0')}:${_incidentTime!.minute.toString().padLeft(2, '0')}';
+
   Future<void> _submit() async {
     if (_submitting) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -193,10 +252,67 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       setState(() => _error = 'Please select the animal status.');
       return;
     }
+    if (_siteWashed == true && _washMethod == null) {
+      setState(() => _error = 'Please select how the wound was washed.');
+      return;
+    }
 
-    final resolvedAnimalType = _animalType == 'Others' && _animalTypeOthers.text.trim().isNotEmpty
+    final resolvedAnimalType =
+        _animalType == 'Others' && _animalTypeOthers.text.trim().isNotEmpty
         ? _animalTypeOthers.text.trim()
         : _animalType;
+
+    final draft = BiteIntakeDraft(
+      biteDate: _selectedBiteDate,
+      incidentTime: _incidentTimeValue,
+      siteWashed: _siteWashed!,
+      washMethod: _siteWashed == true ? _washMethod : null,
+      washDurationMinutes: int.tryParse(_washDuration.text.trim()),
+      exposureType: _exposureType!,
+      animalType: resolvedAnimalType,
+      animalTypeOthers: _animalType == 'Others'
+          ? _optional(_animalTypeOthers)
+          : null,
+      animalStatus: _animalStatus!,
+      animalCaptured: null,
+      animalAvailable: _animalAvailable,
+      animalConditionReported: _animalConditionReported,
+      bitePlace: _buildBitePlace(),
+      woundLocation: _woundLocation,
+      bodyPartExposed: _bodyPartExposed,
+      laterality: _laterality,
+      patientDescription: _optional(_description),
+      careReceived: _optional(_careReceived),
+      referralFacility: _optional(_referralFacility),
+      priorRabiesVaccination: _priorRabiesVaccination,
+      priorVaccinationDate: _priorVaccinationDate,
+      priorVaccinationFacility: _optional(_priorVaccinationFacility),
+    );
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Review patient-reported intake'),
+        content: Text(
+          'Incident: ${_formatDate(_selectedBiteDate)}${_incidentTimeValue == null ? '' : ' at $_incidentTimeValue'}\n'
+          'Exposure: ${_exposureTypeOptions[_exposureType]}\n'
+          'Animal: $resolvedAnimalType (${_animalStatusOptions[_animalStatus]})\n'
+          'Wound location: ${_woundLocationOptions[_woundLocation] ?? 'Not provided'}\n\n'
+          'These are patient-reported details only. A clinic nurse or doctor will assess and confirm the diagnosis, exposure category, and treatment.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Go back'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm and book'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
 
     setState(() {
       _submitting = true;
@@ -207,25 +323,16 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       await api.book(
         patient: widget.args.patient,
         booking: widget.args.booking,
-        intake: BiteIntakeDraft(
-          biteDate: _selectedBiteDate,
-          siteWashed: _siteWashed!,
-          exposureType: _exposureType!,
-          animalType: resolvedAnimalType,
-          animalTypeOthers: _animalType == 'Others' ? _optional(_animalTypeOthers) : null,
-          animalStatus: _animalStatus!,
-          animalCaptured: _animalCaptured,
-          bitePlace: _buildBitePlace(),
-          woundLocation: _woundLocation,
-          bodyPartExposed: _bodyPartExposed,
-          patientDescription: _optional(_description),
-        ),
+        intake: draft,
       );
       if (!mounted) return;
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          icon: const Icon(Icons.assignment_turned_in_outlined, color: AppColors.primary),
+          icon: const Icon(
+            Icons.assignment_turned_in_outlined,
+            color: AppColors.primary,
+          ),
           title: const Text('Consultation booked'),
           content: Text(
             '${widget.args.patient.name}\'s intake was sent to the clinic for review.',
@@ -239,7 +346,9 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
         ),
       );
       if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -265,7 +374,8 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                   children: [
                     AppPageHeader(
                       title: 'Bite incident intake',
-                      subtitle: 'Patient-reported details — reviewed by clinic nurse.',
+                      subtitle:
+                          'Patient-reported details — reviewed by clinic nurse.',
                       onBack: () => Navigator.of(context).pop(),
                     ),
                     const SizedBox(height: 20),
@@ -279,7 +389,13 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: const Color(0xFFFCA5A5)),
                         ),
-                        child: Text(msg, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+                        child: Text(
+                          msg,
+                          style: const TextStyle(
+                            color: AppColors.error,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 12),
                     ],
@@ -290,13 +406,26 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _sectionHeader(Icons.person_outline_rounded, 'Patient'),
+                          _sectionHeader(
+                            Icons.person_outline_rounded,
+                            'Patient',
+                          ),
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              Expanded(child: _readField('First name', patient.firstName)),
+                              Expanded(
+                                child: _readField(
+                                  'First name',
+                                  patient.firstName,
+                                ),
+                              ),
                               const SizedBox(width: 12),
-                              Expanded(child: _readField('Last name', patient.lastName)),
+                              Expanded(
+                                child: _readField(
+                                  'Last name',
+                                  patient.lastName,
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -310,7 +439,10 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _sectionHeader(Icons.event_outlined, 'Incident details'),
+                          _sectionHeader(
+                            Icons.event_outlined,
+                            'Incident details',
+                          ),
                           const SizedBox(height: 12),
 
                           // Date of incident
@@ -329,6 +461,21 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                           ),
                           const SizedBox(height: 16),
 
+                          _label('Approximate time of incident'),
+                          InkWell(
+                            onTap: _submitting ? null : _chooseIncidentTime,
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                suffixIcon: Icon(Icons.schedule_outlined),
+                              ),
+                              child: Text(
+                                _incidentTime?.format(context) ??
+                                    'Select time (optional)',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
                           // ── Place of Incident (PSGC) ──────────────────
                           _label('Place of incident'),
                           const SizedBox(height: 4),
@@ -340,25 +487,49 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                               ? TextFormField(
                                   controller: _purokController,
                                   enabled: !_submitting,
-                                  decoration: const InputDecoration(hintText: 'e.g. Barangay 5, Tagoloan'),
+                                  decoration: const InputDecoration(
+                                    hintText: 'e.g. Barangay 5, Tagoloan',
+                                  ),
                                   textCapitalization: TextCapitalization.words,
                                 )
                               : DropdownButtonFormField<String>(
                                   initialValue: _selectedMunicipalityCode,
-                                  hint: Text(_loadingMunicipalities ? 'Loading...' : 'Select municipality'),
+                                  hint: Text(
+                                    _loadingMunicipalities
+                                        ? 'Loading...'
+                                        : 'Select municipality',
+                                  ),
                                   items: _municipalities
-                                      .map((m) => DropdownMenuItem(value: m.code, child: Text(m.name, style: const TextStyle(fontSize: 13))))
+                                      .map(
+                                        (m) => DropdownMenuItem(
+                                          value: m.code,
+                                          child: Text(
+                                            m.name,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                      )
                                       .toList(),
-                                  onChanged: _submitting || _loadingMunicipalities
+                                  onChanged:
+                                      _submitting || _loadingMunicipalities
                                       ? null
                                       : (code) {
                                           setState(() {
                                             _selectedMunicipalityCode = code;
-                                            _selectedMunicipalityName = _municipalities.firstWhere((m) => m.code == code).name;
+                                            _selectedMunicipalityName =
+                                                _municipalities
+                                                    .firstWhere(
+                                                      (m) => m.code == code,
+                                                    )
+                                                    .name;
                                             _selectedBarangayCode = null;
                                             _selectedBarangayName = null;
                                           });
-                                          if (code != null) _loadBarangays(code);
+                                          if (code != null) {
+                                            _loadBarangays(code);
+                                          }
                                         },
                                 ),
                           const SizedBox(height: 10),
@@ -372,18 +543,31 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                                 _loadingBarangays
                                     ? 'Loading barangays...'
                                     : _selectedMunicipalityCode == null
-                                        ? 'Select municipality first'
-                                        : 'Select barangay',
+                                    ? 'Select municipality first'
+                                    : 'Select barangay',
                               ),
                               items: _barangays
-                                  .map((b) => DropdownMenuItem(value: b.code, child: Text(b.name, style: const TextStyle(fontSize: 13))))
+                                  .map(
+                                    (b) => DropdownMenuItem(
+                                      value: b.code,
+                                      child: Text(
+                                        b.name,
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                  )
                                   .toList(),
-                              onChanged: _submitting || _loadingBarangays || _selectedMunicipalityCode == null
+                              onChanged:
+                                  _submitting ||
+                                      _loadingBarangays ||
+                                      _selectedMunicipalityCode == null
                                   ? null
                                   : (code) {
                                       setState(() {
                                         _selectedBarangayCode = code;
-                                        _selectedBarangayName = _barangays.firstWhere((b) => b.code == code).name;
+                                        _selectedBarangayName = _barangays
+                                            .firstWhere((b) => b.code == code)
+                                            .name;
                                       });
                                     },
                             ),
@@ -395,35 +579,51 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                           TextFormField(
                             controller: _purokController,
                             enabled: !_submitting,
-                            decoration: const InputDecoration(hintText: 'e.g. Purok 3, Rizal St.'),
+                            decoration: const InputDecoration(
+                              hintText: 'e.g. Purok 3, Rizal St.',
+                            ),
                             textCapitalization: TextCapitalization.words,
                           ),
                           const SizedBox(height: 14),
 
                           // Mode of exposure
                           _label('Mode of exposure *'),
-                          ..._exposureTypeOptions.entries.map((opt) => RadioListTile<String>(
-                            value: opt.key,
-                            groupValue: _exposureType,
-                            title: Text(opt.value, style: const TextStyle(fontSize: 13)),
-                            contentPadding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                            activeColor: AppColors.primary,
-                            onChanged: _submitting ? null : (v) => setState(() => _exposureType = v),
-                          )),
+                          ..._exposureTypeOptions.entries.map(
+                            (opt) => RadioListTile<String>(
+                              value: opt.key,
+                              groupValue: _exposureType,
+                              title: Text(
+                                opt.value,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              contentPadding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              activeColor: AppColors.primary,
+                              onChanged: _submitting
+                                  ? null
+                                  : (v) => setState(() => _exposureType = v),
+                            ),
+                          ),
                           const SizedBox(height: 14),
 
                           // Body part
                           _label('Body part affected'),
-                          ..._bodyPartOptions.entries.map((opt) => RadioListTile<String>(
-                            value: opt.key,
-                            groupValue: _bodyPartExposed,
-                            title: Text(opt.value, style: const TextStyle(fontSize: 13)),
-                            contentPadding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                            activeColor: AppColors.primary,
-                            onChanged: _submitting ? null : (v) => setState(() => _bodyPartExposed = v),
-                          )),
+                          ..._bodyPartOptions.entries.map(
+                            (opt) => RadioListTile<String>(
+                              value: opt.key,
+                              groupValue: _bodyPartExposed,
+                              title: Text(
+                                opt.value,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              contentPadding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              activeColor: AppColors.primary,
+                              onChanged: _submitting
+                                  ? null
+                                  : (v) => setState(() => _bodyPartExposed = v),
+                            ),
+                          ),
                           const SizedBox(height: 14),
 
                           // Wound location — dropdown
@@ -432,12 +632,39 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                             initialValue: _woundLocation,
                             hint: const Text('Select wound location'),
                             items: _woundLocationOptions.entries
-                                .map((e) => DropdownMenuItem(
-                                      value: e.key,
-                                      child: Text(e.value, style: const TextStyle(fontSize: 13)),
-                                    ))
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e.key,
+                                    child: Text(
+                                      e.value,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                )
                                 .toList(),
-                            onChanged: _submitting ? null : (v) => setState(() => _woundLocation = v),
+                            onChanged: _submitting
+                                ? null
+                                : (v) => setState(() => _woundLocation = v),
+                          ),
+                          const SizedBox(height: 14),
+                          _label('Side of body'),
+                          DropdownButtonFormField<String>(
+                            initialValue: _laterality,
+                            hint: const Text('Select side'),
+                            items: _lateralityOptions.entries
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e.key,
+                                    child: Text(
+                                      e.value,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: _submitting
+                                ? null
+                                : (v) => setState(() => _laterality = v),
                           ),
                         ],
                       ),
@@ -454,38 +681,30 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                           const SizedBox(height: 12),
 
                           _label('Type of animal *'),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: RadioListTile<String>(
-                                  value: 'Dog',
-                                  groupValue: _animalType,
-                                  title: const Text('Dog', style: TextStyle(fontSize: 13)),
-                                  contentPadding: EdgeInsets.zero,
-                                  visualDensity: VisualDensity.compact,
-                                  activeColor: AppColors.primary,
-                                  onChanged: _submitting ? null : (v) => setState(() => _animalType = v!),
-                                ),
-                              ),
-                              Expanded(
-                                child: RadioListTile<String>(
-                                  value: 'Others',
-                                  groupValue: _animalType,
-                                  title: const Text('Others', style: TextStyle(fontSize: 13)),
-                                  contentPadding: EdgeInsets.zero,
-                                  visualDensity: VisualDensity.compact,
-                                  activeColor: AppColors.primary,
-                                  onChanged: _submitting ? null : (v) => setState(() => _animalType = v!),
-                                ),
-                              ),
-                            ],
+                          DropdownButtonFormField<String>(
+                            initialValue: _animalType,
+                            items: _animalTypeOptions
+                                .map(
+                                  (type) => DropdownMenuItem(
+                                    value: type,
+                                    child: Text(type),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: _submitting
+                                ? null
+                                : (v) => setState(
+                                    () => _animalType = v ?? 'Unknown',
+                                  ),
                           ),
                           if (_animalType == 'Others') ...[
                             const SizedBox(height: 6),
                             TextFormField(
                               controller: _animalTypeOthers,
                               enabled: !_submitting,
-                              decoration: const InputDecoration(hintText: 'e.g. Cat, monkey, bat...'),
+                              decoration: const InputDecoration(
+                                hintText: 'e.g. Cat, monkey, bat...',
+                              ),
                               textCapitalization: TextCapitalization.sentences,
                             ),
                           ],
@@ -496,22 +715,64 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                             initialValue: _animalStatus,
                             hint: const Text('Select status'),
                             items: _animalStatusOptions.entries
-                                .map((e) => DropdownMenuItem(
-                                      value: e.key,
-                                      child: Text(e.value, style: const TextStyle(fontSize: 13)),
-                                    ))
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e.key,
+                                    child: Text(
+                                      e.value,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                )
                                 .toList(),
-                            onChanged: _submitting ? null : (v) => setState(() => _animalStatus = v),
-                            validator: (v) => v == null ? 'Animal status is required' : null,
+                            onChanged: _submitting
+                                ? null
+                                : (v) => setState(() => _animalStatus = v),
+                            validator: (v) =>
+                                v == null ? 'Animal status is required' : null,
                           ),
                           const SizedBox(height: 8),
 
-                          SwitchListTile.adaptive(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Animal captured or available', style: TextStyle(fontSize: 13)),
-                            value: _animalCaptured,
-                            activeThumbColor: AppColors.primary,
-                            onChanged: _submitting ? null : (v) => setState(() => _animalCaptured = v),
+                          _label('Is the animal available for observation?'),
+                          DropdownButtonFormField<bool?>(
+                            initialValue: _animalAvailable,
+                            items: const [
+                              DropdownMenuItem(value: true, child: Text('Yes')),
+                              DropdownMenuItem(value: false, child: Text('No')),
+                            ],
+                            hint: const Text('Unsure / not known'),
+                            onChanged: _submitting
+                                ? null
+                                : (v) => setState(() => _animalAvailable = v),
+                          ),
+                          const SizedBox(height: 14),
+                          _label('Animal condition as observed or reported'),
+                          DropdownButtonFormField<String>(
+                            initialValue: _animalConditionReported,
+                            hint: const Text('Select condition'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'apparently_healthy',
+                                child: Text('Apparently healthy'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'sick',
+                                child: Text('Sick or behaving unusually'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'dead',
+                                child: Text('Dead'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'unknown',
+                                child: Text('Unknown'),
+                              ),
+                            ],
+                            onChanged: _submitting
+                                ? null
+                                : (v) => setState(
+                                    () => _animalConditionReported = v,
+                                  ),
                           ),
                         ],
                       ),
@@ -524,7 +785,10 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _sectionHeader(Icons.health_and_safety_outlined, 'Wound care'),
+                          _sectionHeader(
+                            Icons.health_and_safety_outlined,
+                            'Wound care',
+                          ),
                           const SizedBox(height: 12),
 
                           _label('Was the wound washed? *'),
@@ -533,13 +797,58 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                               ButtonSegment(value: true, label: Text('Yes')),
                               ButtonSegment(value: false, label: Text('No')),
                             ],
-                            selected: _siteWashed == null ? const {} : {_siteWashed!},
+                            selected: _siteWashed == null
+                                ? const {}
+                                : {_siteWashed!},
                             emptySelectionAllowed: true,
                             onSelectionChanged: _submitting
                                 ? null
-                                : (sel) => setState(() => _siteWashed = sel.firstOrNull),
+                                : (sel) => setState(
+                                    () => _siteWashed = sel.firstOrNull,
+                                  ),
                           ),
                           const SizedBox(height: 14),
+
+                          if (_siteWashed == true) ...[
+                            _label('How was it washed? *'),
+                            DropdownButtonFormField<String>(
+                              initialValue: _washMethod,
+                              hint: const Text('Select washing method'),
+                              items: _washMethodOptions.entries
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e.key,
+                                      child: Text(e.value),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: _submitting
+                                  ? null
+                                  : (v) => setState(() => _washMethod = v),
+                            ),
+                            const SizedBox(height: 14),
+                            _label('Approximate washing duration (minutes)'),
+                            TextFormField(
+                              controller: _washDuration,
+                              enabled: !_submitting,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                hintText: 'e.g. 15',
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return null;
+                                }
+                                final minutes = int.tryParse(value.trim());
+                                return minutes == null ||
+                                        minutes < 0 ||
+                                        minutes > 240
+                                    ? 'Enter a duration from 0 to 240 minutes'
+                                    : null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                          ],
 
                           _label('Patient description'),
                           TextFormField(
@@ -549,9 +858,95 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                             maxLines: 5,
                             maxLength: 2000,
                             decoration: const InputDecoration(
-                              hintText: 'Describe what happened and the visible wound.',
+                              hintText:
+                                  'Describe what happened and the visible wound.',
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    MenuSurface(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _sectionHeader(
+                            Icons.medical_information_outlined,
+                            'Care already received',
+                          ),
+                          const SizedBox(height: 12),
+                          _label(
+                            'First aid, medicine, or care already received',
+                          ),
+                          TextFormField(
+                            controller: _careReceived,
+                            enabled: !_submitting,
+                            minLines: 2,
+                            maxLines: 4,
+                            decoration: const InputDecoration(
+                              hintText:
+                                  'Patient-reported care before this visit',
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _label(
+                            'Facility previously visited or referring facility',
+                          ),
+                          TextFormField(
+                            controller: _referralFacility,
+                            enabled: !_submitting,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 14),
+                          _label('Previous rabies vaccination'),
+                          DropdownButtonFormField<String>(
+                            initialValue: _priorRabiesVaccination,
+                            hint: const Text('Select answer'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'yes',
+                                child: Text('Yes'),
+                              ),
+                              DropdownMenuItem(value: 'no', child: Text('No')),
+                              DropdownMenuItem(
+                                value: 'unsure',
+                                child: Text('Unsure'),
+                              ),
+                            ],
+                            onChanged: _submitting
+                                ? null
+                                : (v) => setState(
+                                    () => _priorRabiesVaccination = v,
+                                  ),
+                          ),
+                          if (_priorRabiesVaccination == 'yes') ...[
+                            const SizedBox(height: 14),
+                            _label('Approximate date of previous vaccination'),
+                            InkWell(
+                              onTap: _submitting
+                                  ? null
+                                  : _choosePriorVaccinationDate,
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  suffixIcon: Icon(Icons.event_outlined),
+                                ),
+                                child: Text(
+                                  _priorVaccinationDate == null
+                                      ? 'Select date (optional)'
+                                      : _formatDate(_priorVaccinationDate!),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            _label('Previous vaccination facility'),
+                            TextFormField(
+                              controller: _priorVaccinationFacility,
+                              enabled: !_submitting,
+                              textCapitalization: TextCapitalization.words,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -587,7 +982,14 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
           child: Icon(icon, size: 16, color: AppColors.primary),
         ),
         const SizedBox(width: 10),
-        Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF111827))),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF111827),
+          ),
+        ),
       ],
     );
   }
@@ -596,7 +998,11 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
     padding: const EdgeInsets.only(bottom: 6),
     child: Text(
       text,
-      style: const TextStyle(color: AppColors.gray700, fontSize: 12, fontWeight: FontWeight.w600),
+      style: const TextStyle(
+        color: AppColors.gray700,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   );
 
@@ -614,7 +1020,10 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFFE5E7EB)),
           ),
-          child: Text(value ?? '—', style: const TextStyle(fontSize: 13, color: Color(0xFF374151))),
+          child: Text(
+            value ?? '—',
+            style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+          ),
         ),
       ],
     ),

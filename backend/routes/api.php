@@ -352,8 +352,9 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::get('/', [TagoloanTreatmentCardController::class, 'index']);
         Route::get('/patient/{patientId}', [TagoloanTreatmentCardController::class, 'getPatientCardData']);
         Route::get('/{id}', [TagoloanTreatmentCardController::class, 'show']);
-        Route::post('/', [TagoloanTreatmentCardController::class, 'store']);
     });
+    Route::post('/tagoloan-treatment-cards', [TagoloanTreatmentCardController::class, 'store'])
+        ->middleware('role:admin,treatment,nurse');
 
     // Vaccine names & presets lookup — accessible to all authenticated staff for form dropdowns
     Route::get('/inventory/vaccine-names', [VaccineInventoryController::class, 'vaccineNames']);

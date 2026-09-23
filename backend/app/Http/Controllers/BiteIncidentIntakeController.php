@@ -138,19 +138,23 @@ class BiteIncidentIntakeController extends Controller
                 'patient_id' => $intake->patient_id,
                 'episode_number' => $episodeNumber,
                 'episode_type' => 'pending_assessment',
-                'is_previously_vaccinated' => false,
+                'is_previously_vaccinated' => null,
                 'bite_date' => $intake->bite_date,
-                'bite_place' => $intake->bite_place,
-                'site_washed' => $intake->site_washed,
-                // Intake uses the detailed Form 3 choices; the incident retains
-                // the legacy four-value category used by the Doctor workflow.
-                'exposure_type' => $this->incidentExposureType($intake->exposure_type),
-                'severity' => 'moderate',
-                'animal_type' => $intake->animal_type,
-                'animal_status' => $intake->animal_status,
-                'animal_captured' => $intake->animal_captured,
-                'site_number' => $intake->body_part_exposed ?? $intake->wound_location,
-                'wound_description' => $intake->patient_description,
+                // Clinical fields deliberately remain unassessed. Form 2 shows the
+                // linked patient report and requires the Doctor to confirm it.
+                'bite_place' => null,
+                'site_washed' => null,
+                'exposure_type' => 'unassessed',
+                'exposure_mode' => null,
+                'severity' => 'unassessed',
+                'animal_type' => null,
+                'animal_status' => 'unassessed',
+                'animal_captured' => null,
+                'animal_available' => null,
+                'site_number' => null,
+                'body_part_exposed' => null,
+                'laterality' => null,
+                'wound_description' => null,
                 'status' => 'awaiting_assessment',
                 'remarks' => 'Mobile bite intake confirmed at Registration.',
                 'created_by' => $request->user()->id,
@@ -183,8 +187,8 @@ class BiteIncidentIntakeController extends Controller
 
             $intake->update([
                 'status' => 'converted',
-                'reviewed_by' => $request->user()->id,
-                'reviewed_at' => now(),
+                'checked_in_by' => $request->user()->id,
+                'checked_in_at' => now(),
                 'bite_id' => $incident->bite_id,
             ]);
             $appointment->update([
@@ -216,13 +220,4 @@ class BiteIncidentIntakeController extends Controller
         });
     }
 
-    private function incidentExposureType(?string $exposureType): string
-    {
-        return match ($exposureType) {
-            'scratch_abrasion', 'scratch' => 'scratch',
-            'nibbling_uncovered_skin', 'lick' => 'lick',
-            'nibbling_broken_skin', 'handling_ingestion_raw_meat', 'other' => 'other',
-            default => 'bite',
-        };
-    }
 }

@@ -420,6 +420,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   // For new incidents, all doses are is_completed=false, so form stays unlocked.
   const hasCompletedDoseInCurrentIncident = doses.some(dose => dose.is_completed || dose.inventory_linked);
   const isFormLocked = readOnly || hasCompletedDoseInCurrentIncident;
+  // Exposure classification belongs to the Doctor-confirmed Form 2 episode.
+  // Form 3 displays it but never lets the nurse reclassify the incident.
+  const clinicalAssessmentLocked = true;
   
   const [showFullSchedule, setShowFullSchedule] = useState(false); // 8.1: expand to show Day 28 + Boosters
   const [additionalMeds, setAdditionalMeds] = useState<AdditionalMeds>({
@@ -1313,7 +1316,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             <div style={{ display: 'flex', gap: 16 }}>
               {(['I', 'II', 'III'] as const).map((cat) => (
                 <label key={cat} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input type="radio" name="exposure_category" value={cat} checked={formData.exposure_category === cat} onChange={handleFieldChange('exposure_category')} disabled={isFormLocked} style={{ marginRight: 6 }} />
+                  <input type="radio" name="exposure_category" value={cat} checked={formData.exposure_category === cat} onChange={handleFieldChange('exposure_category')} disabled={clinicalAssessmentLocked} style={{ marginRight: 6 }} />
                   <span style={{ fontSize: 13, color: fieldErrors.exposure_category ? '#991b1b' : '#374151' }}>{cat}</span>
                 </label>
               ))}
@@ -1338,7 +1341,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               value={formData.date_of_exposure} 
               onChange={handleFieldChange('date_of_exposure')} 
               max={new Date().toISOString().split('T')[0]}
-              disabled={readOnly} 
+              disabled={clinicalAssessmentLocked}
               style={{ 
                 width: '100%', 
                 padding: '8px 12px', 
@@ -1431,7 +1434,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     type="text"
                     value={expLoc.manualMun}
                     onChange={e => expLoc.setManualMun(e.target.value)}
-                    disabled={readOnly}
+                    disabled={clinicalAssessmentLocked}
                     placeholder="Enter municipality"
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
                   />
@@ -1442,7 +1445,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     type="text"
                     value={expLoc.manualBrgy}
                     onChange={e => expLoc.setManualBrgy(e.target.value)}
-                    disabled={readOnly}
+                    disabled={clinicalAssessmentLocked}
                     placeholder="Enter barangay"
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
                   />
@@ -1456,7 +1459,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   <select
                     value={expLoc.municipality}
                     onChange={e => expLoc.setMunicipality(e.target.value)}
-                    disabled={readOnly || expLoc.loadingMun}
+                    disabled={clinicalAssessmentLocked || expLoc.loadingMun}
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
                   >
                     <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
@@ -1470,7 +1473,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   <select
                     value={expLoc.barangay}
                     onChange={e => expLoc.setBarangay(e.target.value)}
-                    disabled={readOnly || !expLoc.municipality || expLoc.loadingBrgy}
+                    disabled={clinicalAssessmentLocked || !expLoc.municipality || expLoc.loadingBrgy}
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: (readOnly || !expLoc.municipality) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
                   >
                     <option value="">{expLoc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
@@ -1507,7 +1510,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 ['handling_ingestion', 'Handling / Ingestion of raw infected meat'],
               ].map(([key, label]) => (
                 <label key={key} style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input type="checkbox" checked={formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]} onChange={handleCheckboxChange('mode_of_exposure', key as any)} disabled={isFormLocked} style={{ marginRight: 8, marginTop: 2 }} />
+                  <input type="checkbox" checked={formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]} onChange={handleCheckboxChange('mode_of_exposure', key as any)} disabled={clinicalAssessmentLocked} style={{ marginRight: 8, marginTop: 2 }} />
                   <span style={{ fontSize: 13, color: '#374151' }}>{label}</span>
                 </label>
               ))}
@@ -1521,7 +1524,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   type="checkbox" 
                   checked={formData.body_part_affected.head_neck} 
                   onChange={handleCheckboxChange('body_part_affected', 'head_neck')} 
-                  disabled={isFormLocked} 
+                  disabled={clinicalAssessmentLocked}
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
                 <span style={{ fontSize: 13, color: '#374151' }}>Head & Neck</span>
@@ -1531,7 +1534,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   type="checkbox" 
                   checked={formData.body_part_affected.upper_extremities} 
                   onChange={handleCheckboxChange('body_part_affected', 'upper_extremities')} 
-                  disabled={isFormLocked} 
+                  disabled={clinicalAssessmentLocked}
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
                 <span style={{ fontSize: 13, color: '#374151' }}>Upper Extremities (Arm/Hand)</span>
@@ -1541,7 +1544,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   type="checkbox" 
                   checked={formData.body_part_affected.lower_extremities} 
                   onChange={handleCheckboxChange('body_part_affected', 'lower_extremities')} 
-                  disabled={isFormLocked} 
+                  disabled={clinicalAssessmentLocked}
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
                 <span style={{ fontSize: 13, color: '#374151' }}>Lower Extremities (Leg/Foot)</span>
@@ -1551,7 +1554,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   type="checkbox" 
                   checked={formData.body_part_affected.trunk_torso} 
                   onChange={handleCheckboxChange('body_part_affected', 'trunk_torso')} 
-                  disabled={isFormLocked} 
+                  disabled={clinicalAssessmentLocked}
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
                 <span style={{ fontSize: 13, color: '#374151' }}>Trunk / Torso</span>
@@ -1561,7 +1564,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   type="checkbox" 
                   checked={formData.body_part_affected.multiple_sites} 
                   onChange={handleCheckboxChange('body_part_affected', 'multiple_sites')} 
-                  disabled={isFormLocked} 
+                  disabled={clinicalAssessmentLocked}
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
                 <span style={{ fontSize: 13, color: '#374151' }}>Multiple Sites</span>
@@ -1571,7 +1574,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   type="checkbox" 
                   checked={formData.body_part_affected.na_ingestion} 
                   onChange={handleCheckboxChange('body_part_affected', 'na_ingestion')} 
-                  disabled={isFormLocked} 
+                  disabled={clinicalAssessmentLocked}
                   style={{ marginRight: 8, marginTop: 2 }} 
                 />
                 <span style={{ fontSize: 13, color: '#374151' }}>N/A (Ingestion)</span>
@@ -1582,7 +1585,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 value={formData.body_part_affected_text}
                 onChange={handleFieldChange('body_part_affected_text')}
                 placeholder="Specify exact location (optional)"
-                disabled={isFormLocked}
+                disabled={clinicalAssessmentLocked}
                 style={{
                   width: '100%',
                   padding: '7px 10px',
@@ -1603,7 +1606,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   name="vr_animal_type"
                   checked={formData.animal_type === 'dog'}
                   onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'dog', animal_type_other: '' }))}
-                  disabled={isFormLocked}
+                  disabled={clinicalAssessmentLocked}
                   style={{ marginRight: 6 }}
                 />
                 <span style={{ fontSize: 13, color: '#374151' }}>Dog</span>
@@ -1614,7 +1617,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   name="vr_animal_type"
                   checked={formData.animal_type === 'cat'}
                   onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'cat', animal_type_other: '' }))}
-                  disabled={isFormLocked}
+                  disabled={clinicalAssessmentLocked}
                   style={{ marginRight: 6 }}
                 />
                 <span style={{ fontSize: 13, color: '#374151' }}>Cat</span>
@@ -1625,7 +1628,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   name="vr_animal_type"
                   checked={formData.animal_type === 'other'}
                   onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'other' }))}
-                  disabled={isFormLocked}
+                  disabled={clinicalAssessmentLocked}
                   style={{ marginRight: 6 }}
                 />
                 <span style={{ fontSize: 13, color: '#374151' }}>Others:</span>
@@ -1636,7 +1639,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   value={formData.animal_type_other}
                   onChange={handleFieldChange('animal_type_other')}
                   placeholder="Specify animal (e.g. Monkey, Bat, Rat)"
-                  disabled={isFormLocked}
+                  disabled={clinicalAssessmentLocked}
                   style={{
                     flex: 1,
                     minWidth: 160,

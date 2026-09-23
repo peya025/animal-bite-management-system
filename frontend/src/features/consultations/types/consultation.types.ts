@@ -65,13 +65,34 @@ export interface TreatmentFormData {
 export interface NewBiteData {
   new_bite_date: string;
   new_bite_place: string;
-  new_exposure_type: 'bite' | 'scratch' | 'lick' | 'other';
-  new_severity: 'minor' | 'moderate' | 'severe';
-  new_animal_type: 'dog' | 'cat' | 'other';
-  new_animal_status: 'alive' | 'dead' | 'unknown' | 'rabid';
-  new_site_washed: boolean;
+  new_exposure_type: '' | 'bite' | 'scratch' | 'lick' | 'other';
+  new_exposure_mode: '' | 'nibbling_uncovered_skin' | 'nibbling_broken_skin' | 'scratch_abrasion' | 'transdermal_bite' | 'handling_ingestion_raw_meat';
+  new_severity: '' | 'minor' | 'moderate' | 'severe';
+  new_animal_type: string;
+  new_animal_status: '' | 'owned' | 'stray' | 'unknown';
+  new_animal_available: boolean | null;
+  new_site_washed: boolean | null;
   new_body_part: string;
+  new_laterality: '' | 'left' | 'right' | 'bilateral' | 'multiple' | 'not_applicable' | 'unknown';
   new_wound_description: string;
+}
+
+export interface PatientReportedIntake {
+  bite_date?: string | null;
+  incident_time?: string | null;
+  bite_place?: string | null;
+  exposure_type?: string | null;
+  wound_location?: string | null;
+  body_part_exposed?: string | null;
+  laterality?: string | null;
+  animal_type?: string | null;
+  animal_status?: string | null;
+  animal_available?: boolean | null;
+  animal_condition_reported?: string | null;
+  site_washed?: boolean | null;
+  wash_method?: string | null;
+  prior_rabies_vaccination?: string | null;
+  patient_description?: string | null;
 }
 
 export interface VaccineStockItem {
@@ -105,12 +126,16 @@ export interface TreatmentRecordPayload {
   new_bite_date?: string | null;
   new_bite_place?: string | null;
   new_exposure_type?: string | null;
+  new_exposure_mode?: string | null;
   new_severity?: string | null;
   new_animal_type?: string | null;
   new_animal_status?: string | null;
-  new_site_washed?: boolean;
+  new_animal_available?: boolean | null;
+  new_site_washed?: boolean | null;
   new_body_part?: string | null;
+  new_laterality?: string | null;
   new_wound_description?: string | null;
+  clinical_assessment_confirmed?: boolean;
   consultation_date: string;
   consultation_time: string;
   mode_of_transaction: string;

@@ -69,16 +69,6 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
     window.dispatchEvent(new CustomEvent('station-changed', { detail: newMode }));
   };
 
-  const handleStationChange = (newMode: 'intake' | 'follow_up' | 'combined') => {
-    applyStationMode(newMode);
-    if (newMode === 'intake' && location.pathname !== ROUTES.QUEUE.DASHBOARD) {
-      navigate(ROUTES.QUEUE.DASHBOARD);
-    } else if (newMode === 'follow_up' && location.pathname !== ROUTES.PATIENTS.NURSE_LIST) {
-      navigate(ROUTES.PATIENTS.NURSE_LIST);
-    } else if (newMode === 'combined' && location.pathname !== ROUTES.QUEUE.DASHBOARD) {
-      navigate(ROUTES.QUEUE.DASHBOARD);
-    }
-  };
 
   // Direct sidebar navigation must always tell the same story as the station control.
   // Combined mode remains available on the queue dashboard for cross-coverage.
@@ -329,41 +319,6 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                   <line x1="4" y1="18" x2="20" y2="18"></line>
                 </svg>
               </button>
-            )}
-
-            {/* Station Switcher for Dual/Multi-Role Nurses */}
-            {isSoloNurse && (
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                background: stationMode === 'follow_up' ? '#eef2ff' : stationMode === 'combined' ? '#f8fafc' : '#ecfdf5',
-                borderRadius: '8px',
-                padding: '3px 8px',
-                border: `1px solid ${stationMode === 'follow_up' ? '#c7d2fe' : stationMode === 'combined' ? 'var(--border-color, #e2e8f0)' : '#a7f3d0'}`,
-                gap: 6,
-              }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Station:
-                </span>
-                <select
-                  value={stationMode}
-                  onChange={(e) => handleStationChange(e.target.value as any)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: stationMode === 'follow_up' ? '#4f46e5' : stationMode === 'combined' ? '#475569' : '#047857',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <option value="intake">Station 1 · New & Day 0</option>
-                  <option value="follow_up">Station 2 · Follow-up Doses</option>
-                  <option value="combined">Combined · All Active Queues</option>
-                </select>
-              </div>
             )}
           </div>
           <div className="header-right">

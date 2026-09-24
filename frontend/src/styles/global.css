@@ -1182,3 +1182,34 @@ input[type='month']:hover::-webkit-calendar-picker-indicator {
   background: rgba(16, 185, 129, 0.18);
   filter: invert(1) sepia(1) saturate(4) hue-rotate(100deg) brightness(1.2);
 }
+
+/* Dashboard Summary Cards - Shadow Removal & 3-Column Grid Enforcement */
+.sd-cards-grid {
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 14px !important;
+}
+.sd-card,
+.sd-card:hover,
+[data-theme='dark'] .sd-card,
+[data-theme='dark'] .sd-card:hover {
+  box-shadow: none !important;
+}
+.sd-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 16px !important;
+  padding: 14px 18px !important;
+  min-height: 88px !important;
+  justify-content: center !important;
+}
+[data-theme='dark'] .sd-card {
+  background: #111827 !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+.sd-card:hover {
+  border-color: #10b981 !important;
+  transform: translateY(-2px) !important;
+}
+[data-theme='dark'] .sd-card:hover {
+  border-color: #34d399 !important;
+}

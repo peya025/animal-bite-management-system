@@ -784,6 +784,60 @@ tbody tr:last-child td,
   border-bottom-color: var(--table-row-border) !important;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   6. GLOBAL TEXTBOX & INPUT HOVER / FOCUS SYSTEM (Matches Login Page)
+   ══════════════════════════════════════════════════════════════════ */
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):hover:not(:disabled),
+textarea:hover:not(:disabled),
+select:hover:not(:disabled),
+.fm-input:hover:not(:disabled),
+.fm-select:hover:not(:disabled),
+.fm-textarea:hover:not(:disabled),
+.pm-search:hover:not(:disabled),
+.pm-entries-select:hover:not(:disabled) {
+  border-color: #10b981 !important;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible,
+.fm-input:focus,
+.fm-input:focus-visible,
+.fm-select:focus,
+.fm-select:focus-visible,
+.fm-textarea:focus,
+.fm-textarea:focus-visible,
+.pm-search:focus,
+.pm-search:focus-visible,
+.pm-entries-select:focus,
+.pm-entries-select:focus-visible {
+  outline: none !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1) !important;
+}
+
+/* Material UI TextFields & OutlinedInputs Hover & Focus */
+.MuiOutlinedInput-root:hover:not(.Mui-disabled):not(.Mui-error) .MuiOutlinedInput-notchedOutline {
+  border-color: #10b981 !important;
+}
+
+.MuiOutlinedInput-root.Mui-focused:not(.Mui-error) .MuiOutlinedInput-notchedOutline {
+  border-color: #10b981 !important;
+  border-width: 2px !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1) !important;
+}
+
+.MuiOutlinedInput-root.Mui-focused {
+  outline: none !important;
+}
+
+.MuiInputLabel-root.Mui-focused:not(.Mui-error) {
+  color: #10b981 !important;
+}
+
 [data-theme='dark'] .MuiOutlinedInput-root,
 [data-theme='dark'] .MuiInputBase-root,
 [data-theme='dark'] .MuiSelect-select {
@@ -817,13 +871,17 @@ tbody tr:last-child td,
 }
 
 [data-theme='dark'] input:focus,
+[data-theme='dark'] input:focus-visible,
 [data-theme='dark'] select:focus,
+[data-theme='dark'] select:focus-visible,
 [data-theme='dark'] textarea:focus,
+[data-theme='dark'] textarea:focus-visible,
 [data-theme='dark'] .pm-search:focus,
 [data-theme='dark'] .pm-entries-select:focus,
 [data-theme='dark'] .sd-filter-select:focus {
+  outline: none !important;
   border-color: #10b981 !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25) !important;
 }
 
 /* Universal Cards & Containers in dark mode */

@@ -138,13 +138,17 @@ export const Body = styled('div')({
     color: 'var(--input-text, #111827)',
     background: 'var(--input-bg, #fff)',
     outline: 'none',
-    transition: 'border-color 0.15s, box-shadow 0.15s',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     width: '100%',
     boxSizing: 'border-box',
   },
-  '.fm-input:focus, .fm-select:focus, .fm-textarea:focus': {
+  '.fm-input:hover:not(:disabled), .fm-select:hover:not(:disabled), .fm-textarea:hover:not(:disabled)': {
     borderColor: '#10b981',
-    boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.1)',
+  },
+  '.fm-input:focus, .fm-select:focus, .fm-textarea:focus': {
+    outline: 'none',
+    borderColor: '#10b981',
+    boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.1)',
   },
   '.fm-input::placeholder, .fm-textarea::placeholder': {
     color: 'var(--text-secondary, #d1d5db)',

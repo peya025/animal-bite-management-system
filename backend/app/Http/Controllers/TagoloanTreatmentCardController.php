@@ -112,6 +112,9 @@ class TagoloanTreatmentCardController extends Controller
                 'animal_type' => $latestBite->animal_type,
                 'animal_status' => $latestBite->animal_status,
                 'animal_type_others' => $latestBite->animal_type_others,
+                'animal_available' => $latestBite->animal_available,
+                'animal_observation_status' => $latestBite->animal_observation_status,
+                'animal_condition_reported' => $latestBite->animal_condition_reported,
                 'referred_from' => $latestBite->referred_from,
                 'mode_of_exposure' => $latestBite->exposure_mode,
                 'exposure_type' => $latestBite->exposure_type,
@@ -186,6 +189,9 @@ class TagoloanTreatmentCardController extends Controller
             'body_part_detail' => 'nullable|string|max:255',
             'animal_type' => 'nullable|string|max:100',
             'animal_type_others' => 'nullable|required_if:animal_type,other|string|max:255',
+            'animal_status' => 'nullable|in:owned,stray,unknown',
+            'animal_available' => 'nullable|in:yes,no,unknown,true,false,1,0',
+            'animal_condition' => 'nullable|in:apparently_healthy,healthy,sick,dead,died,unknown',
             'past_bite_history' => 'boolean',
             'past_bite_dates' => 'nullable|string|max:255',
             'past_pep_completed' => 'boolean',
@@ -234,6 +240,23 @@ class TagoloanTreatmentCardController extends Controller
             $animalType = 'other';
         }
 
+        $animalStatus = $validated['animal_status'] ?? $request->input('animal_status');
+        $animalAvailable = $validated['animal_available'] ?? $request->input('animal_available');
+        $animalAvailableBool = match ($animalAvailable) {
+            'yes', 'true', true, 1, '1' => true,
+            'no', 'false', false, 0, '0' => false,
+            default => null,
+        };
+
+        $animalCondition = $validated['animal_condition'] ?? $request->input('animal_condition');
+        $observationStatus = match ($animalCondition) {
+            'apparently_healthy', 'healthy' => 'healthy',
+            'sick' => 'sick',
+            'dead', 'died' => 'died',
+            'unknown' => 'unknown',
+            default => null,
+        };
+
         $incident->update(array_filter([
             'bite_date' => $validated['date_of_exposure'] ?? null,
             'bite_place' => $validated['place_of_exposure'] ?? null,
@@ -244,6 +267,11 @@ class TagoloanTreatmentCardController extends Controller
             'site_number' => $validated['body_part_detail'] ?? null,
             'animal_type' => $animalType ?: null,
             'animal_type_others' => $animalType === 'other' ? ($animalTypeOther ?: null) : null,
+            'animal_status' => $animalStatus ?: null,
+            'animal_available' => $animalAvailableBool,
+            'animal_captured' => $animalAvailableBool ?? false,
+            'animal_observation_status' => $observationStatus,
+            'animal_condition_reported' => $animalCondition ?: null,
         ], fn ($value) => $value !== null && $value !== ''));
         $incident->loadMissing('intake');
         $incident->intake?->update([

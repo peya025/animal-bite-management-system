@@ -99,6 +99,12 @@ final class BiteIntakeContract
         'patient_description',
         'care_received',
         'referral_facility',
+        'referral_blood_pressure',
+        'referral_temperature',
+        'referral_height',
+        'referral_weight',
+        'referral_provider_name',
+        'referral_document_photo',
         'past_bite_history',
         'past_bite_dates',
         'prior_pep_status',
@@ -188,7 +194,14 @@ final class BiteIntakeContract
         $normalized['wound_location'] = $bodyDetail;
         $normalized['animal_status'] = $alias(['animal_ownership', 'animal_status']);
         $normalized['animal_available'] = $alias(['animal_available_for_observation', 'animal_available']);
+        $normalized['site_washed'] = (bool) ($alias(['wound_washed', 'site_washed']) ?? false);
         $normalized['referral_facility'] = $alias(['referral_source', 'referral_facility']);
+        $normalized['referral_blood_pressure'] = $alias(['referral_blood_pressure', 'blood_pressure']);
+        $normalized['referral_temperature'] = $alias(['referral_temperature', 'temperature']);
+        $normalized['referral_height'] = $alias(['referral_height', 'height']);
+        $normalized['referral_weight'] = $alias(['referral_weight', 'weight']);
+        $normalized['referral_provider_name'] = $alias(['referral_provider_name', 'name_of_attending_provider']);
+        $normalized['referral_document_photo'] = $alias(['referral_document_photo', 'referral_photo']);
 
         $mode = $alias(['reported_mode_of_exposure', 'exposure_type', 'exposure_mode', 'mode_of_exposure']);
         $normalized['exposure_type'] = match ($mode) {
@@ -234,9 +247,16 @@ final class BiteIntakeContract
             $prefix.'bite_date' => ['required', 'date', 'before_or_equal:today'],
             $prefix.'incident_time' => ['nullable', 'date_format:H:i'],
             $prefix.'bite_place' => ['nullable', 'string', 'max:255'],
-            $prefix.'site_washed' => ['required', 'boolean'],
+            $prefix.'site_washed' => ['nullable', 'boolean'],
             $prefix.'wash_method' => ['nullable', $in(self::WASH_METHODS)],
             $prefix.'wash_duration_minutes' => ['nullable', 'integer', 'min:0', 'max:240'],
+            $prefix.'referral_facility' => ['nullable', 'string', 'max:255'],
+            $prefix.'referral_blood_pressure' => ['nullable', 'string', 'max:50'],
+            $prefix.'referral_temperature' => ['nullable', 'string', 'max:20'],
+            $prefix.'referral_height' => ['nullable', 'string', 'max:20'],
+            $prefix.'referral_weight' => ['nullable', 'string', 'max:20'],
+            $prefix.'referral_provider_name' => ['nullable', 'string', 'max:255'],
+            $prefix.'referral_document_photo' => ['nullable', 'string'],
             $prefix.'exposure_type' => ['required', $in(self::EXPOSURE_MODES)],
             $prefix.'animal_type' => ['required', $in(self::ANIMAL_SPECIES)],
             $prefix.'animal_type_others' => ['nullable', 'required_if:'.$prefix.'animal_type,other', 'string', 'max:255'],

@@ -308,9 +308,12 @@ class VaccinationRecordController extends Controller
             'body_part_detail' => 'nullable|string|max:255',
             'animal_type' => 'nullable|string|max:100',
             'animal_type_other' => 'nullable|required_if:animal_type,other|string|max:255',
-            'past_history_bite' => 'nullable|in:yes,no',
+            'animal_status' => 'nullable|in:owned,stray,unknown',
+            'animal_available' => 'nullable|in:yes,no,unknown,true,false,1,0',
+            'animal_condition' => 'nullable|in:apparently_healthy,healthy,sick,dead,died,unknown',
+            'past_history_bite' => 'nullable|in:yes,no,unsure',
             'past_bite_dates' => 'nullable|string|max:255',
-            'pep_completed' => 'nullable|in:yes,no',
+            'pep_completed' => 'nullable|in:yes,no,completed,incomplete,none,unsure',
             'registry_no' => 'nullable|string|max:100',
             'hospital_no' => 'nullable|string|max:100',
             'referred_by' => 'nullable|string|max:255',
@@ -458,6 +461,23 @@ class VaccinationRecordController extends Controller
                 default => null,
             };
 
+            $animalStatus = $request->input('animal_status');
+            $animalAvailable = $request->input('animal_available');
+            $animalAvailableBool = match ($animalAvailable) {
+                'yes', 'true', true, 1, '1' => true,
+                'no', 'false', false, 0, '0' => false,
+                default => null,
+            };
+
+            $animalCondition = $request->input('animal_condition');
+            $observationStatus = match ($animalCondition) {
+                'apparently_healthy', 'healthy' => 'healthy',
+                'sick' => 'sick',
+                'dead', 'died' => 'died',
+                'unknown' => 'unknown',
+                default => null,
+            };
+
             $assessmentUpdates = array_filter([
                 'bite_date' => $request->input('date_of_exposure'),
                 'bite_place' => $request->input('place_of_exposure'),
@@ -468,6 +488,11 @@ class VaccinationRecordController extends Controller
                 'site_number' => $request->input('body_part_detail'),
                 'animal_type' => $animalType ?: null,
                 'animal_type_others' => $animalType === 'other' ? ($animalTypeOther ?: null) : null,
+                'animal_status' => $animalStatus ?: null,
+                'animal_available' => $animalAvailableBool,
+                'animal_captured' => $animalAvailableBool ?? false,
+                'animal_observation_status' => $observationStatus,
+                'animal_condition_reported' => $animalCondition ?: null,
             ], fn ($value) => $value !== null && $value !== '');
 
             if ($assessmentUpdates) {
@@ -717,7 +742,7 @@ class VaccinationRecordController extends Controller
                 'animal_type_others' => $treatmentIncident->animal_type_others,
                 'past_bite_history'  => $request->past_history_bite === 'yes',
                 'past_bite_dates'    => $validated['past_bite_dates'] ?? null,
-                'past_pep_completed' => $request->pep_completed === 'yes',
+                'past_pep_completed' => in_array($request->pep_completed, ['yes', 'completed', true, '1', 1], true),
                 'icd10_code'         => $request->icd_code,
                 'created_by'         => $userId,
             ];
@@ -726,6 +751,21 @@ class VaccinationRecordController extends Controller
                 $card->update(array_filter($cardData, fn($v) => !is_null($v)));
             } else {
                 $card = TagoloanTreatmentCard::create($cardData);
+            }
+
+            if ($treatmentIncident->intake && $request->filled('pep_completed')) {
+                $normalizedPriorPep = match ($request->pep_completed) {
+                    'yes', 'completed' => 'completed',
+                    'incomplete' => 'incomplete',
+                    'no', 'none' => 'none',
+                    'unsure' => 'unsure',
+                    default => null,
+                };
+                if ($normalizedPriorPep) {
+                    $treatmentIncident->intake->update([
+                        'prior_pep_status' => $normalizedPriorPep,
+                    ]);
+                }
             }
 
             // Store additional medications as treatment records with special markers

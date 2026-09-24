@@ -69,12 +69,11 @@ class TreatmentRecordController extends Controller
                 ->first();
         }
 
-        // If latest treatment was completed by a Doctor, dynamically reflect the Doctor's updated name
+        // If latest treatment was completed by a Doctor, dynamically reflect the Doctor's updated name for provider_name only
         if ($latestTreatment) {
             $adminUser = $latestTreatment->administeredBy;
             if ($adminUser && in_array(strtolower($adminUser->role ?? ''), ['doctor', 'triage', 'physician', 'triage_doctor'])) {
-                if (!empty($adminUser->name)) {
-                    $latestTreatment->attending_provider = $adminUser->name;
+                if (!empty($adminUser->name) && empty($latestTreatment->provider_name)) {
                     $latestTreatment->provider_name = $adminUser->name;
                 }
             }
@@ -368,7 +367,7 @@ class TreatmentRecordController extends Controller
             
             // Provider details
             'provider_name' => $validated['provider_name'] ?? $request->user()->name,
-            'attending_provider' => $validated['attending_provider'] ?? $request->user()->name,
+            'attending_provider' => $validated['attending_provider'] ?? null,
             
             'status' => 'completed', // General consultation is completed when Form 2 is saved
             'administered_by' => $request->user()->id,

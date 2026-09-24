@@ -471,7 +471,7 @@ export default function AddEditInventoryDialog({
             </Alert>
 
             <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 4 }}>
+              <Grid size={{ xs: 12, md: 3.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
                   <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#334155' }}>
                     Vaccine Type
@@ -518,7 +518,7 @@ export default function AddEditInventoryDialog({
                 </Typography>
               </Grid>
 
-              <Grid size={{ xs: 12, md: 2.5 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 2.5 }}>
                 <TextField
                   fullWidth
                   size="small"
@@ -535,7 +535,7 @@ export default function AddEditInventoryDialog({
                 />
               </Grid>
 
-              <Grid size={{ xs: 12, md: 3.5 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <FormControl fullWidth size="small" error={!!errors.received_from}>
                   <InputLabel id="source-of-supply-label">Source of Supply</InputLabel>
                   <Select
@@ -609,25 +609,65 @@ export default function AddEditInventoryDialog({
                 )}
               </Grid>
 
-              <Grid size={{ xs: 6, md: 1 }}>
-                <Box sx={{ p: 1.25, borderRadius: 2, border: '1px solid #fee2e2', bgcolor: '#fff7f7', minHeight: 86 }}>
-                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
-                    <DispensedIcon sx={{ fontSize: 15, color: '#dc2626' }} />
-                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#b91c1c' }}>Dispensed</Typography>
-                  </Stack>
-                  <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>{dispensed}</Typography>
-                  <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>Read-only</Typography>
-                </Box>
-              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, height: '100%' }}>
+                  {/* Dispensed Card (Left) */}
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      border: '1px solid #fee2e2',
+                      bgcolor: '#fff7f7',
+                      minHeight: 88,
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                      <DispensedIcon sx={{ fontSize: 16, color: '#dc2626', flexShrink: 0 }} />
+                      <Typography sx={{ fontSize: 11.5, fontWeight: 750, color: '#b91c1c', whiteSpace: 'nowrap' }}>
+                        Dispensed
+                      </Typography>
+                    </Stack>
+                    <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#dc2626', lineHeight: 1, my: 0.5 }}>
+                      {dispensed}
+                    </Typography>
+                    <Typography sx={{ fontSize: 10.5, color: '#64748b', fontWeight: 600, lineHeight: 1 }}>
+                      Read-only
+                    </Typography>
+                  </Box>
 
-              <Grid size={{ xs: 6, md: 1 }}>
-                <Box sx={{ p: 1.25, borderRadius: 2, border: '1px solid #bbf7d0', bgcolor: '#f0fdf4', minHeight: 86 }}>
-                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
-                    <BalanceIcon sx={{ fontSize: 15, color: '#047857' }} />
-                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#047857' }}>Balance</Typography>
-                  </Stack>
-                  <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#059669' }}>{balance || 0}</Typography>
-                  <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>Derived</Typography>
+                  {/* Balance Card (Right) */}
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      border: '1px solid #bbf7d0',
+                      bgcolor: '#f0fdf4',
+                      minHeight: 88,
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                      <BalanceIcon sx={{ fontSize: 16, color: '#047857', flexShrink: 0 }} />
+                      <Typography sx={{ fontSize: 11.5, fontWeight: 750, color: '#047857', whiteSpace: 'nowrap' }}>
+                        Balance
+                      </Typography>
+                    </Stack>
+                    <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#059669', lineHeight: 1, my: 0.5 }}>
+                      {balance || 0}
+                    </Typography>
+                    <Typography sx={{ fontSize: 10.5, color: '#64748b', fontWeight: 600, lineHeight: 1 }}>
+                      Derived
+                    </Typography>
+                  </Box>
                 </Box>
               </Grid>
             </Grid>

@@ -525,6 +525,49 @@ export default function PatientList() {
             )}
           </div>
 
+          {/* ── Summary Cards ── */}
+          <div className="pm-stats-row">
+            <div className="pm-stat-card">
+              <div className="pm-stat-icon pm-stat-icon--teal">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <div className="pm-stat-body">
+                <p className="pm-stat-label">Total Patients</p>
+                <p className="pm-stat-value">{total}</p>
+                <p className="pm-stat-sub">All registered</p>
+              </div>
+            </div>
+
+            <div className="pm-stat-card">
+              <div className="pm-stat-icon pm-stat-icon--green">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              </div>
+              <div className="pm-stat-body">
+                <p className="pm-stat-label">Active Patients</p>
+                <p className="pm-stat-value">{stats.activeCount}</p>
+                <p className="pm-stat-sub">Currently active</p>
+              </div>
+            </div>
+
+            <div className="pm-stat-card">
+              <div className="pm-stat-icon pm-stat-icon--emerald">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div className="pm-stat-body">
+                <p className="pm-stat-label">Follow-up Patients</p>
+                <p className="pm-stat-value">{stats.pendingCount}</p>
+                <p className="pm-stat-sub">Pending follow-up</p>
+              </div>
+            </div>
+          </div>
+
           {/* Unified Filter Tabs */}
           <div className="pm-tabs">
             <button
@@ -566,55 +609,45 @@ export default function PatientList() {
 
           {/* Controls */}
           <div className="pm-controls">
-            <div className="pm-controls-right" style={{ width: '100%', justifyContent: 'flex-end' }}>
-              <div className="pm-membership-filter-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>Program:</span>
-                <select
-                  value={membershipFilter}
-                  onChange={(e) => setMembershipFilter(e.target.value)}
-                  style={{
-                    padding: '7px 12px',
-                    fontSize: '13px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--input-border, #d1d5db)',
-                    backgroundColor: 'var(--input-bg, #ffffff)',
-                    color: 'var(--input-text, #374151)',
-                    fontWeight: 500,
-                    outline: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <option value="all">All Programs</option>
-                  <option value="philhealth">PhilHealth</option>
-                  <option value="fourps">4Ps Beneficiaries</option>
-                  <option value="dswd_nhts">DSWD NHTS</option>
-                  <option value="senior_citizen">Senior Citizens</option>
-                  <option value="pwd">PWD (Disability)</option>
-                  <option value="indigenous_member">Indigenous Tribe</option>
-                </select>
-              </div>
-              <div className="pm-search-wrap">
-                <svg className="pm-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <input className="pm-search" placeholder="Search patients…" value={search} onChange={e => setSearch(e.target.value)} />
-                {search && (
-                  <button className="pm-search-clear" onClick={() => setSearch('')}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </button>
-                )}
-              </div>
-              <button className="pm-print-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowPrintModal(true); }} title="Print patient list">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="6 9 6 2 18 2 18 9"/>
-                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                  <rect x="6" y="14" width="12" height="8"/>
-                </svg>
-                Print
-              </button>
+            <div className="pm-membership-filter-wrap">
+              <span className="pm-filter-label">Program:</span>
+              <select
+                className="pm-filter-select"
+                value={membershipFilter}
+                onChange={(e) => setMembershipFilter(e.target.value)}
+              >
+                <option value="all">All Programs</option>
+                <option value="philhealth">PhilHealth</option>
+                <option value="fourps">4Ps Beneficiaries</option>
+                <option value="dswd_nhts">DSWD NHTS</option>
+                <option value="senior_citizen">Senior Citizens</option>
+                <option value="pwd">PWD (Disability)</option>
+                <option value="indigenous_member">Indigenous Tribe</option>
+              </select>
             </div>
+
+            <div className="pm-search-wrap">
+              <svg className="pm-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input className="pm-search" placeholder="Search patients…" value={search} onChange={e => setSearch(e.target.value)} />
+              {search && (
+                <button className="pm-search-clear" onClick={() => setSearch('')}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            <button className="pm-print-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowPrintModal(true); }} title="Print patient list">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="6 9 6 2 18 2 18 9"/>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+              </svg>
+              Print
+            </button>
           </div>
 
           {/* Bulk Walk-in Portal Invite Action Bar */}
@@ -922,47 +955,6 @@ export default function PatientList() {
                 }}
               />
             )}
-          </div>
-        </div>
-
-        {/* ── Stat cards ── */}
-        <div className="pm-side-panel">
-          <div className="pm-stat-card pm-stat-card--teal">
-            <div className="pm-stat-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-            </div>
-            <div className="pm-stat-body">
-              <p className="pm-stat-label">Total Patients</p>
-              <p className="pm-stat-value">{total}</p>
-              <p className="pm-stat-sub">All registered</p>
-            </div>
-          </div>
-          <div className="pm-stat-card pm-stat-card--green">
-            <div className="pm-stat-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-              </svg>
-            </div>
-            <div className="pm-stat-body">
-              <p className="pm-stat-label">Active Patients</p>
-              <p className="pm-stat-value">{stats.activeCount}</p>
-              <p className="pm-stat-sub">Currently active</p>
-            </div>
-          </div>
-          <div className="pm-stat-card pm-stat-card--emerald">
-            <div className="pm-stat-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
-            </div>
-            <div className="pm-stat-body">
-              <p className="pm-stat-label">Follow-up Patients</p>
-              <p className="pm-stat-value">{stats.pendingCount}</p>
-              <p className="pm-stat-sub">Pending follow-up</p>
-            </div>
           </div>
         </div>
       </div>

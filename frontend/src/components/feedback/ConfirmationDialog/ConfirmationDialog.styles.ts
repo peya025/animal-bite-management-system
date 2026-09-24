@@ -107,6 +107,8 @@ export const Overlay = styled('div', {
   alignItems: 'center',
   justifyContent: 'center',
   zIndex: 1400,
+  padding: '16px',
+  boxSizing: 'border-box',
   animation: isFadingOut ? `${overlayFadeOut} 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards` : `${fadeIn} 0.2s ease`,
 }));
 
@@ -115,9 +117,12 @@ export const Modal = styled('div', {
 })<{ isFadingOut?: boolean }>(({ isFadingOut }) => ({
   background: 'var(--card-bg-solid, #ffffff)',
   borderRadius: 16,
-  padding: '36px 32px 28px',
+  padding: 'clamp(24px, 4vh, 36px) clamp(20px, 4vw, 32px) 24px',
   width: '100%',
-  maxWidth: 400,
+  maxWidth: 'min(420px, calc(100vw - 32px))',
+  maxHeight: 'calc(100dvh - 32px)',
+  overflowY: 'auto',
+  boxSizing: 'border-box',
   textAlign: 'center',
   boxShadow: '0 20px 60px rgba(0, 0, 0, 0.35)',
   border: '1px solid var(--border-glow, rgba(16, 185, 129, 0.2))',
@@ -131,8 +136,8 @@ export const Modal = styled('div', {
   },
 
   '@media (max-width: 480px)': {
-    margin: 16,
-    padding: '28px 20px 22px',
+    margin: 8,
+    padding: '24px 16px 20px',
   },
 }));
 

@@ -189,7 +189,8 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1.5rem',
+        padding: '16px',
+        boxSizing: 'border-box',
       }}
     >
       <style>{`
@@ -206,13 +207,14 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
           background: 'var(--card-bg-solid, #ffffff)',
           borderRadius: '16px',
           width: '100%',
-          maxWidth: '920px',
-          maxHeight: '90vh',
+          maxWidth: 'min(920px, calc(100vw - 32px))',
+          maxHeight: 'calc(100dvh - 32px)',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
           overflow: 'hidden',
           border: '1px solid var(--border-glow, #cbd5e1)',
+          boxSizing: 'border-box',
         }}
       >
         {/* Header Bar */}

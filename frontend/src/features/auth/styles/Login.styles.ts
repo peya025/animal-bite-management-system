@@ -52,8 +52,11 @@ export const LoginRoot = styled('div')`
   display: grid;
   grid-template-columns: 1fr 1fr;
   width: 100%;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--white);
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
   color: var(--gray-700);
@@ -61,13 +64,15 @@ export const LoginRoot = styled('div')`
   .info-panel {
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
     color: white;
-    padding: 80px 48px;
+    padding: clamp(32px, 5vh, 64px) clamp(24px, 4vw, 48px);
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
     overflow-y: auto;
     position: relative;
+    min-height: 100%;
+    box-sizing: border-box;
   }
   .info-panel::before {
     content: '';
@@ -76,17 +81,22 @@ export const LoginRoot = styled('div')`
     background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
     pointer-events: none;
   }
-  .logo-container { text-align: center; position: relative; z-index: 1; }
+  .logo-container {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    margin: auto 0;
+  }
   .logo-wrapper {
-    width: 180px;
-    height: 180px;
+    width: clamp(100px, 14vh, 160px);
+    height: clamp(100px, 14vh, 160px);
     background: rgba(255, 255, 255, 0.2);
     backdrop-filter: blur(20px);
-    border-radius: 40px;
+    border-radius: clamp(24px, 4vw, 36px);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 40px;
+    margin: 0 auto clamp(16px, 3vh, 32px);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
     border: 2px solid rgba(255, 255, 255, 0.3);
     transition: transform 0.3s ease;
@@ -95,30 +105,32 @@ export const LoginRoot = styled('div')`
   .logo-wrapper svg {
     color: white;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+    width: clamp(48px, 7vh, 80px);
+    height: clamp(48px, 7vh, 80px);
   }
   .logo-container h1 {
-    font-size: 42px;
+    font-size: clamp(28px, 3.5vw, 40px);
     font-weight: 800;
-    margin-bottom: 16px;
+    margin-bottom: clamp(8px, 1.5vh, 16px);
     letter-spacing: -0.02em;
     color: white;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
   .tagline {
-    font-size: 18px;
+    font-size: clamp(14px, 1.3vw, 17px);
     opacity: 1;
     line-height: 1.6;
     font-weight: 500;
-    max-width: 320px;
+    max-width: 340px;
     margin: 0 auto;
     color: white;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   }
   .minimal-footer {
-    position: absolute;
-    bottom: 48px;
-    left: 0;
-    right: 0;
+    position: relative;
+    margin-top: auto;
+    padding-top: 24px;
+    width: 100%;
     text-align: center;
     z-index: 1;
   }
@@ -128,8 +140,8 @@ export const LoginRoot = styled('div')`
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 24px;
-    padding: 10px 24px;
-    font-size: 14px;
+    padding: 8px 20px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.5px;
     text-transform: uppercase;
@@ -137,12 +149,14 @@ export const LoginRoot = styled('div')`
   }
   .form-panel {
     background: var(--white);
-    padding: 80px 56px;
+    padding: clamp(28px, 4vh, 60px) clamp(24px, 4vw, 56px);
     display: flex;
     flex-direction: column;
     justify-content: center;
     overflow-y: auto;
     position: relative;
+    min-height: 100%;
+    box-sizing: border-box;
   }
   .form-panel::before {
     content: '';
@@ -153,24 +167,24 @@ export const LoginRoot = styled('div')`
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--primary-light), transparent);
   }
-  .form-header { margin-bottom: 48px; }
+  .form-header { margin-bottom: clamp(20px, 3.5vh, 40px); }
   .form-header h2 {
-    font-size: 36px;
+    font-size: clamp(24px, 2.5vw, 36px);
     font-weight: 800;
     color: var(--gray-900);
-    margin-bottom: 12px;
+    margin-bottom: clamp(6px, 1vh, 12px);
     letter-spacing: -0.02em;
     background: linear-gradient(135deg, var(--gray-900) 0%, var(--gray-700) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  .form-header p { font-size: 17px; color: var(--gray-500); line-height: 1.6; }
+  .form-header p { font-size: clamp(14px, 1.2vw, 17px); color: var(--gray-500); line-height: 1.5; }
   .login-form {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    margin-bottom: 32px;
+    gap: clamp(14px, 2vh, 22px);
+    margin-bottom: clamp(16px, 2.5vh, 28px);
   }
   .error-message {
     display: flex;
@@ -393,8 +407,8 @@ export const LoginRoot = styled('div')`
   }
 
   .seeded-demo-container {
-    margin-top: 24px;
-    padding-top: 24px;
+    margin-top: clamp(16px, 2.5vh, 24px);
+    padding-top: clamp(14px, 2vh, 20px);
     border-top: 1px solid var(--gray-200);
   }
   .seeded-demo-header {
@@ -447,7 +461,7 @@ export const LoginRoot = styled('div')`
     grid-template-columns: 1fr;
     .info-panel { display: none; }
     .form-panel {
-      padding: 60px 32px;
+      padding: clamp(32px, 6vh, 60px) clamp(20px, 5vw, 40px);
       justify-content: flex-start;
       min-height: 100vh;
     }
@@ -462,12 +476,14 @@ export const LoginRoot = styled('div')`
     .forgot-password { align-self: flex-end; }
   }
   @media (max-width: 480px) {
-    .form-panel { padding: 40px 20px; }
-    .form-header h2 { font-size: 24px; }
-    .form-header p { font-size: 14px; }
-    .feature-item { margin-bottom: 24px; }
+    .form-panel { padding: 24px 16px; }
+    .form-header h2 { font-size: 22px; }
+    .form-header p { font-size: 13px; }
     .input-group label { font-size: 13px; }
-    .login-button { padding: 14px 20px; }
+    .login-button { padding: 12px 16px; }
     .demo-note { font-size: 12px; }
+    .seeded-demo-grid {
+      grid-template-columns: 1fr;
+    }
   }
 `;

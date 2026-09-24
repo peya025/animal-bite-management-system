@@ -693,6 +693,35 @@ tbody tr:last-child td,
   border: 1px solid var(--border-glow) !important;
   border-radius: var(--radius-lg) !important;
   box-shadow: var(--card-shadow) !important;
+  max-height: calc(100dvh - 48px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+
+.MuiDialogContent-root {
+  overflow-y: auto !important;
+  flex: 1 1 auto !important;
+  overscroll-behavior: contain;
+  box-sizing: border-box !important;
+}
+
+.MuiDialogTitle-root {
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.MuiDialogActions-root {
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  flex-wrap: wrap !important;
+}
+
+/* Ensure responsive tables inside dialogs and cards scroll properly instead of breaking layout */
+.MuiTableContainer-root,
+.table-responsive {
+  max-width: 100% !important;
+  overflow-x: auto !important;
 }
 
 .MuiMenu-paper {

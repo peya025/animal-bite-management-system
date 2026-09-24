@@ -47,14 +47,14 @@ export default function PrintPreviewModal({
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16, boxSizing: 'border-box' }}
       onClick={onCancel}
       role="dialog"
       aria-modal="true"
       aria-labelledby="ppm-title"
     >
       <div
-        style={{ background: 'var(--card-bg-solid, #ffffff)', border: '1px solid var(--border-glow, rgba(16, 185, 129, 0.2))', borderRadius: 16, width: '100%', maxWidth: 860, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}
+        style={{ background: 'var(--card-bg-solid, #ffffff)', border: '1px solid var(--border-glow, rgba(16, 185, 129, 0.2))', borderRadius: 16, width: '100%', maxWidth: 'min(860px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.35)', overflow: 'hidden', boxSizing: 'border-box' }}
         onClick={e => e.stopPropagation()}
       >
         {/* ── Header ── */}

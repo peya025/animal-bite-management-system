@@ -323,13 +323,13 @@ export const DashboardLayoutRoot = styled('div')`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 28px;
+    padding: 0 clamp(16px, 2vw, 28px);
     flex-shrink: 0;
     box-sizing: border-box;
   }
-  .header-left { display: flex; align-items: center; gap: 16px; }
-  .header-left h1 { font-size: 18px; font-weight: 700; color: var(--text-h); margin: 0; }
-  .header-right { display: flex; align-items: center; gap: 16px; }
+  .header-left { display: flex; align-items: center; gap: clamp(8px, 1.5vw, 16px); }
+  .header-left h1 { font-size: clamp(16px, 1.4vw, 18px); font-weight: 700; color: var(--text-h); margin: 0; }
+  .header-right { display: flex; align-items: center; gap: clamp(8px, 1.5vw, 16px); }
   .user-menu { display: flex; align-items: center; gap: 12px; }
   .user-info { display: flex; align-items: center; gap: 10px; }
   .user-avatar {
@@ -367,7 +367,14 @@ export const DashboardLayoutRoot = styled('div')`
   }
   .logout-button svg { color: var(--text-secondary); }
   .logout-button:hover svg { color: #ef4444; }
-  .page-content { flex: 1; overflow-y: auto; padding: 18px 32px 28px; }
+  .page-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: clamp(14px, 2vh, 20px) clamp(16px, 2.5vw, 32px) clamp(20px, 3vh, 28px);
+    box-sizing: border-box;
+    min-width: 0;
+  }
 
   @media (max-width: 768px) {
     .sidebar {
@@ -378,6 +385,6 @@ export const DashboardLayoutRoot = styled('div')`
     .sidebar.open { transform: translateX(0); }
     .sidebar.closed { width: 270px; transform: translateX(-100%); }
     .user-details { display: none; }
-    .page-content { padding: 20px 16px; }
+    .page-content { padding: 16px 12px 24px; }
   }
 `;

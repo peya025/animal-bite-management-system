@@ -3,78 +3,81 @@ import 'package:flutter/foundation.dart';
 @immutable
 class BiteIntakeDraft {
   const BiteIntakeDraft({
-    required this.biteDate,
+    required this.schemaVersion,
+    required this.dateOfExposure,
     required this.siteWashed,
-    required this.exposureType,
-    required this.animalType,
-    required this.animalStatus,
-    this.animalCaptured,
-    this.incidentTime,
-    this.animalTypeOthers,
-    this.bitePlace,
-    this.woundLocation,
-    this.bodyPartExposed,
-    this.patientDescription,
+    required this.reportedModeOfExposure,
+    required this.animalSpecies,
+    required this.animalOwnership,
+    this.timeOfExposure,
+    this.placeOfExposure,
+    this.animalSpeciesOther,
+    this.bodyPartGroup,
+    this.bodyPartDetail,
+    this.incidentNarrative,
     this.laterality,
     this.washMethod,
     this.washDurationMinutes,
-    this.animalAvailable,
+    this.animalAvailableForObservation,
     this.animalConditionReported,
     this.careReceived,
-    this.referralFacility,
-    this.priorRabiesVaccination,
-    this.priorVaccinationDate,
-    this.priorVaccinationFacility,
+    this.referralSource,
+    this.pastBiteHistory,
+    this.pastBiteDates,
+    this.priorPepStatus,
+    this.priorPepDate,
+    this.priorPepFacility,
   });
 
-  final DateTime biteDate;
+  final String schemaVersion;
+  final DateTime dateOfExposure;
+  final String? timeOfExposure;
+  final String? placeOfExposure;
   final bool siteWashed;
-  final String exposureType;
-  final String animalType;
-  final String? animalTypeOthers;
-  final String animalStatus;
-  final bool? animalCaptured;
-  final String? incidentTime;
-  final String? bitePlace;
-  final String? woundLocation;
-  final String? bodyPartExposed;
-  final String? patientDescription;
+  final String reportedModeOfExposure;
+  final String animalSpecies;
+  final String? animalSpeciesOther;
+  final String animalOwnership;
+  final bool? animalAvailableForObservation;
+  final String? animalConditionReported;
+  final String? bodyPartGroup;
+  final String? bodyPartDetail;
+  final String? incidentNarrative;
   final String? laterality;
   final String? washMethod;
   final int? washDurationMinutes;
-  final bool? animalAvailable;
-  final String? animalConditionReported;
   final String? careReceived;
-  final String? referralFacility;
-  final String? priorRabiesVaccination;
-  final DateTime? priorVaccinationDate;
-  final String? priorVaccinationFacility;
+  final String? referralSource;
+  final String? pastBiteHistory;
+  final String? pastBiteDates;
+  final String? priorPepStatus;
+  final DateTime? priorPepDate;
+  final String? priorPepFacility;
 
   Map<String, dynamic> toJson() => {
-    'bite_date': biteDate.toIso8601String().split('T').first,
-    'incident_time': incidentTime,
+    'schema_version': schemaVersion,
+    'date_of_exposure': dateOfExposure.toIso8601String().split('T').first,
+    'time_of_exposure': timeOfExposure,
+    'place_of_exposure': placeOfExposure,
     'site_washed': siteWashed,
-    'exposure_type': exposureType,
-    'animal_type': animalType,
-    'animal_type_others': animalTypeOthers,
-    'animal_status': animalStatus,
-    'animal_captured': animalCaptured,
-    'bite_place': bitePlace,
-    'wound_location': woundLocation,
-    'body_part_exposed': bodyPartExposed,
-    'patient_description': patientDescription,
-    'laterality': laterality,
     'wash_method': washMethod,
     'wash_duration_minutes': washDurationMinutes,
-    'animal_available': animalAvailable,
+    'reported_mode_of_exposure': reportedModeOfExposure,
+    'animal_species': animalSpecies,
+    'animal_species_other': animalSpeciesOther,
+    'animal_ownership': animalOwnership,
+    'animal_available_for_observation': animalAvailableForObservation,
     'animal_condition_reported': animalConditionReported,
+    'body_part_group': bodyPartGroup,
+    'body_part_detail': bodyPartDetail,
+    'laterality': laterality,
+    'incident_narrative': incidentNarrative,
     'care_received': careReceived,
-    'referral_facility': referralFacility,
-    'prior_rabies_vaccination': priorRabiesVaccination,
-    'prior_vaccination_date': priorVaccinationDate
-        ?.toIso8601String()
-        .split('T')
-        .first,
-    'prior_vaccination_facility': priorVaccinationFacility,
+    'referral_source': referralSource,
+    'past_bite_history': pastBiteHistory,
+    'past_bite_dates': pastBiteDates,
+    'prior_pep_status': priorPepStatus,
+    'prior_pep_date': priorPepDate?.toIso8601String().split('T').first,
+    'prior_pep_facility': priorPepFacility,
   };
 }

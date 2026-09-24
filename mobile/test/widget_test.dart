@@ -225,19 +225,15 @@ void main() {
         ),
       ),
     );
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('Bite incident intake'), findsOneWidget);
     expect(find.text('Juan'), findsOneWidget);
     expect(find.text('Dela Cruz'), findsOneWidget);
-    expect(
-      tester
-          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Juan'))
-          .enabled,
-      isFalse,
-    );
-    expect(find.text('TYPE OF EXPOSURE *'), findsOneWidget);
-    expect(find.text('WAS THE WOUND WASHED? *'), findsOneWidget);
-    expect(find.text('SUBMIT INTAKE AND BOOK'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Juan'), findsNothing);
+    expect(find.text('Mode of exposure *'), findsOneWidget);
+    expect(find.text('Was the wound washed? *'), findsOneWidget);
+    expect(find.text('Submit intake and book'), findsOneWidget);
   });
 
   testWidgets('history navigation opens demo records', (tester) async {

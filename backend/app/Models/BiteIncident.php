@@ -32,6 +32,7 @@ class BiteIncident extends Model
         'victim_of_exposure',
         'severity',
         'animal_type',
+        'animal_type_others',
         'animal_status',
         'animal_captured',
         'animal_available',

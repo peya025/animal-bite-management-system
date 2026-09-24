@@ -7,7 +7,9 @@ use App\Models\Patient;
 use App\Models\BiteIncident;
 use App\Models\Queue;
 use App\Models\TreatmentPlan;
+use App\Support\BiteIntakeContract;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 
 class TreatmentRecordController extends Controller
@@ -172,15 +174,16 @@ class TreatmentRecordController extends Controller
             'new_exposure_type' => 'nullable|in:bite,scratch,lick,other',
             'new_exposure_mode' => 'nullable|in:nibbling_uncovered_skin,nibbling_broken_skin,scratch_abrasion,transdermal_bite,handling_ingestion_raw_meat',
             'new_severity' => 'nullable|in:minor,moderate,severe',
-            'new_animal_type' => 'nullable|string|max:100',
+            'new_animal_type' => ['nullable', Rule::in(array_keys(BiteIntakeContract::ANIMAL_SPECIES))],
+            'new_animal_type_other' => 'nullable|required_if:new_animal_type,other|string|max:255',
             'new_animal_status' => 'nullable|in:owned,stray,unknown',
             'new_animal_available' => 'nullable|boolean',
             'new_site_washed' => 'nullable|boolean',
             'new_body_part' => 'nullable|string|max:255',
+            'new_body_part_group' => ['nullable', Rule::in(array_keys(BiteIntakeContract::BODY_PART_GROUPS))],
+            'new_body_part_detail' => 'nullable|string|max:255',
             'new_laterality' => 'nullable|in:left,right,bilateral,multiple,not_applicable,unknown',
-            'new_wound_description' => 'nullable|string',
-            'clinical_assessment_confirmed' => 'nullable|boolean',
-            
+
             // General Consultation Fields (NEW Form 2)
             'consultation_date' => 'nullable|date',
             'consultation_time' => 'nullable|string|max:10',
@@ -241,24 +244,10 @@ class TreatmentRecordController extends Controller
         }
 
         if (!$activeIncident && $queueForEpisode && $queueForEpisode->visit_type === 'new_case') {
-            // Older registration records were placed in the Doctor queue before
-            // an incident was created. Preserve that workflow by creating the
-            // primary episode at the first Form 2 save and linking this ticket.
-            $legacyAssessmentComplete = ($validated['clinical_assessment_confirmed'] ?? false)
-                && !empty($validated['new_bite_date'])
-                && !empty($validated['new_exposure_mode'])
-                && !empty($validated['new_exposure_type'])
-                && !empty($validated['new_severity'])
-                && !empty($validated['new_animal_type'])
-                && !empty($validated['new_animal_status'])
-                && !empty($validated['new_body_part'])
-                && array_key_exists('new_site_washed', $validated);
-            if (!$legacyAssessmentComplete) {
-                return response()->json([
-                    'message' => 'Complete and confirm the clinician exposure assessment before saving Form 2.',
-                ], 422);
-            }
-
+            // Registration may create a new-case queue before an episode is linked.
+            // Preserve that workflow by creating an unassessed episode here. The
+            // nurse owns category, wound location, animal, and exposure details in
+            // Form 3; Form 2 owns the Doctor's diagnosis and treatment decision.
             $episodeNumber = (BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
                 ->max('episode_number') ?? 0) + 1;
@@ -268,22 +257,22 @@ class TreatmentRecordController extends Controller
                 'patient_id' => $validated['patient_id'],
                 'episode_number' => $episodeNumber,
                 'episode_type' => 'pending_assessment',
-                'is_previously_vaccinated' => false,
-                'bite_date' => $validated['new_bite_date'] ?? $validated['consultation_date'] ?? Carbon::today()->toDateString(),
-                'bite_place' => $validated['new_bite_place'] ?? null,
-                'site_washed' => $validated['new_site_washed'] ?? null,
-                'exposure_type' => $validated['new_exposure_type'] ?? 'unassessed',
-                'exposure_mode' => $validated['new_exposure_mode'] ?? null,
-                'severity' => $validated['new_severity'] ?? 'unassessed',
-                'animal_type' => $validated['new_animal_type'] ?? null,
-                'animal_status' => $validated['new_animal_status'] ?? 'unassessed',
-                'animal_available' => $validated['new_animal_available'] ?? null,
-                'site_number' => $validated['new_body_part'] ?? null,
-                'body_part_exposed' => $validated['new_body_part'] ?? null,
-                'laterality' => $validated['new_laterality'] ?? null,
-                'wound_description' => $validated['new_wound_description'] ?? null,
+                'is_previously_vaccinated' => null,
+                'bite_date' => $validated['consultation_date'] ?? Carbon::today()->toDateString(),
+                'bite_place' => null,
+                'site_washed' => null,
+                'exposure_type' => 'unassessed',
+                'exposure_mode' => null,
+                'severity' => 'unassessed',
+                'animal_type' => null,
+                'animal_status' => 'unassessed',
+                'animal_available' => null,
+                'site_number' => null,
+                'body_part_exposed' => null,
+                'laterality' => null,
+                'wound_description' => null,
                 'status' => 'awaiting_assessment',
-                'remarks' => 'Primary episode created from Form 2 for a registration queue without a linked intake.',
+                'remarks' => 'Episode linked during Form 2; exposure details await nurse Form 3 assessment.',
                 'created_by' => $request->user()->id,
             ]);
 
@@ -297,36 +286,6 @@ class TreatmentRecordController extends Controller
         }
 
         $activeIncident->loadMissing('intake');
-        $requiresClinicalConfirmation = $activeIncident->isAwaitingAssessment()
-            || $activeIncident->intake !== null
-            || in_array($activeIncident->exposure_type, [null, 'unassessed'], true)
-            || in_array($activeIncident->severity, [null, 'unassessed'], true);
-
-        if ($requiresClinicalConfirmation) {
-            $missingFields = collect([
-                'new_bite_date',
-                'new_exposure_mode',
-                'new_exposure_type',
-                'new_severity',
-                'new_animal_type',
-                'new_animal_status',
-                'new_body_part',
-            ])->filter(fn ($field) => empty($validated[$field]))->values();
-
-            if (!array_key_exists('new_site_washed', $validated)) {
-                $missingFields->push('new_site_washed');
-            }
-
-            if ($missingFields->isNotEmpty() || !($validated['clinical_assessment_confirmed'] ?? false)) {
-                return response()->json([
-                    'message' => 'Complete and confirm the clinician exposure assessment before saving Form 2.',
-                    'errors' => [
-                        'clinical_assessment_confirmed' => ['A Doctor must confirm the patient-reported exposure after clinical assessment.'],
-                        'assessment_fields' => $missingFields->all(),
-                    ],
-                ], 422);
-            }
-        }
 
         $requiresReExposureDecision = $activeIncident->isAwaitingAssessment()
             && $this->hasCompletedPrimaryDayZeroToSeven($clinicId, (int) $validated['patient_id'], $activeIncident);
@@ -416,38 +375,12 @@ class TreatmentRecordController extends Controller
         ]);
 
         // ── Auto-advance queue: move patient from Triage/Doctor → Treatment/Vaccination station ──
-        // Form 2 is the clinical source of truth. The original mobile intake is
-        // intentionally retained unchanged for provenance and comparison.
-        $incidentAssessment = [
-            'bite_date' => $validated['new_bite_date'] ?? $activeIncident->bite_date,
-            'bite_place' => $validated['new_bite_place'] ?? $activeIncident->bite_place,
-            'exposure_type' => $validated['new_exposure_type'] ?? $activeIncident->exposure_type,
-            'exposure_mode' => $validated['new_exposure_mode'] ?? $activeIncident->exposure_mode,
-            'severity' => $validated['new_severity'] ?? $activeIncident->severity,
-            'animal_type' => $validated['new_animal_type'] ?? $activeIncident->animal_type,
-            'animal_status' => $validated['new_animal_status'] ?? $activeIncident->animal_status,
-            'animal_available' => array_key_exists('new_animal_available', $validated)
-                ? $validated['new_animal_available']
-                : $activeIncident->animal_available,
-            'site_washed' => array_key_exists('new_site_washed', $validated)
-                ? $validated['new_site_washed']
-                : $activeIncident->site_washed,
-            'site_number' => $validated['new_body_part'] ?? $activeIncident->site_number,
-            'body_part_exposed' => $validated['new_body_part'] ?? $activeIncident->body_part_exposed,
-            'laterality' => $validated['new_laterality'] ?? $activeIncident->laterality,
-            'wound_description' => $validated['new_wound_description'] ?? $activeIncident->wound_description,
-        ];
-
-        if ($requiresClinicalConfirmation) {
-            $incidentAssessment['confirmed_by'] = $request->user()->id;
-            $incidentAssessment['confirmed_at'] = now();
-        }
-        $activeIncident->update($incidentAssessment);
-
-        if ($activeIncident->intake && $requiresClinicalConfirmation) {
-            $activeIncident->intake->update([
-                'clinically_reviewed_by' => $request->user()->id,
-                'clinically_reviewed_at' => now(),
+        // Form 2 records the Doctor's diagnosis and treatment decision only.
+        // Nurse-owned exposure/category/body-site values remain untouched here.
+        if (!$activeIncident->confirmed_at) {
+            $activeIncident->update([
+                'confirmed_by' => $request->user()->id,
+                'confirmed_at' => now(),
             ]);
         }
 

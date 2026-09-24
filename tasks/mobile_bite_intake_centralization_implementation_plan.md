@@ -14,6 +14,31 @@ The mobile application must not become a separate clinical form. It should be a 
 
 This document is the implementation plan. It does not authorize mobile users to enter clinical findings or treatment decisions.
 
+## Implementation Status (2026-09-24)
+
+Implemented:
+
+- Approved the recommended v1 field matrix and dictionaries.
+- Added a backend-owned, authenticated bite-intake schema endpoint for mobile and clinic clients.
+- Added canonical patient-facing names with backward-compatible adapters for legacy mobile payloads.
+- Rebuilt the mobile draft around Form 2/Form 3 vocabulary while keeping Form 1 demographics read-only.
+- Replaced overlapping mobile body-site lists with body-part group, exact detail, and laterality.
+- Expanded the shared animal list to Dog, Cat, Bat, Monkey/non-human primate, Other, and Unknown.
+- Separated past animal-bite history from prior PEP status, date, and facility.
+- Added server-side rejection of diagnosis, WHO category, treatment-plan, vaccine, RIG, and other clinical-only mobile fields.
+- Updated Form 2 to compare the canonical patient report with separate clinician-confirmed controls.
+- Updated Form 3 to use the shared animal vocabulary, the confirmed body group/exact site, and verified episode-specific history.
+- Removed Form 3 fallback to another treatment card when a specific active bite episode is selected.
+- Extended the reconciliation audit to flag legacy versions, invalid dictionary values, and incomplete Other-animal data without inventing clinical facts.
+- Added backend and Flutter contract tests.
+
+Operational work still required:
+
+- Back up the target database and run migrations in staging.
+- Run `php artisan bite-intakes:audit-centralization` in report-only mode and resolve ambiguous legacy records with clinic staff.
+- Complete Registration, Doctor, and Nurse user-acceptance testing.
+- Deploy backend compatibility first, then web, then mobile.
+
 ## Investigation Summary
 
 ### What is already connected
@@ -445,9 +470,9 @@ Exit criteria: supported old clients remain functional during rollout, and the n
 
 The backend compatibility layer should be deployed before the mobile update so older installed app versions continue to work.
 
-## Decisions Required Before Implementation
+## Approved Implementation Decisions
 
-The plan recommends these defaults unless clinical stakeholders reject them:
+The implementation uses these approved defaults:
 
 1. Expand the shared animal list to Dog, Cat, Bat, Monkey/non-human primate, Other, and Unknown, then update web and mobile together.
 2. Use Form 3's six body-part groups plus free-text detail and laterality; remove the mobile-only overlapping location enum.

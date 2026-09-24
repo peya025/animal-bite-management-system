@@ -165,6 +165,14 @@ class DualNurseWorkstationTest extends TestCase
         $response = $this->postJson('/api/vaccination-records', [
             'patient_id' => $patient->patient_id,
             'bite_id'    => $incident->bite_id,
+            'exposure_category' => 'III',
+            'date_of_exposure' => now()->subDay()->toDateString(),
+            'place_of_exposure' => 'Matangad, Gitagum',
+            'mode_of_exposure' => ['scratch_abrasion'],
+            'body_part_affected' => ['upper_extremities'],
+            'body_part_detail' => 'Right hand',
+            'animal_type' => 'other',
+            'animal_type_other' => 'Monkey',
             'doses'      => [[
                 'period'       => 'Day 0',
                 'date'         => now()->toDateString(),
@@ -180,6 +188,17 @@ class DualNurseWorkstationTest extends TestCase
         $this->assertNotNull($record);
         $this->assertEquals($nurse->id, $record->administered_by);
         $this->assertEquals($nurse->signature_path, $record->signature_path);
+        $this->assertDatabaseHas('bite_incidents', [
+            'bite_id' => $incident->bite_id,
+            'bite_place' => 'Matangad, Gitagum',
+            'severity' => 'severe',
+            'exposure_mode' => 'scratch_abrasion',
+            'exposure_type' => 'scratch',
+            'body_part_exposed' => 'upper_extremities',
+            'site_number' => 'Right hand',
+            'animal_type' => 'other',
+            'animal_type_others' => 'Monkey',
+        ]);
     }
 
     public function test_dose_administration_succeeds_when_nurse_has_no_signature_on_file(): void

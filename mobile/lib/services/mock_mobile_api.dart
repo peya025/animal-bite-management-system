@@ -5,6 +5,7 @@ import 'dart:convert';
 
 import '../models/app_notification.dart';
 import '../models/appointment_summary.dart';
+import '../models/bite_intake_contract.dart';
 import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import 'mock_data.dart';
@@ -171,6 +172,11 @@ class MockMobileApi {
     };
   }
 
+  Future<BiteIntakeContract> biteIntakeContract() async {
+    await Future.delayed(const Duration(milliseconds: 150));
+    return BiteIntakeContract.fallback;
+  }
+
   Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
     await Future.delayed(const Duration(seconds: 1));
 
@@ -250,9 +256,12 @@ class MockMobileApi {
     dynamic intake,
   }) async {
     await Future.delayed(const Duration(seconds: 1));
-    final service = booking is Map ? booking['service'] : (booking?.service?.toString() ?? '');
+    final service = booking is Map
+        ? booking['service']
+        : (booking?.service?.toString() ?? '');
     final apptType = booking is Map ? booking['appointment_type'] : '';
-    if (service.toString().toLowerCase().contains('booster') || apptType.toString().toLowerCase().contains('booster')) {
+    if (service.toString().toLowerCase().contains('booster') ||
+        apptType.toString().toLowerCase().contains('booster')) {
       _patientBoosterActive.add(patient.id);
     }
   }
@@ -294,8 +303,6 @@ class MockMobileApi {
     await Future.delayed(const Duration(milliseconds: 200));
     return true;
   }
-
-
 
   Map<String, dynamic> _buildPatientJson({
     required int patientId,
@@ -440,11 +447,19 @@ class MockMobileApi {
     await Future.delayed(const Duration(milliseconds: 300));
     final patient = _patients.firstWhere(
       (p) => p['id'] == patientId || p['patient_id'] == patientId,
-      orElse: () => _patients.isNotEmpty ? _patients.first : {'id': patientId, 'patient_id': patientId, 'name': 'Juan Dela Cruz', 'patient_number': 'P-2026-0042'},
+      orElse: () => _patients.isNotEmpty
+          ? _patients.first
+          : {
+              'id': patientId,
+              'patient_id': patientId,
+              'name': 'Juan Dela Cruz',
+              'patient_number': 'P-2026-0042',
+            },
     );
 
     final bool hasCompletedPrimary = patient['has_completed_primary'] == true;
-    final bool hasBooster = hasCompletedPrimary && _patientBoosterActive.contains(patientId);
+    final bool hasBooster =
+        hasCompletedPrimary && _patientBoosterActive.contains(patientId);
 
     final List<Map<String, dynamic>> doses = [];
     if (hasCompletedPrimary) {
@@ -534,15 +549,19 @@ class MockMobileApi {
       });
     }
 
-    final String cardStatus = (hasCompletedPrimary && !hasBooster) ? 'COMPLETED' : 'ACTIVE';
-    final int completedCount = doses.where((d) => d['status'] == 'completed').length;
+    final String cardStatus = (hasCompletedPrimary && !hasBooster)
+        ? 'COMPLETED'
+        : 'ACTIVE';
+    final int completedCount = doses
+        .where((d) => d['status'] == 'completed')
+        .length;
     final int totalCount = doses.length;
 
     final String doseLabel = hasBooster
         ? 'Booster: 0 of 2 doses (Primary 3/3 complete)'
         : (hasCompletedPrimary
-            ? '3 of 3 doses (Completed)'
-            : '$completedCount of $totalCount doses');
+              ? '3 of 3 doses (Completed)'
+              : '$completedCount of $totalCount doses');
 
     final Map<String, dynamic>? nextDose = hasBooster
         ? {
@@ -551,12 +570,12 @@ class MockMobileApi {
             'due_text': 'Due in 3 days',
           }
         : (hasCompletedPrimary
-            ? null
-            : {
-                'name': 'Day 7',
-                'scheduled_date': 'March 17, 2026',
-                'due_text': 'Due in 4 days',
-              });
+              ? null
+              : {
+                  'name': 'Day 7',
+                  'scheduled_date': 'March 17, 2026',
+                  'due_text': 'Due in 4 days',
+                });
 
     return {
       'clinic': {
@@ -582,7 +601,8 @@ class MockMobileApi {
         'place_of_exposure': 'Poblacion, Tagoloan',
       },
       'card_token': 'vc_demo_token_${patient['id'] ?? 101}',
-      'qr_payload': 'https://clinic.gov.ph/verify/card/vc_demo_token_${patient['id'] ?? 101}',
+      'qr_payload':
+          'https://clinic.gov.ph/verify/card/vc_demo_token_${patient['id'] ?? 101}',
       'status': cardStatus,
       'has_booster': hasBooster,
       'progress': {
@@ -601,10 +621,30 @@ class MockMobileApi {
     return {
       'open_days_of_week': [2, 3, 4, 5],
       'schedules': {
-        '2': {'day_of_week': 2, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
-        '3': {'day_of_week': 3, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
-        '4': {'day_of_week': 4, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
-        '5': {'day_of_week': 5, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
+        '2': {
+          'day_of_week': 2,
+          'is_open': true,
+          'open_time_label': '8:00 AM',
+          'close_time_label': '5:00 PM',
+        },
+        '3': {
+          'day_of_week': 3,
+          'is_open': true,
+          'open_time_label': '8:00 AM',
+          'close_time_label': '5:00 PM',
+        },
+        '4': {
+          'day_of_week': 4,
+          'is_open': true,
+          'open_time_label': '8:00 AM',
+          'close_time_label': '5:00 PM',
+        },
+        '5': {
+          'day_of_week': 5,
+          'is_open': true,
+          'open_time_label': '8:00 AM',
+          'close_time_label': '5:00 PM',
+        },
       },
       'exceptions': <String, dynamic>{},
       'urgent_policy': {

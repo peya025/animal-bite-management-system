@@ -71,7 +71,7 @@ class VaccinationRecordController extends Controller
                 ->latest()
                 ->first();
 
-            if (!$card) {
+            if (!$card && !$activeIncident) {
                 $card = TagoloanTreatmentCard::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)
                     ->latest()
@@ -301,11 +301,15 @@ class VaccinationRecordController extends Controller
             'date_of_exposure' => 'nullable|date',
             'date_treatment_started' => 'nullable|date',
             'place_of_exposure' => 'nullable|string|max:255',
-            'mode_of_exposure' => 'nullable',
-            'body_part_affected' => 'nullable',
+            'mode_of_exposure' => 'nullable|array',
+            'mode_of_exposure.*' => 'in:nibbling_uncovered,nibbling_wounded,scratch_abrasion,transdermal_bite,handling_ingestion',
+            'body_part_affected' => 'nullable|array',
+            'body_part_affected.*' => 'in:head_neck,upper_extremities,lower_extremities,trunk_torso,multiple_sites,other_parts,na_ingestion',
+            'body_part_detail' => 'nullable|string|max:255',
             'animal_type' => 'nullable|string|max:100',
-            'animal_type_other' => 'nullable|string|max:255',
+            'animal_type_other' => 'nullable|required_if:animal_type,other|string|max:255',
             'past_history_bite' => 'nullable|in:yes,no',
+            'past_bite_dates' => 'nullable|string|max:255',
             'pep_completed' => 'nullable|in:yes,no',
             'registry_no' => 'nullable|string|max:100',
             'hospital_no' => 'nullable|string|max:100',
@@ -404,6 +408,78 @@ class VaccinationRecordController extends Controller
                     'bite_id' => 'This episode has no Doctor-approved vaccine treatment order.',
                 ]);
             }
+
+            // Form 3 is the nurse-owned source for verified exposure details.
+            // Mobile values may prefill these controls, but only the values the
+            // nurse saves here are promoted to the authoritative bite episode.
+            $modeMap = [
+                'nibbling_uncovered' => 'nibbling_uncovered_skin',
+                'nibbling_wounded' => 'nibbling_broken_skin',
+                'scratch_abrasion' => 'scratch_abrasion',
+                'transdermal_bite' => 'transdermal_bite',
+                'handling_ingestion' => 'handling_ingestion_raw_meat',
+            ];
+            $exposureTypeMap = [
+                'nibbling_uncovered_skin' => 'lick',
+                'nibbling_broken_skin' => 'lick',
+                'scratch_abrasion' => 'scratch',
+                'transdermal_bite' => 'bite',
+                'handling_ingestion_raw_meat' => 'other',
+            ];
+            $selectedModes = collect($request->input('mode_of_exposure', []))
+                ->filter(fn ($value) => is_string($value) && isset($modeMap[$value]))
+                ->values();
+            $verifiedMode = $selectedModes->isNotEmpty()
+                ? $modeMap[$selectedModes->first()]
+                : null;
+
+            $selectedBodyParts = collect($request->input('body_part_affected', []))
+                ->filter(fn ($value) => is_string($value) && in_array($value, [
+                    'head_neck', 'upper_extremities', 'lower_extremities',
+                    'trunk_torso', 'multiple_sites', 'other_parts', 'na_ingestion',
+                ], true))
+                ->unique()
+                ->values();
+            $verifiedBodyPart = $selectedBodyParts->count() > 1
+                ? 'multiple_sites'
+                : $selectedBodyParts->first();
+
+            $animalType = strtolower(trim((string) $request->input('animal_type', '')));
+            $animalTypeOther = trim((string) $request->input('animal_type_other', ''));
+            if ($animalType !== '' && !in_array($animalType, ['dog', 'cat', 'other'], true)) {
+                $animalTypeOther = $animalTypeOther ?: $animalType;
+                $animalType = 'other';
+            }
+
+            $severity = match ($request->input('exposure_category')) {
+                'I' => 'minor',
+                'II' => 'moderate',
+                'III' => 'severe',
+                default => null,
+            };
+
+            $assessmentUpdates = array_filter([
+                'bite_date' => $request->input('date_of_exposure'),
+                'bite_place' => $request->input('place_of_exposure'),
+                'exposure_mode' => $verifiedMode,
+                'exposure_type' => $verifiedMode ? $exposureTypeMap[$verifiedMode] : null,
+                'severity' => $severity,
+                'body_part_exposed' => $verifiedBodyPart,
+                'site_number' => $request->input('body_part_detail'),
+                'animal_type' => $animalType ?: null,
+                'animal_type_others' => $animalType === 'other' ? ($animalTypeOther ?: null) : null,
+            ], fn ($value) => $value !== null && $value !== '');
+
+            if ($assessmentUpdates) {
+                $treatmentIncident->update($assessmentUpdates);
+                $treatmentIncident->loadMissing('intake');
+                $treatmentIncident->intake?->update([
+                    'clinically_reviewed_by' => $userId,
+                    'clinically_reviewed_at' => now(),
+                ]);
+                $treatmentIncident->refresh();
+            }
+
             $hasNonDayZeroDose = collect($request->doses)->contains(function ($dose) {
                 return !empty($dose['date'])
                     && !empty($dose['vaccine_type'])
@@ -638,8 +714,9 @@ class VaccinationRecordController extends Controller
                 'mode_of_exposure'   => $modeOfExposure,
                 'body_part_exposed'  => $bodyPartExposed,
                 'animal_type'        => $treatmentIncident->animal_type,
-                'animal_type_others' => null,
+                'animal_type_others' => $treatmentIncident->animal_type_others,
                 'past_bite_history'  => $request->past_history_bite === 'yes',
+                'past_bite_dates'    => $validated['past_bite_dates'] ?? null,
                 'past_pep_completed' => $request->pep_completed === 'yes',
                 'icd10_code'         => $request->icd_code,
                 'created_by'         => $userId,

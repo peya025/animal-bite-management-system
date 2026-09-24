@@ -1,4 +1,4 @@
-import type { ConsultationTypesMap, TreatmentFormData, NewBiteData } from '../types/consultation.types';
+import type { ConsultationTypesMap, TreatmentFormData } from '../types/consultation.types';
 
 export const ANIMAL_BITE_DIAGNOSES: readonly string[] = [
   'Rabies Exposure (PEP Indicated)',
@@ -133,21 +133,6 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
   performed_lab_test: '',
   name_of_attending_provider: '',
   referred_by: '',
-};
-
-export const INITIAL_NEW_BITE_DATA: NewBiteData = {
-  new_bite_date: '',
-  new_bite_place: '',
-  new_exposure_type: '',
-  new_exposure_mode: '',
-  new_severity: '',
-  new_animal_type: '',
-  new_animal_status: '',
-  new_animal_available: null,
-  new_site_washed: null,
-  new_body_part: '',
-  new_laterality: '',
-  new_wound_description: '',
 };
 
 export const DEFAULT_FALLBACK_VACCINES: readonly string[] = [

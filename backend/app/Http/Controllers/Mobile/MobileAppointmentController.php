@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\BiteIncidentIntake;
 use App\Models\Notification;
+use App\Support\BiteIntakeContract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -100,38 +101,20 @@ class MobileAppointmentController extends Controller
         ]);
 
         if ($validated['appointment_type'] === 'consultation') {
+            $payload = $request->all();
+            if (is_array($request->input('intake'))) {
+                $payload['intake'] = BiteIntakeContract::normalize($request->input('intake'));
+            }
             $validated = Validator::make(
-                $request->all(),
-                [
+                $payload,
+                array_merge([
                     'patient_id'           => ['required', 'integer', 'exists:patients,patient_id'],
                     'appointment_type'     => ['required', 'in:consultation,vaccination,booster'],
                     'scheduled_date'       => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
                     'time_slot'            => ['nullable', 'in:morning,afternoon'],
                     'notes'                => ['nullable', 'string', 'max:1000'],
                     'intake'               => ['required', 'array'],
-                    'intake.bite_date'     => ['required', 'date', 'before_or_equal:today'],
-                    'intake.incident_time' => ['nullable', 'date_format:H:i'],
-                    'intake.bite_place'    => ['nullable', 'string', 'max:255'],
-                    'intake.site_washed'   => ['required', 'boolean'],
-                    'intake.wash_method'   => ['nullable', 'in:water_only,soap_and_water,antiseptic,other,unknown'],
-                    'intake.wash_duration_minutes' => ['nullable', 'integer', 'min:0', 'max:240'],
-                    'intake.exposure_type' => ['required', 'in:nibbling_uncovered_skin,nibbling_broken_skin,scratch_abrasion,transdermal_bite,handling_ingestion_raw_meat,unsure,bite,scratch,lick,other'],
-                    'intake.animal_type'   => ['required', 'string', 'max:100'],
-                    'intake.animal_type_others' => ['nullable', 'string', 'max:255'],
-                    'intake.animal_status' => ['required', 'in:owned,stray,unknown'],
-                    'intake.animal_captured'    => ['nullable', 'boolean'],
-                    'intake.animal_available'   => ['nullable', 'boolean'],
-                    'intake.animal_condition_reported' => ['nullable', 'in:apparently_healthy,sick,dead,unknown'],
-                    'intake.wound_location'     => ['nullable', 'string', 'max:255'],
-                    'intake.body_part_exposed'  => ['nullable', 'string', 'max:255'],
-                    'intake.laterality'         => ['nullable', 'in:left,right,bilateral,multiple,not_applicable,unknown'],
-                    'intake.patient_description' => ['nullable', 'string', 'max:2000'],
-                    'intake.care_received'      => ['nullable', 'string', 'max:2000'],
-                    'intake.referral_facility'  => ['nullable', 'string', 'max:255'],
-                    'intake.prior_rabies_vaccination' => ['nullable', 'in:yes,no,unsure'],
-                    'intake.prior_vaccination_date' => ['nullable', 'date', 'before_or_equal:today'],
-                    'intake.prior_vaccination_facility' => ['nullable', 'string', 'max:255'],
-                ],
+                ], BiteIntakeContract::validationRules()),
                 [
                     'intake.bite_date.before_or_equal' => 'The incident date must be today or earlier.',
                 ],
@@ -197,16 +180,7 @@ class MobileAppointmentController extends Controller
             }
 
             if ($appointment->appointment_type === 'consultation' && !empty($validated['intake'])) {
-                $intakeData = $validated['intake'];
-                $exposureMap = [
-                    'bite'    => 'transdermal_bite',
-                    'scratch' => 'scratch_abrasion',
-                    'lick'    => 'nibbling_uncovered_skin',
-                    'other'   => 'nibbling_broken_skin',
-                ];
-                if (isset($intakeData['exposure_type']) && isset($exposureMap[$intakeData['exposure_type']])) {
-                    $intakeData['exposure_type'] = $exposureMap[$intakeData['exposure_type']];
-                }
+                $intakeData = BiteIntakeContract::storagePayload($validated['intake']);
 
                 BiteIncidentIntake::create([
                     ...$intakeData,

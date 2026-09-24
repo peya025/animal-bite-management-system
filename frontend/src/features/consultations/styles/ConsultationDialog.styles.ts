@@ -60,10 +60,12 @@ export const ConsultationDialog = styled('div')({
     transition: 'border-color 0.15s, box-shadow 0.15s',
   },
   '&& .fm-input:hover:not(:disabled), && .fm-select:hover:not(:disabled), && .fm-textarea:hover:not(:disabled)': {
-    borderColor: 'var(--nav-item-active-color, #047857) !important',
+    borderColor: '#10b981 !important',
   },
-  '&& .fm-input:focus, && .fm-select:focus, && .fm-textarea:focus': {
-    borderColor: 'var(--nav-item-active-color, #047857) !important',
+  '&& .fm-input:focus, && .fm-select:focus, && .fm-textarea:focus, && :is(input, select, textarea):focus, && :is(input, select, textarea):focus-visible': {
+    outline: 'none !important',
+    borderColor: '#10b981 !important',
+    boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.1) !important',
   },
   '&& .fm-input:disabled, && .fm-select:disabled, && .fm-textarea:disabled': {
     background: 'var(--bg-secondary, #f1f5f9)',
@@ -75,8 +77,8 @@ export const ConsultationDialog = styled('div')({
   '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea)': {
     borderColor: 'var(--registration-error-color) !important',
   },
-  '&& :is(input, select, textarea, button):focus-visible': {
-    outline: '3px solid var(--nav-item-active-color, #047857)',
+  '&& button:focus-visible': {
+    outline: '3px solid #10b981',
     outlineOffset: 3,
     boxShadow: 'none',
   },

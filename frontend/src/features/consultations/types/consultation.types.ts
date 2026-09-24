@@ -62,22 +62,19 @@ export interface TreatmentFormData {
   referred_by: string;
 }
 
-export interface NewBiteData {
-  new_bite_date: string;
-  new_bite_place: string;
-  new_exposure_type: '' | 'bite' | 'scratch' | 'lick' | 'other';
-  new_exposure_mode: '' | 'nibbling_uncovered_skin' | 'nibbling_broken_skin' | 'scratch_abrasion' | 'transdermal_bite' | 'handling_ingestion_raw_meat';
-  new_severity: '' | 'minor' | 'moderate' | 'severe';
-  new_animal_type: string;
-  new_animal_status: '' | 'owned' | 'stray' | 'unknown';
-  new_animal_available: boolean | null;
-  new_site_washed: boolean | null;
-  new_body_part: string;
-  new_laterality: '' | 'left' | 'right' | 'bilateral' | 'multiple' | 'not_applicable' | 'unknown';
-  new_wound_description: string;
-}
-
 export interface PatientReportedIntake {
+  schema_version?: string | null;
+  date_of_exposure?: string | null;
+  time_of_exposure?: string | null;
+  place_of_exposure?: string | null;
+  reported_mode_of_exposure?: string | null;
+  body_part_group?: string | null;
+  body_part_detail?: string | null;
+  animal_species?: string | null;
+  animal_species_other?: string | null;
+  animal_ownership?: string | null;
+  incident_narrative?: string | null;
+  referral_source?: string | null;
   bite_date?: string | null;
   incident_time?: string | null;
   bite_place?: string | null;
@@ -92,6 +89,13 @@ export interface PatientReportedIntake {
   site_washed?: boolean | null;
   wash_method?: string | null;
   prior_rabies_vaccination?: string | null;
+  past_bite_history?: string | null;
+  past_bite_dates?: string | null;
+  prior_pep_status?: string | null;
+  prior_pep_date?: string | null;
+  prior_pep_facility?: string | null;
+  care_received?: string | null;
+  wash_duration_minutes?: number | null;
   patient_description?: string | null;
 }
 
@@ -123,19 +127,6 @@ export interface TreatmentRecordPayload {
   queue_id?: number | string | null;
   bite_id?: number | string | null;
   treatment_plan?: string | null;
-  new_bite_date?: string | null;
-  new_bite_place?: string | null;
-  new_exposure_type?: string | null;
-  new_exposure_mode?: string | null;
-  new_severity?: string | null;
-  new_animal_type?: string | null;
-  new_animal_status?: string | null;
-  new_animal_available?: boolean | null;
-  new_site_washed?: boolean | null;
-  new_body_part?: string | null;
-  new_laterality?: string | null;
-  new_wound_description?: string | null;
-  clinical_assessment_confirmed?: boolean;
   consultation_date: string;
   consultation_time: string;
   mode_of_transaction: string;

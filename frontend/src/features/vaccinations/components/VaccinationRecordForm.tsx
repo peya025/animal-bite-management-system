@@ -16,6 +16,12 @@ import {
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
+const FORM3_ANIMAL_SPECIES_OPTIONS = [
+  { value: 'dog', label: 'Dog' },
+  { value: 'cat', label: 'Cat' },
+  { value: 'other', label: 'Other' },
+] as const;
+
 type ApiError = {
   response?: {
     data?: {
@@ -67,9 +73,10 @@ interface TreatmentFormData {
     na_ingestion: boolean;
   };
   body_part_affected_text: string;
-  animal_type: 'dog' | 'cat' | 'other' | '';
+  animal_type: string;
   animal_type_other: string;
   past_history_bite: 'yes' | 'no' | '';
+  past_bite_dates: string;
   pep_completed: 'yes' | 'no' | '';
 }
 
@@ -308,6 +315,7 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   animal_type: '',
   animal_type_other: '',
   past_history_bite: '',
+  past_bite_dates: '',
   pep_completed: '',
 };
 
@@ -350,15 +358,28 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   // ── Place of Exposure address location (same hook as Add Patient) ──────────
   const expLoc = useAddressLocation();
 
+  // Reset the location selector whenever a different patient/episode opens.
+  // The saved incident/intake place is loaded afterward; no clinic-wide default
+  // should overwrite the actual place of exposure.
+  useEffect(() => {
+    expLoc.setMunicipality('');
+    expLoc.setBarangay('');
+    expLoc.setUseManual(false);
+    expLoc.setManualMun('');
+    expLoc.setManualBrgy('');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, vacDraftPatientId, vacDraftBiteId]);
+
   // Sync composed address string → place_of_exposure field (Municipality + Barangay only)
   useEffect(() => {
-    const parts = [expLoc.brgyName, expLoc.munName].filter(Boolean);
-    if (parts.length > 0) {
-      setFormData(prev => ({ ...prev, place_of_exposure: parts.join(', ') }));
+    // Do not overwrite a saved barangay while municipality options are still
+    // hydrating. Commit the composed place only when both values are ready.
+    if (expLoc.brgyName && expLoc.munName) {
+      setFormData(prev => ({ ...prev, place_of_exposure: `${expLoc.brgyName}, ${expLoc.munName}` }));
     }
   }, [expLoc.munName, expLoc.brgyName]);
 
-  // Synchronize expLoc with existing place_of_exposure or default to Tagoloan for new cases
+  // Synchronize expLoc with the saved incident/intake place.
   useEffect(() => {
     if (!open) {
       expLoc.setMunicipality('');
@@ -391,11 +412,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           expLoc.setManualMun(parts[0]);
         }
       }
-    } else if (!rawPlace && !expLoc.municipality && !expLoc.manualMun && expLoc.municipalities.length > 0) {
-      const tagoloan = expLoc.municipalities.find(m => m.name.toLowerCase() === 'tagoloan');
-      if (tagoloan) {
-        expLoc.setMunicipality(tagoloan.code);
-      }
     }
   }, [open, expLoc.loadingMun, expLoc.municipalities, formData.place_of_exposure]);
 
@@ -420,9 +436,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   // For new incidents, all doses are is_completed=false, so form stays unlocked.
   const hasCompletedDoseInCurrentIncident = doses.some(dose => dose.is_completed || dose.inventory_linked);
   const isFormLocked = readOnly || hasCompletedDoseInCurrentIncident;
-  // Exposure classification belongs to the Doctor-confirmed Form 2 episode.
-  // Form 3 displays it but never lets the nurse reclassify the incident.
-  const clinicalAssessmentLocked = true;
+  // The nurse owns Form 3 exposure classification and anatomical details.
+  // They lock only after a dose has been administered or in read-only mode.
+  const clinicalAssessmentLocked = isFormLocked;
   
   const [showFullSchedule, setShowFullSchedule] = useState(false); // 8.1: expand to show Day 28 + Boosters
   const [additionalMeds, setAdditionalMeds] = useState<AdditionalMeds>({
@@ -447,6 +463,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   // Doctor's prescribed vaccine from Form 2 — hard-locks nurse's vaccine dropdown
   const [prescribedVaccineType, setPrescribedVaccineType] = useState('');
   const [latestConsultation, setLatestConsultation] = useState<any>(null);
+  const [patientReportedIntake, setPatientReportedIntake] = useState<any>(null);
   const [showHistoricalPEP, setShowHistoricalPEP] = useState(false);
 
   const isPhilHealthMember = Boolean(
@@ -547,6 +564,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       const bite = vacRes?.data?.active_bite_incident || cardRes?.data?.bite_incident || entry?.incident;
       const card = cardRes?.data?.existing_card;
+      const intake = cardRes?.data?.patient_reported_intake;
+      setPatientReportedIntake(intake || null);
       const consultation = cardRes?.data?.latest_consultation;
       setLatestConsultation(consultation || null);
       setDoctorPlanType(incidentRes?.data?.incident?.treatment_plan?.plan_type || consultation?.treatment_plan || bite?.treatment_plan?.plan_type || '');
@@ -564,7 +583,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       const day0Record = records.find((item) => item.dose_number === 0);
       const day0AdministeredDate = formatDateForInput(day0Record?.treatment_date || day0Record?.scheduled_date);
       const cardDate = formatDateForInput(card?.card_date);
-      const biteExposureDate = formatDateForInput(bite?.bite_date);
+      const biteExposureDate = formatDateForInput(bite?.bite_date || intake?.date_of_exposure || intake?.bite_date);
 
       // Date of Exposure is from bite incident (or fallback to card if any)
       const resolvedExposureDate = biteExposureDate || cardDate || '';
@@ -573,10 +592,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       const treatmentStartDate = day0AdministeredDate || cardDate || biteExposureDate || (readOnly ? '' : getLocalDateString());
 
       // 2. Set Form Metadata
-      const mode = card?.mode_of_exposure || bite?.mode_of_exposure || '';
-      const bodyPart = card?.body_part_exposed || bite?.body_part_exposed || '';
-      const animal = card?.animal_type || bite?.animal_type || '';
-      const animalOther = card?.animal_type_others || bite?.animal_type_others || '';
+      const mode = card?.mode_of_exposure || bite?.mode_of_exposure || intake?.reported_mode_of_exposure || intake?.exposure_type || '';
+      const bodyPart = card?.body_part_exposed || bite?.body_part_exposed || intake?.body_part_group || intake?.body_part_exposed || '';
+      const bodyPartDetail = bite?.body_part_detail || bite?.site_number || intake?.body_part_detail || intake?.wound_location || '';
+      const animal = card?.animal_type || bite?.animal_type || intake?.animal_species || intake?.animal_type || '';
+      const animalOther = card?.animal_type_others || bite?.animal_type_others || intake?.animal_species_other || intake?.animal_type_others || '';
       const resolvedReferredBy = consultation?.referred_by || consultation?.referred_from || card?.referred_by || bite?.referred_from || '';
 
       // Clinic hospital number configured in Clinic Information
@@ -590,10 +610,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         registry_no: prev.registry_no || card?.registry_no || bite?.case_number || '',
         hospital_no: card?.hospital_no || clinicHospitalNo || prev.hospital_no || '',
         referred_by: resolvedReferredBy || prev.referred_by || '',
-        exposure_category: card?.exposure_category || prev.exposure_category || '',
+        exposure_category: card?.exposure_category || bite?.exposure_category || prev.exposure_category || '',
         date_of_exposure: resolvedExposureDate || prev.date_of_exposure,
         date_treatment_started: treatmentStartDate || prev.date_treatment_started,
-        place_of_exposure: bite?.bite_place || prev.place_of_exposure,
+        place_of_exposure: bite?.bite_place || intake?.place_of_exposure || intake?.bite_place || prev.place_of_exposure,
         date: cardDate || day0AdministeredDate || prev.date || getLocalDateString(),
         mode_of_exposure: {
           nibbling_uncovered: mode === 'nibbling_uncovered_skin',
@@ -611,11 +631,24 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           other_parts:       bodyPart === 'other_parts',
           na_ingestion:      bodyPart === 'na_ingestion',
         },
-        body_part_affected_text: bodyPart === 'head_neck' ? 'Head and/or neck' : bodyPart === 'other_parts' ? 'Other parts of the body' : bodyPart === 'na_ingestion' ? 'N/A if Ingestion mode' : (bodyPart || ''),
-        animal_type: animal.toLowerCase() === 'dog' ? 'dog' : animal.toLowerCase() === 'cat' ? 'cat' : animal ? 'other' : prev.animal_type,
-        animal_type_other: animalOther || (animal && !['dog', 'cat'].includes(animal.toLowerCase()) ? animal : ''),
-        past_history_bite: card?.past_bite_history ? 'yes' : card ? 'no' : prev.past_history_bite,
-        pep_completed: card?.past_pep_completed ? 'yes' : card ? 'no' : prev.pep_completed,
+        body_part_affected_text: bodyPartDetail || '',
+        animal_type: FORM3_ANIMAL_SPECIES_OPTIONS.some((option) => option.value === animal.toLowerCase())
+          ? animal.toLowerCase()
+          : animal
+            ? 'other'
+            : prev.animal_type,
+        animal_type_other: animalOther || (animal && !FORM3_ANIMAL_SPECIES_OPTIONS.some((option) => option.value === animal.toLowerCase()) ? animal : ''),
+        past_history_bite: card
+          ? (card.past_bite_history ? 'yes' : 'no')
+          : (['yes', 'no'].includes(intake?.past_bite_history) ? intake.past_bite_history : prev.past_history_bite),
+        past_bite_dates: card?.past_bite_dates || intake?.past_bite_dates || prev.past_bite_dates,
+        pep_completed: card
+          ? (card.past_pep_completed ? 'yes' : 'no')
+          : intake?.prior_pep_status === 'completed'
+            ? 'yes'
+            : intake?.prior_pep_status === 'none'
+              ? 'no'
+              : prev.pep_completed,
       }));
 
       // 3. Map Doses cleanly
@@ -957,6 +990,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     if (formData.date_treatment_started && formData.date_treatment_started > today) {
       newFieldErrors.date_treatment_started = 'Date Treatment Started cannot be a future date.';
     }
+    if (!Object.values(formData.mode_of_exposure).some(Boolean)) {
+      newFieldErrors.mode_of_exposure = 'Please select at least one mode of exposure.';
+    }
+    if (!Object.values(formData.body_part_affected).some(Boolean) && !formData.body_part_affected_text.trim()) {
+      newFieldErrors.body_part_affected = 'Please select or specify the affected body part.';
+    }
+    if (!formData.animal_type) {
+      newFieldErrors.animal_type = 'Please select the animal type.';
+    } else if (formData.animal_type === 'other' && !formData.animal_type_other.trim()) {
+      newFieldErrors.animal_type_other = 'Please specify the other animal.';
+    }
 
     // Validate dose dates — only check doses the nurse is actually submitting now
     // (has vaccine_type + date set, not already completed).
@@ -969,7 +1013,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       const errorList = Object.values(newFieldErrors);
       setError(`Required: ${errorList.join(' • ')}`);
 
-      const fieldOrder = ['philhealth_pin', 'exposure_category', 'date_of_exposure'];
+      const fieldOrder = ['philhealth_pin', 'exposure_category', 'date_of_exposure', 'mode_of_exposure', 'body_part_affected', 'animal_type'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -1053,12 +1097,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         mode_of_exposure: Object.keys(formData.mode_of_exposure).filter(
           key => formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]
         ),
-        body_part_affected: formData.body_part_affected_text
-          ? [formData.body_part_affected_text]
-          : Object.keys(formData.body_part_affected).filter(
-              key => formData.body_part_affected[key as keyof typeof formData.body_part_affected]
-            ),
-        body_part_exposed: formData.body_part_affected_text || undefined,
+        body_part_affected: Object.keys(formData.body_part_affected).filter(
+          key => formData.body_part_affected[key as keyof typeof formData.body_part_affected]
+        ),
+        body_part_detail: formData.body_part_affected_text || null,
         animal_type: formData.animal_type || 'dog',
         animal_type_other: formData.animal_type === 'other' ? formData.animal_type_other : '',
         doses: filledDoses.map(d => ({
@@ -1600,45 +1642,29 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>3. Type of Animal</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-                <input
-                  type="radio"
-                  name="vr_animal_type"
-                  checked={formData.animal_type === 'dog'}
-                  onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'dog', animal_type_other: '' }))}
-                  disabled={clinicalAssessmentLocked}
-                  style={{ marginRight: 6 }}
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Dog</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-                <input
-                  type="radio"
-                  name="vr_animal_type"
-                  checked={formData.animal_type === 'cat'}
-                  onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'cat', animal_type_other: '' }))}
-                  disabled={clinicalAssessmentLocked}
-                  style={{ marginRight: 6 }}
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Cat</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-                <input
-                  type="radio"
-                  name="vr_animal_type"
-                  checked={formData.animal_type === 'other'}
-                  onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'other' }))}
-                  disabled={clinicalAssessmentLocked}
-                  style={{ marginRight: 6 }}
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Others:</span>
-              </label>
+              {FORM3_ANIMAL_SPECIES_OPTIONS.map(({ value, label }) => (
+                <label key={value} style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="vr_animal_type"
+                    checked={formData.animal_type === value}
+                    onChange={() => setFormData((prev) => ({
+                      ...prev,
+                      animal_type: value,
+                      animal_type_other: value === 'other' ? prev.animal_type_other : '',
+                    }))}
+                    disabled={clinicalAssessmentLocked}
+                    style={{ marginRight: 6 }}
+                  />
+                  <span style={{ fontSize: 13, color: '#374151' }}>{label}</span>
+                </label>
+              ))}
               {formData.animal_type === 'other' && (
                 <input
                   type="text"
                   value={formData.animal_type_other}
                   onChange={handleFieldChange('animal_type_other')}
-                  placeholder="Specify animal (e.g. Monkey, Bat, Rat)"
+                  placeholder="Specify the other animal species"
                   disabled={clinicalAssessmentLocked}
                   style={{
                     flex: 1,
@@ -1654,6 +1680,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             </div>
           </div>
         </div>
+        {patientReportedIntake && (
+          <p style={{ margin: '12px 0 0', padding: '8px 10px', borderRadius: 6, background: '#eff6ff', color: '#1e40af', fontSize: 11.5 }}>
+            Past-bite and PEP answers may be prefilled from the patient-reported mobile intake. Verify them before saving Form 3.
+          </p>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 24 }}>
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>4. Past History of animal bite</p>
@@ -1665,6 +1696,16 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 </label>
               ))}
             </div>
+            {formData.past_history_bite === 'yes' && (
+              <input
+                type="text"
+                value={formData.past_bite_dates}
+                onChange={handleFieldChange('past_bite_dates')}
+                placeholder="Approximate previous bite date(s)"
+                disabled={isFormLocked}
+                style={{ width: '100%', marginTop: 10, padding: '7px 10px', border: '1px solid var(--input-border)', borderRadius: 4, fontSize: 13 }}
+              />
+            )}
           </div>
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Was PEP Immunization completed?</p>

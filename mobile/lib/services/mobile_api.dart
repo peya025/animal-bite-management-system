@@ -8,6 +8,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../models/booking_draft.dart';
 import '../models/bite_intake_draft.dart';
+import '../models/bite_intake_contract.dart';
 import '../models/appointment_summary.dart';
 import '../models/app_notification.dart';
 import '../models/patient_profile.dart';
@@ -36,6 +37,7 @@ class MobileApi {
 
     return baseUrl;
   }
+
   static int get clinicId => int.parse(dotenv.env['CLINIC_ID'] ?? '1');
 
   static const _tokenKey = 'patient_account_token';
@@ -248,6 +250,12 @@ class MobileApi {
         .toList();
   }
 
+  Future<BiteIntakeContract> biteIntakeContract() async {
+    final data =
+        await _send('GET', '/bite-intake-schema') as Map<String, dynamic>;
+    return BiteIntakeContract.fromJson(data);
+  }
+
   Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
     final data = await _send(
       'POST',
@@ -336,7 +344,9 @@ class MobileApi {
   }
 
   Future<Map<String, dynamic>> vaccinationCard(int patientId) async {
-    final data = await _send('GET', '/patients/$patientId/vaccination-card') as Map<String, dynamic>;
+    final data =
+        await _send('GET', '/patients/$patientId/vaccination-card')
+            as Map<String, dynamic>;
     return data;
   }
 
@@ -364,10 +374,12 @@ class MobileApi {
     final targetId = id ?? clinicId;
     final rootUrl = _baseUrl.replaceAll('/api/mobile', '/api');
     try {
-      final response = await http.get(
-        Uri.parse('$rootUrl/clinics/$targetId/schedule-summary'),
-        headers: {'Accept': 'application/json'},
-      ).timeout(_requestTimeout);
+      final response = await http
+          .get(
+            Uri.parse('$rootUrl/clinics/$targetId/schedule-summary'),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(_requestTimeout);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -435,17 +447,25 @@ class MobileApi {
     }
 
     if (response.statusCode == 403) {
-      final msg = (decoded is Map<String, dynamic>) ? decoded['message']?.toString() : null;
-      throw ApiException(msg ?? 'You do not have permission to perform this action.');
+      final msg = (decoded is Map<String, dynamic>)
+          ? decoded['message']?.toString()
+          : null;
+      throw ApiException(
+        msg ?? 'You do not have permission to perform this action.',
+      );
     }
 
     if (response.statusCode == 404) {
-      final msg = (decoded is Map<String, dynamic>) ? decoded['message']?.toString() : null;
+      final msg = (decoded is Map<String, dynamic>)
+          ? decoded['message']?.toString()
+          : null;
       throw ApiException(msg ?? 'The requested clinic resource was not found.');
     }
 
     if (response.statusCode >= 500) {
-      throw const ApiException('Clinic server is temporarily unavailable. Please try again later.');
+      throw const ApiException(
+        'Clinic server is temporarily unavailable. Please try again later.',
+      );
     }
 
     if (decoded is Map<String, dynamic>) {
@@ -459,6 +479,8 @@ class MobileApi {
       throw ApiException(decoded['message']?.toString() ?? 'Request failed.');
     }
 
-    throw const ApiException('Could not complete request with the clinic server.');
+    throw const ApiException(
+      'Could not complete request with the clinic server.',
+    );
   }
 }

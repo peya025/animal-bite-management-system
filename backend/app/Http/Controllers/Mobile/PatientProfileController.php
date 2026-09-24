@@ -15,6 +15,17 @@ class PatientProfileController extends Controller
 {
     private function validatePatientPayload(Request $request, ?Patient $patient = null): array
     {
+        // Form 1 calls these fields sex and emergency_contact_phone in parts
+        // of the web client. Accept those aliases while returning the shared
+        // persisted representation used by both clients.
+        $request->merge([
+            'gender' => $request->input('gender', $request->input('sex')),
+            'emergency_contact_number' => $request->input(
+                'emergency_contact_number',
+                $request->input('emergency_contact_phone'),
+            ),
+        ]);
+
         $membershipService = app(PatientMembershipService::class);
 
         $patientData = $request->validate([

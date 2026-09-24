@@ -129,7 +129,8 @@ return new class extends Migration
                 'incident_time', 'laterality', 'wash_method', 'wash_duration_minutes',
                 'animal_available', 'animal_condition_reported', 'care_received',
                 'referral_facility', 'prior_rabies_vaccination', 'prior_vaccination_date',
-                'prior_vaccination_facility', 'submitted_at', 'checked_in_by', 'checked_in_at',
+                'prior_vaccination_facility',
+                'submitted_at', 'checked_in_by', 'checked_in_at',
                 'clinically_reviewed_by', 'clinically_reviewed_at',
             ]);
         });

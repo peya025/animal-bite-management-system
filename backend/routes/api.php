@@ -5,6 +5,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\BiteCaseController;
 use App\Http\Controllers\BiteIncidentIntakeController;
+use App\Http\Controllers\BiteIntakeSchemaController;
 use App\Http\Controllers\ClinicModuleConfigController;
 use App\Http\Controllers\ClinicSetupController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
@@ -128,6 +129,7 @@ Route::prefix('mobile')->group(function () {
         Route::get('/locations/context', [MobileLocationController::class, 'context']);
         Route::get('/locations/municipalities', [MobileLocationController::class, 'municipalities']);
         Route::get('/locations/barangays', [MobileLocationController::class, 'barangays']);
+        Route::get('/bite-intake-schema', BiteIntakeSchemaController::class);
 
         Route::get('/appointments', [MobileAppointmentController::class, 'index']);
         Route::post('/appointments', [MobileAppointmentController::class, 'store']);
@@ -154,6 +156,7 @@ Route::prefix('staff-invitations')->group(function () {
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
+    Route::get('/bite-intake-schema', BiteIntakeSchemaController::class);
     Route::get('/reports/registration', [\App\Http\Controllers\RegistrationReportController::class, 'index'])
         ->middleware('role:registration,admin,developer');
 

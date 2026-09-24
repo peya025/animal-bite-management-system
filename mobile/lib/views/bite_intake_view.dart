@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../models/bite_intake_draft.dart';
+import '../models/bite_intake_contract.dart';
 import '../models/bite_intake_route_args.dart';
 import '../services/api.dart';
 import '../services/psgc_service.dart';
@@ -12,62 +13,6 @@ import '../widgets/common/app_page_header.dart';
 import '../widgets/menu/menu_surface.dart';
 
 // ─── Form 3-aligned option sets ───────────────────────────────────────────────
-
-const _exposureTypeOptions = <String, String>{
-  'transdermal_bite': 'Transdermal bite',
-  'scratch_abrasion': 'Scratch / abrasion',
-  'nibbling_uncovered_skin': 'Nibbling / licking of uncovered skin',
-  'nibbling_broken_skin': 'Nibbling / licking of wounded skin',
-  'handling_ingestion_raw_meat': 'Handling / ingestion of raw infected meat',
-  'unsure': 'Unsure',
-};
-
-const _bodyPartOptions = <String, String>{
-  'head_neck': 'Head and/or neck',
-  'other_parts': 'Other parts of the body',
-  'na_ingestion': 'N/A — ingestion mode',
-};
-
-/// Standard anatomical wound locations used in animal bite treatment
-const _woundLocationOptions = <String, String>{
-  'face': 'Face',
-  'head': 'Head',
-  'neck': 'Neck',
-  'upper_arm': 'Upper arm',
-  'forearm': 'Forearm',
-  'hand': 'Hand / fingers',
-  'trunk': 'Trunk / torso',
-  'thigh': 'Thigh',
-  'leg': 'Leg / shin',
-  'foot': 'Foot / toes',
-  'multiple': 'Multiple sites',
-  'other': 'Other',
-};
-
-const _animalStatusOptions = <String, String>{
-  'owned': 'Owned',
-  'stray': 'Stray',
-  'unknown': 'Unknown',
-};
-
-const _animalTypeOptions = ['Dog', 'Cat', 'Bat', 'Monkey', 'Unknown', 'Others'];
-
-const _lateralityOptions = <String, String>{
-  'left': 'Left',
-  'right': 'Right',
-  'bilateral': 'Both sides',
-  'multiple': 'Multiple sites',
-  'not_applicable': 'Not applicable',
-  'unknown': 'Unsure',
-};
-
-const _washMethodOptions = <String, String>{
-  'soap_and_water': 'Soap and running water',
-  'water_only': 'Water only',
-  'antiseptic': 'Antiseptic',
-  'other': 'Other',
-  'unknown': 'Unsure',
-};
 
 // ─── View ─────────────────────────────────────────────────────────────────────
 
@@ -85,11 +30,13 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   final _biteDate = TextEditingController();
   final _purokController = TextEditingController();
   final _animalTypeOthers = TextEditingController();
+  final _bodyPartDetail = TextEditingController();
   final _description = TextEditingController();
   final _washDuration = TextEditingController();
   final _careReceived = TextEditingController();
   final _referralFacility = TextEditingController();
   final _priorVaccinationFacility = TextEditingController();
+  final _pastBiteDates = TextEditingController();
 
   late DateTime _selectedBiteDate;
   TimeOfDay? _incidentTime;
@@ -107,12 +54,11 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
 
   // Incident
   String? _exposureType;
-  String? _bodyPartExposed;
-  String? _woundLocation;
+  String? _bodyPartGroup;
   String? _laterality;
 
   // Animal
-  String _animalType = 'Dog';
+  String _animalType = 'dog';
   String? _animalStatus;
   bool? _animalAvailable;
   String? _animalConditionReported;
@@ -120,7 +66,9 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   // Wound care
   bool? _siteWashed;
   String? _washMethod;
-  String? _priorRabiesVaccination;
+  String? _pastBiteHistory;
+  String? _priorPepStatus;
+  BiteIntakeContract _contract = BiteIntakeContract.fallback;
 
   bool _submitting = false;
   String? _error;
@@ -130,6 +78,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
     super.initState();
     _selectedBiteDate = DateUtils.dateOnly(DateTime.now());
     _biteDate.text = _formatDate(_selectedBiteDate);
+    _loadContract();
     _loadMunicipalities();
   }
 
@@ -138,11 +87,13 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
     _biteDate.dispose();
     _purokController.dispose();
     _animalTypeOthers.dispose();
+    _bodyPartDetail.dispose();
     _description.dispose();
     _washDuration.dispose();
     _careReceived.dispose();
     _referralFacility.dispose();
     _priorVaccinationFacility.dispose();
+    _pastBiteDates.dispose();
     super.dispose();
   }
 
@@ -151,6 +102,22 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   String? _optional(TextEditingController c) {
     final v = c.text.trim();
     return v.isEmpty ? null : v;
+  }
+
+  Future<void> _loadContract() async {
+    try {
+      final contract = await api.biteIntakeContract() as BiteIntakeContract;
+      if (!mounted) return;
+      setState(() {
+        _contract = contract;
+        if (!_contract.animalSpecies.containsKey(_animalType)) {
+          _animalType = 'unknown';
+        }
+      });
+    } catch (_) {
+      // The local v1 fallback keeps booking available during a temporary
+      // schema endpoint outage.
+    }
   }
 
   Future<void> _loadMunicipalities() async {
@@ -249,7 +216,15 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       return;
     }
     if (_animalStatus == null) {
-      setState(() => _error = 'Please select the animal status.');
+      setState(() => _error = 'Please select the animal ownership.');
+      return;
+    }
+    if (_bodyPartGroup == null) {
+      setState(() => _error = 'Please select the body-part group.');
+      return;
+    }
+    if (_animalType == 'other' && _animalTypeOthers.text.trim().isEmpty) {
+      setState(() => _error = 'Please specify the other animal species.');
       return;
     }
     if (_siteWashed == true && _washMethod == null) {
@@ -257,36 +232,43 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       return;
     }
 
-    final resolvedAnimalType =
-        _animalType == 'Others' && _animalTypeOthers.text.trim().isNotEmpty
-        ? _animalTypeOthers.text.trim()
-        : _animalType;
-
     final draft = BiteIntakeDraft(
-      biteDate: _selectedBiteDate,
-      incidentTime: _incidentTimeValue,
+      schemaVersion: _contract.version,
+      dateOfExposure: _selectedBiteDate,
+      timeOfExposure: _incidentTimeValue,
+      placeOfExposure: _buildBitePlace(),
       siteWashed: _siteWashed!,
       washMethod: _siteWashed == true ? _washMethod : null,
-      washDurationMinutes: int.tryParse(_washDuration.text.trim()),
-      exposureType: _exposureType!,
-      animalType: resolvedAnimalType,
-      animalTypeOthers: _animalType == 'Others'
+      washDurationMinutes: _siteWashed == true
+          ? int.tryParse(_washDuration.text.trim())
+          : null,
+      reportedModeOfExposure: _exposureType!,
+      animalSpecies: _animalType,
+      animalSpeciesOther: _animalType == 'other'
           ? _optional(_animalTypeOthers)
           : null,
-      animalStatus: _animalStatus!,
-      animalCaptured: null,
-      animalAvailable: _animalAvailable,
+      animalOwnership: _animalStatus!,
+      animalAvailableForObservation: _animalAvailable,
       animalConditionReported: _animalConditionReported,
-      bitePlace: _buildBitePlace(),
-      woundLocation: _woundLocation,
-      bodyPartExposed: _bodyPartExposed,
+      bodyPartGroup: _bodyPartGroup,
+      bodyPartDetail: _optional(_bodyPartDetail),
       laterality: _laterality,
-      patientDescription: _optional(_description),
+      incidentNarrative: _optional(_description),
       careReceived: _optional(_careReceived),
-      referralFacility: _optional(_referralFacility),
-      priorRabiesVaccination: _priorRabiesVaccination,
-      priorVaccinationDate: _priorVaccinationDate,
-      priorVaccinationFacility: _optional(_priorVaccinationFacility),
+      referralSource: _optional(_referralFacility),
+      pastBiteHistory: _pastBiteHistory,
+      pastBiteDates: _pastBiteHistory == 'yes'
+          ? _optional(_pastBiteDates)
+          : null,
+      priorPepStatus: _priorPepStatus,
+      priorPepDate:
+          _priorPepStatus == 'completed' || _priorPepStatus == 'incomplete'
+          ? _priorVaccinationDate
+          : null,
+      priorPepFacility:
+          _priorPepStatus == 'completed' || _priorPepStatus == 'incomplete'
+          ? _optional(_priorVaccinationFacility)
+          : null,
     );
 
     final confirmed = await showDialog<bool>(
@@ -295,9 +277,10 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
         title: const Text('Review patient-reported intake'),
         content: Text(
           'Incident: ${_formatDate(_selectedBiteDate)}${_incidentTimeValue == null ? '' : ' at $_incidentTimeValue'}\n'
-          'Exposure: ${_exposureTypeOptions[_exposureType]}\n'
-          'Animal: $resolvedAnimalType (${_animalStatusOptions[_animalStatus]})\n'
-          'Wound location: ${_woundLocationOptions[_woundLocation] ?? 'Not provided'}\n\n'
+          'Exposure: ${_contract.exposureModes[_exposureType]}\n'
+          'Animal: ${_contract.animalSpecies[_animalType]} (${_contract.animalOwnership[_animalStatus]})\n'
+          'Body site: ${_contract.bodyPartGroups[_bodyPartGroup]}'
+          '${_bodyPartDetail.text.trim().isEmpty ? '' : ' - ${_bodyPartDetail.text.trim()}'}\n\n'
           'These are patient-reported details only. A clinic nurse or doctor will assess and confirm the diagnosis, exposure category, and treatment.',
         ),
         actions: [
@@ -374,8 +357,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                   children: [
                     AppPageHeader(
                       title: 'Bite incident intake',
-                      subtitle:
-                          'Patient-reported details — reviewed by clinic nurse.',
+                      subtitle: _contract.notice,
                       onBack: () => Navigator.of(context).pop(),
                     ),
                     const SizedBox(height: 20),
@@ -588,7 +570,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
 
                           // Mode of exposure
                           _label('Mode of exposure *'),
-                          ..._exposureTypeOptions.entries.map(
+                          ..._contract.exposureModes.entries.map(
                             (opt) => RadioListTile<String>(
                               value: opt.key,
                               groupValue: _exposureType,
@@ -607,11 +589,11 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                           const SizedBox(height: 14),
 
                           // Body part
-                          _label('Body part affected'),
-                          ..._bodyPartOptions.entries.map(
+                          _label('Body-part group *'),
+                          ..._contract.bodyPartGroups.entries.map(
                             (opt) => RadioListTile<String>(
                               value: opt.key,
-                              groupValue: _bodyPartExposed,
+                              groupValue: _bodyPartGroup,
                               title: Text(
                                 opt.value,
                                 style: const TextStyle(fontSize: 13),
@@ -621,37 +603,51 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                               activeColor: AppColors.primary,
                               onChanged: _submitting
                                   ? null
-                                  : (v) => setState(() => _bodyPartExposed = v),
+                                  : (v) => setState(() => _bodyPartGroup = v),
                             ),
                           ),
                           const SizedBox(height: 14),
 
                           // Wound location — dropdown
-                          _label('Wound location'),
-                          DropdownButtonFormField<String>(
-                            initialValue: _woundLocation,
-                            hint: const Text('Select wound location'),
-                            items: _woundLocationOptions.entries
-                                .map(
-                                  (e) => DropdownMenuItem(
-                                    value: e.key,
-                                    child: Text(
-                                      e.value,
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: _submitting
-                                ? null
-                                : (v) => setState(() => _woundLocation = v),
+                          _label('Specific body part or wound location'),
+                          TextFormField(
+                            controller: _bodyPartDetail,
+                            enabled: !_submitting,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: const InputDecoration(
+                              hintText: 'e.g. palm, index finger, lower leg',
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _readField(
+                                  'Date of birth',
+                                  patient.dateOfBirth,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _readField('Sex', patient.gender),
+                              ),
+                            ],
+                          ),
+                          _readField('Contact number', patient.contactNumber),
+                          _readField('Address', patient.address),
+                          const Text(
+                            'This information comes from Form 1. Update the patient profile if it is incorrect; it is not copied into the bite intake.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.gray600,
+                              height: 1.4,
+                            ),
                           ),
                           const SizedBox(height: 14),
                           _label('Side of body'),
                           DropdownButtonFormField<String>(
                             initialValue: _laterality,
                             hint: const Text('Select side'),
-                            items: _lateralityOptions.entries
+                            items: _contract.laterality.entries
                                 .map(
                                   (e) => DropdownMenuItem(
                                     value: e.key,
@@ -682,39 +678,40 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
 
                           _label('Type of animal *'),
                           DropdownButtonFormField<String>(
+                            isExpanded: true,
                             initialValue: _animalType,
-                            items: _animalTypeOptions
+                            items: _contract.animalSpecies.entries
                                 .map(
-                                  (type) => DropdownMenuItem(
-                                    value: type,
-                                    child: Text(type),
+                                  (entry) => DropdownMenuItem(
+                                    value: entry.key,
+                                    child: Text(entry.value),
                                   ),
                                 )
                                 .toList(),
                             onChanged: _submitting
                                 ? null
                                 : (v) => setState(
-                                    () => _animalType = v ?? 'Unknown',
+                                    () => _animalType = v ?? 'unknown',
                                   ),
                           ),
-                          if (_animalType == 'Others') ...[
+                          if (_animalType == 'other') ...[
                             const SizedBox(height: 6),
                             TextFormField(
                               controller: _animalTypeOthers,
                               enabled: !_submitting,
                               decoration: const InputDecoration(
-                                hintText: 'e.g. Cat, monkey, bat...',
+                                hintText: 'Specify the animal species',
                               ),
                               textCapitalization: TextCapitalization.sentences,
                             ),
                           ],
                           const SizedBox(height: 14),
 
-                          _label('Animal status *'),
+                          _label('Animal ownership *'),
                           DropdownButtonFormField<String>(
                             initialValue: _animalStatus,
                             hint: const Text('Select status'),
-                            items: _animalStatusOptions.entries
+                            items: _contract.animalOwnership.entries
                                 .map(
                                   (e) => DropdownMenuItem(
                                     value: e.key,
@@ -728,8 +725,9 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                             onChanged: _submitting
                                 ? null
                                 : (v) => setState(() => _animalStatus = v),
-                            validator: (v) =>
-                                v == null ? 'Animal status is required' : null,
+                            validator: (v) => v == null
+                                ? 'Animal ownership is required'
+                                : null,
                           ),
                           const SizedBox(height: 8),
 
@@ -750,24 +748,14 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                           DropdownButtonFormField<String>(
                             initialValue: _animalConditionReported,
                             hint: const Text('Select condition'),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'apparently_healthy',
-                                child: Text('Apparently healthy'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'sick',
-                                child: Text('Sick or behaving unusually'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'dead',
-                                child: Text('Dead'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'unknown',
-                                child: Text('Unknown'),
-                              ),
-                            ],
+                            items: _contract.animalConditions.entries
+                                .map(
+                                  (entry) => DropdownMenuItem(
+                                    value: entry.key,
+                                    child: Text(entry.value),
+                                  ),
+                                )
+                                .toList(),
                             onChanged: _submitting
                                 ? null
                                 : (v) => setState(
@@ -814,7 +802,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                             DropdownButtonFormField<String>(
                               initialValue: _washMethod,
                               hint: const Text('Select washing method'),
-                              items: _washMethodOptions.entries
+                              items: _contract.washMethods.entries
                                   .map(
                                     (e) => DropdownMenuItem(
                                       value: e.key,
@@ -900,30 +888,54 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                             textCapitalization: TextCapitalization.words,
                           ),
                           const SizedBox(height: 14),
-                          _label('Previous rabies vaccination'),
+                          _label('Previous animal-bite history'),
                           DropdownButtonFormField<String>(
-                            initialValue: _priorRabiesVaccination,
+                            initialValue: _pastBiteHistory,
                             hint: const Text('Select answer'),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'yes',
-                                child: Text('Yes'),
-                              ),
-                              DropdownMenuItem(value: 'no', child: Text('No')),
-                              DropdownMenuItem(
-                                value: 'unsure',
-                                child: Text('Unsure'),
-                              ),
-                            ],
+                            items: _contract.pastBiteHistory.entries
+                                .map(
+                                  (entry) => DropdownMenuItem(
+                                    value: entry.key,
+                                    child: Text(entry.value),
+                                  ),
+                                )
+                                .toList(),
                             onChanged: _submitting
                                 ? null
-                                : (v) => setState(
-                                    () => _priorRabiesVaccination = v,
-                                  ),
+                                : (v) => setState(() => _pastBiteHistory = v),
                           ),
-                          if (_priorRabiesVaccination == 'yes') ...[
+                          if (_pastBiteHistory == 'yes') ...[
                             const SizedBox(height: 14),
-                            _label('Approximate date of previous vaccination'),
+                            _label('Approximate previous bite date or dates'),
+                            TextFormField(
+                              controller: _pastBiteDates,
+                              enabled: !_submitting,
+                              decoration: const InputDecoration(
+                                hintText: 'e.g. June 2024',
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          _label('Previous PEP / rabies vaccination'),
+                          DropdownButtonFormField<String>(
+                            initialValue: _priorPepStatus,
+                            hint: const Text('Select status'),
+                            items: _contract.priorPepStatuses.entries
+                                .map(
+                                  (entry) => DropdownMenuItem(
+                                    value: entry.key,
+                                    child: Text(entry.value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: _submitting
+                                ? null
+                                : (v) => setState(() => _priorPepStatus = v),
+                          ),
+                          if (_priorPepStatus == 'completed' ||
+                              _priorPepStatus == 'incomplete') ...[
+                            const SizedBox(height: 14),
+                            _label('Approximate date of previous PEP'),
                             InkWell(
                               onTap: _submitting
                                   ? null
@@ -940,7 +952,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                               ),
                             ),
                             const SizedBox(height: 14),
-                            _label('Previous vaccination facility'),
+                            _label('Previous PEP facility'),
                             TextFormField(
                               controller: _priorVaccinationFacility,
                               enabled: !_submitting,

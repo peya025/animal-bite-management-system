@@ -179,7 +179,7 @@ class TriageDoctorAndReExposureTest extends TestCase
 
         Sanctum::actingAs($doctor);
 
-        // Doctor fills Form 2
+        // Doctor fills Form 2 without duplicating the nurse-owned exposure assessment.
         $response = $this->postJson('/api/treatment-records', [
             'patient_id' => $patient->patient_id,
             'queue_id' => $queue->queue_id,
@@ -190,16 +190,6 @@ class TriageDoctorAndReExposureTest extends TestCase
             'consultation_types' => ['consultation'],
             'chief_complaints' => 'Dog bite on left arm',
             'diagnosis' => 'Category III dog bite',
-            'new_bite_date' => Carbon::today()->toDateString(),
-            'new_exposure_type' => 'bite',
-            'new_exposure_mode' => 'transdermal_bite',
-            'new_severity' => 'moderate',
-            'new_animal_type' => 'dog',
-            'new_animal_status' => 'owned',
-            'new_site_washed' => true,
-            'new_body_part' => 'left arm',
-            'new_laterality' => 'left',
-            'clinical_assessment_confirmed' => true,
         ]);
 
         $response->assertStatus(201);
@@ -228,13 +218,14 @@ class TriageDoctorAndReExposureTest extends TestCase
         $incident = BiteIncident::findOrFail($queue->bite_id);
         $this->assertNotNull($incident->confirmed_at);
         $this->assertSame($doctor->id, $incident->confirmed_by);
-        $this->assertSame('transdermal_bite', $incident->exposure_mode);
+        $this->assertNull($incident->exposure_mode);
+        $this->assertSame('unassessed', $incident->severity);
 
         $this->getJson("/api/tagoloan-treatment-cards/patient/{$patient->patient_id}?bite_id={$incident->bite_id}")
             ->assertOk()
             ->assertJsonPath('form3_ready', true)
-            ->assertJsonPath('bite_incident.mode_of_exposure', 'transdermal_bite')
-            ->assertJsonPath('bite_incident.exposure_category', 'II');
+            ->assertJsonPath('bite_incident.mode_of_exposure', null)
+            ->assertJsonPath('bite_incident.exposure_category', null);
 
         $nurse = $this->createStaff($clinic, 'treatment');
         Sanctum::actingAs($nurse);
@@ -242,10 +233,13 @@ class TriageDoctorAndReExposureTest extends TestCase
             'patient_id' => $patient->patient_id,
             'bite_id' => $incident->bite_id,
             'card_date' => Carbon::today()->toDateString(),
-            // Form 3 cannot override these Doctor-confirmed values.
+            // The nurse owns these Form 3 exposure values.
             'exposure_category' => 'III',
+            'date_of_exposure' => Carbon::today()->subDay()->toDateString(),
+            'place_of_exposure' => 'Matangad, Gitagum',
             'mode_of_exposure' => 'scratch_abrasion',
             'body_part_exposed' => 'right foot',
+            'body_part_detail' => 'Right ankle',
             'animal_type' => 'cat',
             'past_bite_history' => false,
             'past_pep_completed' => false,
@@ -255,10 +249,20 @@ class TriageDoctorAndReExposureTest extends TestCase
             'clinic_id' => $clinic->id,
             'patient_id' => $patient->patient_id,
             'bite_id' => $incident->bite_id,
-            'exposure_category' => 'II',
-            'mode_of_exposure' => 'transdermal_bite',
-            'body_part_exposed' => 'left arm',
-            'animal_type' => 'dog',
+            'exposure_category' => 'III',
+            'mode_of_exposure' => 'scratch_abrasion',
+            'body_part_exposed' => 'right foot',
+            'animal_type' => 'cat',
+        ]);
+        $this->assertDatabaseHas('bite_incidents', [
+            'bite_id' => $incident->bite_id,
+            'severity' => 'severe',
+            'exposure_mode' => 'scratch_abrasion',
+            'exposure_type' => 'scratch',
+            'body_part_exposed' => 'right foot',
+            'site_number' => 'Right ankle',
+            'bite_place' => 'Matangad, Gitagum',
+            'animal_type' => 'cat',
         ]);
     }
 
@@ -343,7 +347,8 @@ class TriageDoctorAndReExposureTest extends TestCase
             'new_animal_type' => 'cat',
             'new_animal_status' => 'owned',
             'new_site_washed' => true,
-            'new_body_part' => 'right hand',
+            'new_body_part_group' => 'upper_extremities',
+            'new_body_part_detail' => 'Right hand',
             'new_laterality' => 'right',
             'clinical_assessment_confirmed' => true,
         ]);

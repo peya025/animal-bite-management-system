@@ -51,12 +51,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     addendumSuccess,
     treatmentPlan,
     setTreatmentPlan,
-    newBiteData,
-    setNewBiteData,
     patientReportedIntake,
-    requiresIncidentConfirmation,
-    clinicalAssessmentConfirmed,
-    setClinicalAssessmentConfirmed,
     checkedDiagnoses,
     checkedHistory,
     fieldErrors,
@@ -151,12 +146,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         {/* SECTION 2: CHU / RHU Personnel Only */}
         <ExposureAssessmentSection
           patientReportedIntake={patientReportedIntake}
-          data={newBiteData}
-          disabled={isFormDisabled}
-          required={requiresIncidentConfirmation}
-          confirmed={clinicalAssessmentConfirmed}
-          onChange={setNewBiteData}
-          onConfirm={setClinicalAssessmentConfirmed}
         />
 
         {/* SECTION 2: CHU / RHU Personnel Only */}

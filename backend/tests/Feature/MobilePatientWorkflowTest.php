@@ -226,6 +226,86 @@ class MobilePatientWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_mobile_intake_uses_the_versioned_patient_safe_contract_and_rejects_clinical_fields(): void
+    {
+        $clinic = Clinic::create(['name' => 'Test Clinic']);
+        $account = $this->account();
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'first_name' => 'Juan',
+            'last_name' => 'Dela Cruz',
+            'gender' => 'male',
+            'registration_source' => 'mobile',
+        ]);
+        $account->patients()->attach($patient, ['relationship' => 'self', 'status' => 'verified']);
+        Sanctum::actingAs($account);
+
+        $this->getJson('/api/mobile/bite-intake-schema')
+            ->assertOk()
+            ->assertJsonPath('version', '1.0')
+            ->assertJsonPath('source', 'web_forms_1_2_3')
+            ->assertJsonPath('options.body_part_group.upper_extremities', 'Upper extremities (arm or hand)')
+            ->assertJsonPath('options.animal_species.bat', 'Bat');
+
+        $booking = [
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date' => now()->addDay()->toDateString(),
+        ];
+        $intake = [
+            'schema_version' => '1.0',
+            'date_of_exposure' => now()->toDateString(),
+            'time_of_exposure' => '08:30',
+            'place_of_exposure' => 'Poblacion, Tagoloan',
+            'reported_mode_of_exposure' => 'transdermal_bite',
+            'body_part_group' => 'upper_extremities',
+            'body_part_detail' => 'Left index finger',
+            'laterality' => 'left',
+            'animal_species' => 'bat',
+            'animal_ownership' => 'unknown',
+            'animal_available_for_observation' => false,
+            'animal_condition_reported' => 'unknown',
+            'site_washed' => true,
+            'wash_method' => 'soap_and_water',
+            'wash_duration_minutes' => 15,
+            'incident_narrative' => 'Patient saw a small puncture.',
+            'past_bite_history' => 'yes',
+            'past_bite_dates' => 'June 2024',
+            'prior_pep_status' => 'completed',
+            'prior_pep_date' => now()->subYear()->toDateString(),
+            'prior_pep_facility' => 'Tagoloan ABTC',
+        ];
+
+        $response = $this->postJson('/api/mobile/appointments', [
+            ...$booking,
+            'intake' => $intake,
+        ])->assertCreated()
+            ->assertJsonPath('bite_intake.schema_version', '1.0')
+            ->assertJsonPath('bite_intake.reported_mode_of_exposure', 'transdermal_bite')
+            ->assertJsonPath('bite_intake.body_part_group', 'upper_extremities')
+            ->assertJsonPath('bite_intake.body_part_detail', 'Left index finger')
+            ->assertJsonPath('bite_intake.animal_species', 'bat')
+            ->assertJsonPath('bite_intake.prior_pep_status', 'completed');
+
+        $this->assertDatabaseHas('bite_incident_intakes', [
+            'intake_id' => $response->json('bite_intake.intake_id'),
+            'bite_date' => now()->toDateString(),
+            'exposure_type' => 'transdermal_bite',
+            'body_part_exposed' => 'upper_extremities',
+            'wound_location' => 'Left index finger',
+            'animal_type' => 'bat',
+            'animal_status' => 'unknown',
+            'past_bite_history' => 'yes',
+            'prior_pep_status' => 'completed',
+        ]);
+
+        $this->postJson('/api/mobile/appointments', [
+            ...$booking,
+            'intake' => [...$intake, 'diagnosis' => 'Rabies exposure'],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('intake.diagnosis');
+    }
+
     public function test_mobile_bite_intake_requires_registration_check_in_before_it_reaches_doctor_queue(): void
     {
         $clinic = Clinic::create(['name' => 'Test Clinic']);

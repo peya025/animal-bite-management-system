@@ -6,6 +6,7 @@ use App\Models\BiteIncident;
 use App\Models\BiteIncidentIntake;
 use App\Models\Queue;
 use App\Models\TagoloanTreatmentCard;
+use App\Support\BiteIntakeContract;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
@@ -36,6 +37,8 @@ class AuditBiteIntakeCentralization extends Command
                 } elseif ($intake->bite_id && $appointmentBiteId && (int) $intake->bite_id !== (int) $appointmentBiteId) {
                     $rows[] = $this->row('intake', $intake->intake_id, 'conflicting_bite_link', 'review', 'Intake and appointment reference different episodes.');
                 }
+
+                $this->auditContractValues($intake, $rows);
             }
         }, 'intake_id');
 
@@ -87,5 +90,51 @@ class AuditBiteIntakeCentralization extends Command
     private function row(string $entity, int $id, string $issue, string $status, string $detail): array
     {
         return compact('entity', 'id', 'issue', 'status', 'detail');
+    }
+
+    private function auditContractValues(BiteIncidentIntake $intake, array &$rows): void
+    {
+        $checks = [
+            'exposure_type' => BiteIntakeContract::EXPOSURE_MODES,
+            'body_part_exposed' => BiteIntakeContract::BODY_PART_GROUPS,
+            'animal_type' => BiteIntakeContract::ANIMAL_SPECIES,
+            'animal_status' => BiteIntakeContract::ANIMAL_OWNERSHIP,
+            'laterality' => BiteIntakeContract::LATERALITY,
+            'past_bite_history' => BiteIntakeContract::PAST_BITE_HISTORY,
+            'prior_pep_status' => BiteIntakeContract::PRIOR_PEP_STATUSES,
+        ];
+
+        foreach ($checks as $field => $allowed) {
+            $value = $intake->{$field};
+            if ($value !== null && $value !== '' && !array_key_exists((string) $value, $allowed)) {
+                $rows[] = $this->row(
+                    'intake',
+                    $intake->intake_id,
+                    'invalid_'.$field,
+                    'review',
+                    "Value '{$value}' is outside bite intake contract v".BiteIntakeContract::VERSION.'.',
+                );
+            }
+        }
+
+        if (($intake->schema_version ?? 'legacy') !== BiteIntakeContract::VERSION) {
+            $rows[] = $this->row(
+                'intake',
+                $intake->intake_id,
+                'legacy_schema_version',
+                'review',
+                'Legacy intake retained; map only after staff review when values are ambiguous.',
+            );
+        }
+
+        if ($intake->animal_type === 'other' && !$intake->animal_type_others) {
+            $rows[] = $this->row(
+                'intake',
+                $intake->intake_id,
+                'missing_other_animal_detail',
+                'review',
+                'Animal species is Other but no detail was supplied.',
+            );
+        }
     }
 }

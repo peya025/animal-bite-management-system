@@ -75,9 +75,12 @@ interface TreatmentFormData {
   body_part_affected_text: string;
   animal_type: string;
   animal_type_other: string;
-  past_history_bite: 'yes' | 'no' | '';
+  animal_status: 'owned' | 'stray' | 'unknown' | '';
+  animal_available: 'yes' | 'no' | 'unknown' | '';
+  animal_condition: 'healthy' | 'sick' | 'died' | 'unknown' | '';
+  past_history_bite: 'yes' | 'no' | 'unsure' | '';
   past_bite_dates: string;
-  pep_completed: 'yes' | 'no' | '';
+  pep_completed: 'completed' | 'incomplete' | 'none' | 'unsure' | 'yes' | 'no' | '';
 }
 
 interface VaccinationDose {
@@ -314,6 +317,9 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   body_part_affected_text: '',
   animal_type: '',
   animal_type_other: '',
+  animal_status: 'unknown',
+  animal_available: 'unknown',
+  animal_condition: 'unknown',
   past_history_bite: '',
   past_bite_dates: '',
   pep_completed: '',
@@ -638,17 +644,22 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             ? 'other'
             : prev.animal_type,
         animal_type_other: animalOther || (animal && !FORM3_ANIMAL_SPECIES_OPTIONS.some((option) => option.value === animal.toLowerCase()) ? animal : ''),
+        animal_status: (bite?.animal_status || intake?.animal_ownership || intake?.animal_status || prev.animal_status || 'unknown') as any,
+        animal_available: (bite?.animal_available != null
+          ? (bite.animal_available ? 'yes' : 'no')
+          : (intake?.animal_available != null
+            ? (intake.animal_available ? 'yes' : 'no')
+            : (prev.animal_available || 'unknown'))) as any,
+        animal_condition: (bite?.animal_observation_status
+          ? (bite.animal_observation_status === 'apparently_healthy' ? 'healthy' : (bite.animal_observation_status === 'dead' ? 'died' : bite.animal_observation_status))
+          : (intake?.animal_condition_reported === 'apparently_healthy' ? 'healthy' : (intake?.animal_condition_reported === 'dead' ? 'died' : (bite?.animal_condition_reported || intake?.animal_condition_reported || prev.animal_condition || 'unknown')))) as any,
         past_history_bite: card
           ? (card.past_bite_history ? 'yes' : 'no')
-          : (['yes', 'no'].includes(intake?.past_bite_history) ? intake.past_bite_history : prev.past_history_bite),
+          : (['yes', 'no', 'unsure'].includes(intake?.past_bite_history) ? intake.past_bite_history : prev.past_history_bite),
         past_bite_dates: card?.past_bite_dates || intake?.past_bite_dates || prev.past_bite_dates,
         pep_completed: card
-          ? (card.past_pep_completed ? 'yes' : 'no')
-          : intake?.prior_pep_status === 'completed'
-            ? 'yes'
-            : intake?.prior_pep_status === 'none'
-              ? 'no'
-              : prev.pep_completed,
+          ? (card.past_pep_completed ? 'completed' : (intake?.prior_pep_status || 'none'))
+          : (intake?.prior_pep_status || prev.pep_completed || ''),
       }));
 
       // 3. Map Doses cleanly
@@ -1103,6 +1114,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         body_part_detail: formData.body_part_affected_text || null,
         animal_type: formData.animal_type || 'dog',
         animal_type_other: formData.animal_type === 'other' ? formData.animal_type_other : '',
+        animal_status: formData.animal_status || 'unknown',
+        animal_available: formData.animal_available || 'unknown',
+        animal_condition: formData.animal_condition || 'unknown',
         doses: filledDoses.map(d => ({
           period: d.period,
           route: d.route || null,
@@ -1640,7 +1654,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
 
           <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>3. Type of Animal</p>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>3. Animal Details & Observation Status</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
               {FORM3_ANIMAL_SPECIES_OPTIONS.map(({ value, label }) => (
                 <label key={value} style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
@@ -1678,6 +1692,89 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 />
               )}
             </div>
+
+            <div style={{ marginTop: 10, padding: '12px 14px', background: 'var(--bg-secondary, #f8fafc)', borderRadius: 6, border: '1px solid var(--input-border, #e2e8f0)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>
+                    Animal Ownership
+                  </span>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {[
+                      { value: 'owned', label: 'Owned' },
+                      { value: 'stray', label: 'Stray' },
+                      { value: 'unknown', label: 'Unknown' },
+                    ].map(opt => (
+                      <label key={opt.value} style={{ display: 'flex', alignItems: 'center', cursor: clinicalAssessmentLocked ? 'default' : 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="vr_animal_status"
+                          value={opt.value}
+                          checked={formData.animal_status === opt.value}
+                          onChange={handleFieldChange('animal_status')}
+                          disabled={clinicalAssessmentLocked}
+                          style={{ marginRight: 5 }}
+                        />
+                        <span style={{ fontSize: 12, color: '#374151' }}>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>
+                    Available for 14-day Observation?
+                  </span>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {[
+                      { value: 'yes', label: 'Yes' },
+                      { value: 'no', label: 'No' },
+                      { value: 'unknown', label: 'Unknown' },
+                    ].map(opt => (
+                      <label key={opt.value} style={{ display: 'flex', alignItems: 'center', cursor: clinicalAssessmentLocked ? 'default' : 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="vr_animal_available"
+                          value={opt.value}
+                          checked={formData.animal_available === opt.value}
+                          onChange={handleFieldChange('animal_available')}
+                          disabled={clinicalAssessmentLocked}
+                          style={{ marginRight: 5 }}
+                        />
+                        <span style={{ fontSize: 12, color: '#374151' }}>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>
+                    Animal Condition
+                  </span>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {[
+                      { value: 'healthy', label: 'Apparently Healthy' },
+                      { value: 'sick', label: 'Sick' },
+                      { value: 'died', label: 'Dead / Killed' },
+                      { value: 'unknown', label: 'Unknown' },
+                    ].map(opt => (
+                      <label key={opt.value} style={{ display: 'flex', alignItems: 'center', cursor: clinicalAssessmentLocked ? 'default' : 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="vr_animal_condition"
+                          value={opt.value}
+                          checked={formData.animal_condition === opt.value}
+                          onChange={handleFieldChange('animal_condition')}
+                          disabled={clinicalAssessmentLocked}
+                          style={{ marginRight: 5 }}
+                        />
+                        <span style={{ fontSize: 12, color: '#374151' }}>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         {patientReportedIntake && (
@@ -1689,7 +1786,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>4. Past History of animal bite</p>
             <div style={{ display: 'flex', gap: 24 }}>
-              {['yes', 'no'].map(v => (
+              {['yes', 'no', 'unsure'].map(v => (
                 <label key={v} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
                   <input type="radio" name="past_history_bite" value={v} checked={formData.past_history_bite === v} onChange={handleFieldChange('past_history_bite')} disabled={isFormLocked} style={{ marginRight: 6 }} />
                   <span style={{ fontSize: 13, color: '#374151', textTransform: 'capitalize' }}>{v}</span>
@@ -1708,15 +1805,33 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             )}
           </div>
           <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Was PEP Immunization completed?</p>
-            <div style={{ display: 'flex', gap: 24 }}>
-              {['yes', 'no'].map(v => (
-                <label key={v} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input type="radio" name="pep_completed" value={v} checked={formData.pep_completed === v} onChange={handleFieldChange('pep_completed')} disabled={isFormLocked} style={{ marginRight: 6 }} />
-                  <span style={{ fontSize: 13, color: '#374151', textTransform: 'capitalize' }}>{v}</span>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Previous PEP / Rabies Vaccination</p>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+              {[
+                { value: 'completed', label: 'Completed' },
+                { value: 'incomplete', label: 'Incomplete' },
+                { value: 'none', label: 'None' },
+                { value: 'unsure', label: 'Unsure' },
+              ].map(opt => (
+                <label key={opt.value} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="pep_completed"
+                    value={opt.value}
+                    checked={formData.pep_completed === opt.value || (opt.value === 'completed' && formData.pep_completed === 'yes') || (opt.value === 'none' && formData.pep_completed === 'no')}
+                    onChange={handleFieldChange('pep_completed')}
+                    disabled={isFormLocked}
+                    style={{ marginRight: 5 }}
+                  />
+                  <span style={{ fontSize: 13, color: '#374151' }}>{opt.label}</span>
                 </label>
               ))}
             </div>
+            {patientReportedIntake?.prior_pep_date && (
+              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#6b7280' }}>
+                Reported prior date: <strong>{patientReportedIntake.prior_pep_date}</strong>
+              </p>
+            )}
           </div>
         </div>
       </div>

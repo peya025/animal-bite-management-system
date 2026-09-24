@@ -171,14 +171,15 @@ export default function VitalsConsultationSection({
           />
         </FormField>
 
-        <FormField label="Name of Attending Provider" className="fm-grid--full">
+        <FormField label="Name of Attending Provider" className="fm-grid--full" hint="Enter name from patient's referral paper form">
           <input
             className="fm-input"
             type="text"
             name="name_of_attending_provider"
             value={formData.name_of_attending_provider}
-            readOnly
-            disabled
+            onChange={onFieldChange('name_of_attending_provider')}
+            placeholder="e.g. Triage Doctor"
+            disabled={isFormDisabled}
           />
         </FormField>
 

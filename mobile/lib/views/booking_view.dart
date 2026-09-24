@@ -27,7 +27,6 @@ class BookingView extends StatefulWidget {
 class _BookingViewState extends State<BookingView> {
   BookingService _service = BookingService.consultation;
   late DateTime _selectedDate;
-  BookingTimeSlot _timeSlot = BookingTimeSlot.morning;
   final _notesController = TextEditingController();
   List<PatientProfile> _patients = const [];
   PatientProfile? _selectedPatient;
@@ -36,7 +35,6 @@ class _BookingViewState extends State<BookingView> {
   String? _profileError;
   List<int> _openDaysOfWeek = const [1, 2, 3, 4, 5];
   Map<String, dynamic> _scheduleExceptions = const {};
-  Map<String, dynamic> _clinicSchedules = const {};
   Map<String, dynamic>? _urgentPolicy;
   bool _initializedArgs = false;
 
@@ -81,20 +79,6 @@ class _BookingViewState extends State<BookingView> {
     return start;
   }
 
-  String get _morningSlotLabel {
-    final dow = _selectedDate.weekday == 7 ? 0 : _selectedDate.weekday;
-    final sched = _clinicSchedules[dow.toString()];
-    final openTime = sched is Map ? (sched['open_time_label'] ?? '8:00 AM') : '8:00 AM';
-    return 'Morning ($openTime – 12:00 PM)';
-  }
-
-  String get _afternoonSlotLabel {
-    final dow = _selectedDate.weekday == 7 ? 0 : _selectedDate.weekday;
-    final sched = _clinicSchedules[dow.toString()];
-    final closeTime = sched is Map ? (sched['close_time_label'] ?? '5:00 PM') : '5:00 PM';
-    return 'Afternoon (1:00 PM – $closeTime)';
-  }
-
   Future<void> _loadScheduleSummary() async {
     try {
       final summary = await api.scheduleSummary() as Map<String, dynamic>;
@@ -102,15 +86,6 @@ class _BookingViewState extends State<BookingView> {
       setState(() {
         if (summary['open_days_of_week'] is List) {
           _openDaysOfWeek = (summary['open_days_of_week'] as List).cast<int>();
-        }
-        if (summary['schedules'] is Map) {
-          _clinicSchedules = summary['schedules'] as Map<String, dynamic>;
-        } else if (summary['schedules'] is List) {
-          _clinicSchedules = {
-            for (var s in summary['schedules'])
-              if (s is Map && s.containsKey('day_of_week'))
-                s['day_of_week'].toString(): s,
-          };
         }
         if (summary['exceptions'] is Map) {
           _scheduleExceptions = summary['exceptions'] as Map<String, dynamic>;
@@ -297,7 +272,6 @@ class _BookingViewState extends State<BookingView> {
     final booking = BookingDraft(
       service: _service,
       date: safeDate,
-      timeSlot: _timeSlot,
       notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
     );
 
@@ -319,7 +293,7 @@ class _BookingViewState extends State<BookingView> {
           icon: const Icon(Icons.block_rounded, color: Color(0xFFDC2626), size: 36),
           title: const Text('Booster Not Applicable'),
           content: Text(
-            '${patient.name} has not completed the primary 3-dose anti-rabies vaccination series (Day 0, Day 3, Day 7).\n\nPer DOH NRPCP protocol, the 2-dose booster regimen is strictly reserved for patients with verified completed primary PEP.\n\nIf bitten again or continuing care, please select "Bite consultation" for medical evaluation, or select "Vaccination" to resume/complete the primary series.',
+            '${patient.name} has not completed the primary 3-dose anti-rabies vaccination series (Day 0, Day 3, Day 7).\n\nPer DOH NRPCP protocol, the 2-dose booster regimen is strictly reserved for patients with verified completed primary PEP.\n\nIf bitten again or continuing care, please select "Bite consultation" for medical evaluation.',
           ),
           actions: [
             TextButton(
@@ -342,15 +316,13 @@ class _BookingViewState extends State<BookingView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: Icon(
-          isBooster ? Icons.shield_outlined : Icons.vaccines_outlined,
+        icon: const Icon(
+          Icons.shield_outlined,
           color: AppColors.primary,
         ),
-        title: Text(isBooster ? 'Confirm rabies booster booking' : 'Confirm vaccination booking'),
+        title: const Text('Confirm rabies booster booking'),
         content: Text(
-          isBooster
-              ? 'Book a 2-dose rabies booster (Day 0 & Day 3) for ${patient.name} starting on ${DateSelector.formatDate(_selectedDate)}?\n\nPer DOH NRPCP guidelines, booster regimen requires only 2 intradermal doses (Day 0 & Day 3). Rabies Immunoglobulin (RIG) is withheld.'
-              : 'Book a vaccination appointment for ${patient.name} on ${DateSelector.formatDate(_selectedDate)}?\n\nNo bite incident intake will be required for this booking.',
+          'Book a 2-dose rabies booster (Day 0 & Day 3) for ${patient.name} starting on ${DateSelector.formatDate(_selectedDate)}?\n\nPer DOH NRPCP guidelines, booster regimen requires only 2 intradermal doses (Day 0 & Day 3). Rabies Immunoglobulin (RIG) is withheld.',
         ),
         actions: [
           TextButton(
@@ -359,7 +331,7 @@ class _BookingViewState extends State<BookingView> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(isBooster ? 'Book booster' : 'Book vaccination'),
+            child: const Text('Book booster'),
           ),
         ],
       ),
@@ -793,39 +765,6 @@ class _BookingViewState extends State<BookingView> {
 
                       const SizedBox(height: 20),
 
-                      // ─── PREFERRED TIME SLOT & REASON SECTION ───
-                      const Text(
-                        'PREFERRED TIME SLOT',
-                        style: TextStyle(
-                          color: Color(0xFF6B7280),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _TimeSlotChip(
-                              label: _morningSlotLabel,
-                              isSelected: _timeSlot == BookingTimeSlot.morning,
-                              onTap: () => setState(() => _timeSlot = BookingTimeSlot.morning),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _TimeSlotChip(
-                              label: _afternoonSlotLabel,
-                              isSelected: _timeSlot == BookingTimeSlot.afternoon,
-                              onTap: () => setState(() => _timeSlot = BookingTimeSlot.afternoon),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
                       const Text(
                         'REASON FOR VISIT / NOTES (OPTIONAL)',
                         style: TextStyle(
@@ -865,11 +804,9 @@ class _BookingViewState extends State<BookingView> {
                         isLoading: _booking,
                         confirmLabel: _service == BookingService.consultation
                             ? 'Continue to intake'
-                            : _service == BookingService.booster
-                                ? (_selectedPatient != null && !_selectedPatient!.hasCompletedPrimary
-                                    ? 'Primary PEP incomplete'
-                                    : 'Confirm booster booking')
-                                : 'Confirm booking',
+                            : (_selectedPatient != null && !_selectedPatient!.hasCompletedPrimary
+                                ? 'Primary PEP incomplete'
+                                : 'Confirm booster booking'),
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -896,45 +833,3 @@ class _BookingViewState extends State<BookingView> {
   }
 }
 
-class _TimeSlotChip extends StatelessWidget {
-  const _TimeSlotChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFE1F5EE) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey.shade200,
-            width: isSelected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: isSelected ? const Color(0xFF085041) : const Color(0xFF374151),
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-}

@@ -69,48 +69,13 @@ export function getDoctorName(userCandidate?: any): string {
 }
 
 export function resolveAttendingProvider(entry?: any, record?: any, fetchedPatient?: any): string {
-  // 1. For existing saved Form 2 records, always retrieve and display the Doctor who completed Form 2
+  // 1. For existing saved Form 2 records, preserve the saved attending provider from referral/doctor
   if (record?.attending_provider && typeof record.attending_provider === 'string' && record.attending_provider.trim()) {
     return record.attending_provider.trim();
   }
-  if (record?.administered_by_user?.name && isDoctorRole(record?.administered_by_user?.role)) {
-    return record.administered_by_user.name.trim();
-  }
-  if (record?.administered_by?.name && isDoctorRole(record?.administered_by?.role)) {
-    return record.administered_by.name.trim();
-  }
-  if (record?.provider_name && typeof record.provider_name === 'string' && record.provider_name.trim()) {
-    return record.provider_name.trim();
-  }
 
-  // 2. Check if the patient or queue entry has an assigned / handling doctor
-  const p = entry?.patient || fetchedPatient;
-  const handledByDoc =
-    getDoctorName(entry?.handled_by_user) ||
-    getDoctorName(entry?.handled_by) ||
-    getDoctorName(entry?.handledBy) ||
-    getDoctorName(entry?.doctor) ||
-    getDoctorName(entry?.attending_doctor) ||
-    getDoctorName(entry?.attending_provider) ||
-    getDoctorName(p?.attending_doctor) ||
-    getDoctorName(p?.attending_provider) ||
-    getDoctorName(p?.assigned_doctor) ||
-    getDoctorName(fetchedPatient?.attending_doctor) ||
-    getDoctorName(fetchedPatient?.attending_provider) ||
-    getDoctorName(fetchedPatient?.assigned_doctor);
-
-  if (handledByDoc) {
-    return handledByDoc;
-  }
-
-  // 3. For a new Form 2 assessment, only use the currently logged-in user IF they are a Doctor
-  const currentRole = getCurrentUserRole();
-  const currentName = getCurrentUserName();
-  if (isDoctorRole(currentRole) && currentName) {
-    return currentName;
-  }
-
-  // Under NO circumstances should a Nurse, Registration Staff, or Admin name be used
+  // Name of Attending Provider is free text entered from the referral paper form
+  // submitted by the patient. Do not auto-populate with the logged-in user or clinic account.
   return '';
 }
 

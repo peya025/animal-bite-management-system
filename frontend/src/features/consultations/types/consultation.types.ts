@@ -97,6 +97,13 @@ export interface PatientReportedIntake {
   care_received?: string | null;
   wash_duration_minutes?: number | null;
   patient_description?: string | null;
+  referral_facility?: string | null;
+  referral_blood_pressure?: string | null;
+  referral_temperature?: string | null;
+  referral_height?: string | null;
+  referral_weight?: string | null;
+  referral_provider_name?: string | null;
+  referral_document_photo?: string | null;
 }
 
 export interface VaccineStockItem {

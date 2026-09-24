@@ -5,7 +5,7 @@ class BiteIntakeDraft {
   const BiteIntakeDraft({
     required this.schemaVersion,
     required this.dateOfExposure,
-    required this.siteWashed,
+    this.siteWashed = false,
     required this.reportedModeOfExposure,
     required this.animalSpecies,
     required this.animalOwnership,
@@ -22,6 +22,13 @@ class BiteIntakeDraft {
     this.animalConditionReported,
     this.careReceived,
     this.referralSource,
+    this.referralFacility,
+    this.referralBloodPressure,
+    this.referralTemperature,
+    this.referralHeight,
+    this.referralWeight,
+    this.referralProviderName,
+    this.referralDocumentPhoto,
     this.pastBiteHistory,
     this.pastBiteDates,
     this.priorPepStatus,
@@ -48,6 +55,13 @@ class BiteIntakeDraft {
   final int? washDurationMinutes;
   final String? careReceived;
   final String? referralSource;
+  final String? referralFacility;
+  final String? referralBloodPressure;
+  final String? referralTemperature;
+  final String? referralHeight;
+  final String? referralWeight;
+  final String? referralProviderName;
+  final String? referralDocumentPhoto;
   final String? pastBiteHistory;
   final String? pastBiteDates;
   final String? priorPepStatus;
@@ -74,6 +88,13 @@ class BiteIntakeDraft {
     'incident_narrative': incidentNarrative,
     'care_received': careReceived,
     'referral_source': referralSource,
+    'referral_facility': referralFacility,
+    'referral_blood_pressure': referralBloodPressure,
+    'referral_temperature': referralTemperature,
+    'referral_height': referralHeight,
+    'referral_weight': referralWeight,
+    'referral_provider_name': referralProviderName,
+    'referral_document_photo': referralDocumentPhoto,
     'past_bite_history': pastBiteHistory,
     'past_bite_dates': pastBiteDates,
     'prior_pep_status': priorPepStatus,

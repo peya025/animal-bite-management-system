@@ -45,6 +45,7 @@ dependencies:
   # Tier 9 — Google OAuth Identity Federation
   google_sign_in: ^6.2.2
   url_launcher: ^6.3.2
+  hugeicons: ^1.2.0
 
 dev_dependencies:
   flutter_test:

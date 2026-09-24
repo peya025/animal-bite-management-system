@@ -504,7 +504,7 @@ export default function ModuleConfigPage() {
                 icon: '📋',
                 enabled: registrationEnabled,
                 setEnabled: setRegistrationEnabled,
-                color: '#3b82f6',
+                color: '#10b981',
                 whenOn: 'Patients check in at the registration desk before joining the queue.',
                 whenOff: 'Registration desk disabled. Walk-in queue creation is unavailable.',
               },
@@ -526,7 +526,7 @@ export default function ModuleConfigPage() {
                 icon: '💉',
                 enabled: treatmentEnabled,
                 setEnabled: setTreatmentEnabled,
-                color: '#f59e0b',
+                color: '#10b981',
                 whenOn: 'Nurses can record vaccinations and perform check-ins.',
                 whenOff: 'Treatment desk disabled. Form 3 and vaccine recording unavailable.',
               },
@@ -621,9 +621,9 @@ export default function ModuleConfigPage() {
           }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>Active Patient Flow:</span>
             {[
-              { label: 'Registration', enabled: registrationEnabled, color: '#3b82f6' },
+              { label: 'Registration', enabled: registrationEnabled, color: '#10b981' },
               { label: 'Triage', enabled: triageEnabled, color: '#10b981' },
-              { label: 'Treatment', enabled: treatmentEnabled, color: '#f59e0b' },
+              { label: 'Treatment', enabled: treatmentEnabled, color: '#10b981' },
             ].map((step, idx) => (
               <span key={step.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 {idx > 0 && <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>→</span>}

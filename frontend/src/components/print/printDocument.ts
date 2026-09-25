@@ -41,8 +41,8 @@ export function printDocument({
   const printDateFull = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const printTimeFull = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-  const leftSrc = leftLogoUrl || '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
-  const rightSrc = rightLogoUrl || '/assets/rhu-logo.png';
+  const leftSrc = leftLogoUrl || null;
+  const rightSrc = rightLogoUrl || null;
 
   const CSS = [
     `*{box-sizing:border-box;margin:0;padding:0}`,
@@ -85,13 +85,13 @@ export function printDocument({
     <style>${CSS}</style>
   </head><body>
     <div class="letterhead">
-      <img src="${leftSrc}" alt="Left Seal" class="logo-img" />
+      ${leftSrc ? `<img src="${leftSrc}" alt="Left Seal" class="logo-img" />` : `<div style="width:64px;height:64px;flex-shrink:0;"></div>`}
       <div class="org">
         <div class="republic">Republic of the Philippines ${province ? `• ${province}` : ''} ${municipality ? `• ${municipality}` : ''}</div>
         <div class="clinic">${clinicName}</div>
         <div class="address">Animal Bite Treatment Center ${contactNumber ? `| Tel. ${contactNumber}` : ''} ${address ? `| ${address}` : ''}</div>
       </div>
-      <img src="${rightSrc}" alt="Right Seal" class="logo-img" />
+      ${rightSrc ? `<img src="${rightSrc}" alt="Right Seal" class="logo-img" />` : `<div style="width:64px;height:64px;flex-shrink:0;"></div>`}
     </div>
     <hr class="divider-thick"><hr class="divider-thin">
     <div class="doc-title">

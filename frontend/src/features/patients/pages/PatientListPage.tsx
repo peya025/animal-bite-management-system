@@ -66,11 +66,21 @@ export default function PatientList() {
   const [checkInError,         setCheckInError]         = useState('');
   const [checkingInIntakeId,   setCheckingInIntakeId]   = useState<number | null>(null);
 
+  const { clinic: authClinic } = useAuth();
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
+  const storedClinic = clinicData ? JSON.parse(clinicData) : null;
+  const clinic       = authClinic || storedClinic;
+
   const userRole   = user?.role || (userData ? (JSON.parse(userData)?.role ?? '') : '');
   const printedBy  = user?.name || (userData ? (JSON.parse(userData)?.name ?? 'Unknown') : 'Unknown');
-  const clinicName = clinicData ? (JSON.parse(clinicData)?.name ?? 'Animal Bite Treatment Center') : 'Animal Bite Treatment Center';
+  const clinicName = clinic?.name ?? 'Animal Bite Treatment Center';
+  const leftLogoUrl = clinic?.left_print_logo_url || null;
+  const rightLogoUrl = clinic?.right_print_logo_url || null;
+  const province = clinic?.province || '';
+  const municipality = clinic?.municipality || '';
+  const contactNumber = clinic?.contact_number || clinic?.phone || '';
+  const address = clinic?.address || '';
 
   // Only authorized staff responsible for patient registration can add new patients (exclude Treatment Nurse & Triage Doctor)
   const isTreatmentOrTriage = ['treatment', 'triage'].includes(userRole);
@@ -473,6 +483,12 @@ export default function PatientList() {
       printedBy,
       title: 'Patient Registry',
       refPrefix: 'PT',
+      leftLogoUrl,
+      rightLogoUrl,
+      province,
+      municipality,
+      contactNumber,
+      address,
       bodyHtml: buildPrintBody(),
     });
     setShowPrintModal(false);
@@ -981,6 +997,11 @@ export default function PatientList() {
           title="Patient Registry"
           clinicName={clinicName}
           printedBy={printedBy}
+          leftLogoUrl={leftLogoUrl}
+          rightLogoUrl={rightLogoUrl}
+          province={province}
+          municipality={municipality}
+          contactNumber={contactNumber}
           onConfirm={handleConfirmPrint}
           onCancel={() => setShowPrintModal(false)}
         >

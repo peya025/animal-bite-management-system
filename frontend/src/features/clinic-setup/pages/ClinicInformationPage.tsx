@@ -32,8 +32,6 @@ import {
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import defaultLogo from '../../../assets/abtcare-app-icon.png';
-import defaultLeftPrintLogo from '../../../assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
-import defaultRightPrintLogo from '../../../assets/rhu-logo.png';
 import { API_BASE_URL } from '../../../shared/services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { DAYS } from '../components/WorkingHoursModal/WorkingHoursModal';
@@ -483,22 +481,22 @@ export default function ClinicInformation() {
   const displayLeftLogoSrc = leftLogoPreview
     ? leftLogoPreview
     : removeLeftLogo
-      ? defaultLeftPrintLogo
+      ? null
       : clinic.left_print_logo_url
         ? clinic.left_print_logo_url
         : clinic.left_print_logo_path
           ? `${backendBase}/storage/${clinic.left_print_logo_path}`
-          : defaultLeftPrintLogo;
+          : null;
 
   const displayRightLogoSrc = rightLogoPreview
     ? rightLogoPreview
     : removeRightLogo
-      ? defaultRightPrintLogo
+      ? null
       : clinic.right_print_logo_url
         ? clinic.right_print_logo_url
         : clinic.right_print_logo_path
           ? `${backendBase}/storage/${clinic.right_print_logo_path}`
-          : defaultRightPrintLogo;
+          : null;
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -811,8 +809,8 @@ export default function ClinicInformation() {
                     width: 64,
                     height: 64,
                     borderRadius: 2,
-                    border: '2px dashed #10b981',
-                    bgcolor: '#ffffff',
+                    border: displayLeftLogoSrc ? '2px dashed #10b981' : '1.5px dashed #cbd5e1',
+                    bgcolor: displayLeftLogoSrc ? '#ffffff' : '#f8fafc',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -822,17 +820,18 @@ export default function ClinicInformation() {
                     overflow: 'hidden',
                   }}
                 >
-                  <img
-                    src={displayLeftLogoSrc}
-                    alt="Left Print Logo"
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-                    onError={(e) => {
-                      const target = e.currentTarget as HTMLImageElement;
-                      if (target.src !== defaultLeftPrintLogo) {
-                        target.src = defaultLeftPrintLogo;
-                      }
-                    }}
-                  />
+                  {displayLeftLogoSrc ? (
+                    <img
+                      src={displayLeftLogoSrc}
+                      alt="Left Print Logo"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                    />
+                  ) : (
+                    <Box sx={{ textAlign: 'center', p: 0.5 }}>
+                      <CloudUploadIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
+                      <Typography sx={{ fontSize: '9px', color: '#94a3b8', lineHeight: 1.1, mt: 0.25 }}>No logo</Typography>
+                    </Box>
+                  )}
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.25 }}>
@@ -870,11 +869,11 @@ export default function ClinicInformation() {
                           },
                         }}
                       >
-                        {clinic.left_print_logo_path || leftLogoPreview ? 'Replace Logo' : 'Upload Logo'}
+                        {displayLeftLogoSrc ? 'Replace Logo' : 'Upload Logo'}
                       </Button>
                     </label>
 
-                    {(clinic.left_print_logo_path || leftLogoPreview || (clinic.left_print_logo_url && clinic.left_print_logo_url !== defaultLeftPrintLogo)) && !removeLeftLogo && (
+                    {displayLeftLogoSrc && !removeLeftLogo && (
                       <Button
                         variant="text"
                         size="small"
@@ -904,7 +903,7 @@ export default function ClinicInformation() {
                   )}
                   {removeLeftLogo && (
                     <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
-                      • Will reset to default flag seal on save
+                      • Logo will be removed on save
                     </Typography>
                   )}
                 </Box>
@@ -927,8 +926,8 @@ export default function ClinicInformation() {
                     width: 64,
                     height: 64,
                     borderRadius: 2,
-                    border: '2px dashed #10b981',
-                    bgcolor: '#ffffff',
+                    border: displayRightLogoSrc ? '2px dashed #10b981' : '1.5px dashed #cbd5e1',
+                    bgcolor: displayRightLogoSrc ? '#ffffff' : '#f8fafc',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -938,17 +937,18 @@ export default function ClinicInformation() {
                     overflow: 'hidden',
                   }}
                 >
-                  <img
-                    src={displayRightLogoSrc}
-                    alt="Right Print Logo"
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-                    onError={(e) => {
-                      const target = e.currentTarget as HTMLImageElement;
-                      if (target.src !== defaultRightPrintLogo) {
-                        target.src = defaultRightPrintLogo;
-                      }
-                    }}
-                  />
+                  {displayRightLogoSrc ? (
+                    <img
+                      src={displayRightLogoSrc}
+                      alt="Right Print Logo"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                    />
+                  ) : (
+                    <Box sx={{ textAlign: 'center', p: 0.5 }}>
+                      <CloudUploadIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
+                      <Typography sx={{ fontSize: '9px', color: '#94a3b8', lineHeight: 1.1, mt: 0.25 }}>No logo</Typography>
+                    </Box>
+                  )}
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.25 }}>
@@ -986,11 +986,11 @@ export default function ClinicInformation() {
                           },
                         }}
                       >
-                        {clinic.right_print_logo_path || rightLogoPreview ? 'Replace Logo' : 'Upload Logo'}
+                        {displayRightLogoSrc ? 'Replace Logo' : 'Upload Logo'}
                       </Button>
                     </label>
 
-                    {(clinic.right_print_logo_path || rightLogoPreview || (clinic.right_print_logo_url && clinic.right_print_logo_url !== defaultRightPrintLogo)) && !removeRightLogo && (
+                    {displayRightLogoSrc && !removeRightLogo && (
                       <Button
                         variant="text"
                         size="small"
@@ -1020,7 +1020,7 @@ export default function ClinicInformation() {
                   )}
                   {removeRightLogo && (
                     <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
-                      • Will reset to default RHU logo on save
+                      • Logo will be removed on save
                     </Typography>
                   )}
                 </Box>

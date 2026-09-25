@@ -144,13 +144,21 @@
     <div class="page-container">
         <!-- Header with Configurable Logos & Dynamic Clinic Metadata -->
         <div class="header-banner" style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 8px;">
-            <img src="{{ $left_print_logo_url ?? '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png' }}" alt="Left Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" onerror="this.style.visibility='hidden';" />
+            @if(!empty($left_print_logo_url))
+                <img src="{{ $left_print_logo_url }}" alt="Left Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" />
+            @else
+                <div style="width: 56px; height: 56px; flex-shrink: 0;"></div>
+            @endif
             <div style="text-align: center;">
                 <div style="font-size: 8pt; font-style: italic;">Republic of the Philippines &bull; {{ $province }} &bull; {{ $municipality }}</div>
                 <div style="font-size: 11pt; font-weight: 800; text-transform: uppercase; margin-top: 1px;">{{ $abtc }}</div>
                 <div style="font-size: 9.5pt; font-weight: bold; text-transform: uppercase;">ABTC COHORT REPORT</div>
             </div>
-            <img src="{{ $right_print_logo_url ?? '/assets/rhu-logo.png' }}" alt="Right Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" onerror="this.style.visibility='hidden';" />
+            @if(!empty($right_print_logo_url))
+                <img src="{{ $right_print_logo_url }}" alt="Right Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" />
+            @else
+                <div style="width: 56px; height: 56px; flex-shrink: 0;"></div>
+            @endif
         </div>
 
         <!-- Metadata Header matching Image 3 -->

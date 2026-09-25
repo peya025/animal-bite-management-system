@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '@mui/material/styles';
 import api from '../../../services/api';
-import tagoloanLogo from '../../../assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
-import rhuLogo from '../../../assets/rhu-logo.png';
 import { useAuth } from '../../../contexts/AuthContext';
 import RegistrationReportsPage from './RegistrationReportsPage';
 import DohReportsSection from '../components/DohReportsSection';
@@ -831,9 +829,12 @@ function PrintPreviewModal({
   html, clinicName, printedBy, printDate, dateFrom, dateTo, activeTab,
   activeFiltersText, onConfirm, onCancel
 }: PrintPreviewModalProps) {
-  const { clinic } = useAuth();
-  const leftLogo = clinic?.left_print_logo_url || tagoloanLogo;
-  const rightLogo = clinic?.right_print_logo_url || rhuLogo;
+  const { clinic: authClinic } = useAuth();
+  const storedClinic = localStorage.getItem('clinicData') ? JSON.parse(localStorage.getItem('clinicData')!) : null;
+  const clinic = authClinic || storedClinic;
+
+  const leftLogo = clinic?.left_print_logo_url || null;
+  const rightLogo = clinic?.right_print_logo_url || null;
   const province = (clinic?.province || 'MISAMIS ORIENTAL').toUpperCase();
   const municipality = clinic?.municipality || 'Tagoloan';
   const officeName = (clinic?.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase();
@@ -941,7 +942,11 @@ function PrintPreviewModal({
           <div style={{ background: '#fff', borderRadius: 8, padding: '24px 28px', boxShadow: '0 2px 12px rgba(0,0,0,0.15)', minHeight: 500, fontSize: 13, color: '#000', fontFamily: "'Poppins', sans-serif" }}>
             {/* Header with Dynamic Logos & Clinic Info */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 4 }}>
-              <img src={leftLogo} alt="Left Print Logo" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
+              {leftLogo ? (
+                <img src={leftLogo} alt="Left Print Logo" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
+              ) : (
+                <div style={{ width: 68, height: 68, flexShrink: 0 }} />
+              )}
               <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
                 <div style={{ fontSize: '8pt', fontFamily: "'Poppins', sans-serif", fontStyle: 'italic' }}>Republic of the Philippines</div>
                 <div style={{ fontSize: '9.5pt', fontWeight: 700, fontFamily: "'Poppins', sans-serif" }}>PROVINCE OF {province}</div>
@@ -949,7 +954,11 @@ function PrintPreviewModal({
                 <div style={{ fontSize: '11pt', fontWeight: 800, fontFamily: "'Poppins', sans-serif", marginTop: 1 }}>{officeName}</div>
                 <div style={{ fontSize: '8pt', fontFamily: "'Poppins', sans-serif", fontStyle: 'italic' }}>Tel. No. {phone}</div>
               </div>
-              <img src={rightLogo} alt="Right Print Logo" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
+              {rightLogo ? (
+                <img src={rightLogo} alt="Right Print Logo" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
+              ) : (
+                <div style={{ width: 68, height: 68, flexShrink: 0 }} />
+              )}
             </div>
             <hr style={{ border: 'none', borderTop: '2px solid #000', margin: '4px 0 14px' }}/>
 
@@ -1435,8 +1444,8 @@ function LegacyReportsDashboardPage() {
     const win = window.open('', '_blank', 'width=950,height=750');
     if (!win) return;
 
-    const leftLogo = clinic?.left_print_logo_url || '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
-    const rightLogo = clinic?.right_print_logo_url || '/assets/rhu-logo.png';
+    const leftLogo = clinic?.left_print_logo_url || null;
+    const rightLogo = clinic?.right_print_logo_url || null;
     const provinceName = (clinic?.province || 'MISAMIS ORIENTAL').toUpperCase();
     const municipalityName = clinic?.municipality || 'Tagoloan';
     const officeHeaderName = (clinic?.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase();
@@ -1444,7 +1453,7 @@ function LegacyReportsDashboardPage() {
 
     win.document.write(`<!DOCTYPE html><html><head><title>${clinicName} — ${tabLabel}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet"><style>${CSS}</style></head><body>
       <div class="letterhead">
-        <img src="${leftLogo}" alt="Left Print Logo" class="logo" />
+        ${leftLogo ? `<img src="${leftLogo}" alt="Left Print Logo" class="logo" />` : `<div style="width:68px;height:68px;flex-shrink:0;"></div>`}
         <div class="org">
           <div class="republic">Republic of the Philippines</div>
           <div class="dept">PROVINCE OF ${provinceName}</div>
@@ -1452,7 +1461,7 @@ function LegacyReportsDashboardPage() {
           <div class="mho">${officeHeaderName}</div>
           <div class="address">Tel. No. ${contactPhone}</div>
         </div>
-        <img src="${rightLogo}" alt="Right Print Logo" class="logo" />
+        ${rightLogo ? `<img src="${rightLogo}" alt="Right Print Logo" class="logo" />` : `<div style="width:68px;height:68px;flex-shrink:0;"></div>`}
       </div>
       <hr class="divider-thick">
       <div class="doc-title"><h2>${tabLabel}</h2><p>Reference No.: ${refNo}</p></div>

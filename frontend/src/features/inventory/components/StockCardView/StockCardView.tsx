@@ -67,8 +67,8 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
     municipality: authClinic?.municipality || 'Tagoloan',
     office_name: authClinic?.name || 'MUNICIPAL HEALTH OFFICE - ANIMAL BITE TREATMENT CENTER',
     phone: authClinic?.contact_number || authClinic?.phone || '(088) 123-4567',
-    left_logo: authClinic?.left_print_logo_url || '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png',
-    right_logo: authClinic?.right_print_logo_url || '/assets/rhu-logo.png',
+    left_logo: authClinic?.left_print_logo_url || null,
+    right_logo: authClinic?.right_print_logo_url || null,
   };
 
   useEffect(() => {
@@ -289,14 +289,14 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
             <div>
               <!-- Official Letterhead -->
               <div class="header-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                <img src="${clinic.left_logo}" alt="Left Seal" style="width: 65px; height: 65px; object-fit: contain;" />
+                ${clinic.left_logo ? `<img src="${clinic.left_logo}" alt="Left Seal" style="width: 65px; height: 65px; object-fit: contain;" />` : `<div style="width: 65px; height: 65px; flex-shrink: 0;"></div>`}
                 <div style="text-align: center; flex: 1; padding: 0 10px;">
                   <div class="republic">Republic of the Philippines &bull; ${clinic.province} &bull; ${clinic.municipality}</div>
                   <div class="office">${clinic.office_name}</div>
                   <div class="contact">Tel. No. : ${clinic.phone} &bull; ${clinic.address}</div>
                   <div class="doc-name">STOCK CARD</div>
                 </div>
-                <img src="${clinic.right_logo}" alt="Right Seal" style="width: 65px; height: 65px; object-fit: contain;" />
+                ${clinic.right_logo ? `<img src="${clinic.right_logo}" alt="Right Seal" style="width: 65px; height: 65px; object-fit: contain;" />` : `<div style="width: 65px; height: 65px; flex-shrink: 0;"></div>`}
               </div>
 
               <!-- Formal Metadata Block -->

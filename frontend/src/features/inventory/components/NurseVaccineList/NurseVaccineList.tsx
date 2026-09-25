@@ -265,46 +265,49 @@ export default function NurseVaccineList() {
               icon: <PersonIcon sx={{ fontSize: 20 }} />,
               color: '#f59e0b',
             },
-          ].map((c) => (
-            <Grid size={{ xs: 12, sm: 4 }} key={c.id}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: '18px 20px',
-                  borderRadius: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  minHeight: 100,
-                  position: 'relative',
-                  overflow: 'hidden',
-                  cursor: 'default',
-                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                  ...(isDark
-                    ? {
-                        background: '#111827',
-                        border: '1px solid rgba(16, 185, 129, 0.25)',
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          background: 'rgba(16, 185, 129, 0.12)',
-                          borderColor: '#34d399',
-                          boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25)',
-                        },
-                      }
-                    : {
-                        background: '#ffffff',
-                        border: '1px solid rgba(16, 185, 129, 0.25)',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          background: 'rgba(16, 185, 129, 0.05)',
-                          borderColor: '#10b981',
-                          boxShadow: '0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)',
-                        },
-                      }),
-                }}
-              >
+          ].map((c) => {
+            const hoverShadow = isDark
+              ? c.color === '#f59e0b'
+                ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+                : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+              : c.color === '#f59e0b'
+              ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+              : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
+            return (
+              <Grid size={{ xs: 12, sm: 4 }} key={c.id}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: '18px 20px',
+                    borderRadius: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    minHeight: 100,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'default',
+                    transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    ...(isDark
+                      ? {
+                          background: '#111827',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          '&:hover': {
+                            boxShadow: hoverShadow,
+                          },
+                        }
+                      : {
+                          background: '#ffffff',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                          '&:hover': {
+                            boxShadow: hoverShadow,
+                          },
+                        }),
+                  }}
+                >
                 <Box
                   sx={{
                     width: 44,
@@ -332,7 +335,8 @@ export default function NurseVaccineList() {
                 </Box>
               </Paper>
             </Grid>
-          ))}
+            );
+          })}
         </Grid>
       </Box>
 

@@ -78,6 +78,26 @@ export default function StatCard({
   const clampedProgress = Math.min(Math.max(rawProgress, 0), 1);
   const dashArray = `${CIRCUMFERENCE * clampedProgress} ${CIRCUMFERENCE * (1 - clampedProgress)}`;
 
+  const hoverShadow = isDark
+    ? colorKey === 'error' || colorKey === 'red'
+      ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+      : colorKey === 'warning' || colorKey === 'yellow' || colorKey === 'orange'
+      ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+      : colorKey === 'info' || colorKey === 'blue' || colorKey === 'cyan'
+      ? '0 8px 24px rgba(56, 189, 248, 0.35), 0 0 16px rgba(56, 189, 248, 0.25)'
+      : colorKey === 'purple'
+      ? '0 8px 24px rgba(167, 139, 250, 0.35), 0 0 16px rgba(167, 139, 250, 0.25)'
+      : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+    : colorKey === 'error' || colorKey === 'red'
+    ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+    : colorKey === 'warning' || colorKey === 'yellow' || colorKey === 'orange'
+    ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+    : colorKey === 'info' || colorKey === 'blue' || colorKey === 'cyan'
+    ? '0 8px 22px rgba(56, 189, 248, 0.30), 0 2px 8px rgba(56, 189, 248, 0.16)'
+    : colorKey === 'purple'
+    ? '0 8px 22px rgba(167, 139, 250, 0.30), 0 2px 8px rgba(167, 139, 250, 0.16)'
+    : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
   return (
     <Paper
       elevation={0}
@@ -93,17 +113,14 @@ export default function StatCard({
         position: 'relative',
         overflow: 'hidden',
         cursor: 'default',
-        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         ...(isDark
           ? {
               background: '#111827',
               border: '1px solid rgba(16, 185, 129, 0.25)',
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
               '&:hover': {
-                transform: 'translateY(-2px)',
-                background: 'rgba(16, 185, 129, 0.12)',
-                borderColor: '#34d399',
-                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25)',
+                boxShadow: hoverShadow,
               },
             }
           : {
@@ -111,10 +128,7 @@ export default function StatCard({
               border: '1px solid rgba(16, 185, 129, 0.25)',
               boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
               '&:hover': {
-                transform: 'translateY(-2px)',
-                background: 'rgba(16, 185, 129, 0.05)',
-                borderColor: '#10b981',
-                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)',
+                boxShadow: hoverShadow,
               },
             }),
       }}

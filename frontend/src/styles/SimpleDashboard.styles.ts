@@ -189,7 +189,7 @@ export const AppStyleScope = styled('div')`
     justify-content: space-between;
     min-height: 116px;
     cursor: default;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: box-shadow 0.25s ease;
   }
   [data-theme='dark'] .sd-card {
     background: #111827;
@@ -197,16 +197,10 @@ export const AppStyleScope = styled('div')`
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
   .sd-card:hover {
-    transform: translateY(-2px);
-    background: rgba(16, 185, 129, 0.05);
-    border-color: #10b981;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16);
   }
   [data-theme='dark'] .sd-card:hover {
-    transform: translateY(-2px);
-    background: rgba(16, 185, 129, 0.12);
-    border-color: #34d399;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25);
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25);
   }
   .sd-card-label {
     font-size: 11px;

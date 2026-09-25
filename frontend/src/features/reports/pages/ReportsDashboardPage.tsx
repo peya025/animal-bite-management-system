@@ -308,8 +308,8 @@ function StatBox({
         onMouseLeave={() => setHovered(false)}
         title={onClick ? `Click to inspect & print records for ${label}` : undefined}
         style={{
-          background: hovered ? 'rgba(16, 185, 129, 0.12)' : '#111827',
-          border: active ? '2px solid #10b981' : hovered ? '1px solid #34d399' : '1px solid rgba(16, 185, 129, 0.25)',
+          background: '#111827',
+          border: active ? '2px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
           borderRadius: 20,
           padding: '18px 16px 16px',
           display: 'flex',
@@ -319,14 +319,13 @@ function StatBox({
           gap: 12,
           minHeight: 130,
           cursor: onClick ? 'pointer' : 'default',
-          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          transform: hovered ? 'translateY(-2px)' : 'none',
+          transition: 'box-shadow 0.25s ease',
           userSelect: 'none',
           position: 'relative',
           boxShadow: active
             ? '0 0 0 3px rgba(16,185,129,0.25), 0 2px 8px rgba(0,0,0,0.3)'
             : hovered
-            ? '0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25)'
+            ? '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
             : '0 2px 8px rgba(0, 0, 0, 0.3)',
         }}
       >
@@ -383,8 +382,8 @@ function StatBox({
       onMouseLeave={() => setHovered(false)}
       title={onClick ? `Click to inspect & print records for ${label}` : undefined}
       style={{
-        background: hovered ? 'rgba(16, 185, 129, 0.05)' : '#ffffff',
-        border: active ? '2px solid #10b981' : hovered ? '1px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
+        background: '#ffffff',
+        border: active ? '2px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
         borderRadius: 20,
         padding: '16px 18px 14px',
         display: 'flex',
@@ -392,14 +391,13 @@ function StatBox({
         justifyContent: 'space-between',
         minHeight: 120,
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-        transform: hovered ? 'translateY(-2px)' : 'none',
+        transition: 'box-shadow 0.25s ease',
         userSelect: 'none',
         position: 'relative',
         boxShadow: active
           ? '0 0 0 3px rgba(16, 185, 129, 0.15), 0 1px 3px rgba(0, 0, 0, 0.04)'
           : hovered
-          ? '0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)'
+          ? '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)'
           : '0 1px 3px rgba(0, 0, 0, 0.04)',
       }}
     >
@@ -465,6 +463,18 @@ function CatBox({
   const catColor = cat.includes('III') ? '#ef4444' : cat.includes('II') ? '#f59e0b' : '#10b981';
   const catGlow  = cat.includes('III') ? 'rgba(239,68,68,0.35)'  : cat.includes('II') ? 'rgba(245,158,11,0.35)' : 'rgba(16,185,129,0.35)';
 
+  const hoverShadow = isDark
+    ? cat.includes('III')
+      ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+      : cat.includes('II')
+      ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+      : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+    : cat.includes('III')
+    ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+    : cat.includes('II')
+    ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+    : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
   if (isDark) {
     const ringSize = 68;
     const radius = 27;
@@ -476,8 +486,8 @@ function CatBox({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          background: hovered ? 'rgba(16, 185, 129, 0.12)' : '#111827',
-          border: active ? `2px solid ${catColor}` : hovered ? '1px solid #34d399' : '1px solid rgba(16, 185, 129, 0.25)',
+          background: '#111827',
+          border: active ? `2px solid ${catColor}` : '1px solid rgba(16, 185, 129, 0.25)',
           borderRadius: 20,
           padding: '18px 16px 16px',
           display: 'flex',
@@ -486,13 +496,12 @@ function CatBox({
           justifyContent: 'center',
           gap: 10,
           minHeight: 130,
-          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          transform: hovered ? 'translateY(-2px)' : 'none',
+          transition: 'box-shadow 0.25s ease',
           position: 'relative',
           boxShadow: active
             ? `0 0 0 3px ${catGlow.replace('0.35','0.2')}, 0 2px 8px rgba(0, 0, 0, 0.3)`
             : hovered
-            ? '0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25)'
+            ? hoverShadow
             : '0 2px 8px rgba(0, 0, 0, 0.3)',
         }}
       >
@@ -540,21 +549,20 @@ function CatBox({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered ? 'rgba(16, 185, 129, 0.05)' : '#ffffff',
-        border: active ? `2px solid ${catColor}` : hovered ? '1px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
+        background: '#ffffff',
+        border: active ? `2px solid ${catColor}` : '1px solid rgba(16, 185, 129, 0.25)',
         borderRadius: 20,
         padding: '16px 18px 14px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         minHeight: 120,
-        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-        transform: hovered ? 'translateY(-2px)' : 'none',
+        transition: 'box-shadow 0.25s ease',
         position: 'relative',
         boxShadow: active
           ? `0 0 0 3px ${catGlow.replace('0.35','0.12')}, 0 1px 3px rgba(0, 0, 0, 0.04)`
           : hovered
-          ? '0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)'
+          ? hoverShadow
           : '0 1px 3px rgba(0, 0, 0, 0.04)',
       }}
     >

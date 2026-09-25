@@ -55,6 +55,22 @@ function RingCard({ label, value, color, trackColor, glow, loading = false, tota
 
   const valStr = String(value);
 
+  const hoverShadow = isDark
+    ? color === '#f87171' || color === '#ef4444'
+      ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+      : color === '#fbbf24' || color === '#f59e0b'
+      ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+      : color === '#38bdf8'
+      ? '0 8px 24px rgba(56, 189, 248, 0.35), 0 0 16px rgba(56, 189, 248, 0.25)'
+      : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+    : color === '#f87171' || color === '#ef4444'
+    ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+    : color === '#fbbf24' || color === '#f59e0b'
+    ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+    : color === '#38bdf8'
+    ? '0 8px 22px rgba(56, 189, 248, 0.30), 0 2px 8px rgba(56, 189, 248, 0.16)'
+    : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
@@ -71,22 +87,17 @@ function RingCard({ label, value, color, trackColor, glow, loading = false, tota
         position: 'relative',
         overflow: 'hidden',
         cursor: 'default',
-        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-        transform: hovered ? 'translateY(-2px)' : 'none',
+        transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         ...(isDark
           ? {
-              background: hovered ? 'rgba(16, 185, 129, 0.12)' : '#111827',
-              border: hovered ? '1px solid #34d399' : '1px solid rgba(16, 185, 129, 0.25)',
-              boxShadow: hovered
-                ? '0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25)'
-                : '0 2px 8px rgba(0, 0, 0, 0.3)',
+              background: '#111827',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: hovered ? hoverShadow : '0 2px 8px rgba(0, 0, 0, 0.3)',
             }
           : {
-              background: hovered ? 'rgba(16, 185, 129, 0.05)' : '#ffffff',
-              border: hovered ? '1px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
-              boxShadow: hovered
-                ? '0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)'
-                : '0 1px 3px rgba(0, 0, 0, 0.04)',
+              background: '#ffffff',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: hovered ? hoverShadow : '0 1px 3px rgba(0, 0, 0, 0.04)',
             }),
       }}
     >

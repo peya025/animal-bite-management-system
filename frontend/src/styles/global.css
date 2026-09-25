@@ -1203,7 +1203,7 @@ input[type='month']:hover::-webkit-calendar-picker-indicator {
   min-height: 88px !important;
   justify-content: center !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: box-shadow 0.25s ease !important;
 }
 [data-theme='dark'] .sd-card {
   background: #111827 !important;
@@ -1211,13 +1211,8 @@ input[type='month']:hover::-webkit-calendar-picker-indicator {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 .sd-card:hover {
-  background: rgba(16, 185, 129, 0.05) !important;
-  border-color: #10b981 !important;
-  transform: translateY(-2px) !important;
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16) !important;
 }
 [data-theme='dark'] .sd-card:hover {
-  background: rgba(16, 185, 129, 0.12) !important;
-  border-color: #34d399 !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25) !important;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25) !important;
 }

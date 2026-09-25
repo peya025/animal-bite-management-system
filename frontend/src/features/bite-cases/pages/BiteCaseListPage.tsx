@@ -242,46 +242,57 @@ export default function BiteCaseListPage() {
 
       {/* ── Summary KPI Cards ── */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-        {cards.map((c) => (
-          <Paper
-            key={c.id}
-            elevation={0}
-            sx={{
-              p: '16px 18px',
-              borderRadius: '20px',
-              position: 'relative',
-              overflow: 'hidden',
-              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-              minHeight: 118,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              cursor: 'default',
-              ...(isDark
-                ? {
-                    background: '#111827',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      background: 'rgba(16, 185, 129, 0.12)',
-                      borderColor: '#34d399',
-                      boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25)',
-                    },
-                  }
-                : {
-                    background: '#ffffff',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      background: 'rgba(16, 185, 129, 0.05)',
-                      borderColor: '#10b981',
-                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)',
-                    },
-                  }),
-            }}
-          >
+        {cards.map((c) => {
+          const hoverShadow = isDark
+            ? c.color === '#f59e0b'
+              ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+              : c.color === '#38bdf8'
+              ? '0 8px 24px rgba(56, 189, 248, 0.35), 0 0 16px rgba(56, 189, 248, 0.25)'
+              : c.color === '#ef4444'
+              ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+              : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+            : c.color === '#f59e0b'
+            ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+            : c.color === '#38bdf8'
+            ? '0 8px 22px rgba(56, 189, 248, 0.30), 0 2px 8px rgba(56, 189, 248, 0.16)'
+            : c.color === '#ef4444'
+            ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+            : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
+          return (
+            <Paper
+              key={c.id}
+              elevation={0}
+              sx={{
+                p: '16px 18px',
+                borderRadius: '20px',
+                position: 'relative',
+                overflow: 'hidden',
+                transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                minHeight: 118,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                cursor: 'default',
+                ...(isDark
+                  ? {
+                      background: '#111827',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                      '&:hover': {
+                        boxShadow: hoverShadow,
+                      },
+                    }
+                  : {
+                      background: '#ffffff',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                      '&:hover': {
+                        boxShadow: hoverShadow,
+                      },
+                    }),
+              }}
+            >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography sx={{ fontSize: 11, fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 {c.label}
@@ -314,7 +325,8 @@ export default function BiteCaseListPage() {
               {c.sub}
             </Typography>
           </Paper>
-        ))}
+          );
+        })}
       </Box>
 
       {/* Filter / Search Row */}

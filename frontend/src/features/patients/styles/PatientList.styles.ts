@@ -672,13 +672,10 @@ export const PatientListRoot = styled('div')`
     gap: 16px;
     position: relative;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: box-shadow 0.25s ease;
   }
   .pm-stat-card:hover {
-    transform: translateY(-2px);
-    background: rgba(16, 185, 129, 0.05);
-    border-color: #10b981;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16);
   }
   [data-theme='dark'] & .pm-stat-card,
   [data-theme='dark'] .pm-stat-card {
@@ -688,9 +685,7 @@ export const PatientListRoot = styled('div')`
   }
   [data-theme='dark'] & .pm-stat-card:hover,
   [data-theme='dark'] .pm-stat-card:hover {
-    background: rgba(16, 185, 129, 0.12) !important;
-    border-color: #34d399 !important;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25) !important;
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25) !important;
   }
 
   .pm-stat-icon {
@@ -704,10 +699,6 @@ export const PatientListRoot = styled('div')`
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    transition: transform 0.2s ease;
-  }
-  .pm-stat-card:hover .pm-stat-icon {
-    transform: scale(1.05);
   }
   [data-theme='dark'] & .pm-stat-icon,
   [data-theme='dark'] .pm-stat-icon {

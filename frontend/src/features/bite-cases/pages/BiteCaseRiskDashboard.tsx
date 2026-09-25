@@ -401,7 +401,7 @@ export default function BiteCaseRiskDashboard() {
               mb: '7px',
             }}
           >
-            {isBiteMap ? 'Bite Risk Map & Location Surveillance' : 'Bite Case Risk'}
+            {isBiteMap ? 'Bite Risk Map & Location Surveillance' : 'Bite Cases Summary'}
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
             {isBiteMap
@@ -418,7 +418,7 @@ export default function BiteCaseRiskDashboard() {
             </button>
             <span style={{ color: 'var(--text-secondary)' }}>›</span>
             <span style={{ color: 'var(--text-secondary)' }}>
-              {isBiteMap ? 'Bite Map' : 'Bite Cases & Risk'}
+              {isBiteMap ? 'Bite Map' : 'Bite Cases Summary'}
             </span>
           </Box>
         </Box>

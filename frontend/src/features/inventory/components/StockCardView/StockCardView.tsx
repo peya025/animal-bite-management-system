@@ -63,10 +63,12 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
     name: authClinic?.name || 'Animal Bite Treatment Center',
     code: (authClinic as any)?.clinic_code || 'ABTC',
     address: authClinic?.address || '',
-    province: (authClinic as any)?.province || 'Misamis Oriental',
-    municipality: (authClinic as any)?.municipality || 'Municipality of Tagoloan',
-    office_name: (authClinic as any)?.office_name || 'MUNICIPAL HEALTH OFFICE - ANIMAL BITE TREATMENT CENTER',
-    phone: (authClinic as any)?.phone || '(088) 123-4567',
+    province: authClinic?.province || 'Misamis Oriental',
+    municipality: authClinic?.municipality || 'Tagoloan',
+    office_name: authClinic?.name || 'MUNICIPAL HEALTH OFFICE - ANIMAL BITE TREATMENT CENTER',
+    phone: authClinic?.contact_number || authClinic?.phone || '(088) 123-4567',
+    left_logo: authClinic?.left_print_logo_url || '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png',
+    right_logo: authClinic?.right_print_logo_url || '/assets/rhu-logo.png',
   };
 
   useEffect(() => {
@@ -286,11 +288,15 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
           <div class="print-page-wrapper">
             <div>
               <!-- Official Letterhead -->
-              <div class="header-title">
-                <div class="republic">Republic of the Philippines &bull; ${clinic.province} &bull; ${clinic.municipality}</div>
-                <div class="office">${clinic.office_name}</div>
-                <div class="contact">Tel. No. : ${clinic.phone} &bull; ${clinic.address}</div>
-                <div class="doc-name">STOCK CARD</div>
+              <div class="header-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <img src="${clinic.left_logo}" alt="Left Seal" style="width: 65px; height: 65px; object-fit: contain;" />
+                <div style="text-align: center; flex: 1; padding: 0 10px;">
+                  <div class="republic">Republic of the Philippines &bull; ${clinic.province} &bull; ${clinic.municipality}</div>
+                  <div class="office">${clinic.office_name}</div>
+                  <div class="contact">Tel. No. : ${clinic.phone} &bull; ${clinic.address}</div>
+                  <div class="doc-name">STOCK CARD</div>
+                </div>
+                <img src="${clinic.right_logo}" alt="Right Seal" style="width: 65px; height: 65px; object-fit: contain;" />
               </div>
 
               <!-- Formal Metadata Block -->
@@ -570,7 +576,7 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, pb: 2, borderBottom: '2px solid #0f172a' }}>
           {/* Left Tagoloan Seal Flag Logo */}
           <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <img src="/assets/Flag_of_Tagoloan,_Misamis_Oriental.png" alt="Tagoloan Municipal Seal Flag" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+            <img src={clinic.left_logo} alt="Tagoloan Municipal Seal Flag" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png'; }} />
           </Box>
 
           {/* Center Text */}
@@ -588,7 +594,7 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
 
           {/* Right RHU Health Office Logo */}
           <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <img src="/assets/rhu-logo.png" alt="RHU Health Office Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+            <img src={clinic.right_logo} alt="RHU Health Office Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/rhu-logo.png'; }} />
           </Box>
         </Box>
 

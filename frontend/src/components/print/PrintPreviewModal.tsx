@@ -22,6 +22,11 @@ interface PrintPreviewModalProps {
   title: string;
   clinicName: string;
   printedBy: string;
+  leftLogoUrl?: string | null;
+  rightLogoUrl?: string | null;
+  province?: string;
+  municipality?: string;
+  contactNumber?: string;
   /** Optional date range shown in the meta section */
   dateFrom?: string;
   dateTo?: string;
@@ -34,6 +39,11 @@ export default function PrintPreviewModal({
   title,
   clinicName,
   printedBy,
+  leftLogoUrl,
+  rightLogoUrl,
+  province,
+  municipality,
+  contactNumber,
   dateFrom,
   dateTo,
   onConfirm,
@@ -44,6 +54,9 @@ export default function PrintPreviewModal({
 
   const fmt = (iso?: string) =>
     iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+  const leftSrc = leftLogoUrl || '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
+  const rightSrc = rightLogoUrl || '/assets/rhu-logo.png';
 
   return (
     <div
@@ -92,14 +105,25 @@ export default function PrintPreviewModal({
 
             {/* Letterhead */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 6 }}>
-              <div style={{ width: 52, height: 52, border: '2px solid #000', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, flexShrink: 0, color: '#000' }}>✚</div>
+              <img
+                src={leftSrc}
+                alt="Left Seal"
+                style={{ width: 52, height: 52, objectFit: 'contain', flexShrink: 0 }}
+                onError={(e) => { (e.currentTarget as HTMLElement).style.visibility = 'hidden'; }}
+              />
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 8, letterSpacing: 1, textTransform: 'uppercase', color: '#333' }}>
-                  Republic of the Philippines — Department of Health
+                  Republic of the Philippines {province ? `• ${province}` : ''} {municipality ? `• ${municipality}` : ''}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', margin: '2px 0', color: '#000' }}>{clinicName}</div>
-                <div style={{ fontSize: 9, color: '#555' }}>Animal Bite Treatment Center</div>
+                <div style={{ fontSize: 9, color: '#555' }}>Animal Bite Treatment Center {contactNumber ? `| Tel. ${contactNumber}` : ''}</div>
               </div>
+              <img
+                src={rightSrc}
+                alt="Right Seal"
+                style={{ width: 52, height: 52, objectFit: 'contain', flexShrink: 0 }}
+                onError={(e) => { (e.currentTarget as HTMLElement).style.visibility = 'hidden'; }}
+              />
             </div>
             <hr style={{ border: 'none', borderTop: '3px double #000', margin: '6px 0 3px' }}/>
             <hr style={{ border: 'none', borderTop: '1px solid #000', margin: '2px 0 14px' }}/>

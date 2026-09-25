@@ -831,6 +831,14 @@ function PrintPreviewModal({
   html, clinicName, printedBy, printDate, dateFrom, dateTo, activeTab,
   activeFiltersText, onConfirm, onCancel
 }: PrintPreviewModalProps) {
+  const { clinic } = useAuth();
+  const leftLogo = clinic?.left_print_logo_url || tagoloanLogo;
+  const rightLogo = clinic?.right_print_logo_url || rhuLogo;
+  const province = (clinic?.province || 'MISAMIS ORIENTAL').toUpperCase();
+  const municipality = clinic?.municipality || 'Tagoloan';
+  const officeName = (clinic?.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase();
+  const phone = clinic?.contact_number || (clinic as any)?.phone || '(088)890-4770';
+
   const tabLabel = activeTab === 'summary' ? 'Summary Report' : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'inventory' ? 'Vaccine Inventory & Wastage Report' : 'Patient Registry Report';
 
   return (
@@ -931,17 +939,17 @@ function PrintPreviewModal({
           `}</style>
 
           <div style={{ background: '#fff', borderRadius: 8, padding: '24px 28px', boxShadow: '0 2px 12px rgba(0,0,0,0.15)', minHeight: 500, fontSize: 13, color: '#000', fontFamily: "'Poppins', sans-serif" }}>
-            {/* Header with Specified Logos: Left Tagoloan Flag, Right RHU Logo */}
+            {/* Header with Dynamic Logos & Clinic Info */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 4 }}>
-              <img src={tagoloanLogo} alt="Tagoloan Flag" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
+              <img src={leftLogo} alt="Left Print Logo" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
               <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
                 <div style={{ fontSize: '8pt', fontFamily: "'Poppins', sans-serif", fontStyle: 'italic' }}>Republic of the Philippines</div>
-                <div style={{ fontSize: '9.5pt', fontWeight: 700, fontFamily: "'Poppins', sans-serif" }}>PROVINCE OF MISAMIS ORIENTAL</div>
-                <div style={{ fontSize: '8.5pt', fontFamily: "'Poppins', sans-serif" }}>Municipality of Tagoloan</div>
-                <div style={{ fontSize: '11pt', fontWeight: 800, fontFamily: "'Poppins', sans-serif", marginTop: 1 }}>MUNICIPAL HEALTH OFFICE</div>
-                <div style={{ fontSize: '8pt', fontFamily: "'Poppins', sans-serif", fontStyle: 'italic' }}>Tel. No. (088)890-4770</div>
+                <div style={{ fontSize: '9.5pt', fontWeight: 700, fontFamily: "'Poppins', sans-serif" }}>PROVINCE OF {province}</div>
+                <div style={{ fontSize: '8.5pt', fontFamily: "'Poppins', sans-serif" }}>Municipality of {municipality}</div>
+                <div style={{ fontSize: '11pt', fontWeight: 800, fontFamily: "'Poppins', sans-serif", marginTop: 1 }}>{officeName}</div>
+                <div style={{ fontSize: '8pt', fontFamily: "'Poppins', sans-serif", fontStyle: 'italic' }}>Tel. No. {phone}</div>
               </div>
-              <img src={rhuLogo} alt="RHU Logo" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
+              <img src={rightLogo} alt="Right Print Logo" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
             </div>
             <hr style={{ border: 'none', borderTop: '2px solid #000', margin: '4px 0 14px' }}/>
 
@@ -1003,6 +1011,7 @@ export default function ReportsDashboardPage() {
 }
 
 function LegacyReportsDashboardPage() {
+  const { clinic: authClinic } = useAuth();
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
   const todayStr = today.toISOString().split('T')[0];
@@ -1048,8 +1057,9 @@ function LegacyReportsDashboardPage() {
   const [patientMonthFilter,  setPatientMonthFilter]  = useState<string>('ALL');
   const [patientYearFilter,   setPatientYearFilter]   = useState<string>('ALL');
 
-  const clinicData = localStorage.getItem('clinicData');
-  const clinic     = clinicData ? JSON.parse(clinicData) : null;
+  const clinicData   = localStorage.getItem('clinicData');
+  const storedClinic = clinicData ? JSON.parse(clinicData) : null;
+  const clinic       = authClinic || storedClinic;
   const userData   = localStorage.getItem('userData');
   const user       = userData   ? JSON.parse(userData)   : null;
   const clinicName = clinic?.name ?? 'Animal Bite Treatment Center';
@@ -1425,17 +1435,24 @@ function LegacyReportsDashboardPage() {
     const win = window.open('', '_blank', 'width=950,height=750');
     if (!win) return;
 
+    const leftLogo = clinic?.left_print_logo_url || '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
+    const rightLogo = clinic?.right_print_logo_url || '/assets/rhu-logo.png';
+    const provinceName = (clinic?.province || 'MISAMIS ORIENTAL').toUpperCase();
+    const municipalityName = clinic?.municipality || 'Tagoloan';
+    const officeHeaderName = (clinic?.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase();
+    const contactPhone = clinic?.contact_number || (clinic as any)?.phone || '(088)890-4770';
+
     win.document.write(`<!DOCTYPE html><html><head><title>${clinicName} — ${tabLabel}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet"><style>${CSS}</style></head><body>
       <div class="letterhead">
-        <img src="/assets/Flag_of_Tagoloan,_Misamis_Oriental.png" alt="Tagoloan Flag" class="logo" />
+        <img src="${leftLogo}" alt="Left Print Logo" class="logo" />
         <div class="org">
           <div class="republic">Republic of the Philippines</div>
-          <div class="dept">PROVINCE OF MISAMIS ORIENTAL</div>
-          <div class="dept" style="font-weight:400">Municipality of Tagoloan</div>
-          <div class="mho">MUNICIPAL HEALTH OFFICE</div>
-          <div class="address">Tel. No. (088)890-4770</div>
+          <div class="dept">PROVINCE OF ${provinceName}</div>
+          <div class="dept" style="font-weight:400">Municipality of ${municipalityName}</div>
+          <div class="mho">${officeHeaderName}</div>
+          <div class="address">Tel. No. ${contactPhone}</div>
         </div>
-        <img src="/assets/rhu-logo.png" alt="RHU Logo" class="logo" />
+        <img src="${rightLogo}" alt="Right Print Logo" class="logo" />
       </div>
       <hr class="divider-thick">
       <div class="doc-title"><h2>${tabLabel}</h2><p>Reference No.: ${refNo}</p></div>

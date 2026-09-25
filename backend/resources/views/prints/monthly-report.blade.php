@@ -184,9 +184,14 @@
 
     <div class="page-container">
         <!-- Purple Top Banner matching Image 1 -->
-        <div class="header-banner">
-            <h2>National Rabies Prevention and Control Program</h2>
-            <h3>Department of Health</h3>
+        <div class="header-banner" style="display: flex; align-items: center; justify-content: center; gap: 16px;">
+            <img src="{{ $left_print_logo_url ?? '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png' }}" alt="Left Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" onerror="this.style.visibility='hidden';" />
+            <div style="text-align: center;">
+                <h2>National Rabies Prevention and Control Program</h2>
+                <h3>Department of Health &bull; {{ $province }} &bull; {{ $municipality }}</h3>
+                <h3 style="font-size: 11pt; font-weight: bold; margin-top: 2px;">{{ $abtc }}</h3>
+            </div>
+            <img src="{{ $right_print_logo_url ?? '/assets/rhu-logo.png' }}" alt="Right Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" onerror="this.style.visibility='hidden';" />
         </div>
 
         <!-- Meta Line -->

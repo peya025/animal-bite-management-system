@@ -160,10 +160,14 @@
 
     <div class="page-container">
         <!-- Header -->
-        <div class="header-title">
-            <h4>Department of Health</h4>
-            <h3>National Rabies Prevention and Control Program</h3>
-            <h2>Rabies Exposure Registry</h2>
+        <div class="header-title" style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 6px;">
+            <img src="{{ $left_print_logo_url ?? '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png' }}" alt="Left Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" onerror="this.style.visibility='hidden';" />
+            <div style="text-align: center;">
+                <h4 style="font-size: 8.5pt; font-weight: normal; text-transform: uppercase;">Republic of the Philippines &bull; {{ $province }} &bull; {{ $municipality }}</h4>
+                <h3 style="font-size: 9.5pt; font-weight: bold;">{{ $clinic }}</h3>
+                <h2 style="font-size: 11pt; font-weight: bold; letter-spacing: 0.5px;">Rabies Exposure Registry</h2>
+            </div>
+            <img src="{{ $right_print_logo_url ?? '/assets/rhu-logo.png' }}" alt="Right Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" onerror="this.style.visibility='hidden';" />
         </div>
 
         <!-- Meta Information -->

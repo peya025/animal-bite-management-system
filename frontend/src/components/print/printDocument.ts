@@ -8,6 +8,12 @@
 export interface PrintDocumentOptions {
   clinicName: string;
   printedBy: string;
+  leftLogoUrl?: string | null;
+  rightLogoUrl?: string | null;
+  province?: string;
+  municipality?: string;
+  address?: string;
+  contactNumber?: string;
   /** Document title shown in the heading, e.g. "Patient Registry" */
   title: string;
   /** Prefix for the reference number, e.g. "PT", "RPT", "INV" */
@@ -19,6 +25,12 @@ export interface PrintDocumentOptions {
 export function printDocument({
   clinicName,
   printedBy,
+  leftLogoUrl,
+  rightLogoUrl,
+  province,
+  municipality,
+  address,
+  contactNumber,
   title,
   refPrefix = 'DOC',
   bodyHtml,
@@ -29,11 +41,14 @@ export function printDocument({
   const printDateFull = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const printTimeFull = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
+  const leftSrc = leftLogoUrl || '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
+  const rightSrc = rightLogoUrl || '/assets/rhu-logo.png';
+
   const CSS = [
     `*{box-sizing:border-box;margin:0;padding:0}`,
     `body{font-family:'Times New Roman',Times,serif;color:#000;background:#fff;padding:40px 48px;font-size:12pt;line-height:1.5}`,
     `.letterhead{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:6px}`,
-    `.logo{width:64px;height:64px;border:2px solid #000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;flex-shrink:0}`,
+    `.logo-img{width:64px;height:64px;object-fit:contain;flex-shrink:0}`,
     `.org{text-align:center}`,
     `.org .republic{font-size:9pt;letter-spacing:1px;text-transform:uppercase}`,
     `.org .dept{font-size:9pt;font-weight:700;text-transform:uppercase}`,
@@ -70,13 +85,13 @@ export function printDocument({
     <style>${CSS}</style>
   </head><body>
     <div class="letterhead">
-      <div class="logo">&#10010;</div>
+      <img src="${leftSrc}" alt="Left Seal" class="logo-img" />
       <div class="org">
-        <div class="republic">Republic of the Philippines</div>
-        <div class="dept">Department of Health</div>
+        <div class="republic">Republic of the Philippines ${province ? `• ${province}` : ''} ${municipality ? `• ${municipality}` : ''}</div>
         <div class="clinic">${clinicName}</div>
-        <div class="address">Animal Bite Treatment Center</div>
+        <div class="address">Animal Bite Treatment Center ${contactNumber ? `| Tel. ${contactNumber}` : ''} ${address ? `| ${address}` : ''}</div>
       </div>
+      <img src="${rightSrc}" alt="Right Seal" class="logo-img" />
     </div>
     <hr class="divider-thick"><hr class="divider-thin">
     <div class="doc-title">

@@ -32,6 +32,8 @@ import {
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import defaultLogo from '../../../assets/abtcare-app-icon.png';
+import defaultLeftPrintLogo from '../../../assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
+import defaultRightPrintLogo from '../../../assets/rhu-logo.png';
 import { API_BASE_URL } from '../../../shared/services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { DAYS } from '../components/WorkingHoursModal/WorkingHoursModal';
@@ -85,6 +87,10 @@ interface ClinicData {
   philhealth_accreditation_no: string;
   logo_path?: string | null;
   logo_url?: string | null;
+  left_print_logo_path?: string | null;
+  left_print_logo_url?: string | null;
+  right_print_logo_path?: string | null;
+  right_print_logo_url?: string | null;
   opening_hours: {
     [key: string]: { open: string; close: string; is_open: boolean };
   };
@@ -108,11 +114,25 @@ export default function ClinicInformation() {
     philhealth_accreditation_no: '',
     logo_path: null,
     logo_url: null,
+    left_print_logo_path: null,
+    left_print_logo_url: null,
+    right_print_logo_path: null,
+    right_print_logo_url: null,
     opening_hours: {},
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [removeLogo, setRemoveLogo] = useState(false);
+
+  // Left Print Logo State
+  const [leftLogoFile, setLeftLogoFile] = useState<File | null>(null);
+  const [leftLogoPreview, setLeftLogoPreview] = useState<string | null>(null);
+  const [removeLeftLogo, setRemoveLeftLogo] = useState(false);
+
+  // Right Print Logo State
+  const [rightLogoFile, setRightLogoFile] = useState<File | null>(null);
+  const [rightLogoPreview, setRightLogoPreview] = useState<string | null>(null);
+  const [removeRightLogo, setRemoveRightLogo] = useState(false);
 
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -321,11 +341,15 @@ export default function ClinicInformation() {
         philhealth_accreditation_no: data.philhealth_accreditation_no || '',
         logo_path: data.logo_path || null,
         logo_url: data.logo_url || null,
+        left_print_logo_path: data.left_print_logo_path || null,
+        left_print_logo_url: data.left_print_logo_url || null,
+        right_print_logo_path: data.right_print_logo_path || null,
+        right_print_logo_url: data.right_print_logo_url || null,
         opening_hours: defaultHours,
       });
 
       // If the user had unsaved changes (a draft), restore them on top of the server data
-      const savedDraft = draft.readDraft<Partial<Omit<ClinicData, 'logo_path' | 'logo_url' | 'opening_hours'>>>();
+      const savedDraft = draft.readDraft<Partial<Omit<ClinicData, 'logo_path' | 'logo_url' | 'left_print_logo_path' | 'left_print_logo_url' | 'right_print_logo_path' | 'right_print_logo_url' | 'opening_hours'>>>();
       if (savedDraft) {
         setClinic(prev => ({ ...prev, ...savedDraft }));
       }
@@ -333,6 +357,14 @@ export default function ClinicInformation() {
       setLogoFile(null);
       setLogoPreview(null);
       setRemoveLogo(false);
+
+      setLeftLogoFile(null);
+      setLeftLogoPreview(null);
+      setRemoveLeftLogo(false);
+
+      setRightLogoFile(null);
+      setRightLogoPreview(null);
+      setRemoveRightLogo(false);
 
       parseClinicAddress(data.address || '', data.municipality, data.province);
     } catch (error: any) {
@@ -359,7 +391,7 @@ export default function ClinicInformation() {
     setClinic(prev => {
       const next = { ...prev, [field]: value };
       // Persist draft of text fields only (not logo paths or opening_hours objects)
-      const { logo_path, logo_url, opening_hours, ...draftable } = next;
+      const { logo_path, logo_url, left_print_logo_path, left_print_logo_url, right_print_logo_path, right_print_logo_url, opening_hours, ...draftable } = next;
       draft.saveDraft(draftable);
       return next;
     });
@@ -389,6 +421,54 @@ export default function ClinicInformation() {
     setRemoveLogo(true);
   };
 
+  const handleLeftLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSnackbar({
+        open: true,
+        message: 'Left print logo image must not exceed 2MB in size.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    setLeftLogoFile(file);
+    setLeftLogoPreview(URL.createObjectURL(file));
+    setRemoveLeftLogo(false);
+  };
+
+  const handleResetLeftLogo = () => {
+    setLeftLogoFile(null);
+    setLeftLogoPreview(null);
+    setRemoveLeftLogo(true);
+  };
+
+  const handleRightLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSnackbar({
+        open: true,
+        message: 'Right print logo image must not exceed 2MB in size.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    setRightLogoFile(file);
+    setRightLogoPreview(URL.createObjectURL(file));
+    setRemoveRightLogo(false);
+  };
+
+  const handleResetRightLogo = () => {
+    setRightLogoFile(null);
+    setRightLogoPreview(null);
+    setRemoveRightLogo(true);
+  };
+
   const backendBase = API_BASE_URL.replace(/\/api\/?$/, '');
   const displayLogoSrc = logoPreview
     ? logoPreview
@@ -399,6 +479,26 @@ export default function ClinicInformation() {
         : clinic.logo_path
           ? `${backendBase}/storage/${clinic.logo_path}`
           : defaultLogo;
+
+  const displayLeftLogoSrc = leftLogoPreview
+    ? leftLogoPreview
+    : removeLeftLogo
+      ? defaultLeftPrintLogo
+      : clinic.left_print_logo_url
+        ? clinic.left_print_logo_url
+        : clinic.left_print_logo_path
+          ? `${backendBase}/storage/${clinic.left_print_logo_path}`
+          : defaultLeftPrintLogo;
+
+  const displayRightLogoSrc = rightLogoPreview
+    ? rightLogoPreview
+    : removeRightLogo
+      ? defaultRightPrintLogo
+      : clinic.right_print_logo_url
+        ? clinic.right_print_logo_url
+        : clinic.right_print_logo_path
+          ? `${backendBase}/storage/${clinic.right_print_logo_path}`
+          : defaultRightPrintLogo;
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -426,6 +526,20 @@ export default function ClinicInformation() {
         formData.append('remove_logo', '1');
       }
 
+      if (leftLogoFile) {
+        formData.append('left_print_logo', leftLogoFile);
+      }
+      if (removeLeftLogo) {
+        formData.append('remove_left_print_logo', '1');
+      }
+
+      if (rightLogoFile) {
+        formData.append('right_print_logo', rightLogoFile);
+      }
+      if (removeRightLogo) {
+        formData.append('remove_right_print_logo', '1');
+      }
+
       const res = await api.post('/setup/clinic', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -447,10 +561,22 @@ export default function ClinicInformation() {
           subtitle: updatedClinic.subtitle || '',
           logo_path: updatedClinic.logo_path || null,
           logo_url: updatedClinic.logo_url || null,
+          left_print_logo_path: updatedClinic.left_print_logo_path || null,
+          left_print_logo_url: updatedClinic.left_print_logo_url || null,
+          right_print_logo_path: updatedClinic.right_print_logo_path || null,
+          right_print_logo_url: updatedClinic.right_print_logo_url || null,
         }));
         setLogoFile(null);
         setLogoPreview(null);
         setRemoveLogo(false);
+
+        setLeftLogoFile(null);
+        setLeftLogoPreview(null);
+        setRemoveLeftLogo(false);
+
+        setRightLogoFile(null);
+        setRightLogoPreview(null);
+        setRemoveRightLogo(false);
       }
 
       setShowSuccessModal(true);
@@ -646,6 +772,258 @@ export default function ClinicInformation() {
                     • Logo will reset to default mobile logo on save
                   </Typography>
                 )}
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Print Header Branding Section */}
+          <Box
+            sx={{
+              p: 2.5,
+              bgcolor: 'var(--bg-subtle, #f8fafc)',
+              border: '1px solid var(--border-glow, #e2e8f0)',
+              borderRadius: 2,
+              mb: 3,
+            }}
+          >
+            <Typography sx={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.5 }}>
+              Print Header Branding
+            </Typography>
+            <Typography sx={{ fontSize: '12px', color: '#64748b', mb: 2.5, lineHeight: 1.4 }}>
+              Configure the two official header seals/logos used dynamically across all print previews, printable forms, printable reports, and print outputs.
+            </Typography>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
+              {/* Left Print Logo Block */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  p: 2,
+                  bgcolor: '#ffffff',
+                  border: '1px solid var(--border-glow, #e2e8f0)',
+                  borderRadius: 2,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 2,
+                    border: '2px dashed #10b981',
+                    bgcolor: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0.75,
+                    flexShrink: 0,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <img
+                    src={displayLeftLogoSrc}
+                    alt="Left Print Logo"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement;
+                      if (target.src !== defaultLeftPrintLogo) {
+                        target.src = defaultLeftPrintLogo;
+                      }
+                    }}
+                  />
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.25 }}>
+                    Left Print Logo
+                  </Typography>
+                  <Typography sx={{ fontSize: '11.5px', color: '#64748b', mb: 1.25, lineHeight: 1.3 }}>
+                    Official municipal / LGU flag or left header seal.
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <input
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      id="left-print-logo-upload"
+                      type="file"
+                      style={{ display: 'none' }}
+                      onChange={handleLeftLogoChange}
+                    />
+                    <label htmlFor="left-print-logo-upload">
+                      <Button
+                        variant="outlined"
+                        component="span"
+                        size="small"
+                        startIcon={<CloudUploadIcon />}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          color: '#059669',
+                          borderColor: '#10b981',
+                          py: 0.5,
+                          px: 1.25,
+                          '&:hover': {
+                            borderColor: '#059669',
+                            bgcolor: '#ecfdf5',
+                          },
+                        }}
+                      >
+                        {clinic.left_print_logo_path || leftLogoPreview ? 'Replace Logo' : 'Upload Logo'}
+                      </Button>
+                    </label>
+
+                    {(clinic.left_print_logo_path || leftLogoPreview || (clinic.left_print_logo_url && clinic.left_print_logo_url !== defaultLeftPrintLogo)) && !removeLeftLogo && (
+                      <Button
+                        variant="text"
+                        size="small"
+                        startIcon={<DeleteOutlineIcon />}
+                        onClick={handleResetLeftLogo}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '11.5px',
+                          fontWeight: 500,
+                          color: '#ef4444',
+                          py: 0.5,
+                          px: 1,
+                          '&:hover': {
+                            bgcolor: '#fef2f2',
+                          },
+                        }}
+                      >
+                        Remove Logo
+                      </Button>
+                    )}
+                  </Box>
+
+                  {leftLogoFile && (
+                    <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75 }}>
+                      • Selected: {leftLogoFile.name} (Click &quot;Save Changes&quot; to apply)
+                    </Typography>
+                  )}
+                  {removeLeftLogo && (
+                    <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
+                      • Will reset to default flag seal on save
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+
+              {/* Right Print Logo Block */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  p: 2,
+                  bgcolor: '#ffffff',
+                  border: '1px solid var(--border-glow, #e2e8f0)',
+                  borderRadius: 2,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 2,
+                    border: '2px dashed #10b981',
+                    bgcolor: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0.75,
+                    flexShrink: 0,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <img
+                    src={displayRightLogoSrc}
+                    alt="Right Print Logo"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement;
+                      if (target.src !== defaultRightPrintLogo) {
+                        target.src = defaultRightPrintLogo;
+                      }
+                    }}
+                  />
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.25 }}>
+                    Right Print Logo
+                  </Typography>
+                  <Typography sx={{ fontSize: '11.5px', color: '#64748b', mb: 1.25, lineHeight: 1.3 }}>
+                    Official RHU / Health Office logo or right header seal.
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <input
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      id="right-print-logo-upload"
+                      type="file"
+                      style={{ display: 'none' }}
+                      onChange={handleRightLogoChange}
+                    />
+                    <label htmlFor="right-print-logo-upload">
+                      <Button
+                        variant="outlined"
+                        component="span"
+                        size="small"
+                        startIcon={<CloudUploadIcon />}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          color: '#059669',
+                          borderColor: '#10b981',
+                          py: 0.5,
+                          px: 1.25,
+                          '&:hover': {
+                            borderColor: '#059669',
+                            bgcolor: '#ecfdf5',
+                          },
+                        }}
+                      >
+                        {clinic.right_print_logo_path || rightLogoPreview ? 'Replace Logo' : 'Upload Logo'}
+                      </Button>
+                    </label>
+
+                    {(clinic.right_print_logo_path || rightLogoPreview || (clinic.right_print_logo_url && clinic.right_print_logo_url !== defaultRightPrintLogo)) && !removeRightLogo && (
+                      <Button
+                        variant="text"
+                        size="small"
+                        startIcon={<DeleteOutlineIcon />}
+                        onClick={handleResetRightLogo}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '11.5px',
+                          fontWeight: 500,
+                          color: '#ef4444',
+                          py: 0.5,
+                          px: 1,
+                          '&:hover': {
+                            bgcolor: '#fef2f2',
+                          },
+                        }}
+                      >
+                        Remove Logo
+                      </Button>
+                    )}
+                  </Box>
+
+                  {rightLogoFile && (
+                    <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75 }}>
+                      • Selected: {rightLogoFile.name} (Click &quot;Save Changes&quot; to apply)
+                    </Typography>
+                  )}
+                  {removeRightLogo && (
+                    <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
+                      • Will reset to default RHU logo on save
+                    </Typography>
+                  )}
+                </Box>
               </Box>
             </Box>
           </Box>

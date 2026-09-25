@@ -143,11 +143,15 @@ class ClinicSetupController extends Controller
             'opening_hours' => 'nullable|string',
             'logo' => 'nullable|image|max:2048', // 2MB max
             'remove_logo' => 'nullable',
+            'left_print_logo' => 'nullable|image|max:2048',
+            'remove_left_print_logo' => 'nullable',
+            'right_print_logo' => 'nullable|image|max:2048',
+            'remove_right_print_logo' => 'nullable',
         ]);
 
         $clinic = $request->user()->clinic;
         
-        $data = $request->except(['logo', 'remove_logo']);
+        $data = $request->except(['logo', 'remove_logo', 'left_print_logo', 'remove_left_print_logo', 'right_print_logo', 'remove_right_print_logo']);
         
         // Handle logo removal
         if ($request->boolean('remove_logo') || $request->input('remove_logo') === '1' || $request->input('remove_logo') === 'true') {
@@ -165,6 +169,38 @@ class ClinicSetupController extends Controller
             }
             
             $data['logo_path'] = $request->file('logo')->store('clinic-logos', 'public');
+        }
+
+        // Handle left print logo removal
+        if ($request->boolean('remove_left_print_logo') || $request->input('remove_left_print_logo') === '1' || $request->input('remove_left_print_logo') === 'true') {
+            if ($clinic->left_print_logo_path) {
+                Storage::disk('public')->delete($clinic->left_print_logo_path);
+            }
+            $data['left_print_logo_path'] = null;
+        }
+
+        // Handle left print logo upload
+        if ($request->hasFile('left_print_logo')) {
+            if ($clinic->left_print_logo_path) {
+                Storage::disk('public')->delete($clinic->left_print_logo_path);
+            }
+            $data['left_print_logo_path'] = $request->file('left_print_logo')->store('clinic-logos', 'public');
+        }
+
+        // Handle right print logo removal
+        if ($request->boolean('remove_right_print_logo') || $request->input('remove_right_print_logo') === '1' || $request->input('remove_right_print_logo') === 'true') {
+            if ($clinic->right_print_logo_path) {
+                Storage::disk('public')->delete($clinic->right_print_logo_path);
+            }
+            $data['right_print_logo_path'] = null;
+        }
+
+        // Handle right print logo upload
+        if ($request->hasFile('right_print_logo')) {
+            if ($clinic->right_print_logo_path) {
+                Storage::disk('public')->delete($clinic->right_print_logo_path);
+            }
+            $data['right_print_logo_path'] = $request->file('right_print_logo')->store('clinic-logos', 'public');
         }
 
         // Auto-geocode if address changed

@@ -47,6 +47,12 @@ export interface Clinic {
   opening_hours?: any;
   logo_path?: string | null;
   logo_url?: string | null;
+  left_print_logo_path?: string | null;
+  left_print_logo_url?: string | null;
+  right_print_logo_path?: string | null;
+  right_print_logo_url?: string | null;
+  municipality?: string;
+  province?: string;
   setup_completed?: boolean;
   is_setup_complete?: boolean;
   created_at?: string;

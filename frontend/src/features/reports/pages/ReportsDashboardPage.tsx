@@ -862,7 +862,7 @@ function PrintPreviewModal({
           </button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', background: 'var(--bg-dark, #f3f4f6)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', background: '#ffffff' }}>
           <style>{`
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
             .print-modal-content h3.sec {

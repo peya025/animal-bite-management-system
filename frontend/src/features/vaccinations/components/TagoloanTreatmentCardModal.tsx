@@ -258,6 +258,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
             padding: '1.75rem 2rem',
             overflowY: 'auto',
             flex: 1,
+            background: '#ffffff',
             color: '#1e293b',
             fontFamily: 'Arial, sans-serif',
           }}

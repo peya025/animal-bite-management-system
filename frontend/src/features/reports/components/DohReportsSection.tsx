@@ -583,7 +583,7 @@ export default function DohReportsSection() {
             <Close fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 0, flexGrow: 1, bgcolor: '#f8fafc' }}>
+        <DialogContent sx={{ p: 0, flexGrow: 1, bgcolor: '#ffffff' }}>
           <iframe
             id="doh-preview-iframe"
             title="DOH Report Preview"

@@ -417,37 +417,38 @@ export default function RegistrationReportsPage() {
       </>}
       {tab === 'pep' && <>
         <Alert severity="info">D0 cohort: {filters.from} to {filters.to}. Outcomes observed as of {data.period.as_of}. {stats.completion.excluded} course(s) are not eligible for the completion denominator. Current follow-up and awaiting-D0 lists include all incident dates.</Alert>
-        <Paper elevation={0} className="rr-panel rr-tab-intro">
-          <div className="rr-tab-intro-content">
-            <div>
-              <Typography component="h2" className="rr-section-title" sx={{ mb: 0.5 }}>PEP &amp; Follow-up Clinical Records</Typography>
-              <p className="rr-note" style={{ margin: 0 }}>Review patient treatment outcomes, overdue dose queues, and episodes awaiting initial Day 0 doses.</p>
-            </div>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              <Button
-                variant={report === 'pep' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => selectReport('pep', false)}
-              >
-                PEP Treatment Outcomes
-              </Button>
-              <Button
-                variant={report === 'followup' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => selectReport('followup', false)}
-              >
-                Overdue Patients ({stats.overdue_patients})
-              </Button>
-              <Button
-                variant={report === 'awaiting' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => selectReport('awaiting', false)}
-              >
-                Awaiting D0 ({stats.awaiting_d0})
-              </Button>
-            </Stack>
-          </div>
-        </Paper>
+        <div className="rr-pep-header">
+          <Typography component="h2" className="rr-section-title" sx={{ mb: 0.5 }}>PEP &amp; Follow-up Clinical Records</Typography>
+          <p className="rr-note" style={{ margin: 0 }}>Review patient treatment outcomes, overdue dose queues, and episodes awaiting initial Day 0 doses.</p>
+        </div>
+        <div className="rr-pep-tabs-bar">
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+            <Button
+              variant={report === 'pep' ? 'contained' : 'outlined'}
+              size="small"
+              className="rr-pep-tab-btn"
+              onClick={() => selectReport('pep', false)}
+            >
+              PEP Treatment Outcomes
+            </Button>
+            <Button
+              variant={report === 'followup' ? 'contained' : 'outlined'}
+              size="small"
+              className="rr-pep-tab-btn"
+              onClick={() => selectReport('followup', false)}
+            >
+              Overdue Patients ({stats.overdue_patients})
+            </Button>
+            <Button
+              variant={report === 'awaiting' ? 'contained' : 'outlined'}
+              size="small"
+              className="rr-pep-tab-btn"
+              onClick={() => selectReport('awaiting', false)}
+            >
+              Awaiting D0 ({stats.awaiting_d0})
+            </Button>
+          </Stack>
+        </div>
       </>}
       {tab === 'surveillance' && <>
         <div className="rr-activity">
@@ -456,30 +457,30 @@ export default function RegistrationReportsPage() {
           <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
           <Button component={RouterLink} to="/bite-map" endIcon={<ArrowForward />}>Open Bite Map</Button>
         </div>
-        <Paper elevation={0} className="rr-panel rr-tab-intro">
-          <div className="rr-tab-intro-content">
-            <div>
-              <Typography component="h2" className="rr-section-title" sx={{ mb: 0.5 }}>Bite Surveillance Incident Records</Typography>
-              <p className="rr-note" style={{ margin: 0 }}>Examine incident registry logs, bite exposures by barangay and animal species, and referred cases.</p>
-            </div>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              <Button
-                variant={report === 'surveillance' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => selectReport('surveillance', false)}
-              >
-                Incident List ({stats.incidents})
-              </Button>
-              <Button
-                variant={report === 'referrals' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => selectReport('referrals', false)}
-              >
-                Referrals &amp; Transfers ({stats.referrals})
-              </Button>
-            </Stack>
-          </div>
-        </Paper>
+        <div className="rr-surveillance-header">
+          <Typography component="h2" className="rr-section-title" sx={{ mb: 0.5 }}>Bite Surveillance Incident Records</Typography>
+          <p className="rr-note" style={{ margin: 0 }}>Examine incident registry logs, bite exposures by barangay and animal species, and referred cases.</p>
+        </div>
+        <div className="rr-surveillance-tabs-bar">
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+            <Button
+              variant={report === 'surveillance' ? 'contained' : 'outlined'}
+              size="small"
+              className="rr-surveillance-tab-btn"
+              onClick={() => selectReport('surveillance', false)}
+            >
+              Incident List ({stats.incidents})
+            </Button>
+            <Button
+              variant={report === 'referrals' ? 'contained' : 'outlined'}
+              size="small"
+              className="rr-surveillance-tab-btn"
+              onClick={() => selectReport('referrals', false)}
+            >
+              Referrals &amp; Transfers ({stats.referrals})
+            </Button>
+          </Stack>
+        </div>
       </>}
       <Paper elevation={0} className="rr-panel">
         <div className="rr-record-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>

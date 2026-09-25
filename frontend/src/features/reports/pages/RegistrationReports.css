@@ -12,7 +12,7 @@
 .rr-header small { color: var(--rr-muted); }
 .registration-reports .rr-panel { border: 1px solid var(--rr-border); border-radius: 12px; padding: 20px; box-shadow: none; background-image: none; min-width: 0; transition: box-shadow 0.2s ease, border-color 0.2s ease; }
 .registration-reports .rr-panel:hover { border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 4px 16px rgba(16, 185, 129, 0.08); }
-.registration-reports > .rr-panel, .registration-reports > .MuiAlert-root, .registration-reports > .rr-grid, .rr-activity, .rr-definitions, .rr-surveillance-layout, .rr-tab-intro { margin-top: 20px; }
+.registration-reports > .rr-panel, .registration-reports > .MuiAlert-root, .registration-reports > .rr-grid, .rr-activity, .rr-definitions, .rr-surveillance-layout, .rr-tab-intro, .rr-pep-header, .rr-surveillance-header { margin-top: 20px; }
 .rr-grid { display: grid; gap: 16px; }
 .rr-grid-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rr-grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -169,6 +169,64 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px;
+}
+
+/* PEP & Surveillance Section Headers & Centered Navigation Tabs */
+.rr-pep-header,
+.rr-surveillance-header {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
+.rr-pep-tabs-bar,
+.rr-surveillance-tabs-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0 10px;
+  width: 100%;
+}
+
+.registration-reports > .rr-pep-tabs-bar + .rr-panel,
+.registration-reports > .rr-surveillance-tabs-bar + .rr-panel {
+  margin-top: 0;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-root,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-root {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-contained,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-contained {
+  background: #1d9e75;
+  color: #fff;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-contained:hover,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-contained:hover {
+  background: #178563;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-outlined,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-outlined {
+  border-color: var(--rr-border);
+  color: inherit;
+  background-color: transparent;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-outlined:hover,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-outlined:hover {
+  background-color: #047857;
+  border-color: #047857;
+  color: #ffffff;
+}
+
+[data-theme='dark'] .registration-reports .rr-pep-tabs-bar .MuiButton-outlined:hover,
+[data-theme='dark'] .registration-reports .rr-surveillance-tabs-bar .MuiButton-outlined:hover {
+  background-color: #047857;
+  border-color: #059669;
+  color: #ffffff;
 }
 
 /* Bite Surveillance Analytics Rows */

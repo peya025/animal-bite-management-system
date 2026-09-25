@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Alert, Box, Button, Chip, CircularProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, CircularProgress, LinearProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { DownloadOutlined, PrintOutlined, ArrowForward, Refresh } from '@mui/icons-material';
 import api from '../../../services/api';
 import './RegistrationReports.css';
@@ -25,6 +25,14 @@ interface ReportData {
 }
 
 const TITLES: Record<Report, string> = { summary: 'Clinic Summary', pep: 'PEP Treatment Outcomes', followup: 'Overdue Doses & Follow-up', awaiting: 'Awaiting First Dose', surveillance: 'Bite Surveillance', referrals: 'Referrals & Transfers' };
+const REPORT_COLUMNS: Record<Report, Record<string, string>> = {
+  summary: { metric: 'Metric', value: 'Value' },
+  pep: { case_number: 'Case no.', patient: 'Patient', regimen: 'Regimen', d0_date: 'D0 date', required_doses: 'Required', received_doses: 'Received', completion_date: 'Completed on', outcome: 'Outcome' },
+  followup: { case_number: 'Case no.', patient: 'Patient', contact: 'Contact', dose: 'Dose', due_date: 'Due date', days_overdue: 'Days overdue', last_dose_date: 'Last dose', schedule_source: 'Schedule basis', reminder_status: 'Last reminder status', last_reminder: 'Last reminder' },
+  awaiting: { case_number: 'Case no.', patient: 'Patient', contact: 'Contact', category: 'Category', regimen: 'Regimen', bite_date: 'Incident date', outcome: 'Outcome' },
+  surveillance: { case_number: 'Case no.', patient: 'Patient', category: 'Category', animal_type: 'Animal', ownership: 'Ownership', barangay: 'Incident barangay', age_at_incident: 'Age at incident', risk_flag: 'Current follow-up status', bite_date: 'Incident date' },
+  referrals: { case_number: 'Case no.', patient: 'Patient', category: 'Category', type: 'Type', destination: 'Destination', reason: 'Reason', date: 'Referral / transfer date', outcome: 'Recorded outcome' },
+};
 const dateString = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 function dateRange(preset: string): Filters {
   const now = new Date();
@@ -96,29 +104,109 @@ export default function RegistrationReportsPage() {
   const [filters, setFilters] = useState<Filters>(() => dateRange('month'));
   const [page, setPage] = useState(1);
   const [refresh, setRefresh] = useState(0);
-  const [result, setResult] = useState<{ key: string; data?: ReportData; error?: string } | null>(null);
+  const [globalData, setGlobalData] = useState<ReportData | null>(null);
+  const [activeReportData, setActiveReportData] = useState<{ report: Report; page: number; data?: ReportData } | null>(null);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+
+  const cacheRef = useRef<Map<string, ReportData>>(new Map());
+  const inFlightRef = useRef<Set<string>>(new Set());
+
   const valid = Boolean(draft.from && draft.to && draft.from <= draft.to && draft.to <= dateString(new Date()));
   const dirty = JSON.stringify(draft) !== JSON.stringify(filters);
-  const requestKey = JSON.stringify({ filters, report, page, refresh });
-  const loading = result?.key !== requestKey;
-  const data = loading ? null : result?.data ?? null;
-  const error = loading ? '' : result?.error ?? '';
+
+  const getCacheKey = (r: Report, p: number, f: Filters) =>
+    `${f.from}_${f.to}_${f.category}_${r}_${p}`;
+
+  const prefetchSiblings = useCallback((currentTab: ReportTab, currentFilters: Filters) => {
+    let siblings: Report[] = [];
+    if (currentTab === 'pep') {
+      siblings = ['pep', 'followup', 'awaiting'];
+    } else if (currentTab === 'surveillance') {
+      siblings = ['surveillance', 'referrals'];
+    }
+    for (const sibling of siblings) {
+      const key = `${currentFilters.from}_${currentFilters.to}_${currentFilters.category}_${sibling}_1`;
+      if (!cacheRef.current.has(key) && !inFlightRef.current.has(key)) {
+        inFlightRef.current.add(key);
+        api.get<ReportData>('/reports/registration', { params: { ...currentFilters, report: sibling, page: 1 } })
+          .then(res => {
+            cacheRef.current.set(key, res.data);
+            setActiveReportData(curr => {
+              if (curr?.report === sibling && curr?.page === 1) {
+                setTableLoading(false);
+                return { report: sibling, page: 1, data: res.data };
+              }
+              return curr;
+            });
+          })
+          .catch(() => {})
+          .finally(() => {
+            inFlightRef.current.delete(key);
+          });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    cacheRef.current.clear();
+    inFlightRef.current.clear();
+  }, [filters, refresh]);
 
   useEffect(() => {
     if (!['overview', 'pep', 'surveillance'].includes(tab)) return;
+
+    const key = getCacheKey(report, page, filters);
+    const cached = cacheRef.current.get(key);
+
+    if (cached) {
+      setActiveReportData({ report, page, data: cached });
+      setTableLoading(false);
+      setError('');
+      prefetchSiblings(tab, filters);
+      return;
+    }
+
     const controller = new AbortController();
+    setError('');
+
     api.get<ReportData>('/reports/registration', { params: { ...filters, report, page }, signal: controller.signal })
-      .then(response => { if (!controller.signal.aborted) setResult({ key: requestKey, data: response.data }); })
-      .catch(() => { if (!controller.signal.aborted) setResult({ key: requestKey, error: 'Unable to load reports. Check your connection and try again.' }); });
+      .then(response => {
+        if (!controller.signal.aborted) {
+          cacheRef.current.set(key, response.data);
+          setGlobalData(response.data);
+          setActiveReportData({ report, page, data: response.data });
+          setTableLoading(false);
+          setError('');
+          prefetchSiblings(tab, filters);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setTableLoading(false);
+          setError('Unable to load reports. Check your connection and try again.');
+        }
+      });
+
     return () => controller.abort();
-  }, [tab, filters, report, page, requestKey]);
+  }, [tab, filters, report, page, refresh, prefetchSiblings]);
 
   const selectReport = (next: Report, switchTab: boolean = true) => {
-    setReport(next); setPage(1);
+    setReport(next);
+    setPage(1);
     if (switchTab) {
       setTab(next === 'summary' ? 'overview' : ['pep', 'followup', 'awaiting'].includes(next) ? 'pep' : 'surveillance');
+    }
+    const key = getCacheKey(next, 1, filters);
+    const cached = cacheRef.current.get(key);
+    if (cached) {
+      setActiveReportData({ report: next, page: 1, data: cached });
+      setTableLoading(false);
+    } else {
+      setActiveReportData({ report: next, page: 1 });
+      setTableLoading(true);
     }
   };
 
@@ -231,7 +319,14 @@ export default function RegistrationReportsPage() {
     finally { setExporting(false); }
   };
 
-  const stats = data?.stats;
+  const initialLoading = !globalData && !error;
+  const isCurrentReport = activeReportData?.report === report && activeReportData?.page === page && Boolean(activeReportData.data);
+  const data = isCurrentReport && activeReportData?.data ? activeReportData.data : globalData;
+  const stats = globalData?.stats ?? activeReportData?.data?.stats;
+  const displayedRecords = isCurrentReport && activeReportData?.data ? activeReportData.data.records : null;
+  const displayedMeta = isCurrentReport && activeReportData?.data ? activeReportData.data.meta : globalData?.meta;
+  const currentColumns = displayedRecords?.columns ?? REPORT_COLUMNS[report];
+
   return <Box className="registration-reports" sx={{ color: 'text.primary', bgcolor: 'background.default' }}>
     <header className="rr-header"><div><Typography component="h1">Reports &amp; Analytics</Typography><p>Treatment outcomes, follow-up priorities, and bite surveillance</p><small>Dashboard / Reports</small></div>
       {['overview', 'pep', 'surveillance'].includes(tab) && (
@@ -251,8 +346,8 @@ export default function RegistrationReportsPage() {
               Landscape
             </ToggleButton>
           </ToggleButtonGroup>
-          <Button variant="outlined" startIcon={<DownloadOutlined />} disabled={!data || loading || exporting} onClick={() => void exportReport('csv')}>Export CSV</Button>
-          <Button variant="contained" disableElevation startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!data || loading || exporting} onClick={() => void exportReport('print')}>Print Report</Button>
+          <Button variant="outlined" startIcon={<DownloadOutlined />} disabled={!data || Boolean(error) || initialLoading || exporting} onClick={() => void exportReport('csv')}>Export CSV</Button>
+          <Button variant="contained" disableElevation startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!data || Boolean(error) || initialLoading || exporting} onClick={() => void exportReport('print')}>Print Report</Button>
         </Stack>
       )}
     </header>
@@ -291,7 +386,7 @@ export default function RegistrationReportsPage() {
         <TextField size="small" select label="Category" value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}>
           <MenuItem value="ALL">All categories</MenuItem>{['I', 'II', 'III'].map(value => <MenuItem key={value} value={value}>Category {value}</MenuItem>)}
         </TextField>
-        <Button type="submit" variant="contained" disableElevation disabled={!valid || loading}>Apply</Button>
+        <Button type="submit" variant="contained" disableElevation disabled={!valid || initialLoading}>Apply</Button>
         <Button onClick={() => { const next = dateRange('month'); setDraft(next); setFilters(next); setPreset('month'); setPage(1); }}>Reset</Button>
       </div>
       {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
@@ -301,8 +396,8 @@ export default function RegistrationReportsPage() {
     {['overview', 'pep', 'surveillance'].includes(tab) && <>
     {exportError && <Alert severity="error" onClose={() => setExportError('')}>{exportError}</Alert>}
     {error && <Alert severity="error" action={<Button color="inherit" startIcon={<Refresh />} onClick={() => setRefresh(n => n + 1)}>Retry</Button>}>{error}</Alert>}
-    {loading && <div aria-label="Loading reports" aria-busy="true"><div className="rr-grid rr-grid-three">{[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={160} />)}</div><Skeleton variant="rounded" height={250} sx={{ mt: 2 }} /></div>}
-    {!loading && data && stats && <>
+    {initialLoading && <div aria-label="Loading reports" aria-busy="true"><div className="rr-grid rr-grid-three">{[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={160} />)}</div><Skeleton variant="rounded" height={250} sx={{ mt: 2 }} /></div>}
+    {!initialLoading && data && stats && <>
       {tab === 'overview' && <>
         {/* Row 1: Key Performance Indicators & Follow-up Alerts */}
         <div className="rr-grid rr-grid-three">
@@ -482,32 +577,145 @@ export default function RegistrationReportsPage() {
           </Stack>
         </div>
       </>}
-      <Paper elevation={0} className="rr-panel">
+      <Paper elevation={0} className="rr-panel rr-table-panel">
         <div className="rr-record-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 className="rr-section-title">{TITLES[report]}</h2>
-            <p className="rr-note">{data.records.total} record(s) · {data.meta.basis}</p>
-          </div>
-          <TextField
-            select
-            size="small"
-            label="Report / Patient List"
-            value={report}
-            onChange={e => selectReport(e.target.value as Report, false)}
-            sx={{ minWidth: 280 }}
-          >
-            <MenuItem value="surveillance">Patient Bite Incident List (Category, Animal, Location)</MenuItem>
-            <MenuItem value="followup">Overdue Patients &amp; Follow-up</MenuItem>
-            <MenuItem value="awaiting">Patients Awaiting First Dose (D0)</MenuItem>
-            <MenuItem value="pep">PEP Treatment Outcomes</MenuItem>
-            <MenuItem value="referrals">Referrals &amp; Transfers</MenuItem>
-            <MenuItem value="summary">Clinic Summary (Key Metrics)</MenuItem>
-          </TextField>
+          {tab === 'overview' ? (
+            <>
+              <div>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <h2 className="rr-section-title" style={{ margin: 0 }}>{TITLES[report]}</h2>
+                  {tableLoading && (
+                    <span className="rr-tab-updating-badge" aria-live="polite">
+                      <CircularProgress size={14} sx={{ color: '#1d9e75' }} />
+                      Updating...
+                    </span>
+                  )}
+                </Box>
+                <p className="rr-note">
+                  {tableLoading && !displayedRecords
+                    ? 'Loading records...'
+                    : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data.meta.basis}`}
+                </p>
+              </div>
+              <TextField
+                select
+                size="small"
+                label="Report / Patient List"
+                value={report}
+                onChange={e => selectReport(e.target.value as Report, false)}
+                sx={{ minWidth: 280 }}
+              >
+                <MenuItem value="surveillance">Patient Bite Incident List (Category, Animal, Location)</MenuItem>
+                <MenuItem value="followup">Overdue Patients &amp; Follow-up</MenuItem>
+                <MenuItem value="awaiting">Patients Awaiting First Dose (D0)</MenuItem>
+                <MenuItem value="pep">PEP Treatment Outcomes</MenuItem>
+                <MenuItem value="referrals">Referrals &amp; Transfers</MenuItem>
+                <MenuItem value="summary">Clinic Summary (Key Metrics)</MenuItem>
+              </TextField>
+            </>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <h2 className="rr-section-title" style={{ margin: 0 }}>{TITLES[report]}</h2>
+                {tableLoading && (
+                  <span className="rr-tab-updating-badge" aria-live="polite">
+                    <CircularProgress size={14} sx={{ color: '#1d9e75' }} />
+                    Updating...
+                  </span>
+                )}
+              </Box>
+              <p className="rr-note rr-record-meta">
+                {tableLoading && !displayedRecords
+                  ? 'Loading records...'
+                  : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data.meta.basis}`}
+              </p>
+            </>
+          )}
         </div>
-        <div className="rr-table-scroll" tabIndex={0} role="region" aria-label={TITLES[report]}><table className="rr-table"><thead><tr>{Object.values(data.records.columns).map(label => <th key={label} scope="col">{label}</th>)}</tr></thead><tbody>
-          {data.records.rows.length ? data.records.rows.map((row, index) => <tr key={`${page}-${index}`}>{Object.keys(data.records.columns).map(key => <td key={key}>{key === 'category' ? <Chip size="small" variant="outlined" label={`Category ${display(row[key])}`} /> : display(row[key])}</td>)}</tr>) : <tr><td colSpan={Object.keys(data.records.columns).length} className="rr-empty">No matching records.</td></tr>}
-        </tbody></table></div>
-        {data.records.last_page > 1 && <Pagination sx={{ mt: 2 }} count={data.records.last_page} page={data.records.page} onChange={(_, next) => setPage(next)} aria-label="Report pages" />}
+        <div className="rr-table-loading-bar" aria-hidden={!tableLoading}>
+          {tableLoading ? (
+            <LinearProgress
+              sx={{
+                height: 3,
+                bgcolor: 'rgba(29, 158, 117, 0.12)',
+                '& .MuiLinearProgress-bar': { bgcolor: '#1d9e75' },
+              }}
+            />
+          ) : (
+            <Box sx={{ height: 3 }} />
+          )}
+        </div>
+        <div
+          className={`rr-table-scroll ${tableLoading && displayedRecords ? 'is-loading' : ''}`}
+          tabIndex={0}
+          role="region"
+          aria-label={TITLES[report]}
+          aria-busy={tableLoading}
+        >
+          <table className="rr-table">
+            <thead>
+              <tr>
+                {Object.values(currentColumns).map(label => (
+                  <th key={label} scope="col">{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tableLoading && !displayedRecords ? (
+                [1, 2, 3, 4, 5].map(i => (
+                  <tr key={i}>
+                    {Object.keys(currentColumns).map(key => (
+                      <td key={key}>
+                        <Skeleton variant="text" width={`${Math.max(45, 90 - (key.length * 8) % 45)}%`} height={22} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : displayedRecords && displayedRecords.rows.length ? (
+                displayedRecords.rows.map((row, index) => (
+                  <tr key={`${page}-${index}`}>
+                    {Object.keys(currentColumns).map(key => (
+                      <td key={key}>
+                        {key === 'category' ? (
+                          <Chip size="small" variant="outlined" label={`Category ${display(row[key])}`} />
+                        ) : (
+                          display(row[key])
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={Object.keys(currentColumns).length} className="rr-empty">
+                    No matching records.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {displayedRecords && displayedRecords.last_page > 1 && (
+          <Pagination
+            sx={{ mt: 2 }}
+            count={displayedRecords.last_page}
+            page={displayedRecords.page}
+            onChange={(_, next) => {
+              setPage(next);
+              const key = getCacheKey(report, next, filters);
+              const cached = cacheRef.current.get(key);
+              if (cached) {
+                setActiveReportData({ report, page: next, data: cached });
+                setTableLoading(false);
+              } else {
+                setActiveReportData({ report, page: next });
+                setTableLoading(true);
+              }
+            }}
+            disabled={tableLoading}
+            aria-label="Report pages"
+          />
+        )}
         <p className="rr-note">CSV and print include every matching record, across all pages.</p>
       </Paper>
       <details className="rr-definitions"><summary>Metric definitions and data availability</summary>{data.meta.notes.map(note => <p key={note}>{note}</p>)}

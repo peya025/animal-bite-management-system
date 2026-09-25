@@ -45,7 +45,12 @@
 .rr-activity b { color: var(--text-h, inherit); font-weight: 600; }
 .rr-record-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
 .rr-record-header h2 { margin-bottom: 6px; }
+.rr-record-meta { margin: 0 !important; color: var(--rr-muted); font-size: 12px; line-height: 1.6; text-align: right; flex: 1 1 auto; }
 .rr-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.rr-table-panel { position: relative; }
+.rr-table-loading-bar { height: 3px; margin-bottom: 12px; overflow: hidden; border-radius: 2px; }
+.rr-table-scroll.is-loading { opacity: 0.6; pointer-events: none; transition: opacity 0.15s ease; }
+.rr-tab-updating-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--rr-muted); font-weight: 500; }
 .rr-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
 .rr-table th { font-weight: 500; color: var(--rr-muted); white-space: nowrap; }
 .rr-table th, .rr-table td { padding: 12px 10px; border-bottom: 1px solid var(--rr-border); vertical-align: top; }
@@ -321,6 +326,10 @@
     gap: 12px;
   }
   .rr-record-header .MuiTextField-root {
+    width: 100%;
+  }
+  .rr-record-meta {
+    text-align: left;
     width: 100%;
   }
   .rr-filter-row .MuiTextField-root {

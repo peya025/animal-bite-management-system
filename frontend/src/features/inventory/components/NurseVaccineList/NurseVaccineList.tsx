@@ -29,7 +29,6 @@ import {
   Search as SearchIcon,
   Refresh as RefreshIcon,
   Person as PersonIcon,
-  Vaccines as VaccineIcon,
   CalendarToday as CalendarIcon,
   AccessTime as TimeIcon,
   MedicalServices as MedicalIcon,
@@ -210,37 +209,6 @@ export default function NurseVaccineList() {
     <Box sx={{ width: '100%' }}>
       {/* ── Header & Stat Cards ── */}
       <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 1 }}>
-              <VaccineIcon sx={{ color: '#0284c7', fontSize: 24 }} />
-              Nurse Vaccine Administration List
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.25 }}>
-              Track patients who received rabies PEP vaccines, dose progression, administering staff, and vial deductions (1/3 vial shared tracking).
-            </Typography>
-          </Box>
-
-          <Button
-            variant="outlined"
-            onClick={fetchRecords}
-            disabled={loading}
-            startIcon={<RefreshIcon sx={{ fontSize: 16, ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: 13,
-              borderRadius: 2,
-              px: 2,
-              borderColor: '#d1d5db',
-              color: '#374151',
-              '&:hover': { borderColor: '#0284c7', color: '#0284c7', bgcolor: '#f0f9ff' },
-            }}
-          >
-            {loading ? 'Refreshing…' : 'Refresh Log'}
-          </Button>
-        </Box>
-
         {/* ── Summary Stats ── */}
         <Grid container spacing={2}>
           {[
@@ -260,7 +228,7 @@ export default function NurseVaccineList() {
             },
             {
               id: 'patients',
-              label: 'Unique Patients Served',
+              label: 'Total Patients Served',
               value: stats.unique_patients,
               icon: <PersonIcon sx={{ fontSize: 20 }} />,
               color: '#f59e0b',

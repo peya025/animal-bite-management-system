@@ -274,12 +274,6 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
               {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
             </Typography>
           </Box>
-          {view === 'administrations' && (
-            <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#64748b', mt: 0.5 }}>
-              View nurse administration records, patient logs, and consumption details.
-            </Typography>
-          )}
-
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
             <button

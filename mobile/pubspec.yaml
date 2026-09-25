@@ -46,6 +46,7 @@ dependencies:
   google_sign_in: ^6.2.2
   url_launcher: ^6.3.2
   hugeicons: ^1.2.0
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -71,8 +72,16 @@ flutter:
 
   assets:
     - assets/images/anti_rabies_health_worker.png
+    - assets/images/abtcare-app-icon.png
     - assets/images/onboarding/
     - assets/images/guide/
+    - "assets/images/buttons svg/"
+    - "assets/images/buttons svg/undraw_booking_8vl5.svg"
+    - "assets/images/buttons svg/undraw_professional-card_ldgq.svg"
+    - "assets/images/buttons svg/undraw_swipe-profiles_5koh.svg"
+    - "assets/images/buttons svg/undraw_schedule_ry1w.svg"
+    - "assets/images/buttons svg/undraw_timeline_2gfy.svg"
+    - "assets/images/buttons svg/undraw_online-meetings_zutp.svg"
     - .env
 
   fonts:

@@ -601,7 +601,7 @@ export const PatientListRoot = styled('div')`
 
   .pm-stat-card {
     background: var(--card-bg-solid, #ffffff);
-    border: 1px solid var(--border-glow, #e2e8f0);
+    border: 1px solid rgba(16, 185, 129, 0.25);
     border-radius: 14px;
     padding: 16px 20px;
     display: flex;
@@ -609,12 +609,13 @@ export const PatientListRoot = styled('div')`
     gap: 16px;
     position: relative;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .pm-stat-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
-    border-color: #cbd5e1;
+    background: rgba(16, 185, 129, 0.05);
+    border-color: #10b981;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
   }
   [data-theme='dark'] & .pm-stat-card,
   [data-theme='dark'] .pm-stat-card {
@@ -624,7 +625,9 @@ export const PatientListRoot = styled('div')`
   }
   [data-theme='dark'] & .pm-stat-card:hover,
   [data-theme='dark'] .pm-stat-card:hover {
-    border-color: #10b981 !important;
+    background: rgba(16, 185, 129, 0.12) !important;
+    border-color: #34d399 !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25) !important;
   }
 
   .pm-stat-icon {

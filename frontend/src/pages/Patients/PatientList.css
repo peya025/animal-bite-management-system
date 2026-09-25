@@ -434,35 +434,23 @@
 
 .pm-stat-card {
   border-radius: 14px;
-  padding: 20px;
-  color: #fff;
+  padding: 16px 20px;
+  background: var(--card-bg-solid, #ffffff);
+  border: 1px solid rgba(16, 185, 129, 0.25);
   display: flex;
   align-items: center;
   gap: 16px;
   position: relative;
-  overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .pm-stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  background: rgba(16, 185, 129, 0.05);
+  border-color: #10b981;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
 }
-
-.pm-stat-card::after {
-  content: '';
-  position: absolute;
-  top: -16px;
-  right: -16px;
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.12);
-}
-
-.pm-stat-card--teal    { background: linear-gradient(135deg, #14b8a6, #0d9488); }
-.pm-stat-card--green   { background: linear-gradient(135deg, #22c55e, #16a34a); }
-.pm-stat-card--emerald { background: linear-gradient(135deg, #10b981, #059669); }
 
 .pm-stat-icon {
   width: 44px;

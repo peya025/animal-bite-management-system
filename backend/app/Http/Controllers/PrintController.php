@@ -36,6 +36,12 @@ class PrintController extends Controller
     {
         $patient->load(['clinic', 'details']);
 
+        if (!$patient->clinic) {
+            $user = $this->resolveAuthenticatedUser($request);
+            $clinicId = $user?->clinic_id ?? 1;
+            $patient->setRelation('clinic', \App\Models\Clinic::find($clinicId));
+        }
+
         return view('prints.patient-enrolment', compact('patient'));
     }
 

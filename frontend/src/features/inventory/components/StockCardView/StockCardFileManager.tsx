@@ -492,15 +492,15 @@ export default function StockCardFileManager({
   </head>
   <body>
     <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin-bottom: 4px;">
-      <img src="${window.location.origin}/assets/Flag_of_Tagoloan,_Misamis_Oriental.png" style="height: 55px; width: 55px; object-fit: contain;" />
+      ${activeClinic.left_print_logo_url ? `<img src="${activeClinic.left_print_logo_url.startsWith('http') || activeClinic.left_print_logo_url.startsWith('/') ? activeClinic.left_print_logo_url : `${window.location.origin}/${activeClinic.left_print_logo_url}`}" style="height: 55px; width: 55px; object-fit: contain;" />` : `<div style="width: 55px; height: 55px; flex-shrink: 0;"></div>`}
       <div style="text-align: center; flex: 1; padding: 0 6px;">
         <div style="font-size: 7pt; text-transform: uppercase; letter-spacing: 0.5px; color: #333;">Republic of the Philippines</div>
-        <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; color: #000;">PROVINCE OF MISAMIS ORIENTAL</div>
-        <div style="font-size: 8pt; font-weight: bold; color: #333;">Municipality of Tagoloan</div>
-        <div style="font-size: 9.5pt; font-weight: 800; text-transform: uppercase; color: #059669; margin-top: 1px;">MUNICIPAL HEALTH OFFICE</div>
-        <div style="font-size: 7pt; color: #444;">Tel. No. : (088) 555-4778</div>
+        <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; color: #000;">PROVINCE OF ${(activeClinic.province || 'MISAMIS ORIENTAL').toUpperCase()}</div>
+        <div style="font-size: 8pt; font-weight: bold; color: #333;">Municipality of ${activeClinic.municipality || 'Tagoloan'}</div>
+        <div style="font-size: 9.5pt; font-weight: 800; text-transform: uppercase; color: #059669; margin-top: 1px;">${(activeClinic.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase()}</div>
+        <div style="font-size: 7pt; color: #444;">Tel. No. : ${activeClinic.contact_number}</div>
       </div>
-      <img src="${window.location.origin}/assets/rhu-logo.png" style="height: 55px; width: 55px; object-fit: contain;" />
+      ${activeClinic.right_print_logo_url ? `<img src="${activeClinic.right_print_logo_url.startsWith('http') || activeClinic.right_print_logo_url.startsWith('/') ? activeClinic.right_print_logo_url : `${window.location.origin}/${activeClinic.right_print_logo_url}`}" style="height: 55px; width: 55px; object-fit: contain;" />` : `<div style="width: 55px; height: 55px; flex-shrink: 0;"></div>`}
     </div>
 
     <div style="text-align: center; margin-bottom: 4px;">
@@ -1383,9 +1383,11 @@ export default function StockCardFileManager({
             <Paper elevation={0} sx={{ p: 4, pt: 4, pb: 4, border: '1px solid #94a3b8', bgcolor: '#ffffff', borderRadius: 2, boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
               {/* Header with Logos & Republic Info */}
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, pb: 2, borderBottom: '2px solid #0f172a' }}>
-                {/* Left Tagoloan Seal Flag Logo */}
+                {/* Left Seal Flag Logo */}
                 <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <img src="/assets/Flag_of_Tagoloan,_Misamis_Oriental.png" alt="Tagoloan Municipal Flag Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+                  {activeClinic.left_print_logo_url ? (
+                    <img src={activeClinic.left_print_logo_url} alt="Left Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
+                  ) : null}
                 </Box>
 
                 {/* Center Text */}
@@ -1394,22 +1396,24 @@ export default function StockCardFileManager({
                     Republic of the Philippines
                   </Typography>
                   <Typography sx={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', letterSpacing: '0.5px' }}>
-                    PROVINCE OF MISAMIS ORIENTAL
+                    PROVINCE OF {(activeClinic.province || 'MISAMIS ORIENTAL').toUpperCase()}
                   </Typography>
                   <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#334155' }}>
-                    Municipality of Tagoloan
+                    Municipality of {activeClinic.municipality || 'Tagoloan'}
                   </Typography>
                   <Typography sx={{ fontSize: 13.5, fontWeight: 800, textTransform: 'uppercase', color: '#059669', letterSpacing: '0.5px', mt: 0.25 }}>
-                    MUNICIPAL HEALTH OFFICE
+                    {(activeClinic.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase()}
                   </Typography>
                   <Typography sx={{ fontSize: 10.5, color: '#475569' }}>
-                    Tel. No. : (088) 555-4778
+                    Tel. No. : {activeClinic.contact_number}
                   </Typography>
                 </Box>
 
-                {/* Right RHU Health Office Logo */}
+                {/* Right Seal Logo */}
                 <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <img src="/assets/rhu-logo.png" alt="RHU Health Office Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+                  {activeClinic.right_print_logo_url ? (
+                    <img src={activeClinic.right_print_logo_url} alt="Right Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
+                  ) : null}
                 </Box>
               </Box>
 

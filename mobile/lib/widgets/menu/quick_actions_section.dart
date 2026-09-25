@@ -7,17 +7,11 @@ class QuickActionsSection extends StatelessWidget {
   const QuickActionsSection({
     super.key,
     required this.onCalendar,
-    required this.onBook,
-    required this.onPatientCard,
-    required this.onProfiles,
-    required this.onHistory,
+    required this.onProfile,
   });
 
   final VoidCallback onCalendar;
-  final VoidCallback onBook;
-  final VoidCallback onPatientCard;
-  final VoidCallback onProfiles;
-  final VoidCallback onHistory;
+  final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -35,116 +29,99 @@ class QuickActionsSection extends StatelessWidget {
         ),
         const SizedBox(height: 10),
 
-        // Horizontally Scrollable Action Items
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              _QuickActionItem(
+        // Balanced 2-card side-by-side layout
+        Row(
+          children: [
+            Expanded(
+              child: _ActionCard(
                 icon: LucideIcons.calendar,
-                label: 'Calendar',
-                isPrimary: true,
+                iconColor: AppColors.primary,
+                iconBgColor: const Color(0xFFE1F5EE),
+                title: 'Calendar',
+                subtitle: 'Schedules & visits',
                 badgeText: 'New',
                 onTap: onCalendar,
               ),
-              const SizedBox(width: 12),
-              _QuickActionItem(
-                icon: LucideIcons.plus,
-                label: 'Book now',
-                isPrimary: false,
-                onTap: onBook,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _ActionCard(
+                icon: LucideIcons.user,
+                iconColor: const Color(0xFF2563EB),
+                iconBgColor: const Color(0xFFEFF6FF),
+                title: 'Profile',
+                subtitle: 'Manage patient info',
+                onTap: onProfile,
               ),
-              const SizedBox(width: 12),
-              _QuickActionItem(
-                icon: LucideIcons.qrCode,
-                label: 'Digital card',
-                isPrimary: false,
-                onTap: onPatientCard,
-              ),
-              const SizedBox(width: 12),
-              _QuickActionItem(
-                icon: LucideIcons.users,
-                label: 'Profiles',
-                isPrimary: false,
-                onTap: onProfiles,
-              ),
-              const SizedBox(width: 12),
-              _QuickActionItem(
-                icon: LucideIcons.history,
-                label: 'Records',
-                isPrimary: false,
-                onTap: onHistory,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
     );
   }
 }
 
-class _QuickActionItem extends StatelessWidget {
-  const _QuickActionItem({
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
     required this.icon,
-    required this.label,
-    required this.isPrimary,
+    required this.iconColor,
+    required this.iconBgColor,
+    required this.title,
+    required this.subtitle,
     required this.onTap,
     this.badgeText,
   });
 
   final IconData icon;
-  final String label;
-  final bool isPrimary;
+  final Color iconColor;
+  final Color iconBgColor;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
   final String? badgeText;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
+    return Material(
+      color: Colors.white,
       borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: 72,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Icon Container 56x56
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: isPrimary ? AppColors.primary : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: isPrimary
-                        ? null
-                        : Border.all(color: const Color(0xFFE5E7EB), width: 0.8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isPrimary
-                            ? const Color(0xFF1D9E75).withValues(alpha: 0.28)
-                            : const Color(0x0A111827),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5E7EB), width: 0.8),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x08111827),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: iconBgColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, size: 20, color: iconColor),
+                  ),
+                  if (badgeText != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
                       ),
-                    ],
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 26,
-                    color: isPrimary ? Colors.white : const Color(0xFF374151),
-                  ),
-                ),
-                if (badgeText != null)
-                  Positioned(
-                    top: -4,
-                    right: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEF4444),
                         borderRadius: BorderRadius.circular(8),
@@ -153,29 +130,41 @@ class _QuickActionItem extends StatelessWidget {
                         badgeText!,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
+                    )
+                  else
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 16,
+                      color: Color(0xFF9CA3AF),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 7),
-
-            // Label
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isPrimary ? FontWeight.w700 : FontWeight.w500,
-                color: isPrimary ? AppColors.primary : const Color(0xFF4B5563),
+                ],
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF6B7280),
+                  height: 1.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );

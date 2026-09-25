@@ -41,6 +41,7 @@ class Patient extends Model
         'date_of_birth' => 'date:Y-m-d',
         'registration_date' => 'datetime',
         'contact_number' => \App\Casts\LegacyCompatibleEncrypted::class,
+        'emergency_contact_number' => \App\Casts\LegacyCompatibleEncrypted::class,
         'address' => \App\Casts\LegacyCompatibleEncrypted::class,
     ];
 

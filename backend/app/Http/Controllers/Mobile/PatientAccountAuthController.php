@@ -118,6 +118,14 @@ class PatientAccountAuthController extends Controller
             'password' => $validated['password'],
         ]);
 
+        // Security fix: Invalidate all other active sessions when password changes
+        $currentTokenId = $account->currentAccessToken()?->id;
+        if ($currentTokenId) {
+            $account->tokens()->where('id', '!=', $currentTokenId)->delete();
+        } else {
+            $account->tokens()->delete();
+        }
+
         Cache::forget("mobile:account:me:{$account->id}");
 
         return response()->json([

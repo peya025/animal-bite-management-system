@@ -6,16 +6,19 @@ import 'package:mobile/models/appointment_summary.dart';
 import 'package:mobile/models/bite_intake_route_args.dart';
 import 'package:mobile/models/booking_draft.dart';
 import 'package:mobile/models/patient_profile.dart';
+import 'package:mobile/services/api.dart';
 import 'package:mobile/views/bite_intake_view.dart';
 import 'package:mobile/views/booking_view.dart';
 import 'package:mobile/views/history_view.dart';
 import 'package:mobile/views/menu_view.dart';
 import 'package:mobile/views/notifications_view.dart';
+import 'package:mobile/views/schedule_calendar_view.dart';
 import 'package:mobile/views/settings_view.dart';
 import 'package:mobile/widgets/appointments/appointment_card.dart';
 import 'package:mobile/widgets/menu/search_header.dart';
 import 'package:mobile/widgets/notifications/notification_card.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void main() {
   test('parses the mobile notification API payload', () {
@@ -40,6 +43,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const AnimalCareApp());
+    await tester.pumpAndSettle();
 
     expect(find.text('ANIMAL BITE CENTER'), findsOneWidget);
     expect(find.text('Welcome to Animal Bite Center'), findsOneWidget);
@@ -65,6 +69,7 @@ void main() {
 
   testWidgets('login form shows required field validation', (tester) async {
     await tester.pumpWidget(const AnimalCareApp());
+    await tester.pumpAndSettle();
     await tester.tap(find.text('SKIP'));
     await tester.pumpAndSettle();
 
@@ -77,6 +82,7 @@ void main() {
 
   testWidgets('sign up tab opens the registration form', (tester) async {
     await tester.pumpWidget(const AnimalCareApp());
+    await tester.pumpAndSettle();
     await tester.tap(find.text('SKIP'));
     await tester.pumpAndSettle();
 
@@ -85,7 +91,7 @@ void main() {
 
     expect(find.text('FIRST NAME'), findsOneWidget);
     expect(find.text('LAST NAME'), findsOneWidget);
-    expect(find.text('REGISTER'), findsOneWidget);
+    expect(find.text('CREATE ACCOUNT'), findsOneWidget);
     expect(find.text('Have an account?'), findsOneWidget);
     expect(find.text('Log in'), findsOneWidget);
   });
@@ -101,11 +107,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(theme: ThemeData(useMaterial3: true), home: const MenuView()),
     );
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
-    expect(find.text('User'), findsOneWidget);
-    expect(find.text('Bite care guide'), findsOneWidget);
-    expect(find.text('Upcoming schedules'), findsOneWidget);
+    expect(find.text('Juan Santos Dela Cruz'), findsOneWidget);
+    expect(find.text('BITE CARE GUIDE'), findsOneWidget);
+    expect(find.text('UPCOMING SCHEDULES'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -158,27 +165,23 @@ void main() {
     expect(cancelled, isTrue);
   });
 
-  testWidgets('book navigation opens the sample booking page', (tester) async {
+  testWidgets('booking view displays consultation service and date selection', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: const MenuView(),
-        routes: {'/booking': (_) => const BookingView()},
+        initialRoute: '/booking',
+        onGenerateRoute: AppRouter.onGenerateRoute,
       ),
     );
-
-    await tester.tap(find.text('Book'));
     await tester.pumpAndSettle();
 
     expect(find.text('Book appointment'), findsOneWidget);
-    expect(find.text('Who is this appointment for?'), findsOneWidget);
-    expect(find.text('Select a service'), findsOneWidget);
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
-    await tester.pumpAndSettle();
-    expect(find.text('Choose a booking date'), findsOneWidget);
-    expect(find.text('Vaccination'), findsWidgets);
+    expect(find.text('SERVICE TYPE'), findsOneWidget);
+    expect(find.text('Bite consultation'), findsWidgets);
   });
 
-  testWidgets('booking requires a reusable patient profile', (tester) async {
+  testWidgets('booking continues to bite incident intake', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         initialRoute: '/booking',
@@ -189,17 +192,12 @@ void main() {
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -1000));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('BOOK APPOINTMENT'));
+    await tester.ensureVisible(find.text('Continue to intake'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('BOOK APPOINTMENT'));
+    await tester.tap(find.text('Continue to intake'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Patient profile'), findsOneWidget);
-    expect(find.text('RELATIONSHIP'), findsOneWidget);
-    expect(find.text('My child'), findsOneWidget);
-    expect(find.text('FIRST NAME *'), findsOneWidget);
-    expect(find.text('GENDER *'), findsOneWidget);
-    expect(find.text('SAVE PATIENT PROFILE'), findsOneWidget);
+    expect(find.text('Bite incident intake'), findsOneWidget);
   });
 
   testWidgets('bite intake locks identity and asks incident questions', (
@@ -243,22 +241,21 @@ void main() {
     expect(find.text('Referred from another facility?'), findsOneWidget);
   });
 
-  testWidgets('history navigation opens demo records', (tester) async {
+  testWidgets('calendar navigation opens schedules', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: const MenuView(),
-        routes: {'/history': (_) => const HistoryView()},
+        routes: {'/calendar': (_) => const ScheduleCalendarView()},
       ),
     );
 
-    await tester.tap(find.text('History'));
+    await tester.tap(find.text('Calendar').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Appointments and vaccination activity.'), findsOneWidget);
-    expect(find.text('Bite consultation'), findsOneWidget);
+    expect(find.byType(ScheduleCalendarView), findsOneWidget);
   });
 
-  testWidgets('settings navigation opens demo preferences', (tester) async {
+  testWidgets('profile navigation opens preferences', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: const MenuView(),
@@ -266,15 +263,11 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Settings'));
+    await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Manage your profile and app preferences.'),
-      findsOneWidget,
-    );
-    expect(find.text('Preferences'), findsOneWidget);
     expect(find.text('Notifications'), findsOneWidget);
+    expect(find.text('Privacy and security'), findsOneWidget);
   });
 
   testWidgets('center action opens the demo digital vaccination card', (
@@ -284,12 +277,14 @@ void main() {
       MaterialApp(theme: ThemeData(useMaterial3: true), home: const MenuView()),
     );
 
-    await tester.tap(find.byTooltip('Patient card'));
+    await tester.tap(find.byIcon(LucideIcons.qrCode));
     await tester.pumpAndSettle();
 
-    expect(find.text('Digital vaccination card'), findsOneWidget);
-    expect(find.text('DEMO QR'), findsOneWidget);
-    expect(find.text('2 of 4 doses'), findsOneWidget);
+    expect(find.text('Digital Vaccination Card'), findsOneWidget);
+    expect(
+      find.text('Official Post-Exposure Prophylaxis (PEP) Certificate'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('notification bell opens the live notifications page', (
@@ -302,7 +297,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byTooltip('Notifications'));
+    await tester.tap(find.byIcon(LucideIcons.bell));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 

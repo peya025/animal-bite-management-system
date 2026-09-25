@@ -128,19 +128,12 @@ class _MenuViewState extends State<MenuView> {
                             onCalendar: () => Navigator.of(
                               context,
                             ).pushNamed(AppRoutes.calendar),
-                            onBook: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.booking),
-                            onProfiles: () async {
+                            onProfile: () async {
                               await Navigator.of(
                                 context,
                               ).pushNamed(AppRoutes.settings);
                               if (mounted) _loadUser();
                             },
-                            onPatientCard: _openPatientCard,
-                            onHistory: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.history),
                           ),
                           const SizedBox(height: 20),
                           const GuidelinesSection(),

@@ -38,6 +38,7 @@ interface RingCardProps {
 function RingCard({ label, value, color, trackColor, glow, loading = false, total }: RingCardProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const [hovered, setHovered] = React.useState(false);
 
   // Determine arc fill
   let rawProgress = 0;
@@ -56,6 +57,8 @@ function RingCard({ label, value, color, trackColor, glow, loading = false, tota
 
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         borderRadius: 20,
         padding: '18px 14px 14px',
@@ -68,17 +71,22 @@ function RingCard({ label, value, color, trackColor, glow, loading = false, tota
         position: 'relative',
         overflow: 'hidden',
         cursor: 'default',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: hovered ? 'translateY(-2px)' : 'none',
         ...(isDark
           ? {
-              background: 'linear-gradient(145deg, #0d1f13 0%, #091610 55%, #060f0b 100%)',
-              border: `1.5px solid ${color}48`,
-              boxShadow: `0 0 0 1px ${color}10, 0 8px 32px -4px rgba(0,0,0,0.75), 0 0 30px -8px ${glow}`,
+              background: hovered ? 'rgba(16, 185, 129, 0.12)' : '#111827',
+              border: hovered ? '1px solid #34d399' : '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: hovered
+                ? '0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25)'
+                : '0 2px 8px rgba(0, 0, 0, 0.3)',
             }
           : {
-              background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 50%, #ffffff 100%)',
-              border: '1.5px solid rgba(16, 185, 129, 0.30)',
-              boxShadow: '0 6px 24px -4px rgba(16, 185, 129, 0.15), inset 0 1px 2px rgba(255,255,255,0.9)',
+              background: hovered ? 'rgba(16, 185, 129, 0.05)' : '#ffffff',
+              border: hovered ? '1px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: hovered
+                ? '0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)'
+                : '0 1px 3px rgba(0, 0, 0, 0.04)',
             }),
       }}
     >

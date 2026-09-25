@@ -179,9 +179,9 @@ export const AppStyleScope = styled('div')`
   .sd-card {
     border-radius: 20px;
     padding: 16px 16px 14px;
-    background: radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%);
-    border: 1px solid rgba(16, 185, 129, 0.32);
-    box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12);
+    background: #ffffff;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     position: relative;
     overflow: hidden;
     display: flex;
@@ -189,22 +189,24 @@ export const AppStyleScope = styled('div')`
     justify-content: space-between;
     min-height: 116px;
     cursor: default;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
   [data-theme='dark'] .sd-card {
-    background: radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%);
-    border: 1px solid rgba(163, 230, 53, 0.3);
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12);
+    background: #111827;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
   .sd-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(16, 185, 129, 0.55);
-    box-shadow: 0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1);
+    transform: translateY(-2px);
+    background: rgba(16, 185, 129, 0.05);
+    border-color: #10b981;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
   }
   [data-theme='dark'] .sd-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(163, 230, 53, 0.55);
-    box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    background: rgba(16, 185, 129, 0.12);
+    border-color: #34d399;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25);
   }
   .sd-card-label {
     font-size: 11px;

@@ -273,6 +273,7 @@ function StatBox({
 }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const [hovered, setHovered] = useState(false);
 
   // Icon map by label keyword
   const iconPath: Record<string, string> = {
@@ -303,12 +304,12 @@ function StatBox({
     return (
       <div
         onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         title={onClick ? `Click to inspect & print records for ${label}` : undefined}
         style={{
-          background: active
-            ? 'radial-gradient(ellipse at 50% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)'
-            : 'radial-gradient(ellipse at 50% 0%, #1a2e20 0%, #111c15 55%, #090f0b 100%)',
-          border: active ? '2px solid #10b981' : '1.5px solid rgba(16,185,129,0.35)',
+          background: hovered ? 'rgba(16, 185, 129, 0.12)' : '#111827',
+          border: active ? '2px solid #10b981' : hovered ? '1px solid #34d399' : '1px solid rgba(16, 185, 129, 0.25)',
           borderRadius: 20,
           padding: '18px 16px 16px',
           display: 'flex',
@@ -318,12 +319,15 @@ function StatBox({
           gap: 12,
           minHeight: 130,
           cursor: onClick ? 'pointer' : 'default',
-          transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          transform: hovered ? 'translateY(-2px)' : 'none',
           userSelect: 'none',
           position: 'relative',
           boxShadow: active
-            ? '0 0 0 3px rgba(16,185,129,0.25), 0 10px 30px -5px rgba(0,0,0,0.7), 0 0 30px -4px rgba(16,185,129,0.4)'
-            : '0 10px 30px -5px rgba(0,0,0,0.6), 0 0 25px -4px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
+            ? '0 0 0 3px rgba(16,185,129,0.25), 0 2px 8px rgba(0,0,0,0.3)'
+            : hovered
+            ? '0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25)'
+            : '0 2px 8px rgba(0, 0, 0, 0.3)',
         }}
       >
         {active && (
@@ -375,12 +379,12 @@ function StatBox({
   return (
     <div
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       title={onClick ? `Click to inspect & print records for ${label}` : undefined}
       style={{
-        background: active
-          ? 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 60%, #ffffff 100%)'
-          : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f7fdfb 55%, #ffffff 100%)',
-        border: active ? '2px solid #10b981' : '1px solid rgba(16,185,129,0.28)',
+        background: hovered ? 'rgba(16, 185, 129, 0.05)' : '#ffffff',
+        border: active ? '2px solid #10b981' : hovered ? '1px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
         borderRadius: 20,
         padding: '16px 18px 14px',
         display: 'flex',
@@ -388,12 +392,15 @@ function StatBox({
         justifyContent: 'space-between',
         minHeight: 120,
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: hovered ? 'translateY(-2px)' : 'none',
         userSelect: 'none',
         position: 'relative',
         boxShadow: active
-          ? '0 0 0 3px rgba(16,185,129,0.15), 0 8px 24px -4px rgba(16,185,129,0.2)'
-          : '0 4px 16px -4px rgba(16,185,129,0.12), inset 0 1px 0 rgba(255,255,255,1)',
+          ? '0 0 0 3px rgba(16, 185, 129, 0.15), 0 1px 3px rgba(0, 0, 0, 0.04)'
+          : hovered
+          ? '0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)'
+          : '0 1px 3px rgba(0, 0, 0, 0.04)',
       }}
     >
       {/* Row 1: label + icon */}
@@ -451,6 +458,7 @@ function CatBox({
 }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const [hovered, setHovered] = useState(false);
 
   const numVal = count ?? 0;
   // color per category
@@ -464,25 +472,30 @@ function CatBox({
     const dash = circ * (numVal > 0 ? 0.72 : 0.08);
 
     return (
-      <div style={{
-        background: active
-          ? 'radial-gradient(ellipse at 50% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)'
-          : 'radial-gradient(ellipse at 50% 0%, #1a2e20 0%, #111c15 55%, #090f0b 100%)',
-        border: active ? `2px solid ${catColor}` : `1.5px solid ${catGlow.replace('0.35','0.3')}`,
-        borderRadius: 20,
-        padding: '18px 16px 16px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        minHeight: 130,
-        transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-        position: 'relative',
-        boxShadow: active
-          ? `0 0 0 3px ${catGlow.replace('0.35','0.2')}, 0 10px 30px -5px rgba(0,0,0,0.7), 0 0 30px -4px ${catGlow}`
-          : `0 10px 30px -5px rgba(0,0,0,0.6), 0 0 22px -4px ${catGlow.replace('0.35','0.18')}, inset 0 1px 0 rgba(255,255,255,0.06)`,
-      }}>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          background: hovered ? 'rgba(16, 185, 129, 0.12)' : '#111827',
+          border: active ? `2px solid ${catColor}` : hovered ? '1px solid #34d399' : '1px solid rgba(16, 185, 129, 0.25)',
+          borderRadius: 20,
+          padding: '18px 16px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          minHeight: 130,
+          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          transform: hovered ? 'translateY(-2px)' : 'none',
+          position: 'relative',
+          boxShadow: active
+            ? `0 0 0 3px ${catGlow.replace('0.35','0.2')}, 0 2px 8px rgba(0, 0, 0, 0.3)`
+            : hovered
+            ? '0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(16, 185, 129, 0.25)'
+            : '0 2px 8px rgba(0, 0, 0, 0.3)',
+        }}
+      >
         {active && (
           <div style={{ position: 'absolute', top: 7, right: 9, fontSize: 9, fontWeight: 800, color: catColor, background: `${catGlow.replace('0.35','0.18')}`, border: `1px solid ${catGlow}`, padding: '1px 6px', borderRadius: 999 }}>
             ✓ SELECTED
@@ -523,23 +536,28 @@ function CatBox({
   const barPct = Math.min(100, Math.max(6, numVal > 0 ? Math.min(100, numVal * 12) : 6));
 
   return (
-    <div style={{
-      background: active
-        ? 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 60%, #ffffff 100%)'
-        : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f7fdfb 55%, #ffffff 100%)',
-      border: active ? `2px solid ${catColor}` : '1px solid rgba(16,185,129,0.28)',
-      borderRadius: 20,
-      padding: '16px 18px 14px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      minHeight: 120,
-      transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-      position: 'relative',
-      boxShadow: active
-        ? `0 0 0 3px ${catGlow.replace('0.35','0.12')}, 0 8px 24px -4px ${catGlow.replace('0.35','0.2')}`
-        : '0 4px 16px -4px rgba(16,185,129,0.12), inset 0 1px 0 rgba(255,255,255,1)',
-    }}>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? 'rgba(16, 185, 129, 0.05)' : '#ffffff',
+        border: active ? `2px solid ${catColor}` : hovered ? '1px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
+        borderRadius: 20,
+        padding: '16px 18px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        minHeight: 120,
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: hovered ? 'translateY(-2px)' : 'none',
+        position: 'relative',
+        boxShadow: active
+          ? `0 0 0 3px ${catGlow.replace('0.35','0.12')}, 0 1px 3px rgba(0, 0, 0, 0.04)`
+          : hovered
+          ? '0 4px 14px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)'
+          : '0 1px 3px rgba(0, 0, 0, 0.04)',
+      }}
+    >
       {active && (
         <div style={{ position: 'absolute', top: 7, right: 9, fontSize: 9, fontWeight: 800, color: '#059669', background: '#d1fae5', border: '1px solid #a7f3d0', padding: '1px 6px', borderRadius: 999 }}>
           ✓ SELECTED

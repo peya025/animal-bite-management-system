@@ -72,7 +72,7 @@ export default function AdjustStockDialog({ open, item, onClose, onSaved }: Adju
               <strong>{item.vaccine_type}</strong> — Batch {item.batch_number}
               <br />
               Current stock: <strong>{item.current_quantity} vials</strong> (≈{' '}
-              {item.current_quantity * 3} patients)
+              {item.current_quantity * Number(item.doses_per_vial || 1)} patients)
             </Alert>
           )}
           <Stack spacing={2}>

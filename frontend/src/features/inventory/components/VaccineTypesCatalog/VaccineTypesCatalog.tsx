@@ -32,11 +32,7 @@ import {
   Vaccines as VaccineIcon,
   Edit as EditIcon,
   Archive as ArchiveIcon,
-  CalendarMonth as CalendarIcon,
-  AccessTime as TimeIcon,
   AcUnit as ColdChainIcon,
-  Medication as RegimenIcon,
-  AddShoppingCart as AddStockIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../../shared/config/routes';
@@ -138,7 +134,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
               Vaccine Type Catalog
             </Typography>
             <Chip
-              label={`${presets.length} Profile${presets.length === 1 ? '' : 's'}`}
+              label={`${presets.length} Vaccine${presets.length === 1 ? '' : 's'}`}
               size="small"
               sx={{
                 fontWeight: 700,
@@ -149,9 +145,6 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
               }}
             />
           </Box>
-          <Typography sx={{ fontSize: 13, color: 'var(--text-secondary, #64748b)', mt: 0.5, maxWidth: 720 }}>
-            Configure master vaccine definitions, default shelf-life durations, open-vial discard rules, and clinical regimens.
-          </Typography>
 
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
@@ -168,7 +161,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
           </div>
         </Box>
 
-        <Tooltip title={isAdmin ? 'Add a new vaccine profile to the catalog' : 'Admin only'}>
+        <Tooltip title={isAdmin ? 'Add a new vaccine to the catalog' : 'Admin only'}>
           <span>
             <Button
               variant="contained"
@@ -259,7 +252,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
             No vaccine types found
           </Typography>
           <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.5, mb: 2 }}>
-            {search || categoryFilter ? 'No saved type matches the current search filters.' : 'Register your first master vaccine profile.'}
+            {search || categoryFilter ? 'No saved type matches the current search filters.' : 'Register your first master vaccine.'}
           </Typography>
           {isAdmin && (
             <Button
@@ -316,7 +309,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                       />
                       {isAdmin && (
                         <Stack direction="row" spacing={0.5}>
-                          <Tooltip title="Edit Profile">
+                          <Tooltip title="Edit Vaccine">
                             <IconButton
                               size="small"
                               onClick={() => {
@@ -328,7 +321,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                               <EditIcon sx={{ fontSize: 16 }} />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Archive / Remove Profile from Catalog">
+                          <Tooltip title="Archive / Remove Vaccine from Catalog">
                             <IconButton
                               size="small"
                               onClick={() => setDeleteTarget(preset)}
@@ -346,82 +339,57 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                       {preset.vaccine_name}
                     </Typography>
 
-                    {/* Structured Rules List */}
-                    <Stack spacing={1.25} sx={{ mb: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                        <CalendarIcon sx={{ fontSize: 16, color: '#059669', mt: 0.2 }} />
-                        <Box>
-                          <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                            Default Shelf-Life
-                          </Typography>
-                          <Typography sx={{ fontSize: 13, color: '#1f2937', fontWeight: 600 }}>
-                            {preset.default_shelf_life_months} months from manufacture
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      {preset.default_open_vial_hours ? (
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                          <TimeIcon sx={{ fontSize: 16, color: '#d97706', mt: 0.2 }} />
-                          <Box>
-                            <Typography sx={{ fontSize: 11, color: '#92400e', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                              Open-Vial Discard Rule
-                            </Typography>
-                            <Typography sx={{ fontSize: 12.5, color: '#92400e', fontWeight: 700, bgcolor: '#fffbeb', px: 1, py: 0.25, borderRadius: 1, border: '1px solid #fde68a', display: 'inline-block', mt: 0.25 }}>
-                              Valid once opened: {preset.default_open_vial_hours} hours
-                            </Typography>
-                          </Box>
-                        </Box>
-                      ) : null}
-
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                        <RegimenIcon sx={{ fontSize: 16, color: '#0284c7', mt: 0.2 }} />
-                        <Box>
-                          <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                            Administration &amp; Dosing
-                          </Typography>
-                          <Typography sx={{ fontSize: 13, color: '#1f2937', fontWeight: 600 }}>
-                            {preset.administration_route || 'Intradermal (ID) / Intramuscular (IM)'}
-                            {preset.regimen_units_per_patient ? ` • ${preset.regimen_units_per_patient} vial(s) per treatment` : ''}
-                          </Typography>
-                          {preset.dosing_regimen_notes && (
-                            <Typography sx={{ fontSize: 12, color: '#64748b', mt: 0.35, lineHeight: 1.4 }}>
-                              {preset.dosing_regimen_notes}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                        <ColdChainIcon sx={{ fontSize: 16, color: '#6b7280', mt: 0.2 }} />
-                        <Box>
-                          <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                            Cold-Chain Storage
-                          </Typography>
-                          <Typography sx={{ fontSize: 12.5, color: '#374151', lineHeight: 1.4 }}>
-                            {preset.storage_temperature_notes || 'Stored at +2°C to +8°C.'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Stack>
-
-                    {/* Card Footer: Stock stats and Add batch shortcut */}
-                    <Box sx={{ mt: 'auto', pt: 1.75, borderTop: '1px dashed #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-                      <Typography sx={{ fontSize: 12, color: '#475569', fontWeight: 700 }}>
-                        {preset.active_batches_count || 0} active batch{preset.active_batches_count === 1 ? '' : 'es'} • {preset.total_stock || 0} units
-                      </Typography>
-
-                      {onStockBatch && (
-                        <Button
+                    {/* Vial Configuration Summary */}
+                    {preset.is_multidose ? (
+                      <Box sx={{ mb: 1.5 }}>
+                        <Chip
                           size="small"
-                          startIcon={<AddStockIcon sx={{ fontSize: 14 }} />}
-                          onClick={() => onStockBatch(preset.vaccine_name)}
-                          sx={{ textTransform: 'none', fontSize: 12, fontWeight: 700, color: '#059669', '&:hover': { bgcolor: '#ecfdf5' } }}
-                        >
-                          Add Stock Batch
-                        </Button>
-                      )}
-                    </Box>
+                          label="Multi-dose vial"
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: 11.5,
+                            bgcolor: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            mb: 1,
+                          }}
+                        />
+                        <Stack spacing={0.5} sx={{ pl: 0.5 }}>
+                          <Typography sx={{ fontSize: 13, color: '#334155', fontWeight: 600 }}>
+                            • {preset.doses_per_vial || 1} patients per vial
+                          </Typography>
+                          {preset.default_open_vial_hours ? (
+                            <Typography sx={{ fontSize: 13, color: '#334155', fontWeight: 600 }}>
+                              • Use within {preset.default_open_vial_hours} hours after opening
+                            </Typography>
+                          ) : null}
+                        </Stack>
+                      </Box>
+                    ) : (
+                      <Box sx={{ mb: 1.5 }}>
+                        <Chip
+                          size="small"
+                          label="Single-dose vial"
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: 11.5,
+                            bgcolor: '#f1f5f9',
+                            color: '#475569',
+                            border: '1px solid #e2e8f0',
+                          }}
+                        />
+                      </Box>
+                    )}
+
+                    {/* Optional Storage Notes */}
+                    {preset.storage_temperature_notes && (
+                      <Box sx={{ mt: 'auto', pt: 1.5, borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <ColdChainIcon sx={{ fontSize: 15, color: '#94a3b8', flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                          {preset.storage_temperature_notes}
+                        </Typography>
+                      </Box>
+                    )}
                   </CardContent>
                 </Card>
               </Grid>
@@ -449,9 +417,9 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
         <ConfirmationDialog
           variant="warning"
           colorVariant="warning"
-          title="Archive Vaccine Profile"
-          message={`Remove "${deleteTarget.vaccine_name}" from the active catalog? Existing batch inventory records will remain intact, but staff will no longer be able to select this profile for new batches.`}
-          confirmLabel="Archive Profile"
+          title="Archive Vaccine"
+          message={`Remove "${deleteTarget.vaccine_name}" from the active catalog? Existing batch inventory records will remain intact, but staff will no longer be able to select this vaccine for new batches.`}
+          confirmLabel="Archive Vaccine"
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
         />

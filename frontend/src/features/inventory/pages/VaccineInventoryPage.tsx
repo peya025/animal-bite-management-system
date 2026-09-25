@@ -40,7 +40,8 @@ import StockCardView from '../components/StockCardView/StockCardView';
 import FifoComplianceReport from '../components/FifoComplianceReport/FifoComplianceReport';
 import NurseVaccineList from '../components/NurseVaccineList/NurseVaccineList';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
-import type { InventoryItem } from '../types';
+import type { InventoryItem, VaccineTypePreset } from '../types';
+import { getVaccinePresets } from '../services/vaccineInventoryService';
 import { deriveInventoryStatus } from '../utils/inventoryStatus';
 import { daysUntil } from '../../../shared/utils';
 
@@ -73,6 +74,7 @@ function InventorySummaryCard({ label, value, subtitle, tone, icon, loading }: {
 export default function VaccineInventory({ initialTab }: VaccineInventoryProps = {}) {
   const { user } = useAuth();
   const isNurseRole = user?.role === 'treatment';
+  const isAdminRole = user?.role === 'admin';
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -100,11 +102,11 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
     if (location.pathname.includes('/administrations') || initialTab === 'administrations') {
       setView('administrations');
     } else if (tabParam && ['table', 'stockcard', 'fifo', 'administrations'].includes(tabParam)) {
-      setView(isNurseRole && tabParam === 'fifo' ? 'table' : tabParam as any);
+      setView((isNurseRole || isAdminRole) && tabParam === 'fifo' ? 'table' : tabParam as any);
     } else {
       setView('table');
     }
-  }, [initialTab, isNurseRole, location.pathname, tabParam]);
+  }, [initialTab, isAdminRole, isNurseRole, location.pathname, tabParam]);
 
   useEffect(() => {
     const handleReset = () => {
@@ -129,21 +131,32 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [openVialTarget, setOpenVialTarget] = useState<InventoryItem | null>(null);
   const [discardVialTarget, setDiscardVialTarget] = useState<InventoryItem | null>(null);
   const [selectedStockCardId, setSelectedStockCardId] = useState<number | null>(null);
+  const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/inventory', { params: { per_page: 200 } });
-      const liveItems: InventoryItem[] = res.data?.data || res.data || [];
-      setItems(Array.isArray(liveItems) ? liveItems : []);
-    } catch (err: unknown) {
-      const apiError = err as ApiError;
-      setItems([]);
-      setSnackbar({
-        open: true,
-        message: apiError.response?.data?.message || 'Failed to load vaccine inventory from server.',
-        severity: 'error',
-      });
+      const [invRes, presetsRes] = await Promise.allSettled([
+        api.get('/inventory', { params: { per_page: 200 } }),
+        getVaccinePresets(),
+      ]);
+
+      if (invRes.status === 'fulfilled') {
+        const liveItems: InventoryItem[] = invRes.value.data?.data || invRes.value.data || [];
+        setItems(Array.isArray(liveItems) ? liveItems : []);
+      } else {
+        const apiError = invRes.reason as ApiError;
+        setItems([]);
+        setSnackbar({
+          open: true,
+          message: apiError?.response?.data?.message || 'Failed to load vaccine inventory from server.',
+          severity: 'error',
+        });
+      }
+
+      if (presetsRes.status === 'fulfilled') {
+        setPresets(Array.isArray(presetsRes.value) ? presetsRes.value : []);
+      }
     } finally {
       setLoading(false);
     }
@@ -285,42 +298,94 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Vaccine Stock Management</span>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>
-              {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
-            </span>
+            {view === 'stockcard' ? (
+              <>
+                <button
+                  onClick={() => {
+                    setView('table');
+                    navigate('/inventory');
+                  }}
+                  style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+                >
+                  Vaccine Inventory
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Stock Card</span>
+              </>
+            ) : (
+              <span style={{ color: '#6b7280' }}>
+                {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
+              </span>
+            )}
           </div>
 
         </Box>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Tabs
-            value={isNurseRole && view === 'administrations' ? false : view}
-            onChange={(_, newValue) => {
-              setView(newValue);
-              if (newValue === 'administrations') {
-                navigate('/inventory/administrations');
-              } else if (newValue === 'table') {
+          {!isAdminRole && (
+            <Tabs
+              value={isNurseRole && view === 'administrations' ? false : view === 'stockcard' ? false : view}
+              onChange={(_, newValue) => {
+                setView(newValue);
+                if (newValue === 'administrations') {
+                  navigate('/inventory/administrations');
+                } else if (newValue === 'table') {
+                  navigate('/inventory');
+                } else {
+                  navigate(`/inventory?tab=${newValue}`);
+                }
+              }}
+              sx={{
+                minHeight: 36,
+                '& .MuiTab-root': {
+                  minHeight: 36,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: 'none',
+                  px: 2,
+                },
+              }}
+            >
+              <Tab label="Inventory Batches" value="table" />
+              {!isNurseRole && <Tab label="Nurse Vaccine List" value="administrations" />}
+              {!isNurseRole && <Tab label="FIFO Report" value="fifo" />}
+            </Tabs>
+          )}
+
+          {/* Stock Card Button: only with stroke, turns green on hover */}
+          <Button
+            variant="outlined"
+            onClick={() => {
+              if (view === 'stockcard') {
+                setView('table');
                 navigate('/inventory');
               } else {
-                navigate(`/inventory?tab=${newValue}`);
+                setView('stockcard');
+                navigate('/inventory?tab=stockcard');
               }
             }}
             sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: 13,
+              borderRadius: 2,
+              px: 2,
               minHeight: 36,
-              '& .MuiTab-root': {
-                minHeight: 36,
-                fontSize: 12,
-                fontWeight: 700,
-                textTransform: 'none',
-                px: 2,
+              border: '1.5px solid #10b981',
+              borderColor: view === 'stockcard' ? '#059669' : '#10b981',
+              color: view === 'stockcard' ? '#ffffff' : '#059669',
+              bgcolor: view === 'stockcard' ? '#059669' : 'transparent',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                bgcolor: '#059669',
+                color: '#ffffff',
+                borderColor: '#059669',
+                boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
               },
             }}
           >
-            <Tab label="Inventory Batches" value="table" />
-            {!isNurseRole && <Tab label="Nurse Vaccine List" value="administrations" />}
-            <Tab label="Stock Card" value="stockcard" />
-            {!isNurseRole && <Tab label="FIFO Report" value="fifo" />}
-          </Tabs>
+            Stock Card
+          </Button>
 
           <Button
             variant="outlined"
@@ -342,7 +407,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             {loading ? 'Refreshing…' : 'Refresh'}
           </Button>
 
-          {user?.role === 'admin' && (
+          {user?.role === 'admin' && view !== 'administrations' && (
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -394,6 +459,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           expiryFrom={expiryFrom}
           expiryTo={expiryTo}
           allItems={items}
+          presets={presets}
           onSearchChange={(value) => {
             setSearch(value);
             setPage(0);

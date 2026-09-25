@@ -6,7 +6,6 @@ import {
   FormControl,
   Grid,
   InputAdornment,
-  InputLabel,
   MenuItem,
   Paper,
   Select,
@@ -18,7 +17,6 @@ import {
   TablePagination,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
   CircularProgress,
   Alert,
@@ -26,7 +24,6 @@ import {
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  Refresh as RefreshIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
   AccessTime as TimeIcon,
@@ -106,6 +103,31 @@ export default function NurseVaccineList() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [quickDate, setQuickDate] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+  const filterPrimaryText = isDark ? '#f8fafc' : '#111827';
+  const filterSecondaryText = isDark ? '#94a3b8' : '#64748b';
+  const hasFilters = Boolean(
+    search || vaccineFilter !== 'all' || doseFilter !== 'all' || dateFrom || dateTo,
+  );
+  const filterFieldSx = {
+    '& .MuiOutlinedInput-root': {
+      height: 40,
+      bgcolor: isDark ? 'rgba(15, 23, 42, 0.65)' : '#ffffff',
+      borderRadius: 2,
+      '& fieldset': { borderColor: isDark ? '#334155' : '#e2e8f0' },
+      '&:hover fieldset': { borderColor: '#10b981' },
+      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1 },
+    },
+    '& .MuiOutlinedInput-input, & .MuiSelect-select': {
+      fontSize: 12.5,
+      color: filterPrimaryText,
+      fontFamily: "'Poppins', sans-serif",
+    },
+    '& .MuiInputLabel-root': {
+      fontSize: 12.5,
+      color: filterSecondaryText,
+      fontFamily: "'Poppins', sans-serif",
+    },
+  };
 
   // Available vaccines for filter dropdown
   const [availableVaccines, setAvailableVaccines] = useState<string[]>([]);
@@ -315,15 +337,18 @@ export default function NurseVaccineList() {
       <Paper
         elevation={0}
         sx={{
-          p: 2,
-          mb: 3,
-          borderRadius: '20px',
-          border: isDark ? '1px solid rgba(163, 230, 53, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
-          bgcolor: isDark ? 'rgba(14, 24, 18, 0.85)' : '#ffffff',
-          boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 2px 12px rgba(16,185,129,0.06)',
+          p: 1.25,
+          mb: 1.5,
+          borderRadius: 2.5,
+          border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+          bgcolor: isDark ? '#111827' : '#ffffff',
+          fontFamily: "'Poppins', sans-serif",
+          '& .MuiInputBase-root, & .MuiInputBase-input, & .MuiInputLabel-root, & .MuiSelect-select, & .MuiButton-root': {
+            fontFamily: "'Poppins', sans-serif",
+          },
         }}
       >
-        <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
+        <Grid container spacing={1} sx={{ alignItems: 'center' }}>
           {/* Patient Search */}
           <Grid size={{ xs: 12, sm: 6, md: 2.75 }}>
             <TextField
@@ -339,31 +364,28 @@ export default function NurseVaccineList() {
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon sx={{ color: isDark ? '#a7f3d0' : '#94a3b8', fontSize: 19 }} />
+                      <SearchIcon sx={{ color: filterSecondaryText, fontSize: 17 }} />
                     </InputAdornment>
                   ),
-                  sx: { fontSize: 13, borderRadius: '8px' },
                 },
               }}
+              sx={filterFieldSx}
             />
           </Grid>
 
           {/* Vaccine Filter */}
           <Grid size={{ xs: 6, sm: 3, md: 2 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: 13 }}>Vaccine</InputLabel>
+            <FormControl fullWidth size="small" sx={filterFieldSx}>
               <Select
                 value={vaccineFilter}
-                label="Vaccine"
                 onChange={(e) => {
                   setVaccineFilter(e.target.value);
                   setPage(0);
                 }}
-                sx={{ fontSize: 13, borderRadius: '8px' }}
               >
-                <MenuItem value="all" sx={{ fontSize: 13 }}>All Vaccines</MenuItem>
+                <MenuItem value="all" sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>All Vaccines</MenuItem>
                 {availableVaccines.map((v) => (
-                  <MenuItem key={v} value={v} sx={{ fontSize: 13 }}>
+                  <MenuItem key={v} value={v} sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>
                     {v}
                   </MenuItem>
                 ))}
@@ -373,19 +395,16 @@ export default function NurseVaccineList() {
 
           {/* Dose Filter */}
           <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: 13 }}>Dose</InputLabel>
+            <FormControl fullWidth size="small" sx={filterFieldSx}>
               <Select
                 value={doseFilter}
-                label="Dose"
                 onChange={(e) => {
                   setDoseFilter(e.target.value);
                   setPage(0);
                 }}
-                sx={{ fontSize: 13, borderRadius: '8px' }}
               >
                 {DOSE_OPTIONS.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: 13 }}>
+                  <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>
                     {opt.label}
                   </MenuItem>
                 ))}
@@ -399,15 +418,25 @@ export default function NurseVaccineList() {
               fullWidth
               size="small"
               type="date"
-              label="Date from"
               value={dateFrom}
               onChange={(e) => {
                 setDateFrom(e.target.value);
                 setQuickDate('custom');
                 setPage(0);
               }}
-              slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 12.5 } } }}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+              slotProps={{
+                htmlInput: { 'aria-label': 'Date from' },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start" sx={{ mr: 0.5 }}>
+                      <Typography sx={{ fontSize: 11.5, color: filterSecondaryText, fontFamily: "'Poppins', sans-serif" }}>
+                        From
+                      </Typography>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={filterFieldSx}
             />
           </Grid>
 
@@ -417,71 +446,67 @@ export default function NurseVaccineList() {
               fullWidth
               size="small"
               type="date"
-              label="Date to"
               value={dateTo}
               onChange={(e) => {
                 setDateTo(e.target.value);
                 setQuickDate('custom');
                 setPage(0);
               }}
-              slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 12.5 } } }}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+              slotProps={{
+                htmlInput: { 'aria-label': 'Date to' },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start" sx={{ mr: 0.5 }}>
+                      <Typography sx={{ fontSize: 11.5, color: filterSecondaryText, fontFamily: "'Poppins', sans-serif" }}>
+                        To
+                      </Typography>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={filterFieldSx}
             />
           </Grid>
 
           {/* Quick Date Preset */}
           <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: 13 }}>Quick date</InputLabel>
+            <FormControl fullWidth size="small" sx={filterFieldSx}>
               <Select
                 value={quickDate}
-                label="Quick date"
                 onChange={(e) => {
                   const value = e.target.value as 'all' | 'today' | 'week' | 'month';
                   handleQuickDate(value);
                 }}
-                sx={{ fontSize: 13, borderRadius: '8px' }}
               >
                 {quickDate === 'custom' && (
-                  <MenuItem value="custom" disabled sx={{ fontSize: 13 }}>
+                  <MenuItem value="custom" disabled sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>
                     Custom Range
                   </MenuItem>
                 )}
-                <MenuItem value="all" sx={{ fontSize: 13 }}>All Time</MenuItem>
-                <MenuItem value="today" sx={{ fontSize: 13 }}>Today</MenuItem>
-                <MenuItem value="week" sx={{ fontSize: 13 }}>Last 7 Days</MenuItem>
-                <MenuItem value="month" sx={{ fontSize: 13 }}>Last 30 Days</MenuItem>
+                <MenuItem value="all" sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>All Time</MenuItem>
+                <MenuItem value="today" sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>Today</MenuItem>
+                <MenuItem value="week" sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>Last 7 Days</MenuItem>
+                <MenuItem value="month" sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>Last 30 Days</MenuItem>
               </Select>
             </FormControl>
           </Grid>
 
           {/* Clear / Reset Filter Button */}
           <Grid size={{ xs: 12, sm: 6, md: 1 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Tooltip title="Reset all filters">
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleResetFilters}
-                startIcon={<RefreshIcon sx={{ fontSize: 15 }} />}
-                sx={{
-                  height: 38,
-                  minWidth: 0,
-                  px: 1.5,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  borderRadius: '8px',
-                  borderColor: isDark ? 'rgba(163, 230, 53, 0.3)' : '#e2e8f0',
-                  color: isDark ? '#a7f3d0' : '#64748b',
-                  '&:hover': {
-                    borderColor: '#10b981',
-                    color: '#10b981',
-                    bgcolor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4',
-                  },
-                }}
-              >
-                Reset
-              </Button>
-            </Tooltip>
+            <Button
+              disabled={!hasFilters}
+              onClick={handleResetFilters}
+              sx={{
+                minWidth: 0,
+                px: 1,
+                color: filterSecondaryText,
+                textTransform: 'none',
+                fontSize: 11.5,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Clear filters
+            </Button>
           </Grid>
         </Grid>
 

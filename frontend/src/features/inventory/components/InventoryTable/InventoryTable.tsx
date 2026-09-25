@@ -46,7 +46,7 @@ import {
 import { DataTable, TablePaginator } from '../../../../components/data-display';
 import type { ColumnDef } from '../../../../components/data-display';
 import { formatDate } from '../../../../shared/utils';
-import type { InventoryItem } from '../../types';
+import type { InventoryItem, VaccineTypePreset } from '../../types';
 import {
   deriveInventoryStatus,
   describeOpenVialCountdown,
@@ -57,6 +57,7 @@ import {
 interface InventoryTableProps {
   items: InventoryItem[];
   allItems: InventoryItem[];
+  presets?: VaccineTypePreset[];
   loading: boolean;
   page: number;
   rowsPerPage: number;
@@ -103,6 +104,7 @@ function statusLabel(status: ReturnType<typeof deriveInventoryStatus>) {
 export default function InventoryTable({
   items,
   allItems,
+  presets,
   loading,
   page,
   rowsPerPage,
@@ -217,7 +219,14 @@ export default function InventoryTable({
         const empty = item.current_quantity <= 0;
         const low = !empty && item.current_quantity <= 10;
         const color = empty ? '#dc2626' : low ? '#d97706' : '#047857';
-        const dpv = Number(item.doses_per_vial || 1);
+        const matchedPreset = presets?.find(
+          (p) => p.vaccine_name.toLowerCase() === item.vaccine_type.toLowerCase()
+        );
+        const dpv = Number(
+          (matchedPreset ? (matchedPreset.is_multidose ? (matchedPreset.doses_per_vial ?? 1) : 1) : null) ??
+          item.doses_per_vial ??
+          1
+        );
         const openDosesRemaining = item.open_vial_status === 'opened'
           ? Math.max(0, dpv - Number(item.open_vial_doses_used || 0))
           : 0;

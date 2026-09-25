@@ -755,7 +755,7 @@ export default function QueueDashboard() {
         const isServing = e.status === 'serving' || e.status === 'in_consultation';
         const isActive  = MAIN_STATUSES.includes(e.status);
         const isDone    = ['completed', 'cancelled', 'absent'].includes(e.status);
-        const canCancelOrTrash = !isTriageDoctor;
+        const canCancelOrTrash = !isTriageDoctor && !isTreatmentNurse;
 
         return (
           <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', alignItems: 'center' }}>

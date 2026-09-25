@@ -55,12 +55,6 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     ],
   },
   {
-    label: 'Patients List',
-    path: ROUTES.PATIENTS.DOCTOR_LIST,
-    icon: GLOBAL_NAV_ICONS['Patients'],
-    roles: ['triage'],
-  },
-  {
     label: 'Patient Registry',
     path: ROUTES.PATIENTS.REGISTRY,
     icon: GLOBAL_NAV_ICONS['Patients'],

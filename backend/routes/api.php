@@ -460,7 +460,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::middleware('role:admin,treatment,developer')->group(function () {
         Route::get('/nurse/patients', [AppointmentController::class, 'nursePatients']);
     });
-    Route::middleware('role:admin,triage,developer')->group(function () {
+    Route::middleware('role:admin,developer')->group(function () {
         Route::get('/doctor/patients', [AppointmentController::class, 'doctorPatients']);
     });
 });

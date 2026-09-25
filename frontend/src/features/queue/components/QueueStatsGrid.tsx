@@ -225,14 +225,14 @@ export function SecondaryCountersRow({ stats }: SecondaryCountersRowProps) {
         fontSize: 12,
         ...(isDark
           ? {
-              background: 'radial-gradient(ellipse at 30% 0%, #16241b 0%, #0d1612 100%)',
-              border: '1px solid rgba(163, 230, 53, 0.2)',
-              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4), inset 0 1px 1px 0 rgba(255, 255, 255, 0.1)',
+              background: '#111827',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
             }
           : {
-              background: 'radial-gradient(ellipse at 30% 0%, #f0fdf4 0%, #ffffff 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.22)',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.08), inset 0 1px 1px 0 rgba(255, 255, 255, 0.9)',
+              background: '#ffffff',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
             }),
       }}
     >
@@ -281,14 +281,14 @@ export function QueueProgressBar({ stats }: QueueProgressBarProps) {
         mb: 2,
         ...(isDark
           ? {
-              background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
-              border: '1px solid rgba(163, 230, 53, 0.3)',
-              boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12)',
+              background: '#111827',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
             }
           : {
-              background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.32)',
-              boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12)',
+              background: '#ffffff',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
             }),
       }}
     >

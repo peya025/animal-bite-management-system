@@ -54,59 +54,122 @@ export const PatientListRoot = styled('div')`
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
-    border-bottom: 1px solid var(--border-glow-subtle);
-    margin-top: 26px;
-    padding-bottom: 10px;
-    margin-bottom: -6px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin-top: 14px;
+    margin-bottom: 0px;
     width: 100%;
+    box-sizing: border-box;
   }
   .pm-tab-btn {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 14px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--border-glow-subtle);
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 12.5px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border-glow, #e2e8f0);
+    background: var(--card-bg-solid, #ffffff);
+    color: var(--text, #334155);
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .pm-tab-btn:hover {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    border-color: #10b981;
-    color: #ffffff;
-    font-weight: 700;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border-color: #059669 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    box-shadow: 0 3px 12px rgba(16, 185, 129, 0.38), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    transform: translateY(-1px);
   }
   .pm-tab-btn:hover .pm-tab-badge {
-    background: rgba(255, 255, 255, 0.25);
-    color: #ffffff;
+    background: rgba(255, 255, 255, 0.28) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
   }
   .pm-tab-btn--active {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    border-color: #10b981;
-    color: #ffffff;
-    font-weight: 700;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border-color: #059669 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    box-shadow: 0 3px 12px rgba(16, 185, 129, 0.38), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    transform: translateY(-1px);
+  }
+  .pm-tab-btn--active:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    border-color: #047857 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
   }
   .pm-tab-badge {
-    padding: 1px 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 750;
-    background: rgba(0,0,0,0.12);
-    color: inherit;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid var(--border-glow, #e2e8f0);
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
+    line-height: 1;
   }
   .pm-tab-btn--active .pm-tab-badge {
-    background: rgba(255,255,255,0.25);
-    color: #ffffff;
+    background: rgba(255, 255, 255, 0.28) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+  [data-theme='dark'] & .pm-tab-btn,
+  [data-theme='dark'] .pm-tab-btn {
+    background: #1f2937 !important;
+    border: 1px solid rgba(16, 185, 129, 0.25) !important;
+    color: #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+  }
+  [data-theme='dark'] & .pm-tab-btn:hover,
+  [data-theme='dark'] .pm-tab-btn:hover {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border-color: #34d399 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.45) !important;
+  }
+  [data-theme='dark'] & .pm-tab-btn--active,
+  [data-theme='dark'] .pm-tab-btn--active {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border-color: #34d399 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.45) !important;
+  }
+  [data-theme='dark'] & .pm-tab-badge,
+  [data-theme='dark'] .pm-tab-badge {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #cbd5e1 !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+  }
+  [data-theme='dark'] & .pm-tab-btn:hover .pm-tab-badge,
+  [data-theme='dark'] .pm-tab-btn:hover .pm-tab-badge {
+    background: rgba(255, 255, 255, 0.28) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+  }
+  [data-theme='dark'] & .pm-tab-btn--active .pm-tab-badge,
+  [data-theme='dark'] .pm-tab-btn--active .pm-tab-badge {
+    background: rgba(255, 255, 255, 0.25) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.35) !important;
   }
   
   .pm-chip-online {

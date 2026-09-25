@@ -977,6 +977,13 @@ select:focus-visible,
   color: #cbd5e1 !important;
 }
 
+[data-theme='dark'] .pm-tab-btn:hover {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.45) !important;
+}
+
 [data-theme='dark'] .pm-print-btn,
 [data-theme='dark'] .action-secondary {
   background: var(--input-bg) !important;

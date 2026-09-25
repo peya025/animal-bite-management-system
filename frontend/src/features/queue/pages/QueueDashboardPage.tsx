@@ -799,9 +799,10 @@ export default function QueueDashboard() {
     },
   ];
 
-  const visibleColumns = isRegistrationStaff
-    ? columns.filter(column => column.key !== 'queue_actions')
-    : columns;
+  const visibleColumns = columns.filter(column =>
+    !['queue_id', 'attended_by'].includes(column.key) &&
+    (!isRegistrationStaff || column.key !== 'queue_actions')
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

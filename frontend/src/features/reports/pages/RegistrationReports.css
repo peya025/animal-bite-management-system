@@ -12,7 +12,7 @@
 .rr-header small { color: var(--rr-muted); }
 .registration-reports .rr-panel { border: 1px solid var(--rr-border); border-radius: 12px; padding: 20px; box-shadow: none; background-image: none; min-width: 0; transition: box-shadow 0.2s ease, border-color 0.2s ease; }
 .registration-reports .rr-panel:hover { border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 4px 16px rgba(16, 185, 129, 0.08); }
-.registration-reports > .rr-panel, .registration-reports > .MuiAlert-root, .registration-reports > .rr-grid, .rr-activity, .rr-definitions, .rr-surveillance-layout, .rr-tab-intro { margin-top: 20px; }
+.registration-reports > .rr-panel, .registration-reports > .MuiAlert-root, .registration-reports > .rr-grid, .rr-activity, .rr-definitions, .rr-surveillance-layout, .rr-tab-intro, .rr-pep-header, .rr-surveillance-header { margin-top: 20px; }
 .rr-grid { display: grid; gap: 16px; }
 .rr-grid-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rr-grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -45,7 +45,12 @@
 .rr-activity b { color: var(--text-h, inherit); font-weight: 600; }
 .rr-record-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
 .rr-record-header h2 { margin-bottom: 6px; }
+.rr-record-meta { margin: 0 !important; color: var(--rr-muted); font-size: 12px; line-height: 1.6; text-align: right; flex: 1 1 auto; }
 .rr-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.rr-table-panel { position: relative; }
+.rr-table-loading-bar { height: 3px; margin-bottom: 12px; overflow: hidden; border-radius: 2px; }
+.rr-table-scroll.is-loading { opacity: 0.6; pointer-events: none; transition: opacity 0.15s ease; }
+.rr-tab-updating-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--rr-muted); font-weight: 500; }
 .rr-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
 .rr-table th { font-weight: 500; color: var(--rr-muted); white-space: nowrap; }
 .rr-table th, .rr-table td { padding: 12px 10px; border-bottom: 1px solid var(--rr-border); vertical-align: top; }
@@ -171,6 +176,64 @@
   gap: 16px;
 }
 
+/* PEP & Surveillance Section Headers & Centered Navigation Tabs */
+.rr-pep-header,
+.rr-surveillance-header {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
+.rr-pep-tabs-bar,
+.rr-surveillance-tabs-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0 10px;
+  width: 100%;
+}
+
+.registration-reports > .rr-pep-tabs-bar + .rr-panel,
+.registration-reports > .rr-surveillance-tabs-bar + .rr-panel {
+  margin-top: 0;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-root,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-root {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-contained,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-contained {
+  background: #1d9e75;
+  color: #fff;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-contained:hover,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-contained:hover {
+  background: #178563;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-outlined,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-outlined {
+  border-color: var(--rr-border);
+  color: inherit;
+  background-color: transparent;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-outlined:hover,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-outlined:hover {
+  background-color: #047857;
+  border-color: #047857;
+  color: #ffffff;
+}
+
+[data-theme='dark'] .registration-reports .rr-pep-tabs-bar .MuiButton-outlined:hover,
+[data-theme='dark'] .registration-reports .rr-surveillance-tabs-bar .MuiButton-outlined:hover {
+  background-color: #047857;
+  border-color: #059669;
+  color: #ffffff;
+}
+
 /* Bite Surveillance Analytics Rows */
 .rr-surveillance-row-1 {
   display: grid;
@@ -263,6 +326,10 @@
     gap: 12px;
   }
   .rr-record-header .MuiTextField-root {
+    width: 100%;
+  }
+  .rr-record-meta {
+    text-align: left;
     width: 100%;
   }
   .rr-filter-row .MuiTextField-root {

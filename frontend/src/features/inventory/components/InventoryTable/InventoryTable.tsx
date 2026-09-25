@@ -3,13 +3,19 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
   FormControl,
-  Grid,
   IconButton,
   InputAdornment,
   InputLabel,
+  Menu,
   MenuItem,
   Paper,
+  Popover,
   Select,
   Stack,
   TextField,
@@ -18,28 +24,29 @@ import {
   useTheme,
 } from '@mui/material';
 import {
+  AccessTime as OpenVialIcon,
+  AcUnit as ColdChainIcon,
   Archive as ArchiveIcon,
+  Cancel as DiscardIcon,
+  CheckCircleOutlined as ActiveIcon,
+  DateRange as DateRangeIcon,
   Edit as EditIcon,
+  ErrorOutlined as ExpiredIcon,
   History as HistoryIcon,
+  InfoOutlined as InfoIcon,
   Inventory2 as InventoryIcon,
+  MoreVert as MoreIcon,
+  PendingActions as PendingIcon,
+  RemoveCircleOutlined as DepletedIcon,
   Search as SearchIcon,
   Tune as AdjustIcon,
-  Assignment as StockCardIcon,
-  AccessTime as OpenVialIcon,
-  Cancel as DiscardIcon,
-  AcUnit as ColdChainIcon,
-  WarningAmber as WarningIcon,
-  CheckCircleOutlined as ActiveIcon,
-  ErrorOutlined as ExpiredIcon,
-  RemoveCircleOutlined as DepletedIcon,
+  Visibility as ViewIcon,
   HourglassBottom as ExpiringIcon,
-  PendingActions as PendingIcon,
-  CalendarMonth as CalendarIcon,
 } from '@mui/icons-material';
 import { DataTable, TablePaginator } from '../../../../components/data-display';
 import type { ColumnDef } from '../../../../components/data-display';
-import type { InventoryItem } from '../../types';
 import { formatDate } from '../../../../shared/utils';
+import type { InventoryItem } from '../../types';
 import {
   deriveInventoryStatus,
   describeOpenVialCountdown,
@@ -49,7 +56,6 @@ import {
 
 interface InventoryTableProps {
   items: InventoryItem[];
-  /** Full unfiltered list — used to derive unique source/supplier options */
   allItems: InventoryItem[];
   loading: boolean;
   page: number;
@@ -80,31 +86,18 @@ interface InventoryTableProps {
 }
 
 function StatusIcon({ status }: { status: ReturnType<typeof deriveInventoryStatus> }) {
-  switch (status) {
-    case 'Discard-Pending':
-      return <PendingIcon sx={{ fontSize: 15 }} />;
-    case 'Expired':
-      return <ExpiredIcon sx={{ fontSize: 15 }} />;
-    case 'Depleted':
-      return <DepletedIcon sx={{ fontSize: 15 }} />;
-    case 'Expiring':
-      return <ExpiringIcon sx={{ fontSize: 15 }} />;
-    case 'Active':
-    default:
-      return <ActiveIcon sx={{ fontSize: 15 }} />;
-  }
+  if (status === 'Discard-Pending') return <PendingIcon sx={{ fontSize: 14 }} />;
+  if (status === 'Expired') return <ExpiredIcon sx={{ fontSize: 14 }} />;
+  if (status === 'Depleted') return <DepletedIcon sx={{ fontSize: 14 }} />;
+  if (status === 'Expiring') return <ExpiringIcon sx={{ fontSize: 14 }} />;
+  return <ActiveIcon sx={{ fontSize: 14 }} />;
 }
 
-/** Plain-language label for each derived status */
-function statusPlainLabel(status: ReturnType<typeof deriveInventoryStatus>): string {
-  switch (status) {
-    case 'Discard-Pending': return 'Opened vial — dispose';
-    case 'Expired':         return 'Expired';
-    case 'Depleted':        return 'Out of Stock';
-    case 'Expiring':        return 'Expiring Soon';
-    case 'Active':
-    default:                return 'Available / Active';
-  }
+function statusLabel(status: ReturnType<typeof deriveInventoryStatus>) {
+  if (status === 'Discard-Pending') return 'Opened vial';
+  if (status === 'Depleted') return 'Out of stock';
+  if (status === 'Expiring') return 'Expiring soon';
+  return status;
 }
 
 export default function InventoryTable({
@@ -140,251 +133,131 @@ export default function InventoryTable({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [, setTick] = useState(0);
-
-  const fieldSx = {
-    fontFamily: "'Poppins', sans-serif",
-    '& .MuiOutlinedInput-root': {
-      bgcolor: isDark ? 'rgba(0, 0, 0, 0.25)' : '#f9fafb',
-      borderRadius: 2,
-      fontFamily: "'Poppins', sans-serif",
-      '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
-      '&:hover fieldset': { borderColor: '#10b981' },
-      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '1px' },
-    },
-    '& .MuiOutlinedInput-input': { fontSize: '13px', padding: '9px 12px', fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
-    '& .MuiInputLabel-root': { fontSize: '13px', fontFamily: "'Poppins', sans-serif", color: isDark ? '#94a3b8' : undefined },
-    '& .MuiSelect-select': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
-  };
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [expiryAnchor, setExpiryAnchor] = useState<HTMLElement | null>(null);
+  const [actionAnchor, setActionAnchor] = useState<HTMLElement | null>(null);
+  const [actionItem, setActionItem] = useState<InventoryItem | null>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => setTick((value) => value + 1), 30000);
-    return () => clearInterval(interval);
+    const interval = window.setInterval(() => setTick((value) => value + 1), 30000);
+    return () => window.clearInterval(interval);
   }, []);
 
-  // 6.3 — derive unique source/supplier options from the full item list
-  const sourceOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const opts: string[] = [];
-    allItems.forEach((item) => {
-      const src = (item.received_from || '').trim();
-      if (src && !seen.has(src)) {
-        seen.add(src);
-        opts.push(src);
-      }
-    });
-    return opts.sort();
-  }, [allItems]);
+  const sourceOptions = useMemo(() => Array.from(new Set(
+    allItems.map((item) => (item.received_from || '').trim()).filter(Boolean),
+  )).sort(), [allItems]);
+
+  const hasFilters = Boolean(search || statusFilter || batchFilter || sourceFilter || expiryFrom || expiryTo);
+  const primaryText = isDark ? '#f8fafc' : '#111827';
+  const secondaryText = isDark ? '#94a3b8' : '#64748b';
+  const fieldSx = {
+    '& .MuiOutlinedInput-root': {
+      bgcolor: isDark ? 'rgba(15, 23, 42, 0.65)' : '#ffffff',
+      borderRadius: 2,
+      '& fieldset': { borderColor: isDark ? '#334155' : '#e2e8f0' },
+      '&:hover fieldset': { borderColor: '#10b981' },
+      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1 },
+    },
+    '& .MuiOutlinedInput-input, & .MuiSelect-select': { fontSize: 12.5, color: primaryText },
+    '& .MuiInputLabel-root': { fontSize: 12.5, color: secondaryText },
+  };
+
+  const closeActionMenu = () => {
+    setActionAnchor(null);
+    setActionItem(null);
+  };
+
+  const runAction = (action: (item: InventoryItem) => void) => {
+    if (actionItem) action(actionItem);
+    closeActionMenu();
+  };
 
   const columns: ColumnDef<InventoryItem>[] = useMemo(() => [
     {
       key: 'vaccine_type',
-      header: 'Vaccine Type',
+      header: 'Vaccine',
       render: (item) => (
-        <Box>
-          <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#111827', lineHeight: 1.35 }}>
-            {item.vaccine_type}
-          </Typography>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 0.5, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>
-              ID #{item.inventory_id}
-            </Typography>
-            {item.cold_chain_notes && (
-              <Tooltip title={item.cold_chain_notes}>
-                <Chip
-                  icon={<ColdChainIcon style={{ fontSize: 12, color: '#0369a1' }} />}
-                  label="Cold-chain"
-                  size="small"
-                  sx={{ height: 20, fontSize: 10, bgcolor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}
-                />
-              </Tooltip>
-            )}
-          </Stack>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 13, color: primaryText }}>{item.vaccine_type}</Typography>
+          {item.cold_chain_notes && (
+            <Tooltip title={item.cold_chain_notes} arrow>
+              <ColdChainIcon sx={{ fontSize: 14, color: '#0284c7' }} />
+            </Tooltip>
+          )}
         </Box>
       ),
     },
     {
       key: 'batch_number',
-      header: 'Batch No. / FIFO',
-      align: 'center',
+      header: 'Batch / Lot',
       render: (item) => {
-        const showPriority = item.current_quantity > 0 && deriveInventoryStatus(item) !== 'Expired';
+        const eligible = item.current_quantity > 0 && deriveInventoryStatus(item) !== 'Expired';
         return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Typography sx={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
-              {item.batch_number}
-            </Typography>
-            {showPriority && item.is_fifo_priority && (
-              <Chip
-                label="Use first"
-                size="small"
-                sx={{ mt: 0.75, height: 20, fontSize: 10, fontWeight: 800, bgcolor: '#dcfce7', color: '#166534', border: '1px solid #86efac' }}
-              />
-            )}
-            {showPriority && !item.is_fifo_priority && item.fifo_rank && (
-              <Chip
-                label={`FIFO #${item.fifo_rank}`}
-                size="small"
-                sx={{ mt: 0.75, height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}
-              />
-            )}
+          <Box>
+            <Typography sx={{ fontFamily: 'monospace', fontSize: 12.5, fontWeight: 700, color: primaryText }}>{item.batch_number}</Typography>
+            {eligible && item.is_fifo_priority && <Typography component="span" sx={{ display: 'inline-block', mt: 0.45, px: 0.65, py: 0.15, borderRadius: 20, bgcolor: '#ecfdf5', color: '#047857', fontSize: 9.5, fontWeight: 700 }}>Use first</Typography>}
+            {eligible && !item.is_fifo_priority && item.fifo_rank && <Typography sx={{ mt: 0.35, color: secondaryText, fontSize: 10 }}>FIFO #{item.fifo_rank}</Typography>}
           </Box>
         );
       },
     },
     {
       key: 'received_from',
-      header: 'Received From',
-      align: 'center',
-      render: (item) => (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', textAlign: 'center' }}>
-            {item.received_from || '—'}
-          </Typography>
-          <Typography sx={{ fontSize: 10.5, color: '#94a3b8', mt: 0.25, textAlign: 'center' }}>
-            Source / supplier
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      key: 'dispensed',
-      header: 'Dispensed',
-      align: 'center',
-      render: (item) => (
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#dc2626' }}>
-            {item.total_dispensed || 0}
-          </Typography>
-          <Typography sx={{ fontSize: 10.5, color: '#94a3b8' }}>
-            read-only
-          </Typography>
-        </Box>
-      ),
+      header: 'Supplier',
+      render: (item) => {
+        const supplier = item.received_from || '—';
+        return <Tooltip title={supplier} arrow><Typography sx={{ maxWidth: 185, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: primaryText }}>{supplier}</Typography></Tooltip>;
+      },
     },
     {
       key: 'current_quantity',
-      header: 'Available Sealed Vials',
+      header: 'Available / Capacity',
       align: 'center',
       render: (item) => {
-        const low = item.current_quantity > 0 && item.current_quantity <= 10;
         const empty = item.current_quantity <= 0;
+        const low = !empty && item.current_quantity <= 10;
+        const color = empty ? '#dc2626' : low ? '#d97706' : '#047857';
         const dpv = Number(item.doses_per_vial || 1);
-        const capacity = item.current_quantity * dpv;
+        const openDosesRemaining = item.open_vial_status === 'opened'
+          ? Math.max(0, dpv - Number(item.open_vial_doses_used || 0))
+          : 0;
+        const patientCapacity = (item.current_quantity * dpv) + openDosesRemaining;
         return (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Tooltip
-              title="1 Vial = 1 glass bottle of vaccine. In animal bite clinics, 1 vial can vaccinate multiple patients (e.g., 1 vial = up to 3 patients for intradermal rabies shots)."
-              placement="top"
-              arrow
-            >
-              <Box
-                sx={{
-                  textAlign: 'center',
-                  p: 1,
-                  minWidth: 92,
-                  bgcolor: empty ? '#f8fafc' : low ? '#fff7ed' : '#ecfdf5',
-                  borderRadius: 1.5,
-                  border: `1px solid ${empty ? '#cbd5e1' : low ? '#fdba74' : '#86efac'}`,
-                  cursor: 'help',
-                }}
-              >
-                <Typography sx={{ fontWeight: 800, fontSize: 17, color: empty ? '#475569' : low ? '#c2410c' : '#047857' }}>
-                  {item.current_quantity}
-                </Typography>
-                <Typography sx={{ fontSize: 10, color: '#64748b' }}>
-                  vial{item.current_quantity === 1 ? '' : 's'}
-                </Typography>
-                {dpv > 1 && !empty && (
-                  <Typography sx={{ fontSize: 10, color: '#0284c7', fontWeight: 600, mt: 0.25 }}>
-                    ≈{capacity} patients
-                  </Typography>
-                )}
-                {item.open_vial_status === 'opened' && dpv > 1 && (
-                  <Typography sx={{ fontSize: 9.5, color: '#0e7490', fontWeight: 700, mt: 0.5, bgcolor: '#ecfeff', px: 0.5, py: 0.2, borderRadius: 0.5, border: '1px solid #a5f3fc' }}>
-                    Open: {item.open_vial_doses_used ?? 0}/{dpv} used ({Math.max(0, dpv - (item.open_vial_doses_used ?? 0))}/{dpv} left)
-                  </Typography>
-                )}
+          <Tooltip title={`${item.current_quantity} sealed vial${item.current_quantity === 1 ? '' : 's'} × ${dpv} dose${dpv === 1 ? '' : 's'} per vial${openDosesRemaining ? ` + ${openDosesRemaining} remaining dose${openDosesRemaining === 1 ? '' : 's'} from the opened vial` : ''}`} arrow>
+            <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', px: empty || low ? 0.9 : 0, py: empty || low ? 0.4 : 0, borderRadius: 1.5, bgcolor: empty ? '#fef2f2' : low ? '#fffbeb' : 'transparent' }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.45 }}>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, color }}>{item.current_quantity}</Typography>
+                <Typography sx={{ fontSize: 10, color: secondaryText }}>vial{item.current_quantity === 1 ? '' : 's'}</Typography>
               </Box>
-            </Tooltip>
-          </Box>
+              <Typography sx={{ mt: 0.15, fontSize: 10, fontWeight: 600, color: '#2563eb', whiteSpace: 'nowrap' }}>
+                ≈ {patientCapacity} patient{patientCapacity === 1 ? '' : 's'}
+              </Typography>
+              {openDosesRemaining > 0 && <Typography sx={{ mt: 0.1, fontSize: 9, color: '#0e7490' }}>includes {openDosesRemaining} open dose{openDosesRemaining === 1 ? '' : 's'}</Typography>}
+            </Box>
+          </Tooltip>
         );
       },
     },
     {
       key: 'expiration',
       header: 'Expiration',
-      align: 'center',
-      width: '220px',
       render: (item) => {
-        const expiryVisual = getExpiryVisual(item.expiration_date);
-        const openVial = item.open_vial_status === 'opened'
-          ? describeOpenVialCountdown(item.open_vial_discard_at)
-          : null;
-        const dpv = Number(item.doses_per_vial || 1);
-
+        const derivedStatus = deriveInventoryStatus(item);
+        const expiry = getExpiryVisual(item.expiration_date);
+        const emphasized = derivedStatus === 'Expiring' || derivedStatus === 'Expired';
+        const openVial = item.open_vial_status === 'opened' ? describeOpenVialCountdown(item.open_vial_discard_at) : null;
         return (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Box sx={{ minWidth: 190, maxWidth: 220 }}>
-              <Box
-                sx={{
-                  p: 1,
-                  borderRadius: 1.5,
-                  bgcolor: expiryVisual.bg,
-                  border: `1px solid ${expiryVisual.border}`,
-                }}
-              >
-                <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 0.35 }}>
-                  <CalendarIcon sx={{ fontSize: 14, color: expiryVisual.color }} />
-                  <Typography sx={{ fontSize: 11, fontWeight: 800, color: expiryVisual.color }}>
-                    Batch expiration
-                  </Typography>
-                </Stack>
-                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1f2937' }}>
-                  {formatDate(item.expiration_date)}
-                </Typography>
-                <Typography sx={{ fontSize: 10.5, color: expiryVisual.color, fontWeight: 700 }}>
-                  {expiryVisual.detail}
-                </Typography>
-              </Box>
-
-              {openVial ? (
-                <Box
-                  sx={{
-                    mt: 0.9,
-                    p: 1,
-                    borderRadius: 1.5,
-                    bgcolor: openVial.bg,
-                    border: `1px solid ${openVial.border}`,
-                  }}
-                >
-                  <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 0.35 }}>
-                    <OpenVialIcon sx={{ fontSize: 14, color: openVial.color }} />
-                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: openVial.color }}>
-                      Open-vial discard
-                    </Typography>
-                  </Stack>
-                  <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: openVial.color }}>
-                    {openVial.label}
-                  </Typography>
-                  <Typography sx={{ fontSize: 10.5, color: openVial.color }}>
-                    {openVial.secondary}
-                  </Typography>
-                  {dpv > 1 && (
-                    <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#0369a1', mt: 0.35 }}>
-                      Doses: {item.open_vial_doses_used ?? 0}/{dpv} used ({Math.max(0, dpv - (item.open_vial_doses_used ?? 0))}/{dpv} left)
-                    </Typography>
-                  )}
-                </Box>
-              ) : item.open_vial_hours ? (
-                <Typography sx={{ fontSize: 10.5, color: '#64748b', mt: 0.85, textAlign: 'center' }}>
-                  Open-vial timer starts only after <strong>Mark Vial Opened</strong>.
-                </Typography>
-              ) : (
-                <Typography sx={{ fontSize: 10.5, color: '#64748b', mt: 0.85, textAlign: 'center' }}>
-                  Single-dose or no open-vial discard rule.
-                </Typography>
-              )}
+          <Box sx={{ minWidth: 150 }}>
+            <Box sx={{ display: 'inline-block', px: emphasized ? 0.8 : 0, py: emphasized ? 0.45 : 0, borderRadius: 1.5, bgcolor: emphasized ? expiry.bg : 'transparent', border: emphasized ? `1px solid ${expiry.border}` : 'none' }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 600, color: emphasized ? expiry.color : primaryText }}>{formatDate(item.expiration_date)}</Typography>
+              <Typography sx={{ fontSize: 10, color: emphasized ? expiry.color : secondaryText }}>{expiry.detail}</Typography>
             </Box>
+            {openVial && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, mt: 0.6, color: openVial.color }}>
+                <OpenVialIcon sx={{ fontSize: 12 }} />
+                <Typography sx={{ fontSize: 10, fontWeight: 600 }}>{openVial.label} · {openVial.secondary}</Typography>
+              </Box>
+            )}
           </Box>
         );
       },
@@ -394,295 +267,72 @@ export default function InventoryTable({
       header: 'Status',
       align: 'center',
       render: (item) => {
-        const derivedStatus = deriveInventoryStatus(item);
-        const visual = getStatusVisual(derivedStatus);
-
-        return (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Chip
-              icon={<StatusIcon status={derivedStatus} />}
-              label={statusPlainLabel(derivedStatus)}
-              size="small"
-              sx={{
-                height: 26,
-                fontSize: 11.5,
-                fontWeight: 800,
-                bgcolor: visual.bg,
-                color: visual.color,
-                border: `1px solid ${visual.border}`,
-                '& .MuiChip-icon': { color: visual.color },
-              }}
-            />
-          </Box>
-        );
+        const status = deriveInventoryStatus(item);
+        const visual = getStatusVisual(status);
+        return <Chip icon={<StatusIcon status={status} />} label={statusLabel(status)} size="small" sx={{ height: 24, fontSize: 10.5, fontWeight: 700, bgcolor: visual.bg, color: visual.color, border: `1px solid ${visual.border}`, '& .MuiChip-icon': { color: visual.color } }} />;
       },
     },
     {
       key: 'actions',
       header: 'Actions',
       align: 'center',
-      width: '240px',
-      render: (item) => {
-        const canUseOpenVialTimer = !!item.open_vial_hours && item.open_vial_hours > 0;
-        const isOpened = item.open_vial_status === 'opened';
-        const hasStock = item.current_quantity > 0;
-
-        return (
-          <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center' }}>
-            {hasStock && canUseOpenVialTimer && !isOpened && onOpenVial && (
-              <Tooltip title="Mark vial opened">
-                <IconButton
-                  size="small"
-                  onClick={() => onOpenVial(item)}
-                  sx={{ color: '#1d4ed8', width: 30, height: 30, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', '&:hover': { bgcolor: '#dbeafe' } }}
-                >
-                  <OpenVialIcon sx={{ fontSize: 16 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-
-            {isOpened && onDiscardVial && (
-              <Tooltip title="Mark opened vial discarded">
-                <IconButton
-                  size="small"
-                  onClick={() => onDiscardVial(item)}
-                  sx={{ color: '#c2410c', width: 30, height: 30, bgcolor: '#fff7ed', border: '1px solid #fdba74', '&:hover': { bgcolor: '#ffedd5' } }}
-                >
-                  <DiscardIcon sx={{ fontSize: 16 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-
-            {onViewStockCard && (
-              <Tooltip title="View stock card">
-                <IconButton size="small" onClick={() => onViewStockCard(item)} sx={{ color: '#059669', width: 30, height: 30, '&:hover': { bgcolor: '#ecfdf5', color: '#047857' } }}>
-                  <StockCardIcon sx={{ fontSize: 17 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-
-            <Tooltip title="Adjust stock">
-              <IconButton size="small" onClick={() => onAdjust(item)} sx={{ color: '#6b7280', width: 30, height: 30, '&:hover': { bgcolor: '#f3f4f6', color: '#059669' } }}>
-                <AdjustIcon sx={{ fontSize: 17 }} />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Transaction history">
-              <IconButton size="small" onClick={() => onHistory(item)} sx={{ color: '#6b7280', width: 30, height: 30, '&:hover': { bgcolor: '#f3f4f6', color: '#2563eb' } }}>
-                <HistoryIcon sx={{ fontSize: 17 }} />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Edit batch details">
-              <IconButton size="small" onClick={() => onEdit(item)} sx={{ color: '#6b7280', width: 30, height: 30, '&:hover': { bgcolor: '#f3f4f6', color: '#d97706' } }}>
-                <EditIcon sx={{ fontSize: 17 }} />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Archive batch">
-              <IconButton size="small" onClick={() => onDelete(item)} sx={{ color: '#6b7280', width: 30, height: 30, '&:hover': { bgcolor: '#fef3c7', color: '#d97706' } }}>
-                <ArchiveIcon sx={{ fontSize: 17 }} />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        );
-      },
+      width: '150px',
+      render: (item) => (
+        <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center' }}>
+          {onViewStockCard && <Button size="small" variant="outlined" startIcon={<ViewIcon sx={{ fontSize: '15px !important' }} />} onClick={() => onViewStockCard(item)} sx={{ minWidth: 70, px: 1, py: 0.35, borderRadius: 1.5, borderColor: '#a7f3d0', color: '#047857', textTransform: 'none', fontSize: 11, '&:hover': { bgcolor: '#ecfdf5', borderColor: '#6ee7b7' } }}>View</Button>}
+          <Tooltip title="More actions">
+            <IconButton size="small" aria-label={`More actions for ${item.vaccine_type} ${item.batch_number}`} onClick={(event) => { setActionAnchor(event.currentTarget); setActionItem(item); }} sx={{ width: 30, height: 30, color: secondaryText, border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`, borderRadius: 1.5 }}><MoreIcon sx={{ fontSize: 17 }} /></IconButton>
+          </Tooltip>
+        </Stack>
+      ),
     },
-  ], [onAdjust, onDelete, onDiscardVial, onEdit, onHistory, onOpenVial, onViewStockCard]);
+  ], [isDark, onViewStockCard, primaryText, secondaryText]);
 
   return (
     <Box>
-      <Box sx={{ mb: 3, p: 2, bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-glow, #e5e7eb)', borderRadius: 2.5, boxShadow: 'var(--shadow)' }}>
-        <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
-          {/* Row 1: search + batch + status + source */}
-          {/* 6.1 — Vaccine type search */}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Search vaccine type"
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon sx={{ fontSize: 18, color: isDark ? '#94a3b8' : '#9ca3af' }} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={fieldSx}
-            />
-          </Grid>
-
-          {/* 6.1 — Batch number filter */}
-          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Batch / Lot No."
-              placeholder="e.g. VER-2025-01"
-              value={batchFilter}
-              onChange={(e) => onBatchFilterChange(e.target.value)}
-              sx={fieldSx}
-            />
-          </Grid>
-
-          {/* 6.2 — Stock Status filter */}
-          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-            <FormControl fullWidth size="small" sx={fieldSx}>
-              <InputLabel>Stock Status</InputLabel>
-              <Select value={statusFilter} label="Stock Status" onChange={(e) => onStatusFilterChange(e.target.value)}>
-                <MenuItem value="">All statuses</MenuItem>
-                <MenuItem value="active">Available / Active</MenuItem>
-                <MenuItem value="low-stock">Low Stock (≤ 10 vials)</MenuItem>
-                <MenuItem value="expiring-soon">Expiring Soon (≤ 30 days)</MenuItem>
-                <MenuItem value="expired">Expired</MenuItem>
-                <MenuItem value="depleted">Out of Stock / Depleted</MenuItem>
-                <MenuItem value="discard-pending">Open Vial — Discard Pending</MenuItem>
-                <MenuItem value="archived" sx={{ fontWeight: 700, color: '#b45309' }}>📦 Archived Batches</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          {/* 6.3 — Source / Supplier filter */}
-          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-            <FormControl fullWidth size="small" sx={fieldSx}>
-              <InputLabel>Source / Supplier</InputLabel>
-              <Select
-                value={sourceFilter}
-                label="Source / Supplier"
-                onChange={(e) => onSourceFilterChange(e.target.value)}
-                renderValue={(val) => val || 'All sources'}
-              >
-                <MenuItem value="">All sources</MenuItem>
-                {sourceOptions.map((src) => (
-                  <MenuItem key={src} value={src} sx={{ fontSize: 13, whiteSpace: 'normal', maxWidth: 360, fontFamily: "'Poppins', sans-serif" }}>
-                    {src}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          {/* Expiry range */}
-          <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
-            <TextField
-              fullWidth
-              size="small"
-              type="date"
-              label="Expiry after"
-              value={expiryFrom}
-              onChange={(e) => onExpiryFromChange(e.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
-              sx={{ ...fieldSx, minWidth: 140 }}
-            />
-          </Grid>
-
-          <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
-            <TextField
-              fullWidth
-              size="small"
-              type="date"
-              label="Expiry before"
-              value={expiryTo}
-              onChange={(e) => onExpiryToChange(e.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
-              sx={{ ...fieldSx, minWidth: 140 }}
-            />
-          </Grid>
-
-          {/* Clear all */}
-          <Grid size={{ xs: 12, sm: 12, md: 'auto' }} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-            <Button
-              size="small"
-              onClick={() => {
-                onSearchChange('');
-                onStatusFilterChange('');
-                onBatchFilterChange('');
-                onSourceFilterChange('');
-                onExpiryFromChange('');
-                onExpiryToChange('');
-                onPageChange(0);
-              }}
-              sx={{ color: isDark ? '#cbd5e1' : '#6b7280', fontSize: 12, textTransform: 'none', minWidth: 0, p: 0.5, fontFamily: "'Poppins', sans-serif" }}
-            >
-              Clear
-            </Button>
-          </Grid>
-        </Grid>
-      </Box>
-
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 1.5,
-          p: 1.5,
-          mb: 2,
-          bgcolor: isDark ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
-          border: isDark ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #e2e8f0',
-          borderRadius: 2,
-          flexWrap: 'wrap',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-          <WarningIcon sx={{ color: '#2563eb', mt: 0.1 }} />
-          <Box>
-            <Typography sx={{ fontSize: 13, fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', fontFamily: "'Poppins', sans-serif" }}>
-              Two separate clocks are shown in each row
-            </Typography>
-            <Typography sx={{ fontSize: 11.5, color: isDark ? '#cbd5e1' : '#64748b', fontFamily: "'Poppins', sans-serif" }}>
-              <strong>Batch expiration</strong> tracks the sealed stock life. <strong>Opened vial expired / dispose</strong> appears only after a vial is opened and uses its own timer style.
-            </Typography>
-            <Typography sx={{ fontSize: 11.5, color: isDark ? '#94a3b8' : '#475569', mt: 0.5, fontFamily: "'Poppins', sans-serif" }}>
-              💡 <strong>What is a Vial?</strong> 1 Vial = 1 glass bottle of vaccine. In animal bite clinics, 1 vial can vaccinate multiple patients (e.g., 1 vial = up to 3 patients for intradermal rabies shots). Hover over any vial count for a reminder.
-            </Typography>
-          </Box>
+      <Paper elevation={0} sx={{ mb: 1.5, p: 1.25, border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`, borderRadius: 2.5, bgcolor: isDark ? '#111827' : '#fff' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'minmax(220px, 1.4fr) minmax(150px, .8fr) minmax(160px, .8fr) minmax(170px, 1fr) auto auto' }, gap: 1, alignItems: 'center' }}>
+          <TextField fullWidth size="small" placeholder="Search vaccine" value={search} onChange={(event) => onSearchChange(event.target.value)} slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 17, color: secondaryText }} /></InputAdornment> } }} sx={fieldSx} />
+          <TextField fullWidth size="small" placeholder="Batch / Lot" value={batchFilter} onChange={(event) => onBatchFilterChange(event.target.value)} sx={fieldSx} />
+          <FormControl fullWidth size="small" sx={fieldSx}><InputLabel>Status</InputLabel><Select value={statusFilter} label="Status" onChange={(event) => onStatusFilterChange(event.target.value)}><MenuItem value="">All statuses</MenuItem><MenuItem value="active">Available / Active</MenuItem><MenuItem value="low-stock">Low stock (≤10)</MenuItem><MenuItem value="expiring-soon">Expiring soon</MenuItem><MenuItem value="expired">Expired</MenuItem><MenuItem value="depleted">Depleted</MenuItem><MenuItem value="discard-pending">Opened vial</MenuItem></Select></FormControl>
+          <FormControl fullWidth size="small" sx={fieldSx}><InputLabel>Supplier</InputLabel><Select value={sourceFilter} label="Supplier" onChange={(event) => onSourceFilterChange(event.target.value)} renderValue={(value) => value || 'All suppliers'}><MenuItem value="">All suppliers</MenuItem>{sourceOptions.map((source) => <MenuItem key={source} value={source} sx={{ maxWidth: 380, whiteSpace: 'normal', fontSize: 12 }}>{source}</MenuItem>)}</Select></FormControl>
+          <Button variant="outlined" startIcon={<DateRangeIcon sx={{ fontSize: '16px !important' }} />} onClick={(event) => setExpiryAnchor(event.currentTarget)} sx={{ height: 40, borderRadius: 2, borderColor: expiryFrom || expiryTo ? '#10b981' : isDark ? '#334155' : '#e2e8f0', color: expiryFrom || expiryTo ? '#047857' : secondaryText, textTransform: 'none', whiteSpace: 'nowrap', fontSize: 11.5 }}>{expiryFrom || expiryTo ? 'Expiry applied' : 'Expiry date'}</Button>
+          <Button disabled={!hasFilters} onClick={() => { onSearchChange(''); onStatusFilterChange(''); onBatchFilterChange(''); onSourceFilterChange(''); onExpiryFromChange(''); onExpiryToChange(''); onPageChange(0); }} sx={{ minWidth: 0, color: secondaryText, textTransform: 'none', fontSize: 11.5, whiteSpace: 'nowrap' }}>Clear filters</Button>
         </Box>
-        <Chip label="Daily-use inventory view" size="small" sx={{ fontWeight: 700, bgcolor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff', color: isDark ? '#60a5fa' : '#1d4ed8' }} />
-      </Box>
-
-      <Paper elevation={0} sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}>
-        <DataTable
-          columns={columns}
-          rows={items}
-          rowKey={(item) => item.inventory_id}
-          loading={loading}
-          emptyState={
-            <Box sx={{ textAlign: 'center', py: 8, px: 2 }}>
-              <InventoryIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 1.5, opacity: 0.6 }} />
-              <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#374151', mb: 0.5 }}>
-                No vaccine batches found
-              </Typography>
-              <Typography sx={{ fontSize: 13, color: '#6b7280', mb: 2.5 }}>
-                {search || statusFilter || batchFilter || sourceFilter || expiryFrom || expiryTo
-                  ? 'No inventory batches match the current filters.'
-                  : 'Get started by adding the clinic’s first stock batch.'}
-              </Typography>
-              {!search && !statusFilter && !batchFilter && !sourceFilter && !expiryFrom && !expiryTo && (
-                <Button
-                  variant="contained"
-                  onClick={onAddFirst}
-                  sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' }, textTransform: 'none', fontWeight: 700 }}
-                >
-                  Add first stock batch
-                </Button>
-              )}
-            </Box>
-          }
-        />
-        <TablePaginator
-          count={total}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          onPageChange={onPageChange}
-          onRowsPerPageChange={onRowsPerPageChange}
-          rowsPerPageOptions={[10, 15, 25, 50]}
-        />
       </Paper>
+
+      <Popover open={Boolean(expiryAnchor)} anchorEl={expiryAnchor} onClose={() => setExpiryAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { mt: 0.75, p: 1.5, borderRadius: 2.5, width: 290 } } }}>
+        <Typography sx={{ fontSize: 12, fontWeight: 700, color: primaryText, mb: 1 }}>Expiration range</Typography>
+        <Stack spacing={1}><TextField fullWidth size="small" type="date" label="Expiry after" value={expiryFrom} onChange={(event) => onExpiryFromChange(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={fieldSx} /><TextField fullWidth size="small" type="date" label="Expiry before" value={expiryTo} onChange={(event) => onExpiryToChange(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={fieldSx} /></Stack>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}><Button size="small" onClick={() => { onExpiryFromChange(''); onExpiryToChange(''); }} sx={{ color: secondaryText, textTransform: 'none', fontSize: 11 }}>Clear</Button><Button size="small" onClick={() => setExpiryAnchor(null)} sx={{ color: '#047857', textTransform: 'none', fontSize: 11, fontWeight: 700 }}>Done</Button></Box>
+      </Popover>
+
+      <Paper elevation={0} sx={{ border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`, borderRadius: 2.5, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#fff' }}>
+        <Box sx={{ px: 1.75, py: 1.25, display: 'flex', alignItems: 'center', gap: 0.75, borderBottom: `1px solid ${isDark ? '#1e293b' : '#f1f5f9'}` }}>
+          <InventoryIcon sx={{ fontSize: 18, color: '#059669' }} />
+          <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: primaryText }}>Inventory Batches</Typography>
+          <Typography sx={{ fontSize: 10.5, color: secondaryText }}>{total} record{total === 1 ? '' : 's'}</Typography>
+          <Button size="small" startIcon={<InfoIcon sx={{ fontSize: '15px !important' }} />} onClick={() => setGuideOpen(true)} sx={{ ml: 'auto', color: secondaryText, textTransform: 'none', fontSize: 11 }}>Inventory guide</Button>
+        </Box>
+        <DataTable columns={columns} rows={items} rowKey={(item) => item.inventory_id} loading={loading} emptyState={<Box sx={{ textAlign: 'center', py: 8, px: 2 }}><InventoryIcon sx={{ fontSize: 42, color: '#cbd5e1', mb: 1 }} /><Typography sx={{ fontWeight: 700, fontSize: 15, color: primaryText }}>No vaccine batches found</Typography><Typography sx={{ fontSize: 12, color: secondaryText, mt: 0.5, mb: 2 }}>{hasFilters ? 'No inventory batches match the current filters.' : 'Add the clinic’s first stock batch to begin tracking inventory.'}</Typography>{!hasFilters && <Button variant="contained" onClick={onAddFirst} sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' }, textTransform: 'none', fontWeight: 700 }}>Add first stock batch</Button>}</Box>} />
+        <TablePaginator count={total} page={page} rowsPerPage={rowsPerPage} onPageChange={onPageChange} onRowsPerPageChange={onRowsPerPageChange} rowsPerPageOptions={[10, 15, 25, 50]} />
+      </Paper>
+
+      <Menu anchorEl={actionAnchor} open={Boolean(actionAnchor && actionItem)} onClose={closeActionMenu} slotProps={{ paper: { sx: { mt: 0.5, minWidth: 205, borderRadius: 2 } } }}>
+        {actionItem?.current_quantity && actionItem.open_vial_hours && actionItem.open_vial_status !== 'opened' && onOpenVial ? <MenuItem onClick={() => runAction(onOpenVial)} sx={{ fontSize: 12 }}><OpenVialIcon sx={{ fontSize: 16, mr: 1, color: '#2563eb' }} />Mark vial opened</MenuItem> : null}
+        {actionItem?.open_vial_status === 'opened' && onDiscardVial ? <MenuItem onClick={() => runAction(onDiscardVial)} sx={{ fontSize: 12 }}><DiscardIcon sx={{ fontSize: 16, mr: 1, color: '#c2410c' }} />Discard opened vial</MenuItem> : null}
+        {Boolean(actionItem?.open_vial_status === 'opened' || (actionItem?.current_quantity && actionItem?.open_vial_hours)) && <Divider />}
+        <MenuItem onClick={() => runAction(onAdjust)} sx={{ fontSize: 12 }}><AdjustIcon sx={{ fontSize: 16, mr: 1, color: '#64748b' }} />Adjust stock</MenuItem>
+        <MenuItem onClick={() => runAction(onHistory)} sx={{ fontSize: 12 }}><HistoryIcon sx={{ fontSize: 16, mr: 1, color: '#64748b' }} />Transaction history</MenuItem>
+        <MenuItem onClick={() => runAction(onEdit)} sx={{ fontSize: 12 }}><EditIcon sx={{ fontSize: 16, mr: 1, color: '#64748b' }} />Edit batch</MenuItem>
+        <MenuItem onClick={() => runAction(onDelete)} sx={{ fontSize: 12, color: '#b45309' }}><ArchiveIcon sx={{ fontSize: 16, mr: 1 }} />Archive batch</MenuItem>
+      </Menu>
+
+      <Dialog open={guideOpen} onClose={() => setGuideOpen(false)} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
+        <DialogTitle sx={{ fontSize: 16, fontWeight: 700 }}>Inventory guide</DialogTitle>
+        <DialogContent dividers><Stack spacing={2}><Box><Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>Batch expiration</Typography><Typography sx={{ mt: 0.25, fontSize: 12, color: secondaryText }}>The manufacturer’s expiration date for sealed stock. Normal dates remain neutral; approaching or elapsed dates are highlighted.</Typography></Box><Box><Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>Opened-vial discard time</Typography><Typography sx={{ mt: 0.25, fontSize: 12, color: secondaryText }}>A separate safety clock begins only after a multidose vial is marked opened. It does not replace the sealed batch expiration date.</Typography></Box><Box><Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>Vials and doses</Typography><Typography sx={{ mt: 0.25, fontSize: 12, color: secondaryText }}>One vial is one vaccine bottle and may contain multiple patient doses. Hover over an available-vial count to see estimated capacity.</Typography></Box><Box><Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>FIFO / FEFO</Typography><Typography sx={{ mt: 0.25, fontSize: 12, color: secondaryText }}>Use the batch marked “Use first” before later-expiring stock whenever clinically appropriate.</Typography></Box></Stack></DialogContent>
+        <DialogActions><Button onClick={() => setGuideOpen(false)} sx={{ color: '#047857', textTransform: 'none', fontWeight: 700 }}>Got it</Button></DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -494,11 +494,11 @@ export default function PatientList() {
           <div className="pm-panel-header">
             <div>
               <h1 className="pm-title">
-                {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Management'}
+                {location.pathname.includes('patient-registry') ? 'Patient List' : 'Patient Management'}
               </h1>
               <p className="pm-subtitle">
                 {location.pathname.includes('patient-registry')
-                  ? 'View and access all registered patient records in the clinic registry'
+                  ? 'View and access all registered patient records'
                   : 'Manage and track all registered walk-in and online patients'}
               </p>
               {/* Breadcrumb */}
@@ -511,7 +511,7 @@ export default function PatientList() {
                 </button>
                 <span style={{ color: '#9ca3af' }}>›</span>
                 <span style={{ color: '#6b7280' }}>
-                  {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Registration'}
+                  {location.pathname.includes('patient-registry') ? 'Patient List' : 'Patient Registration'}
                 </span>
               </div>
             </div>

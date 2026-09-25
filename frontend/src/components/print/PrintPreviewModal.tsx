@@ -87,7 +87,7 @@ export default function PrintPreviewModal({
         </div>
 
         {/* ── Preview paper ── */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', background: 'var(--bg-dark, #f3f4f6)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', background: '#ffffff' }}>
           <div style={{ background: '#fff', borderRadius: 8, padding: '28px 32px', boxShadow: '0 2px 12px rgba(0,0,0,0.15)', minHeight: 480, fontSize: 13, color: '#111827' }}>
 
             {/* Letterhead */}

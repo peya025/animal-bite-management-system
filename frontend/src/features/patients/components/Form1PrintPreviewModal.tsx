@@ -161,7 +161,7 @@ export default function Form1PrintPreviewModal({
       </DialogTitle>
 
       {/* ── Document Preview Frame ── */}
-      <DialogContent sx={{ p: 0, flex: 1, bgcolor: '#525659', position: 'relative', overflow: 'hidden' }}>
+      <DialogContent sx={{ p: 0, flex: 1, bgcolor: '#ffffff', position: 'relative', overflow: 'hidden' }}>
         {loading && (
           <Box
             sx={{

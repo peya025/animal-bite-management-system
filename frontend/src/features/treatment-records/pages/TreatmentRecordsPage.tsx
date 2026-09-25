@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useTheme } from '@mui/material';
 import { formatPhilHealthNumber } from '../../../shared/utils';
 import { ConfirmationDialog } from '../../../components/feedback';
@@ -710,7 +710,7 @@ export default function TreatmentRecordsPage() {
               </button>
             </div>
             {/* Preview paper */}
-            <div style={{ flex:1, overflowY:'auto', padding:'16px 20px', background: isDark ? '#070f0b' : '#f3f4f6' }}>
+            <div style={{ flex:1, overflowY:'auto', padding:'16px 20px', background: '#ffffff' }}>
               <div style={{ background:'#fff', borderRadius:8, padding:'22px 24px', boxShadow:'0 2px 12px rgba(0,0,0,0.08)', fontFamily:'Arial,sans-serif', fontSize:12, lineHeight:1.5, color:'#000' }}>
                 {/* Clinic header box */}
                 <div style={{ border:'2px solid #000', padding:'8px 12px', textAlign:'center', marginBottom:14 }}>

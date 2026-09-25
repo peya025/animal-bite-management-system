@@ -87,7 +87,7 @@ export function DohTransferSlipModal({
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 4, bgcolor: 'var(--card-bg-solid, #ffffff)' }} ref={printRef}>
+      <DialogContent sx={{ p: 4, bgcolor: '#ffffff' }} ref={printRef}>
         {/* Printable DOH Form Layout */}
         <Box
           sx={{

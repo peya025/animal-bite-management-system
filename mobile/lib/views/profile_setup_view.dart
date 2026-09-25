@@ -684,7 +684,8 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F6F5),
         body: SafeArea(
-          child: Center(
+          child: Align(
+            alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
               child: SingleChildScrollView(

@@ -3,13 +3,10 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Alert, Box, Button, Chip, CircularProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { DownloadOutlined, PrintOutlined, ArrowForward, Refresh } from '@mui/icons-material';
 import api from '../../../services/api';
-import DohExposureRegistryTab from '../components/DohExposureRegistryTab';
-import DohMonthlyReportTab from '../components/DohMonthlyReportTab';
-import DohCohortReportTab from '../components/DohCohortReportTab';
 import './RegistrationReports.css';
 
 type Report = 'summary' | 'pep' | 'followup' | 'awaiting' | 'surveillance' | 'referrals';
-type ReportTab = 'overview' | 'pep' | 'surveillance' | 'registry' | 'monthly' | 'cohort';
+type ReportTab = 'overview' | 'pep' | 'surveillance';
 type Counts = { label: string; count: number }[];
 type Completion = { eligible: number; completed: number; rate: number | null; excluded: number };
 type Filters = { from: string; to: string; category: string };
@@ -275,9 +272,6 @@ export default function RegistrationReportsPage() {
       <Tab value="overview" label="Overview" />
       <Tab value="pep" label="PEP & Follow-up" />
       <Tab value="surveillance" label="Bite Surveillance" />
-      <Tab value="registry" label="Rabies Exposure Registry" />
-      <Tab value="monthly" label="ABTC Monthly Report" />
-      <Tab value="cohort" label="Cohort Report" />
     </Tabs>
 
     {/* Unified Global Filters for all report tabs */}
@@ -304,24 +298,36 @@ export default function RegistrationReportsPage() {
       <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
     </Paper>
 
-    {tab === 'registry' && <DohExposureRegistryTab filters={filters} />}
-    {tab === 'monthly' && <DohMonthlyReportTab filters={filters} />}
-    {tab === 'cohort' && <DohCohortReportTab filters={filters} />}
-
     {['overview', 'pep', 'surveillance'].includes(tab) && <>
     {exportError && <Alert severity="error" onClose={() => setExportError('')}>{exportError}</Alert>}
     {error && <Alert severity="error" action={<Button color="inherit" startIcon={<Refresh />} onClick={() => setRefresh(n => n + 1)}>Retry</Button>}>{error}</Alert>}
     {loading && <div aria-label="Loading reports" aria-busy="true"><div className="rr-grid rr-grid-three">{[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={160} />)}</div><Skeleton variant="rounded" height={250} sx={{ mt: 2 }} /></div>}
     {!loading && data && stats && <>
       {tab === 'overview' && <>
+        {/* Row 1: Key Performance Indicators & Follow-up Alerts */}
         <div className="rr-grid rr-grid-three">
-          <Paper elevation={0} className="rr-panel rr-metric"><h2>PEP vaccine-course completion</h2><strong>{percent(stats.completion.rate)}</strong><p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
+          <Paper elevation={0} className="rr-panel rr-metric">
+            <h2>PEP vaccine-course completion</h2>
+            <strong>{percent(stats.completion.rate)}</strong>
+            <p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
             <small>{stats.completion_change_pp === null ? 'No comparable prior cohort' : `${stats.completion_change_pp > 0 ? '+' : ''}${stats.completion_change_pp} percentage points vs previous D0 cohort`}</small>
             <Button size="small" onClick={() => selectReport('pep')}>View outcomes</Button>
           </Paper>
-          <Paper elevation={0} className="rr-panel rr-metric"><h2>Average time to first dose</h2><strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong><p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p><small>{stats.delay.samples} courses · Calendar days from exposure to D0</small></Paper>
-          <Paper elevation={0} className="rr-panel rr-metric"><h2>Patients needing follow-up</h2><strong>{stats.overdue_patients}</strong><p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p><small>All incident dates · Not confirmed loss to follow-up</small><Button size="small" onClick={() => selectReport('followup')}>View follow-up list</Button></Paper>
+          <Paper elevation={0} className="rr-panel rr-metric">
+            <h2>Average time to first dose</h2>
+            <strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong>
+            <p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p>
+            <small>{stats.delay.samples} courses · Calendar days from exposure to D0</small>
+          </Paper>
+          <Paper elevation={0} className="rr-panel rr-metric">
+            <h2>Patients needing follow-up</h2>
+            <strong>{stats.overdue_patients}</strong>
+            <p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p>
+            <small>All incident dates · Not confirmed loss to follow-up</small>
+            <Button size="small" onClick={() => selectReport('followup')}>View follow-up list</Button>
+          </Paper>
         </div>
+
         {(stats.overdue_patients > 0 || stats.awaiting_d0 > 0) && (
           <Alert
             severity="warning"
@@ -343,19 +349,137 @@ export default function RegistrationReportsPage() {
             Current actions: {stats.overdue_patients} patient(s) overdue · {stats.awaiting_d0} episode(s) awaiting D0. As of {data.period.as_of}, across all incident dates.
           </Alert>
         )}
-        <div className="rr-grid rr-grid-two"><CategoryTrend months={data.months} /><Bars title="Top recorded incident barangays" rows={data.breakdowns.barangays.filter(row => row.label !== 'Not recorded')} limit={5} note={`${data.breakdowns.barangays.find(row => row.label === 'Not recorded')?.count ?? 0} incident(s) have no recorded barangay. Percentages use known locations.`} /></div>
-        <div className="rr-activity"><span><b>{stats.patients}</b> patients with incidents</span><span><b>{stats.incidents}</b> bite episodes</span><span><b>{stats.pep_starts}</b> PEP starts</span><Button component={RouterLink} to="/bite-map" endIcon={<ArrowForward />} size="small">Open Bite Map</Button></div>
+
+        {/* Section 2: PEP & Treatment Outcomes (Treatment outcomes + Follow-up priorities) */}
+        <div className="rr-section-heading">
+          <Typography component="h2" className="rr-group-title">PEP &amp; Treatment Outcomes</Typography>
+          <span className="rr-group-desc">Vaccine regimen completion rates and patient follow-up compliance</span>
+        </div>
+        <div className="rr-grid rr-grid-two rr-outcomes-grid">
+          <Bars
+            title="Treatment outcomes — selected D0 cohort"
+            rows={data.breakdowns.outcomes}
+            note={`D0 cohort: ${filters.from} to ${filters.to} · ${stats.completion.excluded} course(s) excluded from completion denominator`}
+          />
+          <Paper elevation={0} className="rr-panel rr-followup-priorities">
+            <Typography component="h2" className="rr-section-title">Follow-up priorities today</Typography>
+            <div className="rr-priorities-body">
+              <div className="rr-priority-stat">
+                <span className="rr-priority-val rr-priority-warn">{stats.overdue_patients}</span>
+                <div className="rr-priority-text">
+                  <p className="rr-priority-main"><b>{stats.overdue_patients}</b> patients have <b>{stats.overdue_doses}</b> overdue prescribed doses.</p>
+                  <span className="rr-priority-sub">Scheduled follow-up dose target dates exceeded</span>
+                </div>
+              </div>
+              <div className="rr-priority-stat">
+                <span className="rr-priority-val rr-priority-info">{stats.awaiting_d0}</span>
+                <div className="rr-priority-text">
+                  <p className="rr-priority-main"><b>{stats.awaiting_d0}</b> episodes have an ordered regimen with no recorded D0.</p>
+                  <span className="rr-priority-sub">Prescriptions awaiting initial vaccination administration</span>
+                </div>
+              </div>
+            </div>
+            <Stack direction="row" spacing={1} sx={{ mt: 'auto', pt: 1.5, flexWrap: 'wrap' }}>
+              <Button variant="outlined" size="small" onClick={() => selectReport('followup')}>Overdue doses</Button>
+              <Button variant="outlined" size="small" onClick={() => selectReport('awaiting')}>Awaiting D0</Button>
+            </Stack>
+            <p className="rr-note">Reminder status shows the latest recorded send attempt. Confirmed loss to follow-up and contact outcomes are not currently recorded.</p>
+          </Paper>
+        </div>
+
+        {/* Section 3: Bite Surveillance Analytics */}
+        <div className="rr-section-heading">
+          <Typography component="h2" className="rr-group-title">Bite Surveillance Analytics</Typography>
+          <span className="rr-group-desc">Temporal patterns, demographic distribution, and animal characteristics</span>
+        </div>
+        <div className="rr-activity">
+          <span><b>{stats.incidents}</b> incident episodes</span>
+          <span><b>{stats.patients}</b> unique patients</span>
+          <span><b>{stats.pep_starts}</b> PEP starts</span>
+          <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
+          <Button component={RouterLink} to="/bite-map" endIcon={<ArrowForward />} size="small">Open Bite Map</Button>
+        </div>
+
+        {/* Larger analytics charts with equal width and height */}
+        <div className="rr-surveillance-row-1">
+          <CategoryTrend months={data.months} />
+          <Bars title="Age at incident" rows={data.breakdowns.ages} note="Counts bite episodes. A patient with separate incidents can appear more than once." />
+          <Bars title="Incident day of week" rows={data.breakdowns.weekdays} note="Hourly patterns are unavailable because incident times are not recorded." />
+        </div>
+
+        {/* Smaller breakdown charts grouped together in a balanced row */}
+        <div className="rr-surveillance-row-2">
+          <Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} note="Recorded bite locations only. Open Bite Map for the geographic view." />
+          <Bars title="Animal type" rows={data.breakdowns.animals} />
+          <Bars title="Animal ownership" rows={data.breakdowns.ownership} note="Ownership and vaccination are different attributes. Animal vaccination status is not currently recorded as a structured field." />
+          <Bars title="Recorded animal observation status" rows={data.breakdowns.observation} />
+        </div>
       </>}
       {tab === 'pep' && <>
         <Alert severity="info">D0 cohort: {filters.from} to {filters.to}. Outcomes observed as of {data.period.as_of}. {stats.completion.excluded} course(s) are not eligible for the completion denominator. Current follow-up and awaiting-D0 lists include all incident dates.</Alert>
-        <div className="rr-grid rr-grid-two"><Bars title="Treatment outcomes — selected D0 cohort" rows={data.breakdowns.outcomes} /><Paper elevation={0} className="rr-panel"><h2 className="rr-section-title">Follow-up priorities today</h2>
-          <p>{stats.overdue_patients} patients have {stats.overdue_doses} overdue prescribed doses.</p><p>{stats.awaiting_d0} episodes have an ordered regimen with no recorded D0.</p>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}><Button onClick={() => selectReport('followup')}>Overdue doses</Button><Button onClick={() => selectReport('awaiting')}>Awaiting D0</Button></Stack>
-          <p className="rr-note">Reminder status shows the latest recorded send attempt. Confirmed loss to follow-up and contact outcomes are not currently recorded.</p></Paper></div>
+        <Paper elevation={0} className="rr-panel rr-tab-intro">
+          <div className="rr-tab-intro-content">
+            <div>
+              <Typography component="h2" className="rr-section-title" sx={{ mb: 0.5 }}>PEP &amp; Follow-up Clinical Records</Typography>
+              <p className="rr-note" style={{ margin: 0 }}>Review patient treatment outcomes, overdue dose queues, and episodes awaiting initial Day 0 doses.</p>
+            </div>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              <Button
+                variant={report === 'pep' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => selectReport('pep', false)}
+              >
+                PEP Treatment Outcomes
+              </Button>
+              <Button
+                variant={report === 'followup' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => selectReport('followup', false)}
+              >
+                Overdue Patients ({stats.overdue_patients})
+              </Button>
+              <Button
+                variant={report === 'awaiting' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => selectReport('awaiting', false)}
+              >
+                Awaiting D0 ({stats.awaiting_d0})
+              </Button>
+            </Stack>
+          </div>
+        </Paper>
       </>}
       {tab === 'surveillance' && <>
-        <div className="rr-activity"><span><b>{stats.incidents}</b> incident episodes</span><span><b>{stats.patients}</b> unique patients</span><span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span><Button component={RouterLink} to="/bite-map" endIcon={<ArrowForward />}>Open Bite Map</Button></div>
-        <div className="rr-grid rr-grid-two"><CategoryTrend months={data.months} /><Bars title="Age at incident" rows={data.breakdowns.ages} note="Counts bite episodes. A patient with separate incidents can appear more than once." /><Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} note="Recorded bite locations only. Open Bite Map for the geographic view." /><Bars title="Incident day of week" rows={data.breakdowns.weekdays} note="Hourly patterns are unavailable because incident times are not recorded." /><Bars title="Animal type" rows={data.breakdowns.animals} /><Bars title="Animal ownership" rows={data.breakdowns.ownership} note="Ownership and vaccination are different attributes. Animal vaccination status is not currently recorded as a structured field." /><Bars title="Recorded animal observation status" rows={data.breakdowns.observation} /></div>
+        <div className="rr-activity">
+          <span><b>{stats.incidents}</b> incident episodes</span>
+          <span><b>{stats.patients}</b> unique patients</span>
+          <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
+          <Button component={RouterLink} to="/bite-map" endIcon={<ArrowForward />}>Open Bite Map</Button>
+        </div>
+        <Paper elevation={0} className="rr-panel rr-tab-intro">
+          <div className="rr-tab-intro-content">
+            <div>
+              <Typography component="h2" className="rr-section-title" sx={{ mb: 0.5 }}>Bite Surveillance Incident Records</Typography>
+              <p className="rr-note" style={{ margin: 0 }}>Examine incident registry logs, bite exposures by barangay and animal species, and referred cases.</p>
+            </div>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              <Button
+                variant={report === 'surveillance' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => selectReport('surveillance', false)}
+              >
+                Incident List ({stats.incidents})
+              </Button>
+              <Button
+                variant={report === 'referrals' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => selectReport('referrals', false)}
+              >
+                Referrals &amp; Transfers ({stats.referrals})
+              </Button>
+            </Stack>
+          </div>
+        </Paper>
       </>}
       <Paper elevation={0} className="rr-panel">
         <div className="rr-record-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>

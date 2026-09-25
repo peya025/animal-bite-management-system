@@ -45,9 +45,9 @@ const getQuarterRange = () => {
 export default function DohReportsSection() {
   const { user } = useAuth();
 
-  // Triage Doctor/Doctor ('triage') and Treatment Nurse/Nurse ('treatment') roles
-  // do not have access to DOH report cards. The entire section is omitted for both.
-  const isRestrictedRole = user?.role === 'triage' || user?.role === 'treatment';
+  // Triage Doctor/Doctor ('triage'), Treatment Nurse/Nurse ('treatment'), and Registration Staff ('registration')
+  // do not have access to DOH report cards. The entire section is omitted for these roles.
+  const isRestrictedRole = user?.role === 'triage' || user?.role === 'treatment' || user?.role === 'registration';
 
   const [loadingType, setLoadingType] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

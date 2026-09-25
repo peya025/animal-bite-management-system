@@ -9,11 +9,9 @@ class ScheduleSection extends StatefulWidget {
   const ScheduleSection({
     super.key,
     required this.onOpenAppointments,
-    this.onOpenCalendar,
   });
 
   final VoidCallback onOpenAppointments;
-  final VoidCallback? onOpenCalendar;
 
   @override
   State<ScheduleSection> createState() => _ScheduleSectionState();
@@ -66,47 +64,20 @@ class _ScheduleSectionState extends State<ScheduleSection> {
                 ),
               ),
             ),
-            Row(
-              children: [
-                if (widget.onOpenCalendar != null) ...[
-                  InkWell(
-                    onTap: widget.onOpenCalendar,
-                    borderRadius: BorderRadius.circular(6),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(LucideIcons.calendar, size: 13, color: AppColors.primary),
-                          SizedBox(width: 4),
-                          Text(
-                            'Calendar',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('·', style: TextStyle(color: Color(0xFFD1D5DB))),
-                  const SizedBox(width: 8),
-                ],
-                GestureDetector(
-                  onTap: widget.onOpenAppointments,
-                  child: const Text(
-                    'View all',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
+            GestureDetector(
+              onTap: widget.onOpenAppointments,
+              behavior: HitTestBehavior.opaque,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                child: Text(
+                  'View all',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
+              ),
             ),
           ],
         ),

@@ -364,16 +364,16 @@ class _PatientProfileViewState extends State<PatientProfileView> {
                       ),
                       _InfoRow(label: 'Blood type', value: details?.bloodType),
                       _InfoRow(
-                        label: 'Mother\'s maiden name',
-                        value: details?.motherMaidenName,
-                      ),
-                      _InfoRow(
                         label: 'Civil status',
                         value: _titleCase(details?.civilStatus),
                       ),
                       _InfoRow(
                         label: 'Spouse name',
                         value: details?.spouseName,
+                      ),
+                      _InfoRow(
+                        label: 'Mother\'s maiden name',
+                        value: details?.motherMaidenName,
                       ),
                     ],
                   ),

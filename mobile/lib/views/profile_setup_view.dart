@@ -876,11 +876,6 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                 ),
                               ],
                             ),
-                            _inputField(
-                              'Mother\'s maiden name',
-                              _motherMaidenName,
-                              hint: 'Full name',
-                            ),
                             _dropdownField<String>(
                               label: 'Civil status',
                               selectedValue: _civilStatus,
@@ -920,6 +915,11 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                 _spouseName,
                                 hint: 'Full name',
                               ),
+                            _inputField(
+                              'Mother\'s maiden name',
+                              _motherMaidenName,
+                              hint: 'Full name',
+                            ),
                           ],
                         ),
                       ],

@@ -115,9 +115,6 @@ class _MenuViewState extends State<MenuView> {
                             onOpenAppointments: () => Navigator.of(
                               context,
                             ).pushNamed(AppRoutes.appointments),
-                            onOpenCalendar: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.calendar),
                           ),
                           if (_hasCompletedPEP) ...[
                             const SizedBox(height: 12),

@@ -249,14 +249,23 @@
         {{-- Top Header Grid matching photo --}}
         <table class="header-grid">
             <tr>
-                <td style="width: 48%;">
-                    <div class="doh-brand">
-                        <img src="/assets/logo_doh.jpg" alt="DOH Seal" class="doh-logo-img" onerror="this.style.display='none'">
-                        <div class="doh-text">
+                <td style="width: 52%;">
+                    <div class="doh-brand" style="justify-content: space-between;">
+                        @if(!empty($patient->clinic->left_print_logo_url))
+                            <img src="{{ $patient->clinic->left_print_logo_url }}" alt="Left Seal" class="doh-logo-img">
+                        @else
+                            <div style="width: 55px; height: 55px; flex-shrink: 0;"></div>
+                        @endif
+                        <div class="doh-text" style="text-align: center; flex: 1; padding: 0 6px;">
                             Republic of the Philippines<br>
-                            <strong>Department of Health</strong>
-                            Kagawaran ng Kalusugan
+                            <strong>{{ strtoupper($patient->clinic->name ?? 'Department of Health') }}</strong>
+                            {{ $patient->clinic->municipality ? $patient->clinic->municipality . ', ' : '' }}{{ $patient->clinic->province ?? 'Misamis Oriental' }}
                         </div>
+                        @if(!empty($patient->clinic->right_print_logo_url))
+                            <img src="{{ $patient->clinic->right_print_logo_url }}" alt="Right Seal" class="doh-logo-img">
+                        @else
+                            <div style="width: 55px; height: 55px; flex-shrink: 0;"></div>
+                        @endif
                     </div>
                 </td>
                 <td style="width: 28%;">

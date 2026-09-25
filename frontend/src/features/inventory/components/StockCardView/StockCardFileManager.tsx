@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import type { InventoryItem } from '../../types';
 import ConfirmationDialog from '../../../../components/feedback/ConfirmationDialog';
+import { useAuth } from '../../../../shared/contexts/AuthContext';
 
 // ─── Types & Interfaces ───────────────────────────────────────
 
@@ -223,14 +224,21 @@ export default function StockCardFileManager({
   });
 
 
+  const { clinic: authClinic } = useAuth();
+
   const activeClinic = useMemo(() => {
     return {
-      clinic_id: 1,
-      name: 'Tagoloan Animal Bite Treatment Center',
-      code: 'ABTC-TAGOLOAN',
-      address: 'Tagoloan, Misamis Oriental',
+      clinic_id: activeItem?.clinic_id || authClinic?.id || 1,
+      name: authClinic?.name || 'Tagoloan Animal Bite Treatment Center',
+      code: (authClinic as any)?.clinic_code || 'ABTC-TAGOLOAN',
+      address: authClinic?.address || 'Tagoloan, Misamis Oriental',
+      province: authClinic?.province || 'Misamis Oriental',
+      municipality: authClinic?.municipality || 'Tagoloan',
+      contact_number: authClinic?.contact_number || (authClinic as any)?.phone || '(088) 555-4778',
+      left_print_logo_url: authClinic?.left_print_logo_url || null,
+      right_print_logo_url: authClinic?.right_print_logo_url || null,
     };
-  }, []);
+  }, [authClinic, activeItem]);
 
   // Sync files list when year or activeItem changes
   useEffect(() => {
@@ -340,15 +348,15 @@ export default function StockCardFileManager({
   </head>
   <body>
     <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px;">
-      <img src="${window.location.origin}/assets/Flag_of_Tagoloan,_Misamis_Oriental.png" style="height: 80px; width: 80px; object-fit: contain;" />
+      ${activeClinic.left_print_logo_url ? `<img src="${activeClinic.left_print_logo_url.startsWith('http') || activeClinic.left_print_logo_url.startsWith('/') ? activeClinic.left_print_logo_url : `${window.location.origin}/${activeClinic.left_print_logo_url}`}" style="height: 80px; width: 80px; object-fit: contain;" />` : `<div style="width: 80px; height: 80px; flex-shrink: 0;"></div>`}
       <div style="text-align: center; flex: 1; padding: 0 8px;">
         <div style="font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; color: #333;">Republic of the Philippines</div>
-        <div style="font-size: 9.5pt; font-weight: bold; text-transform: uppercase; color: #000;">PROVINCE OF MISAMIS ORIENTAL</div>
-        <div style="font-size: 9pt; font-weight: bold; color: #333;">Municipality of Tagoloan</div>
-        <div style="font-size: 11pt; font-weight: 800; text-transform: uppercase; color: #059669; margin-top: 1px;">MUNICIPAL HEALTH OFFICE</div>
-        <div style="font-size: 8pt; color: #444;">Tel. No. : (088) 555-4778</div>
+        <div style="font-size: 9.5pt; font-weight: bold; text-transform: uppercase; color: #000;">PROVINCE OF ${(activeClinic.province || 'MISAMIS ORIENTAL').toUpperCase()}</div>
+        <div style="font-size: 9pt; font-weight: bold; color: #333;">Municipality of ${activeClinic.municipality || 'Tagoloan'}</div>
+        <div style="font-size: 11pt; font-weight: 800; text-transform: uppercase; color: #059669; margin-top: 1px;">${(activeClinic.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase()}</div>
+        <div style="font-size: 8pt; color: #444;">Tel. No. : ${activeClinic.contact_number || '(088) 555-4778'}</div>
       </div>
-      <img src="${window.location.origin}/assets/rhu-logo.png" style="height: 80px; width: 80px; object-fit: contain;" />
+      ${activeClinic.right_print_logo_url ? `<img src="${activeClinic.right_print_logo_url.startsWith('http') || activeClinic.right_print_logo_url.startsWith('/') ? activeClinic.right_print_logo_url : `${window.location.origin}/${activeClinic.right_print_logo_url}`}" style="height: 80px; width: 80px; object-fit: contain;" />` : `<div style="width: 80px; height: 80px; flex-shrink: 0;"></div>`}
     </div>
 
     <div style="text-align: center; margin-bottom: 12px;">

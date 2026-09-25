@@ -184,9 +184,22 @@
 
     <div class="page-container">
         <!-- Purple Top Banner matching Image 1 -->
-        <div class="header-banner">
-            <h2>National Rabies Prevention and Control Program</h2>
-            <h3>Department of Health</h3>
+        <div class="header-banner" style="display: flex; align-items: center; justify-content: center; gap: 16px;">
+            @if(!empty($left_print_logo_url))
+                <img src="{{ $left_print_logo_url }}" alt="Left Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" />
+            @else
+                <div style="width: 56px; height: 56px; flex-shrink: 0;"></div>
+            @endif
+            <div style="text-align: center;">
+                <h2>National Rabies Prevention and Control Program</h2>
+                <h3>Department of Health &bull; {{ $province }} &bull; {{ $municipality }}</h3>
+                <h3 style="font-size: 11pt; font-weight: bold; margin-top: 2px;">{{ $abtc }}</h3>
+            </div>
+            @if(!empty($right_print_logo_url))
+                <img src="{{ $right_print_logo_url }}" alt="Right Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" />
+            @else
+                <div style="width: 56px; height: 56px; flex-shrink: 0;"></div>
+            @endif
         </div>
 
         <!-- Meta Line -->

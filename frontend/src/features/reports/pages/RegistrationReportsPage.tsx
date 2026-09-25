@@ -3,6 +3,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Alert, Box, Button, Chip, CircularProgress, LinearProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { DownloadOutlined, PrintOutlined, ArrowForward, Refresh } from '@mui/icons-material';
 import api from '../../../services/api';
+import { useAuth } from '../../../shared/contexts/AuthContext';
 import './RegistrationReports.css';
 
 type Report = 'summary' | 'pep' | 'followup' | 'awaiting' | 'surveillance' | 'referrals';
@@ -96,6 +97,10 @@ function CategoryTrend({ months }: { months: ReportData['months'] }) {
 }
 
 export default function RegistrationReportsPage() {
+  const { clinic: authClinic } = useAuth();
+  const storedClinic = localStorage.getItem('clinicData') ? JSON.parse(localStorage.getItem('clinicData')!) : null;
+  const clinic = authClinic || storedClinic;
+
   const [tab, setTab] = useState<ReportTab>('overview');
   const [report, setReport] = useState<Report>('summary');
   const [preset, setPreset] = useState('month');
@@ -223,11 +228,17 @@ export default function RegistrationReportsPage() {
         const response = await api.get<ReportData>('/reports/registration', { params: { ...filters, report, format } });
         const result = response.data;
         const columns = Object.keys(result.records.columns);
+        const leftLogo = clinic?.left_print_logo_url || null;
+        const rightLogo = clinic?.right_print_logo_url || null;
+        const provinceName = (clinic?.province || 'MISAMIS ORIENTAL').toUpperCase();
+        const municipalityName = (clinic?.municipality || 'TAGOLOAN').toUpperCase();
+        const officeHeaderName = (clinic?.name || 'MUNICIPAL HEALTH OFFICE — ANIMAL BITE TREATMENT CENTER').toUpperCase();
+        const contactPhone = clinic?.contact_number || (clinic as any)?.phone || '';
 
         const printHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(result.meta.title)}</title><style>
           @page{size:A4 ${orientation};margin:10mm}
           body{font:11px system-ui,-apple-system,sans-serif;color:#111827;margin:12px;line-height:1.4}
-          .header-box{text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:12px}
+          .header-box{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:12px}
           .header-box .republic{font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#374151}
           .header-box .lgu{font-size:11px;font-weight:700;color:#111827}
           .header-box .office{font-size:13px;font-weight:800;color:#047857;margin-top:2px}
@@ -251,10 +262,14 @@ export default function RegistrationReportsPage() {
           @media print{body{margin:0}}
           </style></head><body>
           <div class="header-box">
-            <div class="republic">Republic of the Philippines · Province of Misamis Oriental</div>
-            <div class="lgu">MUNICIPALITY OF TAGOLOAN</div>
-            <div class="office">MUNICIPAL HEALTH OFFICE — ANIMAL BITE TREATMENT CENTER</div>
-            <div class="clinic">${escapeHtml(result.meta.clinic)}</div>
+            ${leftLogo ? `<img src="${leftLogo}" alt="Left Logo" style="width:56px;height:56px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:56px;height:56px;flex-shrink:0;"></div>`}
+            <div style="text-align:center;flex:1;padding:0 10px;">
+              <div class="republic">Republic of the Philippines · Province of ${provinceName}</div>
+              <div class="lgu">MUNICIPALITY OF ${municipalityName}</div>
+              <div class="office">${officeHeaderName}</div>
+              <div class="clinic">${escapeHtml(result.meta.clinic)}${contactPhone ? ` · Tel. ${contactPhone}` : ''}</div>
+            </div>
+            ${rightLogo ? `<img src="${rightLogo}" alt="Right Logo" style="width:56px;height:56px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:56px;height:56px;flex-shrink:0;"></div>`}
           </div>
           <div class="doc-title">
             <h2>${escapeHtml(result.meta.title)}</h2>

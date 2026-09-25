@@ -24,6 +24,8 @@ class Clinic extends Model
         'philhealth_accreditation_no',
         'opening_hours',
         'logo_path',
+        'left_print_logo_path',
+        'right_print_logo_path',
         'municipality',
         'province',
         'latitude',
@@ -49,6 +51,8 @@ class Clinic extends Model
 
     protected $appends = [
         'logo_url',
+        'left_print_logo_url',
+        'right_print_logo_url',
     ];
 
     /**
@@ -58,6 +62,28 @@ class Clinic extends Model
     {
         if ($this->logo_path) {
             return asset('storage/' . $this->logo_path);
+        }
+        return null;
+    }
+
+    /**
+     * Get the full URL to the left print header logo if uploaded
+     */
+    public function getLeftPrintLogoUrlAttribute(): ?string
+    {
+        if ($this->left_print_logo_path) {
+            return asset('storage/' . $this->left_print_logo_path);
+        }
+        return null;
+    }
+
+    /**
+     * Get the full URL to the right print header logo if uploaded
+     */
+    public function getRightPrintLogoUrlAttribute(): ?string
+    {
+        if ($this->right_print_logo_path) {
+            return asset('storage/' . $this->right_print_logo_path);
         }
         return null;
     }

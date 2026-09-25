@@ -10,7 +10,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Stack,
   Table,
   TableBody,
   TableCell,
@@ -106,7 +105,7 @@ export default function NurseVaccineList() {
   const [doseFilter, setDoseFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [quickDate, setQuickDate] = useState<'all' | 'today' | 'week'>('all');
+  const [quickDate, setQuickDate] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
 
   // Available vaccines for filter dropdown
   const [availableVaccines, setAvailableVaccines] = useState<string[]>([]);
@@ -162,18 +161,22 @@ export default function NurseVaccineList() {
   }, [fetchRecords]);
 
   // Quick Date presets
-  const handleQuickDate = (type: 'all' | 'today' | 'week') => {
+  const handleQuickDate = (type: 'all' | 'today' | 'week' | 'month') => {
     setQuickDate(type);
     setPage(0);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const toLocalDateValue = (date: Date) => {
+      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+      return localDate.toISOString().split('T')[0];
+    };
+    const todayStr = toLocalDateValue(new Date());
 
     if (type === 'today') {
       setDateFrom(todayStr);
       setDateTo(todayStr);
-    } else if (type === 'week') {
+    } else if (type === 'week' || type === 'month') {
       const d = new Date();
-      d.setDate(d.getDate() - 7);
-      setDateFrom(d.toISOString().split('T')[0]);
+      d.setDate(d.getDate() - (type === 'week' ? 6 : 29));
+      setDateFrom(toLocalDateValue(d));
       setDateTo(todayStr);
     } else {
       setDateFrom('');
@@ -322,7 +325,7 @@ export default function NurseVaccineList() {
       >
         <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
           {/* Patient Search */}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 2.75 }}>
             <TextField
               fullWidth
               size="small"
@@ -346,7 +349,7 @@ export default function NurseVaccineList() {
           </Grid>
 
           {/* Vaccine Filter */}
-          <Grid size={{ xs: 6, sm: 3, md: 2.5 }}>
+          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: 13 }}>Vaccine</InputLabel>
               <Select
@@ -369,7 +372,7 @@ export default function NurseVaccineList() {
           </Grid>
 
           {/* Dose Filter */}
-          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+          <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: 13 }}>Dose</InputLabel>
               <Select
@@ -391,7 +394,7 @@ export default function NurseVaccineList() {
           </Grid>
 
           {/* Date Range: From */}
-          <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
+          <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
             <TextField
               fullWidth
               size="small"
@@ -400,7 +403,7 @@ export default function NurseVaccineList() {
               value={dateFrom}
               onChange={(e) => {
                 setDateFrom(e.target.value);
-                setQuickDate('all');
+                setQuickDate('custom');
                 setPage(0);
               }}
               slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 12.5 } } }}
@@ -409,7 +412,7 @@ export default function NurseVaccineList() {
           </Grid>
 
           {/* Date Range: To */}
-          <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
+          <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
             <TextField
               fullWidth
               size="small"
@@ -418,12 +421,38 @@ export default function NurseVaccineList() {
               value={dateTo}
               onChange={(e) => {
                 setDateTo(e.target.value);
-                setQuickDate('all');
+                setQuickDate('custom');
                 setPage(0);
               }}
               slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 12.5 } } }}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
             />
+          </Grid>
+
+          {/* Quick Date Preset */}
+          <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: 13 }}>Quick date</InputLabel>
+              <Select
+                value={quickDate}
+                label="Quick date"
+                onChange={(e) => {
+                  const value = e.target.value as 'all' | 'today' | 'week' | 'month';
+                  handleQuickDate(value);
+                }}
+                sx={{ fontSize: 13, borderRadius: '8px' }}
+              >
+                {quickDate === 'custom' && (
+                  <MenuItem value="custom" disabled sx={{ fontSize: 13 }}>
+                    Custom Range
+                  </MenuItem>
+                )}
+                <MenuItem value="all" sx={{ fontSize: 13 }}>All Time</MenuItem>
+                <MenuItem value="today" sx={{ fontSize: 13 }}>Today</MenuItem>
+                <MenuItem value="week" sx={{ fontSize: 13 }}>Last 7 Days</MenuItem>
+                <MenuItem value="month" sx={{ fontSize: 13 }}>Last 30 Days</MenuItem>
+              </Select>
+            </FormControl>
           </Grid>
 
           {/* Clear / Reset Filter Button */}
@@ -456,57 +485,6 @@ export default function NurseVaccineList() {
           </Grid>
         </Grid>
 
-        {/* Quick Date Chips */}
-        <Stack direction="row" spacing={1} sx={{ mt: 1.5, alignItems: 'center' }}>
-          <Typography sx={{ fontSize: 11.5, color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
-            Quick Date:
-          </Typography>
-          <Chip
-            label="All Time"
-            size="small"
-            clickable
-            onClick={() => handleQuickDate('all')}
-            sx={{
-              height: 24,
-              fontSize: 11,
-              fontWeight: 600,
-              borderRadius: '6px',
-              bgcolor: quickDate === 'all' && !dateFrom && !dateTo ? (isDark ? 'rgba(59, 130, 246, 0.25)' : '#0284c7') : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
-              color: quickDate === 'all' && !dateFrom && !dateTo ? (isDark ? '#93c5fd' : '#ffffff') : (isDark ? '#94a3b8' : '#475569'),
-              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-            }}
-          />
-          <Chip
-            label="Today"
-            size="small"
-            clickable
-            onClick={() => handleQuickDate('today')}
-            sx={{
-              height: 24,
-              fontSize: 11,
-              fontWeight: 600,
-              borderRadius: '6px',
-              bgcolor: quickDate === 'today' ? (isDark ? 'rgba(59, 130, 246, 0.25)' : '#0284c7') : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
-              color: quickDate === 'today' ? (isDark ? '#93c5fd' : '#ffffff') : (isDark ? '#94a3b8' : '#475569'),
-              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-            }}
-          />
-          <Chip
-            label="Last 7 Days"
-            size="small"
-            clickable
-            onClick={() => handleQuickDate('week')}
-            sx={{
-              height: 24,
-              fontSize: 11,
-              fontWeight: 600,
-              borderRadius: '6px',
-              bgcolor: quickDate === 'week' ? (isDark ? 'rgba(59, 130, 246, 0.25)' : '#0284c7') : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
-              color: quickDate === 'week' ? (isDark ? '#93c5fd' : '#ffffff') : (isDark ? '#94a3b8' : '#475569'),
-              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-            }}
-          />
-        </Stack>
       </Paper>
 
       {error && (

@@ -325,9 +325,6 @@
   .rr-header {
     gap: 12px;
   }
-  .rr-record-header .MuiTextField-root {
-    width: 100%;
-  }
   .rr-record-meta {
     text-align: left;
     width: 100%;

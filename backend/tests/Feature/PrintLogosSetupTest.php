@@ -81,4 +81,17 @@ class PrintLogosSetupTest extends TestCase
         $this->assertNull($clinic->left_print_logo_url);
         $this->assertNull($clinic->right_print_logo_url);
     }
+
+    public function test_public_storage_route_serves_logo_without_symlink(): void
+    {
+        Storage::disk('public')->put('clinic-logos/test-seal.png', 'fake-image-bytes');
+
+        $apiResponse = $this->get('/api/storage/clinic-logos/test-seal.png');
+        $apiResponse->assertOk();
+        $this->assertTrue($apiResponse->headers->has('Access-Control-Allow-Origin'));
+        $this->assertEquals('fake-image-bytes', $apiResponse->getContent());
+    }
 }
+
+
+

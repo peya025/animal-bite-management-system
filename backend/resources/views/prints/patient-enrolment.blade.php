@@ -213,6 +213,7 @@
     </div>
 
     @php
+        $clinic = $patient->clinic ?? \App\Models\Clinic::first();
         $details = $patient->details;
         $civilStatus = strtolower($details->civil_status ?? $patient->civil_status ?? '');
         $gender = strtolower($patient->gender ?? '');
@@ -251,18 +252,18 @@
             <tr>
                 <td style="width: 52%;">
                     <div class="doh-brand" style="justify-content: space-between;">
-                        @if(!empty($patient->clinic->left_print_logo_url))
-                            <img src="{{ $patient->clinic->left_print_logo_url }}" alt="Left Seal" class="doh-logo-img">
+                        @if(!empty($clinic?->left_print_logo_url))
+                            <img src="{{ $clinic->left_print_logo_url }}" alt="Left Seal" class="doh-logo-img">
                         @else
                             <div style="width: 55px; height: 55px; flex-shrink: 0;"></div>
                         @endif
                         <div class="doh-text" style="text-align: center; flex: 1; padding: 0 6px;">
                             Republic of the Philippines<br>
-                            <strong>{{ strtoupper($patient->clinic->name ?? 'Department of Health') }}</strong>
-                            {{ $patient->clinic->municipality ? $patient->clinic->municipality . ', ' : '' }}{{ $patient->clinic->province ?? 'Misamis Oriental' }}
+                            <strong>{{ strtoupper($clinic?->name ?? 'Department of Health') }}</strong>
+                            {{ $clinic?->municipality ? $clinic->municipality . ', ' : '' }}{{ $clinic?->province ?? 'Misamis Oriental' }}
                         </div>
-                        @if(!empty($patient->clinic->right_print_logo_url))
-                            <img src="{{ $patient->clinic->right_print_logo_url }}" alt="Right Seal" class="doh-logo-img">
+                        @if(!empty($clinic?->right_print_logo_url))
+                            <img src="{{ $clinic->right_print_logo_url }}" alt="Right Seal" class="doh-logo-img">
                         @else
                             <div style="width: 55px; height: 55px; flex-shrink: 0;"></div>
                         @endif
@@ -274,10 +275,11 @@
                 </td>
                 <td style="width: 24%;">
                     <span class="lbl">Facility Code</span>
-                    <span class="val">{{ $patient->clinic->code ?? '104324' }}</span>
+                    <span class="val">{{ $clinic?->code ?? '104324' }}</span>
                 </td>
             </tr>
         </table>
+
 
         {{-- Title Banner --}}
         <div class="title-banner">

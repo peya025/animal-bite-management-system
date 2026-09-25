@@ -1,12 +1,7 @@
-/**
- * Shared print utility — formal DOH letterhead document.
- *
- * Usage:
- *   printDocument({ clinicName, printedBy, title, refPrefix, bodyHtml });
- */
+import { getGlobalPrintLogos, renderPrintLetterheadHtml } from './printHeaderHelper';
 
 export interface PrintDocumentOptions {
-  clinicName: string;
+  clinicName?: string;
   printedBy: string;
   leftLogoUrl?: string | null;
   rightLogoUrl?: string | null;
@@ -41,8 +36,10 @@ export function printDocument({
   const printDateFull = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const printTimeFull = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-  const leftSrc = leftLogoUrl || null;
-  const rightSrc = rightLogoUrl || null;
+  const globalLogos = getGlobalPrintLogos();
+  const leftSrc = leftLogoUrl !== undefined ? leftLogoUrl : globalLogos.leftLogoUrl;
+  const rightSrc = rightLogoUrl !== undefined ? rightLogoUrl : globalLogos.rightLogoUrl;
+
 
   const CSS = [
     `*{box-sizing:border-box;margin:0;padding:0}`,

@@ -4,6 +4,8 @@ import api from '../../../services/api';
 import { Icon } from '../../../shared/components/ui/Icon';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { PrinterIcon } from '@hugeicons/core-free-icons';
+import { getGlobalPrintLogos } from '../../../components/print';
+
 
 interface Props {
   open: boolean;
@@ -295,14 +297,47 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
             </p>
           ) : (
             <div>
-              {/* Official Center Title */}
-              <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-                <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, letterSpacing: '0.5px', color: '#0f172a' }}>
-                  {clinic?.name || 'TAGOLOAN ANIMAL BITE TREATMENT CENTER'}
-                </h2>
-              </div>
+              {/* Official Center Title with Global Print Logos */}
+              {(() => {
+                const globalLogos = getGlobalPrintLogos(clinic);
+                const leftLogo = globalLogos.leftLogoUrl;
+                const rightLogo = globalLogos.rightLogoUrl;
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', gap: '1rem' }}>
+                    {leftLogo ? (
+                      <img
+                        src={leftLogo}
+                        alt="Left Seal"
+                        style={{ width: '64px', height: '64px', objectFit: 'contain', flexShrink: 0 }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div style={{ width: '64px', height: '64px', flexShrink: 0 }} />
+                    )}
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#64748b' }}>
+                        Republic of the Philippines • Department of Health
+                      </div>
+                      <h2 style={{ margin: '2px 0 0', fontSize: '1.3rem', fontWeight: 800, letterSpacing: '0.5px', color: '#0f172a' }}>
+                        {clinic?.name || 'TAGOLOAN ANIMAL BITE TREATMENT CENTER'}
+                      </h2>
+                    </div>
+                    {rightLogo ? (
+                      <img
+                        src={rightLogo}
+                        alt="Right Seal"
+                        style={{ width: '64px', height: '64px', objectFit: 'contain', flexShrink: 0 }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div style={{ width: '64px', height: '64px', flexShrink: 0 }} />
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Top Form Header Grid */}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1.5rem', fontSize: '0.85rem', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
                 <div>
                   <strong>Date:</strong>{' '}

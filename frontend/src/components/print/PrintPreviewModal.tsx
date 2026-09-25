@@ -18,9 +18,11 @@
  *   </PrintPreviewModal>
  */
 
+import { getGlobalPrintLogos } from './printHeaderHelper';
+
 interface PrintPreviewModalProps {
   title: string;
-  clinicName: string;
+  clinicName?: string;
   printedBy: string;
   leftLogoUrl?: string | null;
   rightLogoUrl?: string | null;
@@ -55,8 +57,10 @@ export default function PrintPreviewModal({
   const fmt = (iso?: string) =>
     iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
-  const leftSrc = leftLogoUrl || null;
-  const rightSrc = rightLogoUrl || null;
+  const globalLogos = getGlobalPrintLogos();
+  const leftSrc = leftLogoUrl !== undefined ? leftLogoUrl : globalLogos.leftLogoUrl;
+  const rightSrc = rightLogoUrl !== undefined ? rightLogoUrl : globalLogos.rightLogoUrl;
+
 
   return (
     <div

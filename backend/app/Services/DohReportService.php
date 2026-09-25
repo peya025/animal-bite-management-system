@@ -14,7 +14,8 @@ class DohReportService
      */
     public function getExposureRegistry(int $clinicId, ?string $fromDate = null, ?string $toDate = null, ?string $quarter = null, ?int $year = null, $user = null, ?string $category = null): array
     {
-        $clinic = Clinic::find($clinicId);
+        $clinic = Clinic::find($clinicId) ?? Clinic::first();
+
         $from = $fromDate ? Carbon::parse($fromDate)->startOfDay() : now()->startOfQuarter();
         $to = $toDate ? Carbon::parse($toDate)->endOfDay() : now()->endOfQuarter();
 
@@ -176,7 +177,8 @@ class DohReportService
      */
     public function getMonthlyReport(int $clinicId, ?string $monthStr = null, $user = null, ?string $category = null, ?string $fromDate = null, ?string $toDate = null): array
     {
-        $clinic = Clinic::find($clinicId);
+        $clinic = Clinic::find($clinicId) ?? Clinic::first();
+
         if ($fromDate) {
             $month = Carbon::parse($fromDate);
             $startDate = Carbon::parse($fromDate)->startOfDay();
@@ -338,7 +340,8 @@ class DohReportService
      */
     public function getCohortReport(int $clinicId, ?int $yearParam = null, $user = null, ?string $category = null): array
     {
-        $clinic = Clinic::find($clinicId);
+        $clinic = Clinic::find($clinicId) ?? Clinic::first();
+
         $year = (int) ($yearParam ?? now()->year);
 
         $quarters = [

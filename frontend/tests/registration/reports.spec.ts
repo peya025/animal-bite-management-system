@@ -24,6 +24,9 @@ test.beforeEach(async ({ page }) => {
 test('registration has three clinical tabs, applied filters, and current follow-up actions', async ({ page }) => {
   await expect(page.getByRole('tab')).toHaveCount(3);
   await expect(page.getByText('Inventory', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Age at incident' })).toBeVisible();
+  await expect(page.getByText(/Hourly patterns are unavailable/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Treatment outcomes — selected D0 cohort' })).toBeVisible();
   await page.getByLabel('From', { exact: true }).fill('2026-01-01');
   await expect(page.getByText(/Filter changes not applied/)).toBeVisible();
   const request = page.waitForRequest(req => req.url().includes('/reports/registration') && req.url().includes('from=2026-01-01'));
@@ -33,8 +36,8 @@ test('registration has three clinical tabs, applied filters, and current follow-
   await expect(page.getByRole('tab', { name: 'PEP & Follow-up' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('heading', { name: 'Overdue Doses & Follow-up' })).toBeVisible();
   await page.getByRole('tab', { name: 'Bite Surveillance' }).click();
-  await expect(page.getByRole('heading', { name: 'Age at incident' })).toBeVisible();
-  await expect(page.getByText(/Hourly patterns are unavailable/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bite Surveillance Incident Records' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Age at incident' })).toHaveCount(0);
 });
 
 test('CSV uses the selected report and print opens a complete safe document', async ({ page }) => {

@@ -10,8 +10,9 @@
 .rr-header h1 { font-size: 22px; font-weight: 600; margin: 0; }
 .rr-header p { margin: 6px 0; color: var(--rr-muted); }
 .rr-header small { color: var(--rr-muted); }
-.registration-reports .rr-panel { border: 1px solid var(--rr-border); border-radius: 12px; padding: 20px; box-shadow: none; background-image: none; min-width: 0; }
-.registration-reports > .rr-panel, .registration-reports > .MuiAlert-root, .registration-reports > .rr-grid, .rr-activity, .rr-definitions { margin-top: 20px; }
+.registration-reports .rr-panel { border: 1px solid var(--rr-border); border-radius: 12px; padding: 20px; box-shadow: none; background-image: none; min-width: 0; transition: box-shadow 0.2s ease, border-color 0.2s ease; }
+.registration-reports .rr-panel:hover { border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 4px 16px rgba(16, 185, 129, 0.08); }
+.registration-reports > .rr-panel, .registration-reports > .MuiAlert-root, .registration-reports > .rr-grid, .rr-activity, .rr-definitions, .rr-surveillance-layout, .rr-tab-intro { margin-top: 20px; }
 .rr-grid { display: grid; gap: 16px; }
 .rr-grid-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rr-grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -44,7 +45,7 @@
 .rr-activity b { color: var(--text-h, inherit); font-weight: 600; }
 .rr-record-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
 .rr-record-header h2 { margin-bottom: 6px; }
-.rr-table-scroll { overflow-x: auto; }
+.rr-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .rr-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
 .rr-table th { font-weight: 500; color: var(--rr-muted); white-space: nowrap; }
 .rr-table th, .rr-table td { padding: 12px 10px; border-bottom: 1px solid var(--rr-border); vertical-align: top; }
@@ -53,5 +54,227 @@
 .rr-empty { color: var(--rr-muted); text-align: center; padding: 28px 12px !important; }
 .rr-definitions summary, details.rr-note summary { cursor: pointer; font-weight: 500; }
 .rr-updated { text-align: right; }
-@media (max-width: 1100px) { .rr-grid-three { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .registration-reports { padding: 8px 12px 24px; }.rr-grid-two { grid-template-columns: 1fr; }.rr-header { gap: 12px; }.rr-record-header .MuiTextField-root { width: 100%; }.rr-filter-row .MuiTextField-root { min-width: 130px; } }
+
+/* Dashboard Section Headings */
+.rr-section-heading {
+  margin-top: 28px;
+  margin-bottom: 14px;
+}
+.rr-group-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h, inherit);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.rr-group-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background: #10b981;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.rr-group-desc {
+  font-size: 12px;
+  color: var(--rr-muted);
+  margin-top: 4px;
+  display: block;
+  padding-left: 12px;
+}
+
+/* PEP & Treatment Outcomes 2-Card Row */
+.rr-outcomes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+.rr-outcomes-grid > .rr-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* Follow-up Priorities Card */
+.rr-followup-priorities {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.rr-priorities-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+.rr-priority-stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(100, 116, 139, 0.04);
+  border: 1px solid var(--rr-border);
+}
+.rr-priority-val {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.rr-priority-warn {
+  background: rgba(217, 155, 40, 0.15);
+  color: #b45309;
+}
+.rr-priority-info {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+}
+.rr-priority-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.rr-priority-main {
+  margin: 0;
+  color: var(--text-h, inherit);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.rr-priority-sub {
+  font-size: 11px;
+  color: var(--rr-muted);
+}
+
+/* Tab Intro Banner for Non-Overview Tabs */
+.rr-tab-intro {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+.rr-tab-intro-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* Bite Surveillance Analytics Rows */
+.rr-surveillance-row-1 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 14px;
+}
+
+.rr-surveillance-row-2 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 16px;
+  margin-bottom: 20px;
+}
+
+.rr-surveillance-row-1 > .rr-panel,
+.rr-surveillance-row-2 > .rr-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.rr-surveillance-row-1 .rr-section-title {
+  min-height: 22px;
+  line-height: 1.35;
+  margin-bottom: 14px;
+}
+
+.rr-surveillance-row-2 .rr-section-title {
+  min-height: 38px;
+  line-height: 1.35;
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.rr-surveillance-row-1 .rr-bars,
+.rr-surveillance-row-2 .rr-bars {
+  flex: 1 1 auto;
+}
+
+.rr-surveillance-row-1 .rr-bars li + li,
+.rr-surveillance-row-2 .rr-bars li + li {
+  margin-top: 10px;
+}
+
+.rr-surveillance-row-1 .rr-note,
+.rr-surveillance-row-1 details.rr-note,
+.rr-surveillance-row-2 .rr-note,
+.rr-surveillance-row-2 details.rr-note {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+/* Responsive Grid Breakpoints */
+@media (max-width: 1200px) {
+  .rr-surveillance-row-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .rr-grid-three {
+    grid-template-columns: 1fr;
+  }
+  .rr-surveillance-row-1 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .registration-reports {
+    padding: 8px 14px 24px;
+  }
+  .rr-grid-two,
+  .rr-outcomes-grid {
+    grid-template-columns: 1fr;
+  }
+  .rr-surveillance-row-2 {
+    grid-template-columns: 1fr;
+  }
+  .rr-surveillance-row-2 .rr-section-title {
+    min-height: unset;
+  }
+  .rr-header {
+    gap: 12px;
+  }
+  .rr-record-header .MuiTextField-root {
+    width: 100%;
+  }
+  .rr-filter-row .MuiTextField-root {
+    min-width: 130px;
+  }
+}
+
+@media (max-width: 480px) {
+  .registration-reports {
+    padding: 6px 10px 20px;
+  }
+  .rr-filter-row .MuiTextField-root {
+    min-width: 100%;
+  }
+}

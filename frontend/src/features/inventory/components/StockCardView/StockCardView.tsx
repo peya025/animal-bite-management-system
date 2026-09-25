@@ -783,9 +783,10 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
 interface StockCardViewProps {
   items: InventoryItem[];
   loading: boolean;
+  initialItemId?: number | null;
 }
 
-export default function StockCardView({ items, loading }: StockCardViewProps) {
+export default function StockCardView({ items, loading, initialItemId }: StockCardViewProps) {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
@@ -802,11 +803,13 @@ export default function StockCardView({ items, loading }: StockCardViewProps) {
     );
   }
 
+  const initialItem = items.find((item) => item.inventory_id === initialItemId) ?? items[0];
+
   return (
     <Box sx={{ width: '100%' }}>
       <StockCardFileManager
         isModal={false}
-        item={items[0]}
+        item={initialItem}
         items={items}
         selectedMonth={6}
         selectedYear={2026}

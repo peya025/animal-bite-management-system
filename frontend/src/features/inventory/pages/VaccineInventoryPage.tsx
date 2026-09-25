@@ -11,24 +11,26 @@ type ApiError = {
 import {
   Box,
   Button,
-  Chip,
   Snackbar,
   Stack,
   Tab,
   Tabs,
   Typography,
   Alert,
+  Paper,
+  Skeleton,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   Add as AddIcon,
-  LocalHospital as ClinicIcon,
-  VerifiedUser as VerifiedIcon,
+  Inventory2 as InventoryIcon,
+  CheckCircleOutlined as ActiveIcon,
+  WarningAmberOutlined as ExpiringIcon,
+  AccessTime as OpenedIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { ROUTES } from '../../../shared/config/routes';
-import StatCard from '../../../components/common/StatCard';
 import AddEditInventoryDialog from '../components/AddEditInventoryDialog/AddEditInventoryDialog';
 import AdjustStockDialog from '../components/AdjustStockDialog/AdjustStockDialog';
 import TransactionHistoryDialog from '../components/TransactionHistoryDialog/TransactionHistoryDialog';
@@ -38,16 +40,39 @@ import StockCardView from '../components/StockCardView/StockCardView';
 import FifoComplianceReport from '../components/FifoComplianceReport/FifoComplianceReport';
 import NurseVaccineList from '../components/NurseVaccineList/NurseVaccineList';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
-import StockLevelIndicator from '../components/StockLevelIndicator/StockLevelIndicator';
 import type { InventoryItem } from '../types';
 import { deriveInventoryStatus } from '../utils/inventoryStatus';
+import { daysUntil } from '../../../shared/utils';
 
 interface VaccineInventoryProps {
   initialTab?: 'table' | 'stockcard' | 'fifo' | 'administrations';
 }
 
+function InventorySummaryCard({ label, value, subtitle, tone, icon, loading }: { label: string; value: number; subtitle: string; tone: 'green' | 'blue' | 'amber' | 'cyan'; icon: React.ReactNode; loading: boolean }) {
+  const colors = {
+    green: { color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' },
+    blue: { color: '#0d9488', bg: '#f0fdfa', border: '#99f6e4' },
+    amber: { color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+    cyan: { color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
+  }[tone];
+
+  return (
+    <Paper elevation={0} sx={{ border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '14px', p: '16px 20px', display: 'flex', alignItems: 'center', gap: 2, minHeight: 102, bgcolor: 'var(--card-bg-solid, #fff)', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', transition: 'box-shadow 0.25s ease', '&:hover': { boxShadow: '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)' } }}>
+      <Box sx={{ width: 46, height: 46, borderRadius: '12px', bgcolor: colors.bg, color: colors.color, border: `1px solid ${colors.border}`, display: 'grid', placeItems: 'center', flexShrink: 0, '& svg': { fontSize: 22 } }}>
+        {icon}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ mb: 0.35, fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{label}</Typography>
+        {loading ? <Skeleton width={46} height={30} /> : <Typography sx={{ fontSize: 27, lineHeight: 1, fontWeight: 800, color: 'var(--text-h, #111827)' }}>{value}</Typography>}
+        <Typography sx={{ mt: 0.45, fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>{subtitle}</Typography>
+      </Box>
+    </Paper>
+  );
+}
+
 export default function VaccineInventory({ initialTab }: VaccineInventoryProps = {}) {
-  const { clinic, user } = useAuth();
+  const { user } = useAuth();
+  const isNurseRole = user?.role === 'treatment';
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -75,11 +100,11 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
     if (location.pathname.includes('/administrations') || initialTab === 'administrations') {
       setView('administrations');
     } else if (tabParam && ['table', 'stockcard', 'fifo', 'administrations'].includes(tabParam)) {
-      setView(tabParam as any);
+      setView(isNurseRole && tabParam === 'fifo' ? 'table' : tabParam as any);
     } else {
       setView('table');
     }
-  }, [initialTab, location.pathname, tabParam]);
+  }, [initialTab, isNurseRole, location.pathname, tabParam]);
 
   useEffect(() => {
     const handleReset = () => {
@@ -103,6 +128,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
   const [openVialTarget, setOpenVialTarget] = useState<InventoryItem | null>(null);
   const [discardVialTarget, setDiscardVialTarget] = useState<InventoryItem | null>(null);
+  const [selectedStockCardId, setSelectedStockCardId] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -178,39 +204,17 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   }, [filteredItems, page, rowsPerPage]);
 
   const stats = useMemo(() => {
-    const statusCounts = items.reduce(
-      (acc, item) => {
-        const status = deriveInventoryStatus(item);
-        acc.totalStock += item.current_quantity || 0;
-        if (item.current_quantity > 0 && item.current_quantity <= 10) acc.lowStock += 1;
-        if (status === 'Active') acc.active += 1;
-        if (status === 'Expiring') acc.expiring += 1;
-        if (status === 'Expired') acc.expired += 1;
-        if (status === 'Depleted') acc.depleted += 1;
-        if (status === 'Discard-Pending') acc.discardPending += 1;
-        return acc;
-      },
-      {
-        totalStock: 0,
-        lowStock: 0,
-        active: 0,
-        expiring: 0,
-        expired: 0,
-        depleted: 0,
-        discardPending: 0,
-      },
-    );
-
-    return {
-      total_batches: items.length,
-      total_stock: statusCounts.totalStock,
-      active_batches: statusCounts.active,
-      expiring_soon: statusCounts.expiring,
-      expired_batches: statusCounts.expired,
-      depleted_batches: statusCounts.depleted,
-      discard_pending: statusCounts.discardPending,
-      low_stock: statusCounts.lowStock,
-    };
+    return items.reduce((summary, item) => {
+      const daysToExpiry = item.expiration_date ? daysUntil(item.expiration_date) : Number.POSITIVE_INFINITY;
+      const operational = item.status === 'active' && item.current_quantity > 0 && daysToExpiry >= 0;
+      if (operational) {
+        summary.available_vials += item.current_quantity;
+        summary.active_batches += 1;
+      }
+      if (operational && daysToExpiry <= 30) summary.expiring_soon += 1;
+      if (item.status === 'active' && item.open_vial_status === 'opened') summary.opened_vials += 1;
+      return summary;
+    }, { available_vials: 0, active_batches: 0, expiring_soon: 0, opened_vials: 0 });
   }, [items]);
 
   const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
@@ -269,20 +273,12 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             <Typography component="h1" sx={{ fontWeight: 700, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', m: 0 }}>
               {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
             </Typography>
-            <Chip
-              icon={<VerifiedIcon style={{ fontSize: 16 }} />}
-              label="Daily operations"
-              color="success"
-              variant="outlined"
-              size="small"
-              sx={{ fontWeight: 700, fontSize: '11px' }}
-            />
           </Box>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#64748b', mt: 0.5 }}>
-            {view === 'administrations'
-              ? 'View nurse administration records, patient logs, and consumption details.'
-              : 'Add stock, monitor expiry, and manage opened-vial discard timers from one operational view.'}
-          </Typography>
+          {view === 'administrations' && (
+            <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#64748b', mt: 0.5 }}>
+              View nurse administration records, patient logs, and consumption details.
+            </Typography>
+          )}
 
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
@@ -300,18 +296,11 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             </span>
           </div>
 
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.25, mt: 1.25, px: 1.5, py: 0.75, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 2, flexWrap: 'wrap' }}>
-            <ClinicIcon sx={{ color: '#059669', fontSize: 18 }} />
-            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#166534' }}>
-              Facility: {clinic?.name || 'Tagoloan Animal Bite Treatment Center'}
-            </Typography>
-            <Chip label="FIFO / FEFO view" size="small" sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#dcfce7', color: '#15803d' }} />
-          </Box>
         </Box>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Tabs
-            value={view}
+            value={isNurseRole && view === 'administrations' ? false : view}
             onChange={(_, newValue) => {
               setView(newValue);
               if (newValue === 'administrations') {
@@ -334,9 +323,9 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             }}
           >
             <Tab label="Inventory Batches" value="table" />
-            <Tab label="Nurse Vaccine List" value="administrations" />
+            {!isNurseRole && <Tab label="Nurse Vaccine List" value="administrations" />}
             <Tab label="Stock Card" value="stockcard" />
-            <Tab label="FIFO Report" value="fifo" />
+            {!isNurseRole && <Tab label="FIFO Report" value="fifo" />}
           </Tabs>
 
           <Button
@@ -359,7 +348,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             {loading ? 'Refreshing…' : 'Refresh'}
           </Button>
 
-          {(user?.role === 'admin' || user?.role === 'treatment') && (
+          {user?.role === 'admin' && (
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -388,27 +377,13 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
         </Stack>
       </Box>
 
-      {/* Priority 14: Stock-Level Color Coding & Live Clinic Stock Summary */}
-      <StockLevelIndicator showLegend={true} />
-
       {view === 'table' && (
-        <>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' },
-              gap: 2,
-              mb: 3,
-              width: '100%',
-            }}
-          >
-            <StatCard label="Active Batches" value={stats.active_batches} color="success" loading={loading} />
-            <StatCard label="Available Sealed Vials" value={stats.total_stock} color="info" loading={loading} />
-            <StatCard label="Expiring Soon" value={stats.expiring_soon} color="warning" loading={loading} />
-            <StatCard label="Opened Vial — Dispose" value={stats.discard_pending} color="info" loading={loading} />
-            <StatCard label="Depleted" value={stats.depleted_batches} color="error" loading={loading} />
-          </Box>
-        </>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 2, mb: 2.5 }}>
+          <InventorySummaryCard label="Available Vials" value={stats.available_vials} subtitle="Usable sealed stock" tone="green" icon={<InventoryIcon />} loading={loading} />
+          <InventorySummaryCard label="Active Batches" value={stats.active_batches} subtitle="In current inventory" tone="blue" icon={<ActiveIcon />} loading={loading} />
+          <InventorySummaryCard label="Expiring Soon" value={stats.expiring_soon} subtitle="Within 30 days" tone="amber" icon={<ExpiringIcon />} loading={loading} />
+          <InventorySummaryCard label="Opened Vials" value={stats.opened_vials} subtitle="Discard timer active" tone="cyan" icon={<OpenedIcon />} loading={loading} />
+        </Box>
       )}
 
       {view === 'table' ? (
@@ -460,14 +435,18 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           onDelete={setDeleteItem}
           onOpenVial={setOpenVialTarget}
           onDiscardVial={setDiscardVialTarget}
-          onViewStockCard={() => setView('stockcard')}
+          onViewStockCard={(item) => {
+            setSelectedStockCardId(item.inventory_id);
+            setView('stockcard');
+            navigate('/inventory?tab=stockcard');
+          }}
           onAddFirst={() => {
             setInitialVaccineType('');
             setAddOpen(true);
           }}
         />
       ) : view === 'stockcard' ? (
-        <StockCardView items={items} loading={loading} />
+        <StockCardView items={items} loading={loading} initialItemId={selectedStockCardId} />
       ) : view === 'administrations' ? (
         <NurseVaccineList />
       ) : (

@@ -286,6 +286,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::prefix('cases')->group(function () {
         Route::get('/', [BiteCaseController::class, 'index']); // All roles
         Route::get('/statistics', [BiteCaseController::class, 'statistics']); // All roles
+        Route::get('/location-summary', [BiteCaseController::class, 'locationRiskSummary']); // All roles - descriptive analytics
         Route::get('/map-data', [BiteCaseController::class, 'getMapData']); // All roles - Map visualization
         Route::post('/new-exposure', [BiteCaseController::class, 'registerNewExposure'])
             ->middleware('role:admin,registration,triage,doctor');

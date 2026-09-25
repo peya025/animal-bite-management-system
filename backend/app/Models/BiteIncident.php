@@ -182,6 +182,12 @@ class BiteIncident extends Model
         return $this->hasMany(VaccinationSchedule::class, 'bite_id', 'bite_id');
     }
 
+    /** Scheduled follow-up visits for this bite episode. */
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class, 'bite_id', 'bite_id');
+    }
+
     public function queues()
     {
         return $this->hasMany(Queue::class, 'bite_id', 'bite_id');

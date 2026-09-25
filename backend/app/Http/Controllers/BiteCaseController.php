@@ -456,6 +456,169 @@ class BiteCaseController extends Controller
     }
 
     /**
+     * Descriptive bite surveillance grouped by place of exposure.
+     *
+     * This endpoint intentionally aggregates the complete clinic data set for
+     * the selected period. The UI must not derive risk from a paginated list.
+     */
+    public function locationRiskSummary(Request $request)
+    {
+        $validated = $request->validate([
+            'from' => 'nullable|date',
+            'to' => 'nullable|date|after_or_equal:from',
+            'severity' => 'nullable|in:I,II,III',
+            'status' => 'nullable|string|max:50',
+            'animal' => 'nullable|string|max:100',
+            'search' => 'nullable|string|max:255',
+        ]);
+
+        $clinicId = $request->user()->clinic_id;
+        $from = isset($validated['from']) ? Carbon::parse($validated['from'])->startOfDay() : null;
+        $to = isset($validated['to']) ? Carbon::parse($validated['to'])->endOfDay() : null;
+
+        $makeQuery = function () use ($clinicId, $validated, $from, $to) {
+            $query = BiteIncident::where('clinic_id', $clinicId)
+                ->with(['patient', 'intake', 'appointments', 'treatmentRecords']);
+
+            if ($from) $query->whereDate('bite_date', '>=', $from);
+            if ($to) $query->whereDate('bite_date', '<=', $to);
+            if (!empty($validated['status'])) $query->where('status', $validated['status']);
+            if (!empty($validated['animal'])) {
+                $validated['animal'] === 'other'
+                    ? $query->where(fn ($q) => $q->whereNotIn('animal_type', ['dog', 'cat'])->orWhereNull('animal_type'))
+                    : $query->where('animal_type', $validated['animal']);
+            }
+            if (!empty($validated['search'])) {
+                $search = $validated['search'];
+                $query->where(function ($q) use ($search) {
+                    $q->where('case_number', 'like', "%{$search}%")
+                        ->orWhere('bite_place', 'like', "%{$search}%")
+                        ->orWhereHas('patient', fn ($patient) => $patient->searchName($search));
+                });
+            }
+
+            return $query;
+        };
+
+        $cases = $makeQuery()->get()->filter(function (BiteIncident $case) use ($validated) {
+            return empty($validated['severity']) || $case->bite_category === $validated['severity'];
+        })->values();
+
+        // Compare with the immediately preceding period of identical length.
+        $periodEnd = $to ? $to->copy()->startOfDay() : Carbon::today();
+        $periodStart = $from ? $from->copy()->startOfDay() : $periodEnd->copy()->startOfMonth();
+        $periodDays = max(1, $periodStart->diffInDays($periodEnd) + 1);
+        $previousStart = $periodStart->copy()->subDays($periodDays);
+        $previousEnd = $periodStart->copy()->subDay();
+
+        $previousCases = BiteIncident::where('clinic_id', $clinicId)
+            ->whereBetween('bite_date', [$previousStart->toDateString(), $previousEnd->toDateString()])
+            ->when(!empty($validated['status']), fn ($q) => $q->where('status', $validated['status']))
+            ->when(!empty($validated['animal']), function ($q) use ($validated) {
+                $validated['animal'] === 'other'
+                    ? $q->where(fn ($inner) => $inner->whereNotIn('animal_type', ['dog', 'cat'])->orWhereNull('animal_type'))
+                    : $q->where('animal_type', $validated['animal']);
+            })
+            ->when(!empty($validated['search']), function ($q) use ($validated) {
+                $search = $validated['search'];
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('case_number', 'like', "%{$search}%")
+                        ->orWhere('bite_place', 'like', "%{$search}%")
+                        ->orWhereHas('patient', fn ($patient) => $patient->searchName($search));
+                });
+            })
+            ->with('intake')
+            ->get()
+            ->filter(fn (BiteIncident $case) => empty($validated['severity']) || $case->bite_category === $validated['severity'])
+            ->groupBy(fn (BiteIncident $case) => trim((string) $case->bite_place) ?: 'Unknown');
+
+        $hasReceivedDose = function (BiteIncident $case): bool {
+            return $case->treatmentRecords->contains(function ($record) {
+                return $record->dose_number !== null
+                    && ($record->treatment_date || $record->administered_at || in_array($record->status, ['administered', 'completed'], true));
+            });
+        };
+        $hasOverdueDose = function (BiteIncident $case): bool {
+            return $case->appointments->contains(function ($appointment) {
+                $scheduled = $appointment->scheduled_date ?? $appointment->appointment_date;
+                return $scheduled && Carbon::parse($scheduled)->lt(Carbon::today())
+                    && !in_array($appointment->status, ['completed', 'cancelled'], true);
+            });
+        };
+
+        $locations = $cases->groupBy(fn (BiteIncident $case) => trim((string) $case->bite_place) ?: 'Unknown')
+            ->map(function ($locationCases, $location) use ($previousCases, $hasReceivedDose, $hasOverdueDose) {
+                $total = $locationCases->count();
+                $categories = $locationCases->map(fn (BiteIncident $case) => $case->bite_category);
+                $cat1 = $categories->filter(fn ($category) => $category === 'I')->count();
+                $cat2 = $categories->filter(fn ($category) => $category === 'II')->count();
+                $cat3 = $categories->filter(fn ($category) => $category === 'III')->count();
+                $riskScore = $total ? (int) round((($cat3 * 1.5) + $cat2) / $total * 100) : 0;
+                $riskLevel = $riskScore >= 65 ? 'high' : ($riskScore >= 35 ? 'medium' : 'low');
+                $eligibleCases = $locationCases->reject(fn (BiteIncident $case) => in_array($case->status, ['cancelled', 'abandoned'], true));
+                $compliant = $eligibleCases->filter($hasReceivedDose)->count();
+                $previousCount = $previousCases->get($location)?->count();
+                $lastIncident = $locationCases->sortByDesc('bite_date')->first()?->bite_date;
+
+                $animalTypes = $locationCases->map(function (BiteIncident $case) {
+                    return strtolower(trim((string) ($case->intake?->animal_type ?: $case->animal_type ?: 'other')));
+                })->map(fn ($type) => in_array($type, ['dog', 'cat'], true) ? $type : 'other')->countBy();
+
+                return [
+                    'location' => $location,
+                    'location_level' => $location === 'Unknown' ? 'Unknown' : 'Barangay',
+                    'risk_score' => $riskScore,
+                    'risk_level' => $riskLevel,
+                    'total_cases' => $total,
+                    'cat_1' => $cat1,
+                    'cat_2' => $cat2,
+                    'cat_3' => $cat3,
+                    'animal_types' => $animalTypes,
+                    'pep_compliance' => $eligibleCases->count() ? (int) round($compliant / $eligibleCases->count() * 100) : 0,
+                    'overdue_doses' => $locationCases->filter($hasOverdueDose)->count(),
+                    'trend' => is_null($previousCount) ? 'new' : ($total > $previousCount ? 'up' : ($total < $previousCount ? 'down' : 'neutral')),
+                    'trend_diff' => is_null($previousCount) ? null : $total - $previousCount,
+                    'last_incident' => $lastIncident?->format('M d, Y'),
+                    'last_incident_days_ago' => $lastIncident ? Carbon::today()->diffInDays($lastIncident) : null,
+                ];
+            })->sortByDesc('risk_score')->values();
+
+        // Clinic-wide follow-up metrics deliberately ignore the period filter.
+        $activeCases = BiteIncident::where('clinic_id', $clinicId)->where('status', 'active')
+            ->with(['appointments', 'treatmentRecords'])->get();
+        $overdueDoses = $activeCases->filter($hasOverdueDose)->count();
+        $patientsWithDose = $activeCases->filter($hasReceivedDose)->count();
+
+        return response()->json([
+            'summary' => [
+                'total_cases' => $cases->count(),
+                'active_cases' => $cases->where('status', 'active')->count(),
+                'completed' => $cases->where('status', 'completed')->count(),
+                'high_risk_zones' => $locations->where('risk_level', 'high')->count(),
+                'overdue_doses' => $overdueDoses,
+                'pep_compliance' => $activeCases->count() ? (int) round($patientsWithDose / $activeCases->count() * 100) : 0,
+            ],
+            'locations' => $locations,
+            'cases' => $cases->sortByDesc('bite_date')->values()->map(function (BiteIncident $case) {
+                return [
+                    'bite_id' => $case->bite_id,
+                    'case_number' => $case->case_number,
+                    'patient_name' => $case->patient?->full_name ?? 'Unknown patient',
+                    'bite_date' => $case->bite_date?->format('M d, Y'),
+                    'location' => trim((string) $case->bite_place) ?: 'Unknown',
+                    'category' => $case->bite_category,
+                    'animal_type' => strtolower(trim((string) ($case->intake?->animal_type ?: $case->animal_type ?: 'other'))),
+                    'status' => $case->status,
+                ];
+            }),
+            'risk_alerts' => [
+                'high_risk_zones' => $locations->where('risk_level', 'high')->pluck('location')->values(),
+                'overdue_count' => $overdueDoses,
+            ],
+        ]);
+    }
+
+    /**
      * Get bite cases with location data for map visualization
      * Access: admin
      */

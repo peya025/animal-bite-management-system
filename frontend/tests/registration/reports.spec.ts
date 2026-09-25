@@ -21,8 +21,8 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByText('70%', { exact: true })).toBeVisible();
 });
 
-test('registration has three clinical tabs, applied filters, and current follow-up actions', async ({ page }) => {
-  await expect(page.getByRole('tab')).toHaveCount(3);
+test('registration has clinical tabs, applied filters, and current follow-up actions', async ({ page }) => {
+  await expect(page.getByRole('tab')).toHaveCount(4);
   await expect(page.getByText('Inventory', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Age at incident' })).toBeVisible();
   await expect(page.getByText(/Hourly patterns are unavailable/)).toBeVisible();
@@ -40,18 +40,30 @@ test('registration has three clinical tabs, applied filters, and current follow-
   await expect(page.getByRole('heading', { name: 'Age at incident' })).toHaveCount(0);
 });
 
-test('CSV uses the selected report and print opens a complete safe document', async ({ page }) => {
+test('CSV uses the selected report and print opens a complete safe document via print modal', async ({ page }) => {
+  // Main header should not show print orientation controls
+  await expect(page.locator('.rr-header').getByRole('button', { name: 'Portrait' })).toHaveCount(0);
+  await expect(page.locator('.rr-header').getByRole('button', { name: 'Landscape' })).toHaveCount(0);
+
   await page.getByRole('tab', { name: 'PEP & Follow-up' }).click();
   await expect(page.getByRole('heading', { name: 'PEP Treatment Outcomes' })).toBeVisible();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export CSV' }).click();
   expect((await download).suggestedFilename()).toContain('registration-pep');
+
+  // Print Report opens the print settings dialog with orientation options
   await page.getByRole('button', { name: 'Print Report' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Landscape' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Portrait' })).toBeVisible();
+
+  // Confirm print from dialog
+  await page.getByRole('button', { name: 'Print', exact: true }).click();
   const printFrame = page.locator('iframe[data-testid="print-frame"]');
   await expect(printFrame).toBeAttached();
   const frame = printFrame.contentFrame();
-  await expect(frame.getByRole('heading', { name: 'PEP Treatment Outcomes' })).toBeVisible();
-  await expect(frame.getByText('Synthetic Patient')).toBeVisible();
+  await expect(frame.getByRole('heading', { name: 'PEP Treatment Outcomes' })).toBeAttached();
+  await expect(frame.getByText('Synthetic Patient')).toBeAttached();
 });
 
 test('mobile layout stays within viewport and a failed load provides retry', async ({ page }) => {

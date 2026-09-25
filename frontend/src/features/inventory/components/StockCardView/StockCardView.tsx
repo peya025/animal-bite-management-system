@@ -576,7 +576,7 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, pb: 2, borderBottom: '2px solid #0f172a' }}>
           {/* Left Tagoloan Seal Flag Logo */}
           <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <img src={clinic.left_logo} alt="Tagoloan Municipal Seal Flag" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png'; }} />
+            <img src={clinic.left_logo || undefined} alt="Tagoloan Municipal Seal Flag" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png'; }} />
           </Box>
 
           {/* Center Text */}
@@ -594,7 +594,7 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
 
           {/* Right RHU Health Office Logo */}
           <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <img src={clinic.right_logo} alt="RHU Health Office Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/rhu-logo.png'; }} />
+            <img src={clinic.right_logo || undefined} alt="RHU Health Office Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/rhu-logo.png'; }} />
           </Box>
         </Box>
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Alert, Box, Button, Chip, CircularProgress, LinearProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { DownloadOutlined, PrintOutlined, ArrowForward, Refresh } from '@mui/icons-material';
+import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { DownloadOutlined, PrintOutlined, ArrowForward, Refresh, Close } from '@mui/icons-material';
 import api from '../../../services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import './RegistrationReports.css';
@@ -105,6 +105,7 @@ export default function RegistrationReportsPage() {
   const [report, setReport] = useState<Report>('summary');
   const [preset, setPreset] = useState('month');
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('landscape');
+  const [printModalOpen, setPrintModalOpen] = useState(false);
   const [draft, setDraft] = useState<Filters>(() => dateRange('month'));
   const [filters, setFilters] = useState<Filters>(() => dateRange('month'));
   const [page, setPage] = useState(1);
@@ -215,7 +216,7 @@ export default function RegistrationReportsPage() {
     }
   };
 
-  const exportReport = async (format: 'csv' | 'print') => {
+  const exportReport = async (format: 'csv' | 'print', selectedOrientation: 'portrait' | 'landscape' = orientation) => {
     setExportError('');
     setExporting(true);
     try {
@@ -236,7 +237,7 @@ export default function RegistrationReportsPage() {
         const contactPhone = clinic?.contact_number || (clinic as any)?.phone || '';
 
         const printHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(result.meta.title)}</title><style>
-          @page{size:A4 ${orientation};margin:10mm}
+          @page{size:A4 ${selectedOrientation};margin:10mm}
           body{font:11px system-ui,-apple-system,sans-serif;color:#111827;margin:12px;line-height:1.4}
           .header-box{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:12px}
           .header-box .republic{font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#374151}
@@ -248,8 +249,8 @@ export default function RegistrationReportsPage() {
           .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;font-size:10px;border:1px solid #d1d5db;background:#f9fafb;padding:8px 12px;margin-bottom:12px;border-radius:4px}
           .meta-grid span.lbl{color:#6b7280;font-weight:600}
           .meta-grid span.val{color:#111827;font-weight:700}
-          table{border-collapse:collapse;width:100%;font-size:${orientation === 'portrait' ? '9.5px' : '10.5px'};margin-top:8px}
-          th,td{border:1px solid #d1d5db;padding:${orientation === 'portrait' ? '5px 4px' : '6px 7px'};text-align:left;overflow-wrap:anywhere}
+          table{border-collapse:collapse;width:100%;font-size:${selectedOrientation === 'portrait' ? '9.5px' : '10.5px'};margin-top:8px}
+          th,td{border:1px solid #d1d5db;padding:${selectedOrientation === 'portrait' ? '5px 4px' : '6px 7px'};text-align:left;overflow-wrap:anywhere}
           thead{display:table-header-group}
           tr{break-inside:avoid;page-break-inside:avoid}
           th{background:#f3f4f6;font-weight:700;color:#111827}
@@ -302,10 +303,11 @@ export default function RegistrationReportsPage() {
         iframe.style.position = 'fixed';
         iframe.style.right = '0';
         iframe.style.bottom = '0';
-        iframe.style.width = '0';
-        iframe.style.height = '0';
+        iframe.style.width = '1px';
+        iframe.style.height = '1px';
         iframe.style.border = '0';
-        iframe.style.visibility = 'hidden';
+        iframe.style.opacity = '0';
+        iframe.style.pointerEvents = 'none';
         document.body.appendChild(iframe);
 
         const frameDoc = iframe.contentWindow?.document;
@@ -345,24 +347,9 @@ export default function RegistrationReportsPage() {
   return <Box className="registration-reports" sx={{ color: 'text.primary', bgcolor: 'background.default' }}>
     <header className="rr-header"><div><Typography component="h1">Reports &amp; Analytics</Typography><p>Treatment outcomes, follow-up priorities, and bite surveillance</p><small>Dashboard / Reports</small></div>
       {['overview', 'pep', 'surveillance', 'clinic_summary'].includes(tab) && (
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <ToggleButtonGroup
-            size="small"
-            value={orientation}
-            exclusive
-            onChange={(_, val) => { if (val) setOrientation(val); }}
-            aria-label="Print orientation"
-            sx={{ height: 36, bgcolor: 'background.paper' }}
-          >
-            <ToggleButton value="portrait" sx={{ textTransform: 'none', px: 1.5, py: 0.5, fontSize: '0.8125rem' }}>
-              Portrait
-            </ToggleButton>
-            <ToggleButton value="landscape" sx={{ textTransform: 'none', px: 1.5, py: 0.5, fontSize: '0.8125rem' }}>
-              Landscape
-            </ToggleButton>
-          </ToggleButtonGroup>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Button variant="outlined" startIcon={<DownloadOutlined />} disabled={!data || Boolean(error) || initialLoading || exporting} onClick={() => void exportReport('csv')}>Export CSV</Button>
-          <Button variant="contained" disableElevation startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!data || Boolean(error) || initialLoading || exporting} onClick={() => void exportReport('print')}>Print Report</Button>
+          <Button variant="contained" disableElevation startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!data || Boolean(error) || initialLoading || exporting} onClick={() => setPrintModalOpen(true)}>Print Report</Button>
         </Stack>
       )}
     </header>
@@ -727,5 +714,224 @@ export default function RegistrationReportsPage() {
       <p className="rr-note rr-updated">Updated {new Date(data.meta.generated_at).toLocaleString()} · {data.meta.clinic}</p>
     </>}
     </>}
+
+    {/* Print Settings & Orientation Modal */}
+    <Dialog
+      open={printModalOpen}
+      onClose={() => { if (!exporting) setPrintModalOpen(false); }}
+      maxWidth="xs"
+      fullWidth
+      aria-labelledby="print-dialog-title"
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: '16px',
+            p: 0.5,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          },
+        },
+      }}
+    >
+      <DialogTitle
+        id="print-dialog-title"
+        sx={{
+          pb: 1,
+          pt: 2,
+          px: 2.5,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box
+            sx={{
+              width: 38,
+              height: 38,
+              borderRadius: '10px',
+              bgcolor: 'rgba(29, 158, 117, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#1d9e75',
+              flexShrink: 0,
+            }}
+          >
+            <PrintOutlined sx={{ fontSize: 20 }} />
+          </Box>
+          <Box>
+            <Typography variant="h6" sx={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1.25, color: 'text.primary' }}>
+              Print Settings
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.75rem', mt: 0.25 }}>
+              {TITLES[report]} · {filters.from} to {filters.to}
+            </Typography>
+          </Box>
+        </Box>
+        <IconButton
+          size="small"
+          onClick={() => setPrintModalOpen(false)}
+          disabled={exporting}
+          aria-label="Close print dialog"
+          sx={{ color: 'text.secondary' }}
+        >
+          <Close fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ px: 2.5, py: 1.5 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
+          Page Orientation
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8125rem', mb: 2 }}>
+          Choose document orientation before generating the printable report.
+        </Typography>
+
+        <ToggleButtonGroup
+          value={orientation}
+          exclusive
+          onChange={(_, val) => { if (val) setOrientation(val); }}
+          aria-label="Print orientation"
+          fullWidth
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 1.5,
+            '& .MuiToggleButtonGroup-grouped': {
+              border: '1.5px solid !important',
+              borderRadius: '10px !important',
+            },
+          }}
+        >
+          <ToggleButton
+            value="landscape"
+            aria-label="Landscape"
+            sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 1.25,
+              textTransform: 'none',
+              borderColor: orientation === 'landscape' ? '#1d9e75 !important' : 'divider !important',
+              bgcolor: orientation === 'landscape' ? 'rgba(29, 158, 117, 0.08) !important' : 'background.paper',
+              color: 'text.primary',
+              transition: 'all 0.15s ease-in-out',
+              '&:hover': {
+                bgcolor: orientation === 'landscape' ? 'rgba(29, 158, 117, 0.12) !important' : 'rgba(0, 0, 0, 0.02)',
+              },
+            }}
+          >
+            <Box
+              sx={{
+                width: 48,
+                height: 34,
+                borderRadius: '4px',
+                border: '1.5px solid',
+                borderColor: orientation === 'landscape' ? '#1d9e75' : '#94a3b8',
+                bgcolor: orientation === 'landscape' ? '#e6f7f2' : '#f8fafc',
+                p: '5px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box sx={{ width: '45%', height: 3, bgcolor: orientation === 'landscape' ? '#1d9e75' : '#94a3b8', borderRadius: 0.5 }} />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <Box sx={{ width: '100%', height: 2, bgcolor: orientation === 'landscape' ? 'rgba(29, 158, 117, 0.6)' : '#cbd5e1', borderRadius: 0.5 }} />
+                <Box sx={{ width: '80%', height: 2, bgcolor: orientation === 'landscape' ? 'rgba(29, 158, 117, 0.6)' : '#cbd5e1', borderRadius: 0.5 }} />
+              </Box>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                <Typography sx={{ fontWeight: 600, fontSize: '0.875rem' }}>Landscape</Typography>
+                <Chip label="Best" size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: 'rgba(29, 158, 117, 0.15)', color: '#1d9e75', fontWeight: 600, px: 0.5 }} />
+              </Stack>
+              <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.25 }}>
+                Wide (Multi-column)
+              </Typography>
+            </Box>
+          </ToggleButton>
+
+          <ToggleButton
+            value="portrait"
+            aria-label="Portrait"
+            sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 1.25,
+              textTransform: 'none',
+              borderColor: orientation === 'portrait' ? '#1d9e75 !important' : 'divider !important',
+              bgcolor: orientation === 'portrait' ? 'rgba(29, 158, 117, 0.08) !important' : 'background.paper',
+              color: 'text.primary',
+              transition: 'all 0.15s ease-in-out',
+              '&:hover': {
+                bgcolor: orientation === 'portrait' ? 'rgba(29, 158, 117, 0.12) !important' : 'rgba(0, 0, 0, 0.02)',
+              },
+            }}
+          >
+            <Box
+              sx={{
+                width: 34,
+                height: 48,
+                borderRadius: '4px',
+                border: '1.5px solid',
+                borderColor: orientation === 'portrait' ? '#1d9e75' : '#94a3b8',
+                bgcolor: orientation === 'portrait' ? '#e6f7f2' : '#f8fafc',
+                p: '5px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box sx={{ width: '60%', height: 3, bgcolor: orientation === 'portrait' ? '#1d9e75' : '#94a3b8', borderRadius: 0.5 }} />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <Box sx={{ width: '100%', height: 2, bgcolor: orientation === 'portrait' ? 'rgba(29, 158, 117, 0.6)' : '#cbd5e1', borderRadius: 0.5 }} />
+                <Box sx={{ width: '85%', height: 2, bgcolor: orientation === 'portrait' ? 'rgba(29, 158, 117, 0.6)' : '#cbd5e1', borderRadius: 0.5 }} />
+                <Box sx={{ width: '70%', height: 2, bgcolor: orientation === 'portrait' ? 'rgba(29, 158, 117, 0.6)' : '#cbd5e1', borderRadius: 0.5 }} />
+              </Box>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.875rem' }}>Portrait</Typography>
+              <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.25 }}>
+                Vertical (Standard)
+              </Typography>
+            </Box>
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 2.5, pb: 2, pt: 1, gap: 1 }}>
+        <Button
+          variant="outlined"
+          onClick={() => setPrintModalOpen(false)}
+          disabled={exporting}
+          sx={{ textTransform: 'none', borderRadius: '8px', fontWeight: 500, borderColor: 'divider', color: 'text.secondary' }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          disableElevation
+          startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />}
+          disabled={exporting}
+          onClick={async () => {
+            await exportReport('print');
+            setPrintModalOpen(false);
+          }}
+          sx={{
+            bgcolor: '#1d9e75',
+            '&:hover': { bgcolor: '#16805f' },
+            textTransform: 'none',
+            borderRadius: '8px',
+            fontWeight: 500,
+          }}
+        >
+          {exporting ? 'Generating...' : 'Print'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   </Box>;
 }

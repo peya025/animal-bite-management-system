@@ -70,7 +70,7 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     label: 'Bite Cases Summary',
     path: ROUTES.BITE_CASES.LIST,
     icon: GLOBAL_NAV_ICONS['Bite Cases'],
-    roles: ['triage', 'treatment', 'admin'],
+    roles: ['developer', 'admin', 'registration', 'triage', 'treatment'],
   },
   {
     label: 'Bite Map',

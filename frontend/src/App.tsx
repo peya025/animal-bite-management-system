@@ -71,7 +71,7 @@ function App() {
           <Route path="/queue" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Station 1 · New & Day 0"><QueueDashboard /></AppLayout></ProtectedRoute>} />
           <Route path="/queue/display" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><QueueDisplayPage /></ProtectedRoute>} />
           <Route path="/queue/:queueId/patient" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Patient Detail"><QueuePatientDetailPage /></AppLayout></ProtectedRoute>} />
-          <Route path="/bite-cases" element={<ProtectedRoute allowedRoles={['triage', 'treatment', 'admin', 'developer']}><AppLayout title="Bite Cases Summary"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
+          <Route path="/bite-cases" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Bite Cases Summary"><BiteCaseRiskDashboard /></AppLayout></ProtectedRoute>} />
           <Route path="/bite-map" element={<ProtectedRoute allowedRoles={['developer', 'admin', 'registration', 'triage', 'treatment']}><AppLayout title="Bite Map"><BiteMapPage /></AppLayout></ProtectedRoute>} />
           <Route path="/bite-cases/map" element={<Navigate to="/bite-map" replace />} />
           <Route path="/bite-intakes" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Bite Incident Intakes"><BiteCaseListPage /></AppLayout></ProtectedRoute>} />

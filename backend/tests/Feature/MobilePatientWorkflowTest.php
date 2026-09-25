@@ -561,4 +561,39 @@ class MobilePatientWorkflowTest extends TestCase
         $this->assertContains('Booster 1', $boosterNames);
         $this->assertContains('Booster 2', $boosterNames);
     }
+
+    public function test_changing_password_revokes_other_active_tokens(): void
+    {
+        $account = $this->account();
+        $token1 = $account->createToken('device-1')->plainTextToken;
+        $token2 = $account->createToken('device-2')->plainTextToken;
+
+        // Device 1 changes password
+        $this->withHeader('Authorization', "Bearer {$token1}")
+            ->postJson('/api/mobile/change-password', [
+                'current_password'      => 'password123',
+                'password'              => 'newpassword456',
+                'password_confirmation' => 'newpassword456',
+            ])->assertOk()
+            ->assertJsonPath('message', 'Password has been changed successfully.');
+
+        // Device 1 remains authenticated
+        $this->withHeader('Authorization', "Bearer {$token1}")
+            ->getJson('/api/mobile/me')
+            ->assertOk();
+
+        $this->assertDatabaseHas('personal_access_tokens', [
+            'name' => 'device-1',
+        ]);
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'name' => 'device-2',
+        ]);
+
+        $this->app['auth']->forgetGuards();
+
+        // Device 2 token has been revoked
+        $this->withHeader('Authorization', "Bearer {$token2}")
+            ->getJson('/api/mobile/me')
+            ->assertUnauthorized();
+    }
 }

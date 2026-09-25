@@ -3,7 +3,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app/app_routes.dart';
 import '../l10n/app_localizations.dart';
-import '../l10n/language_controller.dart';
 import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import '../services/api.dart';
@@ -11,7 +10,6 @@ import '../widgets/common/app_toast.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/settings/edit_account_dialog.dart';
-import '../widgets/settings/language_selection_sheet.dart';
 import '../widgets/settings/profile_card.dart';
 import '../widgets/settings/settings_group.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
@@ -447,19 +445,6 @@ class _SettingsViewState extends State<SettingsView> {
                                 onChanged: (val) {
                                   setState(() => _notificationsEnabled = val);
                                 },
-                              ),
-                            ),
-                            SettingsTile(
-                              icon: LucideIcons.globe,
-                              iconBgColor: const Color(0xFFEFF6FF),
-                              iconColor: const Color(0xFF3B82F6),
-                              title: context.tr('settings_language'),
-                              subtitle: LanguageController.instance.currentLanguageDisplayName,
-                              onTap: () => showLanguageSelectionSheet(context),
-                              trailing: const Icon(
-                                LucideIcons.chevronRight,
-                                color: Color(0xFFD1D5DB),
-                                size: 16,
                               ),
                             ),
                             SettingsTile(

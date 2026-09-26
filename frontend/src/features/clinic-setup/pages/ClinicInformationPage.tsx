@@ -1,3 +1,4 @@
+import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { useState, useEffect, type ReactNode, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
@@ -478,25 +479,9 @@ export default function ClinicInformation() {
           ? `${backendBase}/storage/${clinic.logo_path}`
           : defaultLogo;
 
-  const displayLeftLogoSrc = leftLogoPreview
-    ? leftLogoPreview
-    : removeLeftLogo
-      ? null
-      : clinic.left_print_logo_url
-        ? clinic.left_print_logo_url
-        : clinic.left_print_logo_path
-          ? `${backendBase}/storage/${clinic.left_print_logo_path}`
-          : null;
-
-  const displayRightLogoSrc = rightLogoPreview
-    ? rightLogoPreview
-    : removeRightLogo
-      ? null
-      : clinic.right_print_logo_url
-        ? clinic.right_print_logo_url
-        : clinic.right_print_logo_path
-          ? `${backendBase}/storage/${clinic.right_print_logo_path}`
-          : null;
+  const savedPrintLogos = getGlobalPrintLogos(clinic);
+  const displayLeftLogoSrc = leftLogoPreview || (removeLeftLogo ? null : savedPrintLogos.leftLogoUrl);
+  const displayRightLogoSrc = rightLogoPreview || (removeRightLogo ? null : savedPrintLogos.rightLogoUrl);
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 

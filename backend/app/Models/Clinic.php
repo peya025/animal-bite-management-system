@@ -72,7 +72,7 @@ class Clinic extends Model
     public function getLeftPrintLogoUrlAttribute(): ?string
     {
         if ($this->left_print_logo_path) {
-            return asset('storage/' . $this->left_print_logo_path);
+            return url('api/storage/' . $this->left_print_logo_path);
         }
         return null;
     }
@@ -83,7 +83,7 @@ class Clinic extends Model
     public function getRightPrintLogoUrlAttribute(): ?string
     {
         if ($this->right_print_logo_path) {
-            return asset('storage/' . $this->right_print_logo_path);
+            return url('api/storage/' . $this->right_print_logo_path);
         }
         return null;
     }

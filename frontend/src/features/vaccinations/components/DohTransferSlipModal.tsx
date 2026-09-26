@@ -1,4 +1,7 @@
+import { printWhenReady } from '../../../components/print/printReady';
 import { useRef } from 'react';
+import { useAuth } from '../../../shared/contexts/AuthContext';
+import { getGlobalPrintLogos } from '../../../components/print';
 import {
   Dialog,
   DialogTitle,
@@ -33,13 +36,23 @@ export function DohTransferSlipModal({
   transferReason,
   transferDate,
 }: DohTransferSlipModalProps) {
+  const { clinic: authClinic } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
-    window.print();
+    void printWhenReady(window);
   };
 
   if (!patient || !incident) return null;
+
+  const globalLogos = getGlobalPrintLogos(authClinic);
+  const leftLogo = globalLogos.leftLogoUrl;
+  const rightLogo = globalLogos.rightLogoUrl;
+
+  const provinceName = (authClinic?.province || 'Misamis Oriental').trim();
+  const municipalityName = (authClinic?.municipality || 'Tagoloan').trim();
+  const clinicName = (authClinic?.name || 'Animal Bite Treatment Center (ABTC)').trim();
+  const contactPhone = (authClinic?.contact_number || (authClinic as any)?.phone || '(088) 567-1234').trim();
 
   const administeredDoses = (treatmentRecords || []).filter(
     (r) => r.status === 'completed' || r.treatment_date || r.administered_at
@@ -98,18 +111,49 @@ export function DohTransferSlipModal({
             fontFamily: 'system-ui, -apple-system, sans-serif',
           }}
         >
-          {/* Header */}
+          {/* Header with Global Print Logos */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 2 }}>
+            {leftLogo ? (
+              <Box
+                component="img"
+                key={leftLogo}
+                src={leftLogo}
+                alt="Left Seal"
+                sx={{ width: 64, height: 64, objectFit: 'contain', flexShrink: 0 }}
+                onError={(e: any) => { e.currentTarget.style.visibility = 'hidden'; }}
+              />
+            ) : (
+              <Box sx={{ width: 64, height: 64, flexShrink: 0 }} />
+            )}
+
+            <Box sx={{ textAlign: 'center', flex: 1, px: 1 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#475569' }}>
+                Republic of the Philippines • Department of Health
+              </Typography>
+              <Typography sx={{ fontSize: 14, fontWeight: 800, textTransform: 'uppercase', color: '#059669', mt: 0.5 }}>
+                {clinicName}
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: '#64748b' }}>
+                {[municipalityName, provinceName].filter(Boolean).join(', ')}{contactPhone ? ` • Contact: ${contactPhone}` : ''}
+              </Typography>
+            </Box>
+
+            {rightLogo ? (
+              <Box
+                component="img"
+                key={rightLogo}
+                src={rightLogo}
+                alt="Right Seal"
+                sx={{ width: 64, height: 64, objectFit: 'contain', flexShrink: 0 }}
+                onError={(e: any) => { e.currentTarget.style.visibility = 'hidden'; }}
+              />
+            ) : (
+              <Box sx={{ width: 64, height: 64, flexShrink: 0 }} />
+            )}
+          </Box>
+
+          <Box sx={{ my: 1.5, height: 2, bgcolor: '#059669' }} />
           <Box sx={{ textAlign: 'center', mb: 2 }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#475569' }}>
-              Republic of the Philippines • Department of Health
-            </Typography>
-            <Typography sx={{ fontSize: 14, fontWeight: 800, textTransform: 'uppercase', color: '#059669', mt: 0.5 }}>
-              MUNICIPAL HEALTH OFFICE — ANIMAL BITE TREATMENT CENTER (ABTC)
-            </Typography>
-            <Typography sx={{ fontSize: 11, color: '#64748b' }}>
-              Tagoloan, Misamis Oriental • Contact: (088) 567-1234
-            </Typography>
-            <Box sx={{ my: 1.5, height: 2, bgcolor: '#059669' }} />
             <Typography sx={{ fontSize: 16, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               PATIENT CLINICAL TRANSFER & REFERRAL SLIP
             </Typography>
@@ -117,6 +161,7 @@ export function DohTransferSlipModal({
               (Post-Exposure Prophylaxis Regimen Continuity)
             </Typography>
           </Box>
+
 
           {/* Transfer Context Banner */}
           <Box

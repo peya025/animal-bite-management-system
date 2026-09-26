@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { getGlobalPrintLogos } from '../../../../components/print/printHeaderHelper';
+import { printWhenReady } from '../../../../components/print/printReady';
+import { useState, useEffect, useRef } from 'react';
 import {
   Alert,
   Box,
@@ -73,112 +75,142 @@ interface Transaction {
   staff?: { name: string };
 }
 
-interface MonthlySummary {
-  year: number;
-  monthIndex: number;
-  monthName: string;
-  monthYear: string;
-  openingBalance: number;
-  hasTrustworthyOpening: boolean;
-  received: number;
-  dispensed: number;
-  transferred: number;
-  expired: number;
-  disposed: number;
-  adjustments: number;
-  closingBalance: number;
-  activityCount: number;
-  daysInMonth: number;
-}
-
-interface DayRow {
-  dayNum: number;
-  qtyReceived: number;
-  receivedFrom: string;
-  dispensed: number;
-  transferred: number;
-  expired: number;
-  disposed: number;
-  adjustments: number;
-  balance: number | null;
-}
-
-// ─── Date Parsing & Helpers ───────────────────────────────────
-
-function parseTxDate(dateStr: string): { year: number; month: number; day: number; dateObj: Date } {
-  if (!dateStr) {
-    const d = new Date();
-    return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate(), dateObj: d };
-  }
-
-  // Extract YYYY-MM-DD directly from the string to prevent timezone offset shifts
-  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) {
-    const year = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10) - 1; // 0-indexed
-    const day = parseInt(match[3], 10);
-    const d = new Date(dateStr.replace(' ', 'T'));
-    return { year, month, day, dateObj: d };
-  }
-
-  const d = new Date(dateStr);
-  return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate(), dateObj: d };
-}
-
-function classifyTx(tx: Transaction) {
+function mapTx(tx: Transaction) {
   const t = tx.transaction_type;
-  const qty = Number(tx.quantity) || 0;
-  const rec = Number(tx.quantity_received) || (t === 'received' ? qty : 0);
-  const disp = Number(tx.dispensed) || (t === 'used' ? qty : 0);
-  const trans = Number(tx.transferred) || 0;
-  const exp = Number(tx.expired) || (t === 'expired' ? qty : 0);
-  const disposed = t === 'disposed' ? qty : 0;
-  const isAdjustAdd = t === 'adjusted' && qty > 0;
-  const adjustments = isAdjustAdd ? qty : 0;
-
-  const netChange = rec + adjustments - disp - trans - exp - disposed;
-
-  let from = '';
-  if (rec > 0) {
-    from = tx.received_from || tx.remarks || tx.staff?.name || 'Central Supply';
-  }
-
   return {
-    received: rec,
-    receivedFrom: from,
-    dispensed: disp,
-    transferred: trans,
-    expired: exp,
-    disposed,
-    adjustments,
-    netChange,
+    received:     t === 'received' ? tx.quantity : 0,
+    receivedFrom: t === 'received' ? (tx.remarks ?? tx.staff?.name ?? 'Central Supply') : '',
+    dispensed:    t === 'used' || t === 'adjusted' ? tx.quantity : 0,
+    transferred:  t === 'transferred' || t === 'disposed' ? tx.quantity : 0,
+    expired:      t === 'expired' ? tx.quantity : 0,
   };
 }
 
-// ─── Printable HTML Document Generator ─────────────────────────
+// ─── Single Stock Card Table Component ────────────────────────
 
-function buildPrintableStockCardHtml(
-  item: InventoryItem,
-  clinic: {
-    clinic_id: number;
-    name: string;
-    office_name: string;
-    province: string;
-    municipality: string;
-    phone: string;
-    address: string;
-    left_logo: string | null;
-    right_logo: string | null;
-  },
-  staffName: string,
-  summary: MonthlySummary,
-  dayRows: DayRow[]
-): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
+export function SingleStockCardTable({ item }: { item: InventoryItem }) {
+  const { clinic: authClinic } = useAuth();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
   const now = new Date();
-  const printDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const printTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  const trackingCode = `ABTC-SC-${clinic.clinic_id}-${item.batch_number.replace(/[^a-zA-Z0-9]/g, '')}-${summary.year}${pad(summary.monthIndex + 1)}`;
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [fileManagerOpen, setFileManagerOpen] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const clinic = {
+    clinic_id: item.clinic_id || authClinic?.id || 1,
+    name: authClinic?.name || 'Animal Bite Treatment Center',
+    code: (authClinic as any)?.clinic_code || 'ABTC',
+    address: authClinic?.address || '',
+    province: authClinic?.province || 'Misamis Oriental',
+    municipality: authClinic?.municipality || 'Tagoloan',
+    office_name: authClinic?.name || 'MUNICIPAL HEALTH OFFICE - ANIMAL BITE TREATMENT CENTER',
+    phone: authClinic?.contact_number || authClinic?.phone || '(088) 123-4567',
+    left_logo: getGlobalPrintLogos(authClinic).leftLogoUrl,
+    right_logo: getGlobalPrintLogos(authClinic).rightLogoUrl,
+  };
+
+  useEffect(() => {
+    if (!item?.inventory_id) return;
+    setLoading(true);
+    api.get(`/inventory/${item.inventory_id}/transactions`)
+      .then(res => {
+        setTransactions(res.data?.transactions ?? []);
+      })
+      .catch(() => {
+        setTransactions([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [item?.inventory_id]);
+
+  const monthName = MONTH_NAMES[selectedMonth];
+  const monthYear = `${monthName} ${selectedYear}`;
+  const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+
+  // Filter transactions for the selected month
+  const monthlyTx = transactions.filter(tx => {
+    const d = new Date(tx.transaction_date);
+    return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+  });
+
+  // Build day rows for daysInMonth with running balance
+  const dayRows: Array<{
+    dayNum: number;
+    qtyReceived: number;
+    receivedFrom: string;
+    dispensed: number;
+    transferred: number;
+    expired: number;
+    balance: number | null;
+  }> = [];
+
+  const sortedTx = [...monthlyTx].sort(
+    (a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime()
+  );
+
+  const txByDay: Record<number, Transaction[]> = {};
+  sortedTx.forEach(tx => {
+    const d = new Date(tx.transaction_date);
+    const dayNum = d.getDate();
+    if (!txByDay[dayNum]) txByDay[dayNum] = [];
+    txByDay[dayNum].push(tx);
+  });
+
+  let runningBalance = 0;
+  let hasStarted = false;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayTxs = txByDay[d] || [];
+    let dayReceived = 0;
+    let dayFrom = '';
+    let dayDispensed = 0;
+    let dayTransferred = 0;
+    let dayExpired = 0;
+
+    if (dayTxs.length > 0) {
+      hasStarted = true;
+      dayTxs.forEach(tx => {
+        const m = mapTx(tx);
+        dayReceived += m.received;
+        if (m.receivedFrom) dayFrom = dayFrom ? `${dayFrom}, ${m.receivedFrom}` : m.receivedFrom;
+        dayDispensed += m.dispensed;
+        dayTransferred += m.transferred;
+        dayExpired += m.expired;
+      });
+
+      runningBalance = runningBalance + dayReceived - (dayDispensed + dayTransferred + dayExpired);
+      dayRows.push({
+        dayNum: d,
+        qtyReceived: dayReceived,
+        receivedFrom: dayFrom,
+        dispensed: dayDispensed,
+        transferred: dayTransferred,
+        expired: dayExpired,
+        balance: runningBalance,
+      });
+    } else {
+      dayRows.push({
+        dayNum: d,
+        qtyReceived: 0,
+        receivedFrom: '',
+        dispensed: 0,
+        transferred: 0,
+        expired: 0,
+        balance: hasStarted ? runningBalance : null,
+      });
+    }
+  }
+
+  const handlePrint = () => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const now = new Date();
+    const printDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const printTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const trackingCode = `ABTC-SC-${clinic.clinic_id}-${item.batch_number.replace(/[^a-zA-Z0-9]/g, '')}-${selectedYear}${pad(selectedMonth + 1)}`;
 
   return `<!DOCTYPE html>
 <html>
@@ -279,29 +311,30 @@ function buildPrintableStockCardHtml(
         page-break-inside: avoid;
       }
 
-      @media print and (max-height: 210mm) {
-        th, td { padding: 1px 3px; font-size: 7.5pt; }
-        .header-title .office { font-size: 10.5pt; }
-        .header-title .doc-name { font-size: 13pt; margin-top: 2px; }
-        .sig-line { margin-top: 16px; }
-        .meta-box { padding: 4px 8px; margin-bottom: 6px; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="print-page-wrapper">
-      <div>
-        <!-- Official Letterhead -->
-        <div class="header-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-          ${clinic.left_logo ? `<img src="${clinic.left_logo}" alt="Left Seal" style="width: 65px; height: 65px; object-fit: contain;" />` : `<div style="width: 65px; height: 65px; flex-shrink: 0;"></div>`}
-          <div style="text-align: center; flex: 1; padding: 0 10px;">
-            <div class="republic">Republic of the Philippines &bull; ${clinic.province} &bull; ${clinic.municipality}</div>
-            <div class="office">${clinic.office_name}</div>
-            <div class="contact">Tel. No. : ${clinic.phone} &bull; ${clinic.address}</div>
-            <div class="doc-name">STOCK CARD</div>
-          </div>
-          ${clinic.right_logo ? `<img src="${clinic.right_logo}" alt="Right Seal" style="width: 65px; height: 65px; object-fit: contain;" />` : `<div style="width: 65px; height: 65px; flex-shrink: 0;"></div>`}
-        </div>
+            /* Responsive Scaling for Small Paper Sizes (e.g. A5, Half-Letter) */
+            @media print and (max-height: 210mm) {
+              th, td { padding: 1px 3px; font-size: 7.5pt; }
+              .header-title .office { font-size: 10.5pt; }
+              .header-title .doc-name { font-size: 13pt; margin-top: 2px; }
+              .sig-line { margin-top: 16px; }
+              .meta-box { padding: 4px 8px; margin-bottom: 6px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-page-wrapper">
+            <div>
+              <!-- Official Letterhead -->
+              <div class="header-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                ${clinic.left_logo ? `<img onerror="this.style.visibility='hidden'" src="${clinic.left_logo}" alt="Left Seal" style="width: 65px; height: 65px; object-fit: contain;" />` : `<div style="width: 65px; height: 65px; flex-shrink: 0;"></div>`}
+                <div style="text-align: center; flex: 1; padding: 0 10px;">
+                  <div class="republic">Republic of the Philippines &bull; ${clinic.province} &bull; ${clinic.municipality}</div>
+                  <div class="office">${clinic.office_name}</div>
+                  <div class="contact">Tel. No. : ${clinic.phone} &bull; ${clinic.address}</div>
+                  <div class="doc-name">STOCK CARD</div>
+                </div>
+                ${clinic.right_logo ? `<img onerror="this.style.visibility='hidden'" src="${clinic.right_logo}" alt="Right Seal" style="width: 65px; height: 65px; object-fit: contain;" />` : `<div style="width: 65px; height: 65px; flex-shrink: 0;"></div>`}
+              </div>
 
         <!-- Metadata Block -->
         <div class="meta-box">
@@ -745,257 +778,59 @@ export default function StockCardView({ items, loading, initialItemId }: StockCa
     printWin.document.open();
     printWin.document.write(html);
     printWin.document.close();
-    setTimeout(() => {
-      printWin.focus();
-      printWin.print();
-    }, 300);
+    printWin.focus();
+    void printWhenReady(printWin, true);
   };
 
-  const handleDownloadPrintable = (summary: MonthlySummary) => {
-    if (!currentBatch) return;
-    const html = buildPrintableStockCardHtml(
-      currentBatch,
-      clinic,
-      user?.name || 'Clinic Staff',
-      summary,
-      previewDayRows
-    );
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Stock_Card_${currentBatch.vaccine_type}_${currentBatch.batch_number}_${summary.monthName}_${summary.year}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const borderCol = isDark ? 'rgba(163, 230, 53, 0.25)' : '#cbd5e1';
+  const thStyle: React.CSSProperties = {
+    border: `1px solid ${borderCol}`,
+    padding: '8px 6px',
+    fontSize: '12px',
+    fontWeight: 700,
+    textAlign: 'center',
+    background: isDark ? '#121c15' : '#f8fafc',
+    color: isDark ? '#a7f3d0' : '#0f172a',
   };
-
-  const handleDownloadCsv = (summary: MonthlySummary) => {
-    if (!currentBatch) return;
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const rows = [
-      ['Official Stock Card Record - Animal Bite Treatment Center'],
-      ['Vaccine / Medicine:', currentBatch.vaccine_type, 'Batch / Lot No:', currentBatch.batch_number],
-      ['Month & Year:', summary.monthYear, 'Expiry Date:', formatDate(currentBatch.expiration_date)],
-      ['Clinic Facility:', clinic.name, 'Storage Spec:', currentBatch.cold_chain_notes || '2°C to 8°C Cold Chain'],
-      [],
-      ['Day', 'Date', 'Qty Received', 'Received From', 'Dispensed', 'Transferred', 'Expired', 'Other / Disposed', 'Balance'],
-    ];
-
-    previewDayRows.forEach((r) => {
-      const dateStr = `${summary.year}-${pad(summary.monthIndex + 1)}-${pad(r.dayNum)}`;
-      rows.push([
-        String(r.dayNum),
-        dateStr,
-        r.qtyReceived ? String(r.qtyReceived) : '',
-        r.receivedFrom ? `"${r.receivedFrom.replace(/"/g, '""')}"` : '',
-        r.dispensed ? String(r.dispensed) : '',
-        r.transferred ? String(r.transferred) : '',
-        r.expired ? String(r.expired) : '',
-        r.disposed ? String(r.disposed) : '',
-        r.balance !== null ? String(r.balance) : '',
-      ]);
-    });
-
-    rows.push([]);
-    rows.push([
-      'Total',
-      'Ending Balance',
-      `+${summary.received}`,
-      'Monthly Closing Summary',
-      String(summary.dispensed),
-      String(summary.transferred),
-      String(summary.expired),
-      String(summary.disposed),
-      String(summary.closingBalance),
-    ]);
-
-    const csvContent = rows.map((row) => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Stock_Card_${currentBatch.vaccine_type}_${currentBatch.batch_number}_${summary.monthName}_${summary.year}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const tdStyle: React.CSSProperties = {
+    border: `1px solid ${borderCol}`,
+    padding: '5px 8px',
+    fontSize: '13px',
+    textAlign: 'center',
+    color: isDark ? '#f8fafc' : '#1e293b',
+    height: '28px',
   };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
-        <CircularProgress sx={{ color: '#059669' }} />
-      </Box>
-    );
-  }
-
-  if (items.length === 0) {
-    return (
-      <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3, border: '1px solid #e2e8f0' }}>
-        <VaccineIcon sx={{ fontSize: 48, color: '#94a3b8', mb: 1.5 }} />
-        <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#1e293b' }}>
-          No Vaccine Batches Available
-        </Typography>
-        <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.5 }}>
-          Add physical vaccine batches to your clinic inventory to review stock card records.
-        </Typography>
-      </Paper>
-    );
-  }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* ── Filter Bar ── */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2.25,
-          mb: 2.5,
-          borderRadius: 2.5,
-          border: '1px solid #e2e8f0',
-          bgcolor: '#ffffff',
-        }}
-      >
-        <Grid container spacing={2} sx={{ alignItems: 'center' }}>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="stock-card-vaccine-label">Vaccine Type</InputLabel>
-              <Select
-                labelId="stock-card-vaccine-label"
-                label="Vaccine Type"
-                value={selectedVaccine}
-                onChange={(e) => setSelectedVaccine(e.target.value)}
-                sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
-              >
-                {vaccineOptions.map((v) => (
-                  <MenuItem key={v} value={v}>
-                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{v}</Typography>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 5 }}>
-            <FormControl fullWidth size="small" disabled={batchOptions.length === 0}>
-              <InputLabel id="stock-card-batch-label">Batch / Lot No.</InputLabel>
-              <Select
-                labelId="stock-card-batch-label"
-                label="Batch / Lot No."
-                value={selectedBatchId}
-                onChange={(e) => setSelectedBatchId(Number(e.target.value))}
-                sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
-              >
-                {batchOptions.map((b) => (
-                  <MenuItem key={b.inventory_id} value={b.inventory_id}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 1 }}>
-                      <Typography sx={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>
-                        {b.batch_number}
-                      </Typography>
-                      <Typography sx={{ fontSize: 11, color: '#64748b' }}>
-                        Exp: {formatDate(b.expiration_date)} &bull; Bal: {b.current_quantity} vials
-                      </Typography>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 3 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="stock-card-year-label">Year</InputLabel>
-              <Select
-                labelId="stock-card-year-label"
-                label="Year"
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
-              >
-                {availableYears.map((yr) => (
-                  <MenuItem key={yr} value={yr}>
-                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{yr}</Typography>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* ── Batch Summary & Annual Movement ── */}
-      {currentBatch && (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2.5,
-            mb: 2.5,
-            borderRadius: 2.5,
-            border: '1px solid #e2e8f0',
-            bgcolor: '#ffffff',
-          }}
-        >
-          {/* Batch Identity Header */}
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 2,
-              pb: 2,
-              borderBottom: '1px solid #f1f5f9',
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box
-                sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 2,
-                  bgcolor: '#ecfdf5',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#059669',
-                }}
-              >
-                <VaccineIcon sx={{ fontSize: 22 }} />
-              </Box>
-              <Box>
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                  <Typography sx={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-                    {currentBatch.vaccine_type}
-                  </Typography>
-                  <Chip
-                    label={currentBatch.batch_number}
-                    size="small"
-                    sx={{
-                      fontFamily: 'monospace',
-                      fontWeight: 700,
-                      fontSize: 12,
-                      bgcolor: '#f1f5f9',
-                      color: '#1e293b',
-                    }}
-                  />
-                  <Chip
-                    label={currentBatch.status.toUpperCase()}
-                    size="small"
-                    sx={{
-                      fontWeight: 800,
-                      fontSize: 10,
-                      bgcolor: currentBatch.status === 'active' ? '#ecfdf5' : '#fff7ed',
-                      color: currentBatch.status === 'active' ? '#047857' : '#c2410c',
-                    }}
-                  />
-                </Stack>
-                <Typography sx={{ fontSize: 12, color: '#64748b', mt: 0.25 }}>
-                  Expires: <strong>{formatDate(currentBatch.expiration_date)}</strong> &bull; Received from: {currentBatch.received_from || 'Central Supply'}
-                </Typography>
-              </Box>
-            </Box>
+    <Paper
+      elevation={0}
+      sx={{
+        border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid #e2e8f0',
+        borderRadius: '8px',
+        mb: 4,
+        p: 3,
+        bgcolor: isDark ? 'var(--card-bg-solid, #0e1812)' : '#ffffff',
+      }}
+    >
+      {/* ── Top Toolbar with File Manager, Month Menu & Print Button ── */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }} className="no-print">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Chip
+            icon={<CalendarIcon sx={{ fontSize: 16 }} />}
+            label={`Month: ${monthYear}`}
+            variant="outlined"
+            size="small"
+            sx={{ fontWeight: 700, borderColor: '#10b981', color: isDark ? '#34d399' : '#047857', bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4' }}
+          />
+          <Chip
+            icon={<ClinicIcon sx={{ fontSize: 14 }} />}
+            label={clinic.name}
+            size="small"
+            sx={{ fontWeight: 600, bgcolor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9', color: isDark ? '#cbd5e1' : '#334155' }}
+          />
+        </Box>
 
             {/* Live Current Balance Callout */}
             <Box
@@ -1281,154 +1116,118 @@ export default function StockCardView({ items, loading, initialItemId }: StockCa
                 {previewMonthSummary.monthYear} &bull; Facility Stock Card Record
               </Typography>
             </Box>
-            <IconButton
-              onClick={() => setPreviewMonthSummary(null)}
-              size="small"
-              sx={{ color: '#64748b', '&:hover': { color: '#0f172a', bgcolor: '#f1f5f9' } }}
-              aria-label="Close"
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </DialogTitle>
+            {MONTH_NAMES.map((mName, idx) => {
+              const isSelected = selectedMonth === idx;
+              return (
+                <MenuItem
+                  key={mName}
+                  selected={isSelected}
+                  onClick={() => {
+                    setSelectedMonth(idx);
+                    setAnchorEl(null);
+                  }}
+                  sx={{
+                    py: 0.85,
+                    px: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    bgcolor: isSelected ? '#ecfdf5 !important' : 'transparent',
+                    '&:hover': { bgcolor: isSelected ? '#d1fae5 !important' : '#f8fafc' },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                    <FileIcon sx={{ fontSize: 18, color: isSelected ? '#059669' : '#94a3b8' }} />
+                    <Typography sx={{ fontSize: 13, fontWeight: isSelected ? 700 : 500, color: isSelected ? '#047857' : '#334155' }}>
+                      {mName} {selectedYear}
+                    </Typography>
+                  </Box>
+                  {isSelected && (
+                    <Chip label="Active" size="small" sx={{ height: 18, fontSize: 9, bgcolor: '#10b981', color: '#fff', fontWeight: 700 }} />
+                  )}
+                </MenuItem>
+              );
+            })}
+          </Menu>
 
-          {/* Action Toolbar */}
-          <Box
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<PrintIcon />}
+            onClick={handlePrint}
             sx={{
-              px: 3,
-              py: 1.5,
-              bgcolor: '#ffffff',
-              borderBottom: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 1.5,
+              borderColor: '#10b981',
+              color: '#059669',
+              fontWeight: 600,
+              textTransform: 'none',
+              '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
             }}
           >
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-              <Chip
-                label={`Opening: ${previewMonthSummary.openingBalance}`}
-                size="small"
-                sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#ffffff', border: '1px solid #cbd5e1' }}
-              />
-              <Chip
-                label={`Received: +${previewMonthSummary.received}`}
-                size="small"
-                sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' }}
-              />
-              <Chip
-                label={`Dispensed: -${previewMonthSummary.dispensed}`}
-                size="small"
-                sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca' }}
-              />
-              <Chip
-                label={`Closing: ${previewMonthSummary.closingBalance}`}
-                size="small"
-                sx={{ fontWeight: 800, fontSize: 11, bgcolor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
-              />
-            </Stack>
+            Print Stock Card
+          </Button>
+        </Stack>
+      </Box>
 
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<DownloadIcon sx={{ fontSize: 16 }} />}
-                onClick={() => handleDownloadCsv(previewMonthSummary)}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  borderColor: '#cbd5e1',
-                  color: '#334155',
-                  borderRadius: 2,
-                  '&:hover': { borderColor: '#94a3b8', bgcolor: '#f1f5f9' },
-                }}
-              >
-                Download CSV
-              </Button>
+      {/* Stock Card File Manager Dialog */}
+      <StockCardFileManager
+        open={fileManagerOpen}
+        onClose={() => setFileManagerOpen(false)}
+        item={item}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        onSelectMonthYear={(mIndex, y) => {
+          setSelectedMonth(mIndex);
+          setSelectedYear(y);
+        }}
+        onPrintMonth={(mIndex, y) => {
+          setSelectedMonth(mIndex);
+          setSelectedYear(y);
+          setTimeout(() => handlePrint(), 200);
+        }}
+      />
 
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<DownloadIcon sx={{ fontSize: 16 }} />}
-                onClick={() => handleDownloadPrintable(previewMonthSummary)}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  borderColor: '#cbd5e1',
-                  color: '#334155',
-                  borderRadius: 2,
-                  '&:hover': { borderColor: '#94a3b8', bgcolor: '#f1f5f9' },
-                }}
-              >
-                Download Printable Card
-              </Button>
-
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<PrintIcon sx={{ fontSize: 16 }} />}
-                onClick={() => handlePrint(previewMonthSummary)}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 800,
-                  fontSize: 12,
-                  bgcolor: '#059669',
-                  borderRadius: 2,
-                  '&:hover': { bgcolor: '#047857' },
-                }}
-              >
-                Print Stock Card
-              </Button>
-            </Stack>
+      <div ref={cardRef}>
+        {/* Dynamic Clinic Header Title with Official Logos */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, pb: 2, borderBottom: '2px solid #0f172a' }}>
+          {/* Left Tagoloan Seal Flag Logo */}
+          <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {clinic.left_logo ? <img key={clinic.left_logo} src={clinic.left_logo} alt="left Print Logo" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : <div style={{ width: 90, height: 90, flexShrink: 0 }} />}
           </Box>
 
-          {/* Modal Document Body */}
-          <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: '#ffffff' }}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: { xs: 2, sm: 3 },
-                borderRadius: 2,
-                bgcolor: '#ffffff',
-                border: '1px solid #e2e8f0',
-              }}
-            >
-              {/* Document Letterhead */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  mb: 2,
-                  pb: 2,
-                  borderBottom: '2px solid #0f172a',
-                }}
-              >
-                <Box sx={{ width: 75, height: 75, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <img
-                    src={clinic.left_logo || '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png'}
-                    alt="Clinic Seal"
-                    style={{ width: 75, height: 75, objectFit: 'contain' }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png'; }}
-                  />
-                </Box>
+          {/* Center Text */}
+          <Box sx={{ textAlign: 'center', px: 1 }}>
+            <Typography sx={{ fontSize: '11.5px', textTransform: 'uppercase', color: '#334155', letterSpacing: '0.5px' }}>
+              Republic of the Philippines &bull; {clinic.province} &bull; {clinic.municipality}
+            </Typography>
+            <Typography sx={{ fontSize: '14.5px', fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', mt: 0.25 }}>
+              {clinic.office_name}
+            </Typography>
+            <Typography sx={{ fontSize: '10.5px', color: '#64748b' }}>
+              Tel. No. : {clinic.phone} &bull; {clinic.address}
+            </Typography>
+          </Box>
 
-                <Box sx={{ textAlign: 'center', px: 2, flex: 1 }}>
-                  <Typography sx={{ fontSize: 11, textTransform: 'uppercase', color: '#475569', letterSpacing: '0.5px' }}>
-                    Republic of the Philippines &bull; {clinic.province} &bull; {clinic.municipality}
-                  </Typography>
-                  <Typography sx={{ fontSize: 14, fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', mt: 0.25 }}>
-                    {clinic.office_name}
-                  </Typography>
-                  <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>
-                    Tel. No. : {clinic.phone} &bull; {clinic.address}
-                  </Typography>
-                  <Typography sx={{ fontSize: 15, fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', mt: 0.5, textDecoration: 'underline' }}>
-                    STOCK CARD
-                  </Typography>
-                </Box>
+          {/* Right RHU Health Office Logo */}
+          <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {clinic.right_logo ? <img key={clinic.right_logo} src={clinic.right_logo} alt="right Print Logo" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : <div style={{ width: 90, height: 90, flexShrink: 0 }} />}
+          </Box>
+        </Box>
+
+        {/* Title */}
+        <Box sx={{ textAlign: 'center', mb: 2 }}>
+          <Typography
+            sx={{
+              fontWeight: 900,
+              fontSize: '19px',
+              letterSpacing: '2px',
+              textTransform: 'uppercase',
+              color: '#0f172a',
+              textDecoration: 'underline',
+            }}
+          >
+            STOCK CARD
+          </Typography>
+        </Box>
 
                 <Box sx={{ width: 75, height: 75, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <img

@@ -18,9 +18,12 @@
  *   </PrintPreviewModal>
  */
 
+import { useAuth } from '../../shared/contexts/AuthContext';
+import { getGlobalPrintLogos, resolveStorageUrl } from './printHeaderHelper';
+
 interface PrintPreviewModalProps {
   title: string;
-  clinicName: string;
+  clinicName?: string;
   printedBy: string;
   leftLogoUrl?: string | null;
   rightLogoUrl?: string | null;
@@ -55,8 +58,11 @@ export default function PrintPreviewModal({
   const fmt = (iso?: string) =>
     iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
-  const leftSrc = leftLogoUrl || null;
-  const rightSrc = rightLogoUrl || null;
+  const { clinic } = useAuth();
+  const globalLogos = getGlobalPrintLogos(clinic);
+  const leftSrc = leftLogoUrl !== undefined ? resolveStorageUrl(leftLogoUrl) : globalLogos.leftLogoUrl;
+  const rightSrc = rightLogoUrl !== undefined ? resolveStorageUrl(rightLogoUrl) : globalLogos.rightLogoUrl;
+
 
   return (
     <div
@@ -107,6 +113,7 @@ export default function PrintPreviewModal({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 6 }}>
               {leftSrc ? (
                 <img
+                  key={leftSrc}
                   src={leftSrc}
                   alt="Left Seal"
                   style={{ width: 52, height: 52, objectFit: 'contain', flexShrink: 0 }}
@@ -124,6 +131,7 @@ export default function PrintPreviewModal({
               </div>
               {rightSrc ? (
                 <img
+                  key={rightSrc}
                   src={rightSrc}
                   alt="Right Seal"
                   style={{ width: 52, height: 52, objectFit: 'contain', flexShrink: 0 }}

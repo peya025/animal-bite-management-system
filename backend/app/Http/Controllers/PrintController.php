@@ -38,8 +38,11 @@ class PrintController extends Controller
 
         if (!$patient->clinic) {
             $user = $this->resolveAuthenticatedUser($request);
-            $clinicId = $user?->clinic_id ?? 1;
-            $patient->setRelation('clinic', \App\Models\Clinic::find($clinicId));
+            $clinicId = $user?->clinic_id ?? $request->query('clinic_id');
+            $clinic = ($clinicId ? \App\Models\Clinic::find($clinicId) : null) ?? \App\Models\Clinic::first();
+            if ($clinic) {
+                $patient->setRelation('clinic', $clinic);
+            }
         }
 
         return view('prints.patient-enrolment', compact('patient'));
@@ -52,7 +55,7 @@ class PrintController extends Controller
     public function exposureRegistry(Request $request)
     {
         $user = $this->resolveAuthenticatedUser($request);
-        $clinicId = $user?->clinic_id ?? $request->query('clinic_id');
+        $clinicId = $user?->clinic_id ?? $request->query('clinic_id') ?? \App\Models\Clinic::first()?->id;
         abort_unless($clinicId, 403, 'A clinic assignment is required.');
 
         $data = $this->dohReportService->getExposureRegistry(
@@ -75,7 +78,7 @@ class PrintController extends Controller
     public function monthlyReport(Request $request)
     {
         $user = $this->resolveAuthenticatedUser($request);
-        $clinicId = $user?->clinic_id ?? $request->query('clinic_id');
+        $clinicId = $user?->clinic_id ?? $request->query('clinic_id') ?? \App\Models\Clinic::first()?->id;
         abort_unless($clinicId, 403, 'A clinic assignment is required.');
 
         $data = $this->dohReportService->getMonthlyReport(
@@ -97,7 +100,7 @@ class PrintController extends Controller
     public function cohortReport(Request $request)
     {
         $user = $this->resolveAuthenticatedUser($request);
-        $clinicId = $user?->clinic_id ?? $request->query('clinic_id');
+        $clinicId = $user?->clinic_id ?? $request->query('clinic_id') ?? \App\Models\Clinic::first()?->id;
         abort_unless($clinicId, 403, 'A clinic assignment is required.');
 
         $data = $this->dohReportService->getCohortReport(
@@ -109,4 +112,5 @@ class PrintController extends Controller
 
         return view('prints.cohort-report', $data);
     }
+
 }

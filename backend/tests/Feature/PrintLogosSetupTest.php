@@ -66,6 +66,21 @@ class PrintLogosSetupTest extends TestCase
         Storage::disk('public')->assertExists($clinic->left_print_logo_path);
         Storage::disk('public')->assertExists($clinic->right_print_logo_path);
 
+        // Clinic setup and restored sessions expose the same current URLs.
+        $response->assertJsonPath('clinic.left_print_logo_url', $clinic->left_print_logo_url);
+        $response->assertJsonPath('clinic.right_print_logo_url', $clinic->right_print_logo_url);
+        $this->getJson('/api/me')->assertOk()
+            ->assertJsonPath('clinic.left_print_logo_url', $clinic->left_print_logo_url)
+            ->assertJsonPath('clinic.right_print_logo_url', $clinic->right_print_logo_url);
+        $this->get($clinic->left_print_logo_url)->assertOk();
+        $this->get($clinic->right_print_logo_url)->assertOk();
+
+        foreach (['monthly?month=2026-09', 'exposure-registry?year=2026', 'cohort?year=2026'] as $report) {
+            $this->get('/api/print/reports/' . $report)->assertOk()
+                ->assertSee($clinic->left_print_logo_url, false)
+                ->assertSee($clinic->right_print_logo_url, false);
+        }
+
         // 2. Remove left and right print logos
         $removeResponse = $this->postJson('/api/setup/clinic', [
                 'name' => 'Test Clinic Updated',
@@ -80,5 +95,21 @@ class PrintLogosSetupTest extends TestCase
         $this->assertNull($clinic->right_print_logo_path);
         $this->assertNull($clinic->left_print_logo_url);
         $this->assertNull($clinic->right_print_logo_url);
+        $this->getJson('/api/me')->assertOk()
+            ->assertJsonPath('clinic.left_print_logo_url', null)
+            ->assertJsonPath('clinic.right_print_logo_url', null);
+    }
+
+    public function test_public_storage_route_serves_logo_without_symlink(): void
+    {
+        Storage::disk('public')->put('clinic-logos/test-seal.png', 'fake-image-bytes');
+
+        $apiResponse = $this->get('/api/storage/clinic-logos/test-seal.png');
+        $apiResponse->assertOk();
+        $this->assertTrue($apiResponse->headers->has('Access-Control-Allow-Origin'));
+        $this->assertEquals('fake-image-bytes', $apiResponse->getContent());
     }
 }
+
+
+

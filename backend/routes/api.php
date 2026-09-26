@@ -25,11 +25,16 @@ use App\Http\Controllers\TreatmentRecordController;
 use App\Http\Controllers\VaccinationRecordController;
 use App\Http\Controllers\VaccineInventoryController;
 use App\Http\Controllers\PrintController;
+use App\Http\Controllers\PublicStorageController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\LandingPageSettingsController;
 use App\Http\Controllers\ClinicScheduleController;
 use App\Http\Controllers\VaccinationJourneyController;
 use Illuminate\Support\Facades\Route;
+
+// Public media / storage fallback route (works without symlink)
+Route::get('/storage/{path}', [PublicStorageController::class, 'serve'])->where('path', '.*');
+
 
 // Health check endpoint for deployment monitoring
 Route::get('/health', function () {
@@ -460,7 +465,8 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::middleware('role:admin,treatment,developer')->group(function () {
         Route::get('/nurse/patients', [AppointmentController::class, 'nursePatients']);
     });
-    Route::middleware('role:admin,developer')->group(function () {
+    Route::middleware('role:admin,developer,doctor,triage')->group(function () {
         Route::get('/doctor/patients', [AppointmentController::class, 'doctorPatients']);
     });
+
 });

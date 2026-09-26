@@ -346,30 +346,56 @@ export default function RegistrationReportsPage() {
   const displayedMeta = isCurrentReport && activeReportData?.data ? activeReportData.data.meta : globalData?.meta;
   const currentColumns = displayedRecords?.columns ?? REPORT_COLUMNS[report];
 
-  const renderFilters = () => (
-    <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={event => { event.preventDefault(); if (valid) { setFilters({ ...draft }); setPage(1); } }}>
-      <div className="rr-filter-row">
-        <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
-          <MenuItem value="today">Today</MenuItem>
-          <MenuItem value="week">This week</MenuItem>
-          <MenuItem value="month">This month</MenuItem>
-          <MenuItem value="previous">Previous month</MenuItem>
-          <MenuItem value="last30">Last 30 days</MenuItem>
-          <MenuItem value="year">This year</MenuItem>
-          <MenuItem value="custom">Custom range</MenuItem>
-        </TextField>
-        <TextField size="small" type="date" label="From" value={draft.from} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, from: e.target.value }); setPreset('custom'); }} />
-        <TextField size="small" type="date" label="To" value={draft.to} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, to: e.target.value }); setPreset('custom'); }} />
-        <TextField size="small" select label="Category" value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}>
-          <MenuItem value="ALL">All categories</MenuItem>{['I', 'II', 'III'].map(value => <MenuItem key={value} value={value}>Category {value}</MenuItem>)}
-        </TextField>
-        <Button type="submit" variant="contained" disableElevation disabled={!valid || initialLoading}>Apply</Button>
-        <Button onClick={() => { const next = dateRange('month'); setDraft(next); setFilters(next); setPreset('month'); setPage(1); }}>Reset</Button>
-      </div>
-      {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
-      <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
-    </Paper>
-  );
+  const renderFilters = (standalone: boolean = true) => {
+    const filterContent = (
+      <>
+        <div className="rr-filter-row">
+          <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
+            <MenuItem value="today">Today</MenuItem>
+            <MenuItem value="week">This week</MenuItem>
+            <MenuItem value="month">This month</MenuItem>
+            <MenuItem value="previous">Previous month</MenuItem>
+            <MenuItem value="last30">Last 30 days</MenuItem>
+            <MenuItem value="year">This year</MenuItem>
+            <MenuItem value="custom">Custom range</MenuItem>
+          </TextField>
+          <TextField size="small" type="date" label="From" value={draft.from} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, from: e.target.value }); setPreset('custom'); }} />
+          <TextField size="small" type="date" label="To" value={draft.to} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, to: e.target.value }); setPreset('custom'); }} />
+          <TextField size="small" select label="Category" value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}>
+            <MenuItem value="ALL">All categories</MenuItem>{['I', 'II', 'III'].map(value => <MenuItem key={value} value={value}>Category {value}</MenuItem>)}
+          </TextField>
+          <Button type="submit" variant="contained" disableElevation disabled={!valid || initialLoading}>Apply</Button>
+          <Button onClick={() => { const next = dateRange('month'); setDraft(next); setFilters(next); setPreset('month'); setPage(1); }}>Reset</Button>
+        </div>
+        {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
+        {standalone && (
+          <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
+        )}
+      </>
+    );
+
+    const handleFilterSubmit = (event: React.FormEvent) => {
+      event.preventDefault();
+      if (valid) {
+        setFilters({ ...draft });
+        setPage(1);
+      }
+    };
+
+    if (standalone) {
+      return (
+        <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={handleFilterSubmit}>
+          {filterContent}
+        </Paper>
+      );
+    }
+
+    return (
+      <Box component="form" className="rr-filters-unified" onSubmit={handleFilterSubmit}>
+        {filterContent}
+      </Box>
+    );
+  };
 
   return <Box className="registration-reports" sx={{ color: 'text.primary', bgcolor: 'background.default' }}>
     <header className="rr-header"><div><Typography component="h1">Reports &amp; Analytics</Typography><p>Treatment outcomes, follow-up priorities, and bite surveillance</p><small>Dashboard / Reports</small></div>
@@ -439,7 +465,20 @@ export default function RegistrationReportsPage() {
               </div>
               <Skeleton variant="rounded" height={300} />
             </div>
-            {renderFilters()}
+            <Paper elevation={0} className="rr-panel rr-unified-surveillance-container">
+              <div className="rr-section-heading">
+                <Skeleton variant="text" width={220} height={24} />
+                <Skeleton variant="text" width={340} height={16} />
+              </div>
+              <Skeleton variant="rounded" height={32} sx={{ my: 1.5 }} />
+              {renderFilters(false)}
+              <div className="rr-surveillance-row-1">
+                {[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={260} />)}
+              </div>
+              <div className="rr-surveillance-row-2">
+                {[1, 2, 3, 4].map(n => <Skeleton key={n} variant="rounded" height={220} />)}
+              </div>
+            </Paper>
           </>
         ) : (
           <div>
@@ -501,36 +540,38 @@ export default function RegistrationReportsPage() {
           </Paper>
         </div>
 
-        {/* Filters Section: positioned below Summary Cards & Follow-up Priorities on Overview */}
-        {renderFilters()}
+        {/* Unified Bite Surveillance Analytics Card */}
+        <Paper elevation={0} className="rr-panel rr-unified-surveillance-container">
+          {/* Bite Surveillance Analytics header & summary */}
+          <div className="rr-section-heading">
+            <Typography component="h2" className="rr-group-title">Bite Surveillance Analytics</Typography>
+            <span className="rr-group-desc">Temporal patterns, demographic distribution, and animal characteristics</span>
+          </div>
+          <div className="rr-activity">
+            <span><b>{stats.incidents}</b> incident episodes</span>
+            <span><b>{stats.patients}</b> unique patients</span>
+            <span><b>{stats.pep_starts}</b> PEP starts</span>
+            <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
+          </div>
 
-        {/* Section 3: Bite Surveillance Analytics */}
-        <div className="rr-section-heading">
-          <Typography component="h2" className="rr-group-title">Bite Surveillance Analytics</Typography>
-          <span className="rr-group-desc">Temporal patterns, demographic distribution, and animal characteristics</span>
-        </div>
-        <div className="rr-activity">
-          <span><b>{stats.incidents}</b> incident episodes</span>
-          <span><b>{stats.patients}</b> unique patients</span>
-          <span><b>{stats.pep_starts}</b> PEP starts</span>
-          <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
-          <Button component={RouterLink} to="/bite-map" endIcon={<ArrowForward />} size="small">Open Bite Map</Button>
-        </div>
+          {/* Filter Section */}
+          {renderFilters(false)}
 
-        {/* Larger analytics charts with equal width and height */}
-        <div className="rr-surveillance-row-1">
-          <CategoryTrend months={data.months} />
-          <Bars title="Age at incident" rows={data.breakdowns.ages} note="Counts bite episodes. A patient with separate incidents can appear more than once." />
-          <Bars title="Incident day of week" rows={data.breakdowns.weekdays} note="Hourly patterns are unavailable because incident times are not recorded." />
-        </div>
+          {/* Larger analytics charts with equal width and height */}
+          <div className="rr-surveillance-row-1">
+            <CategoryTrend months={data.months} />
+            <Bars title="Age at incident" rows={data.breakdowns.ages} note="Counts bite episodes. A patient with separate incidents can appear more than once." />
+            <Bars title="Incident day of week" rows={data.breakdowns.weekdays} note="Hourly patterns are unavailable because incident times are not recorded." />
+          </div>
 
-        {/* Smaller breakdown charts grouped together in a balanced row */}
-        <div className="rr-surveillance-row-2">
-          <Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} note="Recorded bite locations only. Open Bite Map for the geographic view." />
-          <Bars title="Animal type" rows={data.breakdowns.animals} />
-          <Bars title="Animal ownership" rows={data.breakdowns.ownership} note="Ownership and vaccination are different attributes. Animal vaccination status is not currently recorded as a structured field." />
-          <Bars title="Recorded animal observation status" rows={data.breakdowns.observation} />
-        </div>
+          {/* Smaller breakdown charts grouped together in a balanced row */}
+          <div className="rr-surveillance-row-2">
+            <Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} note="Recorded bite locations only. Open Bite Map for the geographic view." />
+            <Bars title="Animal type" rows={data.breakdowns.animals} />
+            <Bars title="Animal ownership" rows={data.breakdowns.ownership} note="Ownership and vaccination are different attributes. Animal vaccination status is not currently recorded as a structured field." />
+            <Bars title="Recorded animal observation status" rows={data.breakdowns.observation} />
+          </div>
+        </Paper>
       </>}
       {tab === 'pep' && <>
         <Alert severity="info">D0 cohort: {filters.from} to {filters.to}. Outcomes observed as of {data.period.as_of}. {stats.completion.excluded} course(s) are not eligible for the completion denominator. Current follow-up and awaiting-D0 lists include all incident dates.</Alert>

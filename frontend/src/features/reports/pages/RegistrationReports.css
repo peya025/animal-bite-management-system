@@ -280,6 +280,48 @@
   color: #ffffff;
 }
 
+/* Unified Bite Surveillance & Filter Container */
+.registration-reports .rr-unified-surveillance-container {
+  display: flex;
+  flex-direction: column;
+  margin-top: 20px;
+  padding: 22px;
+}
+
+.registration-reports .rr-unified-surveillance-container:hover {
+  border-color: var(--rr-border);
+  box-shadow: none;
+}
+
+.rr-filters-unified {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.rr-unified-surveillance-container .rr-section-heading {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.rr-unified-surveillance-container .rr-activity {
+  margin-top: 10px;
+  padding: 0;
+}
+
+.rr-unified-surveillance-container .rr-filters-unified {
+  margin-top: 18px;
+}
+
+.rr-unified-surveillance-container .rr-surveillance-row-1 {
+  margin-top: 20px;
+}
+
+.rr-unified-surveillance-container .rr-surveillance-row-2 {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
 /* Bite Surveillance Analytics Rows */
 .rr-surveillance-row-1 {
   display: grid;
@@ -369,6 +411,15 @@
   .registration-reports {
     padding: 8px 14px 24px;
   }
+  .registration-reports .rr-unified-surveillance-container {
+    padding: 16px;
+  }
+  .rr-unified-surveillance-container .rr-section-heading {
+    margin-top: 0;
+  }
+  .rr-unified-surveillance-container .rr-filters-unified {
+    margin-top: 14px;
+  }
   .rr-grid-two {
     grid-template-columns: 1fr;
   }
@@ -396,6 +447,9 @@
 @media (max-width: 480px) {
   .registration-reports {
     padding: 6px 10px 20px;
+  }
+  .registration-reports .rr-unified-surveillance-container {
+    padding: 12px;
   }
   .rr-filter-row .MuiTextField-root {
     min-width: 100%;

@@ -1,7 +1,8 @@
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { waitForPrintImages } from '../../../components/print/printReady';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { DownloadOutlined, PrintOutlined, ArrowForward, Refresh, Close } from '@mui/icons-material';
 import api from '../../../services/api';
@@ -99,6 +100,7 @@ function CategoryTrend({ months }: { months: ReportData['months'] }) {
 }
 
 export default function RegistrationReportsPage() {
+  const navigate = useNavigate();
   const { clinic: authClinic } = useAuth();
   const storedClinic = localStorage.getItem('clinicData') ? JSON.parse(localStorage.getItem('clinicData')!) : null;
   const clinic = authClinic || storedClinic;
@@ -398,7 +400,22 @@ export default function RegistrationReportsPage() {
   };
 
   return <Box className="registration-reports" sx={{ color: 'text.primary', bgcolor: 'background.default' }}>
-    <header className="rr-header"><div><Typography component="h1">Reports &amp; Analytics</Typography><p>Treatment outcomes, follow-up priorities, and bite surveillance</p><small>Dashboard / Reports</small></div>
+    <header className="rr-header">
+      <div>
+        <Typography component="h1" sx={{ fontSize: '24px !important', fontWeight: '700 !important', color: 'var(--text-h)', letterSpacing: '-0.02em', lineHeight: 1.2, mb: 0.5 }}>
+          Reports &amp; Analytics
+        </Typography>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
+          <button
+            onClick={() => navigate(ROUTES.DASHBOARD)}
+            style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+          >
+            Dashboard
+          </button>
+          <span style={{ color: '#9ca3af' }}>›</span>
+          <span style={{ color: '#6b7280' }}>Reports &amp; Analytics</span>
+        </div>
+      </div>
       {['overview', 'pep', 'surveillance', 'clinic_summary'].includes(tab) && (
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Button variant="outlined" startIcon={<DownloadOutlined />} disabled={!data || Boolean(error) || initialLoading || exporting} onClick={() => void exportReport('csv')}>Export CSV</Button>

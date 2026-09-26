@@ -1,7 +1,10 @@
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { printWhenReady } from '../../../components/print/printReady';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 import { useTheme } from '@mui/material/styles';
+import { Typography } from '@mui/material';
 import api from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import RegistrationReportsPage from './RegistrationReportsPage';
@@ -1021,6 +1024,7 @@ export default function ReportsDashboardPage() {
 }
 
 function LegacyReportsDashboardPage() {
+  const navigate = useNavigate();
   const { clinic: authClinic } = useAuth();
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
@@ -1484,17 +1488,65 @@ function LegacyReportsDashboardPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 25, fontWeight: 600, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
-          <p style={{ fontSize: 13, color: '#77877d', margin: 0 }}>Generate, filter, and print audit-ready clinical and inventory reports</p>
-          {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button onClick={() => { window.location.href = '/dashboard'; }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}>
-              Dashboard
-            </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Reports</span>
-          </div>
+          {user?.role === 'treatment' ? (
+            <>
+              <Typography
+                component="h1"
+                sx={{
+                  fontFamily: 'Poppins',
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.02em',
+                  color: 'var(--text-h, #111827)',
+                  mb: 0.5,
+                }}
+              >
+                Reports &amp; Analytics
+              </Typography>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginTop: '8px',
+                  fontFamily: 'Poppins',
+                  fontSize: '13px',
+                }}
+              >
+                <button
+                  onClick={() => { window.location.href = '/dashboard'; }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: '#3b82f6',
+                    fontFamily: 'Poppins',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Reports &amp; Analytics</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 style={{ fontSize: 25, fontWeight: 600, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
+              <p style={{ fontSize: 13, color: '#77877d', margin: 0 }}>Generate, filter, and print audit-ready clinical and inventory reports</p>
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+                <button onClick={() => { window.location.href = '/dashboard'; }}
+                  style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}>
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Reports</span>
+              </div>
+            </>
+          )}
         </div>
         <button onClick={handleOpenPrint}
           disabled={loading || (activeTab !== 'inventory' && !stats) || (activeTab === 'inventory' && invLoading)}

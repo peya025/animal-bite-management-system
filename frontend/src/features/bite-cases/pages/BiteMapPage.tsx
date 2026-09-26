@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../shared/contexts/AuthContext';
 import {
   Box,
   Button,
@@ -33,6 +34,7 @@ import { Icon } from '../../../shared/components/ui/Icon';
 import '../../developer/styles/DeveloperDatabaseExplorer.css';
 
 export default function BiteMapPage() {
+  const { user } = useAuth();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
@@ -97,41 +99,89 @@ export default function BiteMapPage() {
       {/* ── Header (Matching Patient Queue Page Typography & Breadcrumbs) ── */}
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography
-            component="h1"
-            sx={{
-              fontWeight: 600,
-              fontSize: '25px',
-              lineHeight: 1.2,
-              letterSpacing: '-0.5px',
-              color: 'var(--text-h)',
-              margin: '0 0 7px 0',
-            }}
-          >
-            Bite Location Map
-          </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
-            {todayStr} · Geographical distribution of animal bite incidents by WHO category
-            {data?.clinic?.municipality && ` • ${data.clinic.municipality}, ${data.clinic.province}`}
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button
-              onClick={() => navigate('/dashboard')}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                color: '#3b82f6',
-                fontSize: '13px',
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-              }}
-            >
-              Dashboard
-            </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Bite Location Map</span>
-          </Box>
+          {user?.role === 'treatment' ? (
+            <>
+              <Typography
+                component="h1"
+                sx={{
+                  fontFamily: 'Poppins',
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.02em',
+                  color: 'var(--text-h, #111827)',
+                  mb: 0.5,
+                }}
+              >
+                Bite Location Map
+              </Typography>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginTop: '8px',
+                  fontFamily: 'Poppins',
+                  fontSize: '13px',
+                }}
+              >
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: '#3b82f6',
+                    fontFamily: 'Poppins',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Bite Location Map</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <Typography
+                component="h1"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: '25px',
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.5px',
+                  color: 'var(--text-h)',
+                  margin: '0 0 7px 0',
+                }}
+              >
+                Bite Location Map
+              </Typography>
+              <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
+                {todayStr} · Geographical distribution of animal bite incidents by WHO category
+                {data?.clinic?.municipality && ` • ${data.clinic.municipality}, ${data.clinic.province}`}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: '#3b82f6',
+                    fontSize: '13px',
+                    fontFamily: 'inherit',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Bite Location Map</span>
+              </Box>
+            </>
+          )}
         </Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}

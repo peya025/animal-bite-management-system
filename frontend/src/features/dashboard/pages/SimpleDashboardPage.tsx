@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
+import { Typography } from '@mui/material';
 import api from '../../../shared/services/api';
 import { ROUTES } from '../../../shared/config/routes';
 import DashboardLayout from '../../../components/Layout/DashboardLayout';
@@ -298,8 +299,30 @@ export function SimpleDashboardPage() {
     <DashboardLayout pageTitle="Dashboard">
       <div className="sd-dash-header" style={{ marginTop: '4px', marginBottom: '14px' }}>
         <div>
-          <h1 style={{ margin: '0 0 3px 0', fontSize: '22px', lineHeight: 1.25 }}>Animal Bite Treatment Center</h1>
-          <p style={{ margin: 0, fontSize: '12px' }}>Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+          <Typography
+            component="h1"
+            sx={{
+              fontFamily: 'Poppins',
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
+            Animal Bite Treatment Center
+          </Typography>
+          <Typography
+            sx={{
+              fontFamily: 'Poppins',
+              fontSize: '13px',
+              color: 'var(--text-secondary, #6b7280)',
+              m: 0,
+            }}
+          >
+            Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </Typography>
         </div>
         <div className="sd-dash-tabs">
           <button

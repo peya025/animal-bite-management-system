@@ -2,6 +2,7 @@ import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
+import { Typography } from '@mui/material';
 import { ROUTES } from '../../../shared/config/routes';
 import AddPatientModal from '../components/AddPatientModal';
 import InvitePatientModal from '../components/InvitePatientModal';
@@ -510,15 +511,15 @@ export default function PatientList() {
           <div className="pm-panel-header">
             <div>
               <h1 className="pm-title">
-                {location.pathname.includes('patient-registry') ? 'Patient List' : 'Patient Management'}
+                {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Management'}
               </h1>
-              <p className="pm-subtitle">
-                {location.pathname.includes('patient-registry')
-                  ? 'View and access all registered patient records'
-                  : 'Manage and track all registered walk-in and online patients'}
-              </p>
+              {!location.pathname.includes('patient-registry') && (
+                <p className="pm-subtitle">
+                  Manage and track all registered walk-in and online patients
+                </p>
+              )}
               {/* Breadcrumb */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
                 <button
                   onClick={() => navigate(ROUTES.DASHBOARD)}
                   style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
@@ -527,7 +528,7 @@ export default function PatientList() {
                 </button>
                 <span style={{ color: '#9ca3af' }}>›</span>
                 <span style={{ color: '#6b7280' }}>
-                  {location.pathname.includes('patient-registry') ? 'Patient List' : 'Patient Registration'}
+                  {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Registration'}
                 </span>
               </div>
             </div>

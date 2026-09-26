@@ -37,6 +37,7 @@ interface BiteIntake {
 }
 
 export default function BiteCaseListPage() {
+  const { user } = useAuth();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [intakes, setIntakes] = useState<BiteIntake[]>([]);
@@ -226,12 +227,60 @@ export default function BiteCaseListPage() {
     <Box sx={{ px: 3 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h5" sx={{ color: 'var(--text-h)', fontWeight: 600, mb: '7px' }}>
-            Bite Incident Intake Assessment List
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#77877d' }}>
-            List of registered patients with reported bite incidents ready for Doctor consultation (Form 2) & Treatment Card (Form 3).
-          </Typography>
+          {user?.role === 'treatment' ? (
+            <>
+              <Typography
+                component="h1"
+                sx={{
+                  fontFamily: 'Poppins',
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.02em',
+                  color: 'var(--text-h, #111827)',
+                  mb: 0.5,
+                }}
+              >
+                Bite Incident Intake Assessment List
+              </Typography>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginTop: '8px',
+                  fontFamily: 'Poppins',
+                  fontSize: '13px',
+                }}
+              >
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: '#3b82f6',
+                    fontFamily: 'Poppins',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Bite Incident Intakes</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <Typography variant="h5" sx={{ color: 'var(--text-h)', fontWeight: 600, mb: '7px' }}>
+                Bite Incident Intake Assessment List
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#77877d' }}>
+                List of registered patients with reported bite incidents ready for Doctor consultation (Form 2) & Treatment Card (Form 3).
+              </Typography>
+            </>
+          )}
         </Box>
         <AppButton
           onClick={() => setPatientModalOpen(true)}

@@ -27,6 +27,7 @@ import {
   CheckCircleOutlined as ActiveIcon,
   WarningAmberOutlined as ExpiringIcon,
   AccessTime as OpenedIcon,
+  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -97,16 +98,23 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [expiryFrom, setExpiryFrom] = useState('');
   const [expiryTo, setExpiryTo] = useState('');
   const [view, setView] = useState<'table' | 'stockcard' | 'fifo' | 'administrations'>(defaultTab);
+  const [selectedStockCardId, setSelectedStockCardId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (location.pathname.includes('/administrations') || initialTab === 'administrations') {
+    const batchParam = searchParams.get('batchId') || searchParams.get('initialItemId');
+    if (batchParam) {
+      setSelectedStockCardId(parseInt(batchParam, 10));
+    }
+    if (tabParam === 'stockcard') {
+      setView('stockcard');
+    } else if (location.pathname.includes('/administrations') || initialTab === 'administrations') {
       setView('administrations');
-    } else if (tabParam && ['table', 'stockcard', 'fifo', 'administrations'].includes(tabParam)) {
+    } else if (tabParam && ['table', 'fifo', 'administrations'].includes(tabParam)) {
       setView((isNurseRole || isAdminRole) && tabParam === 'fifo' ? 'table' : tabParam as any);
     } else {
       setView('table');
     }
-  }, [initialTab, isAdminRole, isNurseRole, location.pathname, tabParam]);
+  }, [initialTab, isAdminRole, isNurseRole, location.pathname, tabParam, searchParams]);
 
   useEffect(() => {
     const handleReset = () => {
@@ -130,7 +138,6 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
   const [openVialTarget, setOpenVialTarget] = useState<InventoryItem | null>(null);
   const [discardVialTarget, setDiscardVialTarget] = useState<InventoryItem | null>(null);
-  const [selectedStockCardId, setSelectedStockCardId] = useState<number | null>(null);
   const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
 
   const loadData = useCallback(async () => {
@@ -284,7 +291,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
             <Typography component="h1" sx={{ fontWeight: 700, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', m: 0 }}>
-              {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
+              {view === 'stockcard' ? 'Stock Card' : view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
             </Typography>
           </Box>
           {/* Breadcrumb */}
@@ -303,14 +310,15 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
                 <button
                   onClick={() => {
                     setView('table');
+                    setSelectedStockCardId(null);
                     navigate('/inventory');
                   }}
-                  style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+                  style={{ background: 'none', border: 'none', padding: 0, color: '#059669', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer', fontWeight: 600 }}
                 >
                   Vaccine Inventory
                 </button>
                 <span style={{ color: '#9ca3af' }}>›</span>
-                <span style={{ color: '#6b7280' }}>Stock Card</span>
+                <span style={{ color: '#0f172a', fontWeight: 700 }}>Stock Card</span>
               </>
             ) : (
               <span style={{ color: '#6b7280' }}>
@@ -322,113 +330,162 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
         </Box>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          {!isAdminRole && (
-            <Tabs
-              value={isNurseRole && view === 'administrations' ? false : view === 'stockcard' ? false : view}
-              onChange={(_, newValue) => {
-                setView(newValue);
-                if (newValue === 'administrations') {
-                  navigate('/inventory/administrations');
-                } else if (newValue === 'table') {
+          {view === 'stockcard' ? (
+            <>
+              <Button
+                startIcon={<ArrowBackIcon />}
+                onClick={() => {
+                  setView('table');
+                  setSelectedStockCardId(null);
                   navigate('/inventory');
-                } else {
-                  navigate(`/inventory?tab=${newValue}`);
-                }
-              }}
-              sx={{
-                minHeight: 36,
-                '& .MuiTab-root': {
-                  minHeight: 36,
-                  fontSize: 12,
-                  fontWeight: 700,
+                }}
+                sx={{
                   textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  color: '#334155',
+                  bgcolor: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: 2,
                   px: 2,
-                },
-              }}
-            >
-              <Tab label="Inventory Batches" value="table" />
-              {!isNurseRole && <Tab label="Nurse Vaccine List" value="administrations" />}
-              {!isNurseRole && <Tab label="FIFO Report" value="fifo" />}
-            </Tabs>
-          )}
+                  py: 0.75,
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  '&:hover': {
+                    bgcolor: '#f1f5f9',
+                    borderColor: '#94a3b8',
+                    color: '#0f172a',
+                  },
+                }}
+              >
+                Back to Inventory Batches
+              </Button>
 
-          {/* Stock Card Button: only with stroke, turns green on hover */}
-          <Button
-            variant="outlined"
-            onClick={() => {
-              if (view === 'stockcard') {
-                setView('table');
-                navigate('/inventory');
-              } else {
-                setView('stockcard');
-                navigate('/inventory?tab=stockcard');
-              }
-            }}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: 13,
-              borderRadius: 2,
-              px: 2,
-              minHeight: 36,
-              border: '1.5px solid #10b981',
-              borderColor: view === 'stockcard' ? '#059669' : '#10b981',
-              color: view === 'stockcard' ? '#ffffff' : '#059669',
-              bgcolor: view === 'stockcard' ? '#059669' : 'transparent',
-              transition: 'all 0.2s ease-in-out',
-              '&:hover': {
-                bgcolor: '#059669',
-                color: '#ffffff',
-                borderColor: '#059669',
-                boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
-              },
-            }}
-          >
-            Stock Card
-          </Button>
+              <Button
+                variant="outlined"
+                onClick={loadData}
+                disabled={loading}
+                startIcon={<RefreshIcon sx={{ fontSize: 16, transition: 'transform 0.4s', ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  borderRadius: 2,
+                  px: 2,
+                  borderColor: '#d1d5db',
+                  color: '#374151',
+                  '&:hover': { borderColor: '#10b981', color: '#10b981', bgcolor: '#f0fdf4' },
+                  '&:disabled': { opacity: 0.5 },
+                }}
+              >
+                {loading ? 'Refreshing…' : 'Refresh'}
+              </Button>
+            </>
+          ) : (
+            <>
+              {!isAdminRole && (
+                <Tabs
+                  value={isNurseRole && view === 'administrations' ? false : view}
+                  onChange={(_, newValue) => {
+                    setView(newValue);
+                    if (newValue === 'administrations') {
+                      navigate('/inventory/administrations');
+                    } else if (newValue === 'table') {
+                      navigate('/inventory');
+                    } else {
+                      navigate(`/inventory?tab=${newValue}`);
+                    }
+                  }}
+                  sx={{
+                    minHeight: 36,
+                    '& .MuiTab-root': {
+                      minHeight: 36,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      px: 2,
+                    },
+                  }}
+                >
+                  <Tab label="Inventory Batches" value="table" />
+                  {!isNurseRole && <Tab label="Nurse Vaccine List" value="administrations" />}
+                  {!isNurseRole && <Tab label="FIFO Report" value="fifo" />}
+                </Tabs>
+              )}
 
-          <Button
-            variant="outlined"
-            onClick={loadData}
-            disabled={loading}
-            startIcon={<RefreshIcon sx={{ fontSize: 16, transition: 'transform 0.4s', ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: 13,
-              borderRadius: 2,
-              px: 2,
-              borderColor: '#d1d5db',
-              color: '#374151',
-              '&:hover': { borderColor: '#10b981', color: '#10b981', bgcolor: '#f0fdf4' },
-              '&:disabled': { opacity: 0.5 },
-            }}
-          >
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </Button>
+              {/* Stock Card Button: only with stroke, turns green on hover */}
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setView('stockcard');
+                  navigate('/inventory?tab=stockcard');
+                }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  borderRadius: 2,
+                  px: 2,
+                  minHeight: 36,
+                  border: '1.5px solid #10b981',
+                  borderColor: '#10b981',
+                  color: '#059669',
+                  bgcolor: 'transparent',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    bgcolor: '#059669',
+                    color: '#ffffff',
+                    borderColor: '#059669',
+                    boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
+                  },
+                }}
+              >
+                Stock Card
+              </Button>
 
-          {user?.role === 'admin' && view !== 'administrations' && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                setInitialVaccineType('');
-                setEditItem(null);
-                setAddOpen(true);
-              }}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 700,
-                fontSize: 13,
-                borderRadius: 2,
-                px: 2.25,
-                bgcolor: '#059669',
-                '&:hover': { bgcolor: '#047857' },
-                boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
-              }}
-            >
-              Add Stock Batch
-            </Button>
+              <Button
+                variant="outlined"
+                onClick={loadData}
+                disabled={loading}
+                startIcon={<RefreshIcon sx={{ fontSize: 16, transition: 'transform 0.4s', ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  borderRadius: 2,
+                  px: 2,
+                  borderColor: '#d1d5db',
+                  color: '#374151',
+                  '&:hover': { borderColor: '#10b981', color: '#10b981', bgcolor: '#f0fdf4' },
+                  '&:disabled': { opacity: 0.5 },
+                }}
+              >
+                {loading ? 'Refreshing…' : 'Refresh'}
+              </Button>
+
+              {user?.role === 'admin' && view !== 'administrations' && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    setInitialVaccineType('');
+                    setEditItem(null);
+                    setAddOpen(true);
+                  }}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    borderRadius: 2,
+                    px: 2.25,
+                    bgcolor: '#059669',
+                    '&:hover': { bgcolor: '#047857' },
+                    boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
+                  }}
+                >
+                  Add Stock Batch
+                </Button>
+              )}
+            </>
           )}
 
           <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
@@ -498,7 +555,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           onViewStockCard={(item) => {
             setSelectedStockCardId(item.inventory_id);
             setView('stockcard');
-            navigate('/inventory?tab=stockcard');
+            navigate(`/inventory?tab=stockcard&batchId=${item.inventory_id}`);
           }}
           onAddFirst={() => {
             setInitialVaccineType('');

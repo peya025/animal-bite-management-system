@@ -402,33 +402,25 @@ export default function RegistrationReportsPage() {
     {['overview', 'pep', 'surveillance', 'clinic_summary'].includes(tab) && <>
     {exportError && <Alert severity="error" onClose={() => setExportError('')}>{exportError}</Alert>}
     {error && <Alert severity="error" action={<Button color="inherit" startIcon={<Refresh />} onClick={() => setRefresh(n => n + 1)}>Retry</Button>}>{error}</Alert>}
-    {initialLoading && <div aria-label="Loading reports" aria-busy="true"><div className="rr-grid rr-grid-three">{[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={160} />)}</div><Skeleton variant="rounded" height={250} sx={{ mt: 2 }} /></div>}
+    {initialLoading && (
+      <div aria-label="Loading reports" aria-busy="true">
+        {tab === 'overview' ? (
+          <div className="rr-overview-top-section">
+            <div className="rr-summary-stack">
+              {[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={100} />)}
+            </div>
+            <Skeleton variant="rounded" height={324} />
+          </div>
+        ) : (
+          <div>
+            <div className="rr-grid rr-grid-three">{[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={160} />)}</div>
+            <Skeleton variant="rounded" height={250} sx={{ mt: 2 }} />
+          </div>
+        )}
+      </div>
+    )}
     {!initialLoading && data && stats && <>
       {tab === 'overview' && <>
-        {/* Row 1: Key Performance Indicators & Follow-up Alerts */}
-        <div className="rr-grid rr-grid-three">
-          <Paper elevation={0} className="rr-panel rr-metric">
-            <h2>PEP vaccine-course completion</h2>
-            <strong>{percent(stats.completion.rate)}</strong>
-            <p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
-            <small>{stats.completion_change_pp === null ? 'No comparable prior cohort' : `${stats.completion_change_pp > 0 ? '+' : ''}${stats.completion_change_pp} percentage points vs previous D0 cohort`}</small>
-            <Button size="small" onClick={() => selectReport('pep')}>View outcomes</Button>
-          </Paper>
-          <Paper elevation={0} className="rr-panel rr-metric">
-            <h2>Average time to first dose</h2>
-            <strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong>
-            <p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p>
-            <small>{stats.delay.samples} courses · Calendar days from exposure to D0</small>
-          </Paper>
-          <Paper elevation={0} className="rr-panel rr-metric">
-            <h2>Patients needing follow-up</h2>
-            <strong>{stats.overdue_patients}</strong>
-            <p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p>
-            <small>All incident dates · Not confirmed loss to follow-up</small>
-            <Button size="small" onClick={() => selectReport('followup')}>View follow-up list</Button>
-          </Paper>
-        </div>
-
         {(stats.overdue_patients > 0 || stats.awaiting_d0 > 0) && (
           <Alert
             severity="warning"
@@ -451,17 +443,28 @@ export default function RegistrationReportsPage() {
           </Alert>
         )}
 
-        {/* Section 2: PEP & Treatment Outcomes (Treatment outcomes + Follow-up priorities) */}
-        <div className="rr-section-heading">
-          <Typography component="h2" className="rr-group-title">PEP &amp; Treatment Outcomes</Typography>
-          <span className="rr-group-desc">Vaccine regimen completion rates and patient follow-up compliance</span>
-        </div>
-        <div className="rr-grid rr-grid-two rr-outcomes-grid">
-          <Bars
-            title="Treatment outcomes — selected D0 cohort"
-            rows={data.breakdowns.outcomes}
-            note={`D0 cohort: ${filters.from} to ${filters.to} · ${stats.completion.excluded} course(s) excluded from completion denominator`}
-          />
+        {/* Top Summary Cards & Follow-up Priorities Side-by-Side */}
+        <div className="rr-overview-top-section">
+          {/* Left side: 3 summary cards stacked vertically */}
+          <div className="rr-summary-stack">
+            <Paper elevation={0} className="rr-panel rr-metric">
+              <h2>PEP vaccine-course completion</h2>
+              <strong>{percent(stats.completion.rate)}</strong>
+              <p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
+            </Paper>
+            <Paper elevation={0} className="rr-panel rr-metric">
+              <h2>Average time to first dose</h2>
+              <strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong>
+              <p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p>
+            </Paper>
+            <Paper elevation={0} className="rr-panel rr-metric">
+              <h2>Patients needing follow-up</h2>
+              <strong>{stats.overdue_patients}</strong>
+              <p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p>
+            </Paper>
+          </div>
+
+          {/* Right side: Follow-up priorities today card */}
           <Paper elevation={0} className="rr-panel rr-followup-priorities">
             <Typography component="h2" className="rr-section-title">Follow-up priorities today</Typography>
             <div className="rr-priorities-body">

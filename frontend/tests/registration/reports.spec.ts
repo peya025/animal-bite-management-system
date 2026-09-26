@@ -32,7 +32,7 @@ test('registration has three clinical tabs, applied filters, and current follow-
   const request = page.waitForRequest(req => req.url().includes('/reports/registration') && req.url().includes('from=2026-01-01'));
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await request;
-  await page.getByRole('button', { name: 'View follow-up list' }).click();
+  await page.getByRole('button', { name: /View Overdue/i }).click();
   await expect(page.getByRole('tab', { name: 'PEP & Follow-up' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('heading', { name: 'Overdue Doses & Follow-up' })).toBeVisible();
   await page.getByRole('tab', { name: 'Bite Surveillance' }).click();

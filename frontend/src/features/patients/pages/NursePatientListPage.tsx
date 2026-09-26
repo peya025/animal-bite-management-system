@@ -33,6 +33,7 @@ import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
+import StatCard from '../../../components/common/StatCard/StatCard';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 
@@ -62,8 +63,8 @@ interface Patient {
 export default function NursePatientListPage() {
   const navigate = useNavigate();
 
-  // Station 2 begins with the patients expected for a follow-up dose today.
-  const [tab, setTab] = useState<'needs_action' | 'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('due_today');
+  // Default to Needs Action so nurses immediately see patients requiring attention (due today, overdue, in queue)
+  const [tab, setTab] = useState<'needs_action' | 'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('needs_action');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -129,14 +130,8 @@ export default function NursePatientListPage() {
       const msg = response.data?.message || 'Patient checked in successfully';
       toast(msg, 'success');
 
-      // A confirmed appointment is now ready for vaccination. Move the nurse
-      // directly to the Due Today worklist so Form 3 is immediately available.
-      setPage(0);
-      if (tab === 'due_today' && page === 0) {
-        await loadPatients();
-      } else {
-        setTab('due_today');
-      }
+      // Reload patients to reflect checked-in status and unlock Form 3
+      await loadPatients();
     } catch (err: any) {
       toast(err.response?.data?.message || 'Failed to check in patient', 'error');
     } finally {
@@ -533,16 +528,8 @@ export default function NursePatientListPage() {
             </Tooltip>
           );
         }
-        const hasCompletedTriage = Boolean(
-          patient.latest_treatment_record ||
-          (patient as any).latestTreatmentRecord ||
-          (patient as any).latest_consultation_record ||
-          (patient as any).latestConsultationRecord ||
-          activeQueue?.visit_type === 'vaccination' ||
-          activeQueue?.consultation_notes?.includes('Form 2')
-        );
-        const isCheckedIn = appt?.status === 'confirmed';
-        const needsCheckIn = hasCompletedTriage && !isCheckedIn && (appt?.status === 'scheduled' || appt?.status === 'missed');
+        const isCheckedIn = appt?.status === 'confirmed' || Boolean(activeQueue && ['waiting', 'called', 'serving', 'in_consultation'].includes(activeQueue.status));
+        const canCheckIn = !isCheckedIn && (appt?.status === 'scheduled' || appt?.status === 'missed');
 
         const record = patient.latest_treatment_record;
         const isPrimaryComplete = record && record.dose_number >= 7 && record.dose_number < 90;
@@ -578,7 +565,7 @@ export default function NursePatientListPage() {
               >
                 Completed · View Card
               </Button>
-            ) : needsCheckIn ? (
+            ) : canCheckIn ? (
               <Button
                 size="small"
                 variant="contained"
@@ -591,14 +578,14 @@ export default function NursePatientListPage() {
                   textTransform: 'none',
                   fontWeight: 600,
                   borderRadius: '6px',
-                  bgcolor: '#6366f1',
+                  bgcolor: '#10b981',
                   color: '#ffffff',
-                  '&:hover': { bgcolor: '#4f46e5' },
+                  '&:hover': { bgcolor: '#059669' },
                 }}
               >
                 {checkingInId === patient.patient_id ? 'Checking in...' : 'Check In'}
               </Button>
-            ) : hasCompletedTriage ? (
+            ) : (
               <Button
                 size="small"
                 variant="outlined"
@@ -622,22 +609,6 @@ export default function NursePatientListPage() {
               >
                 Record Dose (Form 3)
               </Button>
-            ) : (
-              <Tooltip title="Patient must complete Doctor Assessment & Form 2 before initial Dose 1. Direct to Intake Station (Nurse 1).">
-                <Chip
-                  label="Intake — Nurse 1"
-                  size="small"
-                  sx={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    height: 26,
-                    color: '#475569',
-                    borderColor: '#cbd5e1',
-                    bgcolor: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                  }}
-                />
-              </Tooltip>
             )}
 
             <Tooltip title="View Treatment Record Card (Printable)">
@@ -684,10 +655,10 @@ export default function NursePatientListPage() {
               mb: 0.5,
             }}
           >
-            Station 2 · Follow-up Doses
+            Follow-Up & Vaccination Patient List
           </Typography>
           <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
-            {today} · Indigo Station 2: manage Doctor-prescribed scheduled follow-up doses due today, overdue, or upcoming
+            {today} · Follow-Up Station: manage due today, overdue follow-ups, online bookings, and booster vaccinations
           </Typography>
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
@@ -700,11 +671,11 @@ export default function NursePatientListPage() {
             <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Treatment Queues</span>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Station 2: Follow-up Doses</span>
+            <span style={{ color: '#6b7280' }}>Follow-up Patient List</span>
           </div>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {loading && <CircularProgress size={18} sx={{ color: '#6366f1' }} />}
+          {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
           <Tooltip title="Refresh Patients List">
             <IconButton onClick={loadPatients} disabled={loading} sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', border: '1px solid var(--border-glow, #e0eae3)', borderRadius: 2, color: 'var(--text-m, #6b7280)' }}>
               <HugeiconsIcon icon={RefreshIcon} size={18} />
@@ -713,7 +684,27 @@ export default function NursePatientListPage() {
         </Box>
       </Box>
 
-      {/* ── Top Circular Ring Summary Cards (Matching Vaccine Inventory & Queue Design) ── */}
+      {/* ── Top Circular Ring Summary Cards ── */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' }, gap: 2, mb: 3 }}>
+        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('needs_action'); setPage(0); }}>
+          <StatCard label="NEEDS ACTION" value={kpiStats.needsAction} color="warning" total={totalCount || 1} loading={loading} />
+        </Box>
+        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('due_today'); setPage(0); }}>
+          <StatCard label="DUE TODAY" value={kpiStats.dueToday} color="info" total={totalCount || 1} loading={loading} />
+        </Box>
+        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('overdue'); setPage(0); }}>
+          <StatCard label="OVERDUE DOSES" value={kpiStats.overdue} color="error" total={totalCount || 1} loading={loading} />
+        </Box>
+        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('online'); setPage(0); }}>
+          <StatCard label="ONLINE APPOINTMENTS" value={kpiStats.online} color="primary" total={totalCount || 1} loading={loading} />
+        </Box>
+        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('upcoming'); setPage(0); }}>
+          <StatCard label="UPCOMING DOSES" value={kpiStats.upcoming} color="success" total={totalCount || 1} loading={loading} />
+        </Box>
+        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('all'); setPage(0); }}>
+          <StatCard label="TOTAL TRACKED" value={totalCount} color="info" total={totalCount || 1} loading={loading} />
+        </Box>
+      </Box>
 
       {/* ── Tabs Bar with Soft Count Badges ── */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', mb: 3 }}>
@@ -729,10 +720,23 @@ export default function NursePatientListPage() {
               fontSize: 13.5,
               minHeight: 48,
             },
-            '& .Mui-selected': { color: '#6366f1' },
-            '& .MuiTabs-indicator': { bgcolor: '#6366f1', height: 3, borderRadius: '3px 3px 0 0' },
+            '& .Mui-selected': { color: '#10b981' },
+            '& .MuiTabs-indicator': { bgcolor: '#10b981', height: 3, borderRadius: '3px 3px 0 0' },
           }}
         >
+          <Tab
+            label={
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <span>Needs Action</span>
+                <Box sx={{ bgcolor: tab === 'needs_action' ? '#fef3c7' : '#f3f4f6', color: tab === 'needs_action' ? '#b45309' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+                  {kpiStats.needsAction}
+                </Box>
+              </Stack>
+            }
+            value="needs_action"
+            icon={<HugeiconsIcon icon={AlertCircleIcon} size={17} />}
+            iconPosition="start"
+          />
           <Tab
             label={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -749,20 +753,6 @@ export default function NursePatientListPage() {
           <Tab
             label={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <span>Needs Action</span>
-                <Box sx={{ bgcolor: tab === 'needs_action' ? '#fef3c7' : '#f3f4f6', color: tab === 'needs_action' ? '#b45309' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
-                  {kpiStats.needsAction}
-                </Box>
-              </Stack>
-            }
-            value="needs_action"
-            sx={{ display: 'none' }}
-            icon={<HugeiconsIcon icon={AlertCircleIcon} size={17} />}
-            iconPosition="start"
-          />
-          <Tab
-            label={
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <span>Online Bookings</span>
                 <Box sx={{ bgcolor: tab === 'online' ? '#e0f2fe' : '#f3f4f6', color: tab === 'online' ? '#0284c7' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
                   {kpiStats.online}
@@ -770,7 +760,6 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="online"
-            sx={{ display: 'none' }}
             icon={<HugeiconsIcon icon={SmartPhone01Icon} size={17} />}
             iconPosition="start"
           />
@@ -810,7 +799,6 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="all"
-            sx={{ display: 'none' }}
             icon={<HugeiconsIcon icon={UserMultiple02Icon} size={17} />}
             iconPosition="start"
           />
@@ -843,7 +831,7 @@ export default function NursePatientListPage() {
                 fontSize: 13,
                 '& fieldset': { borderColor: '#e5e7eb' },
                 '&:hover fieldset': { borderColor: '#9ca3af' },
-                '&.Mui-focused fieldset': { borderColor: '#6366f1', borderWidth: '1.5px' },
+                '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '1.5px' },
               },
             }}
           />
@@ -857,7 +845,19 @@ export default function NursePatientListPage() {
           rowKey={(p) => p.patient_id}
           emptyIcon={<HugeiconsIcon icon={Medicine01Icon} size={36} color="#d1d5db" />}
           emptyTitle="No patients found"
-          emptySubtitle={tab === 'due_today' ? 'No patients scheduled for dose administration today' : 'Try adjusting your search or filters'}
+          emptySubtitle={
+            tab === 'due_today'
+              ? 'No patients scheduled for dose administration today'
+              : tab === 'needs_action'
+              ? 'No patients requiring follow-up action right now'
+              : tab === 'overdue'
+              ? 'No overdue follow-up doses'
+              : tab === 'online'
+              ? 'No online appointment bookings found'
+              : tab === 'upcoming'
+              ? 'No upcoming doses scheduled'
+              : 'Try adjusting your search or filters'
+          }
         />
 
         <TablePager

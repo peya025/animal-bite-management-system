@@ -45,6 +45,7 @@ export const ROUTES = {
 
   INVENTORY: {
     LIST: '/inventory',
+    STOCK_CARD: '/inventory?tab=stockcard',
     TYPES: '/inventory/types',
     ADMINISTRATIONS: '/inventory/administrations',
   },

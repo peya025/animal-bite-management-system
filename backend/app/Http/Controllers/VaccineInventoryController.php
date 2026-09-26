@@ -912,11 +912,13 @@ class VaccineInventoryController extends Controller
     public function transactions(Request $request, $id)
     {
         $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
+            ->withTrashed()
             ->findOrFail($id);
 
         $transactions = InventoryTransaction::where('inventory_id', $id)
             ->with('staff')
-            ->orderByDesc('transaction_date')
+            ->orderBy('transaction_date', 'asc')
+            ->orderBy('transaction_id', 'asc')
             ->get();
 
         return response()->json([

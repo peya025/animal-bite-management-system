@@ -94,7 +94,7 @@
 /* Overview Top Section: 3 Stacked Cards (Left) & Follow-up Priorities (Right) */
 .rr-overview-top-section {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
   align-items: stretch;
   width: 100%;
@@ -103,17 +103,18 @@
 .rr-summary-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
   height: 100%;
 }
 
 .rr-summary-stack .rr-metric {
   flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 14px 20px;
+  padding: 16px 20px;
   box-sizing: border-box;
 }
 
@@ -140,6 +141,7 @@
 .rr-followup-priorities {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   height: 100%;
   box-sizing: border-box;
   padding: 20px 22px;
@@ -148,11 +150,10 @@
   margin: 0 0 12px;
 }
 .rr-priorities-body {
-  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin: 4px 0 12px;
+  margin: 0 0 12px;
 }
 .rr-priority-stat {
   display: flex;
@@ -197,6 +198,15 @@
 .rr-priority-sub {
   font-size: 11px;
   color: var(--rr-muted);
+}
+.rr-followup-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rr-followup-footer .rr-note {
+  margin: 0;
 }
 
 /* Tab Intro Banner for Non-Overview Tabs */
@@ -348,6 +358,10 @@
   .rr-overview-top-section {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+  .rr-summary-stack,
+  .rr-followup-priorities {
+    height: auto;
   }
 }
 

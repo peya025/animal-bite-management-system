@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Box, Paper, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { staffApi } from '../../../services/staffApi';
 import { ROUTES } from '../../../shared/config/routes';
@@ -23,6 +24,8 @@ const MODULE_COLORS: Record<AssignedModule, string> = {
 };
 
 export default function StaffAssignmentPage() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +77,6 @@ export default function StaffAssignmentPage() {
     }
   };
 
-
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 5000);
@@ -96,6 +98,15 @@ export default function StaffAssignmentPage() {
     treatment: staff.filter(s => s.assigned_module === 'treatment').length,
     inventory: staff.filter(s => s.assigned_module === 'inventory').length,
   };
+
+  const summaryCards = [
+    { label: 'Total Staff', value: stats.total },
+    { label: 'All Modules', value: stats.all },
+    { label: 'Registration', value: stats.registration },
+    { label: 'Triage', value: stats.triage },
+    { label: 'Treatment', value: stats.treatment },
+    { label: 'Inventory', value: stats.inventory },
+  ];
 
   if (loading) {
     return (
@@ -130,14 +141,111 @@ export default function StaffAssignmentPage() {
       </div>
 
       {/* Stats Cards */}
-      <div style={styles.statsGrid}>
-        <StatCard label="Total Staff" value={stats.total} color="#6366f1" />
-        <StatCard label="All Modules" value={stats.all} color="#6366f1" />
-        <StatCard label="Registration" value={stats.registration} color="#8b5cf6" />
-        <StatCard label="Triage" value={stats.triage} color="#06b6d4" />
-        <StatCard label="Treatment" value={stats.treatment} color="#10b981" />
-        <StatCard label="Inventory" value={stats.inventory} color="#f59e0b" />
-      </div>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, 1fr)',
+            md: 'repeat(3, 1fr)',
+          },
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        {summaryCards.map(card => {
+          const hoverShadow = isDark
+            ? '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+            : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
+          return (
+            <Paper
+              key={card.label}
+              elevation={0}
+              sx={{
+                p: '16px 18px',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                position: 'relative',
+                overflow: 'hidden',
+                cursor: 'default',
+                transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                minHeight: 90,
+                ...(isDark
+                  ? {
+                      background: '#111827',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                      '&:hover': {
+                        boxShadow: hoverShadow,
+                      },
+                    }
+                  : {
+                      background: '#ffffff',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                      '&:hover': {
+                        boxShadow: hoverShadow,
+                      },
+                    }),
+              }}
+            >
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '12px',
+                  bgcolor: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.12)',
+                  color: '#10b981',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  boxShadow: '0 0 12px rgba(16, 185, 129, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  sx={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: isDark ? '#a7f3d0' : '#047857',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    whiteSpace: 'nowrap',
+                    fontFamily: "'Poppins', sans-serif",
+                    margin: '0 0 4px 0',
+                  }}
+                >
+                  {card.label}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: isDark ? '#ffffff' : '#064e3b',
+                    margin: 0,
+                    fontFamily: "'Poppins', sans-serif",
+                    lineHeight: 1.1,
+                    textShadow: isDark ? '0 1px 3px rgba(0,0,0,0.5)' : 'none',
+                  }}
+                >
+                  {card.value}
+                </Typography>
+              </Box>
+            </Paper>
+          );
+        })}
+      </Box>
 
       {/* Search */}
       <div style={styles.searchContainer}>
@@ -335,58 +443,6 @@ export default function StaffAssignmentPage() {
 }
 
 
-function StatCard({ label, value, color: _color }: { label: string; value: number; color?: string }) {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '16px',
-        padding: '18px 20px',
-        borderRadius: 20,
-        background: isDark
-          ? 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)'
-          : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-        border: isDark ? '1px solid rgba(163, 230, 53, 0.3)' : '1px solid rgba(16, 185, 129, 0.32)',
-        boxShadow: isDark
-          ? '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)'
-          : '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        minHeight: 90,
-      }}
-    >
-      <div
-        style={{
-          width: '44px',
-          height: '44px',
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.12)',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
-          boxShadow: '0 0 12px rgba(16, 185, 129, 0.2)',
-          color: '#10b981',
-          flexShrink: 0,
-        }}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      </div>
-      <div>
-        <p style={{ fontSize: '11px', fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 4px 0', fontFamily: "'Poppins', sans-serif" }}>{label}</p>
-        <p style={{ fontSize: '24px', fontWeight: 800, color: isDark ? '#ffffff' : '#064e3b', margin: 0, fontFamily: "'Poppins', sans-serif", lineHeight: 1.1, textShadow: isDark ? '0 1px 3px rgba(0,0,0,0.5)' : 'none' }}>{value}</p>
-      </div>
-    </div>
-  );
-}
-
 const styles: Record<string, React.CSSProperties> = {
   container: {
     fontFamily: "'Poppins', sans-serif",
@@ -429,42 +485,6 @@ const styles: Record<string, React.CSSProperties> = {
   subtitle: {
     fontSize: '14px',
     color: '#6b7280',
-    margin: 0,
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '16px',
-    marginBottom: '24px',
-  },
-  statCard: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '16px',
-    backgroundColor: 'var(--card-bg-solid, #ffffff)',
-    borderRadius: '12px',
-    border: '1px solid var(--border-glow, #e5e7eb)',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-  },
-  statIcon: {
-    width: '44px',
-    height: '44px',
-    borderRadius: '10px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statLabel: {
-    fontSize: '12px',
-    color: 'var(--text-m, #6b7280)',
-    margin: '0 0 4px 0',
-    fontWeight: 500,
-  },
-  statValue: {
-    fontSize: '24px',
-    fontWeight: 700,
-    color: 'var(--text-h, #111827)',
     margin: 0,
   },
   searchContainer: {

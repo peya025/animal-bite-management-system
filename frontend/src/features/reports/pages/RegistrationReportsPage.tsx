@@ -346,6 +346,31 @@ export default function RegistrationReportsPage() {
   const displayedMeta = isCurrentReport && activeReportData?.data ? activeReportData.data.meta : globalData?.meta;
   const currentColumns = displayedRecords?.columns ?? REPORT_COLUMNS[report];
 
+  const renderFilters = () => (
+    <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={event => { event.preventDefault(); if (valid) { setFilters({ ...draft }); setPage(1); } }}>
+      <div className="rr-filter-row">
+        <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
+          <MenuItem value="today">Today</MenuItem>
+          <MenuItem value="week">This week</MenuItem>
+          <MenuItem value="month">This month</MenuItem>
+          <MenuItem value="previous">Previous month</MenuItem>
+          <MenuItem value="last30">Last 30 days</MenuItem>
+          <MenuItem value="year">This year</MenuItem>
+          <MenuItem value="custom">Custom range</MenuItem>
+        </TextField>
+        <TextField size="small" type="date" label="From" value={draft.from} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, from: e.target.value }); setPreset('custom'); }} />
+        <TextField size="small" type="date" label="To" value={draft.to} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, to: e.target.value }); setPreset('custom'); }} />
+        <TextField size="small" select label="Category" value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}>
+          <MenuItem value="ALL">All categories</MenuItem>{['I', 'II', 'III'].map(value => <MenuItem key={value} value={value}>Category {value}</MenuItem>)}
+        </TextField>
+        <Button type="submit" variant="contained" disableElevation disabled={!valid || initialLoading}>Apply</Button>
+        <Button onClick={() => { const next = dateRange('month'); setDraft(next); setFilters(next); setPreset('month'); setPage(1); }}>Reset</Button>
+      </div>
+      {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
+      <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
+    </Paper>
+  );
+
   return <Box className="registration-reports" sx={{ color: 'text.primary', bgcolor: 'background.default' }}>
     <header className="rr-header"><div><Typography component="h1">Reports &amp; Analytics</Typography><p>Treatment outcomes, follow-up priorities, and bite surveillance</p><small>Dashboard / Reports</small></div>
       {['overview', 'pep', 'surveillance', 'clinic_summary'].includes(tab) && (
@@ -398,29 +423,8 @@ export default function RegistrationReportsPage() {
       </Alert>
     )}
 
-    {/* Unified Global Filters for all report tabs */}
-    <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={event => { event.preventDefault(); if (valid) { setFilters({ ...draft }); setPage(1); } }}>
-      <div className="rr-filter-row">
-        <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
-          <MenuItem value="today">Today</MenuItem>
-          <MenuItem value="week">This week</MenuItem>
-          <MenuItem value="month">This month</MenuItem>
-          <MenuItem value="previous">Previous month</MenuItem>
-          <MenuItem value="last30">Last 30 days</MenuItem>
-          <MenuItem value="year">This year</MenuItem>
-          <MenuItem value="custom">Custom range</MenuItem>
-        </TextField>
-        <TextField size="small" type="date" label="From" value={draft.from} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, from: e.target.value }); setPreset('custom'); }} />
-        <TextField size="small" type="date" label="To" value={draft.to} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, to: e.target.value }); setPreset('custom'); }} />
-        <TextField size="small" select label="Category" value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}>
-          <MenuItem value="ALL">All categories</MenuItem>{['I', 'II', 'III'].map(value => <MenuItem key={value} value={value}>Category {value}</MenuItem>)}
-        </TextField>
-        <Button type="submit" variant="contained" disableElevation disabled={!valid || initialLoading}>Apply</Button>
-        <Button onClick={() => { const next = dateRange('month'); setDraft(next); setFilters(next); setPreset('month'); setPage(1); }}>Reset</Button>
-      </div>
-      {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
-      <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
-    </Paper>
+    {/* Unified Global Filters: Rendered at top for non-overview tabs */}
+    {tab !== 'overview' && renderFilters()}
 
     {['overview', 'pep', 'surveillance', 'clinic_summary'].includes(tab) && <>
     {exportError && <Alert severity="error" onClose={() => setExportError('')}>{exportError}</Alert>}
@@ -428,12 +432,15 @@ export default function RegistrationReportsPage() {
     {initialLoading && (
       <div aria-label="Loading reports" aria-busy="true">
         {tab === 'overview' ? (
-          <div className="rr-overview-top-section">
-            <div className="rr-summary-stack">
-              {[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={92} />)}
+          <>
+            <div className="rr-overview-top-section">
+              <div className="rr-summary-stack">
+                {[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={92} />)}
+              </div>
+              <Skeleton variant="rounded" height={300} />
             </div>
-            <Skeleton variant="rounded" height={300} />
-          </div>
+            {renderFilters()}
+          </>
         ) : (
           <div>
             <div className="rr-grid rr-grid-three">{[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={160} />)}</div>
@@ -493,6 +500,9 @@ export default function RegistrationReportsPage() {
             </div>
           </Paper>
         </div>
+
+        {/* Filters Section: positioned below Summary Cards & Follow-up Priorities on Overview */}
+        {renderFilters()}
 
         {/* Section 3: Bite Surveillance Analytics */}
         <div className="rr-section-heading">

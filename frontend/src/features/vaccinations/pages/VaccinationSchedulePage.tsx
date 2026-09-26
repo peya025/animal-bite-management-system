@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 import {
   Box,
   Paper,
@@ -110,6 +112,7 @@ interface JourneyKPI {
 }
 
 export default function VaccinationSchedulePage() {
+  const navigate = useNavigate();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [loading, setLoading] = useState(true);
@@ -372,30 +375,39 @@ export default function VaccinationSchedulePage() {
     <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: isDark ? 'transparent' : '#f8fafc', minHeight: '100vh' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box
+        <Box>
+          <Typography
+            component="h1"
             sx={{
-              width: 44,
-              height: 44,
-              borderRadius: '12px',
-              bgcolor: '#047857',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(4, 120, 87, 0.2)',
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
             }}
           >
-            <HugeiconsIcon icon={Medicine01Icon} size={24} />
-          </Box>
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.02em', fontFamily: "'Poppins', sans-serif" }}>
-              Vaccination & Regimen Center
-            </Typography>
-            <Typography variant="body2" sx={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '13px', fontFamily: "'Poppins', sans-serif" }}>
-              Post-Exposure Prophylaxis (PEP) journey tracking, channel filtration, and multi-channel recall alerts
-            </Typography>
-          </Box>
+            Vaccination Schedule
+          </Typography>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Vaccination Schedule</span>
+          </div>
         </Box>
 
         {/* Header Action Buttons */}

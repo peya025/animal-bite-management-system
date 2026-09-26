@@ -1,6 +1,8 @@
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { printWhenReady } from '../../../components/print/printReady';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 import { useTheme } from '@mui/material/styles';
 import api from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -1021,6 +1023,7 @@ export default function ReportsDashboardPage() {
 }
 
 function LegacyReportsDashboardPage() {
+  const navigate = useNavigate();
   const { clinic: authClinic } = useAuth();
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
@@ -1484,16 +1487,19 @@ function LegacyReportsDashboardPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 25, fontWeight: 600, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
-          <p style={{ fontSize: 13, color: '#77877d', margin: 0 }}>Generate, filter, and print audit-ready clinical and inventory reports</p>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-h)', margin: '0 0 4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            Reports &amp; Analytics
+          </h1>
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button onClick={() => { window.location.href = '/dashboard'; }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
               Dashboard
             </button>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Reports</span>
+            <span style={{ color: '#6b7280' }}>Reports &amp; Analytics</span>
           </div>
         </div>
         <button onClick={handleOpenPrint}

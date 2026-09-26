@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, Box, Button, FormControl, InputAdornment, MenuItem, Paper, Select, Skeleton, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
 import { CheckCircleOutlined, Clear, ErrorOutlined, FileDownloadOutlined, LocationOnOutlined, PetsOutlined, SearchOutlined, TrendingDown, TrendingUp, WarningAmberOutlined } from '@mui/icons-material';
 import api from '../../../services/api';
+import { ROUTES } from '../../../shared/config/routes';
 
 type RiskLevel = 'high' | 'medium' | 'low';
 type LocationSummary = { location: string; location_level: string; risk_score: number; risk_level: RiskLevel; total_cases: number; cat_1: number; cat_2: number; cat_3: number; animal_types: Record<string, number>; pep_compliance: number; overdue_doses: number; trend: 'up' | 'down' | 'neutral' | 'new'; trend_diff: number | null; last_incident: string | null; last_incident_days_ago: number | null };
@@ -48,7 +49,21 @@ export default function BiteCaseRiskDashboard() {
   const exportCsv = () => { if (!data?.locations.length) return; const rows = [['Location', 'Risk level', 'Risk score', 'Total cases', 'Category III', 'Category II', 'Category I', 'PEP compliance', 'Overdue doses', 'Last incident'], ...data.locations.map(row => [row.location, row.risk_level, `${row.risk_score}%`, row.total_cases, row.cat_3, row.cat_2, row.cat_1, `${row.pep_compliance}%`, row.overdue_doses, row.last_incident ?? ''])]; const csv = rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\n'); const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = 'location-risk-summary.csv'; link.click(); URL.revokeObjectURL(url); };
   const riskHeaders = ['#', 'LOCATION', 'RISK LEVEL', 'RISK SCORE', 'TOTAL CASES', 'SEVERE', 'MODERATE', 'MINOR', 'ANIMAL TYPE', 'PEP COMPLIANCE', 'OVERDUE DOSES', 'TREND', 'LAST INCIDENT']; const caseHeaders = ['#', 'CASE NUMBER', 'PATIENT', 'LOCATION', 'SEVERITY', 'ANIMAL', 'STATUS', 'INCIDENT DATE']; const headers = tab === 'risk' ? riskHeaders : caseHeaders;
   return <Box sx={{ px: { xs: 1.5, md: 3 }, py: 1, bgcolor: '#f9fafb', minHeight: '100%' }}>
-    <Box sx={{ mb: 2.5 }}><Typography component="h1" sx={{ fontSize: 20, fontWeight: 600, color: '#111827' }}>Bite Cases Summary</Typography><Typography sx={{ fontSize: 12, color: '#9ca3af', mt: .4 }}>Track high and low risk locations, PEP compliance, and animal bite surveillance</Typography><Box sx={{ display: 'flex', gap: .75, mt: .8, fontSize: 12 }}><Button onClick={() => navigate('/dashboard')} sx={{ minWidth: 0, p: 0, fontSize: 12, textTransform: 'none', color: '#6b7280' }}>Dashboard</Button><Typography sx={{ color: '#9ca3af', fontSize: 12 }}>›</Typography><Typography sx={{ color: '#9ca3af', fontSize: 12 }}>Bite Cases Summary</Typography></Box></Box>
+    <Box sx={{ mb: 2.5 }}>
+      <Typography component="h1" sx={{ fontSize: 24, fontWeight: 700, color: '#111827', letterSpacing: '-0.02em', mb: 0.5 }}>
+        Bite Cases Summary
+      </Typography>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
+        <button
+          onClick={() => navigate(ROUTES.DASHBOARD)}
+          style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+        >
+          Dashboard
+        </button>
+        <span style={{ color: '#9ca3af' }}>›</span>
+        <span style={{ color: '#6b7280' }}>Bite Cases Summary</span>
+      </div>
+    </Box>
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' }, gap: 1.25, mb: 2 }}><StatCard label="TOTAL CASES" value={data?.summary.total_cases ?? 0} color="#3b82f6" icon={<PetsOutlined fontSize="small" />} loading={loading} /><StatCard label="ACTIVE CASES" value={data?.summary.active_cases ?? 0} color="#1D9E75" icon={<WarningAmberOutlined fontSize="small" />} loading={loading} /><StatCard label="COMPLETED" value={data?.summary.completed ?? 0} color="#16a34a" icon={<CheckCircleOutlined fontSize="small" />} loading={loading} /><StatCard label="HIGH RISK ZONES" value={data?.summary.high_risk_zones ?? 0} color="#ef4444" icon={<ErrorOutlined fontSize="small" />} loading={loading} /><StatCard label="OVERDUE DOSES" value={data?.summary.overdue_doses ?? 0} color="#f59e0b" icon={<WarningAmberOutlined fontSize="small" />} loading={loading} /><StatCard label="PEP COMPLIANCE" value={`${data?.summary.pep_compliance ?? 0}%`} color="#6b7280" icon={<CheckCircleOutlined fontSize="small" />} loading={loading} /></Box>
     {alerts.length > 0 && <Box sx={{ mb: 2, p: '10px 14px', borderRadius: '10px', border: '0.5px solid #fecaca', bgcolor: '#fef2f2', display: 'flex', gap: 1, alignItems: 'flex-start' }}><WarningAmberOutlined sx={{ color: '#ef4444', fontSize: 20, mt: .1 }} /><Typography sx={{ color: '#991b1b', fontSize: 12, lineHeight: 1.55, fontWeight: 600 }}>{alerts.join(' · ')}</Typography></Box>}
     <Paper elevation={0} sx={{ border: BORDER, borderRadius: '12px', p: '12px 14px', mb: 2 }}><Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}><Button onClick={() => setTab('risk')} variant={tab === 'risk' ? 'contained' : 'text'} disableElevation sx={{ bgcolor: tab === 'risk' ? '#1D9E75' : 'transparent', color: tab === 'risk' ? '#fff' : '#6b7280', '&:hover': { bgcolor: tab === 'risk' ? '#187e5e' : '#f3f4f6' }, textTransform: 'none', borderRadius: 2, fontWeight: 500, fontSize: 12 }}>Risk by Location</Button><Button onClick={() => setTab('cases')} variant={tab === 'cases' ? 'contained' : 'text'} disableElevation sx={{ bgcolor: tab === 'cases' ? '#1D9E75' : 'transparent', color: tab === 'cases' ? '#fff' : '#6b7280', '&:hover': { bgcolor: tab === 'cases' ? '#187e5e' : '#f3f4f6' }, textTransform: 'none', borderRadius: 2, fontWeight: 500, fontSize: 12 }}>All Cases</Button></Box>

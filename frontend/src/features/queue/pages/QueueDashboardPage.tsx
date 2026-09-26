@@ -813,7 +813,7 @@ export default function QueueDashboard() {
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, minHeight: 44 }}>
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, flexWrap: 'wrap' }}>
-            <Typography component="h1" sx={{ fontWeight: 600, fontSize: '20px', lineHeight: 1.2, letterSpacing: '-0.3px', color: 'var(--text-h)', m: 0 }}>
+            <Typography component="h1" sx={{ fontWeight: 700, fontSize: '24px', lineHeight: 1.2, letterSpacing: '-0.02em', color: 'var(--text-h)', m: 0 }}>
               {pageTitle}
             </Typography>
             <Typography sx={{ fontSize: '12px', color: 'var(--text-secondary)', m: 0 }}>
@@ -822,7 +822,7 @@ export default function QueueDashboard() {
           </Box>
 
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}

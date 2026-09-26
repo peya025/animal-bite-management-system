@@ -812,28 +812,79 @@ export default function QueueDashboard() {
       {/* ── 1. Compact Header Row (<= 60px tall) ── */}
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, minHeight: 44 }}>
         <Box>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, flexWrap: 'wrap' }}>
-            <Typography component="h1" sx={{ fontWeight: 600, fontSize: '20px', lineHeight: 1.2, letterSpacing: '-0.3px', color: 'var(--text-h)', m: 0 }}>
-              {pageTitle}
-            </Typography>
-            <Typography sx={{ fontSize: '12px', color: 'var(--text-secondary)', m: 0 }}>
-              {today} · Auto-refreshes every 30s
-            </Typography>
-          </Box>
+          {isTreatmentNurse ? (
+            <>
+              <Typography
+                component="h1"
+                sx={{
+                  fontFamily: 'Poppins',
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.02em',
+                  color: 'var(--text-h, #111827)',
+                  mb: 0.5,
+                }}
+              >
+                {pageTitle}
+              </Typography>
+              {/* Breadcrumb */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginTop: '8px',
+                  fontFamily: 'Poppins',
+                  fontSize: '13px',
+                }}
+              >
+                <button
+                  onClick={() => navigate(ROUTES.DASHBOARD)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: '#3b82f6',
+                    fontFamily: 'Poppins',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Treatment Queues</span>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Station 1: New & Day 0</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, flexWrap: 'wrap' }}>
+                <Typography component="h1" sx={{ fontWeight: 600, fontSize: '20px', lineHeight: 1.2, letterSpacing: '-0.3px', color: 'var(--text-h)', m: 0 }}>
+                  {pageTitle}
+                </Typography>
+                <Typography sx={{ fontSize: '12px', color: 'var(--text-secondary)', m: 0 }}>
+                  {today} · Auto-refreshes every 30s
+                </Typography>
+              </Box>
 
-          {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button
-              onClick={() => navigate(ROUTES.DASHBOARD)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
-            >
-              Dashboard
-            </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Treatment Queues</span>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Station 1: New & Day 0</span>
-          </div>
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+                <button
+                  onClick={() => navigate(ROUTES.DASHBOARD)}
+                  style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+                >
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Treatment Queues</span>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Station 1: New & Day 0</span>
+              </div>
+            </>
+          )}
         </Box>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>

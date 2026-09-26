@@ -1,5 +1,8 @@
 // @ts-nocheck
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../shared/contexts/AuthContext';
+import { ROUTES } from '../../../shared/config/routes';
 import { Alert, Box, Divider, Paper, Snackbar, Stack, TextField, Typography } from '@mui/material';
 import api from '../../../services/api';
 import AppButton from '../../../components/button';
@@ -8,6 +11,8 @@ import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
 export default function UserProfilePage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   // Draft persists name + phone changes. We intentionally never persist
   // password fields to avoid writing credentials to localStorage.
   const draft = useFormDraft('user-profile');
@@ -76,10 +81,58 @@ export default function UserProfilePage() {
 
   return (
     <Box sx={{ px: 3, maxWidth: 720 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>My profile</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Update your contact details and password.
-      </Typography>
+      {user?.role === 'treatment' ? (
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            component="h1"
+            sx={{
+              fontFamily: 'Poppins',
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
+            My Profile
+          </Typography>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontFamily: 'Poppins',
+              fontSize: '13px',
+            }}
+          >
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontFamily: 'Poppins',
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>My Profile</span>
+          </div>
+        </Box>
+      ) : (
+        <>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>My profile</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Update your contact details and password.
+          </Typography>
+        </>
+      )}
       <Paper component="form" onSubmit={submit} elevation={0} sx={{ p: 3, border: '1px solid #e5e7eb', borderRadius: 3 }}>
         <Stack spacing={2}>
           <TextField required label="Full name" value={form.name} onChange={e => set('name', e.target.value)} />

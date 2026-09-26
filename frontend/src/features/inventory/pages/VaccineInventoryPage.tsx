@@ -289,44 +289,122 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
     <Box sx={{ px: 3 }}>
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-            <Typography component="h1" sx={{ fontWeight: 700, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', m: 0 }}>
-              {view === 'stockcard' ? 'Stock Card' : view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
-            </Typography>
-          </Box>
-          {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button
-              onClick={() => navigate(ROUTES.DASHBOARD)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
-            >
-              Dashboard
-            </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Vaccine Stock Management</span>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            {view === 'stockcard' ? (
-              <>
+          {isNurseRole ? (
+            <>
+              <Typography
+                component="h1"
+                sx={{
+                  fontFamily: 'Poppins',
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.02em',
+                  color: 'var(--text-h, #111827)',
+                  mb: 0.5,
+                }}
+              >
+                {view === 'stockcard' ? 'Stock Card' : view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
+              </Typography>
+              {/* Breadcrumb */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginTop: '8px',
+                  fontFamily: 'Poppins',
+                  fontSize: '13px',
+                }}
+              >
                 <button
-                  onClick={() => {
-                    setView('table');
-                    setSelectedStockCardId(null);
-                    navigate('/inventory');
+                  onClick={() => navigate(ROUTES.DASHBOARD)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: '#3b82f6',
+                    fontFamily: 'Poppins',
+                    fontSize: '13px',
+                    cursor: 'pointer',
                   }}
-                  style={{ background: 'none', border: 'none', padding: 0, color: '#059669', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer', fontWeight: 600 }}
                 >
-                  Vaccine Inventory
+                  Dashboard
                 </button>
                 <span style={{ color: '#9ca3af' }}>›</span>
-                <span style={{ color: '#0f172a', fontWeight: 700 }}>Stock Card</span>
-              </>
-            ) : (
-              <span style={{ color: '#6b7280' }}>
-                {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
-              </span>
-            )}
-          </div>
-
+                <span style={{ color: '#6b7280' }}>Vaccine Stock Management</span>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                {view === 'stockcard' ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setView('table');
+                        setSelectedStockCardId(null);
+                        navigate('/inventory');
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        color: '#059669',
+                        fontFamily: 'Poppins',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Vaccine Inventory
+                    </button>
+                    <span style={{ color: '#9ca3af' }}>›</span>
+                    <span style={{ color: '#0f172a', fontWeight: 700 }}>Stock Card</span>
+                  </>
+                ) : (
+                  <span style={{ color: '#6b7280' }}>
+                    {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <Typography component="h1" sx={{ fontWeight: 700, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', m: 0 }}>
+                  {view === 'stockcard' ? 'Stock Card' : view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
+                </Typography>
+              </Box>
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+                <button
+                  onClick={() => navigate(ROUTES.DASHBOARD)}
+                  style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+                >
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Vaccine Stock Management</span>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                {view === 'stockcard' ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setView('table');
+                        setSelectedStockCardId(null);
+                        navigate('/inventory');
+                      }}
+                      style={{ background: 'none', border: 'none', padding: 0, color: '#059669', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Vaccine Inventory
+                    </button>
+                    <span style={{ color: '#9ca3af' }}>›</span>
+                    <span style={{ color: '#0f172a', fontWeight: 700 }}>Stock Card</span>
+                  </>
+                ) : (
+                  <span style={{ color: '#6b7280' }}>
+                    {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
         </Box>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>

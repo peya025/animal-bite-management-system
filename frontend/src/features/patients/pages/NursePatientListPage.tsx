@@ -646,25 +646,40 @@ export default function NursePatientListPage() {
         <Box>
           <Typography
             component="h1"
-            variant="h4"
             sx={{
+              fontFamily: 'Poppins',
               fontSize: '24px',
               fontWeight: 700,
-              color: 'var(--text-h)',
+              lineHeight: 1.2,
               letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
               mb: 0.5,
             }}
           >
             Follow-Up & Vaccination Patient List
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
-            {today} · Follow-Up Station: manage due today, overdue follow-ups, online bookings, and booster vaccinations
-          </Typography>
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontFamily: 'Poppins',
+              fontSize: '13px',
+            }}
+          >
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontFamily: 'Poppins',
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
             >
               Dashboard
             </button>

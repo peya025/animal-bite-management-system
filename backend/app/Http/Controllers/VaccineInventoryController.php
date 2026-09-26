@@ -59,13 +59,30 @@ class VaccineInventoryController extends Controller
             $fifoMap[$type][] = $batch->inventory_id;
         }
 
-        $inventory->getCollection()->transform(function ($item) use ($fifoMap) {
+        // Fetch vaccine presets to ensure accurate doses_per_vial (patients per vial)
+        $presets = VaccineTypePreset::where(function ($q) use ($clinicId) {
+            $q->whereNull('clinic_id')->orWhere('clinic_id', $clinicId);
+        })->get()->keyBy(function ($p) {
+            return strtolower(trim($p->vaccine_name));
+        });
+
+        $inventory->getCollection()->transform(function ($item) use ($fifoMap, $presets) {
             $type = $item->vaccine_type;
             $ranks = $fifoMap[$type] ?? [];
             $rankIndex = array_search($item->inventory_id, $ranks);
 
             $item->is_fifo_priority = ($rankIndex === 0 && $item->status === 'active' && $item->current_quantity > 0);
             $item->fifo_rank = $rankIndex !== false ? ($rankIndex + 1) : null;
+
+            // Resolve doses_per_vial (patients per vial) from preset if configured
+            $matchedPreset = $presets->get(strtolower(trim($item->vaccine_type)));
+            if ($matchedPreset) {
+                $item->doses_per_vial = $matchedPreset->is_multidose 
+                    ? max(1, (int) ($matchedPreset->doses_per_vial ?? 1))
+                    : 1;
+            } else {
+                $item->doses_per_vial = max(1, (int) ($item->doses_per_vial ?? 1));
+            }
             
             // Add total dispensed (sum of all 'used' transactions)
             $usedQuantity = $item->transactions()
@@ -284,19 +301,28 @@ class VaccineInventoryController extends Controller
     public function storePreset(Request $request)
     {
         $maxHours = config('inventory.open_vial_max_hours', 8);
+        $isMultidose = $request->boolean('is_multidose', false);
 
-        $request->validate([
+        $rules = [
             'vaccine_name' => 'required|string|max:255',
             'category' => 'nullable|string|max:100',
-            'default_shelf_life_months' => 'required|integer|min:1',
-            'default_open_vial_hours' => 'nullable|integer|min:1|max:' . $maxHours,
+            'default_shelf_life_months' => 'nullable|integer|min:1',
             'storage_temperature_notes' => 'nullable|string|max:500',
             'dosing_regimen_notes' => 'nullable|string|max:1000',
             'administration_route' => 'nullable|string|max:150',
             'is_multidose' => 'nullable|boolean',
-            'doses_per_vial' => 'nullable|integer|min:1',
             'regimen_units_per_patient' => 'nullable|numeric|min:0.1|max:999.99',
-        ]);
+        ];
+
+        if ($isMultidose) {
+            $rules['default_open_vial_hours'] = 'required|integer|min:1|max:' . $maxHours;
+            $rules['doses_per_vial'] = 'required|integer|min:1|max:100';
+        } else {
+            $rules['default_open_vial_hours'] = 'nullable|integer';
+            $rules['doses_per_vial'] = 'nullable|integer';
+        }
+
+        $request->validate($rules);
 
         $clinicId = $request->user()->clinic_id;
 
@@ -307,19 +333,27 @@ class VaccineInventoryController extends Controller
             ],
             [
                 'category' => $request->category ?? 'Anti-Rabies Vaccines (ARV)',
-                'default_shelf_life_months' => $request->default_shelf_life_months,
-                'default_open_vial_hours' => $request->default_open_vial_hours,
+                'default_shelf_life_months' => $request->input('default_shelf_life_months', 24),
+                'default_open_vial_hours' => $isMultidose ? (int) $request->input('default_open_vial_hours', 6) : null,
                 'storage_temperature_notes' => $request->storage_temperature_notes,
                 'dosing_regimen_notes' => $request->dosing_regimen_notes,
-                'administration_route' => $request->administration_route,
-                'is_multidose' => $request->boolean('is_multidose', true),
-                'doses_per_vial' => $request->input('doses_per_vial', 1),
+                'administration_route' => $request->input('administration_route', 'Intradermal (ID) / Intramuscular (IM)'),
+                'is_multidose' => $isMultidose,
+                'doses_per_vial' => $isMultidose ? max(1, (int) $request->input('doses_per_vial', 1)) : 1,
                 'regimen_units_per_patient' => $request->input('regimen_units_per_patient', 1),
             ]
         );
 
+        // Keep inventory batches in sync for this clinic and vaccine name
+        VaccineInventory::where('clinic_id', $clinicId)
+            ->where('vaccine_type', $preset->vaccine_name)
+            ->update([
+                'doses_per_vial' => $preset->is_multidose ? max(1, (int) $preset->doses_per_vial) : 1,
+                'open_vial_hours' => $preset->is_multidose ? $preset->default_open_vial_hours : null,
+            ]);
+
         return response()->json([
-            'message' => 'Vaccine profile registered successfully',
+            'message' => 'Vaccine registered successfully',
             'preset' => $preset,
         ], 201);
     }
@@ -335,35 +369,66 @@ class VaccineInventoryController extends Controller
         })->findOrFail($id);
 
         $maxHours = config('inventory.open_vial_max_hours', 8);
+        $isMultidose = $request->boolean('is_multidose', false);
 
-        $request->validate([
+        $rules = [
             'vaccine_name' => 'required|string|max:255',
             'category' => 'nullable|string|max:100',
-            'default_shelf_life_months' => 'required|integer|min:1',
-            'default_open_vial_hours' => 'nullable|integer|min:1|max:' . $maxHours,
+            'default_shelf_life_months' => 'nullable|integer|min:1',
             'storage_temperature_notes' => 'nullable|string|max:500',
             'dosing_regimen_notes' => 'nullable|string|max:1000',
             'administration_route' => 'nullable|string|max:150',
             'is_multidose' => 'nullable|boolean',
-            'doses_per_vial' => 'nullable|integer|min:1',
             'regimen_units_per_patient' => 'nullable|numeric|min:0.1|max:999.99',
-        ]);
+        ];
 
-        $preset->update($request->only([
+        if ($isMultidose) {
+            $rules['default_open_vial_hours'] = 'required|integer|min:1|max:' . $maxHours;
+            $rules['doses_per_vial'] = 'required|integer|min:1|max:100';
+        } else {
+            $rules['default_open_vial_hours'] = 'nullable|integer';
+            $rules['doses_per_vial'] = 'nullable|integer';
+        }
+
+        $request->validate($rules);
+
+        $data = $request->only([
             'vaccine_name',
             'category',
             'default_shelf_life_months',
-            'default_open_vial_hours',
             'storage_temperature_notes',
             'dosing_regimen_notes',
             'administration_route',
             'is_multidose',
-            'doses_per_vial',
             'regimen_units_per_patient',
-        ]));
+        ]);
+
+        if (!isset($data['default_shelf_life_months'])) {
+            $data['default_shelf_life_months'] = $preset->default_shelf_life_months ?? 24;
+        }
+
+        if ($isMultidose) {
+            $data['is_multidose'] = true;
+            $data['doses_per_vial'] = max(1, (int) $request->input('doses_per_vial', 1));
+            $data['default_open_vial_hours'] = (int) $request->input('default_open_vial_hours', 6);
+        } else {
+            $data['is_multidose'] = false;
+            $data['doses_per_vial'] = 1;
+            $data['default_open_vial_hours'] = null;
+        }
+
+        $preset->update($data);
+
+        // Keep inventory batches in sync for this clinic and vaccine name
+        VaccineInventory::where('clinic_id', $clinicId)
+            ->where('vaccine_type', $preset->vaccine_name)
+            ->update([
+                'doses_per_vial' => $preset->is_multidose ? max(1, (int) $preset->doses_per_vial) : 1,
+                'open_vial_hours' => $preset->is_multidose ? $preset->default_open_vial_hours : null,
+            ]);
 
         return response()->json([
-            'message' => 'Vaccine profile updated successfully',
+            'message' => 'Vaccine updated successfully',
             'preset' => $preset->fresh(),
         ]);
     }
@@ -543,6 +608,7 @@ class VaccineInventoryController extends Controller
             'manufactured_date' => 'nullable|date',
             'shelf_life_months' => 'nullable|integer|min:1',
             'open_vial_hours'   => 'nullable|integer|min:1|max:' . $maxHours,
+            'doses_per_vial'    => 'nullable|integer|min:1|max:100',
             'cold_chain_notes'  => 'nullable|string|max:500',
             'remarks'           => 'nullable|string|max:500',
         ], [
@@ -551,6 +617,14 @@ class VaccineInventoryController extends Controller
 
         try {
             return DB::transaction(function () use ($request, $clinicId) {
+                $preset = VaccineTypePreset::where(function ($q) use ($clinicId) {
+                    $q->whereNull('clinic_id')->orWhere('clinic_id', $clinicId);
+                })->where('vaccine_name', $request->vaccine_type)->first();
+
+                $dosesPerVial = $request->filled('doses_per_vial')
+                    ? (int) $request->doses_per_vial
+                    : ($preset && $preset->is_multidose ? max(1, (int) $preset->doses_per_vial) : 1);
+
                 $inventory = VaccineInventory::create([
                     'clinic_id'          => $clinicId,
                     'vaccine_type'       => $request->vaccine_type,
@@ -559,6 +633,7 @@ class VaccineInventoryController extends Controller
                     'manufactured_date'  => $request->manufactured_date,
                     'shelf_life_months'  => $request->shelf_life_months,
                     'open_vial_hours'    => $request->open_vial_hours,
+                    'doses_per_vial'     => $dosesPerVial,
                     'cold_chain_notes'   => $request->cold_chain_notes,
                     'current_quantity'   => $request->quantity,
                     'expiration_date'    => $request->expiration_date,
@@ -637,6 +712,7 @@ class VaccineInventoryController extends Controller
             'manufactured_date' => 'nullable|date',
             'shelf_life_months' => 'nullable|integer|min:1',
             'open_vial_hours'   => 'nullable|integer|min:1|max:' . $maxHours,
+            'doses_per_vial'    => 'nullable|integer|min:1|max:100',
             'cold_chain_notes'  => 'nullable|string|max:500',
             'expiration_date'   => 'sometimes|date',
             'status'            => 'sometimes|in:active,expired,depleted',
@@ -659,6 +735,7 @@ class VaccineInventoryController extends Controller
                     'manufactured_date',
                     'shelf_life_months',
                     'open_vial_hours',
+                    'doses_per_vial',
                     'cold_chain_notes',
                     'expiration_date',
                     'status',

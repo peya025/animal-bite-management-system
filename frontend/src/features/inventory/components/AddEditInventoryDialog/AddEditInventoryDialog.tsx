@@ -4,7 +4,6 @@ import {
   Autocomplete,
   Box,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -17,38 +16,20 @@ import {
   Select,
   Stack,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Close as CloseIcon,
   Vaccines as VaccineIcon,
-  CalendarMonth as CalendarIcon,
-  AccessTime as TimeIcon,
-
-  Inventory2 as BalanceIcon,
-  TrendingDown as DispensedIcon,
-  Rule as StatusIcon,
-  PostAdd as NewTypeIcon,
-  Preview as PreviewIcon,
-  AcUnit as ColdChainIcon,
-  Medication as RegimenIcon,
-  AutoFixHigh as AutoIcon,
 } from '@mui/icons-material';
 import api from '../../../../services/api';
-import { useAuth } from '../../../../shared/contexts/AuthContext';
-import { formatDate } from '../../../../shared/utils';
-import VaccineTypeDialog from '../VaccineTypeDialog/VaccineTypeDialog';
 import ButtonSpinner from '../../../../components/common/ButtonSpinner';
 import { getVaccinePresets } from '../../services/vaccineInventoryService';
 import type { InventoryItem, VaccineTypePreset } from '../../types';
 import {
   addMonthsToDate,
-  deriveInventoryStatus,
-  describeExpiry,
   formatDateInput,
-  getStatusVisual,
 } from '../../utils/inventoryStatus';
 import { useFormDraft } from '../../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../../shared/components/DraftStatusBadge';
@@ -76,8 +57,8 @@ type SourceOfSupply = (typeof SOURCE_OF_SUPPLY_OPTIONS)[number];
 const OTHER_SPECIFY = 'Other (Specify)' satisfies SourceOfSupply;
 
 /**
- * 4.2 Supplier Catalog — curated names for consistent DOH audit naming.
- * Used as Autocomplete suggestions when the user picks "Other (Specify)".
+ * Curated supplier catalog for consistent DOH audit records.
+ * Used as Autocomplete suggestions when "Other (Specify)" is selected.
  */
 const SUPPLIER_CATALOG = [
   // DOH / National
@@ -125,11 +106,9 @@ export default function AddEditInventoryDialog({
   onClose,
   onSaved,
 }: AddEditInventoryDialogProps) {
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
   const isEdit = Boolean(editItem);
 
-  // Draft only makes sense for new stock entries (edit forms are already persisted server-side)
+  // Draft only makes sense for new stock entries (edits are already persisted server-side)
   const draftKey = open && !isEdit ? 'new-inventory' : null;
   const draft = useFormDraft(draftKey);
 
@@ -143,18 +122,19 @@ export default function AddEditInventoryDialog({
     expiration_date: '',
     shelf_life_months: 24,
     open_vial_hours: null as number | null,
+    doses_per_vial: 1,
     cold_chain_notes: '',
     remarks: '',
   });
-  // Tracks which Source of Supply option is selected in the dropdown
-  const [sourceOfSupply, setSourceOfSupply] = useState<SourceOfSupply>('DOH Central Supply (National Rabies Prevention Program)');
-  // Free-text supplier name when "Other (Specify)" is chosen
+
+  const [sourceOfSupply, setSourceOfSupply] = useState<SourceOfSupply>(
+    'DOH Central Supply (National Rabies Prevention Program)'
+  );
   const [supplierOther, setSupplierOther] = useState('');
   const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<VaccineTypePreset | null>(null);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [typeDialogOpen, setTypeDialogOpen] = useState(false);
   const [expirationMode, setExpirationMode] = useState<'auto' | 'manual'>('auto');
   const [presetLoadError, setPresetLoadError] = useState('');
 
@@ -165,7 +145,7 @@ export default function AddEditInventoryDialog({
       setPresetLoadError('');
     } catch {
       setPresets([]);
-      setPresetLoadError('Could not load Vaccine Types. Make sure the backend is running, or add a type from the separate Vaccine Type Setup screen.');
+      setPresetLoadError('Could not load Vaccine Types. Make sure the backend is running.');
     }
   };
 
@@ -184,18 +164,27 @@ export default function AddEditInventoryDialog({
 
     const timer = window.setTimeout(() => {
       const baseType = editItem?.vaccine_type || initialVaccineType || '';
-      const matchedPreset = presets.find((preset) => preset.vaccine_name.toLowerCase() === baseType.toLowerCase()) || null;
+      const matchedPreset =
+        presets.find((preset) => preset.vaccine_name.toLowerCase() === baseType.toLowerCase()) || null;
       const shelfLife = matchedPreset?.default_shelf_life_months ?? editItem?.shelf_life_months ?? 24;
       const manufacturedDate = formatDateInput(editItem?.manufactured_date) || '';
       const expirationDate = formatDateInput(editItem?.expiration_date) || '';
       const autoExpiration = manufacturedDate ? addMonthsToDate(manufacturedDate, shelfLife) : '';
-      const nextMode = manufacturedDate && expirationDate && autoExpiration && autoExpiration !== expirationDate ? 'manual' : 'auto';
+      const nextMode =
+        manufacturedDate && expirationDate && autoExpiration && autoExpiration !== expirationDate
+          ? 'manual'
+          : 'auto';
 
-      const incomingSource = editItem?.received_from || 'DOH Central Supply (National Rabies Prevention Program)';
-      // Detect if the stored value matches one of the standard options; otherwise restore as "Other"
-      const matchedSource = SOURCE_OF_SUPPLY_OPTIONS.find((opt) => opt !== OTHER_SPECIFY && opt === incomingSource);
+      const incomingSource =
+        editItem?.received_from || 'DOH Central Supply (National Rabies Prevention Program)';
+      const matchedSource = SOURCE_OF_SUPPLY_OPTIONS.find(
+        (opt) => opt !== OTHER_SPECIFY && opt === incomingSource
+      );
       const restoredSource: SourceOfSupply = matchedSource ?? OTHER_SPECIFY;
       const restoredOther = restoredSource === OTHER_SPECIFY ? incomingSource : '';
+      const effectiveDpv = matchedPreset?.is_multidose
+        ? Math.max(1, Number(matchedPreset.doses_per_vial || 1))
+        : (editItem?.doses_per_vial ? Math.max(1, Number(editItem.doses_per_vial)) : 1);
 
       setSourceOfSupply(restoredSource);
       setSupplierOther(restoredOther);
@@ -210,13 +199,14 @@ export default function AddEditInventoryDialog({
         manufactured_date: manufacturedDate,
         expiration_date: expirationDate,
         shelf_life_months: shelfLife,
-        open_vial_hours: matchedPreset?.default_open_vial_hours ?? editItem?.open_vial_hours ?? null,
+        open_vial_hours: matchedPreset?.is_multidose ? (matchedPreset.default_open_vial_hours ?? null) : (editItem?.open_vial_hours ?? null),
+        doses_per_vial: effectiveDpv,
         cold_chain_notes: matchedPreset?.storage_temperature_notes || editItem?.cold_chain_notes || '',
         remarks: '',
       });
       setErrors({});
 
-      // Restore draft for new entries (not when editing an existing batch)
+      // Restore draft for new entries
       if (!editItem) {
         const savedDraft = draft.readDraft<{
           form: typeof form;
@@ -234,44 +224,52 @@ export default function AddEditInventoryDialog({
     return () => window.clearTimeout(timer);
   }, [editItem, initialVaccineType, open, presets]);
 
-  const calculatedExpiration = useMemo(() => {
-    if (!form.manufactured_date) return '';
-    return addMonthsToDate(form.manufactured_date, Number(form.shelf_life_months) || 0);
-  }, [form.manufactured_date, form.shelf_life_months]);
-
-  // Auto-save draft whenever the new-entry form changes (not for edits)
+  // Auto-save draft for new entries
   useEffect(() => {
     if (!open || isEdit) return;
     draft.saveDraft({ form, sourceOfSupply, supplierOther });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, sourceOfSupply, supplierOther]);
 
-  /** 23.1 — Blur-first validation: validate a single field when focus leaves it.
-   *  If the field already has a visible error, clear it as soon as the value is valid (live recovery).
-   */
+  const [todayMs] = useState(() => Date.now());
+  const expiryDays = form.expiration_date
+    ? Math.ceil((new Date(form.expiration_date).getTime() - todayMs) / 86_400_000)
+    : null;
+
   const handleBlurField = (field: string) => () => {
     setErrors((prev) => {
       const next = { ...prev };
       switch (field) {
+        case 'vaccine_type':
+          if (!form.vaccine_type.trim()) next.vaccine_type = 'Vaccine type is required.';
+          else delete next.vaccine_type;
+          break;
         case 'batch_number':
           if (!form.batch_number.trim()) next.batch_number = 'Batch / lot number is required.';
           else delete next.batch_number;
           break;
         case 'quantity':
-          if (!form.quantity || Number(form.quantity) < 1)
+          if (!form.quantity || Number(form.quantity) < 1) {
             next.quantity = isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
-          else delete next.quantity;
+          } else {
+            delete next.quantity;
+          }
           break;
         case 'expiration_date':
-          if (!form.expiration_date) next.expiration_date = 'Expiration date is required.';
-          else if (!isEdit && expiryDays !== null && expiryDays <= 0)
+          if (!form.expiration_date) {
+            next.expiration_date = 'Expiration date is required.';
+          } else if (!isEdit && expiryDays !== null && expiryDays <= 0) {
             next.expiration_date = 'New stock must have a future expiration date.';
-          else delete next.expiration_date;
+          } else {
+            delete next.expiration_date;
+          }
           break;
         case 'supplier_other':
-          if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim())
+          if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim()) {
             next.supplier_other = 'Please specify the supplier name.';
-          else delete next.supplier_other;
+          } else {
+            delete next.supplier_other;
+          }
           break;
         default:
           break;
@@ -280,72 +278,68 @@ export default function AddEditInventoryDialog({
     });
   };
 
-
   const handleVaccineTypeSelect = (vaccineType: string) => {
     const matchedPreset = presets.find((preset) => preset.vaccine_name === vaccineType) || null;
     setSelectedPreset(matchedPreset);
     setExpirationMode('auto');
     setForm((prev) => {
       const nextShelfLife = matchedPreset?.default_shelf_life_months ?? prev.shelf_life_months;
+      const nextDpv = matchedPreset?.is_multidose
+        ? Math.max(1, Number(matchedPreset.doses_per_vial || 1))
+        : 1;
       return {
         ...prev,
         vaccine_type: vaccineType,
         shelf_life_months: nextShelfLife,
-        open_vial_hours: matchedPreset?.default_open_vial_hours ?? null,
+        open_vial_hours: matchedPreset?.is_multidose ? (matchedPreset.default_open_vial_hours ?? null) : null,
+        doses_per_vial: nextDpv,
         cold_chain_notes: matchedPreset?.storage_temperature_notes ?? prev.cold_chain_notes,
-        expiration_date: prev.manufactured_date ? addMonthsToDate(prev.manufactured_date, nextShelfLife) : prev.expiration_date,
+        expiration_date: prev.manufactured_date
+          ? addMonthsToDate(prev.manufactured_date, nextShelfLife)
+          : prev.expiration_date,
       };
     });
     setErrors((prev) => ({ ...prev, vaccine_type: '' }));
   };
 
-  const [todayMs] = useState(() => Date.now());
-
-  const dispensed = isEdit ? Number(editItem?.total_dispensed || 0) : 0;
-  const quantity = Number(form.quantity || 0);
-  const balance = quantity;
-  const expiryDays = form.expiration_date
-    ? Math.ceil((new Date(form.expiration_date).getTime() - todayMs) / 86_400_000)
-    : null;
-
-  const previewStatus = deriveInventoryStatus({
-    current_quantity: balance,
-    expiration_date: form.expiration_date,
-    open_vial_status: editItem?.open_vial_status,
-  });
-  const previewStatusVisual = getStatusVisual(previewStatus);
-
-  const regimenUnits = Number(selectedPreset?.regimen_units_per_patient || 0);
-  const coverageEstimate = regimenUnits > 0 && quantity > 0 ? quantity / regimenUnits : 0;
-
-  const submitDisabledReason = useMemo(() => {
-    if (presets.length === 0) return 'Add a Vaccine Type first in the separate Vaccine Type Setup screen.';
-    if (!form.vaccine_type.trim()) return 'Select a vaccine type first.';
-    if (!form.batch_number.trim()) return 'Enter the batch / lot number.';
-    if (!form.received_from.trim()) return 'Select a Source of Supply.';
-    if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim()) return 'Specify the supplier name for "Other".';
-    if (!form.quantity || Number(form.quantity) < 1) {
-      return isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
-    }
-    if (!form.expiration_date) return 'Provide an expiration date or a manufactured date to auto-calculate it.';
-    if (!isEdit && expiryDays !== null && expiryDays <= 0) return 'New stock must have a future expiration date.';
-    return '';
-  }, [expiryDays, form.batch_number, form.expiration_date, form.quantity, form.received_from, form.vaccine_type, isEdit, presets.length, sourceOfSupply, supplierOther]);
+  const isSubmitDisabled = useMemo(() => {
+    if (presets.length === 0) return true;
+    if (!form.vaccine_type.trim()) return true;
+    if (!form.batch_number.trim()) return true;
+    if (!form.received_from.trim()) return true;
+    if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim()) return true;
+    if (!form.quantity || Number(form.quantity) < 1) return true;
+    if (!form.expiration_date) return true;
+    if (!isEdit && expiryDays !== null && expiryDays <= 0) return true;
+    return false;
+  }, [
+    expiryDays,
+    form.batch_number,
+    form.expiration_date,
+    form.quantity,
+    form.received_from,
+    form.vaccine_type,
+    isEdit,
+    presets.length,
+    sourceOfSupply,
+    supplierOther,
+  ]);
 
   const validate = () => {
     const next: Record<string, string> = {};
-    if (!form.vaccine_type.trim()) next.vaccine_type = 'Select a vaccine type.';
+    if (!form.vaccine_type.trim()) next.vaccine_type = 'Vaccine type is required.';
     if (!form.batch_number.trim()) next.batch_number = 'Batch / lot number is required.';
-    if (!form.received_from.trim()) next.received_from = 'Source of Supply is required.';
-    if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim()) next.supplier_other = 'Please specify the supplier name.';
-    if (!form.quantity || Number(form.quantity) < 1) next.quantity = isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
-    if (!form.expiration_date) next.expiration_date = 'Expiration date is required.';
-    if (!isEdit && expiryDays !== null && expiryDays <= 0) next.expiration_date = 'New stock must have a future expiration date.';
-    if (form.open_vial_hours !== null && form.open_vial_hours !== undefined) {
-      const hours = Number(form.open_vial_hours);
-      if (isNaN(hours) || hours < 1 || hours > 8) {
-        next.open_vial_hours = 'Open-vial discard timer must be between 1 and 8 hours per clinical safety policy.';
-      }
+    if (!form.received_from.trim()) next.received_from = 'Source / Supplier is required.';
+    if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim()) {
+      next.supplier_other = 'Please specify the supplier name.';
+    }
+    if (!form.quantity || Number(form.quantity) < 1) {
+      next.quantity = isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
+    }
+    if (!form.expiration_date) {
+      next.expiration_date = 'Expiration date is required.';
+    } else if (!isEdit && expiryDays !== null && expiryDays <= 0) {
+      next.expiration_date = 'New stock must have a future expiration date.';
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -365,6 +359,7 @@ export default function AddEditInventoryDialog({
           manufactured_date: form.manufactured_date || undefined,
           shelf_life_months: form.shelf_life_months,
           open_vial_hours: form.open_vial_hours,
+          doses_per_vial: form.doses_per_vial,
           cold_chain_notes: form.cold_chain_notes || undefined,
           expiration_date: form.expiration_date,
         });
@@ -377,6 +372,7 @@ export default function AddEditInventoryDialog({
           manufactured_date: form.manufactured_date || undefined,
           shelf_life_months: form.shelf_life_months,
           open_vial_hours: form.open_vial_hours,
+          doses_per_vial: form.doses_per_vial,
           cold_chain_notes: form.cold_chain_notes || undefined,
           expiration_date: form.expiration_date,
           remarks: form.remarks.trim() || undefined,
@@ -416,557 +412,293 @@ export default function AddEditInventoryDialog({
   if (!open) return null;
 
   return (
-    <>
-      <Dialog
-        open={open}
-        onClose={onClose}
-        maxWidth="lg"
-        fullWidth
-        aria-labelledby="vaccine-stock-dialog-title"
-        slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      aria-labelledby="vaccine-stock-dialog-title"
+      slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+          px: 3,
+          py: 2.25,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+        }}
       >
         <Box
           sx={{
-            background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-            px: 3,
-            py: 2.25,
+            width: 44,
+            height: 44,
+            borderRadius: 2,
+            bgcolor: 'rgba(255,255,255,0.18)',
             display: 'flex',
             alignItems: 'center',
-            gap: 2,
+            justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
-          <Box
-            sx={{
-              width: 44,
-              height: 44,
-              borderRadius: 2,
-              bgcolor: 'rgba(255,255,255,0.18)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <VaccineIcon sx={{ color: '#fff', fontSize: 24 }} />
-          </Box>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography id="vaccine-stock-dialog-title" sx={{ fontWeight: 800, color: '#fff', fontSize: '1.1rem' }}>
-              {isEdit ? 'Edit stock batch' : 'Add stock batch'}
-            </Typography>
-            <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, mt: 0.25 }}>
-              Daily-use stock entry form. Vaccine rules stay read-only here so staff always see which setup rule is being applied.
-            </Typography>
-          </Box>
-          <IconButton onClick={onClose} size="small" aria-label="Close dialog" sx={{ color: '#fff' }}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
+          <VaccineIcon sx={{ color: '#fff', fontSize: 24 }} />
         </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography id="vaccine-stock-dialog-title" sx={{ fontWeight: 800, color: '#fff', fontSize: '1.15rem' }}>
+            {isEdit ? 'Edit Stock Batch' : 'Add Stock Batch'}
+          </Typography>
+          <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, mt: 0.25 }}>
+            {isEdit ? 'Update this vaccine batch in inventory.' : 'Add a new vaccine batch to inventory.'}
+          </Typography>
+        </Box>
+        <IconButton onClick={onClose} size="small" aria-label="Close dialog" sx={{ color: '#fff' }}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </Box>
 
-        <DialogContent sx={{ px: 3, py: 3 }}>
-          <Stack spacing={2.5}>
-            {errors.submit && <Alert severity="error">{errors.submit}</Alert>}
+      {/* Content */}
+      <DialogContent sx={{ px: 3, py: 3 }}>
+        <Stack spacing={2.5}>
+          {errors.submit && <Alert severity="error">{errors.submit}</Alert>}
 
-            <Alert severity="info" icon={<AutoIcon fontSize="inherit" />} sx={{ border: '1px solid #dbeafe', bgcolor: '#f8fbff' }}>
-              The form starts with the same left-to-right concepts used in the inventory table: vaccine type, batch, source, dispensed, balance, expiration, and status.
-            </Alert>
-
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 3.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#334155' }}>
-                    Vaccine Type
-                  </Typography>
-                  <Tooltip title={isAdmin ? 'Create a new vaccine type in the separate setup form' : 'Admin only: vaccine types are configured separately from stock'}>
-                    <span>
-                      <Button
-                        size="small"
-                        startIcon={<NewTypeIcon sx={{ fontSize: 15 }} />}
-                        onClick={() => isAdmin && setTypeDialogOpen(true)}
-                        disabled={!isAdmin}
-                        sx={{ textTransform: 'none', fontWeight: 700, fontSize: 12, color: '#059669', p: 0, minWidth: 0 }}
-                      >
-                        Add New Type
-                      </Button>
-                    </span>
-                  </Tooltip>
-                </Box>
-
-                <FormControl fullWidth size="small" error={!!errors.vaccine_type || !!presetLoadError}>
-                  <InputLabel id="inventory-vaccine-type-label">Vaccine Type</InputLabel>
-                  <Select
-                    labelId="inventory-vaccine-type-label"
-                    value={form.vaccine_type}
-                    label="Vaccine Type"
-                    onChange={(e) => handleVaccineTypeSelect(e.target.value)}
-                    disabled={presets.length === 0}
-                    sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
-                  >
-                    {presets.map((preset) => (
-                      <MenuItem key={preset.vaccine_name} value={preset.vaccine_name}>
-                        <Box>
-                          <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>{preset.vaccine_name}</Typography>
-                          <Typography sx={{ fontSize: 11, color: '#64748b' }}>
-                            {preset.default_shelf_life_months} month shelf-life • {preset.default_open_vial_hours ? `${preset.default_open_vial_hours}h valid once opened` : 'single-dose'}
-                          </Typography>
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Typography sx={{ fontSize: 11.5, color: errors.vaccine_type || presetLoadError ? '#dc2626' : '#64748b', mt: 0.75 }}>
-                  {errors.vaccine_type || presetLoadError || 'Pick a saved vaccine rule so expiry and discard settings are applied consistently.'}
-                </Typography>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, md: 2.5 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Batch No. / Lot"
-                  value={form.batch_number}
-                  onChange={(e) => {
-                    setForm((prev) => ({ ...prev, batch_number: e.target.value.toUpperCase() }));
-                    setErrors((prev) => ({ ...prev, batch_number: '' }));
-                  }}
-                  onBlur={handleBlurField('batch_number')}
-                  error={!!errors.batch_number}
-                  helperText={errors.batch_number || 'Shown in FIFO / FEFO order.'}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' }, '& input': { fontFamily: 'monospace', fontWeight: 700 } }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <FormControl fullWidth size="small" error={!!errors.received_from}>
-                  <InputLabel id="source-of-supply-label">Source of Supply</InputLabel>
-                  <Select
-                    labelId="source-of-supply-label"
-                    label="Source of Supply"
-                    value={sourceOfSupply}
-                    onChange={(e) => {
-                      const val = e.target.value as SourceOfSupply;
-                      setSourceOfSupply(val);
-                      setSupplierOther('');
-                      setErrors((prev) => ({ ...prev, received_from: '', supplier_other: '' }));
-                      if (val !== OTHER_SPECIFY) {
-                        setForm((prev) => ({ ...prev, received_from: val }));
-                      } else {
-                        setForm((prev) => ({ ...prev, received_from: '' }));
-                      }
-                    }}
-                    sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
-                  >
-                    {SOURCE_OF_SUPPLY_OPTIONS.map((opt) => (
-                      <MenuItem key={opt} value={opt}>
-                        <Typography sx={{ fontSize: 13 }}>{opt}</Typography>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {errors.received_from && (
-                    <FormHelperText>{errors.received_from}</FormHelperText>
-                  )}
-                  {!errors.received_from && (
-                    <FormHelperText>
-                      Official DOH/LGU source — required for audit compliance.
-                    </FormHelperText>
-                  )}
-                </FormControl>
-
-                {/* 4.2 Supplier Catalog — shown only when "Other (Specify)" is selected */}
-                {sourceOfSupply === OTHER_SPECIFY && (
-                  <Box sx={{ mt: 1.25 }}>
-                    <Autocomplete
-                      freeSolo
-                      options={SUPPLIER_CATALOG}
-                      value={supplierOther}
-                      onInputChange={(_e, val) => {
-                        setSupplierOther(val);
-                        setForm((prev) => ({ ...prev, received_from: val }));
-                        setErrors((prev) => ({ ...prev, supplier_other: '' }));
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          size="small"
-                          label="Specify Supplier"
-                          placeholder="Type or select from catalog…"
-                          error={!!errors.supplier_other}
-                          onBlur={handleBlurField('supplier_other')}
-                          helperText={
-                            errors.supplier_other ||
-                            'Select from the catalog or type a consistent name for DOH records.'
-                          }
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fffbeb' } }}
-                        />
-                      )}
-                      renderOption={(props, option) => (
-                        <li {...props} key={option}>
-                          <Typography sx={{ fontSize: 13 }}>{option}</Typography>
-                        </li>
-                      )}
-                      slotProps={{ listbox: { style: { maxHeight: 220 } } }}
-                    />
-                  </Box>
-                )}
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 3 }}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, height: '100%' }}>
-                  {/* Dispensed Card (Left) */}
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      borderRadius: 2,
-                      border: '1px solid #fee2e2',
-                      bgcolor: '#fff7f7',
-                      minHeight: 88,
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      boxSizing: 'border-box',
-                    }}
-                  >
-                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
-                      <DispensedIcon sx={{ fontSize: 16, color: '#dc2626', flexShrink: 0 }} />
-                      <Typography sx={{ fontSize: 11.5, fontWeight: 750, color: '#b91c1c', whiteSpace: 'nowrap' }}>
-                        Dispensed
-                      </Typography>
-                    </Stack>
-                    <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#dc2626', lineHeight: 1, my: 0.5 }}>
-                      {dispensed}
-                    </Typography>
-                    <Typography sx={{ fontSize: 10.5, color: '#64748b', fontWeight: 600, lineHeight: 1 }}>
-                      Read-only
-                    </Typography>
-                  </Box>
-
-                  {/* Balance Card (Right) */}
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      borderRadius: 2,
-                      border: '1px solid #bbf7d0',
-                      bgcolor: '#f0fdf4',
-                      minHeight: 88,
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      boxSizing: 'border-box',
-                    }}
-                  >
-                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
-                      <BalanceIcon sx={{ fontSize: 16, color: '#047857', flexShrink: 0 }} />
-                      <Typography sx={{ fontSize: 11.5, fontWeight: 750, color: '#047857', whiteSpace: 'nowrap' }}>
-                        Balance
-                      </Typography>
-                    </Stack>
-                    <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#059669', lineHeight: 1, my: 0.5 }}>
-                      {balance || 0}
-                    </Typography>
-                    <Typography sx={{ fontSize: 10.5, color: '#64748b', fontWeight: 600, lineHeight: 1 }}>
-                      Derived
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-            </Grid>
-
-            {selectedPreset && (
-              <Box sx={{ p: 1.75, border: '1px solid #dbeafe', borderRadius: 2.5, bgcolor: '#f8fbff' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', mb: 1.25 }}>
-                  <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#1d4ed8' }}>
-                    Applied vaccine rule (read-only reference)
-                  </Typography>
-                  <Chip label={selectedPreset.category || 'General'} size="small" sx={{ fontWeight: 700, bgcolor: '#eff6ff', color: '#1d4ed8' }} />
-                </Box>
-                <Grid container spacing={1.25}>
-                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
-                      <CalendarIcon sx={{ fontSize: 16, color: '#2563eb', mt: 0.15 }} />
-                      <Box>
-                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Shelf-life</Typography>
-                        <Typography sx={{ fontSize: 12.5, color: '#1f2937', fontWeight: 700 }}>{selectedPreset.default_shelf_life_months} months from Manufactured Date</Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
-                      <TimeIcon sx={{ fontSize: 16, color: '#c2410c', mt: 0.15 }} />
-                      <Box>
-                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Hours valid once opened</Typography>
-                        <Typography sx={{ fontSize: 12.5, color: '#1f2937', fontWeight: 700 }}>
-                          {selectedPreset.default_open_vial_hours ? `${selectedPreset.default_open_vial_hours} hours after opening` : 'Not used for single-dose stock'}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
-                      <RegimenIcon sx={{ fontSize: 16, color: '#047857', mt: 0.15 }} />
-                      <Box>
-                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Vials needed per patient treatment</Typography>
-                        <Typography sx={{ fontSize: 12.5, color: '#1f2937', fontWeight: 700 }}>
-                          {selectedPreset.regimen_units_per_patient || 1}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
-                      <ColdChainIcon sx={{ fontSize: 16, color: '#0369a1', mt: 0.15 }} />
-                      <Box>
-                        <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Storage note</Typography>
-                        <Typography sx={{ fontSize: 12.5, color: '#1f2937' }}>
-                          {selectedPreset.storage_temperature_notes || 'No extra storage note saved.'}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-            )}
-
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 3 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="number"
-                  label={isEdit ? 'Balance' : 'Initial Quantity'}
-                  value={form.quantity}
-                  onChange={(e) => {
-                    setForm((prev) => ({ ...prev, quantity: e.target.value }));
-                    setErrors((prev) => ({ ...prev, quantity: '' }));
-                  }}
-                  onBlur={handleBlurField('quantity')}
-                  error={!!errors.quantity}
-                  helperText={errors.quantity || 'Used to compute the read-only Balance value.'}
-                  slotProps={{ htmlInput: { min: 1 } }}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label="Manufactured Date"
-                  value={form.manufactured_date}
-                  onChange={(e) => {
-                    const manufacturedDate = e.target.value;
-                    setExpirationMode('auto');
-                    setForm((prev) => ({
-                      ...prev,
-                      manufactured_date: manufacturedDate,
-                      expiration_date: manufacturedDate ? addMonthsToDate(manufacturedDate, Number(prev.shelf_life_months) || 0) : '',
-                    }));
-                  }}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  helperText={selectedPreset ? `Auto-adds ${form.shelf_life_months} month(s) from the selected vaccine rule.` : 'Set this to auto-calculate Expiration Date.'}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 3.5 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label="Expiration Date"
-                  value={form.expiration_date}
-                  onChange={(e) => {
-                    setExpirationMode('manual');
-                    setForm((prev) => ({ ...prev, expiration_date: e.target.value }));
-                    setErrors((prev) => ({ ...prev, expiration_date: '' }));
-                  }}
-                  onBlur={handleBlurField('expiration_date')}
-                  error={!!errors.expiration_date}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  helperText={errors.expiration_date || 'Auto-filled by default. You can override it for exceptions.'}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 1.5 }}>
-                <Box sx={{ p: 1.25, borderRadius: 2, border: `1px solid ${previewStatusVisual.border}`, bgcolor: previewStatusVisual.bg, minHeight: 86 }}>
-                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
-                    <StatusIcon sx={{ fontSize: 15, color: previewStatusVisual.color }} />
-                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: previewStatusVisual.color }}>Status</Typography>
-                  </Stack>
-                  <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: previewStatusVisual.color }}>
-                    {previewStatus}
-                  </Typography>
-                  <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>Derived</Typography>
-                </Box>
-              </Grid>
-            </Grid>
-
-            <Box sx={{ mt: -0.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              {calculatedExpiration && (
-                <Chip
-                  icon={<CalendarIcon sx={{ fontSize: 16 }} />}
-                  label={`${formatDate(calculatedExpiration)} (${describeExpiry(calculatedExpiration).replace('Expires ', '')})`}
-                  sx={{ fontWeight: 700, bgcolor: '#ecfdf5', color: '#047857' }}
-                />
-              )}
-              <Chip
-                icon={<AutoIcon sx={{ fontSize: 16 }} />}
-                label={expirationMode === 'auto' ? 'Auto-calculated expiration is active' : 'Manual expiration override is active'}
-                sx={{ fontWeight: 700, bgcolor: expirationMode === 'auto' ? '#eff6ff' : '#fff7ed', color: expirationMode === 'auto' ? '#1d4ed8' : '#c2410c' }}
-              />
-              {expirationMode === 'manual' && calculatedExpiration && (
-                <Button
-                  size="small"
-                  onClick={() => {
-                    setExpirationMode('auto');
-                    setForm((prev) => ({ ...prev, expiration_date: calculatedExpiration }));
-                  }}
-                  sx={{ textTransform: 'none', fontWeight: 700 }}
+          <Grid container spacing={2.5}>
+            {/* Row 1: Vaccine Type & Batch / Lot No. */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth size="small" error={!!errors.vaccine_type || !!presetLoadError}>
+                <InputLabel id="inventory-vaccine-type-label">Vaccine Type *</InputLabel>
+                <Select
+                  labelId="inventory-vaccine-type-label"
+                  value={form.vaccine_type}
+                  label="Vaccine Type *"
+                  onChange={(e) => handleVaccineTypeSelect(e.target.value)}
+                  onBlur={handleBlurField('vaccine_type')}
+                  disabled={presets.length === 0}
+                  sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
                 >
-                  Use calculated date
-                </Button>
-              )}
-            </Box>
-
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Remarks"
-                  value={form.remarks}
-                  onChange={(e) => setForm((prev) => ({ ...prev, remarks: e.target.value }))}
-                  placeholder="Optional receiving note, invoice, or exception"
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Box sx={{ p: 1.5, borderRadius: 2.5, border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
-                  <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#334155', mb: 0.75 }}>
-                    Coverage estimate
-                  </Typography>
-                  <Typography sx={{ fontSize: 13, color: '#1f2937', lineHeight: 1.5 }}>
-                    {selectedPreset
-                      ? `At ${selectedPreset.regimen_units_per_patient || 1} vial(s) needed per patient treatment, this batch covers approximately ${coverageEstimate.toFixed(1)} patient treatment(s).`
-                      : 'Select a vaccine type to show the saved vials-per-treatment rule.'}
-                  </Typography>
-                  <Typography sx={{ fontSize: 11, color: '#64748b', mt: 0.5 }}>
-                    This is for planning only. Actual automatic deduction should happen later in the patient vaccination / administration flow.
-                  </Typography>
-                </Box>
-              </Grid>
+                  {presets.map((preset) => (
+                    <MenuItem key={preset.vaccine_name} value={preset.vaccine_name}>
+                      {preset.vaccine_name}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {(errors.vaccine_type || presetLoadError) && (
+                  <FormHelperText error>{errors.vaccine_type || presetLoadError}</FormHelperText>
+                )}
+              </FormControl>
             </Grid>
 
-
-
-            <Box sx={{ p: 2, borderRadius: 2.5, bgcolor: '#f8fafc', border: '1px solid #dbe3ec' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                <PreviewIcon sx={{ fontSize: 18, color: '#059669' }} />
-                <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a' }}>
-                  Live table-row preview
-                </Typography>
-              </Box>
-
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', lg: '1.3fr 1fr 1fr .7fr .7fr 1.2fr .8fr' },
-                  gap: 1.25,
-                  p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: '#fff',
-                  border: '1px solid #e2e8f0',
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Batch / Lot No. *"
+                value={form.batch_number}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, batch_number: e.target.value.toUpperCase() }));
+                  setErrors((prev) => ({ ...prev, batch_number: '' }));
                 }}
-              >
-                <Box>
-                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>VACCINE TYPE</Typography>
-                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#0f172a' }}>{form.vaccine_type || '—'}</Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>BATCH NO. / FIFO</Typography>
-                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1e293b', fontFamily: 'monospace' }}>{form.batch_number || '—'}</Typography>
-                  <Typography sx={{ fontSize: 10.5, color: '#166534' }}>New active batch joins FIFO order</Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>RECEIVED FROM</Typography>
-                  <Typography sx={{ fontSize: 12, color: '#334155' }}>{form.received_from || '—'}</Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>DISPENSED</Typography>
-                  <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#dc2626' }}>{dispensed}</Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>BALANCE</Typography>
-                  <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#059669' }}>{balance || 0}</Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>EXPIRATION</Typography>
-                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#334155' }}>{form.expiration_date ? formatDate(form.expiration_date) : '—'}</Typography>
-                  <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>{form.expiration_date ? describeExpiry(form.expiration_date) : 'Pending expiration'}</Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>STATUS</Typography>
-                  <Chip
-                    label={previewStatus}
-                    size="small"
-                    sx={{
-                      mt: 0.25,
-                      fontWeight: 800,
-                      bgcolor: previewStatusVisual.bg,
-                      color: previewStatusVisual.color,
-                      border: `1px solid ${previewStatusVisual.border}`,
+                onBlur={handleBlurField('batch_number')}
+                error={!!errors.batch_number}
+                helperText={errors.batch_number}
+                placeholder="e.g. BATCH-2026-001"
+                sx={{
+                  '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' },
+                  '& input': { fontFamily: 'monospace', fontWeight: 700 },
+                }}
+              />
+            </Grid>
+
+            {/* Row 2: Source / Supplier & Initial Quantity */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth size="small" error={!!errors.received_from}>
+                <InputLabel id="source-of-supply-label">Source / Supplier *</InputLabel>
+                <Select
+                  labelId="source-of-supply-label"
+                  label="Source / Supplier *"
+                  value={sourceOfSupply}
+                  onChange={(e) => {
+                    const val = e.target.value as SourceOfSupply;
+                    setSourceOfSupply(val);
+                    setSupplierOther('');
+                    setErrors((prev) => ({ ...prev, received_from: '', supplier_other: '' }));
+                    if (val !== OTHER_SPECIFY) {
+                      setForm((prev) => ({ ...prev, received_from: val }));
+                    } else {
+                      setForm((prev) => ({ ...prev, received_from: '' }));
+                    }
+                  }}
+                  sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
+                >
+                  {SOURCE_OF_SUPPLY_OPTIONS.map((opt) => (
+                    <MenuItem key={opt} value={opt}>
+                      {opt}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.received_from && <FormHelperText error>{errors.received_from}</FormHelperText>}
+              </FormControl>
+
+              {/* Autocomplete for "Other (Specify)" */}
+              {sourceOfSupply === OTHER_SPECIFY && (
+                <Box sx={{ mt: 1.5 }}>
+                  <Autocomplete
+                    freeSolo
+                    options={SUPPLIER_CATALOG}
+                    value={supplierOther}
+                    onInputChange={(_e, val) => {
+                      setSupplierOther(val);
+                      setForm((prev) => ({ ...prev, received_from: val }));
+                      setErrors((prev) => ({ ...prev, supplier_other: '' }));
                     }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        size="small"
+                        label="Specify Supplier *"
+                        placeholder="Type or select from catalog…"
+                        error={!!errors.supplier_other}
+                        onBlur={handleBlurField('supplier_other')}
+                        helperText={errors.supplier_other || 'Select from catalog or enter supplier name'}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fffbeb' } }}
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <li {...props} key={option}>
+                        <Typography sx={{ fontSize: 13 }}>{option}</Typography>
+                      </li>
+                    )}
+                    slotProps={{ listbox: { style: { maxHeight: 220 } } }}
                   />
                 </Box>
-              </Box>
-            </Box>
-          </Stack>
-        </DialogContent>
+              )}
+            </Grid>
 
-        <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Button onClick={onClose} variant="outlined" color="inherit" sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>
-              Cancel
-            </Button>
-            {!isEdit && <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} />}
-          </Box>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                size="small"
+                type="number"
+                label={isEdit ? 'Balance (vials) *' : 'Initial Quantity (vials) *'}
+                value={form.quantity}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, quantity: e.target.value }));
+                  setErrors((prev) => ({ ...prev, quantity: '' }));
+                }}
+                onBlur={handleBlurField('quantity')}
+                error={!!errors.quantity}
+                helperText={errors.quantity}
+                placeholder="e.g. 100"
+                slotProps={{
+                  htmlInput: { min: 1, step: 1 },
+                }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+              />
+            </Grid>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-            {!!submitDisabledReason && (
-              <Typography sx={{ fontSize: 12, color: '#b45309', maxWidth: 420, textAlign: 'right' }}>
-                Add to Inventory is disabled: {submitDisabledReason}
-              </Typography>
-            )}
-            <Button
-              onClick={handleSubmit}
-              variant="contained"
-              disabled={!!submitDisabledReason || saving}
-              startIcon={saving ? <ButtonSpinner size={16} /> : <AddIcon />}
-              sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 2, px: 3, bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}
-            >
-              {saving ? 'Saving…' : isEdit ? 'Save batch changes' : 'Add to Inventory'}
-            </Button>
-          </Box>
-        </DialogActions>
-      </Dialog>
+            {/* Row 3: Manufactured Date & Expiration Date */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                size="small"
+                type="date"
+                label="Manufactured Date"
+                value={form.manufactured_date}
+                onChange={(e) => {
+                  const manufacturedDate = e.target.value;
+                  setExpirationMode('auto');
+                  setForm((prev) => ({
+                    ...prev,
+                    manufactured_date: manufacturedDate,
+                    expiration_date: manufacturedDate
+                      ? addMonthsToDate(manufacturedDate, Number(prev.shelf_life_months) || 0)
+                      : prev.expiration_date,
+                  }));
+                  if (errors.expiration_date) {
+                    setErrors((prev) => ({ ...prev, expiration_date: '' }));
+                  }
+                }}
+                slotProps={{ inputLabel: { shrink: true } }}
+                helperText="Optional. Auto-calculates expiration date when set."
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+              />
+            </Grid>
 
-      {typeDialogOpen && (
-        <VaccineTypeDialog
-          open={typeDialogOpen}
-          onClose={() => setTypeDialogOpen(false)}
-          onSaved={(created) => {
-            const nextPreset = created as VaccineTypePreset;
-            setPresets((prev) => {
-              const withoutOld = prev.filter((preset) => preset.vaccine_name !== nextPreset.vaccine_name);
-              return [...withoutOld, nextPreset].sort((a, b) => a.vaccine_name.localeCompare(b.vaccine_name));
-            });
-            handleVaccineTypeSelect(nextPreset.vaccine_name);
-            setTypeDialogOpen(false);
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                size="small"
+                type="date"
+                label="Expiration Date *"
+                value={form.expiration_date}
+                onChange={(e) => {
+                  setExpirationMode('manual');
+                  setForm((prev) => ({ ...prev, expiration_date: e.target.value }));
+                  setErrors((prev) => ({ ...prev, expiration_date: '' }));
+                }}
+                onBlur={handleBlurField('expiration_date')}
+                error={!!errors.expiration_date}
+                slotProps={{ inputLabel: { shrink: true } }}
+                helperText={
+                  errors.expiration_date ||
+                  (expirationMode === 'auto' && form.manufactured_date
+                    ? 'Auto-calculated from vaccine setup. You may edit this date if necessary.'
+                    : 'Required. Must be a future date.')
+                }
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+              />
+            </Grid>
+
+            {/* Row 4: Remarks */}
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Remarks"
+                value={form.remarks}
+                onChange={(e) => setForm((prev) => ({ ...prev, remarks: e.target.value }))}
+                placeholder="Optional notes about this batch (e.g. invoice no., delivery receipt)"
+                multiline
+                rows={2}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+              />
+            </Grid>
+          </Grid>
+        </Stack>
+      </DialogContent>
+
+      {/* Footer */}
+      <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button
+            onClick={onClose}
+            variant="outlined"
+            color="inherit"
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+          >
+            Cancel
+          </Button>
+          {!isEdit && <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} />}
+        </Box>
+
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={isSubmitDisabled || saving}
+          startIcon={saving ? <ButtonSpinner size={16} /> : <AddIcon />}
+          sx={{
+            textTransform: 'none',
+            fontWeight: 800,
+            borderRadius: 2,
+            px: 3,
+            bgcolor: '#059669',
+            '&:hover': { bgcolor: '#047857' },
           }}
-        />
-      )}
-    </>
+        >
+          {saving ? 'Saving…' : isEdit ? 'Save batch changes' : 'Add to Inventory'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }

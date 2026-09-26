@@ -574,11 +574,9 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
       <div ref={cardRef}>
         {/* Dynamic Clinic Header Title with Official Logos */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, pb: 2, borderBottom: '2px solid #0f172a' }}>
-          {/* Left Seal Flag Logo */}
+          {/* Left Tagoloan Seal Flag Logo */}
           <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            {clinic.left_logo ? (
-              <img src={clinic.left_logo} alt="Left Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
-            ) : null}
+            <img src={clinic.left_logo || undefined} alt="Tagoloan Municipal Seal Flag" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png'; }} />
           </Box>
 
           {/* Center Text */}
@@ -594,11 +592,9 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
             </Typography>
           </Box>
 
-          {/* Right Health Office Logo */}
+          {/* Right RHU Health Office Logo */}
           <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            {clinic.right_logo ? (
-              <img src={clinic.right_logo} alt="Right Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
-            ) : null}
+            <img src={clinic.right_logo || undefined} alt="RHU Health Office Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/rhu-logo.png'; }} />
           </Box>
         </Box>
 

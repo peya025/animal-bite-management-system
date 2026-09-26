@@ -201,7 +201,7 @@ export interface VaccineTypePreset {
   clinic_id?: number;
   vaccine_name: string;
   category?: string;
-  default_shelf_life_months: number;
+  default_shelf_life_months?: number;
   default_open_vial_hours?: number | null;
   storage_temperature_notes?: string;
   dosing_regimen_notes?: string;

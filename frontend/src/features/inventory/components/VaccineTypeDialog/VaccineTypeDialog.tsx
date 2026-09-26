@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Box,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
+  DialogTitle,
+  Divider,
   FormControl,
   FormControlLabel,
   Grid,
   IconButton,
+  InputAdornment,
   MenuItem,
   Select,
   Stack,
@@ -20,17 +22,10 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  Settings as SetupIcon,
   Vaccines as VaccineIcon,
-  AccessTime as TimeIcon,
-  CalendarMonth as CalendarIcon,
-  Inventory2 as RegimenIcon,
-  AcUnit as ColdChainIcon,
-  Save as SaveIcon,
 } from '@mui/icons-material';
 import { storeVaccinePreset, updateVaccinePreset } from '../../services/vaccineInventoryService';
 import type { VaccineTypePreset } from '../../types';
-import ButtonSpinner from '../../../../components/common/ButtonSpinner';
 
 interface VaccineTypeDialogProps {
   open: boolean;
@@ -52,14 +47,12 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
   const [form, setForm] = useState({
     vaccine_name: '',
     category: 'Anti-Rabies Vaccines (ARV)',
-    default_shelf_life_months: 24,
-    is_multidose: true,
-    default_open_vial_hours: 6 as number | null,
+    is_multidose: false,
     doses_per_vial: 3,
-    regimen_units_per_patient: 1,
-    dosing_regimen_notes: '',
+    default_open_vial_hours: 6 as number | null,
     storage_temperature_notes: '',
   });
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -67,27 +60,22 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
     if (!open) return;
 
     if (preset) {
+      const isMulti = Boolean(preset.is_multidose);
       setForm({
         vaccine_name: preset.vaccine_name || '',
         category: preset.category || 'Anti-Rabies Vaccines (ARV)',
-        default_shelf_life_months: preset.default_shelf_life_months || 24,
-        is_multidose: preset.is_multidose ?? true,
-        default_open_vial_hours: preset.is_multidose === false ? null : (preset.default_open_vial_hours ?? 6),
-        doses_per_vial: Math.max(1, Number(preset.doses_per_vial ?? (preset.is_multidose ? 3 : 1))),
-        regimen_units_per_patient: Number(preset.regimen_units_per_patient ?? 1),
-        dosing_regimen_notes: preset.dosing_regimen_notes || '',
+        is_multidose: isMulti,
+        doses_per_vial: isMulti ? Math.max(1, Number(preset.doses_per_vial ?? 3)) : 1,
+        default_open_vial_hours: isMulti ? (preset.default_open_vial_hours ?? 6) : null,
         storage_temperature_notes: preset.storage_temperature_notes || '',
       });
     } else {
       setForm({
         vaccine_name: '',
         category: 'Anti-Rabies Vaccines (ARV)',
-        default_shelf_life_months: 24,
-        is_multidose: true,
-        default_open_vial_hours: 6,
+        is_multidose: false,
         doses_per_vial: 3,
-        regimen_units_per_patient: 1,
-        dosing_regimen_notes: '',
+        default_open_vial_hours: 6,
         storage_temperature_notes: '',
       });
     }
@@ -95,11 +83,21 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
     setErrors({});
   }, [preset, open]);
 
-  const regimenCoverageText = useMemo(() => {
-    const units = Number(form.regimen_units_per_patient || 0);
-    if (!units || units <= 0) return 'Enter how many vials are needed for one full patient treatment.';
-    return `1 patient treatment uses ${units} vial${units === 1 ? '' : 's'}. Used for stock coverage estimates — not an automatic deduction.`;
-  }, [form.regimen_units_per_patient]);
+  const handleToggleMultidose = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isMulti = e.target.checked;
+    setForm((prev) => ({
+      ...prev,
+      is_multidose: isMulti,
+      doses_per_vial: isMulti ? (prev.doses_per_vial > 1 ? prev.doses_per_vial : 3) : 1,
+      default_open_vial_hours: isMulti ? (prev.default_open_vial_hours || 6) : null,
+    }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.doses_per_vial;
+      delete next.default_open_vial_hours;
+      return next;
+    });
+  };
 
   const validate = () => {
     const next: Record<string, string> = {};
@@ -107,20 +105,15 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
     if (!form.vaccine_name.trim()) {
       next.vaccine_name = 'Vaccine name / brand is required.';
     }
-    if (!form.default_shelf_life_months || form.default_shelf_life_months < 1) {
-      next.default_shelf_life_months = 'Shelf-life must be at least 1 month.';
-    }
+
     if (form.is_multidose) {
+      if (!form.doses_per_vial || form.doses_per_vial < 1) {
+        next.doses_per_vial = 'Enter patients per vial (at least 1).';
+      }
       const hours = Number(form.default_open_vial_hours);
       if (!form.default_open_vial_hours || isNaN(hours) || hours < 1 || hours > 8) {
-        next.default_open_vial_hours = 'Open-vial discard timer must be between 1 and 8 hours per clinical safety policy.';
+        next.default_open_vial_hours = 'Enter valid hours after opening (1–8 hours).';
       }
-    }
-    if (form.is_multidose && (!form.doses_per_vial || form.doses_per_vial < 1)) {
-      next.doses_per_vial = 'Enter how many patients can share 1 vial (at least 1).';
-    }
-    if (!form.regimen_units_per_patient || form.regimen_units_per_patient < 0.1) {
-      next.regimen_units_per_patient = 'Enter how many vials are needed per patient treatment.';
     }
 
     setErrors(next);
@@ -134,13 +127,14 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
     const payload = {
       vaccine_name: form.vaccine_name.trim(),
       category: form.category,
-      default_shelf_life_months: Number(form.default_shelf_life_months),
       is_multidose: form.is_multidose,
+      doses_per_vial: form.is_multidose ? Math.max(1, Number(form.doses_per_vial || 1)) : 1,
       default_open_vial_hours: form.is_multidose ? Number(form.default_open_vial_hours) : null,
-      doses_per_vial: form.is_multidose ? Number(form.doses_per_vial || 1) : 1,
-      regimen_units_per_patient: Number(form.regimen_units_per_patient),
-      dosing_regimen_notes: form.dosing_regimen_notes.trim() || null,
       storage_temperature_notes: form.storage_temperature_notes.trim() || null,
+      default_shelf_life_months: preset?.default_shelf_life_months ?? 24,
+      regimen_units_per_patient: preset?.regimen_units_per_patient ?? 1,
+      administration_route: preset?.administration_route ?? 'Intradermal (ID) / Intramuscular (IM)',
+      dosing_regimen_notes: preset?.dosing_regimen_notes ?? null,
     };
 
     try {
@@ -163,279 +157,263 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="md"
+      maxWidth="sm"
       fullWidth
       aria-labelledby="vaccine-type-dialog-title"
       slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}
     >
-      <Box
+      {/* ── Dialog Header ── */}
+      <DialogTitle
+        id="vaccine-type-dialog-title"
         sx={{
           px: 3,
           py: 2.25,
-          background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
           display: 'flex',
           alignItems: 'center',
-          gap: 2,
+          justifyContent: 'space-between',
+          borderBottom: '1px solid #f1f5f9',
         }}
       >
-        <Box
-          sx={{
-            width: 44,
-            height: 44,
-            borderRadius: 2,
-            bgcolor: 'rgba(255,255,255,0.16)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            flexShrink: 0,
-          }}
-        >
-          <SetupIcon sx={{ fontSize: 22 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 2,
+              bgcolor: '#ecfdf5',
+              color: '#059669',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <VaccineIcon sx={{ fontSize: 20 }} />
+          </Box>
+          <Box>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>
+              {isEdit ? 'Edit Vaccine Type' : 'Add Vaccine Type'}
+            </Typography>
+          </Box>
         </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography id="vaccine-type-dialog-title" sx={{ color: '#fff', fontWeight: 800, fontSize: '1.05rem' }}>
-            {isEdit ? 'Edit vaccine type rule' : 'Add vaccine type rule'}
-          </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.88)', fontSize: 13, mt: 0.25 }}>
-            Setup-only form used by both the Vaccine Type Setup screen and the “Add New Type” shortcut inside Add Stock.
-          </Typography>
-        </Box>
-        <IconButton onClick={onClose} size="small" sx={{ color: '#fff' }}>
+        <IconButton onClick={onClose} size="small" sx={{ color: '#94a3b8' }}>
           <CloseIcon fontSize="small" />
         </IconButton>
-      </Box>
+      </DialogTitle>
 
       <DialogContent sx={{ p: 3 }}>
         <Stack spacing={3}>
           {errors.submit && <Alert severity="error">{errors.submit}</Alert>}
 
-          <Alert severity="info" icon={<VaccineIcon fontSize="inherit" />}>
-            Use real clinic language here: shelf-life for batch expiry, hours valid once opened for multi-dose vials, and vials needed per patient treatment for coverage planning.
-          </Alert>
-
-          <Grid container spacing={2.25}>
-            <Grid size={{ xs: 12, md: 8 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                Vaccine name / brand
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                value={form.vaccine_name}
-                onChange={(e) => {
-                  setForm((prev) => ({ ...prev, vaccine_name: e.target.value }));
-                  setErrors((prev) => ({ ...prev, vaccine_name: '' }));
-                }}
-                placeholder="e.g. Verorab 0.5 mL"
-                error={!!errors.vaccine_name}
-                helperText={errors.vaccine_name || 'Shown in the Add Stock dropdown and inventory table.'}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                Catalog tag
-              </Typography>
-              <FormControl fullWidth size="small">
-                <Select
-                  value={form.category}
-                  onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                  sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
-                >
-                  {CATEGORIES.map((category) => (
-                    <MenuItem key={category} value={category}>{category}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                Manufactured Date shelf-life
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                value={form.default_shelf_life_months}
-                onChange={(e) => {
-                  setForm((prev) => ({ ...prev, default_shelf_life_months: Number(e.target.value) }));
-                  setErrors((prev) => ({ ...prev, default_shelf_life_months: '' }));
-                }}
-                error={!!errors.default_shelf_life_months}
-                helperText={errors.default_shelf_life_months || 'Months added to Manufactured Date.'}
-                slotProps={{ htmlInput: { min: 1 } }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                  Hours valid once opened
-                </Typography>
-                <FormControlLabel
-                  sx={{ mr: 0 }}
-                  control={
-                    <Switch
-                      size="small"
-                      checked={form.is_multidose}
-                      onChange={(e) => {
-                        const isMultidose = e.target.checked;
-                        setForm((prev) => ({
-                          ...prev,
-                          is_multidose: isMultidose,
-                          default_open_vial_hours: isMultidose ? (prev.default_open_vial_hours || 6) : null,
-                          doses_per_vial: isMultidose ? (prev.doses_per_vial > 1 ? prev.doses_per_vial : 3) : 1,
-                        }));
-                      }}
-                    />
-                  }
-                  label={<Typography sx={{ fontSize: 12, fontWeight: 600 }}>Multi-dose</Typography>}
-                />
-              </Box>
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                placeholder="e.g. 6 or 8"
-                value={form.default_open_vial_hours ?? ''}
-                onChange={(e) => {
-                  setForm((prev) => ({
-                    ...prev,
-                    default_open_vial_hours: e.target.value ? Number(e.target.value) : null,
-                  }));
-                  setErrors((prev) => ({ ...prev, default_open_vial_hours: '' }));
-                }}
-                disabled={!form.is_multidose}
-                error={!!errors.default_open_vial_hours}
-                helperText={
-                  !form.is_multidose
-                    ? 'Single-dose: not applicable.'
-                    : errors.default_open_vial_hours || '1 to 8 hours maximum per clinical safety policy (standard: 6–8h).'
-                }
-                slotProps={{ htmlInput: { min: 1, max: 8 } }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    bgcolor: '#f8fafc',
-                    fontFamily: "'Poppins', sans-serif",
-                    fontSize: 13,
-                  },
-                  '& .MuiFormHelperText-root': {
-                    fontSize: 11.5,
-                    fontFamily: "'Poppins', sans-serif",
-                    mt: 0.5,
-                  },
-                }}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                Patients per Vial
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                value={form.doses_per_vial}
-                onChange={(e) => {
-                  setForm((prev) => ({ ...prev, doses_per_vial: Math.max(1, Number(e.target.value)) }));
-                  setErrors((prev) => ({ ...prev, doses_per_vial: '' }));
-                }}
-                disabled={!form.is_multidose}
-                error={!!errors.doses_per_vial}
-                helperText={
-                  !form.is_multidose
-                    ? '1 patient per single-use vial.'
-                    : errors.doses_per_vial || 'e.g. 3 patients share 1 vial (2nd & 3rd patient are not charged an extra vial).'
-                }
-                slotProps={{ htmlInput: { min: 1, max: 20 } }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                Vials needed per patient treatment
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                value={form.regimen_units_per_patient}
-                onChange={(e) => {
-                  setForm((prev) => ({ ...prev, regimen_units_per_patient: Number(e.target.value) }));
-                  setErrors((prev) => ({ ...prev, regimen_units_per_patient: '' }));
-                }}
-                error={!!errors.regimen_units_per_patient}
-                helperText={errors.regimen_units_per_patient || regimenCoverageText}
-                slotProps={{ htmlInput: { min: 0.1, step: 0.1 } }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                Dosing / regimen notes
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                multiline
-                minRows={3}
-                value={form.dosing_regimen_notes}
-                onChange={(e) => setForm((prev) => ({ ...prev, dosing_regimen_notes: e.target.value }))}
-                placeholder="Optional reference for staff, e.g. common dosing schedule or clinic reminder."
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                Storage / cold-chain notes
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                multiline
-                minRows={3}
-                value={form.storage_temperature_notes}
-                onChange={(e) => setForm((prev) => ({ ...prev, storage_temperature_notes: e.target.value }))}
-                placeholder="Optional, e.g. Store at +2°C to +8°C. Do not freeze."
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-              />
-            </Grid>
-          </Grid>
-
-          <Box sx={{ p: 2, border: '1px solid #dbeafe', borderRadius: 2.5, bgcolor: '#f8fbff' }}>
-            <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#1d4ed8', mb: 1 }}>
-              Saved rule summary
+          {/* ── Section 1: Vaccine Information ── */}
+          <Box>
+            <Typography
+              sx={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: '#64748b',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                mb: 1.5,
+              }}
+            >
+              Vaccine Information
             </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
-              <Chip icon={<CalendarIcon sx={{ fontSize: 16 }} />} label={`${form.default_shelf_life_months || 0} month shelf-life`} sx={{ fontWeight: 700, bgcolor: '#eff6ff', color: '#1d4ed8' }} />
-              <Chip icon={<TimeIcon sx={{ fontSize: 16 }} />} label={form.is_multidose ? `${form.default_open_vial_hours || 0}h valid once opened` : 'Single-dose, no open-vial timer'} sx={{ fontWeight: 700, bgcolor: '#fff7ed', color: '#c2410c' }} />
-              <Chip icon={<RegimenIcon sx={{ fontSize: 16 }} />} label={`${form.regimen_units_per_patient || 0} vial${Number(form.regimen_units_per_patient) === 1 ? '' : 's'} per patient treatment`} sx={{ fontWeight: 700, bgcolor: '#ecfdf5', color: '#047857' }} />
-              {!!form.storage_temperature_notes && <Chip icon={<ColdChainIcon sx={{ fontSize: 16 }} />} label="Cold-chain note saved" sx={{ fontWeight: 700, bgcolor: '#f8fafc', color: '#475569' }} />}
-            </Stack>
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
+                  Vaccine Name / Brand
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={form.vaccine_name}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, vaccine_name: e.target.value }));
+                    setErrors((prev) => ({ ...prev, vaccine_name: '' }));
+                  }}
+                  placeholder="e.g. Verorab, Speeda"
+                  error={!!errors.vaccine_name}
+                  helperText={errors.vaccine_name}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
+                  Category
+                </Typography>
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={form.category}
+                    onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                    sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
+                  >
+                    {CATEGORIES.map((category) => (
+                      <MenuItem key={category} value={category}>{category}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Divider sx={{ borderColor: '#f1f5f9' }} />
+
+          {/* ── Section 2: Vial Configuration ── */}
+          <Box>
+            <Typography
+              sx={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: '#64748b',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                mb: 1.5,
+              }}
+            >
+              Vial Configuration
+            </Typography>
+
+            <Box sx={{ mb: form.is_multidose ? 2 : 0 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={form.is_multidose}
+                    onChange={handleToggleMultidose}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#1e293b' }}>
+                      Multi-dose
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                      {form.is_multidose ? 'Vial is shared across multiple patients once opened.' : 'Single-dose: one vial per patient treatment.'}
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Box>
+
+            {form.is_multidose && (
+              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
+                    Patients per Vial
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    value={form.doses_per_vial}
+                    onChange={(e) => {
+                      setForm((prev) => ({ ...prev, doses_per_vial: Math.max(1, Number(e.target.value)) }));
+                      setErrors((prev) => ({ ...prev, doses_per_vial: '' }));
+                    }}
+                    placeholder="e.g. 3"
+                    error={!!errors.doses_per_vial}
+                    helperText={errors.doses_per_vial}
+                    slotProps={{ htmlInput: { min: 1, max: 50 } }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+                  />
+                </Grid>
+
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
+                    Valid After Opening
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    placeholder="e.g. 6"
+                    value={form.default_open_vial_hours ?? ''}
+                    onChange={(e) => {
+                      setForm((prev) => ({
+                        ...prev,
+                        default_open_vial_hours: e.target.value ? Number(e.target.value) : null,
+                      }));
+                      setErrors((prev) => ({ ...prev, default_open_vial_hours: '' }));
+                    }}
+                    error={!!errors.default_open_vial_hours}
+                    helperText={errors.default_open_vial_hours}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 8 },
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>hours</Typography>
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+                  />
+                </Grid>
+              </Grid>
+            )}
+          </Box>
+
+          <Divider sx={{ borderColor: '#f1f5f9' }} />
+
+          {/* ── Section 3: Optional Information ── */}
+          <Box>
+            <Typography
+              sx={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: '#64748b',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                mb: 1.5,
+              }}
+            >
+              Optional Information
+            </Typography>
+
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
+              Storage / Cold-chain Notes
+            </Typography>
+            <TextField
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+              maxRows={4}
+              value={form.storage_temperature_notes}
+              onChange={(e) => setForm((prev) => ({ ...prev, storage_temperature_notes: e.target.value }))}
+              placeholder="e.g. Store at +2°C to +8°C. Monitored Cold-Chain."
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+            />
           </Box>
         </Stack>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc', justifyContent: 'space-between' }}>
-        <Button onClick={onClose} variant="outlined" color="inherit" sx={{ textTransform: 'none', fontWeight: 700 }}>
+      {/* ── Dialog Actions ── */}
+      <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc', justifyContent: 'flex-end', gap: 1.5 }}>
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          color="inherit"
+          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+        >
           Cancel
         </Button>
         <Button
-          onClick={handleSave}
-          variant="contained"
-          disabled={saving}
-          startIcon={saving ? <ButtonSpinner size={16} /> : <SaveIcon />}
-          sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#2563eb', '&:hover': { bgcolor: '#1d4ed8' } }}
-        >
-          {saving ? 'Saving…' : isEdit ? 'Save rule changes' : 'Save vaccine type'}
+            onClick={handleSave}
+            variant="contained"
+            disabled={saving}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              borderRadius: 2,
+              bgcolor: '#059669',
+              '&:hover': { bgcolor: '#047857' },
+            }}
+          >
+          {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Save Vaccine'}
         </Button>
       </DialogActions>
     </Dialog>

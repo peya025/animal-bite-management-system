@@ -1,3 +1,5 @@
+import { getGlobalPrintLogos } from '../../../../components/print/printHeaderHelper';
+import { printWhenReady } from '../../../../components/print/printReady';
 import { useState, useMemo, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, Box, Typography, Button, TextField, InputAdornment,
@@ -235,8 +237,8 @@ export default function StockCardFileManager({
       province: authClinic?.province || 'Misamis Oriental',
       municipality: authClinic?.municipality || 'Tagoloan',
       contact_number: authClinic?.contact_number || (authClinic as any)?.phone || '(088) 555-4778',
-      left_print_logo_url: authClinic?.left_print_logo_url || null,
-      right_print_logo_url: authClinic?.right_print_logo_url || null,
+      left_print_logo_url: getGlobalPrintLogos(authClinic).leftLogoUrl,
+      right_print_logo_url: getGlobalPrintLogos(authClinic).rightLogoUrl,
     };
   }, [authClinic, activeItem]);
 
@@ -348,7 +350,7 @@ export default function StockCardFileManager({
   </head>
   <body>
     <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px;">
-      ${activeClinic.left_print_logo_url ? `<img src="${activeClinic.left_print_logo_url.startsWith('http') || activeClinic.left_print_logo_url.startsWith('/') ? activeClinic.left_print_logo_url : `${window.location.origin}/${activeClinic.left_print_logo_url}`}" style="height: 80px; width: 80px; object-fit: contain;" />` : `<div style="width: 80px; height: 80px; flex-shrink: 0;"></div>`}
+      ${activeClinic.left_print_logo_url ? `<img onerror="this.style.visibility='hidden'" src="${activeClinic.left_print_logo_url}" style="height: 80px; width: 80px; object-fit: contain;" />` : `<div style="width: 80px; height: 80px; flex-shrink: 0;"></div>`}
       <div style="text-align: center; flex: 1; padding: 0 8px;">
         <div style="font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; color: #333;">Republic of the Philippines</div>
         <div style="font-size: 9.5pt; font-weight: bold; text-transform: uppercase; color: #000;">PROVINCE OF ${(activeClinic.province || 'MISAMIS ORIENTAL').toUpperCase()}</div>
@@ -356,7 +358,7 @@ export default function StockCardFileManager({
         <div style="font-size: 11pt; font-weight: 800; text-transform: uppercase; color: #059669; margin-top: 1px;">${(activeClinic.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase()}</div>
         <div style="font-size: 8pt; color: #444;">Tel. No. : ${activeClinic.contact_number || '(088) 555-4778'}</div>
       </div>
-      ${activeClinic.right_print_logo_url ? `<img src="${activeClinic.right_print_logo_url.startsWith('http') || activeClinic.right_print_logo_url.startsWith('/') ? activeClinic.right_print_logo_url : `${window.location.origin}/${activeClinic.right_print_logo_url}`}" style="height: 80px; width: 80px; object-fit: contain;" />` : `<div style="width: 80px; height: 80px; flex-shrink: 0;"></div>`}
+      ${activeClinic.right_print_logo_url ? `<img onerror="this.style.visibility='hidden'" src="${activeClinic.right_print_logo_url}" style="height: 80px; width: 80px; object-fit: contain;" />` : `<div style="width: 80px; height: 80px; flex-shrink: 0;"></div>`}
     </div>
 
     <div style="text-align: center; margin-bottom: 12px;">
@@ -492,7 +494,7 @@ export default function StockCardFileManager({
   </head>
   <body>
     <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin-bottom: 4px;">
-      ${activeClinic.left_print_logo_url ? `<img src="${activeClinic.left_print_logo_url.startsWith('http') || activeClinic.left_print_logo_url.startsWith('/') ? activeClinic.left_print_logo_url : `${window.location.origin}/${activeClinic.left_print_logo_url}`}" style="height: 55px; width: 55px; object-fit: contain;" />` : `<div style="width: 55px; height: 55px; flex-shrink: 0;"></div>`}
+      ${activeClinic.left_print_logo_url ? `<img onerror="this.style.visibility='hidden'" src="${activeClinic.left_print_logo_url}" style="height: 55px; width: 55px; object-fit: contain;" />` : `<div style="width: 55px; height: 55px; flex-shrink: 0;"></div>`}
       <div style="text-align: center; flex: 1; padding: 0 6px;">
         <div style="font-size: 7pt; text-transform: uppercase; letter-spacing: 0.5px; color: #333;">Republic of the Philippines</div>
         <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; color: #000;">PROVINCE OF ${(activeClinic.province || 'MISAMIS ORIENTAL').toUpperCase()}</div>
@@ -500,7 +502,7 @@ export default function StockCardFileManager({
         <div style="font-size: 9.5pt; font-weight: 800; text-transform: uppercase; color: #059669; margin-top: 1px;">${(activeClinic.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase()}</div>
         <div style="font-size: 7pt; color: #444;">Tel. No. : ${activeClinic.contact_number}</div>
       </div>
-      ${activeClinic.right_print_logo_url ? `<img src="${activeClinic.right_print_logo_url.startsWith('http') || activeClinic.right_print_logo_url.startsWith('/') ? activeClinic.right_print_logo_url : `${window.location.origin}/${activeClinic.right_print_logo_url}`}" style="height: 55px; width: 55px; object-fit: contain;" />` : `<div style="width: 55px; height: 55px; flex-shrink: 0;"></div>`}
+      ${activeClinic.right_print_logo_url ? `<img onerror="this.style.visibility='hidden'" src="${activeClinic.right_print_logo_url}" style="height: 55px; width: 55px; object-fit: contain;" />` : `<div style="width: 55px; height: 55px; flex-shrink: 0;"></div>`}
     </div>
 
     <div style="text-align: center; margin-bottom: 4px;">
@@ -579,10 +581,7 @@ export default function StockCardFileManager({
 
     printWin.document.close();
     printWin.focus();
-    setTimeout(() => {
-      printWin.print();
-      printWin.close();
-    }, 250);
+    void printWhenReady(printWin, true);
 
     handleCloseContextMenu();
     setToast({ open: true, message: `Opened printer for ${file.fileName}`, severity: 'info' });
@@ -1386,7 +1385,7 @@ export default function StockCardFileManager({
                 {/* Left Seal Flag Logo */}
                 <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {activeClinic.left_print_logo_url ? (
-                    <img src={activeClinic.left_print_logo_url} alt="Left Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
+                    <img key={activeClinic.left_print_logo_url} src={activeClinic.left_print_logo_url} alt="Left Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLElement).style.visibility = 'hidden'; }} />
                   ) : null}
                 </Box>
 
@@ -1412,7 +1411,7 @@ export default function StockCardFileManager({
                 {/* Right Seal Logo */}
                 <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {activeClinic.right_print_logo_url ? (
-                    <img src={activeClinic.right_print_logo_url} alt="Right Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
+                    <img key={activeClinic.right_print_logo_url} src={activeClinic.right_print_logo_url} alt="Right Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLElement).style.visibility = 'hidden'; }} />
                   ) : null}
                 </Box>
               </Box>

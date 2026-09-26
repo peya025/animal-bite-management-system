@@ -1,3 +1,4 @@
+import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -75,8 +76,7 @@ export default function PatientList() {
   const userRole   = user?.role || (userData ? (JSON.parse(userData)?.role ?? '') : '');
   const printedBy  = user?.name || (userData ? (JSON.parse(userData)?.name ?? 'Unknown') : 'Unknown');
   const clinicName = clinic?.name ?? 'Animal Bite Treatment Center';
-  const leftLogoUrl = clinic?.left_print_logo_url || null;
-  const rightLogoUrl = clinic?.right_print_logo_url || null;
+  const { leftLogoUrl, rightLogoUrl } = getGlobalPrintLogos(clinic);
   const province = clinic?.province || '';
   const municipality = clinic?.municipality || '';
   const contactNumber = clinic?.contact_number || clinic?.phone || '';

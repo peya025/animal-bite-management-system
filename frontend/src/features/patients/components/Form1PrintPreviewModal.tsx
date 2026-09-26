@@ -1,3 +1,5 @@
+import { resolvePrintLogoUrls } from '../../../components/print/printHeaderHelper';
+import { printWhenReady } from '../../../components/print/printReady';
 import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
@@ -54,24 +56,12 @@ export default function Form1PrintPreviewModal({
         if (!res.ok) {
           throw new Error(`Failed to load print template (HTTP ${res.status})`);
         }
-        return res.text();
+        return resolvePrintLogoUrls(await res.text());
       })
       .then(html => {
         if (isMounted) {
           setHtmlContent(html);
           setLoading(false);
-
-          // Automatically trigger print dialog as soon as template finishes rendering
-          setTimeout(() => {
-            if (iframeRef.current && iframeRef.current.contentWindow) {
-              try {
-                iframeRef.current.contentWindow.focus();
-                iframeRef.current.contentWindow.print();
-              } catch (e) {
-                console.warn('Auto-print trigger error:', e);
-              }
-            }
-          }, 400);
         }
       })
       .catch(err => {
@@ -92,7 +82,7 @@ export default function Form1PrintPreviewModal({
     if (iframeRef.current && iframeRef.current.contentWindow) {
       try {
         iframeRef.current.contentWindow.focus();
-        iframeRef.current.contentWindow.print();
+        void printWhenReady(iframeRef.current.contentWindow);
       } catch (err) {
         console.error('Manual print trigger failed:', err);
       }
@@ -194,6 +184,7 @@ export default function Form1PrintPreviewModal({
         {!error && (
           <iframe
             ref={iframeRef}
+            onLoad={() => { if (iframeRef.current?.contentWindow && htmlContent) void printWhenReady(iframeRef.current.contentWindow); }}
             srcDoc={htmlContent}
             title="DOH Form 1 Enrolment Record Preview"
             style={{

@@ -1,12 +1,8 @@
-/**
- * Shared print utility — formal DOH letterhead document.
- *
- * Usage:
- *   printDocument({ clinicName, printedBy, title, refPrefix, bodyHtml });
- */
+import { printWhenReady } from './printReady';
+import { getGlobalPrintLogos, resolveStorageUrl } from './printHeaderHelper';
 
 export interface PrintDocumentOptions {
-  clinicName: string;
+  clinicName?: string;
   printedBy: string;
   leftLogoUrl?: string | null;
   rightLogoUrl?: string | null;
@@ -41,8 +37,10 @@ export function printDocument({
   const printDateFull = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const printTimeFull = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-  const leftSrc = leftLogoUrl || null;
-  const rightSrc = rightLogoUrl || null;
+  const globalLogos = getGlobalPrintLogos();
+  const leftSrc = leftLogoUrl !== undefined ? resolveStorageUrl(leftLogoUrl) : globalLogos.leftLogoUrl;
+  const rightSrc = rightLogoUrl !== undefined ? resolveStorageUrl(rightLogoUrl) : globalLogos.rightLogoUrl;
+
 
   const CSS = [
     `*{box-sizing:border-box;margin:0;padding:0}`,
@@ -85,13 +83,13 @@ export function printDocument({
     <style>${CSS}</style>
   </head><body>
     <div class="letterhead">
-      ${leftSrc ? `<img src="${leftSrc}" alt="Left Seal" class="logo-img" />` : `<div style="width:64px;height:64px;flex-shrink:0;"></div>`}
+      ${leftSrc ? `<img onerror="this.style.visibility='hidden'" src="${leftSrc}" alt="Left Seal" class="logo-img" />` : `<div style="width:64px;height:64px;flex-shrink:0;"></div>`}
       <div class="org">
         <div class="republic">Republic of the Philippines ${province ? `• ${province}` : ''} ${municipality ? `• ${municipality}` : ''}</div>
         <div class="clinic">${clinicName}</div>
         <div class="address">Animal Bite Treatment Center ${contactNumber ? `| Tel. ${contactNumber}` : ''} ${address ? `| ${address}` : ''}</div>
       </div>
-      ${rightSrc ? `<img src="${rightSrc}" alt="Right Seal" class="logo-img" />` : `<div style="width:64px;height:64px;flex-shrink:0;"></div>`}
+      ${rightSrc ? `<img onerror="this.style.visibility='hidden'" src="${rightSrc}" alt="Right Seal" class="logo-img" />` : `<div style="width:64px;height:64px;flex-shrink:0;"></div>`}
     </div>
     <hr class="divider-thick"><hr class="divider-thin">
     <div class="doc-title">
@@ -126,5 +124,5 @@ export function printDocument({
 
   win.document.close();
   win.focus();
-  setTimeout(() => { win.print(); win.close(); }, 400);
+  void printWhenReady(win, true);
 }

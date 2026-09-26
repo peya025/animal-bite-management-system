@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
 import type { User, Clinic, LoginCredentials, AuthContextType } from '../types';
 import authService from '../services/auth.service';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token,     setToken]     = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const clinicRevision = useRef(0);
 
   // Hydrate from localStorage on mount & check for expired session
   useEffect(() => {
@@ -43,13 +44,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
     }
-    setIsLoading(false);
+    if (!storedToken || !storedUser) setIsLoading(false);
   }, [navigate]);
 
   // Sync clinic updates across components / events
   useEffect(() => {
     const handleClinicUpdate = (event: CustomEvent<Clinic>) => {
       if (event.detail) {
+        clinicRevision.current += 1;
         setClinic(event.detail);
         localStorage.setItem('clinicData', JSON.stringify(event.detail));
       }
@@ -58,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleStorage = (event: StorageEvent) => {
       if (event.key === 'clinicData' && event.newValue) {
         try {
+          clinicRevision.current += 1;
           setClinic(JSON.parse(event.newValue));
         } catch {
           // ignore
@@ -72,6 +75,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
+
+  // Refresh restored sessions and returning tabs through the existing clinic source.
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+    const refreshClinic = async () => {
+      const revision = clinicRevision.current;
+      try {
+        const currentUser = await authService.getCurrentUser();
+        // A Save Changes response takes precedence over an older in-flight refresh.
+        if (active && revision === clinicRevision.current && authService.getToken() === token && currentUser.clinic) {
+          setClinic(currentUser.clinic);
+          localStorage.setItem('clinicData', JSON.stringify(currentUser.clinic));
+          window.dispatchEvent(new CustomEvent('clinic-updated', { detail: currentUser.clinic }));
+        }
+      } catch {
+        // Keep the cached clinic available when the server is temporarily offline.
+      }
+    };
+    void refreshClinic().finally(() => { if (active) setIsLoading(false); });
+    window.addEventListener('focus', refreshClinic);
+    return () => { active = false; window.removeEventListener('focus', refreshClinic); };
+  }, [token]);
 
   // Dynamically update document title and favicon based on active clinic branding
   useEffect(() => {

@@ -1,3 +1,5 @@
+import { resolvePrintLogoUrls } from '../../../components/print/printHeaderHelper';
+import { waitForPrintImages } from '../../../components/print/printReady';
 import { useState } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
@@ -90,7 +92,7 @@ export default function DohReportsSection() {
       throw new Error(`Failed to load print template (HTTP ${response.status})`);
     }
 
-    return await response.text();
+    return resolvePrintLogoUrls(await response.text());
   };
 
   const handleSilentPrint = async (
@@ -123,9 +125,10 @@ export default function DohReportsSection() {
       frameDoc.write(html);
       frameDoc.close();
 
-      setTimeout(() => {
+      setTimeout(async () => {
         try {
-          iframe.contentWindow?.focus();
+          if (iframe.contentDocument) await waitForPrintImages(iframe.contentDocument);
+            iframe.contentWindow?.focus();
           iframe.contentWindow?.print();
         } catch (e) {
           console.error('Print trigger failed', e);
@@ -164,9 +167,10 @@ export default function DohReportsSection() {
     }
   };
 
-  const printFromPreview = () => {
+  const printFromPreview = async () => {
     const previewFrame = document.getElementById('doh-preview-iframe') as HTMLIFrameElement;
     if (previewFrame?.contentWindow) {
+      await waitForPrintImages(previewFrame.contentWindow.document);
       previewFrame.contentWindow.focus();
       previewFrame.contentWindow.print();
     }

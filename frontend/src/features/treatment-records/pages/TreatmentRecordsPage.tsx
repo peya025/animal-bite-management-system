@@ -1,7 +1,10 @@
+import { printWhenReady } from '../../../components/print/printReady';
 import { useState } from 'react';
 import { useTheme } from '@mui/material';
 import { formatPhilHealthNumber } from '../../../shared/utils';
 import { ConfirmationDialog } from '../../../components/feedback';
+import { getGlobalPrintLogos } from '../../../components/print';
+
 
 // ─── Types ────────────────────────────────────────────────────
 interface VaccinationRow {
@@ -78,15 +81,37 @@ const emptyRecord = (): Omit<TreatmentRecord, 'id' | 'createdAt'> => ({
 // ─── Helpers ─────────────────────────────────────────────────
 const fmtDate = (iso: string) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-const clinicData = localStorage.getItem('clinicData');
-const clinicName = clinicData ? (JSON.parse(clinicData)?.name ?? 'Tagoloan Animal Bite Treatment Center') : 'Tagoloan Animal Bite Treatment Center';
-const userData   = localStorage.getItem('userData');
-const printedBy  = userData   ? (JSON.parse(userData)?.name  ?? '') : '';
+function getActiveClinicInfo() {
+  let clinic: any = null;
+  try {
+    const raw = localStorage.getItem('clinicData');
+    if (raw) clinic = JSON.parse(raw);
+  } catch {
+    clinic = null;
+  }
+  const logos = getGlobalPrintLogos(clinic);
+  return {
+    clinic,
+    name: (clinic?.name || 'Tagoloan Animal Bite Treatment Center').trim(),
+    province: (clinic?.province || 'Misamis Oriental').trim(),
+    municipality: (clinic?.municipality || 'Tagoloan').trim(),
+    dohAccreditation: clinic?.doh_accreditation_no || '2022-10-037',
+    philhealthAccreditation: clinic?.philhealth_accreditation_no || 'B10034377',
+    contactNumber: clinic?.contact_number || (clinic as any)?.phone || '',
+    leftLogoUrl: logos.leftLogoUrl,
+    rightLogoUrl: logos.rightLogoUrl,
+  };
+}
 
 // ─── Print handler ────────────────────────────────────────────
 function printRecord(rec: TreatmentRecord) {
   const win = window.open('', '_blank', 'width=900,height=850');
   if (!win) return;
+
+  const clinicInfo = getActiveClinicInfo();
+  const userData = localStorage.getItem('userData');
+  const printedBy = userData ? (JSON.parse(userData)?.name ?? '') : '';
+
   const vaxRows = rec.vaccinations.map(v => `
     <tr>
       <td style="font-weight:600">${v.period}</td>
@@ -97,11 +122,14 @@ function printRecord(rec: TreatmentRecord) {
     </tr>`).join('');
 
   win.document.write(`<!DOCTYPE html><html><head>
-    <title>${clinicName} — Treatment Record</title>
+    <title>${clinicInfo.name} — Treatment Record</title>
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
       body{font-family:Arial,sans-serif;font-size:10pt;padding:20px 28px;color:#000;line-height:1.4}
-      h2{text-align:center;font-size:12pt;text-transform:uppercase;font-weight:bold;margin-bottom:14px;letter-spacing:0.5px}
+      .letterhead{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}
+      .letterhead .republic{font-size:8pt;letter-spacing:1px;text-transform:uppercase;color:#333;text-align:center}
+      .letterhead .clinic-title{font-size:12pt;text-transform:uppercase;font-weight:bold;letter-spacing:0.5px;text-align:center;margin:2px 0}
+      .letterhead .geo{font-size:8.5pt;color:#444;text-align:center}
       .top{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
       .fl{display:flex;align-items:baseline;gap:4px;margin-bottom:3px;font-size:9.5pt}
       .fl .lbl{white-space:nowrap;font-weight:bold}
@@ -118,12 +146,20 @@ function printRecord(rec: TreatmentRecord) {
       @media print{body{padding:12px 16px}@page{margin:1cm}}
     </style>
   </head><body>
-    <h2>${clinicName}</h2>
+    <div class="letterhead">
+      ${clinicInfo.leftLogoUrl ? `<img src="${clinicInfo.leftLogoUrl}" alt="Left Seal" style="width:60px;height:60px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:60px;height:60px;flex-shrink:0;"></div>`}
+      <div style="flex:1;text-align:center;padding:0 8px;">
+        <div class="republic">Republic of the Philippines • Department of Health</div>
+        <div class="clinic-title">${clinicInfo.name}</div>
+        <div class="geo">${[clinicInfo.municipality, clinicInfo.province].filter(Boolean).join(', ')}${clinicInfo.contactNumber ? ` • Tel: ${clinicInfo.contactNumber}` : ''}</div>
+      </div>
+      ${clinicInfo.rightLogoUrl ? `<img src="${clinicInfo.rightLogoUrl}" alt="Right Seal" style="width:60px;height:60px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:60px;height:60px;flex-shrink:0;"></div>`}
+    </div>
     <div class="top">
       <div>
         <div class="fl"><span class="lbl">Date:</span><span class="ln">${rec.date}</span></div>
-        <div class="fl"><span class="lbl">DOH Accreditation No:</span><span class="ln" style="font-weight:bold">2022-10-037</span></div>
-        <div class="fl"><span class="lbl">PhilHealth Accreditation Number:</span><span class="ln" style="font-weight:bold">B10034377</span></div>
+        <div class="fl"><span class="lbl">DOH Accreditation No:</span><span class="ln" style="font-weight:bold">${clinicInfo.dohAccreditation}</span></div>
+        <div class="fl"><span class="lbl">PhilHealth Accreditation Number:</span><span class="ln" style="font-weight:bold">${clinicInfo.philhealthAccreditation}</span></div>
         <div class="fl"><span class="lbl">PhilHealth Identification Number (PIN):</span><span class="ln">${rec.philhealthPin}</span></div>
       </div>
       <div>
@@ -174,18 +210,20 @@ function printRecord(rec: TreatmentRecord) {
     </table>
     <div class="icd">ICD 10 Code: ${rec.icd10 || '_______________'}</div>
     <div style="margin-top:24px;padding-top:8px;border-top:1px solid #000;display:flex;justify-content:space-between;font-size:8pt;color:#555">
-      <span>${clinicName}</span>
+      <span>${clinicInfo.name}</span>
       <span>Printed by: ${printedBy} | ${new Date().toLocaleString()}</span>
     </div>
   </body></html>`);
   win.document.close(); win.focus();
-  setTimeout(() => { win.print(); win.close(); }, 400);
+  void printWhenReady(win, true);
 }
 
 // ─── Patient Copy Print handler ───────────────────────────────
 function printPatientCopy(rec: TreatmentRecord) {
   const win = window.open('', '_blank', 'width=700,height=900');
   if (!win) return;
+
+  const clinicInfo = getActiveClinicInfo();
 
   // Only Day 0-28 for the patient copy table
   const doseRows = rec.vaccinations
@@ -203,9 +241,9 @@ function printPatientCopy(rec: TreatmentRecord) {
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
       body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;padding:24px 28px;color:#000;line-height:1.45}
-      .header-box{border:2px solid #000;padding:10px 14px;text-align:center;margin-bottom:16px}
-      .header-box h2{font-size:13pt;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px}
-      .header-box p{font-size:10pt;font-weight:700;text-transform:uppercase;font-style:italic}
+      .header-box{border:2px solid #000;padding:10px 14px;text-align:center;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+      .header-box h2{font-size:12.5pt;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px}
+      .header-box p{font-size:9pt;font-weight:700;text-transform:uppercase;font-style:italic}
       h3{text-align:center;font-size:12pt;font-weight:700;text-decoration:underline;text-transform:uppercase;margin-bottom:14px;letter-spacing:0.5px}
       .fl{display:flex;align-items:baseline;gap:4px;margin-bottom:4px;font-size:10pt}
       .fl .lbl{font-weight:600;white-space:nowrap}
@@ -220,10 +258,15 @@ function printPatientCopy(rec: TreatmentRecord) {
     </style>
   </head><body>
     <div class="header-box">
-      <h2>Tagoloan Animal Bite Center</h2>
-      <p>Tagoloan Misamis Oriental</p>
+      ${clinicInfo.leftLogoUrl ? `<img src="${clinicInfo.leftLogoUrl}" alt="Left Seal" style="width:52px;height:52px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:52px;height:52px;flex-shrink:0;"></div>`}
+      <div style="flex:1;text-align:center;">
+        <h2>${clinicInfo.name}</h2>
+        <p>${[clinicInfo.municipality, clinicInfo.province].filter(Boolean).join(' ')}</p>
+      </div>
+      ${clinicInfo.rightLogoUrl ? `<img src="${clinicInfo.rightLogoUrl}" alt="Right Seal" style="width:52px;height:52px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:52px;height:52px;flex-shrink:0;"></div>`}
     </div>
     <h3>Treatment Record</h3>
+
 
     <div class="fl"><span class="lbl">Registration No.</span><span class="ln">${rec.registryNo}</span><span class="lbl" style="margin-left:12px">Date Registered</span><span class="ln">${rec.date}</span></div>
     <div class="fl"><span class="lbl">Name:</span><span class="ln">${rec.patientName}</span><span class="lbl" style="margin-left:12px">Age:</span><span class="ln" style="max-width:50px">${rec.age}</span></div>
@@ -260,11 +303,12 @@ function printPatientCopy(rec: TreatmentRecord) {
     <div class="fl"><span class="lbl">Remarks:</span><span class="ln"></span></div>
 
     <div style="margin-top:24px;padding-top:8px;border-top:1px solid #000;font-size:8pt;color:#555;text-align:center">
-      Patient Copy — ${clinicName} | Generated: ${new Date().toLocaleDateString()}
+      Patient Copy — ${clinicInfo.name} | Generated: ${new Date().toLocaleDateString()}
     </div>
+
   </body></html>`);
   win.document.close(); win.focus();
-  setTimeout(() => { win.print(); win.close(); }, 400);
+  void printWhenReady(win, true);
 }
 
 // ─── Form Modal ────────────────────────────────────────────────

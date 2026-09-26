@@ -1,3 +1,5 @@
+import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
+import { waitForPrintImages } from '../../../components/print/printReady';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
@@ -229,8 +231,7 @@ export default function RegistrationReportsPage() {
         const response = await api.get<ReportData>('/reports/registration', { params: { ...filters, report, format } });
         const result = response.data;
         const columns = Object.keys(result.records.columns);
-        const leftLogo = clinic?.left_print_logo_url || null;
-        const rightLogo = clinic?.right_print_logo_url || null;
+        const { leftLogoUrl: leftLogo, rightLogoUrl: rightLogo } = getGlobalPrintLogos(clinic);
         const provinceName = (clinic?.province || 'MISAMIS ORIENTAL').toUpperCase();
         const municipalityName = (clinic?.municipality || 'TAGOLOAN').toUpperCase();
         const officeHeaderName = (clinic?.name || 'MUNICIPAL HEALTH OFFICE — ANIMAL BITE TREATMENT CENTER').toUpperCase();
@@ -263,14 +264,14 @@ export default function RegistrationReportsPage() {
           @media print{body{margin:0}}
           </style></head><body>
           <div class="header-box">
-            ${leftLogo ? `<img src="${leftLogo}" alt="Left Logo" style="width:56px;height:56px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:56px;height:56px;flex-shrink:0;"></div>`}
+            ${leftLogo ? `<img onerror="this.style.visibility='hidden'" src="${leftLogo}" alt="Left Logo" style="width:56px;height:56px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:56px;height:56px;flex-shrink:0;"></div>`}
             <div style="text-align:center;flex:1;padding:0 10px;">
               <div class="republic">Republic of the Philippines · Province of ${provinceName}</div>
               <div class="lgu">MUNICIPALITY OF ${municipalityName}</div>
               <div class="office">${officeHeaderName}</div>
               <div class="clinic">${escapeHtml(result.meta.clinic)}${contactPhone ? ` · Tel. ${contactPhone}` : ''}</div>
             </div>
-            ${rightLogo ? `<img src="${rightLogo}" alt="Right Logo" style="width:56px;height:56px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:56px;height:56px;flex-shrink:0;"></div>`}
+            ${rightLogo ? `<img onerror="this.style.visibility='hidden'" src="${rightLogo}" alt="Right Logo" style="width:56px;height:56px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:56px;height:56px;flex-shrink:0;"></div>`}
           </div>
           <div class="doc-title">
             <h2>${escapeHtml(result.meta.title)}</h2>
@@ -319,8 +320,9 @@ export default function RegistrationReportsPage() {
         frameDoc.write(printHtml);
         frameDoc.close();
 
-        setTimeout(() => {
+        setTimeout(async () => {
           try {
+            if (iframe.contentDocument) await waitForPrintImages(iframe.contentDocument);
             iframe.contentWindow?.focus();
             iframe.contentWindow?.print();
           } catch (e) {

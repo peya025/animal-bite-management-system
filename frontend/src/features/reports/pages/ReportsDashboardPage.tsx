@@ -1,6 +1,8 @@
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { printWhenReady } from '../../../components/print/printReady';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 import { useTheme } from '@mui/material/styles';
 import { Typography } from '@mui/material';
 import api from '../../../services/api';
@@ -1022,6 +1024,7 @@ export default function ReportsDashboardPage() {
 }
 
 function LegacyReportsDashboardPage() {
+  const navigate = useNavigate();
   const { clinic: authClinic } = useAuth();
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, Box, Button, FormControl, InputAdornment, MenuItem, Paper, Select, Skeleton, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
 import { CheckCircleOutlined, Clear, ErrorOutlined, FileDownloadOutlined, LocationOnOutlined, PetsOutlined, SearchOutlined, TrendingDown, TrendingUp, WarningAmberOutlined } from '@mui/icons-material';
 import api from '../../../services/api';
+import { ROUTES } from '../../../shared/config/routes';
 
 type RiskLevel = 'high' | 'medium' | 'low';
 type LocationSummary = { location: string; location_level: string; risk_score: number; risk_level: RiskLevel; total_cases: number; cat_1: number; cat_2: number; cat_3: number; animal_types: Record<string, number>; pep_compliance: number; overdue_doses: number; trend: 'up' | 'down' | 'neutral' | 'new'; trend_diff: number | null; last_incident: string | null; last_incident_days_ago: number | null };

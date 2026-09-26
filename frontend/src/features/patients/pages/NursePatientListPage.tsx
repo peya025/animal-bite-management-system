@@ -656,19 +656,13 @@ export default function NursePatientListPage() {
               mb: 0.5,
             }}
           >
-            Follow-Up & Vaccination Patient List
+            Station 2 · Follow-up Doses
+          </Typography>
+          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
+            {today} · Manage Doctor-prescribed scheduled follow-up doses due today, overdue, or upcoming
           </Typography>
           {/* Breadcrumb */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginTop: '8px',
-              fontFamily: 'Poppins',
-              fontSize: '13px',
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{
@@ -686,7 +680,7 @@ export default function NursePatientListPage() {
             <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Treatment Queues</span>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Follow-up Patient List</span>
+            <span style={{ color: '#6b7280' }}>Station 2: Follow-up Doses</span>
           </div>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

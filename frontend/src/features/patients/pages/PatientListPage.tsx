@@ -510,78 +510,27 @@ export default function PatientList() {
         <div className="pm-main-panel">
           <div className="pm-panel-header">
             <div>
-              {user?.role === 'treatment' ? (
-                <>
-                  <Typography
-                    component="h1"
-                    sx={{
-                      fontFamily: 'Poppins',
-                      fontSize: '24px',
-                      fontWeight: 700,
-                      lineHeight: 1.2,
-                      letterSpacing: '-0.02em',
-                      color: 'var(--text-h, #111827)',
-                      mb: 0.5,
-                    }}
-                  >
-                    {location.pathname.includes('patient-registry') ? 'Patient List' : 'Patient Management'}
-                  </Typography>
-                  {/* Breadcrumb */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      marginTop: '8px',
-                      fontFamily: 'Poppins',
-                      fontSize: '13px',
-                    }}
-                  >
-                    <button
-                      onClick={() => navigate(ROUTES.DASHBOARD)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        color: '#3b82f6',
-                        fontFamily: 'Poppins',
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Dashboard
-                    </button>
-                    <span style={{ color: '#9ca3af' }}>›</span>
-                    <span style={{ color: '#6b7280' }}>
-                      {location.pathname.includes('patient-registry') ? 'Patient List' : 'Patient Registration'}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h1 className="pm-title">
-                    {location.pathname.includes('patient-registry') ? 'Patient List' : 'Patient Management'}
-                  </h1>
-                  <p className="pm-subtitle">
-                    {location.pathname.includes('patient-registry')
-                      ? 'View and access all registered patient records'
-                      : 'Manage and track all registered walk-in and online patients'}
-                  </p>
-                  {/* Breadcrumb */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-                    <button
-                      onClick={() => navigate(ROUTES.DASHBOARD)}
-                      style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
-                    >
-                      Dashboard
-                    </button>
-                    <span style={{ color: '#9ca3af' }}>›</span>
-                    <span style={{ color: '#6b7280' }}>
-                      {location.pathname.includes('patient-registry') ? 'Patient List' : 'Patient Registration'}
-                    </span>
-                  </div>
-                </>
+              <h1 className="pm-title">
+                {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Management'}
+              </h1>
+              {!location.pathname.includes('patient-registry') && (
+                <p className="pm-subtitle">
+                  Manage and track all registered walk-in and online patients
+                </p>
               )}
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
+                <button
+                  onClick={() => navigate(ROUTES.DASHBOARD)}
+                  style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+                >
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>
+                  {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Registration'}
+                </span>
+              </div>
             </div>
             {canAddPatient && (
               <button className="pm-add-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowAddModal(true); }}>

@@ -422,31 +422,31 @@ export default function VaccinationSchedulePage() {
             </div>
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: '12px',
-                bgcolor: '#047857',
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(4, 120, 87, 0.2)',
-              }}
-            >
-              <HugeiconsIcon icon={Medicine01Icon} size={24} />
-            </Box>
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.02em', fontFamily: "'Poppins', sans-serif" }}>
-                Vaccination & Regimen Center
-              </Typography>
-              <Typography variant="body2" sx={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '13px', fontFamily: "'Poppins', sans-serif" }}>
-                Post-Exposure Prophylaxis (PEP) journey tracking, channel filtration, and multi-channel recall alerts
-              </Typography>
-            </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: '12px',
+              bgcolor: '#047857',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(4, 120, 87, 0.2)',
+            }}
+          >
+            <HugeiconsIcon icon={Medicine01Icon} size={24} />
           </Box>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.02em', fontFamily: "'Poppins', sans-serif" }}>
+              Vaccination & Regimen Center
+            </Typography>
+            <Typography variant="body2" sx={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '13px', fontFamily: "'Poppins', sans-serif" }}>
+              Post-Exposure Prophylaxis (PEP) journey tracking, channel filtration, and multi-channel recall alerts
+            </Typography>
+          </Box>
+        </Box>
         )}
 
         {/* Header Action Buttons */}

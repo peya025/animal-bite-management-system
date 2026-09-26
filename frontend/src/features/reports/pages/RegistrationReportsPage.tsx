@@ -375,6 +375,29 @@ export default function RegistrationReportsPage() {
       <Tab value="clinic_summary" label="Clinic Summary" />
     </Tabs>
 
+    {/* Current Actions Alert: Displayed directly below tabs on the Overview tab */}
+    {tab === 'overview' && stats && (stats.overdue_patients > 0 || stats.awaiting_d0 > 0) && (
+      <Alert
+        severity="warning"
+        action={
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            {stats.overdue_patients > 0 && (
+              <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('followup')}>
+                View Overdue ({stats.overdue_patients})
+              </Button>
+            )}
+            {stats.awaiting_d0 > 0 && (
+              <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('awaiting')}>
+                View Awaiting D0 ({stats.awaiting_d0})
+              </Button>
+            )}
+          </Stack>
+        }
+      >
+        Current actions: {stats.overdue_patients} patient(s) overdue · {stats.awaiting_d0} episode(s) awaiting D0. As of {data?.period?.as_of ?? globalData?.period?.as_of ?? ''}, across all incident dates.
+      </Alert>
+    )}
+
     {/* Unified Global Filters for all report tabs */}
     <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={event => { event.preventDefault(); if (valid) { setFilters({ ...draft }); setPage(1); } }}>
       <div className="rr-filter-row">
@@ -407,9 +430,9 @@ export default function RegistrationReportsPage() {
         {tab === 'overview' ? (
           <div className="rr-overview-top-section">
             <div className="rr-summary-stack">
-              {[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={100} />)}
+              {[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={92} />)}
             </div>
-            <Skeleton variant="rounded" height={324} />
+            <Skeleton variant="rounded" height={300} />
           </div>
         ) : (
           <div>
@@ -421,28 +444,6 @@ export default function RegistrationReportsPage() {
     )}
     {!initialLoading && data && stats && <>
       {tab === 'overview' && <>
-        {(stats.overdue_patients > 0 || stats.awaiting_d0 > 0) && (
-          <Alert
-            severity="warning"
-            action={
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                {stats.overdue_patients > 0 && (
-                  <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('followup')}>
-                    View Overdue ({stats.overdue_patients})
-                  </Button>
-                )}
-                {stats.awaiting_d0 > 0 && (
-                  <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('awaiting')}>
-                    View Awaiting D0 ({stats.awaiting_d0})
-                  </Button>
-                )}
-              </Stack>
-            }
-          >
-            Current actions: {stats.overdue_patients} patient(s) overdue · {stats.awaiting_d0} episode(s) awaiting D0. As of {data.period.as_of}, across all incident dates.
-          </Alert>
-        )}
-
         {/* Top Summary Cards & Follow-up Priorities Side-by-Side */}
         <div className="rr-overview-top-section">
           {/* Left side: 3 summary cards stacked vertically */}
@@ -483,11 +484,13 @@ export default function RegistrationReportsPage() {
                 </div>
               </div>
             </div>
-            <Stack direction="row" spacing={1} sx={{ mt: 'auto', pt: 1.5, flexWrap: 'wrap' }}>
-              <Button variant="outlined" size="small" onClick={() => selectReport('followup')}>Overdue doses</Button>
-              <Button variant="outlined" size="small" onClick={() => selectReport('awaiting')}>Awaiting D0</Button>
-            </Stack>
-            <p className="rr-note">Reminder status shows the latest recorded send attempt. Confirmed loss to follow-up and contact outcomes are not currently recorded.</p>
+            <div className="rr-followup-footer">
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                <Button variant="outlined" size="small" onClick={() => selectReport('followup')}>Overdue doses</Button>
+                <Button variant="outlined" size="small" onClick={() => selectReport('awaiting')}>Awaiting D0</Button>
+              </Stack>
+              <p className="rr-note">Reminder status shows the latest recorded send attempt. Confirmed loss to follow-up and contact outcomes are not currently recorded.</p>
+            </div>
           </Paper>
         </div>
 

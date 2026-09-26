@@ -1,3 +1,5 @@
+import { getGlobalPrintLogos } from '../../../../components/print/printHeaderHelper';
+import { printWhenReady } from '../../../../components/print/printReady';
 import { useState, useEffect, useRef } from 'react';
 import {
   Box, Button, CircularProgress, Paper, Typography, Menu, MenuItem, Stack, Chip, Tooltip, useTheme,
@@ -67,8 +69,8 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
     municipality: authClinic?.municipality || 'Tagoloan',
     office_name: authClinic?.name || 'MUNICIPAL HEALTH OFFICE - ANIMAL BITE TREATMENT CENTER',
     phone: authClinic?.contact_number || authClinic?.phone || '(088) 123-4567',
-    left_logo: authClinic?.left_print_logo_url || null,
-    right_logo: authClinic?.right_print_logo_url || null,
+    left_logo: getGlobalPrintLogos(authClinic).leftLogoUrl,
+    right_logo: getGlobalPrintLogos(authClinic).rightLogoUrl,
   };
 
   useEffect(() => {
@@ -289,14 +291,14 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
             <div>
               <!-- Official Letterhead -->
               <div class="header-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                ${clinic.left_logo ? `<img src="${clinic.left_logo}" alt="Left Seal" style="width: 65px; height: 65px; object-fit: contain;" />` : `<div style="width: 65px; height: 65px; flex-shrink: 0;"></div>`}
+                ${clinic.left_logo ? `<img onerror="this.style.visibility='hidden'" src="${clinic.left_logo}" alt="Left Seal" style="width: 65px; height: 65px; object-fit: contain;" />` : `<div style="width: 65px; height: 65px; flex-shrink: 0;"></div>`}
                 <div style="text-align: center; flex: 1; padding: 0 10px;">
                   <div class="republic">Republic of the Philippines &bull; ${clinic.province} &bull; ${clinic.municipality}</div>
                   <div class="office">${clinic.office_name}</div>
                   <div class="contact">Tel. No. : ${clinic.phone} &bull; ${clinic.address}</div>
                   <div class="doc-name">STOCK CARD</div>
                 </div>
-                ${clinic.right_logo ? `<img src="${clinic.right_logo}" alt="Right Seal" style="width: 65px; height: 65px; object-fit: contain;" />` : `<div style="width: 65px; height: 65px; flex-shrink: 0;"></div>`}
+                ${clinic.right_logo ? `<img onerror="this.style.visibility='hidden'" src="${clinic.right_logo}" alt="Right Seal" style="width: 65px; height: 65px; object-fit: contain;" />` : `<div style="width: 65px; height: 65px; flex-shrink: 0;"></div>`}
               </div>
 
               <!-- Formal Metadata Block -->
@@ -381,10 +383,7 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
 
     printWin.document.close();
     printWin.focus();
-    setTimeout(() => {
-      printWin.print();
-      printWin.close();
-    }, 350);
+    void printWhenReady(printWin, true);
   };
 
   const theme = useTheme();
@@ -576,7 +575,7 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, pb: 2, borderBottom: '2px solid #0f172a' }}>
           {/* Left Tagoloan Seal Flag Logo */}
           <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <img src={clinic.left_logo || undefined} alt="Tagoloan Municipal Seal Flag" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/Flag_of_Tagoloan,_Misamis_Oriental.png'; }} />
+            {clinic.left_logo ? <img key={clinic.left_logo} src={clinic.left_logo} alt="left Print Logo" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : <div style={{ width: 90, height: 90, flexShrink: 0 }} />}
           </Box>
 
           {/* Center Text */}
@@ -594,7 +593,7 @@ export function SingleStockCardTable({ item }: { item: InventoryItem }) {
 
           {/* Right RHU Health Office Logo */}
           <Box sx={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <img src={clinic.right_logo || undefined} alt="RHU Health Office Seal" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/rhu-logo.png'; }} />
+            {clinic.right_logo ? <img key={clinic.right_logo} src={clinic.right_logo} alt="right Print Logo" style={{ width: 90, height: 90, objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : <div style={{ width: 90, height: 90, flexShrink: 0 }} />}
           </Box>
         </Box>
 

@@ -1,3 +1,5 @@
+import { resolvePrintLogoUrls } from '../../../components/print/printHeaderHelper';
+import { waitForPrintImages } from '../../../components/print/printReady';
 import { useState, useEffect, type ReactNode } from 'react';
 import {
   Dialog,
@@ -441,7 +443,7 @@ export default function PatientDetailsModal({
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.message || `Failed to fetch print template (HTTP ${response.status})`);
       }
-      const html = await response.text();
+      const html = resolvePrintLogoUrls(await response.text());
 
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
@@ -454,8 +456,9 @@ export default function PatientDetailsModal({
 
       iframe.srcdoc = html;
       iframe.onload = () => {
-        setTimeout(() => {
+        setTimeout(async () => {
           try {
+            if (iframe.contentDocument) await waitForPrintImages(iframe.contentDocument);
             iframe.contentWindow?.focus();
             iframe.contentWindow?.print();
           } catch (e) {

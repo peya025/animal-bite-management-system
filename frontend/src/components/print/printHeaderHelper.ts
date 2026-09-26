@@ -17,56 +17,41 @@ export function getBackendBaseUrl(): string {
  * Resolve a relative or absolute storage logo URL cleanly.
  */
 export function resolveStorageUrl(url?: string | null, path?: string | null): string | null {
-  const backendBase = getBackendBaseUrl();
-
-  if (url && typeof url === 'string' && url.trim() !== '') {
-    const trimmed = url.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
-      return trimmed;
-    }
-    if (trimmed.startsWith('/')) {
-      return `${backendBase}${trimmed}`;
-    }
-    return `${backendBase}/${trimmed}`;
+  const configuredBase = API_BASE_URL.replace(/\/$/, '').replace(/(?:\/api)?$/, '/api');
+  const apiBase = new URL(configuredBase, window.location.origin).href.replace(/\/$/, '');
+  const value = url?.trim();
+  if (value) {
+    // Use the same reachable API origin/proxy as clinic configuration. Old cached
+    // asset URLs may contain localhost or a backend-internal hostname.
+    const storagePath = value.match(/(?:^|\/)storage\/(clinic-logos\/[^?#]+)([?#].*)?$/);
+    if (storagePath) return apiBase + '/storage/' + storagePath[1] + (storagePath[2] || '');
+    if (/^(https?:|data:|blob:|\/\/)/i.test(value)) return value;
+    return getBackendBaseUrl() + '/' + value.replace(/^\/+/, '');
   }
-
-  if (path && typeof path === 'string' && path.trim() !== '') {
-    const cleanPath = path.trim().replace(/^\/?storage\/?/, '').replace(/^\/+/, '');
-    return `${backendBase}/storage/${cleanPath}`;
+  if (path?.trim()) {
+    return apiBase + '/storage/' + path.trim().replace(/^\/?storage\//, '').replace(/^\/+/, '');
   }
-
   return null;
 }
 
-/**
- * Retrieves the global Left and Right Print Logos from the provided clinic,
- * falling back to the cached `clinicData` from localStorage if not provided.
- */
+/** Resolve print branding from the clinic shared by AuthContext and its cache. */
 export function getGlobalPrintLogos(clinic?: Partial<Clinic> | null): GlobalPrintLogos {
   let targetClinic = clinic;
-
   if (!targetClinic && typeof window !== 'undefined') {
     try {
-      const stored = localStorage.getItem('clinicData');
-      if (stored) {
-        targetClinic = JSON.parse(stored);
-      }
-    } catch {
-      targetClinic = null;
-    }
+      targetClinic = JSON.parse(localStorage.getItem('clinicData') || 'null');
+    } catch { targetClinic = null; }
   }
+  return {
+    leftLogoUrl: resolveStorageUrl(targetClinic?.left_print_logo_url, targetClinic?.left_print_logo_path),
+    rightLogoUrl: resolveStorageUrl(targetClinic?.right_print_logo_url, targetClinic?.right_print_logo_path),
+  };
+}
 
-  const leftLogoUrl = resolveStorageUrl(
-    targetClinic?.left_print_logo_url,
-    targetClinic?.left_print_logo_path
-  );
-
-  const rightLogoUrl = resolveStorageUrl(
-    targetClinic?.right_print_logo_url,
-    targetClinic?.right_print_logo_path
-  );
-
-  return { leftLogoUrl, rightLogoUrl };
+/** Keep server-rendered logos on the configured API origin when HTML is embedded. */
+export function resolvePrintLogoUrls(html: string): string {
+  return html.replace(/src="([^"]*\/storage\/clinic-logos\/[^"]*)"/g,
+    (_attribute, url: string) => 'src="' + resolveStorageUrl(url) + '"');
 }
 
 export interface RenderLetterheadOptions {
@@ -101,8 +86,8 @@ export function renderPrintLetterheadHtml({
   logoSize = 64,
 }: RenderLetterheadOptions): string {
   const globalLogos = getGlobalPrintLogos(clinic);
-  const leftSrc = leftLogoUrl !== undefined ? leftLogoUrl : globalLogos.leftLogoUrl;
-  const rightSrc = rightLogoUrl !== undefined ? rightLogoUrl : globalLogos.rightLogoUrl;
+  const leftSrc = leftLogoUrl !== undefined ? resolveStorageUrl(leftLogoUrl) : globalLogos.leftLogoUrl;
+  const rightSrc = rightLogoUrl !== undefined ? resolveStorageUrl(rightLogoUrl) : globalLogos.rightLogoUrl;
 
   const resolvedClinicName = (clinicName || clinic?.name || 'Animal Bite Treatment Center').trim();
   const resolvedProvince = (province || clinic?.province || '').trim();
@@ -114,11 +99,11 @@ export function renderPrintLetterheadHtml({
   const contactSubtitle = [resolvedPhone ? `Tel. ${resolvedPhone}` : '', resolvedAddress].filter(Boolean).join(' | ');
 
   const leftElement = leftSrc
-    ? `<img src="${leftSrc}" alt="Left Seal" style="width:${logoSize}px;height:${logoSize}px;object-fit:contain;flex-shrink:0;" />`
+    ? `<img src="${leftSrc}" alt="Left Seal" onerror="this.style.visibility='hidden'" style="width:${logoSize}px;height:${logoSize}px;object-fit:contain;flex-shrink:0;" />`
     : `<div style="width:${logoSize}px;height:${logoSize}px;flex-shrink:0;"></div>`;
 
   const rightElement = rightSrc
-    ? `<img src="${rightSrc}" alt="Right Seal" style="width:${logoSize}px;height:${logoSize}px;object-fit:contain;flex-shrink:0;" />`
+    ? `<img src="${rightSrc}" alt="Right Seal" onerror="this.style.visibility='hidden'" style="width:${logoSize}px;height:${logoSize}px;object-fit:contain;flex-shrink:0;" />`
     : `<div style="width:${logoSize}px;height:${logoSize}px;flex-shrink:0;"></div>`;
 
   return `

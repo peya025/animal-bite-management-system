@@ -252,21 +252,13 @@
             <tr>
                 <td style="width: 52%;">
                     <div class="doh-brand" style="justify-content: space-between;">
-                        @if(!empty($clinic?->left_print_logo_url))
-                            <img src="{{ $clinic->left_print_logo_url }}" alt="Left Seal" class="doh-logo-img">
-                        @else
-                            <div style="width: 55px; height: 55px; flex-shrink: 0;"></div>
-                        @endif
+                        @include('prints.partials.logo', ['url' => $clinic?->left_print_logo_url ?? null, 'side' => 'Left', 'size' => 52, 'spacerSize' => 55, 'class' => 'doh-logo-img'])
                         <div class="doh-text" style="text-align: center; flex: 1; padding: 0 6px;">
                             Republic of the Philippines<br>
                             <strong>{{ strtoupper($clinic?->name ?? 'Department of Health') }}</strong>
                             {{ $clinic?->municipality ? $clinic->municipality . ', ' : '' }}{{ $clinic?->province ?? 'Misamis Oriental' }}
                         </div>
-                        @if(!empty($clinic?->right_print_logo_url))
-                            <img src="{{ $clinic->right_print_logo_url }}" alt="Right Seal" class="doh-logo-img">
-                        @else
-                            <div style="width: 55px; height: 55px; flex-shrink: 0;"></div>
-                        @endif
+                        @include('prints.partials.logo', ['url' => $clinic?->right_print_logo_url ?? null, 'side' => 'Right', 'size' => 52, 'spacerSize' => 55, 'class' => 'doh-logo-img'])
                     </div>
                 </td>
                 <td style="width: 28%;">

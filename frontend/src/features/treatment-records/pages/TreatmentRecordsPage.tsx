@@ -1,3 +1,4 @@
+import { printWhenReady } from '../../../components/print/printReady';
 import { useState } from 'react';
 import { useTheme } from '@mui/material';
 import { formatPhilHealthNumber } from '../../../shared/utils';
@@ -214,7 +215,7 @@ function printRecord(rec: TreatmentRecord) {
     </div>
   </body></html>`);
   win.document.close(); win.focus();
-  setTimeout(() => { win.print(); win.close(); }, 400);
+  void printWhenReady(win, true);
 }
 
 // ─── Patient Copy Print handler ───────────────────────────────
@@ -307,7 +308,7 @@ function printPatientCopy(rec: TreatmentRecord) {
 
   </body></html>`);
   win.document.close(); win.focus();
-  setTimeout(() => { win.print(); win.close(); }, 400);
+  void printWhenReady(win, true);
 }
 
 // ─── Form Modal ────────────────────────────────────────────────

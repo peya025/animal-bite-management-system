@@ -161,21 +161,13 @@
     <div class="page-container">
         <!-- Header -->
         <div class="header-title" style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 6px;">
-            @if(!empty($left_print_logo_url))
-                <img src="{{ $left_print_logo_url }}" alt="Left Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" />
-            @else
-                <div style="width: 56px; height: 56px; flex-shrink: 0;"></div>
-            @endif
+            @include('prints.partials.logo', ['url' => $left_print_logo_url ?? null, 'side' => 'Left', 'size' => 56])
             <div style="text-align: center;">
                 <h4 style="font-size: 8.5pt; font-weight: normal; text-transform: uppercase;">Republic of the Philippines &bull; {{ $province }} &bull; {{ $municipality }}</h4>
                 <h3 style="font-size: 9.5pt; font-weight: bold;">{{ $clinic }}</h3>
                 <h2 style="font-size: 11pt; font-weight: bold; letter-spacing: 0.5px;">Rabies Exposure Registry</h2>
             </div>
-            @if(!empty($right_print_logo_url))
-                <img src="{{ $right_print_logo_url }}" alt="Right Seal" style="width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;" />
-            @else
-                <div style="width: 56px; height: 56px; flex-shrink: 0;"></div>
-            @endif
+            @include('prints.partials.logo', ['url' => $right_print_logo_url ?? null, 'side' => 'Right', 'size' => 56])
         </div>
 
         <!-- Meta Information -->

@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { useAuth } from '../../../shared/contexts/AuthContext';
+import { printWhenReady } from '../../../components/print/printReady';
 import React, { useState, useEffect } from 'react';
 import api from '../../../services/api';
 import { Icon } from '../../../shared/components/ui/Icon';
@@ -17,6 +19,7 @@ interface Props {
 }
 
 export default function TagoloanTreatmentCardModal({ open, onClose, patientId, biteId, onSaved, initialExposureCategory = '' }: Props) {
+  const { clinic: authClinic } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cardData, setCardData] = useState<any>(null);
@@ -154,7 +157,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
   };
 
   const handlePrint = () => {
-    window.print();
+    void printWhenReady(window);
   };
 
   if (!open) return null;
@@ -299,17 +302,18 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
             <div>
               {/* Official Center Title with Global Print Logos */}
               {(() => {
-                const globalLogos = getGlobalPrintLogos(clinic);
+                const globalLogos = getGlobalPrintLogos(authClinic);
                 const leftLogo = globalLogos.leftLogoUrl;
                 const rightLogo = globalLogos.rightLogoUrl;
                 return (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', gap: '1rem' }}>
                     {leftLogo ? (
                       <img
+                        key={leftLogo}
                         src={leftLogo}
                         alt="Left Seal"
                         style={{ width: '64px', height: '64px', objectFit: 'contain', flexShrink: 0 }}
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
                       />
                     ) : (
                       <div style={{ width: '64px', height: '64px', flexShrink: 0 }} />
@@ -324,10 +328,11 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                     </div>
                     {rightLogo ? (
                       <img
+                        key={rightLogo}
                         src={rightLogo}
                         alt="Right Seal"
                         style={{ width: '64px', height: '64px', objectFit: 'contain', flexShrink: 0 }}
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
                       />
                     ) : (
                       <div style={{ width: '64px', height: '64px', flexShrink: 0 }} />

@@ -1,3 +1,4 @@
+import { printWhenReady } from '../../../components/print/printReady';
 import { useRef } from 'react';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { getGlobalPrintLogos } from '../../../components/print';
@@ -39,7 +40,7 @@ export function DohTransferSlipModal({
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
-    window.print();
+    void printWhenReady(window);
   };
 
   if (!patient || !incident) return null;
@@ -115,10 +116,11 @@ export function DohTransferSlipModal({
             {leftLogo ? (
               <Box
                 component="img"
+                key={leftLogo}
                 src={leftLogo}
                 alt="Left Seal"
                 sx={{ width: 64, height: 64, objectFit: 'contain', flexShrink: 0 }}
-                onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                onError={(e: any) => { e.currentTarget.style.visibility = 'hidden'; }}
               />
             ) : (
               <Box sx={{ width: 64, height: 64, flexShrink: 0 }} />
@@ -139,10 +141,11 @@ export function DohTransferSlipModal({
             {rightLogo ? (
               <Box
                 component="img"
+                key={rightLogo}
                 src={rightLogo}
                 alt="Right Seal"
                 sx={{ width: 64, height: 64, objectFit: 'contain', flexShrink: 0 }}
-                onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                onError={(e: any) => { e.currentTarget.style.visibility = 'hidden'; }}
               />
             ) : (
               <Box sx={{ width: 64, height: 64, flexShrink: 0 }} />

@@ -12,7 +12,7 @@
 .rr-header small { color: var(--rr-muted); }
 .registration-reports .rr-panel { border: 1px solid var(--rr-border); border-radius: 12px; padding: 20px; box-shadow: none; background-image: none; min-width: 0; transition: box-shadow 0.2s ease, border-color 0.2s ease; }
 .registration-reports .rr-panel:hover { border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 4px 16px rgba(16, 185, 129, 0.08); }
-.registration-reports > .rr-panel, .registration-reports > .MuiAlert-root, .registration-reports > .rr-grid, .rr-activity, .rr-definitions, .rr-surveillance-layout, .rr-tab-intro, .rr-pep-header, .rr-surveillance-header { margin-top: 20px; }
+.registration-reports > .rr-panel, .registration-reports > .MuiAlert-root, .registration-reports > .rr-grid, .rr-overview-top-section, .rr-activity, .rr-definitions, .rr-surveillance-layout, .rr-tab-intro, .rr-pep-header, .rr-surveillance-header { margin-top: 20px; }
 .rr-grid { display: grid; gap: 16px; }
 .rr-grid-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rr-grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -25,7 +25,7 @@
 .rr-metric { display: flex; flex-direction: column; align-items: flex-start; }
 .rr-metric h2 { color: var(--rr-muted); font-size: 13px; font-weight: 500; margin-bottom: 12px; }
 .rr-metric strong { font-size: 28px; font-weight: 600; line-height: 1.3; }
-.rr-metric p { font-size: 13px; margin: 8px 0 12px; }
+.rr-metric p { font-size: 13px; margin: 8px 0 0; }
 .rr-metric small { color: var(--rr-muted); border-top: 1px solid var(--rr-border); padding-top: 12px; line-height: 1.5; width: 100%; }
 .rr-metric button { margin-top: 8px; }
 .rr-bars { list-style: none; margin: 0; padding: 0; }
@@ -91,18 +91,49 @@
   padding-left: 12px;
 }
 
-/* PEP & Treatment Outcomes 2-Card Row */
-.rr-outcomes-grid {
+/* Overview Top Section: 3 Stacked Cards (Left) & Follow-up Priorities (Right) */
+.rr-overview-top-section {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 24px;
   align-items: stretch;
+  width: 100%;
 }
-.rr-outcomes-grid > .rr-panel {
+
+.rr-summary-stack {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  width: 100%;
   height: 100%;
+}
+
+.rr-summary-stack .rr-metric {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 14px 20px;
   box-sizing: border-box;
+}
+
+.rr-summary-stack .rr-metric h2 {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rr-muted);
+  margin-bottom: 6px;
+}
+
+.rr-summary-stack .rr-metric strong {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.rr-summary-stack .rr-metric p {
+  font-size: 12.5px;
+  margin: 4px 0 0;
+  color: var(--rr-muted);
 }
 
 /* Follow-up Priorities Card */
@@ -110,13 +141,18 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  box-sizing: border-box;
+  padding: 20px 22px;
+}
+.rr-followup-priorities .rr-section-title {
+  margin: 0 0 12px;
 }
 .rr-priorities-body {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin: 8px 0 16px;
+  gap: 10px;
+  margin: 4px 0 12px;
 }
 .rr-priority-stat {
   display: flex;
@@ -308,12 +344,21 @@
   }
 }
 
+@media (max-width: 900px) {
+  .rr-overview-top-section {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 @media (max-width: 768px) {
   .registration-reports {
     padding: 8px 14px 24px;
   }
-  .rr-grid-two,
-  .rr-outcomes-grid {
+  .rr-grid-two {
+    grid-template-columns: 1fr;
+  }
+  .rr-priorities-body {
     grid-template-columns: 1fr;
   }
   .rr-surveillance-row-2 {

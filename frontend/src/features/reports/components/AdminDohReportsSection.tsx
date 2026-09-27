@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Box,
@@ -9,7 +9,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { PrintOutlined, VisibilityOutlined } from '@mui/icons-material';
+import { PrintOutlined } from '@mui/icons-material';
 import { useAuth } from '../../../contexts/AuthContext';
 import { resolvePrintLogoUrls } from '../../../components/print/printHeaderHelper';
 import { waitForPrintImages } from '../../../components/print/printReady';
@@ -54,6 +54,20 @@ function quarterDates(year: number, quarter: number) {
   return { from: start, to: end > today ? today : end, end };
 }
 
+async function fetchPrintHtml(type: ReportType, query: string, signal?: AbortSignal) {
+  const token = localStorage.getItem('token') || localStorage.getItem('authToken') || '';
+  const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+  const response = await fetch(`${apiBase}/print/reports/${type}?${query}`, {
+    headers: { Accept: 'text/html', Authorization: `Bearer ${token}` },
+    signal,
+  });
+  const rawHtml = await response.text();
+  const cleanHtml = rawHtml
+    .replace(/<div class="[^"]*no-print-bar[^"]*">[\s\S]*?<\/div>/gi, '')
+    .replace(/<button class="btn-print"[^>]*>[\s\S]*?<\/button>/gi, '');
+  return resolvePrintLogoUrls(cleanHtml);
+}
+
 export default function AdminDohReportsSection() {
   const { user } = useAuth();
   const [selectedReport, setSelectedReport] = useState<ReportType>('exposure-registry');
@@ -63,12 +77,10 @@ export default function AdminDohReportsSection() {
   const [registryTo, setRegistryTo] = useState(quarterDates(currentYear, currentQuarter).to);
   const [monthlyMonth, setMonthlyMonth] = useState(currentMonth);
   const [cohortYear, setCohortYear] = useState(currentYear);
-  const [loadingType, setLoadingType] = useState<string | null>(null);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [previewRefresh, setPreviewRefresh] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [previewTitle, setPreviewTitle] = useState('');
-  const [previewHtml, setPreviewHtml] = useState('');
-
-  if (user?.role !== 'admin') return null;
+  const [preview, setPreview] = useState<{ key: string; html: string; error: string | null } | null>(null);
 
   const registryBounds = quarterDates(registryYear, registryQuarter);
   const registryValid = registryFrom >= registryBounds.from && registryFrom <= registryTo
@@ -80,6 +92,27 @@ export default function AdminDohReportsSection() {
   const params: Record<string, string | number> = selectedReport === 'exposure-registry'
     ? { from: registryFrom, to: registryTo, quarter: `${registryQuarter}${['st', 'nd', 'rd', 'th'][registryQuarter - 1]}`, year: registryYear }
     : selectedReport === 'monthly' ? { month: monthlyMonth } : { year: cohortYear };
+  const query = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)])).toString();
+  const previewKey = `${selectedReport}?${query}`;
+  const currentPreview = preview?.key === previewKey ? preview : null;
+  const previewHtml = validSelection ? currentPreview?.html || '' : '';
+  const previewError = validSelection ? currentPreview?.error : null;
+  const previewLoading = validSelection && !currentPreview;
+
+  useEffect(() => {
+    if (user?.role !== 'admin' || !validSelection) return;
+    const controller = new AbortController();
+    void fetchPrintHtml(selectedReport, query, controller.signal)
+      .then(html => {
+        if (!controller.signal.aborted) setPreview({ key: previewKey, html, error: null });
+      })
+      .catch(error => {
+        if (!controller.signal.aborted) setPreview({ key: previewKey, html: '', error: error instanceof Error ? error.message : 'Unable to load the report preview.' });
+      });
+    return () => controller.abort();
+  }, [user?.role, selectedReport, query, previewKey, validSelection, previewRefresh]);
+
+  if (user?.role !== 'admin') return null;
 
   const updateRegistryPeriod = (year: number, quarter: number) => {
     const dates = quarterDates(year, quarter);
@@ -89,37 +122,12 @@ export default function AdminDohReportsSection() {
     setRegistryTo(dates.to);
   };
 
-  const fetchPrintHtml = async (type: ReportType, queryParams: Record<string, string | number>) => {
-    const query = new URLSearchParams(Object.entries(queryParams).map(([key, value]) => [key, String(value)])).toString();
-    const token = localStorage.getItem('token') || localStorage.getItem('authToken') || '';
-    const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-    const response = await fetch(`${apiBase}/print/reports/${type}?${query}`, {
-      headers: { Accept: 'text/html', Authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) throw new Error(`Unable to load report (HTTP ${response.status}). Please try again.`);
-    return resolvePrintLogoUrls(await response.text());
-  };
-
-  const previewReport = async () => {
-    setErrorMsg(null);
-    setLoadingType('preview');
-    try {
-      const html = await fetchPrintHtml(selectedReport, params);
-      setPreviewTitle(selected.title);
-      setPreviewHtml(html);
-    } catch (error) {
-      setErrorMsg(error instanceof Error ? error.message : 'Unable to load the report preview.');
-    } finally {
-      setLoadingType(null);
-    }
-  };
-
   const printReport = async () => {
     setErrorMsg(null);
-    setLoadingType('print');
+    setPrintLoading(true);
     let iframe: HTMLIFrameElement | null = null;
     try {
-      const html = await fetchPrintHtml(selectedReport, params);
+      const html = await fetchPrintHtml(selectedReport, query);
       iframe = document.createElement('iframe');
       iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
       document.body.appendChild(iframe);
@@ -137,21 +145,12 @@ export default function AdminDohReportsSection() {
       iframe?.remove();
       setErrorMsg(error instanceof Error ? error.message : 'Unable to print the report.');
     } finally {
-      setLoadingType(null);
+      setPrintLoading(false);
     }
   };
 
   return (
-    <Box component="section" aria-labelledby="doh-reports-title" sx={{ mb: 4 }}>
-      <Box sx={{ mb: 2 }}>
-        <Typography id="doh-reports-title" component="h2" sx={{ fontSize: 18, fontWeight: 700, color: 'text.primary' }}>
-          DOH submission reports
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Choose a clinic report, set its reporting period, then preview or print it. These periods are separate from the analytics filter.
-        </Typography>
-      </Box>
-
+    <Box component="section" aria-label="DOH submissions" sx={{ mb: 4 }}>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.5, mb: 2 }}>
         {reportOrder.map(type => {
           const report = reports[type];
@@ -162,8 +161,8 @@ export default function AdminDohReportsSection() {
               component="button"
               type="button"
               aria-pressed={active}
-              disabled={loadingType !== null}
-              onClick={() => { setSelectedReport(type); setPreviewHtml(''); setErrorMsg(null); }}
+              disabled={printLoading}
+              onClick={() => { setSelectedReport(type); setErrorMsg(null); }}
               sx={{
                 display: 'block', textAlign: 'left', width: '100%', minHeight: 76, p: 1.75,
                 border: '1px solid', borderColor: active ? 'success.main' : 'divider',
@@ -179,62 +178,47 @@ export default function AdminDohReportsSection() {
         })}
       </Box>
 
-      <Box sx={{ p: { xs: 2, md: 2.5 }, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper' }}>
-        <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, mb: 0.5 }}>{selected.title}</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{selected.description}</Typography>
-
-        {selectedReport === 'exposure-registry' && (
-          <>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5 }}>
-              <TextField select size="small" label="Quarter" value={registryQuarter} onChange={event => { updateRegistryPeriod(registryYear, Number(event.target.value)); setPreviewHtml(''); }}>
-                {[1, 2, 3, 4].map(quarter => <MenuItem key={quarter} value={quarter} disabled={registryYear === currentYear && quarter > currentQuarter}>Q{quarter}</MenuItem>)}
-              </TextField>
-              <TextField select size="small" label="Year" value={registryYear} onChange={event => { updateRegistryPeriod(Number(event.target.value), Math.min(registryQuarter, Number(event.target.value) === currentYear ? currentQuarter : 4)); setPreviewHtml(''); }}>
+      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', overflow: 'hidden' }}>
+        <Box sx={{ p: { xs: 2, md: 2.5 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+          <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>{selected.title}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            {selectedReport === 'exposure-registry' && (
+              <>
+                <TextField select size="small" label="Quarter" value={registryQuarter} onChange={event => { updateRegistryPeriod(registryYear, Number(event.target.value)); setErrorMsg(null); }} sx={{ minWidth: 85 }}>
+                  {[1, 2, 3, 4].map(quarter => <MenuItem key={quarter} value={quarter} disabled={registryYear === currentYear && quarter > currentQuarter}>Q{quarter}</MenuItem>)}
+                </TextField>
+                <TextField select size="small" label="Year" value={registryYear} onChange={event => { updateRegistryPeriod(Number(event.target.value), Math.min(registryQuarter, Number(event.target.value) === currentYear ? currentQuarter : 4)); setErrorMsg(null); }} sx={{ minWidth: 95 }}>
+                  {Array.from({ length: 5 }, (_, index) => currentYear - index).map(year => <MenuItem key={year} value={year}>{year}</MenuItem>)}
+                </TextField>
+                <TextField size="small" type="date" label="From" value={registryFrom} onChange={event => { setRegistryFrom(event.target.value); setErrorMsg(null); }} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 140 }} />
+                <TextField size="small" type="date" label="To" value={registryTo} onChange={event => { setRegistryTo(event.target.value); setErrorMsg(null); }} error={!registryValid} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 140 }} />
+              </>
+            )}
+            {selectedReport === 'monthly' && (
+              <TextField size="small" type="month" label="Reporting month" value={monthlyMonth} onChange={event => { setMonthlyMonth(event.target.value); setErrorMsg(null); }} error={!validSelection} slotProps={{ inputLabel: { shrink: true } }} sx={{ minWidth: 180 }} />
+            )}
+            {selectedReport === 'cohort' && (
+              <TextField select size="small" label="Calendar year" value={cohortYear} onChange={event => { setCohortYear(Number(event.target.value)); setErrorMsg(null); }} sx={{ minWidth: 140 }}>
                 {Array.from({ length: 5 }, (_, index) => currentYear - index).map(year => <MenuItem key={year} value={year}>{year}</MenuItem>)}
               </TextField>
-              <TextField size="small" type="date" label="From" value={registryFrom} onChange={event => { setRegistryFrom(event.target.value); setPreviewHtml(''); }} slotProps={{ inputLabel: { shrink: true } }} />
-              <TextField size="small" type="date" label="To" value={registryTo} onChange={event => { setRegistryTo(event.target.value); setPreviewHtml(''); }} slotProps={{ inputLabel: { shrink: true } }} />
-            </Box>
-            <Typography variant="caption" color={registryValid ? 'text.secondary' : 'error.main'} sx={{ display: 'block', mt: 1 }}>
-              {registryValid ? 'Report rows are grouped by calendar week.' : 'Choose dates in the selected quarter, ending today or earlier.'}
-            </Typography>
-          </>
-        )}
-        {selectedReport === 'monthly' && (
-          <TextField size="small" type="month" label="Reporting month" value={monthlyMonth} onChange={event => { setMonthlyMonth(event.target.value); setPreviewHtml(''); }} error={!validSelection} helperText={!validSelection ? 'Choose this month or an earlier month.' : undefined} slotProps={{ inputLabel: { shrink: true } }} sx={{ minWidth: 220, maxWidth: '100%' }} />
-        )}
-        {selectedReport === 'cohort' && (
-          <TextField select size="small" label="Calendar year" value={cohortYear} onChange={event => { setCohortYear(Number(event.target.value)); setPreviewHtml(''); }} sx={{ minWidth: 220, maxWidth: '100%' }}>
-            {Array.from({ length: 5 }, (_, index) => currentYear - index).map(year => <MenuItem key={year} value={year}>{year}</MenuItem>)}
-          </TextField>
-        )}
-
-        {errorMsg && <Alert severity="error" onClose={() => setErrorMsg(null)} sx={{ mt: 2 }}>{errorMsg}</Alert>}
-        <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, flexWrap: 'wrap', gap: 1, mt: 2.5 }}>
-          <Button variant="outlined" startIcon={loadingType === 'preview' ? <CircularProgress size={16} /> : <VisibilityOutlined />} disabled={!validSelection || loadingType !== null} onClick={() => void previewReport()} sx={{ flex: { xs: 1, sm: 'none' } }}>
-            Preview
-          </Button>
-          <Button variant="contained" startIcon={loadingType === 'print' ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!validSelection || loadingType !== null} onClick={() => void printReport()} sx={{ flex: { xs: 1, sm: 'none' }, bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}>
-            Print report
-          </Button>
-        </Box>
-      </Box>
-
-      <Box sx={{ mt: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', overflow: 'hidden' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, flexWrap: 'wrap', px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Box>
-            <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>{previewHtml ? `${previewTitle} preview` : 'Form preview'}</Typography>
-            <Typography variant="caption" color="text.secondary">The preview uses the same clinic form as printing.</Typography>
+            )}
+            <Button variant="contained" startIcon={printLoading ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!validSelection || printLoading} onClick={() => void printReport()} sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' }, whiteSpace: 'nowrap', height: 40 }}>
+              Print report
+            </Button>
           </Box>
         </Box>
-        {previewHtml ? <iframe
-          id="doh-preview-iframe"
-          title={`${previewTitle} preview`}
-          srcDoc={previewHtml}
-          style={{ width: '100%', height: 640, border: 0, backgroundColor: '#fff' }}
-        /> : <Box sx={{ minHeight: 220, display: 'grid', placeItems: 'center', p: 3, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">Choose a report and select Preview to review it here before printing.</Typography>
-        </Box>}
+        {errorMsg && <Alert severity="error" onClose={() => setErrorMsg(null)} sx={{ mx: { xs: 2, md: 2.5 }, mb: 2 }}>{errorMsg}</Alert>}
+        {previewError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => { setPreview(null); setPreviewRefresh(value => value + 1); }}>Retry</Button>} sx={{ mx: { xs: 2, md: 2.5 }, mb: 2 }}>{previewError}</Alert>}
+        <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+          {previewHtml ? <iframe
+            id="doh-preview-iframe"
+            title={`${selected.title} preview`}
+            srcDoc={previewHtml}
+            style={{ width: '100%', height: 640, border: 0, backgroundColor: '#fff' }}
+          /> : <Box sx={{ minHeight: 220, display: 'grid', placeItems: 'center', p: 3, textAlign: 'center' }}>
+            {previewLoading ? <CircularProgress size={28} aria-label="Loading report preview" /> : <Typography variant="body2" color="text.secondary">{previewError ? 'The report preview could not be loaded.' : 'Choose a valid reporting period.'}</Typography>}
+          </Box>}
+        </Box>
       </Box>
     </Box>
   );

@@ -136,11 +136,6 @@
 </head>
 <body>
 
-    <div class="no-print no-print-bar">
-        <span><strong>Cohort Report (Quarterly &amp; Annual)</strong> &mdash; DOH Form</span>
-        <button class="btn-print" onclick="window.print()">Print Report</button>
-    </div>
-
     <div class="page-container">
         <!-- Header with Configurable Logos & Dynamic Clinic Metadata -->
         <div class="header-banner" style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 8px;">

@@ -46,6 +46,7 @@ class RegistrationReportService
         $previous = $episodes->filter(fn ($e) => $inPeriod($e['d0_date'], $previousStart->toDateString(), $previousEnd->toDateString()));
         $completion = $this->completion($cohort);
         $previousCompletion = $this->completion($previous);
+        $doseFunnel = $cohort->where('dose_funnel_eligible', true);
         $delays = $cohort->pluck('delay_days')->filter(fn ($v) => $v !== null)->values();
         $overdueEpisodes = $episodes->filter(fn ($e) => count($e['overdue']) > 0);
         $followup = $overdueEpisodes->flatMap(function ($e) {
@@ -68,6 +69,9 @@ class RegistrationReportService
         $stats = [
             'patients' => $incidents->pluck('patient_id')->unique()->count(), 'incidents' => $incidents->count(),
             'pep_starts' => $cohort->count(), 'completion' => $completion, 'previous_completion' => $previousCompletion,
+            'dose_funnel' => ['started' => $doseFunnel->count(),
+                'followup' => $doseFunnel->where('followup_received', true)->count(),
+                'completed' => $doseFunnel->where('complete', true)->count()],
             'completion_change_pp' => $completion['rate'] !== null && $previousCompletion['rate'] !== null
                 ? round($completion['rate'] - $previousCompletion['rate'], 1) : null,
             'delay' => ['average' => $delays->isEmpty() ? null : round($delays->avg(), 1),
@@ -196,6 +200,8 @@ class RegistrationReportService
                 ->map(fn ($group) => $group->min('treatment_date'))->max()?->toDateString() : null,
             'delay_days' => $d0 && $d0 >= $case->bite_date->toDateString() ? (int) $case->bite_date->diffInDays(CarbonImmutable::parse($d0)) : null,
             'eligible' => (bool) $eligible, 'complete' => (bool) $complete, 'outcome' => $outcome,
+            'dose_funnel_eligible' => (bool) ($d0 && $verified && count($required) > 1 && !$transferred && !$stopped && !$noVaccine),
+            'followup_received' => count(array_intersect(array_filter($required, fn ($day) => $day > 0), $received)) > 0,
             'risk_flag' => count($overdue) ? count($overdue).' overdue dose(s)' : ($outcome === 'Awaiting D0' ? 'Awaiting D0' : $outcome),
             'overdue' => $overdue, 'referrals' => $referrals,
         ];

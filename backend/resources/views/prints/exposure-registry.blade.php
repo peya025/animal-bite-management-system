@@ -153,11 +153,6 @@
 </head>
 <body>
 
-    <div class="no-print no-print-bar">
-        <span><strong>Rabies Exposure Registry (Weekly)</strong> &mdash; DOH Official Form</span>
-        <button class="btn-print" onclick="window.print()">Print Report</button>
-    </div>
-
     <div class="page-container">
         <!-- Header -->
         <div class="header-title" style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 6px;">

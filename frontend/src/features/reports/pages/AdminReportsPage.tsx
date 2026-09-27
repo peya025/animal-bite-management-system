@@ -5,9 +5,12 @@ import {
   Stack, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Tabs, TextField, Typography,
 } from '@mui/material';
-import { DownloadOutlined, Refresh, ArrowForward } from '@mui/icons-material';
+import { DownloadOutlined, Refresh, ArrowForward, PrintOutlined } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../shared/config/routes';
+import { useAuth } from '../../../contexts/AuthContext';
+import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
+import { printDocument } from '../../../components/print/printDocument';
 import AdminDohReportsSection from '../components/AdminDohReportsSection';
 
 type Section = 'overview' | 'trends' | 'doh';
@@ -24,6 +27,7 @@ interface ReportResponse {
     incidents: number;
     pep_starts: number;
     completion: { eligible: number; completed: number; rate: number | null; excluded: number };
+    dose_funnel: { started: number; followup: number; completed: number };
     overdue_patients: number;
     overdue_doses: number;
     awaiting_d0: number;
@@ -58,6 +62,15 @@ const reportOrder: Report[] = ['surveillance', 'pep', 'followup', 'awaiting', 'r
 
 function dateString(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function escapeHtml(text: unknown): string {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function periodDates(period: string): Pick<Filters, 'from' | 'to'> {
@@ -98,18 +111,16 @@ function Metric({ label, value, detail, onClick }: { label: string; value: strin
 function Breakdown({ title, rows, limit = 6 }: { title: string; rows: CountRow[]; limit?: number }) {
   const visible = rows.slice(0, limit);
   const max = Math.max(1, ...visible.map(row => row.count));
-  return <Paper elevation={0} sx={{ ...panelSx, p: 2.5 }}>
-    <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, mb: 2 }}>{title}</Typography>
+  return <Paper elevation={0} sx={{ ...panelSx, p: 2.25, minWidth: 0 }}>
+    <Typography component="h3" sx={{ fontSize: 15, fontWeight: 700, mb: 1.75 }}>{title}</Typography>
     {visible.length === 0 || visible.every(row => row.count === 0) ? <Typography variant="body2" color="text.secondary">No recorded cases in this period.</Typography> : (
-      <Stack spacing={1.5}>
-        {visible.map(row => <Box key={row.label}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
-            <Typography variant="body2">{row.label}</Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700 }}>{row.count}</Typography>
-          </Box>
+      <Stack spacing={1.25}>
+        {visible.map(row => <Box key={row.label} sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(42px, 0.7fr) auto', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" noWrap title={row.label}>{row.label}</Typography>
           <Box sx={{ height: 7, borderRadius: 4, bgcolor: 'action.hover' }}>
             <Box sx={{ width: `${row.count / max * 100}%`, height: '100%', borderRadius: 4, bgcolor: '#1D9E75' }} />
           </Box>
+          <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 18, textAlign: 'right' }}>{row.count}</Typography>
         </Box>)}
       </Stack>
     )}
@@ -118,9 +129,8 @@ function Breakdown({ title, rows, limit = 6 }: { title: string; rows: CountRow[]
 
 function CategoryTrend({ months }: { months: ReportResponse['months'] }) {
   const max = Math.max(1, ...months.map(month => month.I + month.II + month.III));
-  return <Paper elevation={0} sx={{ ...panelSx, p: 2.5 }}>
-    <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>Exposure categories over time</Typography>
-    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Bite episodes by incident month</Typography>
+  return <Paper elevation={0} sx={{ ...panelSx, p: 2.25, minWidth: 0 }}>
+    <Typography component="h3" sx={{ fontSize: 15, fontWeight: 700, mb: 1.75 }}>Bite episodes by month</Typography>
     {months.every(month => month.I + month.II + month.III === 0) ? <Typography variant="body2" color="text.secondary">No recorded cases in this period.</Typography> : <>
       <Box sx={{ display: 'flex', alignItems: 'end', gap: 1.5, overflowX: 'auto', minHeight: 176, pb: 1 }} role="img" aria-label="Stacked bars show category I, II, and III bite episodes by month. Exact counts follow below.">
         {months.map(month => <Box key={month.month} sx={{ flex: '1 0 64px', minWidth: 64, textAlign: 'center' }}>
@@ -132,12 +142,12 @@ function CategoryTrend({ months }: { months: ReportResponse['months'] }) {
           <Typography variant="caption" color="text.secondary">{month.month}</Typography>
         </Box>)}
       </Box>
-      <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', mb: 1 }}>
+      <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', mb: 1 }}>
         {[['#1D9E75', 'Category I'], ['#E3AD53', 'Category II'], ['#C96363', 'Category III']].map(([color, label]) =>
-          <Typography key={label} variant="caption" color="text.secondary"><Box component="span" sx={{ display: 'inline-block', width: 9, height: 9, mr: 0.5, bgcolor: color }} />{label}</Typography>)}
+          <Typography key={label} variant="caption" color="text.secondary"><Box component="span" sx={{ display: 'inline-block', width: 9, height: 9, mr: 0.5, bgcolor: color }} />{label.replace('Category ', 'Cat ')}</Typography>)}
       </Stack>
       <Box component="details" sx={{ fontSize: 12, color: 'text.secondary', '& summary': { cursor: 'pointer' } }}>
-        <summary>View exact monthly counts</summary>
+        <summary>Exact counts</summary>
         <Table size="small" aria-label="Monthly exposure category counts"><TableHead><TableRow><TableCell>Month</TableCell><TableCell>I</TableCell><TableCell>II</TableCell><TableCell>III</TableCell></TableRow></TableHead>
           <TableBody>{months.map(month => <TableRow key={month.month}><TableCell>{month.month}</TableCell><TableCell>{month.I}</TableCell><TableCell>{month.II}</TableCell><TableCell>{month.III}</TableCell></TableRow>)}</TableBody>
         </Table>
@@ -146,7 +156,32 @@ function CategoryTrend({ months }: { months: ReportResponse['months'] }) {
   </Paper>;
 }
 
+function DoseFunnel({ counts }: { counts: ReportResponse['stats']['dose_funnel'] }) {
+  const rows = [
+    { label: 'D0 started', count: counts.started, color: '#3B82F6' },
+    { label: 'Follow-up given', count: counts.followup, color: '#1D9E75' },
+    { label: 'Course complete', count: counts.completed, color: '#0D8B67' },
+  ];
+  return <Paper elevation={0} sx={{ ...panelSx, p: 2.25, minWidth: 0 }}>
+    <Typography component="h3" sx={{ fontSize: 15, fontWeight: 700, mb: 0.5 }}>PEP dose progress</Typography>
+    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>Verified multi-dose courses</Typography>
+    {counts.started === 0 ? <Typography variant="body2" color="text.secondary">No D0 starts in this period.</Typography> : <Stack spacing={1.25}>
+      {rows.map(row => <Box key={row.label} sx={{ display: 'grid', gridTemplateColumns: 'minmax(95px, 1fr) minmax(55px, 1.4fr) auto', alignItems: 'center', gap: 1 }}>
+        <Typography variant="body2" noWrap>{row.label}</Typography>
+        <Box sx={{ height: 18, borderRadius: 1, bgcolor: 'action.hover', overflow: 'hidden' }}>
+          <Box sx={{ width: `${row.count / counts.started * 100}%`, height: '100%', bgcolor: row.color }} />
+        </Box>
+        <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 20, textAlign: 'right' }}>{row.count}</Typography>
+      </Box>)}
+    </Stack>}
+  </Paper>;
+}
+
 export default function AdminReportsPage() {
+  const { user } = useAuth();
+  const clinic = user?.clinic;
+  const { leftLogoUrl, rightLogoUrl } = getGlobalPrintLogos(clinic);
+
   const [section, setSection] = useState<Section>('overview');
   const [preset, setPreset] = useState('month');
   const [draft, setDraft] = useState<Filters>(initialFilters);
@@ -166,6 +201,7 @@ export default function AdminReportsPage() {
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [recordsError, setRecordsError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   const today = dateString(new Date());
   const valid = Boolean(draft.from && draft.to && draft.from <= draft.to && draft.to <= today);
@@ -274,13 +310,68 @@ export default function AdminReportsPage() {
     }
   };
 
+  const printRecords = async () => {
+    setPrinting(true);
+    setRecordsError('');
+    try {
+      const response = await api.get<ReportResponse>('/reports/registration', {
+        params: { ...filters, report, format: 'print' },
+      });
+      const data = response.data;
+      const colMap = data.records.columns;
+      const colKeys = Object.keys(colMap);
+      const allRows = data.records.rows;
+
+      const ths = colKeys.map(k => `<th>${escapeHtml(colMap[k])}</th>`).join('');
+      const trs = allRows.map((row, idx) => {
+        const tds = colKeys.map(k => {
+          const val = row[k] === null || row[k] === '' ? 'Not available' : String(row[k]);
+          return `<td>${escapeHtml(val)}</td>`;
+        }).join('');
+        return `<tr style="${idx % 2 !== 0 ? 'background:#f8fafc;' : ''}">${tds}</tr>`;
+      }).join('');
+
+      const bodyHtml = `
+        <div style="margin-bottom:14px;font-size:10pt;color:#333;line-height:1.6;">
+          <div><strong>Period:</strong> ${escapeHtml(data.period.from)} to ${escapeHtml(data.period.to)} &nbsp;&bull;&nbsp; <strong>Category:</strong> ${escapeHtml(data.period.category)}</div>
+          <div style="margin-top:2px;font-size:9pt;color:#555;"><em>${escapeHtml(data.meta.basis)}</em></div>
+        </div>
+        <table>
+          <thead><tr>${ths}</tr></thead>
+          <tbody>${trs || `<tr><td colspan="${colKeys.length}" style="text-align:center;padding:16px;color:#888;">No records for this selection.</td></tr>`}</tbody>
+        </table>
+        <div style="margin-top:8px;font-size:9pt;color:#444;font-weight:700;">
+          Total: ${data.records.total} record(s)
+        </div>
+      `;
+
+      printDocument({
+        clinicName: clinic?.name || data.meta.clinic || 'Animal Bite Treatment Center',
+        printedBy: user?.name || data.meta.prepared_by || 'Administrator',
+        title: data.meta.title,
+        refPrefix: 'REC',
+        leftLogoUrl,
+        rightLogoUrl,
+        province: clinic?.province,
+        municipality: clinic?.municipality,
+        address: clinic?.address,
+        contactNumber: clinic?.contact_number || clinic?.phone,
+        bodyHtml,
+        orientation: 'landscape',
+      });
+    } catch {
+      setRecordsError('Unable to prepare the print view. Please try again.');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const selectedColumns = records ? Object.keys(records.records.columns) : [];
   const recordIsCurrent = records?.meta.title === ({ surveillance: 'Bite Surveillance', pep: 'PEP Treatment Outcomes', followup: 'Overdue Doses & Follow-up', awaiting: 'Awaiting First Dose', referrals: 'Referrals & Transfers' } as Record<Report, string>)[report];
 
   return <Box sx={{ px: { xs: 1, sm: 3 }, pb: 4 }}>
     <Box sx={{ mb: 3 }}>
       <Typography component="h1" sx={{ fontSize: 24, fontWeight: 700, color: 'text.primary' }}>Reports &amp; Analytics</Typography>
-      <Typography variant="body2" color="text.secondary">Clinic actions, case trends, and DOH submission reports</Typography>
       <Typography variant="caption" color="text.secondary">
         <Box component={RouterLink} to={ROUTES.DASHBOARD} sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>Dashboard</Box>
         {' › Reports & Analytics'}
@@ -322,8 +413,7 @@ export default function AdminReportsPage() {
 
     {section === 'overview' && <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 2, mb: 2 }}>
-        <Box><Typography component="h2" sx={{ fontSize: 19, fontWeight: 700 }}>Clinic overview</Typography>
-          <Typography variant="body2" color="text.secondary">What needs attention and how treatment is progressing</Typography></Box>
+        <Typography component="h2" sx={{ fontSize: 19, fontWeight: 700 }}>Clinic overview</Typography>
         <Typography variant="caption" color="text.secondary">Current actions as of {summary?.period.as_of || today}</Typography>
       </Box>
       {summaryLoading && !summary ? <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5, mb: 3 }}>{[1, 2, 3, 4].map(item => <Skeleton key={item} variant="rounded" height={125} />)}</Box> : summary && <>
@@ -341,10 +431,9 @@ export default function AdminReportsPage() {
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(270px, 1fr)' }, gap: 2 }}>
         <Paper elevation={0} sx={{ ...panelSx, p: 2.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-            <Box><Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>Overdue dose follow-up</Typography>
-              <Typography variant="body2" color="text.secondary">First five overdue dose records · {filters.category === 'ALL' ? 'all categories' : `Category ${filters.category}`}</Typography></Box>
+            <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>Overdue dose follow-up</Typography>
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              <Button size="small" onClick={() => openReport('followup')} endIcon={<ArrowForward />}>View all</Button>
+              <Button size="small" onClick={() => openReport('followup')} endIcon={<ArrowForward />}>View all{followup ? ` (${followup.records.total})` : ''}</Button>
               <Button component={RouterLink} to={ROUTES.PATIENTS.NURSE_LIST} size="small" variant="outlined">Open follow-up station</Button>
             </Stack>
           </Box>
@@ -359,8 +448,7 @@ export default function AdminReportsPage() {
           </TableContainer> : !followupError && <Typography variant="body2" color="text.secondary">No overdue prescribed doses currently recorded for this category.</Typography>}
         </Paper>
         <Paper elevation={0} sx={{ ...panelSx, p: 2.5 }}>
-          <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, mb: 0.5 }}>Vaccine stock</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Current batch exceptions</Typography>
+          <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, mb: 2 }}>Vaccine stock</Typography>
           {inventoryError && <Alert severity="warning" sx={{ mb: 2 }}>{inventoryError}</Alert>}
           {inventory ? <Stack spacing={1.3} sx={{ mb: 2 }}>
             <Typography variant="body2"><b>{inventory.low_stock}</b> low-stock batches</Typography>
@@ -374,28 +462,46 @@ export default function AdminReportsPage() {
     </>}
 
     {section === 'trends' && <>
-      <Typography component="h2" sx={{ fontSize: 19, fontWeight: 700, mb: 0.5 }}>Trends & records</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Review bite patterns, treatment outcomes, and the records behind them.</Typography>
       {summaryLoading && !summary ? <Skeleton variant="rounded" height={230} sx={{ mb: 2 }} /> : summary && <>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(280px, 1fr)' }, gap: 2, mb: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.4fr) minmax(270px, 1fr)' }, gap: 1.5, mb: 1.5 }}>
           <CategoryTrend months={summary.months} />
-          <Breakdown title="Recorded incident barangays" rows={summary.breakdowns.barangays} />
+          <Breakdown title="Incident barangays" rows={summary.breakdowns.barangays} limit={5} />
         </Box>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 3 }}>
-          <Breakdown title="Animal type" rows={summary.breakdowns.animals} />
-          <Paper elevation={0} sx={{ ...panelSx, p: 2.5 }}>
-            <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, mb: 1 }}>Treatment measure</Typography>
-            <Typography sx={{ fontSize: 28, fontWeight: 700 }}>{summary.stats.completion.rate === null ? 'Not available' : `${summary.stats.completion.rate}%`}</Typography>
-            <Typography variant="body2" color="text.secondary">{summary.stats.completion.completed} completed of {summary.stats.completion.eligible} eligible D0 courses in the selected period.</Typography>
-            <Typography variant="caption" color="text.secondary">{summary.stats.completion.excluded} D0 course(s) outside the denominator. Outcomes observed as of {summary.period.as_of}.</Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 1.5, mb: 2.5 }}>
+          <Breakdown title="Animal type" rows={summary.breakdowns.animals} limit={4} />
+          <Paper elevation={0} sx={{ ...panelSx, p: 2.25, minWidth: 0 }}>
+            <Typography component="h3" sx={{ fontSize: 15, fontWeight: 700, mb: 1 }}>PEP completion</Typography>
+            <Typography sx={{ fontSize: 30, lineHeight: 1.2, fontWeight: 700, color: summary.stats.completion.rate === null ? 'text.secondary' : 'success.main', mb: 0.75 }}>{summary.stats.completion.rate === null ? '—' : `${summary.stats.completion.rate}%`}</Typography>
+            <Typography variant="body2" color="text.secondary">{summary.stats.completion.completed} of {summary.stats.completion.eligible} eligible D0 courses</Typography>
+            {summary.stats.completion.excluded > 0 && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>{summary.stats.completion.excluded} excluded from rate</Typography>}
           </Paper>
+          <DoseFunnel counts={summary.stats.dose_funnel} />
         </Box>
       </>}
 
       <Paper elevation={0} sx={{ ...panelSx, p: { xs: 1.5, sm: 2.5 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
           <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>Clinic records</Typography>
-          <Button variant="outlined" size="small" startIcon={exporting ? <CircularProgress size={16} /> : <DownloadOutlined />} disabled={!recordIsCurrent || recordsLoading || exporting} onClick={() => void exportCsv()}>Export CSV</Button>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={printing ? <CircularProgress size={16} /> : <PrintOutlined />}
+              disabled={!recordIsCurrent || recordsLoading || printing || exporting}
+              onClick={() => void printRecords()}
+            >
+              Print
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={exporting ? <CircularProgress size={16} /> : <DownloadOutlined />}
+              disabled={!recordIsCurrent || recordsLoading || exporting || printing}
+              onClick={() => void exportCsv()}
+            >
+              Export CSV
+            </Button>
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 2 }}>
           {reportOrder.map(type => <Button key={type} size="small" variant={type === report ? 'contained' : 'outlined'} disableElevation onClick={() => selectReport(type)}>{reportLabels[type]}</Button>)}

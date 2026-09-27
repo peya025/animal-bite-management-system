@@ -82,6 +82,9 @@ class RegistrationReportsTest extends TestCase
             ->assertJsonPath('stats.completion.completed', 1)
             ->assertJsonPath('stats.completion.rate', 50)
             ->assertJsonPath('stats.completion.excluded', 3)
+            ->assertJsonPath('stats.dose_funnel.started', 3)
+            ->assertJsonPath('stats.dose_funnel.followup', 2)
+            ->assertJsonPath('stats.dose_funnel.completed', 1)
             ->assertJsonPath('stats.overdue_patients', 1)
             ->assertJsonPath('stats.overdue_doses', 1);
     }

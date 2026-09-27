@@ -177,11 +177,6 @@
 </head>
 <body>
 
-    <div class="no-print no-print-bar">
-        <span><strong>ABTC Monthly Report</strong> &mdash; NRPCP DOH Form ({{ $month_label }})</span>
-        <button class="btn-print" onclick="window.print()">Print Report</button>
-    </div>
-
     <div class="page-container">
         <!-- Purple Top Banner matching Image 1 -->
         <div class="header-banner" style="display: flex; align-items: center; justify-content: center; gap: 16px;">

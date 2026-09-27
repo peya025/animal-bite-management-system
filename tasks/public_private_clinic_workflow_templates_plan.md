@@ -15,6 +15,106 @@ Let another clinic adopt the current animal-bite system without inheriting every
 
 The private preset reduces queues and repeated forms. It does **not** remove wound/exposure assessment, a documented treatment decision, an authorized vaccinator, dose and batch recording, follow-up scheduling, or the data needed for applicable DOH reports.
 
+## Current focus: Predefined Templates workflow preview UI
+
+Keep the existing public workflow and let the admin coordinate multiple desks for now. The page explains how each preset would guide a visit and provides a local-only staffing coverage example. It does not change queues, user roles, or patient records. Backend activation and named staff assignment come later.
+
+### What the current workflow actually does
+
+| Visit | Current path | Repository evidence |
+| --- | --- | --- |
+| New bite case | Register/find patient and exposure → new-case queue → Form 2 consultation and treatment plan → treatment/vaccination queue → Form 3 administration → next appointment. | `PatientController`, `BiteCaseController`, `QueueController`, `TreatmentRecordController`, `VaccinationRecordController`; Form 2 transfers to treatment in `TreatmentRecordController::store`. |
+| Return dose | Find existing patient and episode → check in scheduled appointment → treatment/follow-up queue → record dose against the existing plan → schedule next visit if needed. | `AppointmentController::checkInByPatient`, `NursePatientListPage`, `VaccinationRecordForm`, `VaccinationRecordController`. |
+| No vaccine or referral | After assessment, document the decision and close/refer the visit; no automatic injection step. | `TreatmentRecordController::store` branches on referral, `no_vaccine`, and `continue_existing_schedule`. |
+
+The current queue uses `visit_type` to distinguish new/consultation work from vaccination/follow-up work. `QueueController` and `TreatmentRecordController` contain the handoffs directly. A template card cannot change those handoffs today.
+
+### Recommended page layout
+
+```text
+Predefined Templates                                      [Preview only]
+Choose a workflow to inspect. The current clinic keeps its public flow.
+
+[ Public ABTC · Current workflow ]  [ Private ABC · Proposed workflow ]
+
+Private ABC workflow
+[ New bite visit ] [ Return dose visit ]
+Registration  →  Vitals & assessment  →  Payment  →  Injection & next visit
+    click any step to view its screen and what happens next
+
+┌ Selected step: Vitals & assessment ────────────────────────────────────┐
+│ Screen preview: existing field groups shown in the order staff uses.  │
+│ Key action: document assessment and treatment decision.              │
+│ Next: payment if treatment is ordered; otherwise close or refer.      │
+└───────────────────────────────────────────────────────────────────────┘
+
+Uses existing records: patient · bite episode · treatment plan · doses
+Needs implementation: manual payment record · private visit routing
+Staff coverage: [ One admin desk ] [ Separate desks ]
+Show each stage's desk owner and any clinical qualification needed.
+
+Form sections: patient/exposure/assessment/treatment are always included.
+[ Socioeconomic information  on/off ] [ Government programs  on/off ]
+Private payment: separate planned step, not a form-field switch.
+[ Save & apply preview ] stores the choice on this page only.
+```
+
+**Visual hierarchy:** Two equal template cards, one compact horizontal stepper, one selected-step preview card, then two setup cards for staff coverage and optional form sections. The private preset adds one compact planned-payment card. Use the current Clinic Setup styling and responsive cards; on narrow screens the stepper becomes a two-column grid and the setup cards stack. Keep secondary labels short. Avoid a full role matrix, duplicate report controls, or long explanations inside every step.
+
+### Final UI behavior for field choices and payment
+
+| Area | Public ABTC default | Private ABC default | Interaction on this page |
+| --- | --- | --- | --- |
+| Core clinical fields | Included | Included | Patient/contact/address, bite exposure, assessment, treatment, and follow-up are shown as fixed groups. There is no switch that removes them. |
+| Socioeconomic Information | On | Off | Switch changes the Registration step preview. Reset restores the selected template's default. |
+| Government Programs | On | Off | Switch changes the Registration step preview. This group includes PhilHealth details, so the private page points out that clinics using coverage can turn it on. |
+| Staff coverage | One admin desk | One admin desk | Compare one coordinating admin desk with separate desks. This is a desk example, not a named staff assignment or a permission grant. |
+| Payment | No payment step | Planned step after assessment | Show charge, amount paid, method, status, and receipt/reference in the Payment step preview. Do not offer a misleading payment on/off switch. |
+
+The two optional switches represent the existing Module Configuration sections `socioeconomic_section_enabled` and `gov_programs_section_enabled`. Their state is local to the template preview for now; changing them does not call the Module Configuration API or alter live forms. The advanced link opens Module Configuration for its separate field rules. If a future backend applies a template, it should map only supported optional section rules and validate the resulting form behavior. It must preserve clinical and reporting data.
+
+The existing `cost_recovery` treatment field is a text note. It cannot record a charge, amount received, balance, or receipt. Payment therefore stays a visibly planned workflow step, with a future manual payment record and an audited urgent-care exception when payment is pending. Selecting Private ABC or turning on a module field must not be presented as enabling billing.
+
+### What each clickable step previews
+
+| Private step | Show in the preview | "What happens next" line |
+| --- | --- | --- |
+| Registration | Search existing patient or register; name, birth date, sex, contact, address; exposure date/place, animal, bite/scratch, prior vaccination. For a return dose, find the existing episode rather than starting another bite case. | New bite → assessment. Return dose → confirm existing plan and due dose. |
+| Vitals & assessment | Existing pertinent-history note; blood pressure, temperature, height, weight; wound/body site, animal status, category, diagnosis, and treatment decision. Indicate that pulse, oxygen saturation, and respiratory rate from the private card are not stored as separate fields yet. | Treatment ordered → payment handling. No vaccine/referral → documented closure or referral. |
+| Payment | Show a simple **planned** manual-charge screen mockup: amount, received amount, method, receipt/reference, and status. Label it clearly as unimplemented; the existing `cost_recovery` text field is not a payment record. | Recorded or permitted pending payment → injection; do not display "dose given" here. |
+| Injection & next visit | Existing ordered dose, date, route, vaccine, batch, vaccinator, RIG/TT summary, remarks, and next appointment. Use the clinician's plan for dose rows, not a fixed schedule copied from the paper card. | Dose recorded → next appointment or visit complete. |
+
+Show only one step's details at a time. The public card uses the same layout with its current stages: Registration → Doctor assessment → Nurse treatment → Follow-up. Both cards should open immediately on click. The **New bite / Return dose** switch changes the path preview without saving anything. A small inline branch note covers referral/no-vaccine, so the page does not need a third full scenario.
+
+### Staff Assignments, in plain terms
+
+There are three separate concepts in the existing app:
+
+| Page/setting | What it currently changes | Role in this preview |
+| --- | --- | --- |
+| User Management | Creates an account and sets its legacy role and workstation role. | No editing from the template page. |
+| Staff Assignments | Saves one `assigned_module` value on a user: all, registration, triage, treatment, or inventory. | **No dependency.** It does not route patients or grant permissions, so the template preview should not ask the admin to select real staff accounts. |
+| Predefined Templates | Changes only which workflow, desk coverage example, and form groups are displayed on screen. | Show **One admin desk** by default and **Separate desks** as another local preview. List who would cover each step and the clinical qualification required. No staff names or readiness warning about missing assignments. |
+
+The `StaffAssignmentPage` calls `PUT /users/{id}/assigned-module`; `UserController::updateAssignedModule` updates only `assigned_module`. The queue and role middleware use visit type and roles, not that module value. Thus assigning a user to Treatment there does not move a patient to Treatment and does not enable an injection action. Keep the page as a separate staff-organization tool for now. Its shortcut on Predefined Templates is for review, not part of template application. If it remains in Clinic Setup, label it **Preferred module** in a later UI cleanup so admins do not mistake it for workflow configuration.
+
+### Preview interaction and acceptance checks
+
+1. Default to **Public ABTC · Current workflow** so opening the page reflects the clinic's real starting point. Selecting Private ABC changes the preview and clearly says **Proposed**; selection is not activation.
+2. Clicking a template card or step updates the preview immediately. Clicking New bite or Return dose updates the route and field summary. The optional section switches update the Registration preview; their defaults follow the selected preset. The Save & apply preview button confirms and marks the selected template, desk coverage, and section choices on this page only; it makes no API call or clinic setting change.
+3. The active step shows: a short screen title, only the field groups used there, one main action, and one next-step sentence. The user can understand the whole visit without reading database field names.
+4. Admin can compare one admin desk with separate desks for every step. The preview does not claim that an admin title alone proves clinical qualification; it labels assessment and injection as qualified clinical work. Actual clinical actions remain governed by the existing system until a later authorization change.
+5. Billing is marked **Planned** throughout. It appears as a separate workflow step and explanatory card, never as a Module Configuration field toggle. The page never implies that a payment was saved or a receipt issued.
+6. The public path and new/return branching match the current controllers; the private path is labelled as proposed. No reports or DOH form data change from preview interactions.
+
+**Implemented UI:** `PredefinedTemplatesPage.tsx` opens on Public ABTC, offers New bite / Return dose previews, and shows one compact step at a time with its main action and next step. A staff coverage card compares one admin desk with separate desks, lists each stage's suggested owner and clinical requirement, and links to Staff Assignments and User Management. A form-sections card keeps core clinical groups visible and provides local switches for Socioeconomic Information and Government Programs, with per-preset defaults and reset. The private preset shows a separate Planned payment card. Save & apply preview confirms the template, desk coverage, and optional sections in local page state until the page is left or reloaded; it does not change the live clinic workflow, module configuration, or real staff assignment.
+
+**Module Configuration relationship:** The optional switches correspond to the existing Socioeconomic Information and Government Programs section settings. The advanced shortcut opens Module Configuration for separate field rules; the template preview does not write to that page. Some existing module controls are not wired to live forms. The preset must never silently change other modules or imply that a form setting changes queue routing. When real activation is built, keep workflow selection, optional field rules, and payment as separate explicit decisions.
+
+### Later, when activation is requested
+
+Only after the preview is accepted, add a clinic-scoped saved template/version, private visit routing, manual payment records, and a separate staff/capability design. At that point the admin may still cover multiple desks; the choice of who works each desk can be optional for small clinics. Keep this later phase separate from the current UI preview task.
+
 ## Research and clinical boundary
 
 - A DOH regional certification guide distinguishes government-operated ABTCs from privately operated ABCs and describes both as places where trained doctors and nurses evaluate and manage rabies exposure. Therefore `private_abc` is a clinic-operation preset, not a different standard of clinical care. [DOH ABTC/ABC certification guide](https://ro11.doh.gov.ph/images/transparent/2024/2024DCHDv2.pdf)
@@ -27,7 +127,7 @@ The private preset reduces queues and repeated forms. It does **not** remove wou
 
 | Area | Current behavior | Implementation consequence |
 | --- | --- | --- |
-| Template navigation | `frontend/src/shared/config/navigationConfig.ts` links **Predefined Templates** to `/setup/templates`, but `frontend/src/App.tsx` has no route for that URL; the catch-all redirects to the dashboard. | Build the page and route before exposing template activation. |
+| Template navigation | **Predefined Templates** now has a `/setup/templates` route with a read-only public/private preview. | Keep activation unavailable until the backend workflow, billing, and role prerequisites are in place. |
 | Module configuration | `ClinicModuleConfigController`, `ClinicModuleConfig`, and `ModuleConfigPage.tsx` mainly store field visibility/requirements and section toggles. The `useClinicModuleConfig` hook is not used by the patient/queue forms found in this audit. The UI also submits `registration_module_enabled` and `treatment_module_enabled`, which the backend update validator/model do not persist. | Do not treat the existing toggles as a workflow engine. Reconcile the config contract and wire only supported settings into real forms. |
 | Handoff | `QueueController::complete` and `TreatmentRecordController` contain public-flow assumptions: doctor/Form 2 completion moves a queue ticket into vaccination/treatment. | Move next-stage selection into a backend workflow service. Preserve the existing public path as the first preset. |
 | Clinical records | Patient, bite incident/intake, treatment plan, treatment records, appointment, queue, and stock already exist. | Reuse these as the clinical source of truth. A template chooses who does work and in what order; it does not create a second set of clinical records. |
@@ -110,7 +210,71 @@ These findings are based on the current repository, not a claim that all private
 
 ## User interface
 
-### Clinic Setup > Predefined Templates
+### UI-first field and role mapping (2026-09-27)
+
+The Clinic Setup > Predefined Templates page now previews the private layout. Selecting a card changes only the preview. It does **not** activate a clinic workflow, change a user role, or save a patient record.
+
+| Private step | Existing records and fields to reuse | Current gap |
+| --- | --- | --- |
+| Registration | `patients`: name parts, birth date, gender, contact, address. `bite_incident_intakes`: exposure date/time/place, animal, exposure type, prior rabies vaccination. | Reuse an existing patient and bite episode on return visits; do not create a duplicate case. |
+| Vitals and assessment | `treatment_records`: pertinent history, blood pressure, temperature, height, weight, diagnosis, treatment decision. `bite_incidents` and intakes: body site, wound, animal condition, category/severity. | Allergies, medical conditions, and maintenance medicines share the current history note. Pulse, oxygen saturation, and respiratory rate have no dedicated stored fields. A shared room must still preserve who made the clinical decision. |
+| Billing | `treatment_records.cost_recovery` is a nullable string in the schema. | No current payment-entry API or screen uses that field, and it is not a bill. Add amount, payment status, method, receipt/reference, and cashier records before this stage can go live. |
+| Injection and follow-up | `treatment_records`: prescribed dose/date, administered date, route, vaccine, batch, vaccinator, medication given, TT status, remarks. `appointments`: next visit. | The paper card's separate RIG and tetanus brand/dose/date fields are not fully structured in the current data model. Do not infer an administered dose from a scheduled row. |
+
+**User Management versus Staff Assignments:** User Management creates the account and sets its current role (`registration`, `triage`, `treatment`, or `admin`); role checks control access to existing clinical actions. Staff Assignments stores one `assigned_module` (`registration`, `triage`, `treatment`, `inventory`, or `all`), but that value is not used by the current role middleware to grant permissions. Assigning a receptionist to the treatment module must not authorize assessment or injection. The private preset needs a separate cashier permission and a clear mapping of named staff to the four steps. One person may cover multiple desks if authorized, but the system should record which role they used for each action. Admin status alone is not evidence of a clinical qualification.
+
+**Activation boundary:** Once the backend workflow and billing records exist, applying the private preset would change the routing of **new visits** only: registration → clinical assessment → payment handling → authorized treatment and follow-up. The patient, bite episode, treatment records, inventory, and DOH reporting sources remain shared. Existing visits keep their original path. The current template page is a reviewable UI preview until those prerequisites are implemented and tested.
+
+### Admin-led clinic: repository audit and solution
+
+**Recommendation:** Let the clinic admin configure and supervise the entire operation. Let the same person perform a clinical step only when that account also has the appropriate verified clinical capability. A small clinic can use one room and one signed-in person for several steps; the system must still distinguish registration, assessment, cashier, and administration actions. DOH describes private ABCs as facilities staffed by trained doctors and nurses, and WHO's PEP protocol includes wound and exposure-risk assessment (sources in [Research and clinical boundary](#research-and-clinical-boundary)).
+
+#### What `admin` means in the current code
+
+| Finding | Evidence in repository | Consequence for a private preset |
+| --- | --- | --- |
+| Admin owns setup and users | `frontend/src/App.tsx` protects Clinic Setup and User Management for admin/developer; `backend/routes/api.php` has admin setup/user groups. `UserController::index`, `store`, and `updateAssignedModule` scope records to `clinic_id` and require `isAdmin()`. | Reuse admin as the clinic's configuration owner; do not add a separate `private_admin` account type. |
+| Admin is also allowed through several clinical API routes | `backend/routes/api.php` includes admin on case creation, Form 2 save, vaccination administration, and schedule changes. `TreatmentRecordPolicy` also treats admin as a creator/updater. | The current `admin` role conflates management authority with clinical authority. Template activation must not inherit this shortcut. |
+| The admin UI does not show every clinical station | `frontend/src/shared/config/navigationConfig.ts` omits admin from the follow-up nurse station and vaccination schedule, although backend routes include admin for some related actions. | A single admin would see an incomplete operational path. Make the visible worklist depend on actual capabilities and clinic workflow, not just the legacy role label. |
+| Account role and workstation role are coupled | `UserController::determineLegacyRole()` converts `workstation_role=doctor` to `role=triage`, or nurse roles to `role=treatment`; `syncWorkstationRoles()` replaces the role pivot. The User Management edit form selects one workstation role. | Editing an admin into a doctor/nurse can remove their admin identity. Add a separate capability-assignment UI/API that preserves `role=admin`; do not use the existing single-role dropdown for dual-duty admins. |
+| Staff Assignment is not authorization | `users.assigned_module` is a single enum (`all`, registration, triage, treatment, inventory). `updateAssignedModule()` changes only this field; `CheckRole` and `ProtectedRoute` use role data, not `assigned_module`. | Treat module assignment as a work-area preference until a real stage assignment and authorization model is added. `all` cannot mean permission to assess, bill, or inject. |
+| Clinic Module Configuration is not a workflow engine | The frontend submits `registration_module_enabled` and `treatment_module_enabled`, but `ClinicModuleConfigController::update()` and the model do not persist them. Queue and treatment controllers directly transfer a completed assessment to treatment. | Do not activate private mode by toggling modules or hiding triage. Add a dedicated, versioned workflow setting and stage transitions. |
+| Billing is not implemented | `treatment_records.cost_recovery` is a nullable string, but no payment controller uses it; there is no cashier role in the seeded `roles` table. | Add a small manual bill/payment record and cashier capability before putting patients into a payment queue. |
+| Role input needs tightening | `UserController` accepts role strings and `determineLegacyRole()` can map `developer` from submitted role data. The normal create-user UI does not offer developer. | Before template rollout, allowlist role/capability changes on the server and reserve developer provisioning for a separate trusted process. |
+
+#### Proposed permissions and assignments
+
+| Action | Admin can configure or monitor | Who may perform the action | Implementation rule |
+| --- | --- | --- | --- |
+| Select template, assign staff, set clinic prices, review reports | Yes | `clinic_admin` | Require a clinic-scoped admin permission and an audit event for each settings change. |
+| Register patient and collect bite history | Yes | `receptionist` or admin with registration capability | Use existing patient/intake records. |
+| Record vitals | Yes | Assigned trained clinical staff | Save actor and timestamp; a shared station does not imply authority to approve a plan. |
+| Approve exposure assessment and treatment plan | View and coordinate | Verified clinician with assessment capability | Check capability server-side at the Form 2/plan action. An admin title alone does not satisfy it. |
+| Record manual charge/payment | Yes | New `cashier` capability; may be held by the receptionist/admin | Keep payment ledger separate from the clinical record. A payment does not prove a dose was given. |
+| Administer vaccine/RIG/tetanus | View and coordinate | Authorized treatment clinician with administration capability | Check capability and prescribed plan, then record product/batch, actor, time, and stock movement. |
+
+`professional_license_no` already exists on users, but it is an optional string and no current clinical route verifies it. A number entered into that field is not proof of qualification. The clinic must verify the person's training and professional scope, then an admin (or designated authorized approver) grants the operational capability. Do not let users self-assign clinical capabilities.
+
+#### How the admin would apply a template
+
+1. **Choose:** In Clinic Setup > Predefined Templates, compare Public ABTC and Private ABC. Show the current active preset separately from the card being previewed.
+2. **Map people:** Use User Management for named accounts and verified capabilities. Allow one account to hold admin + receptionist/cashier or admin + clinical capability when appropriate. Use Staff Assignments for preferred station/worklist placement; never infer permissions from that field.
+3. **Check readiness:** The server checks for a clinician who can approve plans, an authorized vaccinator, a cashier/payment-entry capability, a manual charge and receipt process, and required clinic/report information. A preset price list is optional because the pilot clinic plans to enter charges manually. Show specific missing items on the template page. Keep **Activate** unavailable while checks fail.
+4. **Preview impact:** Show the exact new-visit path, affected worklists, form sections, and reports. State that open visits remain on their current template. The admin confirms a versioned change; save the actor, time, previous preset, and new preset.
+5. **Operate:** Each new visit stores its preset/version. A stage-transition service routes it to the next permitted task. One person may complete consecutive steps without a physical queue handoff, but each action records its actual capability and actor. Urgent clinically indicated care has a documented authorized path when payment is unresolved.
+6. **Revert default:** Admin may restore Public ABTC for future visits. This must not rewrite existing visits, payments, treatment records, or audit events.
+
+#### Build order and minimum tests
+
+1. **Permissions first:** Define capabilities such as `workflow.manage`, `patient.register`, `vitals.record`, `assessment.approve`, `payment.record`, and `dose.administer`. Preserve the legacy role for compatibility, but enforce these capabilities on the new workflow's server actions. Remove the assumption that `admin` automatically performs clinical actions when migrating those endpoints. Lock down role/capability assignment and developer creation.
+2. **Template setting:** Seed immutable `public_abtc@1` and `private_abc@1`; store a clinic-scoped active preset/version and expose read/validate/activate endpoints. Existing clinics default to public.
+3. **Staff and billing:** Add per-step staff assignments and the manual payment ledger. Keep `assigned_module` as a display preference or migrate it explicitly; do not use it as a hidden authorization switch.
+4. **Visit routing:** Link each new visit to one patient/bite episode and pinned template version. Replace hard-coded Form 2 → treatment handoffs with a transition service. Return visits reuse their existing episode and plan.
+5. **Tests:** Cover a nonclinical admin who can configure but cannot assess/inject, a qualified dual-duty admin who can perform permitted steps, a receptionist/cashier who cannot perform clinical steps, cross-clinic isolation, activation readiness, existing public visits, urgent unpaid treatment, duplicate retries, and immutable treatment audit fields.
+
+**Do not make the current preview card save the private preset yet.** The codebase cannot safely honor that selection end-to-end while clinical admin access, billing, and queue handoffs remain as described above.
+
+### Future activation UI for Clinic Setup > Predefined Templates
 
 1. Two clear cards: **Public ABTC** and **Private ABC**, each with a four-step preview, intended clinic type, included clinical tasks, and billing behavior.
 2. Show **Current template** and **Applies to new visits**. Let the admin preview the resulting staff queue and form sections before saving.
@@ -138,7 +302,7 @@ These findings are based on the current repository, not a claim that all private
 ### Phase 1 - foundation without changing current patients
 
 - [ ] Add versioned preset definitions, clinic selection, and a backend validation endpoint.
-- [ ] Add the `/setup/templates` React route and a read-only comparison/preview page, then the admin selection form.
+- [x] Add the `/setup/templates` React route and a read-only comparison/preview page. The admin selection form and activation remain future work.
 - [ ] Add visit and stage-event records, with one-to-one/unique links that prevent duplicate check-in.
 - [ ] Map existing public flow into the workflow service and verify its behavior against current registration, triage, queue, vaccination, appointment, inventory, and reporting tests.
 - [ ] Reconcile Module Configuration's submitted fields with the API/model and connect its supported field rules to actual screens; remove or relabel ineffective toggles.

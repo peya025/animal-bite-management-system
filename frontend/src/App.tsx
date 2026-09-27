@@ -31,6 +31,7 @@ const TreatmentRecordsPage = lazy(() => import('./features/treatment-records/pag
 const DeveloperLandingSettingsPage = lazy(() => import('./features/developer/pages/DeveloperLandingSettingsPage'));
 const DeveloperDatabaseExplorerPage = lazy(() => import('./features/developer/pages/DeveloperDatabaseExplorerPage'));
 const AppointmentDiagnosticsPage = lazy(() => import('./features/developer/pages/AppointmentDiagnosticsPage'));
+const PredefinedTemplatesPage = lazy(() => import('./features/clinic-setup/pages/PredefinedTemplatesPage'));
 
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
 
@@ -92,6 +93,7 @@ function App() {
           <Route path="/setup/schedule" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Operating Schedule"><ClinicOperatingSchedulePage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/modules" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Module Configuration"><ModuleConfigPage /></AppLayout></ProtectedRoute>} />
           <Route path="/setup/staff-assignments" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Staff Assignments"><StaffAssignmentPage /></AppLayout></ProtectedRoute>} />
+          <Route path="/setup/templates" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Predefined Templates"><PredefinedTemplatesPage /></AppLayout></ProtectedRoute>} />
           
           {/* Legacy / Alias Route Redirects */}
           <Route path="/registration" element={<Navigate to="/patients" replace />} />

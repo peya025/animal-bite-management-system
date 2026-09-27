@@ -35,9 +35,9 @@ The current queue uses `visit_type` to distinguish new/consultation work from va
 Predefined Templates                                      [Preview only]
 Choose a workflow to inspect. The current clinic keeps its public flow.
 
-[ Public ABTC · Current workflow ]  [ Private ABC · Proposed workflow ]
+[ Public ABTC · Current workflow ]  [ Basic Template · Proposed workflow ]
 
-Private ABC workflow
+Basic Template workflow
 [ New bite visit ] [ Return dose visit ]
 Registration  →  Vitals & assessment  →  Payment  →  Injection & next visit
     click any step to view its screen and what happens next
@@ -63,7 +63,7 @@ Private payment: separate planned step, not a form-field switch.
 
 ### Final UI behavior for field choices and payment
 
-| Area | Public ABTC default | Private ABC default | Interaction on this page |
+| Area | Public ABTC default | Basic Template default | Interaction on this page |
 | --- | --- | --- | --- |
 | Core clinical fields | Included | Included | Patient/contact/address, bite exposure, assessment, treatment, and follow-up are shown as fixed groups. There is no switch that removes them. |
 | Socioeconomic Information | On | Off | Switch changes the Registration step preview. Reset restores the selected template's default. |
@@ -73,7 +73,7 @@ Private payment: separate planned step, not a form-field switch.
 
 The two optional switches represent the existing Module Configuration sections `socioeconomic_section_enabled` and `gov_programs_section_enabled`. Their state is local to the template preview for now; changing them does not call the Module Configuration API or alter live forms. The advanced link opens Module Configuration for its separate field rules. If a future backend applies a template, it should map only supported optional section rules and validate the resulting form behavior. It must preserve clinical and reporting data.
 
-The existing `cost_recovery` treatment field is a text note. It cannot record a charge, amount received, balance, or receipt. Payment therefore stays a visibly planned workflow step, with a future manual payment record and an audited urgent-care exception when payment is pending. Selecting Private ABC or turning on a module field must not be presented as enabling billing.
+The existing `cost_recovery` treatment field is a text note. It cannot record a charge, amount received, balance, or receipt. Payment therefore stays a visibly planned workflow step, with a future manual payment record and an audited urgent-care exception when payment is pending. Selecting Basic Template or turning on a module field must not be presented as enabling billing.
 
 ### What each clickable step previews
 
@@ -100,7 +100,7 @@ The `StaffAssignmentPage` calls `PUT /users/{id}/assigned-module`; `UserControll
 
 ### Preview interaction and acceptance checks
 
-1. Default to **Public ABTC · Current workflow** so opening the page reflects the clinic's real starting point. Selecting Private ABC changes the preview and clearly says **Proposed**; selection is not activation.
+1. Default to **Public ABTC · Current workflow** so opening the page reflects the clinic's real starting point. Selecting Basic Template changes the preview and clearly says **Proposed**; selection is not activation.
 2. Clicking a template card or step updates the preview immediately. Clicking New bite or Return dose updates the route and field summary. The optional section switches update the Registration preview; their defaults follow the selected preset. The Save & apply preview button confirms and marks the selected template, desk coverage, and section choices on this page only; it makes no API call or clinic setting change.
 3. The active step shows: a short screen title, only the field groups used there, one main action, and one next-step sentence. The user can understand the whole visit without reading database field names.
 4. Admin can compare one admin desk with separate desks for every step. The preview does not claim that an admin title alone proves clinical qualification; it labels assessment and injection as qualified clinical work. Actual clinical actions remain governed by the existing system until a later authorization change.
@@ -157,7 +157,7 @@ These findings are based on the current repository, not a claim that all private
 | Treatment | Treatment nurse | Verify approved plan and intended dose; record product, dose, lot/batch, route/site, administration time, and vaccinator; decrement inventory through the existing stock workflow. |
 | Follow-up | System and clinic staff | Create next dose appointment/card and reminder tasks from the prescribed schedule; mark visit complete. |
 
-### Private ABC: fewer desks, same clinical authority
+### Basic Template: fewer desks, same clinical authority
 
 | Stage | Owner | Minimum data/action | Next step |
 | --- | --- | --- | --- |
@@ -257,7 +257,7 @@ The Clinic Setup > Predefined Templates page now previews the private layout. Se
 
 #### How the admin would apply a template
 
-1. **Choose:** In Clinic Setup > Predefined Templates, compare Public ABTC and Private ABC. Show the current active preset separately from the card being previewed.
+1. **Choose:** In Clinic Setup > Predefined Templates, compare Public ABTC and Basic Template. Show the current active preset separately from the card being previewed.
 2. **Map people:** Use User Management for named accounts and verified capabilities. Allow one account to hold admin + receptionist/cashier or admin + clinical capability when appropriate. Use Staff Assignments for preferred station/worklist placement; never infer permissions from that field.
 3. **Check readiness:** The server checks for a clinician who can approve plans, an authorized vaccinator, a cashier/payment-entry capability, a manual charge and receipt process, and required clinic/report information. A preset price list is optional because the pilot clinic plans to enter charges manually. Show specific missing items on the template page. Keep **Activate** unavailable while checks fail.
 4. **Preview impact:** Show the exact new-visit path, affected worklists, form sections, and reports. State that open visits remain on their current template. The admin confirms a versioned change; save the actor, time, previous preset, and new preset.
@@ -276,7 +276,7 @@ The Clinic Setup > Predefined Templates page now previews the private layout. Se
 
 ### Future activation UI for Clinic Setup > Predefined Templates
 
-1. Two clear cards: **Public ABTC** and **Private ABC**, each with a four-step preview, intended clinic type, included clinical tasks, and billing behavior.
+1. Two clear cards: **Public ABTC** and **Basic Template**, each with a four-step preview, intended clinic type, included clinical tasks, and billing behavior.
 2. Show **Current template** and **Applies to new visits**. Let the admin preview the resulting staff queue and form sections before saving.
 3. After selecting a preset, provide only supported settings: station/staff mapping, separate or shared cashier desk, accepted payment/coverage modes, and optional nonclinical registration sections. Clinical assessment, treatment authorization, administration audit, and essential exposure data are locked.
 4. Show any missing prerequisites before activation: no clinical assessor, no authorized vaccinator, no cashier capability when billing is enabled, or incomplete price list. Do not silently activate a partially configured private flow.

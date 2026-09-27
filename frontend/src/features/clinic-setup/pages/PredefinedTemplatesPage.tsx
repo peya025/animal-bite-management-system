@@ -95,7 +95,7 @@ const workflows: Record<PresetKey, Workflow> = {
     },
   },
   private: {
-    title: 'Private ABC',
+    title: 'Basic Template',
     description: 'Proposed shorter path using the same clinical records, with manual payment added.',
     icon: <LocalHospitalOutlined />,
     visits: {

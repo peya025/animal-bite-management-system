@@ -405,7 +405,7 @@ export default function RegistrationReportsPage() {
         <Typography component="h1" sx={{ fontSize: '24px !important', fontWeight: '700 !important', color: 'var(--text-h)', letterSpacing: '-0.02em', lineHeight: 1.2, mb: 0.5 }}>
           Reports &amp; Analytics
         </Typography>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
           <button
             onClick={() => navigate(ROUTES.DASHBOARD)}
             style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}

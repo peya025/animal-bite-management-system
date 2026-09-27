@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 import {
   Alert, Box, CircularProgress, Paper, Snackbar,
   Typography, Chip, IconButton, Tooltip, Select, MenuItem, FormControl, GlobalStyles,
@@ -30,6 +32,7 @@ interface Patient {
 }
 
 export default function DoctorPatientListPage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<'today' | 'this_week' | 'all'>('today');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
@@ -303,29 +306,42 @@ export default function DoctorPatientListPage() {
           <Typography
             component="h1"
             sx={{
-              fontWeight: 600,
-              fontSize: '25px',
+              fontSize: '24px',
+              fontWeight: 700,
               lineHeight: 1.2,
-              letterSpacing: '-0.5px',
-              color: 'var(--text-h)',
-              margin: '0 0 7px 0',
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
             }}
           >
             Doctor's Patient List
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
-            {today} · Track consultations and patient history
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontSize: '13px',
+            }}
+          >
             <button
-              onClick={() => { window.location.href = '/dashboard'; }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
             >
               Dashboard
             </button>
-            <span style={{ color: 'var(--text-secondary)' }}>›</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Doctor Patients</span>
-          </Box>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Doctor Patients</span>
+          </div>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}

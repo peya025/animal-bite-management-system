@@ -521,7 +521,7 @@ export default function PatientList() {
                 </p>
               )}
               {/* Breadcrumb */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
                 <button
                   onClick={() => navigate(ROUTES.DASHBOARD)}
                   style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}

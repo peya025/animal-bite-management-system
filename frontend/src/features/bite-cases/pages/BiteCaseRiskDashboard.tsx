@@ -52,61 +52,45 @@ export default function BiteCaseRiskDashboard() {
   const riskHeaders = ['#', 'LOCATION', 'RISK LEVEL', 'RISK SCORE', 'TOTAL CASES', 'SEVERE', 'MODERATE', 'MINOR', 'ANIMAL TYPE', 'PEP COMPLIANCE', 'OVERDUE DOSES', 'TREND', 'LAST INCIDENT']; const caseHeaders = ['#', 'CASE NUMBER', 'PATIENT', 'LOCATION', 'SEVERITY', 'ANIMAL', 'STATUS', 'INCIDENT DATE']; const headers = tab === 'risk' ? riskHeaders : caseHeaders;
   return <Box sx={{ px: { xs: 1.5, md: 3 }, py: 1, bgcolor: '#f9fafb', minHeight: '100%' }}>
     <Box sx={{ mb: 2.5 }}>
-      {user?.role === 'treatment' ? (
-        <>
-          <Typography
-            component="h1"
-            sx={{
-              fontFamily: 'Poppins',
-              fontSize: '24px',
-              fontWeight: 700,
-              lineHeight: 1.2,
-              letterSpacing: '-0.02em',
-              color: 'var(--text-h, #111827)',
-              mb: 0.5,
-            }}
-          >
-            Bite Cases Summary
-          </Typography>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginTop: '8px',
-              fontFamily: 'Poppins',
-              fontSize: '13px',
-            }}
-          >
-            <button
-              onClick={() => navigate('/dashboard')}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                color: '#3b82f6',
-                fontFamily: 'Poppins',
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              Dashboard
-            </button>
-            <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Bite Cases Summary</span>
-          </div>
-        </>
-      ) : (
-        <>
-          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 600, color: '#111827' }}>Bite Cases Summary</Typography>
-          <Typography sx={{ fontSize: 12, color: '#9ca3af', mt: .4 }}>Track high and low risk locations, PEP compliance, and animal bite surveillance</Typography>
-          <Box sx={{ display: 'flex', gap: .75, mt: .8, fontSize: 12 }}>
-            <Button onClick={() => navigate('/dashboard')} sx={{ minWidth: 0, p: 0, fontSize: 12, textTransform: 'none', color: '#6b7280' }}>Dashboard</Button>
-            <Typography sx={{ color: '#9ca3af', fontSize: 12 }}>›</Typography>
-            <Typography sx={{ color: '#9ca3af', fontSize: 12 }}>Bite Cases Summary</Typography>
-          </Box>
-        </>
-      )}
+      <Typography
+        component="h1"
+        sx={{
+          fontSize: '24px',
+          fontWeight: 700,
+          lineHeight: 1.2,
+          letterSpacing: '-0.02em',
+          color: 'var(--text-h, #111827)',
+          mb: 0.5,
+        }}
+      >
+        Bite Cases Summary
+      </Typography>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          marginTop: '8px',
+          fontSize: '13px',
+        }}
+      >
+        <button
+          onClick={() => navigate(ROUTES.DASHBOARD)}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: '#3b82f6',
+            fontSize: '13px',
+            fontFamily: 'inherit',
+            cursor: 'pointer',
+          }}
+        >
+          Dashboard
+        </button>
+        <span style={{ color: '#9ca3af' }}>›</span>
+        <span style={{ color: '#6b7280' }}>Bite Cases Summary</span>
+      </div>
     </Box>
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' }, gap: 1.25, mb: 2 }}><StatCard label="TOTAL CASES" value={data?.summary.total_cases ?? 0} color="#3b82f6" icon={<PetsOutlined fontSize="small" />} loading={loading} /><StatCard label="ACTIVE CASES" value={data?.summary.active_cases ?? 0} color="#1D9E75" icon={<WarningAmberOutlined fontSize="small" />} loading={loading} /><StatCard label="COMPLETED" value={data?.summary.completed ?? 0} color="#16a34a" icon={<CheckCircleOutlined fontSize="small" />} loading={loading} /><StatCard label="HIGH RISK ZONES" value={data?.summary.high_risk_zones ?? 0} color="#ef4444" icon={<ErrorOutlined fontSize="small" />} loading={loading} /><StatCard label="OVERDUE DOSES" value={data?.summary.overdue_doses ?? 0} color="#f59e0b" icon={<WarningAmberOutlined fontSize="small" />} loading={loading} /><StatCard label="PEP COMPLIANCE" value={`${data?.summary.pep_compliance ?? 0}%`} color="#6b7280" icon={<CheckCircleOutlined fontSize="small" />} loading={loading} /></Box>
     {alerts.length > 0 && <Box sx={{ mb: 2, p: '10px 14px', borderRadius: '10px', border: '0.5px solid #fecaca', bgcolor: '#fef2f2', display: 'flex', gap: 1, alignItems: 'flex-start' }}><WarningAmberOutlined sx={{ color: '#ef4444', fontSize: 20, mt: .1 }} /><Typography sx={{ color: '#991b1b', fontSize: 12, lineHeight: 1.55, fontWeight: 600 }}>{alerts.join(' · ')}</Typography></Box>}

@@ -662,7 +662,7 @@ export default function NursePatientListPage() {
             {today} · Manage Doctor-prescribed scheduled follow-up doses due today, overdue, or upcoming
           </Typography>
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{

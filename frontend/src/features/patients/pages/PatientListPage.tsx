@@ -482,7 +482,7 @@ export default function PatientList() {
     printDocument({
       clinicName,
       printedBy,
-      title: 'Patient Registry',
+      title: 'Patient List',
       refPrefix: 'PT',
       leftLogoUrl,
       rightLogoUrl,
@@ -503,6 +503,8 @@ export default function PatientList() {
   };
   const td: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid #f0f0f0', fontSize: 11 };
 
+  const isPatientListRoute = location.pathname.includes('patient-registry') || location.pathname.includes('patient-list');
+
   return (
     <PatientListRoot>
       <div className="pm-layout">
@@ -511,9 +513,9 @@ export default function PatientList() {
           <div className="pm-panel-header">
             <div>
               <h1 className="pm-title">
-                {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Management'}
+                {isPatientListRoute ? 'Patient List' : 'Patient Management'}
               </h1>
-              {!location.pathname.includes('patient-registry') && (
+              {!isPatientListRoute && (
                 <p className="pm-subtitle">
                   Manage and track all registered walk-in and online patients
                 </p>
@@ -528,7 +530,7 @@ export default function PatientList() {
                 </button>
                 <span style={{ color: '#9ca3af' }}>›</span>
                 <span style={{ color: '#6b7280' }}>
-                  {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Registration'}
+                  {isPatientListRoute ? 'Patient List' : 'Patient Registration'}
                 </span>
               </div>
             </div>
@@ -995,7 +997,7 @@ export default function PatientList() {
 
       {showPrintModal && (
         <PrintPreviewModal
-          title="Patient Registry"
+          title="Patient List"
           clinicName={clinicName}
           printedBy={printedBy}
           leftLogoUrl={leftLogoUrl}

@@ -844,7 +844,7 @@ function PrintPreviewModal({
   const officeName = (clinic?.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase();
   const phone = clinic?.contact_number || (clinic as any)?.phone || '(088)890-4770';
 
-  const tabLabel = activeTab === 'summary' ? 'Summary Report' : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'inventory' ? 'Vaccine Inventory & Wastage Report' : 'Patient Registry Report';
+  const tabLabel = activeTab === 'summary' ? 'Summary Report' : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'inventory' ? 'Vaccine Inventory & Wastage Report' : 'Patient List Report';
 
   return (
     <div style={overlayStyle} onClick={onCancel} role="dialog" aria-modal="true" aria-labelledby="print-title">
@@ -1433,7 +1433,7 @@ function LegacyReportsDashboardPage() {
     const refNo = `ABTC-RPT-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
     const printDateFull = now.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     const printTimeFull = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
-    const tabLabel = activeTab === 'summary' ? (cardData ? `Card Audit: ${cardData.title}` : 'Summary Report') : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'patients' ? 'Patient Registry Report' : 'Vaccine Inventory & Wastage Report';
+    const tabLabel = activeTab === 'summary' ? (cardData ? `Card Audit: ${cardData.title}` : 'Summary Report') : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'patients' ? 'Patient List Report' : 'Vaccine Inventory & Wastage Report';
 
     const CSS = `@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Poppins',sans-serif;color:#000;background:#fff;padding:24px 32px;font-size:10pt;line-height:1.4}.letterhead{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:4px}.logo{width:68px;height:68px;object-fit:contain}.org{text-align:center;line-height:1.3}.org .republic{font-size:8pt;font-style:italic}.org .dept{font-size:9.5pt;font-weight:700}.org .mho{font-size:11pt;font-weight:800;margin-top:1px}.org .address{font-size:8pt;font-style:italic}.divider-thick{border:none;border-top:2px solid #000;margin:4px 0 14px}.doc-title{text-align:center;margin:12px 0 16px}.doc-title h2{font-size:14pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;text-decoration:underline}.doc-title p{font-size:9pt;margin:2px 0 0}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:16px;font-size:9pt;border:1px solid #000;padding:8px 12px}h3.sec{font-size:10pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #000;padding-bottom:3px;margin:18px 0 10px}table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:9pt;border:1px solid #000}th{background:#fff;color:#000;font-weight:700;padding:6px 8px;text-align:left;font-size:9pt;border:1px solid #000}td{padding:5px 8px;border:1px solid #000;color:#000;background:#fff}tr:nth-child(even) td{background:#fff}table.info-table td{border:1px solid #000;padding:5px 10px;vertical-align:top;background:#fff}table.info-table td.lbl{background:#fff;font-weight:700;font-size:9pt;width:22%;color:#000}table.info-table td.val{font-size:9pt;width:28%;color:#000;background:#fff}p.note{font-size:8.5pt;color:#000;margin-bottom:8px;font-style:italic}.sig-section{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px}.sig-block .line{border-top:1px solid #000;margin-top:36px;padding-top:4px}.sig-block .name{font-weight:700;font-size:10pt;text-transform:uppercase}.sig-block .position{font-size:9pt;color:#000}.footer-bar{margin-top:40px;padding-top:8px;border-top:2px solid #000;display:flex;justify-content:space-between;font-size:8.5pt;color:#000}@media print{body{padding:16px 20px}@page{margin:1.0cm}}`;
 
@@ -2110,7 +2110,7 @@ function LegacyReportsDashboardPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={5} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>Loading patient registry…</td></tr>
+                    <tr><td colSpan={5} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>Loading patient list…</td></tr>
                   ) : filteredPatients.length === 0 ? (
                     <tr><td colSpan={5} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>No patients match the selected search or date filters.</td></tr>
                   ) : filteredPatients.map((p, i) => (

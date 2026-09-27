@@ -10,6 +10,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import RegistrationReportsPage from './RegistrationReportsPage';
 import DohReportsSection from '../components/DohReportsSection';
 import AdminReportsPage from './AdminReportsPage';
+import TreatmentNurseReportsPage from './TreatmentNurseReportsPage';
 
 // ─── Types ────────────────────────────────────────────────────
 interface ReportStats {
@@ -1022,7 +1023,8 @@ function PrintPreviewModal({
 export default function ReportsDashboardPage() {
   const { user } = useAuth();
   if (user?.role === 'admin') return <AdminReportsPage />;
-  return user?.role === 'registration' ? <RegistrationReportsPage /> : <LegacyReportsDashboardPage />;
+  if (user?.role === 'registration') return <RegistrationReportsPage />;
+  return <TreatmentNurseReportsPage />;
 }
 
 function LegacyReportsDashboardPage() {

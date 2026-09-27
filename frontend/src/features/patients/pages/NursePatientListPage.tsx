@@ -658,9 +658,6 @@ export default function NursePatientListPage() {
           >
             Station 2 · Follow-up Doses
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
-            {today} · Manage Doctor-prescribed scheduled follow-up doses due today, overdue, or upcoming
-          </Typography>
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
             <button

@@ -63,6 +63,8 @@ Private payment: separate planned step, not a form-field switch.
 
 ### Final UI behavior for field choices and payment
 
+The **Basic Template** preview shows the existing Module Configuration groups in plain language. Form 1 keeps Patient Information, contact, and residential address on; Form 2 keeps consultation, vital signs, clinical notes, and the treatment decision on; Form 3 keeps exposure and vaccination recording on. The Socioeconomic Information section starts off, so Educational Attainment, Employment Status, and Family Member Position are omitted from the preview. Government Programs also starts off, including PhilHealth and other membership details. Staff can turn either optional section on in the preview. Individual optional fields within the retained sections, such as Blood Type, still follow their separate Module Configuration rules; this template preview does not claim to hide them or change the live form.
+
 | Area | Public ABTC default | Basic Template default | Interaction on this page |
 | --- | --- | --- | --- |
 | Core clinical fields | Included | Included | Patient/contact/address, bite exposure, assessment, treatment, and follow-up are shown as fixed groups. There is no switch that removes them. |

@@ -96,7 +96,7 @@ const workflows: Record<PresetKey, Workflow> = {
   },
   private: {
     title: 'Basic Template',
-    description: 'Proposed shorter path using the same clinical records, with manual payment added.',
+    description: 'Core patient, exposure, assessment, and vaccination fields. Socioeconomic and government-program fields start off; payment is planned.',
     icon: <LocalHospitalOutlined />,
     visits: {
       new: [
@@ -183,8 +183,14 @@ const sectionDefaults: Record<PresetKey, OptionalSections> = {
 };
 
 const optionalSectionRows: { key: keyof OptionalSections; title: string; detail: string }[] = [
-  { key: 'socioeconomic', title: 'Socioeconomic information', detail: 'Education, employment, family role' },
-  { key: 'government', title: 'Government programs', detail: 'PhilHealth, 4Ps, DSWD, senior citizen, PWD' },
+  { key: 'socioeconomic', title: 'Socioeconomic Information', detail: 'Educational Attainment, Employment Status, Family Member Position' },
+  { key: 'government', title: 'Government Programs', detail: 'PhilHealth, 4Ps, DSWD, Senior Citizen, PWD and other memberships' },
+];
+
+const coreFormRows = [
+  { form: 'Form 1', title: 'Patient Information', detail: 'Name, sex, birth date, contact and residential address' },
+  { form: 'Form 2', title: 'Basic assessment', detail: 'Consultation, vital signs, clinical notes and treatment decision' },
+  { form: 'Form 3', title: 'Exposure and vaccination', detail: 'Animal and wound details, exposure category, dose and follow-up' },
 ];
 
 export default function PredefinedTemplatesPage() {
@@ -383,16 +389,24 @@ export default function PredefinedTemplatesPage() {
       <Paper component="section" aria-labelledby="sections-preview-title" elevation={0} sx={{ ...panelSx, p: { xs: 1.75, sm: 2 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
           <Box>
-            <Typography id="sections-preview-title" component="h2" sx={{ fontSize: 16, fontWeight: 700 }}>Form sections</Typography>
-            <Typography variant="body2" color="text.secondary">Choose the optional fields shown during registration.</Typography>
+            <Typography id="sections-preview-title" component="h2" sx={{ fontSize: 16, fontWeight: 700 }}>Fields in this template</Typography>
+            <Typography variant="body2" color="text.secondary">{preset === 'private' ? 'Basic Template starts with the clinical essentials.' : 'Core clinical sections remain available.'}</Typography>
           </Box>
           <Chip label="Preview settings" size="small" variant="outlined" />
         </Box>
 
-        <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: 'action.hover', mb: 1.25 }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>Always included</Typography>
-          <Typography variant="body2">Patient, contact and address · Bite exposure · Clinical assessment · Vaccination and follow-up</Typography>
+        <Box sx={{ display: 'grid', gap: 0.75, mb: 1.25 }}>
+          {coreFormRows.map(item => <Box key={item.form} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, px: 1.25, py: 0.85, borderRadius: 1.5, bgcolor: 'action.hover' }}>
+            <Chip label={item.form} size="small" variant="outlined" sx={{ height: 22, flexShrink: 0 }} />
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.title}</Typography>
+              <Typography variant="caption" color="text.secondary">{item.detail}</Typography>
+            </Box>
+            <Typography variant="caption" color="success.main" sx={{ fontWeight: 700, flexShrink: 0 }}>On</Typography>
+          </Box>)}
         </Box>
+
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>Optional Form 1 sections</Typography>
 
         <Box sx={{ display: 'grid', gap: 0.75 }}>
           {optionalSectionRows.map(item => <Box component="label" key={item.key} sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.75, border: '1px solid', borderColor: 'divider', borderRadius: 1.5, cursor: 'pointer' }}>
@@ -400,6 +414,9 @@ export default function PredefinedTemplatesPage() {
               <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.title}</Typography>
               <Typography variant="caption" color="text.secondary">{item.detail}</Typography>
             </Box>
+            <Typography variant="caption" color={selectedSections[item.key] ? 'success.main' : 'text.secondary'} sx={{ fontWeight: 700, minWidth: 22 }}>
+              {selectedSections[item.key] ? 'On' : 'Off'}
+            </Typography>
             <Switch checked={selectedSections[item.key]} onChange={event => changeSection(item.key, event.target.checked)} color="success" />
           </Box>)}
         </Box>
@@ -412,7 +429,10 @@ export default function PredefinedTemplatesPage() {
           </Button>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-          These switches mirror optional Module Configuration sections. They do not change that page's settings or remove existing patient data.
+          These switches mirror the Socioeconomic Information and Government Programs sections in Module Configuration. Educational Attainment is in Socioeconomic Information, separate from Patient Information. Other individual fields still follow their Module Configuration rules.
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+          This is a preview only. It does not change live forms, Module Configuration, or existing patient data.
         </Typography>
         {preset === 'private' && !selectedSections.government && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
           PhilHealth membership fields are inside Government programs. Include that section if the clinic needs those details for coverage.

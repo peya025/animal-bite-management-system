@@ -515,11 +515,6 @@ export default function PatientList() {
               <h1 className="pm-title">
                 {isPatientListRoute ? 'Patient List' : 'Patient Management'}
               </h1>
-              {!isPatientListRoute && (
-                <p className="pm-subtitle">
-                  Manage and track all registered walk-in and online patients
-                </p>
-              )}
               {/* Breadcrumb */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
                 <button

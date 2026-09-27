@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Typography } from '@mui/material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../shared/config/routes';
 import { Icon, type IconName } from '../../../shared/components/ui/Icon';
@@ -117,20 +118,28 @@ export default function StaffActivityPage() {
       {/* Minimalist Dashboard Header */}
       <div className="sd-dash-header">
         <div>
-          <h1>Staff Activity Monitor</h1>
-          <p>Track staff actions, logins, and system audit logs</p>
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
+            Staff Activity Monitor
+          </Typography>
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 13, color: '#9ca3af' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
             >Dashboard</button>
-            <span>›</span>
-            <button
-              onClick={() => navigate(ROUTES.CLINIC_SETUP.ROOT)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#6b7280', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
-            >Clinic Setup</button>
-            <span>›</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Clinic Setup</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Staff Activity</span>
           </div>
         </div>

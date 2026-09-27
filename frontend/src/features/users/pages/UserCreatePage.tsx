@@ -141,9 +141,18 @@ export default function UserCreatePage() {
 
   return (
     <Box sx={{ px: 3, maxWidth: 720 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Add user</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Create a staff account for this clinic.
+      <Typography
+        component="h1"
+        sx={{
+          fontSize: '24px',
+          fontWeight: 700,
+          lineHeight: 1.2,
+          letterSpacing: '-0.02em',
+          color: 'var(--text-h, #111827)',
+          mb: 2,
+        }}
+      >
+        Add User
       </Typography>
 
       <Paper component="form" onSubmit={submit} elevation={0} sx={{ p: 3, border: '1px solid #e5e7eb', borderRadius: 3 }}>

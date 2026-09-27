@@ -23,6 +23,7 @@ import {
   Snackbar,
   Alert,
   Grid,
+  useMediaQuery,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
@@ -34,7 +35,6 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  AccessTime as TimeIcon,
   Warning as WarningIcon,
   Refresh as SyncIcon,
 } from '@mui/icons-material';
@@ -83,6 +83,7 @@ interface ClinicPolicy {
 
 export const ClinicOperatingSchedulePage: React.FC = () => {
   const navigate = useNavigate();
+  const compactTabs = useMediaQuery('(max-width: 1280px)');
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -357,7 +358,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1100, mx: 'auto' }}>
+    <Box sx={{ px: { xs: 1, sm: 3 }, py: { xs: 2, md: 4 }, width: '100%', boxSizing: 'border-box' }}>
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
@@ -375,7 +376,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
             Operating Schedule
           </Typography>
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px', flexWrap: 'wrap' }}>
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
@@ -396,6 +397,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
           disabled={saving}
           sx={{
             textTransform: 'none',
+            fontSize: 12.5,
             fontWeight: 600,
             color: '#277a4b',
             borderColor: '#277a4b',
@@ -413,6 +415,9 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
           onChange={(_, v) => setActiveTab(v)}
           textColor="primary"
           indicatorColor="primary"
+          variant={compactTabs ? 'scrollable' : 'fullWidth'}
+          scrollButtons={compactTabs ? 'auto' : false}
+          allowScrollButtonsMobile
           sx={{
             px: 2,
             borderBottom: '1px solid #e5e7eb',
@@ -420,7 +425,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
               textTransform: 'none',
               fontWeight: 600,
               fontSize: '14px',
-              py: 2,
+              py: 1.5,
             },
           }}
         >
@@ -435,20 +440,20 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
 
         {/* TAB 0: Weekly Operating Pattern */}
         {activeTab === 0 && (
-          <Box sx={{ p: 3 }}>
+          <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
             {/* Presets Toolbar */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, flexWrap: 'wrap', gap: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>
                 Weekly Operating Days & Hours
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button size="small" variant="outlined" onClick={() => applyPreset('mon_fri')} sx={{ textTransform: 'none', fontSize: 12 }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                <Button size="small" variant="outlined" onClick={() => applyPreset('mon_fri')} sx={{ textTransform: 'none', fontSize: 12.5 }}>
                   Mon–Fri (Standard)
                 </Button>
-                <Button size="small" variant="outlined" onClick={() => applyPreset('mon_thu')} sx={{ textTransform: 'none', fontSize: 12 }}>
+                <Button size="small" variant="outlined" onClick={() => applyPreset('mon_thu')} sx={{ textTransform: 'none', fontSize: 12.5 }}>
                   Mon & Thu Only (ABTC Session)
                 </Button>
-                <Button size="small" variant="outlined" onClick={() => applyPreset('daily')} sx={{ textTransform: 'none', fontSize: 12 }}>
+                <Button size="small" variant="outlined" onClick={() => applyPreset('daily')} sx={{ textTransform: 'none', fontSize: 12.5 }}>
                   Daily (7 Days)
                 </Button>
               </Box>
@@ -464,16 +469,18 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                     key={item.day_of_week}
                     variant="outlined"
                     sx={{
-                      p: 2,
-                      display: 'flex',
+                      p: 1.5,
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) auto' },
                       alignItems: 'center',
-                      justifyContent: 'space-between',
+                      columnGap: 2,
+                      rowGap: 1.5,
                       borderRadius: '10px',
                       borderColor: item.is_open ? '#c8e6c9' : '#e5e7eb',
                       bgcolor: item.is_open ? '#fcfdfd' : '#f9fafb',
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 160 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
                       <Switch
                         checked={item.is_open}
                         onChange={() => handleToggleDay(item.day_of_week)}
@@ -488,7 +495,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                           label={item.is_open ? 'OPEN' : 'CLOSED'}
                           sx={{
                             height: 20,
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: 700,
                             bgcolor: item.is_open ? '#e8f5e9' : '#f3f4f6',
                             color: item.is_open ? '#2e7d32' : '#6b7280',
@@ -499,28 +506,28 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                     </Box>
 
                     {item.is_open ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <TimeIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 180px)' }, alignItems: 'center', gap: 1.5, width: { xs: '100%', md: 'auto' }, justifySelf: { xs: 'stretch', lg: 'end' } }}>
                           <TextField
                             type="time"
                             size="small"
+                            label="Opens"
                             value={item.open_time ? item.open_time.substring(0, 5) : '08:00'}
                             onChange={(e) => handleTimeChange(item.day_of_week, 'open_time', e.target.value)}
-                            sx={{ width: 115 }}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                            sx={{ width: '100%', minWidth: 0, '& .MuiInputBase-input': { fontSize: 14 }, '& .MuiInputLabel-root': { fontSize: 13 } }}
                           />
-                          <Typography sx={{ color: '#6b7280', px: 0.5 }}>to</Typography>
                           <TextField
                             type="time"
                             size="small"
+                            label="Closes"
                             value={item.close_time ? item.close_time.substring(0, 5) : '17:00'}
                             onChange={(e) => handleTimeChange(item.day_of_week, 'close_time', e.target.value)}
-                            sx={{ width: 115 }}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                            sx={{ width: '100%', minWidth: 0, '& .MuiInputBase-input': { fontSize: 14 }, '& .MuiInputLabel-root': { fontSize: 13 } }}
                           />
-                        </Box>
                       </Box>
                     ) : (
-                      <Typography variant="body2" sx={{ color: '#9ca3af', fontStyle: 'italic' }}>
+                      <Typography variant="body2" sx={{ color: '#9ca3af', fontStyle: 'italic', justifySelf: { xs: 'start', lg: 'end' } }}>
                         Clinic closed all day
                       </Typography>
                     )}
@@ -551,9 +558,9 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
 
         {/* TAB 1: Calendar Exceptions & Holidays */}
         {activeTab === 1 && (
-          <Box sx={{ p: 3 }}>
+          <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>
                 Holidays & Special Date Overrides
               </Typography>
               <Button
@@ -601,7 +608,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                           label={exc.is_open ? 'SPECIAL OPEN' : 'CLOSED / HOLIDAY'}
                           sx={{
                             height: 20,
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: 700,
                             bgcolor: exc.is_open ? '#e8f5e9' : '#ffebee',
                             color: exc.is_open ? '#2e7d32' : '#c62828',
@@ -635,9 +642,9 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
 
         {/* TAB 2: Regimen Drift & Emergency Policies */}
         {activeTab === 2 && (
-          <Box sx={{ p: 3 }}>
+          <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
             {/* Drift Policy Section */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 14, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
               <PolicyIcon sx={{ color: '#277a4b', fontSize: 20 }} />
               PEP Regimen Date Drift Policy (When Ideal Date Falls on Closed Day)
             </Typography>
@@ -704,7 +711,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
             </Paper>
 
             {/* Emergency Day-0 Exposure Policy */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 14, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
               <WarningIcon sx={{ color: '#d97706', fontSize: 20 }} />
               Urgent Day-0 Exposure Policy (Initial Bite Treatment on Closed Days)
             </Typography>

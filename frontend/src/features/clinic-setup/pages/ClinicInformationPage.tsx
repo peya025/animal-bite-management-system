@@ -667,25 +667,25 @@ export default function ClinicInformation() {
           </Typography>
           <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
 
-          {/* Logo Uploader Block */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' }, gap: 2, mb: 3 }}>
+          {/* Application Logo */}
           <Box
             sx={{
               display: 'flex',
-              alignItems: { xs: 'flex-start', sm: 'center' },
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: 3,
-              p: 2.5,
-              bgcolor: 'var(--bg-subtle, #f8fafc)',
+              alignItems: 'center',
+              gap: 2,
+              p: 2,
+              minWidth: 0,
+              bgcolor: '#fff',
               border: '1px solid var(--border-glow, #e2e8f0)',
               borderRadius: 2,
-              mb: 3,
             }}
           >
             {/* Logo Preview Container */}
             <Box
               sx={{
-                width: 76,
-                height: 76,
+                width: 64,
+                height: 64,
                 borderRadius: 2,
                 border: '2px dashed #10b981',
                 bgcolor: '#ffffff',
@@ -713,14 +713,10 @@ export default function ClinicInformation() {
 
             {/* Logo Actions */}
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.5 }}>
+              <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
                 Clinic & Application Logo
               </Typography>
-              <Typography sx={{ fontSize: '12px', color: '#64748b', mb: 1.5, lineHeight: 1.4 }}>
-                This logo is displayed in the sidebar header across the entire application. If no custom logo is uploaded, the default mobile application logo is used.
-              </Typography>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <input
                   accept="image/png,image/jpeg,image/webp,image/svg+xml"
                   id="clinic-logo-upload"
@@ -746,7 +742,7 @@ export default function ClinicInformation() {
                       },
                     }}
                   >
-                    Upload Custom Logo
+                    {logoFile || clinic.logo_path || (clinic.logo_url && clinic.logo_url !== defaultLogo) ? 'Replace Logo' : 'Upload Logo'}
                   </Button>
                 </label>
 
@@ -766,42 +762,25 @@ export default function ClinicInformation() {
                       },
                     }}
                   >
-                    Reset to Default Logo
+                    Reset Logo
                   </Button>
                 )}
 
-                {logoFile && (
-                  <Typography sx={{ fontSize: '12px', color: '#10b981', fontWeight: 500 }}>
-                    • Selected: {logoFile.name} (Click &quot;Save Changes&quot; to apply)
-                  </Typography>
-                )}
-                {removeLogo && (
-                  <Typography sx={{ fontSize: '12px', color: '#f59e0b', fontWeight: 500 }}>
-                    • Logo will reset to default mobile logo on save
-                  </Typography>
-                )}
               </Box>
+              {logoFile && (
+                <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>
+                  Selected: {logoFile.name}
+                </Typography>
+              )}
+              {removeLogo && (
+                <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
+                  Will reset to default on save
+                </Typography>
+              )}
             </Box>
           </Box>
 
-          {/* Print Header Branding Section */}
-          <Box
-            sx={{
-              p: 2.5,
-              bgcolor: 'var(--bg-subtle, #f8fafc)',
-              border: '1px solid var(--border-glow, #e2e8f0)',
-              borderRadius: 2,
-              mb: 3,
-            }}
-          >
-            <Typography sx={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.5 }}>
-              Print Header Branding
-            </Typography>
-            <Typography sx={{ fontSize: '12px', color: '#64748b', mb: 2.5, lineHeight: 1.4 }}>
-              Configure the two official header seals/logos used dynamically across all print previews, printable forms, printable reports, and print outputs.
-            </Typography>
-
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
+          {/* Print header logos */}
               {/* Left Print Logo Block */}
               <Box
                 sx={{
@@ -809,6 +788,7 @@ export default function ClinicInformation() {
                   alignItems: 'center',
                   gap: 2,
                   p: 2,
+                  minWidth: 0,
                   bgcolor: '#ffffff',
                   border: '1px solid var(--border-glow, #e2e8f0)',
                   borderRadius: 2,
@@ -844,11 +824,8 @@ export default function ClinicInformation() {
                   )}
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.25 }}>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
                     Left Print Logo
-                  </Typography>
-                  <Typography sx={{ fontSize: '11.5px', color: '#64748b', mb: 1.25, lineHeight: 1.3 }}>
-                    Official municipal / LGU flag or left header seal.
                   </Typography>
 
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -867,7 +844,7 @@ export default function ClinicInformation() {
                         startIcon={<CloudUploadIcon />}
                         sx={{
                           textTransform: 'none',
-                          fontSize: '11.5px',
+                          fontSize: '12.5px',
                           fontWeight: 600,
                           color: '#059669',
                           borderColor: '#10b981',
@@ -891,7 +868,7 @@ export default function ClinicInformation() {
                         onClick={handleResetLeftLogo}
                         sx={{
                           textTransform: 'none',
-                          fontSize: '11.5px',
+                          fontSize: '12.5px',
                           fontWeight: 500,
                           color: '#ef4444',
                           py: 0.5,
@@ -907,13 +884,13 @@ export default function ClinicInformation() {
                   </Box>
 
                   {leftLogoFile && (
-                    <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75 }}>
-                      • Selected: {leftLogoFile.name} (Click &quot;Save Changes&quot; to apply)
+                    <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>
+                      Selected: {leftLogoFile.name}
                     </Typography>
                   )}
                   {removeLeftLogo && (
                     <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
-                      • Logo will be removed on save
+                      Will be removed on save
                     </Typography>
                   )}
                 </Box>
@@ -926,6 +903,7 @@ export default function ClinicInformation() {
                   alignItems: 'center',
                   gap: 2,
                   p: 2,
+                  minWidth: 0,
                   bgcolor: '#ffffff',
                   border: '1px solid var(--border-glow, #e2e8f0)',
                   borderRadius: 2,
@@ -961,11 +939,8 @@ export default function ClinicInformation() {
                   )}
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.25 }}>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
                     Right Print Logo
-                  </Typography>
-                  <Typography sx={{ fontSize: '11.5px', color: '#64748b', mb: 1.25, lineHeight: 1.3 }}>
-                    Official RHU / Health Office logo or right header seal.
                   </Typography>
 
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -984,7 +959,7 @@ export default function ClinicInformation() {
                         startIcon={<CloudUploadIcon />}
                         sx={{
                           textTransform: 'none',
-                          fontSize: '11.5px',
+                          fontSize: '12.5px',
                           fontWeight: 600,
                           color: '#059669',
                           borderColor: '#10b981',
@@ -1008,7 +983,7 @@ export default function ClinicInformation() {
                         onClick={handleResetRightLogo}
                         sx={{
                           textTransform: 'none',
-                          fontSize: '11.5px',
+                          fontSize: '12.5px',
                           fontWeight: 500,
                           color: '#ef4444',
                           py: 0.5,
@@ -1024,18 +999,17 @@ export default function ClinicInformation() {
                   </Box>
 
                   {rightLogoFile && (
-                    <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75 }}>
-                      • Selected: {rightLogoFile.name} (Click &quot;Save Changes&quot; to apply)
+                    <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>
+                      Selected: {rightLogoFile.name}
                     </Typography>
                   )}
                   {removeRightLogo && (
                     <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
-                      • Logo will be removed on save
+                      Will be removed on save
                     </Typography>
                   )}
                 </Box>
               </Box>
-            </Box>
           </Box>
 
           {/* Title and Subtitle Inputs */}

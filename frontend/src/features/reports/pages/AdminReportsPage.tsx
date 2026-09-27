@@ -21,7 +21,14 @@ type RecordRow = Record<string, string | number | null>;
 
 interface ReportResponse {
   period: Filters & { as_of: string };
-  meta: { title: string; basis: string; notes: string[] };
+  meta: {
+    title: string;
+    basis: string;
+    notes: string[];
+    clinic?: string;
+    prepared_by?: string;
+    generated_at?: string;
+  };
   stats: {
     patients: number;
     incidents: number;
@@ -178,8 +185,7 @@ function DoseFunnel({ counts }: { counts: ReportResponse['stats']['dose_funnel']
 }
 
 export default function AdminReportsPage() {
-  const { user } = useAuth();
-  const clinic = user?.clinic;
+  const { user, clinic } = useAuth();
   const { leftLogoUrl, rightLogoUrl } = getGlobalPrintLogos(clinic);
 
   const [section, setSection] = useState<Section>('overview');

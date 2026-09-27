@@ -408,7 +408,11 @@ export default function QueueDashboard() {
     const matchSearch = !search ||
       q.patient.name.toLowerCase().includes(search.toLowerCase()) ||
       String(q.queue_number).includes(search);
-    const matchStatus   = !statusFilter   || q.status         === statusFilter;
+    const matchStatus = !statusFilter
+      ? true
+      : statusFilter === 'cancelled_or_absent'
+        ? (q.status === 'cancelled' || q.status === 'absent')
+        : q.status === statusFilter;
     const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
 
     let matchVisitType = true;
@@ -1008,6 +1012,7 @@ export default function QueueDashboard() {
                 : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only'
                 : undefined
             }
+            simplifiedStatus={isTreatmentNurse}
             onClear={() => {
               setSearch('');
               setStatusFilter('');
@@ -1035,7 +1040,15 @@ export default function QueueDashboard() {
             return undefined;
           }}
           emptyIcon={<WaitIcon sx={{ fontSize: 28, color: 'var(--text-secondary)' }} />}
-          emptyTitle={statusFilter ? `No ${STATUS_CFG[statusFilter as keyof typeof STATUS_CFG]?.label ?? statusFilter} patients` : 'Queue is empty'}
+          emptyTitle={
+            statusFilter
+              ? `No ${
+                  statusFilter === 'cancelled_or_absent'
+                    ? 'Cancelled / Absent'
+                    : STATUS_CFG[statusFilter as keyof typeof STATUS_CFG]?.label ?? statusFilter
+                } patients`
+              : 'Queue is empty'
+          }
           emptySubtitle="Patients added by registration will appear here"
         />
 

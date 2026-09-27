@@ -28,6 +28,7 @@ interface QueueFilterBarProps {
   onVisitTypeChange?: (val: string) => void;
   /** Individual station views are already clinically scoped, so their visit type must not be changed. */
   lockedVisitTypeLabel?: string;
+  simplifiedStatus?: boolean;
   onClear: () => void;
 }
 
@@ -41,6 +42,7 @@ export function QueueFilterBar({
   visitTypeFilter = '',
   onVisitTypeChange,
   lockedVisitTypeLabel,
+  simplifiedStatus = false,
   onClear,
 }: QueueFilterBarProps) {
   const theme = useTheme();
@@ -120,7 +122,7 @@ export function QueueFilterBar({
           />
         </Grid>
 
-        {/* Status filter — ALL statuses */}
+        {/* Status filter */}
         <Grid size={{ xs: 12, sm: onVisitTypeChange ? 2 : 3, md: onVisitTypeChange ? 2 : 3 }}>
           <FormControl fullWidth size="small">
             <InputLabel sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, color: isDark ? '#94a3b8' : undefined, '&.Mui-focused': { color: '#10b981' } }}>Status</InputLabel>
@@ -143,23 +145,29 @@ export function QueueFilterBar({
                   <HugeiconsIcon icon={Stethoscope02Icon} size={14} /> Serving
                 </Box>
               </MenuItem>
-              <MenuItem value="in_consultation">
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                  <HugeiconsIcon icon={Stethoscope02Icon} size={14} /> In Consultation
-                </Box>
-              </MenuItem>
-              <Divider sx={{ my: 0.5, borderColor: isDark ? 'rgba(255,255,255,0.08)' : undefined }} />
-              {/* Recall */}
-              <MenuItem value="second_chance">
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                  <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={14} /> Second Chance
-                </Box>
-              </MenuItem>
-              <MenuItem value="final_recall">
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                  <HugeiconsIcon icon={AlertCircleIcon} size={14} /> Final Recall
-                </Box>
-              </MenuItem>
+              {!simplifiedStatus && (
+                <MenuItem value="in_consultation">
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                    <HugeiconsIcon icon={Stethoscope02Icon} size={14} /> In Consultation
+                  </Box>
+                </MenuItem>
+              )}
+              {!simplifiedStatus && (
+                <>
+                  <Divider sx={{ my: 0.5, borderColor: isDark ? 'rgba(255,255,255,0.08)' : undefined }} />
+                  {/* Recall */}
+                  <MenuItem value="second_chance">
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                      <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={14} /> Second Chance
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="final_recall">
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                      <HugeiconsIcon icon={AlertCircleIcon} size={14} /> Final Recall
+                    </Box>
+                  </MenuItem>
+                </>
+              )}
               <Divider sx={{ my: 0.5, borderColor: isDark ? 'rgba(255,255,255,0.08)' : undefined }} />
               {/* Terminal */}
               <MenuItem value="completed">
@@ -167,21 +175,31 @@ export function QueueFilterBar({
                   <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} /> Completed
                 </Box>
               </MenuItem>
-              <MenuItem value="cancelled">
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                  <HugeiconsIcon icon={Cancel01Icon} size={14} /> Cancelled
-                </Box>
-              </MenuItem>
-              <MenuItem value="absent">
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                  <HugeiconsIcon icon={UserBlock01Icon} size={14} /> No-Show / Absent
-                </Box>
-              </MenuItem>
-              <MenuItem value="no_response">
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                  <HugeiconsIcon icon={VolumeMute01Icon} size={14} /> No Response
-                </Box>
-              </MenuItem>
+              {simplifiedStatus ? (
+                <MenuItem value="cancelled_or_absent">
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                    <HugeiconsIcon icon={Cancel01Icon} size={14} /> Cancelled / Absent
+                  </Box>
+                </MenuItem>
+              ) : (
+                <>
+                  <MenuItem value="cancelled">
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                      <HugeiconsIcon icon={Cancel01Icon} size={14} /> Cancelled
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="absent">
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                      <HugeiconsIcon icon={UserBlock01Icon} size={14} /> No-Show / Absent
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="no_response">
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                      <HugeiconsIcon icon={VolumeMute01Icon} size={14} /> No Response
+                    </Box>
+                  </MenuItem>
+                </>
+              )}
             </Select>
           </FormControl>
         </Grid>

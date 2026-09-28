@@ -211,7 +211,7 @@ const FORM3_SECTIONS: FieldSection[] = [
   {
     title: 'Vaccination Dose Record (Dose Table)',
     icon: 'medical',
-    description: 'The batch, stock allocation, vaccinator, and signature are filled by the system',
+    description: 'The system records batch, stock allocation, and vaccinator; electronic signatures are optional',
     fields: [
       { key: 'manual_re_exposure', label: 'Re-Bite / Re-Exposure?', description: 'Shown before the dose table for an eligible episode' },
       { key: 'route', label: 'Route', description: 'ID or IM for the active dose' },

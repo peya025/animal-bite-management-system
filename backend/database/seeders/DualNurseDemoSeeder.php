@@ -39,7 +39,7 @@ class DualNurseDemoSeeder extends Seeder
                 'password' => Hash::make('password123'),
                 'role' => 'treatment',
                 'is_active' => true,
-                'signature_path' => 'signatures/maria_santos.png',
+                'signature_path' => null,
                 'professional_license_no' => 'RN-782194',
                 'phone' => '09123456781',
             ]
@@ -55,7 +55,7 @@ class DualNurseDemoSeeder extends Seeder
                 'password' => Hash::make('password123'),
                 'role' => 'treatment',
                 'is_active' => true,
-                'signature_path' => 'signatures/juan_reyes.png',
+                'signature_path' => null,
                 'professional_license_no' => 'RN-645821',
                 'phone' => '09123456782',
             ]
@@ -71,7 +71,7 @@ class DualNurseDemoSeeder extends Seeder
                 'password' => Hash::make('password123'),
                 'role' => 'treatment',
                 'is_active' => true,
-                'signature_path' => 'signatures/treatment_staff.png',
+                'signature_path' => null,
                 'professional_license_no' => 'RN-551029',
                 'phone' => '09123456780',
             ]

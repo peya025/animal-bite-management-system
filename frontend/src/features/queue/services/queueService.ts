@@ -25,6 +25,7 @@ export async function fetchQueueData(): Promise<{
 // ── Main queue actions ────────────────────────────────────────────────────────
 export const callNext              = () => api.post('/queue/call-next');
 export const callQueuePatient        = (id: number) => api.post(`/queue/${id}/call`);
+export const skipQueuePatient        = (id: number) => api.post(`/queue/${id}/skip`);
 export const serveQueuePatient       = (id: number) => api.post(`/queue/${id}/serve`);
 export const markNoResponse          = (id: number) => api.post(`/queue/${id}/no-response`);
 export const recallQueuePatient      = (id: number) => api.post(`/queue/${id}/recall`);

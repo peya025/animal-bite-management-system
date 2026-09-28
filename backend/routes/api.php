@@ -161,6 +161,10 @@ Route::prefix('staff-invitations')->group(function () {
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
+    Route::get('/staff-signature', [\App\Http\Controllers\StaffSignatureController::class, 'current'])
+        ->middleware('role:admin,treatment,nurse,triage,doctor');
+    Route::get('/users/{id}/signature', [\App\Http\Controllers\StaffSignatureController::class, 'profile'])
+        ->middleware('role:admin,treatment,nurse,triage,doctor');
     Route::get('/bite-intake-schema', BiteIntakeSchemaController::class);
     Route::get('/reports/registration', [\App\Http\Controllers\RegistrationReportController::class, 'index'])
         ->middleware('role:registration,admin,developer');
@@ -413,7 +417,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             Route::put('/{id}/priority',  [QueueController::class, 'updatePriority']);
         });
 
-        // Call / Serve / Complete / No-Response / Recall / Absent (admin, triage, treatment)
+        // Call / Serve / Complete / No-Response / Recall / Absent / Skip (admin, triage, treatment)
         Route::middleware('role:admin,triage,treatment')->group(function () {
             Route::post('/call-next',        [QueueController::class, 'callNext']);
             Route::post('/{id}/call',        [QueueController::class, 'call']);
@@ -422,6 +426,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             Route::post('/{id}/no-response', [QueueController::class, 'noResponse']);
             Route::post('/{id}/recall',      [QueueController::class, 'recall']);
             Route::post('/{id}/absent',      [QueueController::class, 'markAbsent']);
+            Route::post('/{id}/skip',        [QueueController::class, 'skip']);
         });
 
         // Trash bin (all staff)
@@ -435,6 +440,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::prefix('vaccination-records')->group(function () {
         // View vaccination records (admin, registration, triage, treatment, nurse, doctor, staff)
         Route::middleware('role:admin,registration,triage,treatment,nurse,doctor,staff')->group(function () {
+            Route::get('/{id}/signature', [\App\Http\Controllers\StaffSignatureController::class, 'record']);
             Route::get('/administrations', [VaccinationRecordController::class, 'getAdministrationList']);
             Route::get('/patient/{patientId}', [VaccinationRecordController::class, 'getByPatient']);
             Route::get('/queue/{queueId}', [VaccinationRecordController::class, 'getByQueue']);
@@ -459,6 +465,8 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             Route::get('/overdue', [AppointmentController::class, 'overdue']);
             Route::post('/{id}/check-in', [AppointmentController::class, 'checkIn']);
             Route::post('/patient/{patientId}/check-in', [AppointmentController::class, 'checkInByPatient']);
+            Route::post('/patient/{patientId}/cancel-check-in', [AppointmentController::class, 'cancelCheckInByPatient']);
+            Route::post('/{id}/cancel-check-in', [AppointmentController::class, 'cancelCheckIn']);
         });
     });
 

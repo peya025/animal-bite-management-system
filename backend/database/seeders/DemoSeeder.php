@@ -85,7 +85,7 @@ class DemoSeeder extends Seeder
                 'password' => Hash::make($staffPassword),
                 'role' => 'triage',
                 'is_active' => true,
-                'signature_path' => 'signatures/dr_mercer.png',
+                'signature_path' => null,
                 'professional_license_no' => 'MD-881234',
                 'phone' => '09120000001',
             ]
@@ -100,7 +100,7 @@ class DemoSeeder extends Seeder
                 'password' => Hash::make($staffPassword),
                 'role' => 'treatment',
                 'is_active' => true,
-                'signature_path' => 'signatures/nurse_clara.png',
+                'signature_path' => null,
                 'professional_license_no' => 'RN-441235',
                 'phone' => '09120000002',
             ]
@@ -115,7 +115,7 @@ class DemoSeeder extends Seeder
                 'password' => Hash::make($staffPassword),
                 'role' => 'treatment',
                 'is_active' => true,
-                'signature_path' => 'signatures/nurse_julian.png',
+                'signature_path' => null,
                 'professional_license_no' => 'RN-551236',
                 'phone' => '09120000003',
             ]

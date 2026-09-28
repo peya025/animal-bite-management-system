@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import SignatureImage from '../../../shared/components/SignatureImage';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -103,6 +104,7 @@ interface VaccinationDose {
   license_no?: string;
   signature: string;
   signature_path?: string;
+  treatment_id?: number;
   vaccine_type: string;
   inventory_units_used: string;
   batch_number: string;
@@ -499,6 +501,24 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   });
   const [icdCode, setIcdCode] = useState('');
   const [saving, setSaving] = useState(false);
+  const [signatureVersion, setSignatureVersion] = useState<string | null>(null);
+  const [signatureReady, setSignatureReady] = useState(false);
+  const [applySignature, setApplySignature] = useState(false);
+  const [signatureLoadError, setSignatureLoadError] = useState(false);
+  const [signatureRefresh, setSignatureRefresh] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setApplySignature(false);
+    setSignatureReady(false);
+    setSignatureVersion(null);
+    setSignatureLoadError(false);
+    if (open && !readOnly) {
+      api.get('/staff-signature').then(response => {
+        if (active) setSignatureVersion(response.data.signature_path);
+      }).catch(() => { if (active) setSignatureLoadError(true); });
+    }
+    return () => { active = false; };
+  }, [open, readOnly, currentUser?.id, entry?.queue_id, entry?.patient_id, entry?.bite_id, signatureRefresh]);
   const [error, setError] = useState('');
   const [availableVaccineTypes, setAvailableVaccineTypes] = useState<string[]>([]);
   const [vaccinePresets, setVaccinePresets] = useState<VaccineTypePreset[]>([]);
@@ -726,7 +746,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           const staff = getAdministeredStaff(record);
           const staffName = staff?.name || extractGivenBy(record.remarks, null) || (record.is_external ? (record.external_facility_name ? `External (${record.external_facility_name})` : 'External Clinic') : 'Staff Nurse');
           const staffLicense = staff?.professional_license_no || '';
-          const signaturePath = staff?.signature_path || record.signature || '';
+          const signaturePath = record.signature || '';
 
           return {
             ...dose,
@@ -736,6 +756,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             license_no: staffLicense,
             signature: record.signature || (signaturePath ? 'On File' : ''),
             signature_path: signaturePath,
+            treatment_id: record.treatment_id,
             vaccine_type: record.vaccine_brand || record.vaccine_generic || '',
             inventory_units_used: (record.inventory_units_used !== null && record.inventory_units_used !== undefined) ? String(record.inventory_units_used) : '1',
             batch_number: record.batch_no || '',
@@ -801,8 +822,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             schedule_drift_days: driftDays,
             given_by: currentUser?.name || activeDose.given_by || staffInfo.name || 'Staff Nurse',
             license_no: currentUser?.professional_license_no || '',
-            signature: currentUser?.signature_path ? 'On File' : (staffInfo.signature || ''),
-            signature_path: currentUser?.signature_path || '',
+            signature: '',
+            signature_path: '',
             vaccine_type: activeDose.vaccine_type || preferredVaccine,
           };
 
@@ -1149,6 +1170,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       await api.post('/vaccination-records', {
         patient_id: patientId,
         queue_id: entry.queue_id,
+        apply_signature: applySignature && signatureReady,
+        signature_version: applySignature && signatureReady ? signatureVersion : null,
         ...formData,
         mode_of_exposure: Object.keys(formData.mode_of_exposure).filter(
           key => formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]
@@ -1167,7 +1190,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           route: d.route || null,
           date: d.date || todayStr,
           given_by: currentUser?.name || d.given_by || null,
-          signature: currentUser?.signature_path || d.signature || null,
           vaccine_type: d.vaccine_type,
           inventory_units_used: d.is_external ? 0 : (parseInt(d.inventory_units_used, 10) || 0),
           is_external: Boolean(d.is_external),
@@ -2701,83 +2723,15 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     {/* 8. Signature */}
                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                       {isCompleted ? (
-                        <div
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            backgroundColor: '#f0fdf4',
-                            border: '1px solid #bbf7d0',
-                            color: '#15803d',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            whiteSpace: 'nowrap',
-                          }}
-                          title="Digital signature on file stamped on official record"
-                        >
-                          <span>✍️</span>
-                          <span>{dose.signature && dose.signature !== 'On File' ? dose.signature : 'On File'}</span>
-                          <span>✓</span>
-                        </div>
+                        dose.signature_path && dose.treatment_id ? (
+                          <SignatureImage endpoint={`/vaccination-records/${dose.treatment_id}/signature`} />
+                        ) : <span className="print:hidden" style={{ color: '#64748b', fontSize: 12 }}>Unsigned</span>
                       ) : dose.is_external ? (
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '3px 8px',
-                          borderRadius: 6,
-                          backgroundColor: '#f0f9ff',
-                          color: '#0369a1',
-                          fontSize: 11,
-                          fontWeight: 600,
-                        }}>
-                          External Card
-                        </span>
-                      ) : (isActiveFollowUp || isActivelyRecording) ? (
-                        (currentUser?.signature_path || dose.signature_path) ? (
-                          <div
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              backgroundColor: '#eff6ff',
-                              border: '1px solid #bfdbfe',
-                              color: '#1d4ed8',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap',
-                            }}
-                            title="Digital signature on file will authenticate this dose upon saving"
-                          >
-                            <span>✍️</span>
-                            <span>On File</span>
-                            <span style={{ color: '#16a34a' }}>✓</span>
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                            backgroundColor: '#f8fafc',
-                            border: '1px solid #cbd5e1',
-                            color: '#475569',
-                              fontSize: 10.5,
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap',
-                            }}
-                            title="Digital signature is optional. Sign the printed record by hand if required by your clinic."
-                          >
-                            <span>⚠️</span>
-                            <span>Hand-sign printout</span>
-                          </div>
-                        )
+                        <span style={{ fontSize: 12 }}>External record</span>
                       ) : (
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>—</span>
+                        <span style={{ fontSize: 12, color: '#64748b' }}>
+                          {applySignature && signatureReady ? 'Signature selected' : 'Optional; hand-sign printout'}
+                        </span>
                       )}
                     </td>
 
@@ -2818,6 +2772,22 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               })}
             </tbody>
           </table>
+            {!readOnly && (
+              <div className="print:hidden" style={{ marginTop: 14, padding: 14, border: '1px solid #cbd5e1', borderRadius: 8 }}>
+                <strong>Electronic signature (optional)</strong>
+                {signatureVersion && currentUser?.id ? <>
+                  <p>Review your signature. This choice applies to new local vaccine doses saved now.</p>
+                  <SignatureImage key={signatureVersion} onReady={setSignatureReady}
+                    endpoint={`/users/${currentUser.id}/signature?version=${encodeURIComponent(signatureVersion)}`} />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                    <input type="checkbox" checked={applySignature} disabled={!signatureReady || saving}
+                      onChange={event => setApplySignature(event.target.checked)} />
+                    I confirm this is my signature and choose to apply it to these doses.
+                  </label>
+                </> : <p>{signatureLoadError ? 'Signature could not be loaded. You can still save without one and hand-sign the printed record.' : 'No signature available. You can save without one and hand-sign the printed record.'}</p>}
+                <button type="button" disabled={saving} onClick={() => setSignatureRefresh(value => value + 1)} style={{ marginTop: 8 }}>Refresh signature</button>
+              </div>
+            )}
 
           {/* 8.1 — Expand / Collapse Day 28 + Booster rows (primary regimen only) */}
           {false && !orderedDosePeriods && !(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && !readOnly && (

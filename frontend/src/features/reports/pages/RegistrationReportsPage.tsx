@@ -1,10 +1,10 @@
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { waitForPrintImages } from '../../../components/print/printReady';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { DownloadOutlined, PrintOutlined, ArrowForward, Refresh, Close } from '@mui/icons-material';
+import { DownloadOutlined, PrintOutlined, Refresh, Close } from '@mui/icons-material';
 import api from '../../../services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import './RegistrationReports.css';
@@ -348,7 +348,11 @@ export default function RegistrationReportsPage() {
   const displayedMeta = isCurrentReport && activeReportData?.data ? activeReportData.data.meta : globalData?.meta;
   const currentColumns = displayedRecords?.columns ?? REPORT_COLUMNS[report];
 
-  const renderFilters = (standalone: boolean = true) => {
+  const renderFilters = (
+    standalone: boolean = true,
+    showSummary: boolean = standalone,
+    extraSummary?: ReactNode
+  ) => {
     const filterContent = (
       <>
         <div className="rr-filter-row">
@@ -370,9 +374,10 @@ export default function RegistrationReportsPage() {
           <Button onClick={() => { const next = dateRange('month'); setDraft(next); setFilters(next); setPreset('month'); setPage(1); }}>Reset</Button>
         </div>
         {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
-        {standalone && (
+        {showSummary && (
           <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
         )}
+        {extraSummary}
       </>
     );
 
@@ -398,6 +403,116 @@ export default function RegistrationReportsPage() {
       </Box>
     );
   };
+
+  const renderTableContent = (showHeader: boolean = tab !== 'clinic_summary') => (
+    <>
+      {showHeader && (
+        <div className="rr-record-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <h2 className="rr-section-title" style={{ margin: 0 }}>{TITLES[report]}</h2>
+            {tableLoading && (
+              <span className="rr-tab-updating-badge" aria-live="polite">
+                <CircularProgress size={14} sx={{ color: '#1d9e75' }} />
+                Updating...
+              </span>
+            )}
+          </Box>
+          {tab !== 'pep' && tab !== 'surveillance' && (
+            <p className="rr-note rr-record-meta">
+              {tableLoading && !displayedRecords
+                ? 'Loading records...'
+                : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data?.meta?.basis ?? ''}`}
+            </p>
+          )}
+        </div>
+      )}
+      <div className="rr-table-loading-bar" aria-hidden={!tableLoading}>
+        {tableLoading ? (
+          <LinearProgress
+            sx={{
+              height: 3,
+              bgcolor: 'rgba(29, 158, 117, 0.12)',
+              '& .MuiLinearProgress-bar': { bgcolor: '#1d9e75' },
+            }}
+          />
+        ) : (
+          <Box sx={{ height: 3 }} />
+        )}
+      </div>
+      <div
+        className={`rr-table-scroll ${tableLoading && displayedRecords ? 'is-loading' : ''}`}
+        tabIndex={0}
+        role="region"
+        aria-label={TITLES[report]}
+        aria-busy={tableLoading}
+      >
+        <table className="rr-table">
+          <thead>
+            <tr>
+              {Object.values(currentColumns).map(label => (
+                <th key={label} scope="col">{label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tableLoading && !displayedRecords ? (
+              [1, 2, 3, 4, 5].map(i => (
+                <tr key={i}>
+                  {Object.keys(currentColumns).map(key => (
+                    <td key={key}>
+                      <Skeleton variant="text" width={`${Math.max(45, 90 - (key.length * 8) % 45)}%`} height={22} />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : displayedRecords && displayedRecords.rows.length ? (
+              displayedRecords.rows.map((row, index) => (
+                <tr key={`${page}-${index}`}>
+                  {Object.keys(currentColumns).map(key => (
+                    <td key={key}>
+                      {key === 'category' ? (
+                        <Chip size="small" variant="outlined" label={`Category ${display(row[key])}`} />
+                      ) : (
+                        display(row[key])
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={Object.keys(currentColumns).length} className="rr-empty">
+                  No matching records.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {displayedRecords && displayedRecords.last_page > 1 && (
+        <Pagination
+          sx={{ mt: 2 }}
+          count={displayedRecords.last_page}
+          page={displayedRecords.page}
+          onChange={(_, next) => {
+            setPage(next);
+            const key = getCacheKey(report, next, filters);
+            const cached = cacheRef.current.get(key);
+            if (cached) {
+              setActiveReportData({ report, page: next, data: cached });
+              setTableLoading(false);
+            } else {
+              setActiveReportData({ report, page: next });
+              setTableLoading(true);
+            }
+          }}
+          disabled={tableLoading}
+          aria-label="Report pages"
+        />
+      )}
+      <p className="rr-note">CSV and print include every matching record, across all pages.</p>
+    </>
+  );
 
   return <Box className="registration-reports" sx={{ color: 'text.primary', bgcolor: 'background.default' }}>
     <header className="rr-header">
@@ -466,8 +581,8 @@ export default function RegistrationReportsPage() {
       </Alert>
     )}
 
-    {/* Unified Global Filters: Rendered at top for non-overview tabs */}
-    {tab !== 'overview' && renderFilters()}
+    {/* Unified Global Filters: Rendered at top for non-unified tabs if any */}
+    {tab !== 'overview' && tab !== 'pep' && tab !== 'surveillance' && tab !== 'clinic_summary' && renderFilters()}
 
     {['overview', 'pep', 'surveillance', 'clinic_summary'].includes(tab) && <>
     {exportError && <Alert severity="error" onClose={() => setExportError('')}>{exportError}</Alert>}
@@ -477,10 +592,10 @@ export default function RegistrationReportsPage() {
         {tab === 'overview' ? (
           <>
             <div className="rr-overview-top-section">
-              <div className="rr-summary-stack">
-                {[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={92} />)}
-              </div>
-              <Skeleton variant="rounded" height={300} />
+              <Skeleton variant="rounded" height={195} />
+              <Skeleton variant="rounded" height={195} />
+              <Skeleton variant="rounded" height={110} />
+              <Skeleton variant="rounded" height={110} />
             </div>
             <Paper elevation={0} className="rr-panel rr-unified-surveillance-container">
               <div className="rr-section-heading">
@@ -497,6 +612,49 @@ export default function RegistrationReportsPage() {
               </div>
             </Paper>
           </>
+        ) : tab === 'pep' ? (
+          <div>
+            <Skeleton variant="rounded" height={48} sx={{ mb: 2.5 }} />
+            <Paper elevation={0} className="rr-panel rr-pep-unified-container">
+              <Skeleton variant="text" width={280} height={28} sx={{ mb: 0.5 }} />
+              <Skeleton variant="text" width={480} height={18} />
+              <Skeleton variant="text" width={380} height={16} sx={{ mt: 1.25, mb: 2 }} />
+              {renderFilters(false, true)}
+              <Skeleton variant="rounded" height={36} sx={{ my: 2 }} />
+              <Skeleton variant="rounded" height={250} />
+            </Paper>
+          </div>
+        ) : tab === 'surveillance' ? (
+          <Paper elevation={0} className="rr-panel rr-table-panel rr-surveillance-unified-container">
+            <div className="rr-surveillance-header">
+              <Skeleton variant="text" width={280} height={28} sx={{ mb: 0.5 }} />
+              <Skeleton variant="text" width={480} height={18} />
+              <Skeleton variant="text" width={380} height={16} sx={{ mt: 1.25, mb: 2 }} />
+            </div>
+            {renderFilters(
+              false,
+              true,
+              <div className="rr-activity rr-surveillance-metrics">
+                <Skeleton variant="text" width={120} height={20} />
+                <Skeleton variant="text" width={100} height={20} />
+                <Skeleton variant="text" width={140} height={20} />
+              </div>
+            )}
+            <Skeleton variant="rounded" height={36} sx={{ my: 2 }} />
+            <Skeleton variant="rounded" height={250} />
+          </Paper>
+        ) : tab === 'clinic_summary' ? (
+          <Paper elevation={0} className="rr-panel rr-table-panel rr-clinic-summary-unified-container">
+            <div className="rr-clinic-summary-header">
+              <Skeleton variant="text" width={240} height={28} sx={{ mb: 0.5 }} />
+            </div>
+            {renderFilters(false, true, (
+              <p className="rr-note rr-record-basis">
+                Loading records...
+              </p>
+            ))}
+            <Skeleton variant="rounded" height={300} sx={{ mt: 2 }} />
+          </Paper>
         ) : (
           <div>
             <div className="rr-grid rr-grid-three">{[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={160} />)}</div>
@@ -507,28 +665,16 @@ export default function RegistrationReportsPage() {
     )}
     {!initialLoading && data && stats && <>
       {tab === 'overview' && <>
-        {/* Top Summary Cards & Follow-up Priorities Side-by-Side */}
+        {/* Top Summary Cards 2x2 Grid */}
         <div className="rr-overview-top-section">
-          {/* Left side: 3 summary cards stacked vertically */}
-          <div className="rr-summary-stack">
-            <Paper elevation={0} className="rr-panel rr-metric">
-              <h2>PEP vaccine-course completion</h2>
-              <strong>{percent(stats.completion.rate)}</strong>
-              <p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
-            </Paper>
-            <Paper elevation={0} className="rr-panel rr-metric">
-              <h2>Average time to first dose</h2>
-              <strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong>
-              <p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p>
-            </Paper>
-            <Paper elevation={0} className="rr-panel rr-metric">
-              <h2>Patients needing follow-up</h2>
-              <strong>{stats.overdue_patients}</strong>
-              <p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p>
-            </Paper>
-          </div>
+          {/* Row 1, Left: PEP vaccine-course completion */}
+          <Paper elevation={0} className="rr-panel rr-metric">
+            <h2>PEP vaccine-course completion</h2>
+            <strong>{percent(stats.completion.rate)}</strong>
+            <p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
+          </Paper>
 
-          {/* Right side: Follow-up priorities today card */}
+          {/* Row 1, Right: Follow-up priorities today */}
           <Paper elevation={0} className="rr-panel rr-followup-priorities">
             <Typography component="h2" className="rr-section-title">Follow-up priorities today</Typography>
             <div className="rr-priorities-body">
@@ -547,13 +693,20 @@ export default function RegistrationReportsPage() {
                 </div>
               </div>
             </div>
-            <div className="rr-followup-footer">
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                <Button variant="outlined" size="small" onClick={() => selectReport('followup')}>Overdue doses</Button>
-                <Button variant="outlined" size="small" onClick={() => selectReport('awaiting')}>Awaiting D0</Button>
-              </Stack>
-              <p className="rr-note">Reminder status shows the latest recorded send attempt. Confirmed loss to follow-up and contact outcomes are not currently recorded.</p>
-            </div>
+          </Paper>
+
+          {/* Row 2, Left: Average time to first dose */}
+          <Paper elevation={0} className="rr-panel rr-metric">
+            <h2>Average time to first dose</h2>
+            <strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong>
+            <p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p>
+          </Paper>
+
+          {/* Row 2, Right: Patients needing follow-up */}
+          <Paper elevation={0} className="rr-panel rr-metric">
+            <h2>Patients needing follow-up</h2>
+            <strong>{stats.overdue_patients}</strong>
+            <p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p>
           </Paper>
         </div>
 
@@ -577,211 +730,150 @@ export default function RegistrationReportsPage() {
           {/* Larger analytics charts with equal width and height */}
           <div className="rr-surveillance-row-1">
             <CategoryTrend months={data.months} />
-            <Bars title="Age at incident" rows={data.breakdowns.ages} note="Counts bite episodes. A patient with separate incidents can appear more than once." />
-            <Bars title="Incident day of week" rows={data.breakdowns.weekdays} note="Hourly patterns are unavailable because incident times are not recorded." />
+            <Bars title="Age at incident" rows={data.breakdowns.ages} />
+            <Bars title="Incident day of week" rows={data.breakdowns.weekdays} />
           </div>
 
           {/* Smaller breakdown charts grouped together in a balanced row */}
           <div className="rr-surveillance-row-2">
-            <Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} note="Recorded bite locations only. Open Bite Map for the geographic view." />
+            <Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} />
             <Bars title="Animal type" rows={data.breakdowns.animals} />
-            <Bars title="Animal ownership" rows={data.breakdowns.ownership} note="Ownership and vaccination are different attributes. Animal vaccination status is not currently recorded as a structured field." />
+            <Bars title="Animal ownership" rows={data.breakdowns.ownership} />
             <Bars title="Recorded animal observation status" rows={data.breakdowns.observation} />
           </div>
         </Paper>
       </>}
       {tab === 'pep' && <>
+        {/* D0 Cohort Information Alert placed above the Period-to-Category filtering section */}
         <Alert severity="info">D0 cohort: {filters.from} to {filters.to}. Outcomes observed as of {data.period.as_of}. {stats.completion.excluded} course(s) are not eligible for the completion denominator. Current follow-up and awaiting-D0 lists include all incident dates.</Alert>
-        <div className="rr-pep-header">
-          <Typography component="h2" className="rr-section-title" sx={{ mb: 0.5 }}>PEP &amp; Follow-up Clinical Records</Typography>
-          <p className="rr-note" style={{ margin: 0 }}>Review patient treatment outcomes, overdue dose queues, and episodes awaiting initial Day 0 doses.</p>
-        </div>
-        <div className="rr-pep-tabs-bar">
-          <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button
-              variant={report === 'pep' ? 'contained' : 'outlined'}
-              size="small"
-              className="rr-pep-tab-btn"
-              onClick={() => selectReport('pep', false)}
-            >
-              PEP Treatment Outcomes
-            </Button>
-            <Button
-              variant={report === 'followup' ? 'contained' : 'outlined'}
-              size="small"
-              className="rr-pep-tab-btn"
-              onClick={() => selectReport('followup', false)}
-            >
-              Overdue Patients ({stats.overdue_patients})
-            </Button>
-            <Button
-              variant={report === 'awaiting' ? 'contained' : 'outlined'}
-              size="small"
-              className="rr-pep-tab-btn"
-              onClick={() => selectReport('awaiting', false)}
-            >
-              Awaiting D0 ({stats.awaiting_d0})
-            </Button>
-          </Stack>
-        </div>
+
+        {/* Unified PEP & Follow-up Clinical Records Module */}
+        <Paper elevation={0} className="rr-panel rr-table-panel rr-pep-unified-container">
+          <div className="rr-pep-header">
+            <Typography component="h2" className="rr-section-title" sx={{ mb: '4px !important' }}>PEP &amp; Follow-up Clinical Records</Typography>
+            <p className="rr-note" style={{ margin: 0 }}>Review patient treatment outcomes, overdue dose queues, and episodes awaiting initial Day 0 doses.</p>
+            <p className="rr-note" style={{ margin: '10px 0 0' }}>
+              {tableLoading && !displayedRecords
+                ? 'Loading records...'
+                : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data?.meta?.basis ?? ''}`}
+            </p>
+          </div>
+
+          {/* Filters Section with Current filter summary text */}
+          {renderFilters(false, true)}
+
+          {/* Tabs */}
+          <div className="rr-pep-tabs-bar">
+            <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+              <Button
+                variant={report === 'pep' ? 'contained' : 'outlined'}
+                size="small"
+                className="rr-pep-tab-btn"
+                onClick={() => selectReport('pep', false)}
+              >
+                PEP Treatment Outcomes
+              </Button>
+              <Button
+                variant={report === 'followup' ? 'contained' : 'outlined'}
+                size="small"
+                className="rr-pep-tab-btn"
+                onClick={() => selectReport('followup', false)}
+              >
+                Overdue Patients ({stats.overdue_patients})
+              </Button>
+              <Button
+                variant={report === 'awaiting' ? 'contained' : 'outlined'}
+                size="small"
+                className="rr-pep-tab-btn"
+                onClick={() => selectReport('awaiting', false)}
+              >
+                Awaiting D0 ({stats.awaiting_d0})
+              </Button>
+            </Stack>
+          </div>
+
+          {/* Data Table */}
+          {renderTableContent()}
+        </Paper>
       </>}
       {tab === 'surveillance' && <>
-        <div className="rr-activity">
-          <span><b>{stats.incidents}</b> incident episodes</span>
-          <span><b>{stats.patients}</b> unique patients</span>
-          <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
-          <Button component={RouterLink} to="/bite-map" endIcon={<ArrowForward />}>Open Bite Map</Button>
-        </div>
-        <div className="rr-surveillance-header">
-          <Typography component="h2" className="rr-section-title" sx={{ mb: 0.5 }}>Bite Surveillance Incident Records</Typography>
-          <p className="rr-note" style={{ margin: 0 }}>Examine incident registry logs, bite exposures by barangay and animal species, and referred cases.</p>
-        </div>
-        <div className="rr-surveillance-tabs-bar">
-          <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button
-              variant={report === 'surveillance' ? 'contained' : 'outlined'}
-              size="small"
-              className="rr-surveillance-tab-btn"
-              onClick={() => selectReport('surveillance', false)}
-            >
-              Incident List ({stats.incidents})
-            </Button>
-            <Button
-              variant={report === 'referrals' ? 'contained' : 'outlined'}
-              size="small"
-              className="rr-surveillance-tab-btn"
-              onClick={() => selectReport('referrals', false)}
-            >
-              Referrals &amp; Transfers ({stats.referrals})
-            </Button>
-          </Stack>
-        </div>
-      </>}
-      {['pep', 'surveillance', 'clinic_summary'].includes(tab) && (
-        <Paper elevation={0} className="rr-panel rr-table-panel">
-          <div className="rr-record-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            {tab === 'clinic_summary' ? (
-            <div>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <h2 className="rr-section-title" style={{ margin: 0 }}>{TITLES[report]}</h2>
-                {tableLoading && (
-                  <span className="rr-tab-updating-badge" aria-live="polite">
-                    <CircularProgress size={14} sx={{ color: '#1d9e75' }} />
-                    Updating...
-                  </span>
-                )}
-              </Box>
-              <p className="rr-note">
-                {tableLoading && !displayedRecords
-                  ? 'Loading records...'
-                  : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data.meta.basis}`}
-              </p>
+        {/* Unified Bite Surveillance Incident Records Module */}
+        <Paper elevation={0} className="rr-panel rr-table-panel rr-surveillance-unified-container">
+          <div className="rr-surveillance-header">
+            <Typography component="h2" className="rr-section-title" sx={{ mb: '4px !important' }}>Bite Surveillance Incident Records</Typography>
+            <p className="rr-note" style={{ margin: 0 }}>Examine incident registry logs, bite exposures by barangay and animal species, and referred cases.</p>
+            <p className="rr-note" style={{ margin: '10px 0 0' }}>
+              {tableLoading && !displayedRecords
+                ? 'Loading records...'
+                : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data?.meta?.basis ?? ''}`}
+            </p>
+          </div>
+
+          {/* Filters Section with Current filter summary text and summary metrics */}
+          {renderFilters(
+            false,
+            true,
+            <div className="rr-activity rr-surveillance-metrics">
+              <span><b>{stats.incidents}</b> incident episodes</span>
+              <span><b>{stats.patients}</b> unique patients</span>
+              <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
             </div>
-          ) : (
-            <>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <h2 className="rr-section-title" style={{ margin: 0 }}>{TITLES[report]}</h2>
-                {tableLoading && (
-                  <span className="rr-tab-updating-badge" aria-live="polite">
-                    <CircularProgress size={14} sx={{ color: '#1d9e75' }} />
-                    Updating...
-                  </span>
-                )}
-              </Box>
-              <p className="rr-note rr-record-meta">
-                {tableLoading && !displayedRecords
-                  ? 'Loading records...'
-                  : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data.meta.basis}`}
-              </p>
-            </>
           )}
-        </div>
-        <div className="rr-table-loading-bar" aria-hidden={!tableLoading}>
-          {tableLoading ? (
-            <LinearProgress
-              sx={{
-                height: 3,
-                bgcolor: 'rgba(29, 158, 117, 0.12)',
-                '& .MuiLinearProgress-bar': { bgcolor: '#1d9e75' },
-              }}
-            />
-          ) : (
-            <Box sx={{ height: 3 }} />
-          )}
-        </div>
-        <div
-          className={`rr-table-scroll ${tableLoading && displayedRecords ? 'is-loading' : ''}`}
-          tabIndex={0}
-          role="region"
-          aria-label={TITLES[report]}
-          aria-busy={tableLoading}
-        >
-          <table className="rr-table">
-            <thead>
-              <tr>
-                {Object.values(currentColumns).map(label => (
-                  <th key={label} scope="col">{label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {tableLoading && !displayedRecords ? (
-                [1, 2, 3, 4, 5].map(i => (
-                  <tr key={i}>
-                    {Object.keys(currentColumns).map(key => (
-                      <td key={key}>
-                        <Skeleton variant="text" width={`${Math.max(45, 90 - (key.length * 8) % 45)}%`} height={22} />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : displayedRecords && displayedRecords.rows.length ? (
-                displayedRecords.rows.map((row, index) => (
-                  <tr key={`${page}-${index}`}>
-                    {Object.keys(currentColumns).map(key => (
-                      <td key={key}>
-                        {key === 'category' ? (
-                          <Chip size="small" variant="outlined" label={`Category ${display(row[key])}`} />
-                        ) : (
-                          display(row[key])
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={Object.keys(currentColumns).length} className="rr-empty">
-                    No matching records.
-                  </td>
-                </tr>
+
+          {/* Tabs */}
+          <div className="rr-surveillance-tabs-bar">
+            <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+              <Button
+                variant={report === 'surveillance' ? 'contained' : 'outlined'}
+                size="small"
+                className="rr-surveillance-tab-btn"
+                onClick={() => selectReport('surveillance', false)}
+              >
+                Incident List ({stats.incidents})
+              </Button>
+              <Button
+                variant={report === 'referrals' ? 'contained' : 'outlined'}
+                size="small"
+                className="rr-surveillance-tab-btn"
+                onClick={() => selectReport('referrals', false)}
+              >
+                Referrals &amp; Transfers ({stats.referrals})
+              </Button>
+            </Stack>
+          </div>
+
+          {/* Data Table */}
+          {renderTableContent()}
+        </Paper>
+      </>}
+      {tab === 'clinic_summary' && (
+        <Paper elevation={0} className="rr-panel rr-table-panel rr-clinic-summary-unified-container">
+          <div className="rr-clinic-summary-header">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography component="h2" className="rr-section-title" sx={{ margin: 0 }}>
+                {TITLES[report]}
+              </Typography>
+              {tableLoading && (
+                <span className="rr-tab-updating-badge" aria-live="polite">
+                  <CircularProgress size={14} sx={{ color: '#1d9e75' }} />
+                  Updating...
+                </span>
               )}
-            </tbody>
-          </table>
-        </div>
-        {displayedRecords && displayedRecords.last_page > 1 && (
-          <Pagination
-            sx={{ mt: 2 }}
-            count={displayedRecords.last_page}
-            page={displayedRecords.page}
-            onChange={(_, next) => {
-              setPage(next);
-              const key = getCacheKey(report, next, filters);
-              const cached = cacheRef.current.get(key);
-              if (cached) {
-                setActiveReportData({ report, page: next, data: cached });
-                setTableLoading(false);
-              } else {
-                setActiveReportData({ report, page: next });
-                setTableLoading(true);
-              }
-            }}
-            disabled={tableLoading}
-            aria-label="Report pages"
-          />
-        )}
-        <p className="rr-note">CSV and print include every matching record, across all pages.</p>
-      </Paper>
+            </Box>
+          </div>
+
+          {renderFilters(
+            false,
+            true,
+            <p className="rr-note rr-record-basis">
+              {tableLoading && !displayedRecords
+                ? 'Loading records...'
+                : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data?.meta?.basis ?? ''}`}
+            </p>
+          )}
+
+          {renderTableContent(false)}
+        </Paper>
       )}
       <details className="rr-definitions"><summary>Metric definitions and data availability</summary>{data.meta.notes.map(note => <p key={note}>{note}</p>)}
         <p>Previous D0 cohort: {data.period.previous_from} to {data.period.previous_to}; {stats.previous_completion.completed}/{stats.previous_completion.eligible} eligible courses completed ({percent(stats.previous_completion.rate)}). Both cohorts are observed today, so follow-up durations differ.</p>

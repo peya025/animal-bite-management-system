@@ -15,6 +15,9 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use App\Services\StaffSignatureService;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class DualNurseWorkstationTest extends TestCase
 {
@@ -29,6 +32,7 @@ class DualNurseWorkstationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp(); // RefreshDatabase wraps test in PDO::beginTransaction here
+        Storage::fake('signatures');
 
         $conn = \Illuminate\Support\Facades\DB::connection();
         $ref  = new \ReflectionProperty($conn, 'transactions');
@@ -53,7 +57,7 @@ class DualNurseWorkstationTest extends TestCase
             'role'                    => 'treatment',
             'is_active'               => true,
             'signature_path'          => $withSignature
-                ? 'signatures/' . strtolower(str_replace(' ', '_', $name)) . '.png'
+                ? app(StaffSignatureService::class)->write(UploadedFile::fake()->image('signature.png', 120, 40)->get())
                 : null,
             'professional_license_no' => 'RN-' . rand(100000, 999999),
         ]);
@@ -163,6 +167,8 @@ class DualNurseWorkstationTest extends TestCase
         Sanctum::actingAs($nurse);
 
         $response = $this->postJson('/api/vaccination-records', [
+            'apply_signature' => true,
+            'signature_version' => $nurse->signature_path,
             'patient_id' => $patient->patient_id,
             'bite_id'    => $incident->bite_id,
             'exposure_category' => 'III',
@@ -188,6 +194,8 @@ class DualNurseWorkstationTest extends TestCase
         $this->assertNotNull($record);
         $this->assertEquals($nurse->id, $record->administered_by);
         $this->assertEquals($nurse->signature_path, $record->signature_path);
+        $this->assertNotNull($record->signed_at);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'signature.applied', 'model_id' => $record->treatment_id, 'user_id' => $nurse->id]);
         $this->assertDatabaseHas('bite_incidents', [
             'bite_id' => $incident->bite_id,
             'bite_place' => 'Matangad, Gitagum',
@@ -378,4 +386,50 @@ class DualNurseWorkstationTest extends TestCase
         $this->assertCount(1, TreatmentRecord::live()->where('patient_id', $patient->patient_id)->get());
         $this->assertCount(2, TreatmentRecord::where('patient_id', $patient->patient_id)->get());
     }
+    public static function signatureCases(): array
+    {
+        return [
+            'no consent' => [false, false, false, false, 201],
+            'explicitly unchecked' => [false, false, false, true, 201],
+            'stale preview' => [true, true, false, false, 422],
+            'missing image' => [true, false, true, false, 422],
+            'external dose' => [true, false, false, true, 201],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('signatureCases')]
+    public function test_optional_signing_contract(bool $consent, bool $stale, bool $missing, bool $external, int $status): void
+    {
+        $clinic = $this->createClinic();
+        $nurse = $this->createNurse($clinic, 'Signature Nurse');
+        $patient = $this->createPatient($clinic);
+        $this->createInventory($clinic);
+        $incident = $this->createApprovedBiteEpisode($clinic, $patient, $nurse);
+        $path = $nurse->signature_path;
+        if ($missing) Storage::disk('signatures')->delete($path);
+        Sanctum::actingAs($nurse);
+        $payload = [
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'signature_version' => $stale ? 'old-version' : $path,
+            'doses' => [[
+                'period' => 'Day 0', 'date' => now()->toDateString(), 'route' => 'ID',
+                'vaccine_type' => 'Speeda', 'is_external' => $external,
+                'external_facility_name' => $external ? 'Another clinic' : null,
+            ]],
+        ];
+        if ($consent || $external) $payload['apply_signature'] = $consent;
+        $this->postJson('/api/vaccination-records', $payload)->assertStatus($status);
+        $record = TreatmentRecord::where('patient_id', $patient->patient_id)->whereNotNull('dose_number')->first();
+        if ($status === 201) {
+            $this->assertNotNull($record);
+            $this->assertNull($record->signature);
+            $this->assertNull($record->signed_at);
+            $this->assertEquals($nurse->id, $record->administered_by);
+            $this->assertNotNull($record->administered_at);
+        } else {
+            $this->assertNull($record);
+        }
+    }
+
 }

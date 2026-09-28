@@ -163,7 +163,7 @@ class StaffInvitationController extends Controller
             'password'                => Hash::make($request->password),
             'role'                    => $invitation->role,
             'phone'                   => $request->phone,
-            'signature_path'          => ($invitation->role === 'treatment') ? 'signatures/default_nurse_signature.png' : null,
+            'signature_path'          => null,
             'professional_license_no' => $request->professional_license_no ?? null,
             'is_active'               => true,
         ]);

@@ -161,6 +161,10 @@ Route::prefix('staff-invitations')->group(function () {
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
+    Route::get('/staff-signature', [\App\Http\Controllers\StaffSignatureController::class, 'current'])
+        ->middleware('role:admin,treatment,nurse,triage,doctor');
+    Route::get('/users/{id}/signature', [\App\Http\Controllers\StaffSignatureController::class, 'profile'])
+        ->middleware('role:admin,treatment,nurse,triage,doctor');
     Route::get('/bite-intake-schema', BiteIntakeSchemaController::class);
     Route::get('/reports/registration', [\App\Http\Controllers\RegistrationReportController::class, 'index'])
         ->middleware('role:registration,admin,developer');
@@ -434,6 +438,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::prefix('vaccination-records')->group(function () {
         // View vaccination records (admin, registration, triage, treatment, nurse, doctor, staff)
         Route::middleware('role:admin,registration,triage,treatment,nurse,doctor,staff')->group(function () {
+            Route::get('/{id}/signature', [\App\Http\Controllers\StaffSignatureController::class, 'record']);
             Route::get('/administrations', [VaccinationRecordController::class, 'getAdministrationList']);
             Route::get('/patient/{patientId}', [VaccinationRecordController::class, 'getByPatient']);
             Route::get('/queue/{queueId}', [VaccinationRecordController::class, 'getByQueue']);

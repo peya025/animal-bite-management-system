@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Patient;
 use App\Models\AuditLog;
+use App\Models\BiteIncident;
+use App\Models\TreatmentRecord;
 use App\Services\PatientMembershipService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -237,6 +240,16 @@ class PatientController extends Controller
             'other_membership' => 'nullable|string|max:500',
             'other_membership_name' => 'nullable|string|max:500',
             'other_membership_no' => 'nullable|string|max:500',
+            // III. Consultation Details & Vitals — entered by Registration Staff
+            // These are stored in treatment_records, NOT in patients/patient_details.
+            'reg_date_of_consultation'  => 'nullable|date',
+            'reg_consultation_time'     => 'nullable|string|max:10',
+            'reg_blood_pressure'        => 'nullable|string|max:20',
+            'reg_temperature'           => 'nullable|string|max:10',
+            'reg_height'                => 'nullable|string|max:10',
+            'reg_weight'                => 'nullable|string|max:10',
+            'reg_attending_provider'    => 'nullable|string|max:255',
+            'reg_referred_by'           => 'nullable|string|max:255',
         ], $membershipService->validationRules()));
 
         $patient = DB::transaction(function () use ($request, $membershipService) {
@@ -277,6 +290,83 @@ class PatientController extends Controller
             }
 
             $membershipService->syncForPatient($patient, $memberships);
+
+            // ── Consultation Details & Vitals ──────────────────────────────────────────
+            // If Registration Staff entered any vitals, create an initial TreatmentRecord
+            // so that Form 2 can load and display them as read-only.
+            // A BiteIncident stub (episode_type = 'pending_assessment') is created first
+            // because TreatmentRecord.bite_id is needed for episode-scoped queries.
+            // The Doctor will later fill in the clinical assessment on the same episode.
+            $vitalsFields = [
+                'reg_date_of_consultation', 'reg_consultation_time', 'reg_blood_pressure',
+                'reg_temperature', 'reg_height', 'reg_weight',
+                'reg_attending_provider', 'reg_referred_by',
+            ];
+            $hasVitals = collect($vitalsFields)->contains(
+                fn($f) => !is_null($request->input($f)) && $request->input($f) !== ''
+            );
+
+            if ($hasVitals) {
+                $clinicId = $request->user()->clinic_id;
+
+                // Create a pending bite episode to anchor the TreatmentRecord.
+                // Registration Staff does not know bite details yet — the Doctor/Nurse
+                // will fill those in through Form 2 and Form 3 respectively.
+                $biteIncident = BiteIncident::create([
+                    'clinic_id'             => $clinicId,
+                    'patient_id'            => $patient->patient_id,
+                    'episode_number'        => 1,
+                    'episode_type'          => 'pending_assessment',
+                    'is_previously_vaccinated' => null,
+                    'bite_date'             => $request->input('reg_date_of_consultation')
+                        ? Carbon::parse($request->input('reg_date_of_consultation'))->toDateString()
+                        : Carbon::today()->toDateString(),
+                    'bite_place'            => null,
+                    'site_washed'           => null,
+                    'exposure_type'         => 'unassessed',
+                    'exposure_mode'         => null,
+                    'severity'              => 'unassessed',
+                    'animal_type'           => null,
+                    'animal_status'         => 'unassessed',
+                    'animal_available'      => null,
+                    'site_number'           => null,
+                    'body_part_exposed'     => null,
+                    'laterality'            => null,
+                    'wound_description'     => null,
+                    'status'                => 'awaiting_assessment',
+                    'remarks'               => 'Episode created during Registration Staff patient registration. Exposure details await Doctor/Nurse assessment.',
+                    'created_by'            => $request->user()->id,
+                ]);
+
+                $consultationDate = $request->input('reg_date_of_consultation')
+                    ? Carbon::parse($request->input('reg_date_of_consultation'))->toDateString()
+                    : Carbon::today()->toDateString();
+
+                // Create the consultation TreatmentRecord with vitals pre-filled.
+                // dose_number is null to mark this as a general consultation record
+                // (same convention used by TreatmentRecordController::store).
+                // nature_of_visit and chief_complaints are left null here — the Doctor
+                // will complete the remaining clinical fields when they open Form 2.
+                TreatmentRecord::create([
+                    'clinic_id'             => $clinicId,
+                    'patient_id'            => $patient->patient_id,
+                    'bite_id'               => $biteIncident->bite_id,
+                    'dose_number'           => null,
+                    'status'                => 'scheduled', // Valid ENUM: scheduled|completed|missed|rescheduled|cancelled
+                    'consultation_date'     => $consultationDate,
+                    'treatment_date'        => $consultationDate,
+                    'consultation_time'     => $request->input('reg_consultation_time'),
+                    'blood_pressure'        => $request->input('reg_blood_pressure'),
+                    'temperature'           => $request->input('reg_temperature'),
+                    'height'                => $request->input('reg_height'),
+                    'weight'                => $request->input('reg_weight'),
+                    'attending_provider'    => $request->input('reg_attending_provider'),
+                    'referred_by'           => $request->input('reg_referred_by'),
+                    'mode_of_transaction'   => 'walk-in',
+                    'administered_by'       => $request->user()->id,
+                ]);
+            }
+            // ── End Consultation Details & Vitals ──────────────────────────────────────
 
             return $patient;
         });

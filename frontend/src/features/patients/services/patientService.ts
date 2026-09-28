@@ -63,6 +63,18 @@ export async function createPatientRecord(
     other_membership_name: membershipFields.other_membership_name,
     other_membership_no: membershipFields.other_membership_no,
 
+    // III. Consultation Details & Vitals — forwarded to backend so PatientController
+    // can create an initial TreatmentRecord for this episode.  All fields are optional;
+    // the backend will skip TreatmentRecord creation when every field is blank.
+    reg_date_of_consultation: cleanField(enrolment.reg_date_of_consultation),
+    reg_consultation_time: cleanField(enrolment.reg_consultation_time),
+    reg_blood_pressure: cleanField(enrolment.reg_blood_pressure),
+    reg_temperature: cleanField(enrolment.reg_temperature),
+    reg_height: cleanField(enrolment.reg_height),
+    reg_weight: cleanField(enrolment.reg_weight),
+    reg_attending_provider: cleanField(enrolment.reg_attending_provider),
+    reg_referred_by: cleanField(enrolment.reg_referred_by),
+
     // Strip frontend-only fields not known to the backend
     other_memberships: undefined,
     senior_citizen_id: undefined,

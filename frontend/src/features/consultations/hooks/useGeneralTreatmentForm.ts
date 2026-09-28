@@ -237,7 +237,18 @@ export function useGeneralTreatmentForm({
 
         const isNewSession =
           entry?.visit_type === 'new_case' || entry?.visit_type === 'consultation' || isReturning;
-        if (record && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
+
+        // A TreatmentRecord created by Registration Staff has status='scheduled'
+        // and no chief_complaints. It is NOT a completed Doctor Form 2 entry —
+        // the Doctor must still fill in all clinical fields.
+        // Treat it as a vitals-pre-filled new session so the form opens in
+        // entry mode ("Save Patient Record") rather than view mode ("Edit Record").
+        const isRegistrationStaffPrefill =
+          record &&
+          record.status === 'scheduled' &&
+          !record.chief_complaints;
+
+        if (record && !isRegistrationStaffPrefill && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
           setHasExistingRecord(true);
           setIsEditing(false);
           setExistingRecord(record);
@@ -246,9 +257,27 @@ export function useGeneralTreatmentForm({
             setFormData((prev) => ({ ...prev, nature_of_visit: 'new_consultation' }));
           }
         } else {
+          // Either no record at all, or a Registration Staff pre-fill.
+          // Open in new-entry mode. Still populate vitals from the pre-fill
+          // so the Doctor sees them read-only in Section III.
           setHasExistingRecord(false);
           setIsEditing(true);
-          setExistingRecord(null);
+          setExistingRecord(isRegistrationStaffPrefill ? record : null);
+          // If this is a Registration Staff pre-fill, populate vitals fields into
+          // formData so VitalsConsultationSection can display them read-only.
+          if (isRegistrationStaffPrefill && record) {
+            setFormData((prev) => ({
+              ...prev,
+              date_of_consultation: record.consultation_date || prev.date_of_consultation,
+              consultation_time:    record.consultation_time || prev.consultation_time,
+              blood_pressure:       record.blood_pressure || prev.blood_pressure,
+              temperature:          record.temperature || prev.temperature,
+              height:               record.height || prev.height,
+              weight:               record.weight || prev.weight,
+              name_of_attending_provider: record.attending_provider || prev.name_of_attending_provider,
+              referred_by:          record.referred_by || prev.referred_by,
+            }));
+          }
           const resolvedAttending = resolveAttendingProvider(entry, null, data?.patient);
           if (resolvedAttending) {
             setFormData((prev) => ({ ...prev, name_of_attending_provider: resolvedAttending }));
@@ -569,6 +598,21 @@ export function useGeneralTreatmentForm({
     isFormDisabled,
     isNatureOfVisitAutomatic,
     shouldHideConsultationType,
+    /**
+     * True when the vitals in Section III were pre-filled by Registration Staff
+     * (TreatmentRecord status='scheduled', no chief_complaints) and the Doctor has
+     * not yet submitted Form 2.  Once the Doctor saves Form 2, a new completed
+     * TreatmentRecord is created and this condition no longer applies.
+     *
+     * When true, VitalsConsultationSection renders all Section III fields as
+     * read-only display values — the Doctor can VIEW but not EDIT them.
+     *
+     * NOTE: hasExistingRecord is FALSE for pre-fills (form is in new-entry mode),
+     * so we check existingRecord directly rather than combining with hasExistingRecord.
+     */
+    isVitalsReadOnly: !hasExistingRecord &&
+      existingRecord?.status === 'scheduled' &&
+      !existingRecord?.chief_complaints,
     handleFieldChange,
     handleCheckboxChange,
     handleFieldBlur,

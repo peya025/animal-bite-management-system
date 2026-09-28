@@ -79,6 +79,15 @@ export interface EnrolmentFormData {
   indigenous_tribe: string;
   other_membership_custom_name: string;
   other_membership_custom_id: string;
+  // III. Consultation Details & Vitals (entered by Registration Staff during patient registration)
+  reg_date_of_consultation: string;
+  reg_consultation_time: string;
+  reg_blood_pressure: string;   // combined "120/80" string, same format as treatment_records.blood_pressure
+  reg_temperature: string;
+  reg_height: string;
+  reg_weight: string;
+  reg_attending_provider: string;
+  reg_referred_by: string;      // full facility name string, same format as treatment_records.referred_by
 }
 
 export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
@@ -123,6 +132,15 @@ export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
   indigenous_tribe: '',
   other_membership_custom_name: '',
   other_membership_custom_id: '',
+  // III. Consultation Details & Vitals
+  reg_date_of_consultation: '',
+  reg_consultation_time: '',
+  reg_blood_pressure: '',
+  reg_temperature: '',
+  reg_height: '',
+  reg_weight: '',
+  reg_attending_provider: '',
+  reg_referred_by: '',
 };
 
 export interface AddPatientModalProps {

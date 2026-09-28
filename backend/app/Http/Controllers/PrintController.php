@@ -45,7 +45,18 @@ class PrintController extends Controller
             }
         }
 
-        return view('prints.patient-enrolment', compact('patient'));
+        // Load the most recent consultation TreatmentRecord (dose_number = null)
+        // for this patient so Form 1 can display Consultation Details & Vitals.
+        // Prefer records that were entered during patient registration (status = 'pending')
+        // but fall back to any consultation record so that existing records still display.
+        $latestConsultation = \App\Models\TreatmentRecord::where('patient_id', $patient->patient_id)
+            ->whereNull('dose_number')
+            ->whereNotNull('consultation_date')
+            ->latest('consultation_date')
+            ->latest('treatment_id')
+            ->first();
+
+        return view('prints.patient-enrolment', compact('patient', 'latestConsultation'));
     }
 
     /**

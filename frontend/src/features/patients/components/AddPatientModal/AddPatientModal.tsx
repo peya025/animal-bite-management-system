@@ -16,6 +16,7 @@ import {
   ContactSection,
   SocioeconomicSection,
   GovProgramsSection,
+  RegistrationVitalsSection,
 } from './sections';
 
 export default function AddPatientModal({ onClose, onSuccess, role }: AddPatientModalProps) {
@@ -262,6 +263,11 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
           <ContactSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} />
           <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
           <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} errors={fieldErrors} />
+          <RegistrationVitalsSection
+            data={enrolment}
+            onChange={handleFieldChange}
+            onDirectChange={(key, value) => handleDirectChange(key, value)}
+          />
         </form>
         </RegistrationErrors.Provider>
       </PatientFormContent>

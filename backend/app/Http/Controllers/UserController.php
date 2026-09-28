@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\StaffSignatureService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -20,14 +22,17 @@ class UserController extends Controller
                 'message' => 'Unauthorized. Admin access required.',
             ], 403);
         }
-        
+
         $clinicId = $request->user()->clinic_id;
-        
+
         $users = User::where('clinic_id', $clinicId)
             ->with('roles')
             ->select('id', 'name', 'email', 'phone', 'role', 'assigned_module', 'is_active', 'signature_path', 'professional_license_no', 'created_at')
             ->orderBy('created_at', 'desc')
             ->get();
+
+        $signatures = app(StaffSignatureService::class);
+        $users->each(fn (User $user) => $user->setAttribute('signature_available', $signatures->available($user->signature_path)));
 
         return response()->json($users);
     }
@@ -52,45 +57,37 @@ class UserController extends Controller
             'roles'                   => 'nullable|array',
             'phone'                   => 'nullable|string|max:50',
             'professional_license_no' => 'nullable|string|max:100',
-            'signature_path'          => 'nullable|string|max:255',
-            'signature_data'          => 'nullable|string',
-            'signature'               => 'nullable|image|max:2048',
+            ...StaffSignatureService::rules(),
         ]);
 
-        $roleSlugInput = $request->workstation_role ?? $request->role ?? 'registration';
-        $legacyRole = $this->determineLegacyRole($roleSlugInput, $request->roles);
+        $signatures = app(StaffSignatureService::class);
+        $png = $signatures->prepare($request);
+        return DB::transaction(function () use ($request, $signatures, $png) {
+            $roleSlugInput = $request->workstation_role ?? $request->role ?? 'registration';
+            $legacyRole = $this->determineLegacyRole($roleSlugInput, $request->roles);
 
-        $user = User::create([
-            'clinic_id'               => $request->user()->clinic_id,
-            'name'                    => $request->name,
-            'email'                   => $request->email,
-            'password'                => Hash::make($request->password),
-            'role'                    => $legacyRole,
-            'phone'                   => $request->phone,
-            'professional_license_no' => $request->professional_license_no,
-            'is_active'               => $request->boolean('is_active', true),
-        ]);
+            $user = User::create([
+                'clinic_id'               => $request->user()->clinic_id,
+                'name'                    => $request->name,
+                'email'                   => $request->email,
+                'password'                => Hash::make($request->password),
+                'role'                    => $legacyRole,
+                'phone'                   => $request->phone,
+                'professional_license_no' => $request->professional_license_no,
+                'is_active'               => $request->boolean('is_active', true),
+            ]);
 
-        // Process signature
-        $sigPath = $this->processSignature($request, $user);
-        if ($sigPath) {
-            $user->update(['signature_path' => $sigPath]);
-        } elseif ($legacyRole === 'treatment') {
-            // Assign a default placeholder signature for nursing staff so they can be
-            // identified on treatment records immediately. An admin can upload the real
-            // signature later via the staff profile page.
-            $user->update(['signature_path' => 'signatures/default_nurse_signature.png']);
-        }
+            // Attach workstation roles
+            $this->syncWorkstationRoles($user, $request, $request->user()->id);
 
-        // Attach workstation roles
-        $this->syncWorkstationRoles($user, $request, $request->user()->id);
+            $user->load('roles');
+            $signatures->apply($user, $request, $png);
 
-        $user->load('roles');
-
-        return response()->json([
-            'message' => 'User created successfully',
-            'user'    => $user,
-        ], 201);
+            return response()->json([
+                'message' => 'User created successfully',
+                'user'    => $user,
+            ], 201);
+        });
     }
 
     /**
@@ -122,47 +119,45 @@ class UserController extends Controller
             'roles'                   => 'nullable|array',
             'phone'                   => 'nullable|string|max:50',
             'professional_license_no' => 'nullable|string|max:100',
-            'signature_path'          => 'nullable|string|max:255',
-            'signature_data'          => 'nullable|string',
-            'signature'               => 'nullable|image|max:2048',
+            ...StaffSignatureService::rules(),
             'is_active'               => 'sometimes|boolean',
         ]);
 
-        $data = $request->except(['password', 'signature', 'signature_data', 'workstation_role', 'roles']);
-        
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
-        }
+        $signatures = app(StaffSignatureService::class);
+        $png = $signatures->prepare($request);
+        return DB::transaction(function () use ($request, $user, $signatures, $png) {
+            $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $data = $request->only(['name', 'email', 'phone', 'professional_license_no', 'is_active']);
 
-        if ($request->filled('workstation_role') || $request->filled('roles') || $request->filled('role')) {
-            $roleSlugInput = $request->workstation_role ?? $request->role;
-            $data['role'] = $this->determineLegacyRole($roleSlugInput, $request->roles);
-        }
+            if ($request->filled('password')) {
+                $data['password'] = Hash::make($request->password);
+            }
 
-        $user->update($data);
+            if ($request->filled('workstation_role') || $request->filled('roles') || $request->filled('role')) {
+                $roleSlugInput = $request->workstation_role ?? $request->role;
+                $data['role'] = $this->determineLegacyRole($roleSlugInput, $request->roles);
+            }
 
-        // Security: If password changed or account deactivated, revoke all existing API tokens
-        if ($request->filled('password') || ($request->has('is_active') && !$user->is_active)) {
-            $user->tokens()->delete();
-        }
+            $user->update($data);
 
-        // Process signature update if provided
-        $sigPath = $this->processSignature($request, $user);
-        if ($sigPath) {
-            $user->update(['signature_path' => $sigPath]);
-        }
+            // Security: If password changed or account deactivated, revoke all existing API tokens
+            if ($request->filled('password') || ($request->has('is_active') && !$user->is_active)) {
+                $user->tokens()->delete();
+            }
 
-        // Sync roles if provided
-        if ($request->has('workstation_role') || $request->has('roles') || $request->has('role')) {
-            $this->syncWorkstationRoles($user, $request, $request->user()->id);
-        }
+            // Sync roles if provided
+            if ($request->has('workstation_role') || $request->has('roles') || $request->has('role')) {
+                $this->syncWorkstationRoles($user, $request, $request->user()->id);
+            }
 
-        $user->load('roles');
+            $user->load('roles');
+            $signatures->apply($user, $request, $png);
 
-        return response()->json([
-            'message' => 'User updated successfully',
-            'user'    => $user,
-        ]);
+            return response()->json([
+                'message' => 'User updated successfully',
+                'user'    => $user,
+            ]);
+        });
     }
 
     /**
@@ -194,49 +189,6 @@ class UserController extends Controller
         }
 
         return 'registration';
-    }
-
-    /**
-     * Process signature upload, base64 data, or direct path
-     */
-    private function processSignature(Request $request, User $user): ?string
-    {
-        if ($request->hasFile('signature')) {
-            $file = $request->file('signature');
-            $dest = public_path('signatures');
-            if (!file_exists($dest)) {
-                mkdir($dest, 0755, true);
-            }
-            $filename = 'signature_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
-            $file->move($dest, $filename);
-            return 'signatures/' . $filename;
-        }
-
-        if ($request->filled('signature_data')) {
-            $data = $request->signature_data;
-            if (preg_match('/^data:image\/(\w+);base64,/', $data, $type)) {
-                $data = substr($data, strpos($data, ',') + 1);
-                $type = strtolower($type[1]);
-                if (in_array($type, ['jpg', 'jpeg', 'gif', 'png'])) {
-                    $data = base64_decode($data);
-                    if ($data !== false) {
-                        $dest = public_path('signatures');
-                        if (!file_exists($dest)) {
-                            mkdir($dest, 0755, true);
-                        }
-                        $filename = 'signature_' . $user->id . '_' . time() . '.' . $type;
-                        file_put_contents($dest . '/' . $filename, $data);
-                        return 'signatures/' . $filename;
-                    }
-                }
-            }
-        }
-
-        if ($request->filled('signature_path')) {
-            return $request->signature_path;
-        }
-
-        return null;
     }
 
     /**
@@ -319,16 +271,16 @@ class UserController extends Controller
                 'message' => 'Unauthorized. Admin access required.',
             ], 403);
         }
-        
+
         $validated = $request->validate([
             'assigned_module' => 'required|in:all,registration,triage,treatment,inventory',
         ]);
-        
+
         $user = User::where('clinic_id', $request->user()->clinic_id)
             ->findOrFail($id);
-        
+
         $user->update($validated);
-        
+
         return response()->json([
             'message' => 'Staff module assignment updated successfully',
             'user' => $user,

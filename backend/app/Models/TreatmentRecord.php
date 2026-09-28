@@ -39,6 +39,7 @@ class TreatmentRecord extends Model
         'administration_notes',
         'cost_recovery',
         'signature',
+        'signed_at',
         'outcome',
         'status',
         'voided_at',
@@ -80,6 +81,7 @@ class TreatmentRecord extends Model
         'treatment_date' => 'date:Y-m-d',
         'expiration_date' => 'date:Y-m-d',
         'administered_at' => 'datetime',
+        'signed_at' => 'datetime',
         'voided_at' => 'datetime',
         'dosage_ml' => 'decimal:2',
         'consultation_date' => 'date:Y-m-d',
@@ -133,6 +135,9 @@ class TreatmentRecord extends Model
     protected static function booted()
     {
         static::updating(function ($record) {
+            if ($record->getRawOriginal('status') === 'completed' && $record->isDirty(['signature', 'signed_at'])) {
+                throw new \DomainException('Completed record signatures are immutable.');
+            }
             if ($record->isDirty('administered_by')) {
                 throw new \DomainException('administered_by is immutable on treatment records.');
             }
@@ -141,7 +146,7 @@ class TreatmentRecord extends Model
 
     public function getSignaturePathAttribute()
     {
-        return $this->signature ?: $this->administeredBy?->signature_path;
+        return $this->signature;
     }
 
     /**

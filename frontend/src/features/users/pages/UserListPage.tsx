@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined, Lock } from '@mui/icons-material';
 import api from '../../../services/api';
+import SignatureUpload from '../components/SignatureUpload';
 import DataTable from '../../../components/ui/DataTable';
 import type { Column } from '../../../components/ui/DataTable';
 import { TablePaginator } from '../../../components/data-display';
@@ -61,6 +62,7 @@ interface User {
   roles?: RoleItem[];
   professional_license_no?: string;
   signature_path?: string;
+  signature_available?: boolean;
 }
 
 interface LinkedPatientProfile {
@@ -279,6 +281,7 @@ export default function UserListPage() {
     workstation_role?: string;
     password?: string;
     signature_data?: string;
+    remove_signature?: boolean;
   }) | null>(null);
   const [confirmSave, setConfirmSave] = useState(false);
 
@@ -372,7 +375,7 @@ export default function UserListPage() {
   // Update existing user
   const save = async () => {
     if (!editing) return;
-    const { id, name, email, phone, workstation_role, professional_license_no, signature_path, signature_data, password, is_active } = editing;
+    const { id, name, email, phone, workstation_role, professional_license_no, signature_data, remove_signature, password, is_active } = editing;
     if (phone && phone.length !== 11) {
       setNotice('Phone number must be exactly 11 digits.');
       return;
@@ -391,9 +394,8 @@ export default function UserListPage() {
       }
       if (signature_data) {
         payload.signature_data = signature_data;
-      } else if (signature_path) {
-        payload.signature_path = signature_path;
       }
+      if (remove_signature) payload.remove_signature = true;
 
       await api.put(`/users/${id}`, payload);
       const updatedName = name;
@@ -425,7 +427,8 @@ export default function UserListPage() {
     }
     setCreating(true);
     try {
-      await api.post('/users', newUser);
+      const { signature_path: _unusedPath, ...payload } = newUser;
+      await api.post('/users', payload);
       const createdName = newUser.name;
       setCreateModalOpen(false);
       setNewUser({
@@ -541,7 +544,7 @@ export default function UserListPage() {
     },
     {
       key: 'signature',
-      label: 'Digital Signature (Optional)',
+      label: 'Electronic Signature (Optional)',
       render: (u) => {
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -549,8 +552,8 @@ export default function UserListPage() {
               <Chip
                 size="small"
                 icon={<CheckCircle fontSize="small" style={{ color: '#059669' }} />}
-                label="On File"
-                title={u.signature_path}
+                label={u.signature_available === false ? "Image unavailable" : "On File"}
+                title="Signature image uploaded; staff confirmation is required when signing"
                 sx={{ bgcolor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontSize: '11px', height: '22px', fontWeight: 600 }}
               />
             ) : (
@@ -1013,16 +1016,12 @@ export default function UserListPage() {
                   }}
                 />
               </Grid>
-              {editing?.signature_path && (
-                <Grid size={{ xs: 12 }}>
-                  <Box sx={{ p: 1.5, bgcolor: '#f0fdf4', borderRadius: 1, border: '1px solid #86efac', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CheckCircle fontSize="small" color="success" />
-                    <Typography variant="body2" color="success.dark">
-                      Signature on file: <code style={{ fontSize: '11px' }}>{editing.signature_path}</code>
-                    </Typography>
-                  </Box>
-                </Grid>
-              )}
+              <Grid size={{ xs: 12 }}>
+                <SignatureUpload key={editing?.id} staffName={editing?.name || ''}
+                  userId={editing?.id} existingPath={editing?.signature_path}
+                  value={editing?.signature_data} removed={editing?.remove_signature}
+                  onChange={(data, removed) => setEditing(u => u && { ...u, signature_data: data, remove_signature: removed })} />
+              </Grid>
             </Grid>
             <FormControlLabel
               control={
@@ -1055,8 +1054,6 @@ export default function UserListPage() {
           </AppButton>
           <AppButton onClick={() => setConfirmSave(true)}>Save changes</AppButton>
         </DialogActions>
-      </Dialog>
-
       {/* Confirmation for edit save */}
       {confirmSave && editing && (
         <ConfirmationDialog
@@ -1076,6 +1073,7 @@ export default function UserListPage() {
           onCancel={() => setConfirmSave(false)}
         />
       )}
+      </Dialog>
 
       {/* ========== CREATE USER MODAL ========== */}
       <Dialog
@@ -1207,8 +1205,12 @@ export default function UserListPage() {
                 />
               </Grid>
               <Grid size={{ xs: 12 }}>
+                <SignatureUpload staffName={newUser.name} value={newUser.signature_data}
+                  onChange={data => setNewUser(u => ({ ...u, signature_data: data }))} />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
                 <Alert severity="info" sx={{ fontSize: '13px' }}>
-                  Digital signature is optional. The staff member and timestamp are retained in the administration audit trail; printed records may be signed by hand.
+                  Electronic signatures are optional. Staff identity and administration time are recorded even without a signature.
                 </Alert>
               </Grid>
             </Grid>

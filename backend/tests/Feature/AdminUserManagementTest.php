@@ -118,12 +118,12 @@ class AdminUserManagementTest extends TestCase
         $this->assertNotNull($user);
         $this->assertEquals('treatment', $user->role); // Legacy backward-compatibility
         $this->assertEquals('RN-445566', $user->professional_license_no);
-        $this->assertNotNull($user->signature_path);
+        $this->assertNull($user->signature_path);
         $this->assertTrue($user->hasRole('intake_nurse'));
         $this->assertFalse($user->hasRole('follow_up_nurse'));
     }
 
-    public function test_admin_can_create_nurse_with_signature_path(): void
+    public function test_admin_cannot_supply_a_signature_path(): void
     {
         $clinic = $this->createClinic();
         $admin = $this->createAdmin($clinic);
@@ -140,12 +140,8 @@ class AdminUserManagementTest extends TestCase
             'signature_path'          => 'signatures/default_placeholder.png',
         ];
 
-        $response = $this->postJson('/api/users', $payload);
-        $response->assertCreated();
-
-        $user = User::where('email', 'carlos_sig@testclinic.com')->first();
-        $this->assertNotNull($user);
-        $this->assertEquals('signatures/default_placeholder.png', $user->signature_path);
+        $this->postJson('/api/users', $payload)->assertUnprocessable()->assertJsonValidationErrors('signature_path');
+        $this->assertDatabaseMissing('users', ['email' => 'carlos_sig@testclinic.com']);
     }
 
     public function test_admin_can_create_solo_nurse_with_both_workstation_roles(): void

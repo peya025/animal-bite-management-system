@@ -244,7 +244,7 @@ class VaccinationRecordController extends Controller
                     'administered_by_id' => $r->administered_by,
                     'administered_by_name' => $r->administeredBy?->name ?: 'Staff',
                     'administered_by_license' => $r->administeredBy?->professional_license_no,
-                    'administered_by_signature' => $r->administeredBy?->signature_path,
+                    'administered_by_signature' => $r->signature,
                     'is_external' => $isExternal,
                     'external_facility_name' => $r->external_facility_name,
                     'doses_per_vial' => $dpv,
@@ -322,7 +322,9 @@ class VaccinationRecordController extends Controller
             'doses.*.route' => 'nullable|in:ID,IM',
             'doses.*.date' => 'nullable|date',
             'doses.*.given_by' => 'nullable|string|max:255',
-            'doses.*.signature' => 'nullable|string|max:255',
+            'doses.*.signature' => 'prohibited',
+            'apply_signature' => 'sometimes|boolean',
+            'signature_version' => 'nullable|string|max:255',
             'doses.*.vaccine_type' => 'nullable|string|max:255',
             'doses.*.inventory_units_used' => 'nullable|integer|min:0|max:999',
             'additional_meds' => 'nullable|array',
@@ -342,13 +344,19 @@ class VaccinationRecordController extends Controller
             ], 401);
         }
 
-        // Signature is optional — if the staff member has a digital signature on
-        // file it will be stamped on the treatment record; otherwise the dose is
-        // recorded and the nurse hand-signs the printed vaccination card.
-        // A missing signature_path no longer blocks saving the record.
-
+        // An absent signature or unchecked consent never blocks unsigned recording.
         DB::beginTransaction();
         try {
+            // Serialize signing against profile replacement/removal.
+            $actingUser = \App\Models\User::whereKey($actingUser->id)->lockForUpdate()->firstOrFail();
+            $signaturePath = null;
+            if ($request->boolean('apply_signature')) {
+                $signaturePath = $actingUser->signature_path;
+                if (!$signaturePath || $request->input('signature_version') !== $signaturePath
+                    || !app(\App\Services\StaffSignatureService::class)->available($signaturePath)) {
+                    throw ValidationException::withMessages(['signature_version' => 'Your signature changed or is unavailable. Refresh the preview or save without a signature.']);
+                }
+            }
             $clinicId = $actingUser->clinic_id;
             $patientId = $request->patient_id;
             $biteId = $request->bite_id;
@@ -528,9 +536,6 @@ class VaccinationRecordController extends Controller
                 }
             }
 
-            // Digital signature is optional. If staff has a digital signature on file,
-            // it will be stamped on the record; otherwise, the dose is recorded and hand-signed on the printed card.
-
             // Map period names to dose numbers
             $periodMapping = [
                 'Day 0' => 0,
@@ -653,7 +658,8 @@ class VaccinationRecordController extends Controller
                     'treatment_date' => $doseData['date'],
                     'scheduled_date' => $doseData['date'],
                     'route' => $doseData['route'] ?? null,
-                    'signature' => $actingUser->signature_path,
+                    'signature' => $isExternal ? null : $signaturePath,
+                    'signed_at' => (!$isExternal && $signaturePath) ? now() : null,
                     'administered_by' => $userId,
                     'administered_at' => now(),
                     'status' => 'completed',
@@ -683,6 +689,12 @@ class VaccinationRecordController extends Controller
                     $record = TreatmentRecord::create($treatmentData);
                 }
 
+                if ($record->signed_at) {
+                    \App\Models\AuditLog::log('signature.applied', 'TreatmentRecord', $record->treatment_id, [
+                        'metadata' => ['signature_path' => $record->signature, 'signed_at' => $record->signed_at->toIso8601String()],
+                        'description' => 'Staff confirmed ownership and applied their electronic signature.',
+                    ]);
+                }
                 $savedDoseNumbers[] = $doseNumber; // track saved doses
 
                 if (!$record->inventory_id && !$isExternal) {

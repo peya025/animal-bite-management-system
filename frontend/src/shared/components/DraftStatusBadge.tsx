@@ -115,8 +115,8 @@ function SavingDots() {
           40%            { opacity: 1;   transform: scaleY(1);   }
         }
         .draft-dot { display: inline-block; width: 3px; height: 8px; border-radius: 2px; background: currentColor; animation: draftDotPulse 1.2s ease-in-out infinite; }
-        .draft-dot:nth-child(2) { animation-delay: 0.2s; }
-        .draft-dot:nth-child(3) { animation-delay: 0.4s; }
+        .draft-dot:nth-of-type(2) { animation-delay: 0.2s; }
+        .draft-dot:nth-of-type(3) { animation-delay: 0.4s; }
       `}</style>
       <span style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }} aria-hidden="true">
         <span className="draft-dot" />

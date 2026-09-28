@@ -204,8 +204,8 @@ export const SetupWizardRoot = styled('div')`
     animation: float 4s ease-in-out infinite;
   }
 
-  .illustration-item:nth-child(2) .illustration-icon { animation-delay: 0.8s; }
-  .illustration-item:nth-child(3) .illustration-icon { animation-delay: 1.6s; }
+  .illustration-item:nth-of-type(2) .illustration-icon { animation-delay: 0.8s; }
+  .illustration-item:nth-of-type(3) .illustration-icon { animation-delay: 1.6s; }
 
   .illustration-label {
     font-size: 11px;

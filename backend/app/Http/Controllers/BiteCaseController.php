@@ -1024,4 +1024,84 @@ class BiteCaseController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get distinct saved Purok/Zone options for a given Barangay and Municipality.
+     * GET /api/cases/puroks or /api/locations/puroks
+     */
+    public function getPuroks(Request $request)
+    {
+        $barangay = trim((string) $request->query('barangay', ''));
+        $municipality = trim((string) $request->query('municipality', ''));
+
+        if (empty($barangay)) {
+            return response()->json(['puroks' => []]);
+        }
+
+        $puroks = collect();
+
+        // 1. Fetch from patient_details
+        $patientPuroks = DB::table('patient_details')
+            ->whereNotNull('address_purok')
+            ->where('address_purok', '!=', '')
+            ->where(function ($q) use ($barangay) {
+                $q->where('address_barangay', $barangay)
+                  ->orWhere('address_barangay', 'like', "%{$barangay}%");
+            })
+            ->when(!empty($municipality), function ($q) use ($municipality) {
+                $q->where(function ($mq) use ($municipality) {
+                    $mq->where('address_municipality', $municipality)
+                       ->orWhere('address_municipality', 'like', "%{$municipality}%");
+                });
+            })
+            ->pluck('address_purok');
+
+        $puroks = $puroks->concat($patientPuroks);
+
+        // 2. Fetch from bite_incidents bite_place
+        $incidentPlaces = DB::table('bite_incidents')
+            ->whereNull('deleted_at')
+            ->whereNotNull('bite_place')
+            ->where('bite_place', '!=', '')
+            ->where('bite_place', 'like', "%{$barangay}%")
+            ->pluck('bite_place');
+
+        foreach ($incidentPlaces as $place) {
+            $parts = array_map('trim', explode(',', (string) $place));
+            $count = count($parts);
+
+            // Strip province if present
+            if ($count >= 2) {
+                $last = end($parts);
+                if (stripos($last, 'Misamis') !== false || stripos($last, 'Oriental') !== false) {
+                    array_pop($parts);
+                    $count = count($parts);
+                }
+            }
+
+            if ($count >= 3) {
+                // If count >= 3, purok is the 3rd from the end (e.g. [Purok, Barangay, Municipality])
+                $purokCandidate = $parts[$count - 3];
+                if (!empty($purokCandidate)) {
+                    $puroks->push($purokCandidate);
+                }
+            }
+        }
+
+        // 3. Normalize, deduplicate, and natural sort
+        $normalized = $puroks
+            ->map(function ($p) {
+                $cleaned = trim(preg_replace('/\s+/', ' ', (string) $p));
+                $cleaned = trim($cleaned, ",.- ");
+                return preg_replace_callback('/\b(purok|zone|sitio|block|blk|street|st|phase|prk)\b/i', fn($m) => ucfirst(strtolower($m[0])), $cleaned);
+            })
+            ->filter(fn ($p) => !empty($p) && strlen($p) >= 2)
+            ->unique(fn ($p) => strtolower($p))
+            ->values()
+            ->sort(fn ($a, $b) => strnatcasecmp($a, $b))
+            ->values();
+
+        return response()->json(['puroks' => $normalized]);
+    }
 }
+

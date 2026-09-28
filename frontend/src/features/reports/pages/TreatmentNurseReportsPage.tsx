@@ -37,6 +37,7 @@ import { ROUTES } from '../../../shared/config/routes';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { printWhenReady } from '../../../components/print/printReady';
+import { useAddressLocation } from '../../patients/hooks/useAddressLocation';
 
 // ─── Interfaces & Types ──────────────────────────────────────────
 export interface ReportStats {
@@ -63,6 +64,31 @@ export interface BiteCase {
   animal_type: string;
   status: string;
   created_at: string;
+  place_of_exposure?: string;
+  municipality?: string;
+  barangay?: string;
+  purok?: string;
+}
+
+export function parseLocation(rawPlace: string): { place: string; purok: string; barangay: string; municipality: string } {
+  if (!rawPlace) return { place: '', purok: '', barangay: '', municipality: '' };
+  let parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    const last = parts[parts.length - 1];
+    if (/misamis|oriental|province/i.test(last)) {
+      parts = parts.slice(0, -1);
+    }
+  }
+  if (parts.length === 0) return { place: rawPlace, purok: '', barangay: '', municipality: '' };
+  if (parts.length === 1) return { place: rawPlace, purok: '', barangay: '', municipality: parts[0] };
+  if (parts.length === 2) return { place: rawPlace, purok: '', barangay: parts[0], municipality: parts[1] };
+  if (parts.length === 3) return { place: rawPlace, purok: parts[0], barangay: parts[1], municipality: parts[2] };
+  return {
+    place: rawPlace,
+    purok: parts[parts.length - 3],
+    barangay: parts[parts.length - 2],
+    municipality: parts[parts.length - 1],
+  };
 }
 
 export interface Patient {
@@ -179,6 +205,16 @@ const panelSx = {
   boxShadow: 'none',
   bgcolor: 'background.paper',
   fontFamily: POPPINS,
+};
+
+const SELECT_MENU_PROPS = {
+  slotProps: {
+    paper: {
+      sx: {
+        maxHeight: 260,
+      },
+    },
+  },
 };
 
 // ─── Badges ───────────────────────────────────────────────────
@@ -604,17 +640,17 @@ const buildReportBodyHtml = (
     const rows = filtCases
       .map(
         (c, i) =>
-          `<tr><td style="text-align:center;border:1px solid #000;">${i + 1}</td><td style="font-weight:600;border:1px solid #000;">${c.patient_name ?? '—'}</td><td style="text-align:center;border:1px solid #000;">${c.case_number || '—'}</td><td style="text-align:center;border:1px solid #000;">${c.category || '—'}</td><td style="border:1px solid #000;">${c.animal_type ?? '—'}</td><td style="text-align:center;text-transform:capitalize;border:1px solid #000;">${c.status || '—'}</td><td style="text-align:center;border:1px solid #000;">${fmtDate(c.created_at)}</td></tr>`
+          `<tr><td style="text-align:center;border:1px solid #000;">${i + 1}</td><td style="font-weight:600;border:1px solid #000;">${c.patient_name ?? '—'}</td><td style="text-align:center;border:1px solid #000;">${c.case_number || '—'}</td><td style="text-align:center;border:1px solid #000;">${c.category || '—'}</td><td style="border:1px solid #000;">${c.animal_type ?? '—'}</td><td style="border:1px solid #000;">${c.place_of_exposure || '—'}</td><td style="text-align:center;text-transform:capitalize;border:1px solid #000;">${c.status || '—'}</td><td style="text-align:center;border:1px solid #000;">${fmtDate(c.created_at)}</td></tr>`
       )
       .join('');
     return `
       <h3 class="sec">I. Bite Case Incident Table</h3>
       <p class="note">Reporting Period: ${fmtDate(dFrom)} to ${fmtDate(dTo)} | Active Filters: ${activeFiltersText} | Filtered Total: ${filtCases.length} of ${allCases.length}</p>
       <table style="border:1px solid #000;border-collapse:collapse;width:100%;">
-        <thead><tr style="background:#fff;"><th style="text-align:center;width:5%;border:1px solid #000;">#</th><th style="border:1px solid #000;">Patient Name</th><th style="text-align:center;border:1px solid #000;">Case No.</th><th style="text-align:center;border:1px solid #000;">Category</th><th style="border:1px solid #000;">Animal Type</th><th style="text-align:center;border:1px solid #000;">Status</th><th style="text-align:center;border:1px solid #000;">Date</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#000;border:1px solid #000;">No bite cases match the active filter criteria.</td></tr>'}</tbody>
+        <thead><tr style="background:#fff;"><th style="text-align:center;width:5%;border:1px solid #000;">#</th><th style="border:1px solid #000;">Patient Name</th><th style="text-align:center;border:1px solid #000;">Case No.</th><th style="text-align:center;border:1px solid #000;">Category</th><th style="border:1px solid #000;">Animal Type</th><th style="border:1px solid #000;">Place of Exposure</th><th style="text-align:center;border:1px solid #000;">Status</th><th style="text-align:center;border:1px solid #000;">Date</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#000;border:1px solid #000;">No bite cases match the active filter criteria.</td></tr>'}</tbody>
         <tfoot>
-          <tr style="font-weight:700;background:#fff"><td colspan="6" style="border:1px solid #000;">Total Filtered Bite Cases</td><td style="text-align:center;border:1px solid #000;">${filtCases.length}</td></tr>
+          <tr style="font-weight:700;background:#fff"><td colspan="7" style="border:1px solid #000;">Total Filtered Bite Cases</td><td style="text-align:center;border:1px solid #000;">${filtCases.length}</td></tr>
         </tfoot>
       </table>`;
   } else if (tab === 'patients') {
@@ -752,9 +788,14 @@ export default function TreatmentNurseReportsPage() {
   const [expiryDateFrom, setExpiryDateFrom] = useState<string>('');
   const [expiryDateTo, setExpiryDateTo] = useState<string>('');
 
+  // Location hooks — same PSGC source as Form 3
+  const summaryLoc = useAddressLocation(); // drives Summary tab location dropdowns
+  const caseLoc = useAddressLocation();    // drives Bite Cases tab location dropdowns
+
   // Summary Filters
   const [summaryPeriodFilter, setSummaryPeriodFilter] = useState<'ALL' | 'today' | 'this_week' | 'this_month'>('ALL');
   const [summaryCatFilter, setSummaryCatFilter] = useState<string>('ALL');
+  const [summaryPurokFilter, setSummaryPurokFilter] = useState<string>('ALL');
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
 
   // Bite Cases Filters & Search
@@ -764,6 +805,7 @@ export default function TreatmentNurseReportsPage() {
   const [caseAnimalFilter, setCaseAnimalFilter] = useState<string>('ALL');
   const [caseAnimalOtherText, setCaseAnimalOtherText] = useState<string>('');
   const [caseStatusFilter, setCaseStatusFilter] = useState<string>('ALL');
+  const [casePurokFilter, setCasePurokFilter] = useState<string>('ALL');
   const [casePage, setCasePage] = useState<number>(1);
 
   // Patients Filters & Search
@@ -800,24 +842,32 @@ export default function TreatmentNurseReportsPage() {
       const casesRaw = casesRes.data?.data ?? casesRes.data ?? [];
       const patsRaw = patsRes.data?.data ?? patsRes.data ?? [];
 
-      const casesData: BiteCase[] = (Array.isArray(casesRaw) ? casesRaw : []).map((c: any) => ({
-        id: c.id ?? c.bite_id,
-        case_number: c.case_number ?? `BC-${c.id ?? c.bite_id}`,
-        patient_id: c.patient_id ?? c.patient?.id,
-        patient_name: c.patient
-          ? `${c.patient.first_name ?? ''} ${c.patient.last_name ?? ''}`.trim()
-          : c.patient_name ?? '—',
-        category: c.severity
-          ? c.severity === 'minor'
-            ? 'Category I'
-            : c.severity === 'moderate'
-            ? 'Category II'
-            : 'Category III'
-          : c.category ?? '—',
-        animal_type: c.animal_type ?? '—',
-        status: c.status ?? '—',
-        created_at: c.created_at ?? c.bite_date ?? '',
-      }));
+      const casesData: BiteCase[] = (Array.isArray(casesRaw) ? casesRaw : []).map((c: any) => {
+        const rawPlace = c.bite_place || c.place_of_exposure || c.location || '';
+        const loc = parseLocation(rawPlace);
+        return {
+          id: c.id ?? c.bite_id,
+          case_number: c.case_number ?? `BC-${c.id ?? c.bite_id}`,
+          patient_id: c.patient_id ?? c.patient?.id,
+          patient_name: c.patient
+            ? `${c.patient.first_name ?? ''} ${c.patient.last_name ?? ''}`.trim()
+            : c.patient_name ?? '—',
+          category: c.severity
+            ? c.severity === 'minor'
+              ? 'Category I'
+              : c.severity === 'moderate'
+              ? 'Category II'
+              : 'Category III'
+            : c.category ?? '—',
+          animal_type: c.animal_type ?? '—',
+          status: c.status ?? '—',
+          created_at: c.created_at ?? c.bite_date ?? '',
+          place_of_exposure: rawPlace || loc.place || '—',
+          municipality: loc.municipality || c.patient?.details?.address_municipality || '',
+          barangay: loc.barangay || c.patient?.details?.address_barangay || '',
+          purok: loc.purok || c.patient?.details?.address_purok || '',
+        };
+      });
 
       const patsData: Patient[] = Array.isArray(patsRaw) ? patsRaw : [];
       setBiteCases(casesData);
@@ -905,7 +955,23 @@ export default function TreatmentNurseReportsPage() {
     }
   };
 
-  // ─── Filter Helpers & Resolved Lists ─────────────────────────
+
+  // ─── Filter Helpers ───────────────────────────────────────────
+  // Puroks derived from saved bite case records for the selected barangay
+  const getAvailablePuroks = (munName: string, brgyName: string) => {
+    const map = new Map<string, string>();
+    biteCases.forEach(c => {
+      const muniMatch = !munName || (c.municipality || '').toLowerCase() === munName.toLowerCase();
+      const brgyMatch = !brgyName || (c.barangay || '').toLowerCase() === brgyName.toLowerCase();
+      if (muniMatch && brgyMatch && c.purok?.trim()) {
+        const key = c.purok.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, c.purok.trim());
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+  };
+
+
   const availableSuppliers = useMemo(() => {
     return Array.from(
       new Set([
@@ -938,9 +1004,18 @@ export default function TreatmentNurseReportsPage() {
         if (!ymd || ymd < bounds.from || ymd > bounds.to) return false;
       }
       if (summaryCatFilter !== 'ALL' && c.category !== summaryCatFilter) return false;
+      if (summaryLoc.munName) {
+        if ((c.municipality || '').toLowerCase() !== summaryLoc.munName.toLowerCase()) return false;
+      }
+      if (summaryLoc.brgyName) {
+        if ((c.barangay || '').toLowerCase() !== summaryLoc.brgyName.toLowerCase()) return false;
+      }
+      if (summaryPurokFilter !== 'ALL') {
+        if ((c.purok || '').toLowerCase() !== summaryPurokFilter.toLowerCase()) return false;
+      }
       return true;
     });
-  }, [biteCases, summaryPeriodFilter, summaryCatFilter]);
+  }, [biteCases, summaryPeriodFilter, summaryCatFilter, summaryLoc.munName, summaryLoc.brgyName, summaryPurokFilter]);
 
   const filteredPeriodPatients = useMemo(() => {
     return patients.filter(p => {
@@ -1016,7 +1091,10 @@ export default function TreatmentNurseReportsPage() {
         const matchName = (c.patient_name || '').toLowerCase().includes(q);
         const matchNum = (c.case_number || '').toLowerCase().includes(q);
         const matchId = String(c.id).includes(q);
-        if (!matchName && !matchNum && !matchId) return false;
+        const matchPlace = (c.place_of_exposure || '').toLowerCase().includes(q);
+        const matchBrgy = (c.barangay || '').toLowerCase().includes(q);
+        const matchPurok = (c.purok || '').toLowerCase().includes(q);
+        if (!matchName && !matchNum && !matchId && !matchPlace && !matchBrgy && !matchPurok) return false;
       }
       if (caseCatFilter !== 'ALL' && c.category !== caseCatFilter) return false;
       if (caseAnimalFilter !== 'ALL') {
@@ -1037,9 +1115,29 @@ export default function TreatmentNurseReportsPage() {
         if (caseStatusFilter === 'ongoing' && st !== 'ongoing' && st !== 'active') return false;
         if (caseStatusFilter === 'cancelled' && st !== 'cancelled' && st !== 'abandoned') return false;
       }
+      if (caseLoc.munName) {
+        if ((c.municipality || '').toLowerCase() !== caseLoc.munName.toLowerCase()) return false;
+      }
+      if (caseLoc.brgyName) {
+        if ((c.barangay || '').toLowerCase() !== caseLoc.brgyName.toLowerCase()) return false;
+      }
+      if (casePurokFilter !== 'ALL') {
+        if ((c.purok || '').toLowerCase() !== casePurokFilter.toLowerCase()) return false;
+      }
       return true;
     });
-  }, [biteCases, casePeriodFilter, caseSearch, caseCatFilter, caseAnimalFilter, caseAnimalOtherText, caseStatusFilter]);
+  }, [
+    biteCases,
+    casePeriodFilter,
+    caseSearch,
+    caseCatFilter,
+    caseAnimalFilter,
+    caseAnimalOtherText,
+    caseStatusFilter,
+    caseLoc.munName,
+    caseLoc.brgyName,
+    casePurokFilter,
+  ]);
 
   // Filtered Patients
   const filteredPatients = useMemo(() => {
@@ -1133,6 +1231,9 @@ export default function TreatmentNurseReportsPage() {
       }
       if (selectedCard && cardData) list.push(`Card Selected: ${cardData.title}`);
       else if (summaryCatFilter !== 'ALL') list.push(`Category: ${summaryCatFilter}`);
+      if (summaryLoc.munName) list.push(`Municipality: ${summaryLoc.munName}`);
+      if (summaryLoc.brgyName) list.push(`Barangay: ${summaryLoc.brgyName}`);
+      if (summaryPurokFilter !== 'ALL') list.push(`Purok/Zone: ${summaryPurokFilter}`);
     } else if (activeTab === 'cases') {
       if (casePeriodFilter !== 'ALL') {
         const pLabel = casePeriodFilter === 'today' ? 'Today' : casePeriodFilter === 'this_week' ? 'This Week' : 'This Month';
@@ -1148,6 +1249,9 @@ export default function TreatmentNurseReportsPage() {
         }
       }
       if (caseStatusFilter !== 'ALL') list.push(`Status: ${caseStatusFilter}`);
+      if (caseLoc.munName) list.push(`Municipality: ${caseLoc.munName}`);
+      if (caseLoc.brgyName) list.push(`Barangay: ${caseLoc.brgyName}`);
+      if (casePurokFilter !== 'ALL') list.push(`Purok/Zone: ${casePurokFilter}`);
     } else if (activeTab === 'patients') {
       if (patientPeriodFilter !== 'ALL') {
         const pLabel = patientPeriodFilter === 'today' ? 'Today' : patientPeriodFilter === 'this_week' ? 'This Week' : 'This Month';
@@ -1269,13 +1373,14 @@ export default function TreatmentNurseReportsPage() {
       let csvRows: string[] = [];
 
       if (type === 'cases') {
-        headers = ['#', 'Patient Name', 'Case No.', 'Category', 'Animal Type', 'Status', 'Date Registered'];
+        headers = ['#', 'Patient Name', 'Case No.', 'Category', 'Animal Type', 'Place of Exposure', 'Status', 'Date Registered'];
         csvRows = filteredBiteCases.map((c, i) => [
           i + 1,
           `"${(c.patient_name || '').replace(/"/g, '""')}"`,
           `"${c.case_number || ''}"`,
           `"${c.category || ''}"`,
           `"${c.animal_type || ''}"`,
+          `"${(c.place_of_exposure || '').replace(/"/g, '""')}"`,
           `"${c.status || ''}"`,
           `"${c.created_at || ''}"`,
         ].join(','));
@@ -1450,99 +1555,156 @@ export default function TreatmentNurseReportsPage() {
       >
           {/* Summary Tab Filters */}
           {activeTab === 'summary' && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-              <TextField
-                select
-                size="small"
-                label="Period"
-                value={summaryPeriodFilter}
-                onChange={e => {
-                  const val = e.target.value as any;
-                  setSummaryPeriodFilter(val);
-                }}
-                sx={{ minWidth: 145 }}
-              >
-                <MenuItem value="ALL">All Time</MenuItem>
-                <MenuItem value="today">Today</MenuItem>
-                <MenuItem value="this_week">This week</MenuItem>
-                <MenuItem value="this_month">This month</MenuItem>
-              </TextField>
-
-              <TextField
-                select
-                size="small"
-                label="Exposure Category"
-                value={summaryCatFilter}
-                onChange={e => setSummaryCatFilter(e.target.value)}
-                sx={{ minWidth: 175 }}
-              >
-                <MenuItem value="ALL">All Categories</MenuItem>
-                <MenuItem value="Category I">Category I (Minor)</MenuItem>
-                <MenuItem value="Category II">Category II (Moderate)</MenuItem>
-                <MenuItem value="Category III">Category III (Severe)</MenuItem>
-              </TextField>
-
-              <TextField
-                size="small"
-                type="date"
-                label="From"
-                value={dateFrom}
-                onChange={e => {
-                  setDateFrom(e.target.value);
-                  setPreset('custom');
-                }}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-
-              <TextField
-                size="small"
-                type="date"
-                label="To"
-                value={dateTo}
-                onChange={e => {
-                  setDateTo(e.target.value);
-                  setPreset('custom');
-                }}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-
-              <Button
-                variant="contained"
-                onClick={loadReports}
-                disabled={loading}
-                sx={{
-                  bgcolor: '#10b981',
-                  color: '#fff',
-                  fontFamily: POPPINS,
-                  '&:hover': { bgcolor: '#059669' },
-                }}
-              >
-                {loading ? 'Loading…' : 'Apply'}
-              </Button>
-
-              {(summaryPeriodFilter !== 'ALL' || summaryCatFilter !== 'ALL' || selectedCard !== null) && (
-                <Button
-                  onClick={() => {
-                    setSummaryPeriodFilter('ALL');
-                    setSummaryCatFilter('ALL');
-                    setSelectedCard(null);
-                  }}
-                  sx={{ color: 'error.main', fontFamily: POPPINS }}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {/* Row 1: Period, Category, Municipality, Barangay, Date range, Apply */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <TextField
+                  select
+                  size="small"
+                  label="Period"
+                  value={summaryPeriodFilter}
+                  onChange={e => setSummaryPeriodFilter(e.target.value as any)}
+                  sx={{ minWidth: 140 }}
                 >
-                  Reset Filters
-                </Button>
-              )}
+                  <MenuItem value="ALL">All Time</MenuItem>
+                  <MenuItem value="today">Today</MenuItem>
+                  <MenuItem value="this_week">This week</MenuItem>
+                  <MenuItem value="this_month">This month</MenuItem>
+                </TextField>
 
-              <Button
-                type="button"
-                aria-label="Refresh report data"
-                onClick={loadReports}
-                disabled={loading}
-                sx={{ ml: { sm: 'auto' }, fontFamily: POPPINS }}
-                startIcon={<Refresh />}
-              >
-                Refresh
-              </Button>
+                <TextField
+                  select
+                  size="small"
+                  label="Exposure Category"
+                  value={summaryCatFilter}
+                  onChange={e => setSummaryCatFilter(e.target.value)}
+                  sx={{ minWidth: 170 }}
+                >
+                  <MenuItem value="ALL">All Categories</MenuItem>
+                  <MenuItem value="Category I">Category I</MenuItem>
+                  <MenuItem value="Category II">Category II</MenuItem>
+                  <MenuItem value="Category III">Category III</MenuItem>
+                </TextField>
+
+                <TextField
+                  select
+                  size="small"
+                  label="City / Municipality"
+                  value={summaryLoc.municipality}
+                  onChange={e => {
+                    summaryLoc.setMunicipality(e.target.value);
+                    summaryLoc.setBarangay('');
+                    setSummaryPurokFilter('ALL');
+                  }}
+                  slotProps={{
+                    select: { native: true },
+                    inputLabel: { shrink: true },
+                  }}
+                  sx={{ minWidth: 175 }}
+                >
+                  <option value="">{summaryLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
+                  {summaryLoc.municipalities.map(m => (
+                    <option key={m.code} value={m.code}>{m.name}</option>
+                  ))}
+                </TextField>
+
+                <TextField
+                  select
+                  size="small"
+                  label="Barangay"
+                  value={summaryLoc.barangay}
+                  onChange={e => {
+                    summaryLoc.setBarangay(e.target.value);
+                    setSummaryPurokFilter('ALL');
+                  }}
+                  disabled={!summaryLoc.municipality}
+                  slotProps={{
+                    select: { native: true },
+                    inputLabel: { shrink: true },
+                  }}
+                  sx={{ minWidth: 155 }}
+                >
+                  <option value="">
+                    {summaryLoc.loadingBrgy ? 'Loading…' : (!summaryLoc.municipality ? '— Select Municipality First —' : '— Select —')}
+                  </option>
+                  {summaryLoc.barangays.map(b => (
+                    <option key={b.code} value={b.code}>{b.name}</option>
+                  ))}
+                </TextField>
+
+                <TextField
+                  select
+                  size="small"
+                  label="Purok / Zone"
+                  value={summaryPurokFilter}
+                  onChange={e => setSummaryPurokFilter(e.target.value)}
+                  disabled={!summaryLoc.barangay}
+                  slotProps={{
+                    select: { native: true },
+                    inputLabel: { shrink: true },
+                  }}
+                  sx={{ minWidth: 155 }}
+                >
+                  <option value="ALL">
+                    {!summaryLoc.barangay ? '— Select Barangay First —' : '— Select —'}
+                  </option>
+                  {getAvailablePuroks(summaryLoc.munName, summaryLoc.brgyName).map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </TextField>
+
+                <TextField
+                  size="small"
+                  type="date"
+                  label="From"
+                  value={dateFrom}
+                  onChange={e => { setDateFrom(e.target.value); setPreset('custom'); }}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+
+                <TextField
+                  size="small"
+                  type="date"
+                  label="To"
+                  value={dateTo}
+                  onChange={e => { setDateTo(e.target.value); setPreset('custom'); }}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+
+                <Button
+                  variant="contained"
+                  onClick={loadReports}
+                  disabled={loading}
+                  sx={{ bgcolor: '#10b981', color: '#fff', fontFamily: POPPINS, '&:hover': { bgcolor: '#059669' } }}
+                >
+                  {loading ? 'Loading…' : 'Apply'}
+                </Button>
+
+                {(summaryPeriodFilter !== 'ALL' || summaryCatFilter !== 'ALL' ||
+                  summaryLoc.municipality || summaryLoc.barangay ||
+                  summaryPurokFilter !== 'ALL' || selectedCard !== null) && (
+                  <Button
+                    onClick={() => {
+                      setSummaryPeriodFilter('ALL'); setSummaryCatFilter('ALL');
+                      summaryLoc.setMunicipality(''); summaryLoc.setBarangay('');
+                      setSummaryPurokFilter('ALL'); setSelectedCard(null);
+                    }}
+                    sx={{ color: 'error.main', fontFamily: POPPINS }}
+                  >
+                    Reset
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  onClick={loadReports}
+                  disabled={loading}
+                  sx={{ ml: 'auto', fontFamily: POPPINS }}
+                  startIcon={<Refresh />}
+                >
+                  Refresh
+                </Button>
+              </Box>
             </Box>
           )}
 
@@ -1554,11 +1716,8 @@ export default function TreatmentNurseReportsPage() {
                 size="small"
                 label="Period"
                 value={casePeriodFilter}
-                onChange={e => {
-                  setCasePeriodFilter(e.target.value as any);
-                  setCasePage(1);
-                }}
-                sx={{ minWidth: 140 }}
+                onChange={e => { setCasePeriodFilter(e.target.value as any); setCasePage(1); }}
+                sx={{ minWidth: 130 }}
               >
                 <MenuItem value="ALL">All Time</MenuItem>
                 <MenuItem value="today">Today</MenuItem>
@@ -1571,11 +1730,8 @@ export default function TreatmentNurseReportsPage() {
                 size="small"
                 label="Category"
                 value={caseCatFilter}
-                onChange={e => {
-                  setCaseCatFilter(e.target.value);
-                  setCasePage(1);
-                }}
-                sx={{ minWidth: 150 }}
+                onChange={e => { setCaseCatFilter(e.target.value); setCasePage(1); }}
+                sx={{ minWidth: 140 }}
               >
                 <MenuItem value="ALL">All Categories</MenuItem>
                 <MenuItem value="Category I">Category I</MenuItem>
@@ -1593,7 +1749,7 @@ export default function TreatmentNurseReportsPage() {
                   if (e.target.value !== 'Others') setCaseAnimalOtherText('');
                   setCasePage(1);
                 }}
-                sx={{ minWidth: 140 }}
+                sx={{ minWidth: 120 }}
               >
                 <MenuItem value="ALL">All Animals</MenuItem>
                 <MenuItem value="Dog">Dog</MenuItem>
@@ -1604,13 +1760,10 @@ export default function TreatmentNurseReportsPage() {
               {caseAnimalFilter === 'Others' && (
                 <TextField
                   size="small"
-                  placeholder="Specify (e.g. Monkey)"
+                  placeholder="Specify animal..."
                   value={caseAnimalOtherText}
-                  onChange={e => {
-                    setCaseAnimalOtherText(e.target.value);
-                    setCasePage(1);
-                  }}
-                  sx={{ minWidth: 150 }}
+                  onChange={e => { setCaseAnimalOtherText(e.target.value); setCasePage(1); }}
+                  sx={{ minWidth: 130 }}
                 />
               )}
 
@@ -1619,43 +1772,103 @@ export default function TreatmentNurseReportsPage() {
                 size="small"
                 label="Status"
                 value={caseStatusFilter}
-                onChange={e => {
-                  setCaseStatusFilter(e.target.value);
-                  setCasePage(1);
-                }}
-                sx={{ minWidth: 150 }}
+                onChange={e => { setCaseStatusFilter(e.target.value); setCasePage(1); }}
+                sx={{ minWidth: 135 }}
               >
                 <MenuItem value="ALL">All Statuses</MenuItem>
                 <MenuItem value="completed">Completed</MenuItem>
                 <MenuItem value="ongoing">On-going</MenuItem>
-                <MenuItem value="cancelled">Cancelled / Abandoned</MenuItem>
+                <MenuItem value="cancelled">Cancelled</MenuItem>
+              </TextField>
+
+              <TextField
+                select
+                size="small"
+                label="City / Municipality"
+                value={caseLoc.municipality}
+                onChange={e => {
+                  caseLoc.setMunicipality(e.target.value);
+                  caseLoc.setBarangay('');
+                  setCasePurokFilter('ALL');
+                  setCasePage(1);
+                }}
+                slotProps={{
+                  select: { native: true },
+                  inputLabel: { shrink: true },
+                }}
+                sx={{ minWidth: 175 }}
+              >
+                <option value="">{caseLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
+                {caseLoc.municipalities.map(m => (
+                  <option key={m.code} value={m.code}>{m.name}</option>
+                ))}
+              </TextField>
+
+              <TextField
+                select
+                size="small"
+                label="Barangay"
+                value={caseLoc.barangay}
+                onChange={e => {
+                  caseLoc.setBarangay(e.target.value);
+                  setCasePurokFilter('ALL');
+                  setCasePage(1);
+                }}
+                disabled={!caseLoc.municipality}
+                slotProps={{
+                  select: { native: true },
+                  inputLabel: { shrink: true },
+                }}
+                sx={{ minWidth: 155 }}
+              >
+                <option value="">
+                  {caseLoc.loadingBrgy ? 'Loading…' : (!caseLoc.municipality ? '— Select Municipality First —' : '— Select —')}
+                </option>
+                {caseLoc.barangays.map(b => (
+                  <option key={b.code} value={b.code}>{b.name}</option>
+                ))}
+              </TextField>
+
+              <TextField
+                select
+                size="small"
+                label="Purok / Zone"
+                value={casePurokFilter}
+                onChange={e => { setCasePurokFilter(e.target.value); setCasePage(1); }}
+                disabled={!caseLoc.barangay}
+                slotProps={{
+                  select: { native: true },
+                  inputLabel: { shrink: true },
+                }}
+                sx={{ minWidth: 150 }}
+              >
+                <option value="ALL">
+                  {!caseLoc.barangay ? '— Select Barangay First —' : '— Select —'}
+                </option>
+                {getAvailablePuroks(caseLoc.munName, caseLoc.brgyName).map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
               </TextField>
 
               <TextField
                 size="small"
-                placeholder="Search patient name or case #..."
+                placeholder="Search name, case #, location..."
                 value={caseSearch}
-                onChange={e => {
-                  setCaseSearch(e.target.value);
-                  setCasePage(1);
-                }}
-                sx={{ minWidth: 220, flexGrow: 1 }}
+                onChange={e => { setCaseSearch(e.target.value); setCasePage(1); }}
+                sx={{ minWidth: 200, flexGrow: 1 }}
               />
 
-              {(casePeriodFilter !== 'ALL' ||
-                caseCatFilter !== 'ALL' ||
-                caseAnimalFilter !== 'ALL' ||
-                caseStatusFilter !== 'ALL' ||
-                caseSearch !== '') && (
+              {(casePeriodFilter !== 'ALL' || caseCatFilter !== 'ALL' ||
+                caseAnimalFilter !== 'ALL' || caseStatusFilter !== 'ALL' ||
+                caseLoc.municipality || caseLoc.barangay ||
+                casePurokFilter !== 'ALL' || caseSearch !== '') && (
                 <Button
                   onClick={() => {
-                    setCasePeriodFilter('ALL');
-                    setCaseCatFilter('ALL');
-                    setCaseAnimalFilter('ALL');
-                    setCaseAnimalOtherText('');
+                    setCasePeriodFilter('ALL'); setCaseCatFilter('ALL');
+                    setCaseAnimalFilter('ALL'); setCaseAnimalOtherText('');
                     setCaseStatusFilter('ALL');
-                    setCaseSearch('');
-                    setCasePage(1);
+                    caseLoc.setMunicipality(''); caseLoc.setBarangay('');
+                    setCasePurokFilter('ALL'); setCaseSearch(''); setCasePage(1);
                   }}
                   sx={{ color: 'error.main', fontFamily: POPPINS }}
                 >
@@ -1667,7 +1880,7 @@ export default function TreatmentNurseReportsPage() {
                 type="button"
                 onClick={loadReports}
                 disabled={loading}
-                sx={{ ml: { sm: 'auto' }, fontFamily: POPPINS }}
+                sx={{ fontFamily: POPPINS }}
                 startIcon={<Refresh />}
               >
                 Refresh
@@ -1676,6 +1889,7 @@ export default function TreatmentNurseReportsPage() {
           )}
 
           {/* Patients Tab Filters */}
+
           {activeTab === 'patients' && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
               <TextField
@@ -2092,6 +2306,7 @@ export default function TreatmentNurseReportsPage() {
                         <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Case No.</TableCell>
                         <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Category</TableCell>
                         <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Animal Type</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Place of Exposure</TableCell>
                         <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Status</TableCell>
                         <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Date Registered</TableCell>
                       </TableRow>
@@ -2099,7 +2314,7 @@ export default function TreatmentNurseReportsPage() {
                     <TableBody>
                       {cardData.records.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} sx={{ textAlign: 'center', py: 3, color: 'text.secondary', fontFamily: POPPINS }}>
+                          <TableCell colSpan={8} sx={{ textAlign: 'center', py: 3, color: 'text.secondary', fontFamily: POPPINS }}>
                             No bite cases found in this category.
                           </TableCell>
                         </TableRow>
@@ -2113,6 +2328,7 @@ export default function TreatmentNurseReportsPage() {
                               <CategoryBadge cat={c.category} />
                             </TableCell>
                             <TableCell sx={{ fontFamily: POPPINS }}>{c.animal_type ?? '—'}</TableCell>
+                            <TableCell sx={{ fontFamily: POPPINS }}>{c.place_of_exposure || '—'}</TableCell>
                             <TableCell sx={{ fontFamily: POPPINS }}>
                               <StatusBadge status={c.status} />
                             </TableCell>
@@ -2153,6 +2369,7 @@ export default function TreatmentNurseReportsPage() {
                       <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Case No.</TableCell>
                       <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Category</TableCell>
                       <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Animal Type</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Place of Exposure</TableCell>
                       <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Status</TableCell>
                       <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Date Registered</TableCell>
                     </TableRow>
@@ -2160,7 +2377,7 @@ export default function TreatmentNurseReportsPage() {
                   <TableBody>
                     {filteredSummaryCases.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} sx={{ textAlign: 'center', py: 3, color: 'text.secondary', fontFamily: POPPINS }}>
+                        <TableCell colSpan={8} sx={{ textAlign: 'center', py: 3, color: 'text.secondary', fontFamily: POPPINS }}>
                           No bite cases found for {summaryCatFilter}.
                         </TableCell>
                       </TableRow>
@@ -2174,6 +2391,7 @@ export default function TreatmentNurseReportsPage() {
                             <CategoryBadge cat={c.category} />
                           </TableCell>
                           <TableCell sx={{ fontFamily: POPPINS }}>{c.animal_type ?? '—'}</TableCell>
+                          <TableCell sx={{ fontFamily: POPPINS }}>{c.place_of_exposure || '—'}</TableCell>
                           <TableCell sx={{ fontFamily: POPPINS }}>
                             <StatusBadge status={c.status} />
                           </TableCell>
@@ -2227,6 +2445,7 @@ export default function TreatmentNurseReportsPage() {
                   <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Case No.</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Category</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Animal Type</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Place of Exposure</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Status</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Date Registered</TableCell>
                 </TableRow>
@@ -2234,14 +2453,14 @@ export default function TreatmentNurseReportsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
+                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
                       <CircularProgress size={24} sx={{ mb: 1, display: 'block', mx: 'auto', color: '#10b981' }} />
                       Loading bite cases…
                     </TableCell>
                   </TableRow>
                 ) : filteredBiteCases.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
+                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
                       No bite cases match the selected search or filter criteria.
                     </TableCell>
                   </TableRow>
@@ -2255,6 +2474,7 @@ export default function TreatmentNurseReportsPage() {
                         <CategoryBadge cat={c.category} />
                       </TableCell>
                       <TableCell sx={{ fontFamily: POPPINS }}>{c.animal_type ?? '—'}</TableCell>
+                      <TableCell sx={{ fontFamily: POPPINS }}>{c.place_of_exposure || '—'}</TableCell>
                       <TableCell sx={{ fontFamily: POPPINS }}>
                         <StatusBadge status={c.status} />
                       </TableCell>

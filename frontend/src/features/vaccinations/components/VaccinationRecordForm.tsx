@@ -16,6 +16,15 @@ import {
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
+export function cleanPurok(val: string): string {
+  if (!val) return '';
+  let cleaned = val.trim().replace(/\s+/g, ' ');
+  cleaned = cleaned.replace(/\b(purok|zone|sitio|block|blk|street|st|phase|prk)\b/gi, (match) => {
+    return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
+  });
+  return cleaned;
+}
+
 const FORM3_ANIMAL_SPECIES_OPTIONS = [
   { value: 'dog', label: 'Dog' },
   { value: 'cat', label: 'Cat' },
@@ -363,6 +372,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   // ── Place of Exposure address location (same hook as Add Patient) ──────────
   const expLoc = useAddressLocation();
+  const [purok, setPurok] = useState('');
 
   // Reset the location selector whenever a different patient/episode opens.
   // The saved incident/intake place is loaded afterward; no clinic-wide default
@@ -373,17 +383,25 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     expLoc.setUseManual(false);
     expLoc.setManualMun('');
     expLoc.setManualBrgy('');
+    setPurok('');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, vacDraftPatientId, vacDraftBiteId]);
 
-  // Sync composed address string → place_of_exposure field (Municipality + Barangay only)
+  // Sync composed address string → place_of_exposure field
+  // Format: [Purok/Zone, ]Barangay, City/Municipality
   useEffect(() => {
-    // Do not overwrite a saved barangay while municipality options are still
-    // hydrating. Commit the composed place only when both values are ready.
-    if (expLoc.brgyName && expLoc.munName) {
-      setFormData(prev => ({ ...prev, place_of_exposure: `${expLoc.brgyName}, ${expLoc.munName}` }));
+    const currentMun = expLoc.useManual ? expLoc.manualMun : expLoc.munName;
+    const currentBrgy = expLoc.useManual ? expLoc.manualBrgy : expLoc.brgyName;
+
+    if (currentBrgy && currentMun) {
+      const parts: string[] = [];
+      const cleanP = cleanPurok(purok);
+      if (cleanP) parts.push(cleanP);
+      parts.push(currentBrgy);
+      parts.push(currentMun);
+      setFormData(prev => ({ ...prev, place_of_exposure: parts.join(', ') }));
     }
-  }, [expLoc.munName, expLoc.brgyName]);
+  }, [expLoc.munName, expLoc.brgyName, expLoc.manualMun, expLoc.manualBrgy, expLoc.useManual, purok]);
 
   // Synchronize expLoc with the saved incident/intake place.
   useEffect(() => {
@@ -393,6 +411,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       expLoc.setUseManual(false);
       expLoc.setManualMun('');
       expLoc.setManualBrgy('');
+      setPurok('');
       return;
     }
 
@@ -401,7 +420,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     const rawPlace = (formData.place_of_exposure || '').trim();
 
     if (rawPlace && !expLoc.municipality && !expLoc.manualMun) {
-      const parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
+      let parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
+      // If the last part is a province, strip it for matching
+      if (parts.length >= 2) {
+        const last = parts[parts.length - 1];
+        if (/misamis|oriental|province/i.test(last)) {
+          parts = parts.slice(0, -1);
+        }
+      }
       
       const matchedMun = expLoc.municipalities.find(m => 
         parts.some(p => p.toLowerCase() === m.name.toLowerCase() || m.name.toLowerCase().includes(p.toLowerCase()))
@@ -412,8 +438,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       } else if (parts.length > 0) {
         expLoc.setUseManual(true);
         if (parts.length >= 2) {
-          expLoc.setManualBrgy(parts[0]);
-          expLoc.setManualMun(parts[1]);
+          expLoc.setManualBrgy(parts[parts.length - 2]);
+          expLoc.setManualMun(parts[parts.length - 1]);
         } else {
           expLoc.setManualMun(parts[0]);
         }
@@ -421,18 +447,37 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
   }, [open, expLoc.loadingMun, expLoc.municipalities, formData.place_of_exposure]);
 
-  // When barangays finish loading for selected municipality, match the barangay from place_of_exposure
+  // When barangays finish loading for selected municipality, match the barangay and purok from place_of_exposure
   useEffect(() => {
     if (!open || expLoc.useManual || !expLoc.barangays.length || expLoc.barangay) return;
     const rawPlace = (formData.place_of_exposure || '').trim();
     if (!rawPlace) return;
 
-    const parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
-    const matchedBrgy = expLoc.barangays.find(b => 
-      parts.some(p => p.toLowerCase() === b.name.toLowerCase() || b.name.toLowerCase().includes(p.toLowerCase()))
+    let parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const last = parts[parts.length - 1];
+      if (/misamis|oriental|province/i.test(last)) {
+        parts = parts.slice(0, -1);
+      }
+    }
+
+    const matchedBrgyIndex = parts.findIndex(p => 
+      expLoc.barangays.some(b => b.name.toLowerCase() === p.toLowerCase() || b.name.toLowerCase().includes(p.toLowerCase()))
     );
-    if (matchedBrgy) {
-      expLoc.setBarangay(matchedBrgy.code);
+
+    if (matchedBrgyIndex !== -1) {
+      const matchedBrgyName = parts[matchedBrgyIndex];
+      const matchedBrgy = expLoc.barangays.find(b => 
+        b.name.toLowerCase() === matchedBrgyName.toLowerCase() || b.name.toLowerCase().includes(matchedBrgyName.toLowerCase())
+      );
+      if (matchedBrgy) {
+        expLoc.setBarangay(matchedBrgy.code);
+
+        const priorParts = parts.slice(0, matchedBrgyIndex);
+        if (priorParts.length >= 1) {
+          setPurok(priorParts.join(', '));
+        }
+      }
     }
   }, [open, expLoc.barangays, expLoc.useManual, formData.place_of_exposure]);
   const [doses, setDoses] = useState<VaccinationDose[]>(createInitialDoses());
@@ -1483,66 +1528,122 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
             {expLoc.useManual ? (
               /* ── Manual free-text mode ── */
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>City / Municipality</label>
-                  <input
-                    type="text"
-                    value={expLoc.manualMun}
-                    onChange={e => expLoc.setManualMun(e.target.value)}
-                    disabled={clinicalAssessmentLocked}
-                    placeholder="Enter municipality"
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
-                  />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>City / Municipality</label>
+                    <input
+                      type="text"
+                      value={expLoc.manualMun}
+                      onChange={e => expLoc.setManualMun(e.target.value)}
+                      disabled={clinicalAssessmentLocked}
+                      placeholder="Enter municipality"
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border, #d1d5db)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Barangay</label>
+                    <input
+                      type="text"
+                      value={expLoc.manualBrgy}
+                      onChange={e => expLoc.setManualBrgy(e.target.value)}
+                      disabled={clinicalAssessmentLocked}
+                      placeholder="Enter barangay"
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border, #d1d5db)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
+                    />
+                  </div>
                 </div>
+
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Barangay</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Purok / Zone</label>
                   <input
                     type="text"
-                    value={expLoc.manualBrgy}
-                    onChange={e => expLoc.setManualBrgy(e.target.value)}
-                    disabled={clinicalAssessmentLocked}
-                    placeholder="Enter barangay"
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
+                    value={purok}
+                    onChange={e => setPurok(e.target.value)}
+                    onBlur={e => setPurok(cleanPurok(e.target.value))}
+                    disabled={clinicalAssessmentLocked || !expLoc.manualBrgy}
+                    placeholder="e.g. Purok 1, Zone 2"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid var(--input-border, #d1d5db)',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      boxSizing: 'border-box',
+                      backgroundColor: (readOnly || !expLoc.manualBrgy) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                      color: (readOnly || !expLoc.manualBrgy) ? '#6b7280' : '#1f2937',
+                      fontFamily: 'inherit',
+                    }}
                   />
                 </div>
               </div>
             ) : (
-              /* ── Dropdown mode (same as Add Patient) ── */
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>City / Municipality *</label>
-                  <select
-                    value={expLoc.municipality}
-                    onChange={e => expLoc.setMunicipality(e.target.value)}
-                    disabled={clinicalAssessmentLocked || expLoc.loadingMun}
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
-                  >
-                    <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
-                    {expLoc.municipalities.map(m => (
-                      <option key={m.code} value={m.code}>{m.name}</option>
-                    ))}
-                  </select>
+              /* ── Dropdown mode ── */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>City / Municipality *</label>
+                    <select
+                      value={expLoc.municipality}
+                      onChange={e => {
+                        expLoc.setMunicipality(e.target.value);
+                        setPurok('');
+                      }}
+                      disabled={clinicalAssessmentLocked || expLoc.loadingMun}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border, #d1d5db)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
+                    >
+                      <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
+                      {expLoc.municipalities.map(m => (
+                        <option key={m.code} value={m.code}>{m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Barangay *</label>
+                    <select
+                      value={expLoc.barangay}
+                      onChange={e => {
+                        expLoc.setBarangay(e.target.value);
+                        setPurok('');
+                      }}
+                      disabled={clinicalAssessmentLocked || !expLoc.municipality || expLoc.loadingBrgy}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border, #d1d5db)', borderRadius: 6, fontSize: 13, backgroundColor: (readOnly || !expLoc.municipality) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
+                    >
+                      <option value="">{expLoc.loadingBrgy ? 'Loading…' : (expLoc.municipality ? '— Select —' : '— Select Municipality First —')}</option>
+                      {expLoc.barangays.map(b => (
+                        <option key={b.code} value={b.code}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Barangay *</label>
-                  <select
-                    value={expLoc.barangay}
-                    onChange={e => expLoc.setBarangay(e.target.value)}
-                    disabled={clinicalAssessmentLocked || !expLoc.municipality || expLoc.loadingBrgy}
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: (readOnly || !expLoc.municipality) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
-                  >
-                    <option value="">{expLoc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
-                    {expLoc.barangays.map(b => (
-                      <option key={b.code} value={b.code}>{b.name}</option>
-                    ))}
-                  </select>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Purok / Zone</label>
+                  <input
+                    type="text"
+                    value={purok}
+                    onChange={e => setPurok(e.target.value)}
+                    onBlur={e => setPurok(cleanPurok(e.target.value))}
+                    disabled={clinicalAssessmentLocked || (!expLoc.barangay && !expLoc.manualBrgy)}
+                    placeholder={(!expLoc.barangay && !expLoc.manualBrgy) ? 'Select Barangay first' : 'e.g. Purok 1, Zone 2'}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid var(--input-border, #d1d5db)',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      boxSizing: 'border-box',
+                      backgroundColor: (readOnly || (!expLoc.barangay && !expLoc.manualBrgy)) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                      color: (readOnly || (!expLoc.barangay && !expLoc.manualBrgy)) ? '#6b7280' : '#1f2937',
+                      fontFamily: 'inherit',
+                    }}
+                  />
                 </div>
               </div>
             )}
 
             {/* Read-only display when form is read-only and value came from bite record */}
-            {readOnly && !expLoc.full && formData.place_of_exposure && (
+            {readOnly && !expLoc.full && !purok && formData.place_of_exposure && (
               <div style={{ padding: '7px 11px', background: 'var(--bg-secondary, #f9fafb)', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, color: '#374151' }}>
                 {formData.place_of_exposure}
               </div>

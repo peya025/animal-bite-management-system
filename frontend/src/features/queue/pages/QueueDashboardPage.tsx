@@ -11,7 +11,6 @@ import {
   Warning as UrgentIcon,
   Error as EmergencyIcon,
   Restore as TrashBinIcon,
-  SkipNext as CallNextIcon,
 } from '@mui/icons-material';
 import {
   CancelCircleIcon,
@@ -38,7 +37,7 @@ import type { QueueEntry } from '../types';
 import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, CATEGORY_CFG, CATEGORY_LABEL, getPriorityDisplayLabel, waitTime, MAIN_STATUSES } from '../types';
 import { useQueueData } from '../hooks';
 import {
-  callNext, callQueuePatient, serveQueuePatient, markNoResponse,
+  callQueuePatient, skipQueuePatient, serveQueuePatient, markNoResponse,
   recallQueuePatient, markAbsent, cancelQueueEntry,
   updateQueuePriority, trashQueueEntry,
 } from '../services';
@@ -303,8 +302,8 @@ export default function QueueDashboard() {
     }
   };
 
-  const handleCallNext   = () => run(() => callNext(),                                  'Called next patient',                             'No patients waiting or failed to call next');
   const handleCall       = (e: QueueEntry) => run(() => callQueuePatient(e.queue_id),   `Called #${e.queue_number} · ${e.patient.name}`,   'Failed to call patient');
+  const handleSkip       = (e: QueueEntry) => run(() => skipQueuePatient(e.queue_id),   `#${e.queue_number} skipped — calling next patient`, 'Failed to skip patient');
   const handleServe      = (e: QueueEntry) => run(() => serveQueuePatient(e.queue_id),  `#${e.queue_number} is now being served`,           'Failed to mark as serving');
   const handleNoResponse = (e: QueueEntry) => run(() => markNoResponse(e.queue_id),     `#${e.queue_number} moved to Second Chance Queue`, 'Failed to mark no response');
   const handleRecall     = (e: QueueEntry) => run(() => recallQueuePatient(e.queue_id), `#${e.queue_number} recalled`,                     'Failed to recall patient');
@@ -375,6 +374,10 @@ export default function QueueDashboard() {
   const roleScopedNextEntry = isTriageDoctor || isTreatmentNurse
     ? getScopedNextEntry(roleScopedQueue)
     : nextEntry;
+  // The currently-called patient in this role's scope — needed by the Skip button.
+  // A patient must have status "called" (not serving/in_consultation) to be skippable.
+  const calledEntry: QueueEntry | null =
+    roleScopedQueue.find(e => e.status === 'called') ?? null;
   const pageTitle = isTriageDoctor
     ? 'Triage Dashboard'
     : hasIntakeNurseRole && !hasFollowUpNurseRole
@@ -863,32 +866,6 @@ export default function QueueDashboard() {
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={16} sx={{ color: '#10b981' }} />}
 
-          {/* Call Next */}
-          {!isRegistrationStaff && user?.role !== 'admin' && !isTriageDoctor && roleScopedNextEntry && (
-            <Tooltip title="Auto-call next eligible patient">
-              <button
-                onClick={() => {
-                  if ((isTriageDoctor || isTreatmentNurse) && roleScopedNextEntry) {
-                    handleCall(roleScopedNextEntry);
-                    return;
-                  }
-                  handleCallNext();
-                }}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '6px 12px', borderRadius: 8,
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                  color: '#fff', border: 'none', cursor: 'pointer',
-                  fontSize: 12.5, fontWeight: 500, fontFamily: 'inherit',
-                  boxShadow: '0 2px 6px rgba(37,99,235,0.25)', whiteSpace: 'nowrap',
-                }}
-              >
-                <CallNextIcon style={{ fontSize: 15 }} />
-                Call Next
-              </button>
-            </Tooltip>
-          )}
-
           {/* Queue Display */}
           <Tooltip title="Open Queue Display (Full Screen)">
             <button
@@ -952,14 +929,22 @@ export default function QueueDashboard() {
       <SecondaryCountersRow stats={stationStats} />
 
       {/* ── 5. Next Patient Banner (if active) ── */}
-      {!isRegistrationStaff && user?.role !== 'admin' && roleScopedNextEntry && (
+      {/* Render whenever there is a next waiting patient OR a currently called patient.
+          The Skip button lives here and must remain visible even when the queue has no
+          further waiting patients so staff can still skip the currently-called patient. */}
+      {!isRegistrationStaff && user?.role !== 'admin' && (roleScopedNextEntry || calledEntry) && (
         <Box sx={{ mb: 2 }}>
           <NextPatientBanner
-            entry={roleScopedNextEntry}
-            onCall={handleCall}
-            onCallNext={(isTriageDoctor || isTreatmentNurse)
-              ? (() => handleCall(roleScopedNextEntry))
-              : handleCallNext}
+            entry={roleScopedNextEntry ?? calledEntry!}
+            isNextPatient={!!roleScopedNextEntry}
+            calledEntry={calledEntry}
+            onSkip={
+              // All clinical staff (including triage doctors and treatment nurses) get Skip.
+              // Only registration staff and admins are excluded.
+              !isRegistrationStaff
+                ? () => { if (calledEntry) handleSkip(calledEntry); }
+                : undefined
+            }
             showActions={isTriageDoctor || !isRegistrationStaff}
           />
         </Box>

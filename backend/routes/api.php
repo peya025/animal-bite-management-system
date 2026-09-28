@@ -412,7 +412,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             Route::put('/{id}/priority',  [QueueController::class, 'updatePriority']);
         });
 
-        // Call / Serve / Complete / No-Response / Recall / Absent (admin, triage, treatment)
+        // Call / Serve / Complete / No-Response / Recall / Absent / Skip (admin, triage, treatment)
         Route::middleware('role:admin,triage,treatment')->group(function () {
             Route::post('/call-next',        [QueueController::class, 'callNext']);
             Route::post('/{id}/call',        [QueueController::class, 'call']);
@@ -421,6 +421,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             Route::post('/{id}/no-response', [QueueController::class, 'noResponse']);
             Route::post('/{id}/recall',      [QueueController::class, 'recall']);
             Route::post('/{id}/absent',      [QueueController::class, 'markAbsent']);
+            Route::post('/{id}/skip',        [QueueController::class, 'skip']);
         });
 
         // Trash bin (all staff)

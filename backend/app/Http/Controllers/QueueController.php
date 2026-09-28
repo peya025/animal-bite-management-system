@@ -1018,6 +1018,151 @@ class QueueController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
+    // POST /queue/{id}/skip  —  CALLED → WAITING (skip current, call next)
+    // Returns the called patient to the waiting queue without marking them
+    // absent or penalising their position. The client then calls /call-next
+    // to advance to the next eligible patient.
+    // ────────────────────────────────────────────────────────────────────────
+    public function skip(Request $request, $id)
+    {
+        return DB::transaction(function () use ($request, $id) {
+            $clinicId = $request->user()->clinic_id;
+            $userId   = $request->user()->id;
+
+            $queue = Queue::where('clinic_id', $clinicId)
+                ->whereNull('deleted_at')
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            // Only a patient currently in "called" state can be skipped.
+            // Patients who are already being served/in consultation have
+            // started their clinical process and must not be reset.
+            if ($queue->status !== 'called') {
+                return response()->json([
+                    'message' => 'Only patients with status "called" can be skipped. Current status: ' . $queue->status,
+                ], 400);
+            }
+
+            $this->logHistory($queue, 'skipped', 'waiting', $userId,
+                'Patient skipped — returned to waiting queue to allow next patient to be called');
+
+            // Preserve the queue number and clinical record. Only reset the
+            // call state so the patient re-enters the waiting pool naturally.
+            $skipNote = '[Skipped] Returned to queue at ' . now()->format('H:i');
+            $existingNotes = $queue->check_in_notes;
+            $updatedNotes  = $existingNotes
+                ? $existingNotes . ' | ' . $skipNote
+                : $skipNote;
+
+            $queue->update([
+                'status'     => 'waiting',
+                'called_at'  => null,
+                // keep call_count: the patient was already announced once
+                'check_in_notes' => $updatedNotes,
+            ]);
+
+            $this->flushCache($clinicId, $queue->queue_date->toDateString());
+
+            // Determine the station scope for the next call (mirrors callNext logic)
+            $userRole = $request->user()->role ?? null;
+            $station  = $request->get('station');
+            if (!$station) {
+                if ($userRole === 'triage') $station = 'triage';
+                elseif ($userRole === 'treatment') $station = 'treatment';
+            }
+
+            // Pick the next eligible patient, explicitly excluding the just-skipped
+            // patient so they are not immediately re-called in the same action.
+            $date = Carbon::today()->toDateString();
+            $next = $this->getNextEligibleExcluding($clinicId, $date, $station, $queue->queue_id);
+
+            if (!$next) {
+                // No other patient waiting — skip succeeded, queue is now empty.
+                return response()->json([
+                    'message'       => "#{$queue->queue_number} returned to queue. No other patients are waiting.",
+                    'skipped_queue' => $queue->fresh()->load(['patient', 'biteIncident']),
+                    'next_called'   => null,
+                ]);
+            }
+
+            // Lock and call the next patient
+            $nextQueue = Queue::where('clinic_id', $clinicId)
+                ->whereNull('deleted_at')
+                ->where('queue_id', $next->queue_id)
+                ->where('status', 'waiting')
+                ->lockForUpdate()
+                ->first();
+
+            if (!$nextQueue) {
+                // Race condition — another workstation already called this patient
+                return response()->json([
+                    'message'       => "#{$queue->queue_number} returned to queue. Next patient was already called.",
+                    'skipped_queue' => $queue->fresh()->load(['patient', 'biteIncident']),
+                    'next_called'   => null,
+                ], 200);
+            }
+
+            $this->logHistory($nextQueue, 'called', 'called', $userId, 'Called after skip');
+
+            $nextQueue->update([
+                'status'             => 'called',
+                'called_at'          => now(),
+                'call_count'         => ($nextQueue->call_count ?? 0) + 1,
+                'handled_by'         => $userId,
+                'served_by'          => $userId,
+                'serving_started_at' => now(),
+                'station_id'         => $request->get('station_id') ?: $nextQueue->station_id,
+            ]);
+
+            $this->flushCache($clinicId, $date);
+
+            return response()->json([
+                'message'       => "#{$queue->queue_number} skipped. Now calling #{$nextQueue->queue_number}.",
+                'skipped_queue' => $queue->fresh()->load(['patient', 'biteIncident']),
+                'next_called'   => $nextQueue->fresh()->load(['patient', 'biteIncident', 'servedBy', 'station']),
+                'queue_number'  => $nextQueue->queue_number,
+            ]);
+        });
+    }
+
+    // ── Helper: next eligible patient excluding a specific queue_id ───────────
+    private function getNextEligibleExcluding(int $clinicId, string $date, ?string $station, int $excludeQueueId): ?Queue
+    {
+        $categoryOrder = self::CATEGORY_ORDER;
+
+        $query = Queue::where('clinic_id', $clinicId)
+            ->whereNull('deleted_at')
+            ->where('status', 'waiting')
+            ->where('queue_id', '!=', $excludeQueueId)
+            ->where(function ($q) use ($date) {
+                $q->where('queue_date', $date)
+                  ->orWhere(function ($s) use ($date) {
+                      $s->where('queue_date', '<', $date)
+                        ->whereIn('status', self::MAIN_STATUSES);
+                  });
+            });
+
+        if ($station === 'triage') {
+            $query->whereIn('visit_type', ['new_case', 'consultation']);
+        } elseif ($station === 'treatment') {
+            $query->whereIn('visit_type', ['vaccination', 'follow_up', 'observation', 'booster']);
+        }
+
+        $waiting = $query->with(['patient:' . $this->patientFields(), 'biteIncident:bite_id,case_number,patient_id'])
+            ->get();
+
+        if ($waiting->isEmpty()) return null;
+
+        $priorityLevel = ['emergency' => 1, 'urgent' => 2, 'normal' => 3];
+
+        return $waiting->sortBy([
+            fn($a, $b) => ($categoryOrder[$a->queue_category] ?? 4) <=> ($categoryOrder[$b->queue_category] ?? 4),
+            fn($a, $b) => ($priorityLevel[$a->priority] ?? 3) <=> ($priorityLevel[$b->priority] ?? 3),
+            fn($a, $b) => $a->queue_number <=> $b->queue_number,
+        ])->first();
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
     // GET /queue/statistics
     // ────────────────────────────────────────────────────────────────────────
     public function statistics(Request $request)

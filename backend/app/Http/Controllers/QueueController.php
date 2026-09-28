@@ -693,6 +693,27 @@ class QueueController extends Controller
                     : $queue->check_in_notes,
             ]);
 
+            // If this queue ticket was linked to a confirmed appointment, revert it back to scheduled or missed
+            if ($queue->patient_id) {
+                $confirmedAppts = \App\Models\Appointment::where('clinic_id', $queue->clinic_id)
+                    ->where('patient_id', $queue->patient_id)
+                    ->where('status', 'confirmed')
+                    ->where(function ($q) use ($queue) {
+                        $q->where('queue_number', $queue->queue_number)
+                          ->orWhereNull('queue_number');
+                    })
+                    ->get();
+
+                foreach ($confirmedAppts as $appt) {
+                    $apptDate = $appt->scheduled_date ?? $appt->appointment_date;
+                    $isPast = $apptDate && \Carbon\Carbon::parse($apptDate)->isBefore(\Carbon\Carbon::today());
+                    $appt->update([
+                        'status' => $isPast ? 'missed' : 'scheduled',
+                        'queue_number' => null,
+                    ]);
+                }
+            }
+
             $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json(['message' => "#{$queue->queue_number} cancelled"]);

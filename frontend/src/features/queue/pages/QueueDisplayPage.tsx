@@ -15,6 +15,7 @@ interface QueueEntry {
   station?: { id: number; name: string } | null;
   served_by?: number | null;
   servedBy?: { id: number; name: string; role?: string } | null;
+  check_in_notes?: string | null;
 }
 
 // A booster request remains with the Doctor until assessment approval. Only
@@ -26,7 +27,20 @@ function isFollowUpEntry(entry: QueueEntry): boolean {
   const stationName = (entry.station?.name || '').toLowerCase();
   if (stationName.includes('follow-up') || stationName.includes('station 2')) return true;
   if (stationName.includes('intake') || stationName.includes('station 1')) return false;
-  return entry.visit_type === 'follow_up';
+  if (entry.visit_type === 'follow_up') return true;
+
+  const notes = (entry.check_in_notes || '').toLowerCase();
+  if (
+    notes.includes('day 3') ||
+    notes.includes('day 7') ||
+    notes.includes('day 14') ||
+    notes.includes('day 28') ||
+    notes.includes('follow-up') ||
+    notes.includes('booster')
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function getDisplayLane(entry: QueueEntry): 'triage' | 'station1' | 'station2' {

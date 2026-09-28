@@ -28,11 +28,13 @@ import {
   Search01Icon,
   RefreshIcon,
   ViewIcon,
+  Cancel01Icon,
 } from '@hugeicons/core-free-icons';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import StatCard from '../../../components/common/StatCard/StatCard';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
@@ -76,6 +78,8 @@ export default function NursePatientListPage() {
   const [selectedCardPatientId, setSelectedCardPatientId] = useState<number | null>(null);
   const [showTreatmentCardModal, setShowTreatmentCardModal] = useState(false);
   const [checkingInId, setCheckingInId] = useState<number | null>(null);
+  const [patientToCancelCheckIn, setPatientToCancelCheckIn] = useState<Patient | null>(null);
+  const [cancellingCheckInId, setCancellingCheckInId] = useState<number | null>(null);
 
   // Stats for top summary cards
   const [kpiStats, setKpiStats] = useState({
@@ -130,12 +134,32 @@ export default function NursePatientListPage() {
       const msg = response.data?.message || 'Patient checked in successfully';
       toast(msg, 'success');
 
+      // Automatically switch to Due Today tab so nurse sees the patient ready for dose
+      setTab('due_today');
+      setPage(0);
+
       // Reload patients to reflect checked-in status and unlock Form 3
       await loadPatients();
     } catch (err: any) {
       toast(err.response?.data?.message || 'Failed to check in patient', 'error');
     } finally {
       setCheckingInId(null);
+    }
+  };
+
+  const handleCancelCheckIn = async () => {
+    if (!patientToCancelCheckIn) return;
+    setCancellingCheckInId(patientToCancelCheckIn.patient_id);
+    try {
+      const response = await api.post(`/appointments/patient/${patientToCancelCheckIn.patient_id}/cancel-check-in`);
+      const msg = response.data?.message || 'Check-in cancelled successfully';
+      toast(msg, 'success');
+      setPatientToCancelCheckIn(null);
+      await loadPatients();
+    } catch (err: any) {
+      toast(err.response?.data?.message || 'Failed to cancel check-in', 'error');
+    } finally {
+      setCancellingCheckInId(null);
     }
   };
 
@@ -586,29 +610,55 @@ export default function NursePatientListPage() {
                 {checkingInId === patient.patient_id ? 'Checking in...' : 'Check In'}
               </Button>
             ) : (
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => {
-                  setSelectedPatient(patient);
-                  setShowForm3(true);
-                }}
-                startIcon={<HugeiconsIcon icon={Medicine01Icon} size={15} />}
-                sx={{
-                  fontSize: 12,
-                  py: 0.4,
-                  px: 1.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  borderRadius: '6px',
-                  borderColor: '#bbf7d0',
-                  color: '#166534',
-                  bgcolor: '#f0fdf4',
-                  '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
-                }}
-              >
-                Record Dose (Form 3)
-              </Button>
+              <>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    setSelectedPatient(patient);
+                    setShowForm3(true);
+                  }}
+                  startIcon={<HugeiconsIcon icon={Medicine01Icon} size={15} />}
+                  sx={{
+                    fontSize: 12,
+                    py: 0.4,
+                    px: 1.5,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    borderColor: '#bbf7d0',
+                    color: '#166534',
+                    bgcolor: '#f0fdf4',
+                    '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
+                  }}
+                >
+                  Record Dose (Form 3)
+                </Button>
+
+                <Tooltip title="Cancel check-in (mistakenly clicked check-in)">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={cancellingCheckInId === patient.patient_id}
+                    onClick={() => setPatientToCancelCheckIn(patient)}
+                    startIcon={<HugeiconsIcon icon={Cancel01Icon} size={14} />}
+                    sx={{
+                      fontSize: 12,
+                      py: 0.4,
+                      px: 1.2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      borderColor: '#fecaca',
+                      color: '#dc2626',
+                      bgcolor: '#fef2f2',
+                      '&:hover': { bgcolor: '#fee2e2', borderColor: '#f87171' },
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Tooltip>
+              </>
             )}
 
             <Tooltip title="View Treatment Record Card (Printable)">
@@ -914,6 +964,34 @@ export default function NursePatientListPage() {
             setShowTreatmentCardModal(false);
             setSelectedCardPatientId(null);
           }}
+        />
+      )}
+
+      {/* Cancel Check-in Confirmation Dialog */}
+      {patientToCancelCheckIn && (
+        <ConfirmationDialog
+          variant="warning"
+          title="Cancel Check-in?"
+          message={
+            <Box>
+              <Typography sx={{ fontSize: 14, mb: 1, color: '#374151' }}>
+                Are you sure you want to cancel the check-in for{' '}
+                <strong>
+                  {patientToCancelCheckIn.last_name}, {patientToCancelCheckIn.first_name}
+                </strong>
+                ?
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: '#6b7280' }}>
+                This will remove the patient from today's treatment queue and restore their scheduled appointment.
+              </Typography>
+            </Box>
+          }
+          confirmLabel={cancellingCheckInId ? 'Cancelling...' : 'Yes, Cancel Check-in'}
+          cancelLabel="Keep Checked In"
+          loading={Boolean(cancellingCheckInId)}
+          onConfirm={handleCancelCheckIn}
+          onCancel={() => setPatientToCancelCheckIn(null)}
+          onClose={() => setPatientToCancelCheckIn(null)}
         />
       )}
 

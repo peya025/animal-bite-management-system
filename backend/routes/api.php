@@ -458,6 +458,8 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             Route::get('/overdue', [AppointmentController::class, 'overdue']);
             Route::post('/{id}/check-in', [AppointmentController::class, 'checkIn']);
             Route::post('/patient/{patientId}/check-in', [AppointmentController::class, 'checkInByPatient']);
+            Route::post('/patient/{patientId}/cancel-check-in', [AppointmentController::class, 'cancelCheckInByPatient']);
+            Route::post('/{id}/cancel-check-in', [AppointmentController::class, 'cancelCheckIn']);
         });
     });
 

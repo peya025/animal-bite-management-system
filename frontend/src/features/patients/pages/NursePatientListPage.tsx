@@ -6,9 +6,13 @@ import {
   Button,
   Chip,
   CircularProgress,
+  FormControl,
   IconButton,
   InputAdornment,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Snackbar,
   Stack,
   Tab,
@@ -65,8 +69,9 @@ interface Patient {
 export default function NursePatientListPage() {
   const navigate = useNavigate();
 
-  // Default to Needs Action so nurses immediately see patients requiring attention (due today, overdue, in queue)
-  const [tab, setTab] = useState<'needs_action' | 'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('needs_action');
+  // Default to Due Today so nurses immediately see patients requiring dose administration today
+  const [tab, setTab] = useState<'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('due_today');
+  const [doseFilter, setDoseFilter] = useState<'all' | '3' | '7' | 'booster'>('all');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -83,7 +88,6 @@ export default function NursePatientListPage() {
 
   // Stats for top summary cards
   const [kpiStats, setKpiStats] = useState({
-    needsAction: 0,
     dueToday: 0,
     online: 0,
     upcoming: 0,
@@ -104,6 +108,7 @@ export default function NursePatientListPage() {
         params: {
           tab,
           search: search || undefined,
+          dose: doseFilter !== 'all' ? doseFilter : undefined,
           page: page + 1,
           per_page: rowsPerPage,
         },
@@ -113,7 +118,6 @@ export default function NursePatientListPage() {
       setTotalCount(response.data.total || 0);
 
       setKpiStats({
-        needsAction: response.data.needs_action_count ?? 0,
         dueToday: response.data.due_today_count ?? 0,
         online: response.data.online_count ?? 0,
         upcoming: response.data.upcoming_count ?? 0,
@@ -165,7 +169,7 @@ export default function NursePatientListPage() {
 
   useEffect(() => {
     loadPatients();
-  }, [tab, page, rowsPerPage]);
+  }, [tab, page, rowsPerPage, doseFilter]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -173,7 +177,7 @@ export default function NursePatientListPage() {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [tab, page, rowsPerPage]);
+  }, [tab, page, rowsPerPage, doseFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -687,7 +691,47 @@ export default function NursePatientListPage() {
     },
   ];
 
-  const filteredPatients = patients;
+  const getPatientTargetDose = (patient: Patient): '3' | '7' | 'booster' | 'other' => {
+    const appt = getNextAppointment(patient);
+    if (appt) {
+      const isBoosterAppt = appt.appointment_type === 'booster' ||
+        appt.notes?.toLowerCase()?.includes('booster') ||
+        (typeof appt.dose_number === 'number' && appt.dose_number >= 90);
+      if (isBoosterAppt) return 'booster';
+
+      const notes = (appt.notes || '').toLowerCase();
+      if (appt.dose_number === 3 || notes.includes('day 3') || notes.includes('dose 1')) return '3';
+      if (appt.dose_number === 7 || notes.includes('day 7') || notes.includes('dose 2')) return '7';
+
+      // Fallback based on latest administered dose if appointment has no dose_number
+      const prevDose = patient.latest_treatment_record?.dose_number;
+      if (prevDose === 0) return '3';
+      if (prevDose === 3) return '7';
+      if (prevDose !== undefined && prevDose !== null && prevDose >= 7) return 'booster';
+    }
+
+    const activeQueue = (patient as any).queues?.[0];
+    if (activeQueue) {
+      const notes = ((activeQueue.check_in_notes || '') + ' ' + (activeQueue.consultation_notes || '')).toLowerCase();
+      if (activeQueue.visit_type === 'booster' || notes.includes('booster')) return 'booster';
+      if (notes.includes('day 3') || notes.includes('dose 1')) return '3';
+      if (notes.includes('day 7') || notes.includes('dose 2')) return '7';
+    }
+
+    const prevDose = patient.latest_treatment_record?.dose_number;
+    if (prevDose === 0) return '3';
+    if (prevDose === 3) return '7';
+    if (prevDose !== undefined && prevDose !== null && prevDose >= 7) return 'booster';
+
+    return 'other';
+  };
+
+  const isMatchDose = (patient: Patient, filter: 'all' | '3' | '7' | 'booster') => {
+    if (filter === 'all') return true;
+    return getPatientTargetDose(patient) === filter;
+  };
+
+  const filteredPatients = patients.filter((p) => isMatchDose(p, doseFilter));
 
   return (
     <Box sx={{ px: 3 }}>
@@ -741,10 +785,7 @@ export default function NursePatientListPage() {
       </Box>
 
       {/* ── Top Circular Ring Summary Cards ── */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' }, gap: 2, mb: 3 }}>
-        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('needs_action'); setPage(0); }}>
-          <StatCard label="NEEDS ACTION" value={kpiStats.needsAction} color="warning" total={totalCount || 1} loading={loading} />
-        </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
         <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('due_today'); setPage(0); }}>
           <StatCard label="DUE TODAY" value={kpiStats.dueToday} color="info" total={totalCount || 1} loading={loading} />
         </Box>
@@ -780,19 +821,6 @@ export default function NursePatientListPage() {
             '& .MuiTabs-indicator': { bgcolor: '#10b981', height: 3, borderRadius: '3px 3px 0 0' },
           }}
         >
-          <Tab
-            label={
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <span>Needs Action</span>
-                <Box sx={{ bgcolor: tab === 'needs_action' ? '#fef3c7' : '#f3f4f6', color: tab === 'needs_action' ? '#b45309' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
-                  {kpiStats.needsAction}
-                </Box>
-              </Stack>
-            }
-            value="needs_action"
-            icon={<HugeiconsIcon icon={AlertCircleIcon} size={17} />}
-            iconPosition="start"
-          />
           <Tab
             label={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -863,8 +891,8 @@ export default function NursePatientListPage() {
 
       {/* ── Patient Table Container ── */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
-        {/* Search Bar */}
-        <Box sx={{ mb: 3 }}>
+        {/* Search Bar & Dose Filter */}
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 3, alignItems: 'stretch' }}>
           <TextField
             fullWidth
             size="small"
@@ -881,17 +909,58 @@ export default function NursePatientListPage() {
               },
             }}
             sx={{
+              flex: 1,
               '& .MuiOutlinedInput-root': {
                 bgcolor: '#f9fafb',
                 borderRadius: 2,
                 fontSize: 13,
+                height: 40,
                 '& fieldset': { borderColor: '#e5e7eb' },
                 '&:hover fieldset': { borderColor: '#9ca3af' },
                 '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '1.5px' },
               },
             }}
           />
-        </Box>
+
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 220 } }}>
+            <InputLabel id="dose-filter-label" sx={{ fontSize: 13, fontWeight: 500 }}>
+              Dose Filter
+            </InputLabel>
+            <Select
+              labelId="dose-filter-label"
+              id="dose-filter-select"
+              value={doseFilter}
+              label="Dose Filter"
+              onChange={(e) => {
+                setDoseFilter(e.target.value as 'all' | '3' | '7' | 'booster');
+                setPage(0);
+              }}
+              sx={{
+                bgcolor: '#f9fafb',
+                borderRadius: 2,
+                fontSize: 13,
+                fontWeight: 600,
+                height: 40,
+                '& fieldset': { borderColor: '#e5e7eb' },
+                '&:hover fieldset': { borderColor: '#9ca3af' },
+                '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '1.5px' },
+              }}
+            >
+              <MenuItem value="all" sx={{ fontSize: 13 }}>
+                All Doses
+              </MenuItem>
+              <MenuItem value="3" sx={{ fontSize: 13, fontWeight: 600, color: '#047857' }}>
+                Day 3 (Dose 1)
+              </MenuItem>
+              <MenuItem value="7" sx={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>
+                Day 7 (Dose 2)
+              </MenuItem>
+              <MenuItem value="booster" sx={{ fontSize: 13, fontWeight: 600, color: '#7c3aed' }}>
+                Booster Doses
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
 
         <DataTable
           columns={columns}
@@ -904,8 +973,6 @@ export default function NursePatientListPage() {
           emptySubtitle={
             tab === 'due_today'
               ? 'No patients scheduled for dose administration today'
-              : tab === 'needs_action'
-              ? 'No patients requiring follow-up action right now'
               : tab === 'overdue'
               ? 'No overdue follow-up doses'
               : tab === 'online'

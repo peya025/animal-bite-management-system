@@ -185,47 +185,69 @@ class AppointmentController extends Controller
 
             $query = Patient::where('clinic_id', $clinicId);
 
+            $isBoosterFilter = $request->get('dose') === 'booster';
+
             // Station 2 is for pre-approved scheduled doses only. A booster request
             // is a new clinical visit and must remain out of the nurse worklist until
-            // Doctor assessment has approved its Day 0 treatment.
-            $followUpAppointment = function ($appointmentQuery) {
-                $appointmentQuery->where('dose_number', '>', 0)
-                    ->where(function ($plan) {
-                        // Legacy episodes have no plan. New plan-driven episodes
-                        // reach Station 2 only when the Doctor ordered full PEP.
-                        $plan->whereDoesntHave('biteIncident.treatmentPlan')
-                            ->orWhereHas('biteIncident.treatmentPlan', function ($treatmentPlan) {
-                                $treatmentPlan->where('plan_type', 'full_pep')
-                                    ->where('status', 'approved');
-                            });
-                    })
-                    ->where(function ($stream) {
-                        $stream->whereNull('appointment_type')
-                            ->orWhere('appointment_type', '!=', 'booster');
-                    })
-                    ->where(function ($stream) {
-                        $stream->whereNull('notes')
-                            ->orWhere('notes', 'not like', '%booster%');
+            // Doctor assessment has approved its Day 0 treatment, unless specifically filtering by booster doses.
+            $followUpAppointment = function ($appointmentQuery) use ($isBoosterFilter) {
+                if ($isBoosterFilter) {
+                    $appointmentQuery->where(function ($q) {
+                        $q->where('dose_number', '>=', 90)
+                          ->orWhere('appointment_type', 'booster')
+                          ->orWhere('notes', 'like', '%booster%');
                     });
+                } else {
+                    $appointmentQuery->where('dose_number', '>', 0)
+                        ->where(function ($stream) {
+                            $stream->whereNull('appointment_type')
+                                ->orWhere('appointment_type', '!=', 'booster');
+                        })
+                        ->where(function ($stream) {
+                            $stream->whereNull('notes')
+                                ->orWhere('notes', 'not like', '%booster%');
+                        });
+                }
+
+                $appointmentQuery->where(function ($plan) {
+                    // Legacy episodes have no plan. New plan-driven episodes
+                    // reach Station 2 only when the Doctor ordered full PEP or booster.
+                    $plan->whereDoesntHave('biteIncident.treatmentPlan')
+                        ->orWhereHas('biteIncident.treatmentPlan', function ($treatmentPlan) {
+                            $treatmentPlan->whereIn('plan_type', ['full_pep', 'two_dose_booster', 'single_booster'])
+                                ->where('status', 'approved');
+                        });
+                });
             };
-            $followUpQueue = function ($queueQuery) {
+
+            $followUpQueue = function ($queueQuery) use ($isBoosterFilter) {
                 $queueQuery->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
-                    ->whereDate('queue_date', Carbon::today())
-                    ->where('visit_type', '!=', 'booster')
-                    ->where(function ($plan) {
-                        $plan->whereDoesntHave('biteIncident.treatmentPlan')
-                            ->orWhereHas('biteIncident.treatmentPlan', function ($treatmentPlan) {
-                                $treatmentPlan->where('plan_type', 'full_pep')
-                                    ->where('status', 'approved');
-                            });
-                    })
-                    ->where(function ($stream) {
+                    ->whereDate('queue_date', Carbon::today());
+
+                if (!$isBoosterFilter) {
+                    $queueQuery->where('visit_type', '!=', 'booster');
+                }
+
+                $queueQuery->where(function ($plan) {
+                    $plan->whereDoesntHave('biteIncident.treatmentPlan')
+                        ->orWhereHas('biteIncident.treatmentPlan', function ($treatmentPlan) {
+                            $treatmentPlan->whereIn('plan_type', ['full_pep', 'two_dose_booster', 'single_booster'])
+                                ->where('status', 'approved');
+                        });
+                })
+                ->where(function ($stream) use ($isBoosterFilter) {
+                    if ($isBoosterFilter) {
+                        $stream->where('visit_type', 'booster')
+                            ->orWhere('check_in_notes', 'like', '%booster%')
+                            ->orWhere('consultation_notes', 'like', '%booster%');
+                    } else {
                         $stream->where('visit_type', 'follow_up')
                             ->orWhereHas('station', function ($station) {
                                 $station->where('name', 'like', '%Follow-up%')
                                     ->orWhere('name', 'like', '%Follow up%');
                             });
-                    });
+                    }
+                });
             };
 
             // Auto-complete any appointments where the corresponding dose was already administered in treatment_records
@@ -474,6 +496,105 @@ class AppointmentController extends Controller
                       ->orWhere('patient_id', 'like', "%{$search}%")
                       ->orWhere('patient_number', 'like', "%{$search}%");
                 });
+            }
+
+            // Dose filter: '3', '7', 'booster'
+            if ($request->filled('dose') && in_array($request->dose, ['3', '7', 'booster'], true)) {
+                $dose = $request->dose;
+                if ($dose === '3') {
+                    $query->where(function ($q) {
+                        $q->whereHas('appointments', function ($app) {
+                            $app->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                                ->where(function ($sub) {
+                                    $sub->where('dose_number', 3)
+                                        ->orWhere('notes', 'like', '%Day 3%')
+                                        ->orWhere('notes', 'like', '%Dose 1%');
+                                });
+                        })->orWhere(function ($q2) {
+                            $q2->whereDoesntHave('appointments', function ($app) {
+                                $app->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                                    ->where('dose_number', '!=', 3);
+                            })->where(function ($fallback) {
+                                $fallback->whereHas('queues', function ($qu) {
+                                    $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                                       ->where(function ($qn) {
+                                           $qn->where('check_in_notes', 'like', '%Day 3%')
+                                              ->orWhere('check_in_notes', 'like', '%Dose 1%')
+                                              ->orWhere('consultation_notes', 'like', '%Day 3%')
+                                              ->orWhere('consultation_notes', 'like', '%Dose 1%');
+                                       });
+                                })->orWhere(function ($trQ) {
+                                    $trQ->whereHas('treatmentRecords', function ($tr) {
+                                        $tr->where('dose_number', 0)->where('status', 'completed');
+                                    })->whereDoesntHave('treatmentRecords', function ($tr) {
+                                        $tr->where('dose_number', '>=', 3)->where('status', 'completed');
+                                    });
+                                });
+                            });
+                        });
+                    });
+                } elseif ($dose === '7') {
+                    $query->where(function ($q) {
+                        $q->whereHas('appointments', function ($app) {
+                            $app->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                                ->where(function ($sub) {
+                                    $sub->where('dose_number', 7)
+                                        ->orWhere('notes', 'like', '%Day 7%')
+                                        ->orWhere('notes', 'like', '%Dose 2%');
+                                });
+                        })->orWhere(function ($q2) {
+                            $q2->whereDoesntHave('appointments', function ($app) {
+                                $app->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                                    ->where('dose_number', '!=', 7);
+                            })->where(function ($fallback) {
+                                $fallback->whereHas('queues', function ($qu) {
+                                    $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                                       ->where(function ($qn) {
+                                           $qn->where('check_in_notes', 'like', '%Day 7%')
+                                              ->orWhere('check_in_notes', 'like', '%Dose 2%')
+                                              ->orWhere('consultation_notes', 'like', '%Day 7%')
+                                              ->orWhere('consultation_notes', 'like', '%Dose 2%');
+                                       });
+                                })->orWhere(function ($trQ) {
+                                    $trQ->whereHas('treatmentRecords', function ($tr) {
+                                        $tr->where('dose_number', 3)->where('status', 'completed');
+                                    })->whereDoesntHave('treatmentRecords', function ($tr) {
+                                        $tr->where('dose_number', '>=', 7)->where('status', 'completed');
+                                    });
+                                });
+                            });
+                        });
+                    });
+                } elseif ($dose === 'booster') {
+                    $query->where(function ($q) {
+                        $q->whereHas('appointments', function ($app) {
+                            $app->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                                ->where(function ($sub) {
+                                    $sub->where('appointment_type', 'booster')
+                                        ->orWhere('dose_number', '>=', 90)
+                                        ->orWhere('notes', 'like', '%booster%');
+                                });
+                        })->orWhere(function ($q2) {
+                            $q2->whereDoesntHave('appointments', function ($app) {
+                                $app->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                                    ->where(function ($sub) {
+                                        $sub->where('dose_number', 3)->orWhere('dose_number', 7);
+                                    });
+                            })->where(function ($fallback) {
+                                $fallback->whereHas('queues', function ($qu) {
+                                    $qu->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                                       ->where(function ($qn) {
+                                           $qn->where('visit_type', 'booster')
+                                              ->orWhere('check_in_notes', 'like', '%booster%')
+                                              ->orWhere('consultation_notes', 'like', '%booster%');
+                                       });
+                                })->orWhereHas('treatmentRecords', function ($tr) {
+                                    $tr->where('dose_number', '>=', 7)->where('status', 'completed');
+                                });
+                            });
+                        });
+                    });
+                }
             }
 
             if ($tab === 'needs_action') {

@@ -16,6 +16,8 @@ interface QueueEntry {
   served_by?: number | null;
   servedBy?: { id: number; name: string; role?: string } | null;
   check_in_notes?: string | null;
+  called_at?: string | null;
+  call_count?: number;
 }
 
 // A booster request remains with the Doctor until assessment approval. Only
@@ -214,7 +216,9 @@ export default function QueueDisplayPage() {
   const [, setLoading] = useState(true);
   const [blink, setBlink]     = useState(true);
   const [lastCall, setLastCall] = useState<QueueEntry | null>(null);
-  const prevCalledRef  = useRef<Set<number>>(new Set());
+  const [callNoticeId, setCallNoticeId] = useState(0);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevCalledRef  = useRef<Set<string>>(new Set());
   const autoCallingRef = useRef<Set<number>>(new Set()); // guard against duplicate auto-calls
   const audioCtxRef   = useRef<AudioContext | null>(null);
 
@@ -250,6 +254,44 @@ export default function QueueDisplayPage() {
     } catch { /* ignore */ }
   }, []);
 
+  // Show notice immediately and restart 5-second timer
+  const triggerCallNotice = useCallback((entry: QueueEntry) => {
+    setLastCall(entry);
+    setCallNoticeId(prev => prev + 1);
+    playChime();
+  }, [playChime]);
+
+  // Automatically close notice 5 seconds after it appears.
+  // If another patient is called, callNoticeId increments,
+  // cancelling the previous timer and immediately starting a new 5-second timer.
+  useEffect(() => {
+    if (!lastCall) {
+      if (dismissTimerRef.current) {
+        clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+    }
+
+    dismissTimerRef.current = setTimeout(() => {
+      setLastCall(null);
+      dismissTimerRef.current = null;
+    }, 5000);
+
+    return () => {
+      if (dismissTimerRef.current) {
+        clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = null;
+      }
+    };
+  }, [lastCall, callNoticeId]);
+
+  const getCallKey = (e: QueueEntry) => `${e.queue_id}:${e.call_count ?? 0}:${e.called_at ?? e.status}`;
+
   // Load queue + auto-call next patient when a station slot is free
   const loadQueue = useCallback(async () => {
     try {
@@ -259,9 +301,12 @@ export default function QueueDisplayPage() {
 
       // Chime notification for newly active (called/serving) patients
       const ACTIVE_STATUSES = ['called', 'serving', 'in_consultation'];
-      const nowCalled = new Set(entries.filter(e => ACTIVE_STATUSES.includes(e.status)).map(e => e.queue_id));
-      const newlyCalled = entries.find(e => ACTIVE_STATUSES.includes(e.status) && !prevCalledRef.current.has(e.queue_id));
-      if (newlyCalled) { setLastCall(newlyCalled); playChime(); }
+      const activeEntries = entries.filter(e => ACTIVE_STATUSES.includes(e.status));
+      const nowCalled = new Set(activeEntries.map(getCallKey));
+      const newlyCalled = activeEntries.find(e => !prevCalledRef.current.has(getCallKey(e)));
+      if (newlyCalled) {
+        triggerCallNotice(newlyCalled);
+      }
       prevCalledRef.current = nowCalled;
 
       // Auto-call independently for Doctor, Station 1, and Station 2. One busy
@@ -279,12 +324,17 @@ export default function QueueDisplayPage() {
 
         autoCallingRef.current.add(nextWaiting.queue_id);
         api.post(`/queue/${nextWaiting.queue_id}/call`)
-          .then(() => playChime())
+          .then((postRes) => {
+            const calledEntry = postRes.data?.queue || { ...nextWaiting, status: 'called' as const };
+            triggerCallNotice(calledEntry);
+            prevCalledRef.current.add(getCallKey(calledEntry));
+            loadQueue();
+          })
           .catch(() => {/* ignore — next poll will retry if still needed */})
           .finally(() => autoCallingRef.current.delete(nextWaiting.queue_id));
       }
     } catch { /* ignore */ }
-  }, [playChime]);
+  }, [triggerCallNotice]);
 
   useEffect(() => {
     loadQueue();
@@ -386,10 +436,8 @@ export default function QueueDisplayPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
       }}>
-        <span style={{ fontSize: 18 }}>🔔</span>
-        <span>PLEASE LISTEN FOR YOUR NUMBER AND PROCEED TO THE ASSIGNED STATION</span>
+        <span>PROCEED TO THE ASSIGNED STATION</span>
       </div>
 
       {/* ── Two Column Master Layout ── */}
@@ -692,83 +740,120 @@ export default function QueueDisplayPage() {
         </div>
       </div>
 
-      {/* ── Bottom Ticker ── */}
-      <div style={{
-        background: '#10b981',
-        padding: '10px 36px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontSize: 12,
-        fontWeight: 600,
-        color: '#ffffff',
-        borderTop: '1px solid #059669',
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.04)',
-      }}>
-        <span>🔔 Auto-refreshes every 5 seconds</span>
-        <span>
-          Triage: {triageWaiting.length} waiting
-          &nbsp;·&nbsp;
-          Station 1 (Intake): {st1Waiting.length} waiting
-          &nbsp;·&nbsp;
-          Station 2 (Follow-up): {st2Waiting.length} waiting
-          &nbsp;·&nbsp;
-          {queue.filter(q => q.status === 'completed').length} completed today
-        </span>
-        <a href="/queue" style={{ color: '#d1fae5', textDecoration: 'none', fontWeight: 700 }}>
-          ← Back to Dashboard
-        </a>
-      </div>
 
       {/* ── Voice / Chime Announcement Banner Overlay ── */}
       {lastCall && (
-        <div style={{
-          position: 'fixed',
-          top: 24,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-          borderRadius: 16,
-          padding: '16px 36px',
-          boxShadow: '0 12px 36px rgba(0,0,0,0.3)',
-          zIndex: 9999,
-          textAlign: 'center',
-          animation: 'slideDown 0.3s ease',
-          minWidth: 320,
-          border: '1.5px solid #334155',
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: '#94a3b8' }}>
+        <div
+          key={`notice-${lastCall.queue_id}-${callNoticeId}`}
+          style={{
+            position: 'fixed',
+            top: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#ffffff',
+            borderRadius: 18,
+            padding: '20px 36px 24px',
+            boxShadow: '0 20px 48px -8px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.08)',
+            zIndex: 9999,
+            textAlign: 'center',
+            animation: 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            minWidth: 360,
+            maxWidth: '90vw',
+            border: '2px solid #e2e8f0',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Badge: NOW CALLING */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            padding: '4px 14px',
+            borderRadius: 999,
+            background: '#ecfdf5',
+            border: '1.5px solid #a7f3d0',
+            fontSize: 12,
+            fontWeight: 900,
+            letterSpacing: 2,
+            textTransform: 'uppercase',
+            color: '#065f46',
+            marginBottom: 6,
+          }}>
+            <span style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: '#059669',
+              boxShadow: '0 0 6px #059669',
+              display: 'inline-block',
+            }} />
             NOW CALLING
           </div>
-          <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1, color: '#38bdf8', fontVariantNumeric: 'tabular-nums', margin: '4px 0' }}>
+
+          {/* Queue Number */}
+          <div style={{
+            fontSize: 56,
+            fontWeight: 900,
+            lineHeight: 1.05,
+            color: '#1d4ed8',
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: -1,
+            margin: '4px 0 6px',
+          }}>
             #{padNum(lastCall.queue_number)}
           </div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#ffffff' }}>
+
+          {/* Patient Name */}
+          <div style={{
+            fontSize: 22,
+            fontWeight: 800,
+            color: '#0f172a',
+            lineHeight: 1.25,
+            maxWidth: 420,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
             {lastCall.patient.name}
           </div>
-          <div style={{ fontSize: 13, color: '#a7f3d0', fontWeight: 600, marginTop: 4 }}>
-            ➔ Please proceed to {getDisplayLane(lastCall) === 'triage'
-              ? "Doctor's Room"
-              : getDisplayLane(lastCall) === 'station2'
-                ? "Treatment Station 2 (Scheduled Follow-up)"
-                : "Treatment Station 1 (Day 0 Treatment)"}
+
+          {/* Station Instruction */}
+          <div style={{
+            marginTop: 10,
+            padding: '8px 18px',
+            borderRadius: 10,
+            background: '#f8fafc',
+            border: '1.5px solid #cbd5e1',
+            fontSize: 14,
+            fontWeight: 700,
+            color: '#1e3a8a',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            <span style={{ fontSize: 16 }}>➔</span>
+            <span>
+              Please proceed to{' '}
+              <strong style={{ color: '#0f172a' }}>
+                {getDisplayLane(lastCall) === 'triage'
+                  ? "Doctor's Room"
+                  : getDisplayLane(lastCall) === 'station2'
+                    ? "Treatment Station 2 (Scheduled Follow-up)"
+                    : "Treatment Station 1 (Day 0 Treatment)"}
+              </strong>
+            </span>
           </div>
-          <button
-            onClick={() => setLastCall(null)}
-            style={{
-              marginTop: 10,
-              padding: '5px 16px',
-              borderRadius: 8,
-              background: 'rgba(255,255,255,0.15)',
-              border: 'none',
-              color: '#ffffff',
-              cursor: 'pointer',
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            Dismiss
-          </button>
+
+          {/* Subtle 5-second countdown progress bar */}
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            height: 3,
+            width: '100%',
+            background: '#2563eb',
+            animation: 'noticeProgressBar 5s linear forwards',
+          }} />
         </div>
       )}
 
@@ -776,6 +861,10 @@ export default function QueueDisplayPage() {
         @keyframes slideDown {
           from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
           to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes noticeProgressBar {
+          from { width: 100%; }
+          to   { width: 0%; }
         }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 2px; }

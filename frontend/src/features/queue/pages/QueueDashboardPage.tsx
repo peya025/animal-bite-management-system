@@ -936,7 +936,6 @@ export default function QueueDashboard() {
         <Box sx={{ mb: 2 }}>
           <NextPatientBanner
             entry={roleScopedNextEntry ?? calledEntry!}
-            isNextPatient={!!roleScopedNextEntry}
             calledEntry={calledEntry}
             onSkip={
               // All clinical staff (including triage doctors and treatment nurses) get Skip.

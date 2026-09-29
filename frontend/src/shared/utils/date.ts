@@ -101,3 +101,35 @@ export function isExpiringSoon(dateStr: string | null | undefined, days = 30): b
   const d = daysUntil(dateStr);
   return d >= 0 && d <= days;
 }
+
+/**
+ * Current date and time formatted in the Asia/Manila timezone (+08:00).
+ * - date: 'YYYY-MM-DD' (standard format for <input type="date" />)
+ * - time: 'HH:MM' 24-hour (standard format for <input type="time" />)
+ */
+export function getManilaCurrentDateTime(d: Date = new Date()): { date: string; time: string } {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  const parts = formatter.formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || '';
+  return {
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    time: `${get('hour')}:${get('minute')}`,
+  };
+}
+
+export function getManilaDateString(d: Date = new Date()): string {
+  return getManilaCurrentDateTime(d).date;
+}
+
+export function getManilaTimeString(d: Date = new Date()): string {
+  return getManilaCurrentDateTime(d).time;
+}
+

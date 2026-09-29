@@ -1,4 +1,4 @@
-.registration-reports { --rr-border: var(--border-color, #e5e7eb); --rr-muted: var(--text-secondary, #64748b); padding: 8px 24px 32px; font-family: Inter, system-ui, sans-serif; font-size: 14px; }
+.registration-reports { --rr-border: var(--border-color, #e5e7eb); --rr-muted: var(--text-secondary, #64748b); padding: 8px 24px 32px; font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif; font-size: 14px; }
 .registration-reports .MuiButton-root { text-transform: none; border-radius: 8px; font-weight: 500; }
 .registration-reports .MuiButton-contained { background: #1d9e75; color: #fff; }
 .registration-reports .MuiButton-contained.Mui-disabled { background: #e5e7eb; color: #64748b; }

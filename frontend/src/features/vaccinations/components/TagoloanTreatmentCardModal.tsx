@@ -202,8 +202,53 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
         @media print {
           body * { visibility: hidden; }
           #tagoloan-card-print-area, #tagoloan-card-print-area * { visibility: visible; }
-          #tagoloan-card-print-area { position: absolute; left: 0; top: 0; width: 100%; font-size: 11px; }
+          #tagoloan-card-print-area {
+            position: static !important;
+            width: auto !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            font-size: 11px !important;
+            page-break-after: auto;
+          }
+          #tagoloan-card-print-area .treatment-card-table {
+            table-layout: fixed;
+            border-spacing: 0;
+          }
+          #tagoloan-card-print-area .treatment-card-table th,
+          #tagoloan-card-print-area .treatment-card-table td {
+            padding: 1px 2px !important;
+            line-height: 1.1 !important;
+            vertical-align: middle;
+          }
+          #tagoloan-card-print-area .treatment-card-table tbody tr {
+            height: 20px;
+          }
+          #tagoloan-card-print-area .treatment-card-table input[type="checkbox"] {
+            width: 8px !important;
+            height: 8px !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            vertical-align: middle;
+          }
+          #tagoloan-card-print-area .treatment-card-table td > div {
+            gap: 1px !important;
+          }
+          #tagoloan-card-print-area .treatment-card-table td > div:has(input[type="checkbox"]) {
+            flex-wrap: nowrap !important;
+          }
+          #tagoloan-card-print-area .treatment-card-table label {
+            font-size: 8px !important;
+            line-height: 1 !important;
+          }
           .no-print { display: none !important; }
+          @page {
+            size: legal portrait;
+            margin: 0.35in;
+          }
         }
       `}</style>
 
@@ -260,36 +305,37 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
         <div
           id="tagoloan-card-print-area"
           style={{
-            padding: '1.75rem 2rem',
+            padding: '0.5rem 0.75rem',
             overflowY: 'auto',
             flex: 1,
             background: '#ffffff',
             color: '#1e293b',
             fontFamily: 'Arial, sans-serif',
+            fontSize: '0.7rem',
           }}
         >
           {/* Visible Print Button inside content area */}
           {!loading && (
-            <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
               <button
                 onClick={handlePrint}
                 style={{
                   background: '#10b981',
                   color: '#fff',
                   border: 'none',
-                  padding: '10px 24px',
-                  borderRadius: '10px',
+                  padding: '8px 18px',
+                  borderRadius: '8px',
                   fontWeight: 700,
-                  fontSize: '15px',
+                  fontSize: '14px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '10px',
+                  gap: '8px',
                   boxShadow: '0 4px 14px rgba(16,185,129,0.4)',
                   letterSpacing: '0.3px',
                 }}
               >
-                <HugeiconsIcon icon={PrinterIcon} size={18} />
+                <HugeiconsIcon icon={PrinterIcon} size={16} />
                 Print This Form
               </button>
             </div>
@@ -306,23 +352,23 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                 const leftLogo = globalLogos.leftLogoUrl;
                 const rightLogo = globalLogos.rightLogoUrl;
                 return (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem', gap: '0.5rem' }}>
                     {leftLogo ? (
                       <img
                         key={leftLogo}
                         src={leftLogo}
                         alt="Left Seal"
-                        style={{ width: '64px', height: '64px', objectFit: 'contain', flexShrink: 0 }}
+                        style={{ width: '38px', height: '38px', objectFit: 'contain', flexShrink: 0 }}
                         onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
                       />
                     ) : (
-                      <div style={{ width: '64px', height: '64px', flexShrink: 0 }} />
+                      <div style={{ width: '38px', height: '38px', flexShrink: 0 }} />
                     )}
                     <div style={{ textAlign: 'center', flex: 1 }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#64748b' }}>
+                      <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.3px', textTransform: 'uppercase', color: '#64748b', lineHeight: 1 }}>
                         Republic of the Philippines • Department of Health
                       </div>
-                      <h2 style={{ margin: '2px 0 0', fontSize: '1.3rem', fontWeight: 800, letterSpacing: '0.5px', color: '#0f172a' }}>
+                      <h2 style={{ margin: '1px 0 0', fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.3px', color: '#0f172a', lineHeight: 1.1 }}>
                         {clinic?.name || 'TAGOLOAN ANIMAL BITE TREATMENT CENTER'}
                       </h2>
                     </div>
@@ -331,173 +377,206 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                         key={rightLogo}
                         src={rightLogo}
                         alt="Right Seal"
-                        style={{ width: '64px', height: '64px', objectFit: 'contain', flexShrink: 0 }}
+                        style={{ width: '38px', height: '38px', objectFit: 'contain', flexShrink: 0 }}
                         onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
                       />
                     ) : (
-                      <div style={{ width: '64px', height: '64px', flexShrink: 0 }} />
+                      <div style={{ width: '38px', height: '38px', flexShrink: 0 }} />
                     )}
                   </div>
                 );
               })()}
 
               {/* Top Form Header Grid */}
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1.5rem', fontSize: '0.85rem', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
-                <div>
-                  <strong>Date:</strong>{' '}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.2rem 1rem', fontSize: '0.6rem', marginBottom: '0.4rem', borderBottom: '1px solid #cbd5e1', paddingBottom: '0.3rem', lineHeight: 1.4 }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <strong style={{ minWidth: '85px', color: '#334155' }}>Date:</strong>
                   <input
                     type="date"
                     value={cardDate}
                     onChange={(e) => setCardDate(e.target.value)}
                     max={new Date().toISOString().split('T')[0]}
-                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px' }}
+                    style={{ border: '1px solid #cbd5e1', padding: '2px 4px', borderRadius: '3px', fontSize: '0.6rem', flex: 1 }}
                   />
                 </div>
-                <div>
-                  <strong>Registry No:</strong>{' '}
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <strong style={{ minWidth: '85px', color: '#334155' }}>Registry No:</strong>
                   <input
                     type="text"
                     value={registryNo || '—'}
                     readOnly
                     title="Registry number is managed by Admin / System"
-                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', width: '60%', backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#334155', fontWeight: 600 }}
+                    style={{ border: '1px solid #cbd5e1', padding: '2px 4px', borderRadius: '3px', flex: 1, backgroundColor: '#f8fafc', cursor: 'not-allowed', color: '#475569', fontWeight: 600, fontSize: '0.6rem' }}
                   />
                 </div>
 
-                <div>
-                  <strong>DOH Accreditation No:</strong>{' '}
-                  <span style={{ textDecoration: 'underline' }}>{clinic?.doh_accreditation_no || '2022-10-037'}</span>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <strong style={{ minWidth: '85px', color: '#334155' }}>DOH Accred:</strong>
+                  <span style={{ color: '#1e293b', fontSize: '0.6rem', fontWeight: 500 }}>{clinic?.doh_accreditation_no || '2022-10-037'}</span>
                 </div>
-                <div>
-                  <strong>Hospital No:</strong>{' '}
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <strong style={{ minWidth: '85px', color: '#334155' }}>Hospital No:</strong>
                   <input
                     type="text"
                     value={hospitalNo || ''}
                     placeholder="Not assigned"
                     readOnly
                     title="Hospital number is managed by Admin in Patient Profile"
-                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', width: '60%', backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#334155' }}
+                    style={{ border: '1px solid #cbd5e1', padding: '2px 4px', borderRadius: '3px', flex: 1, backgroundColor: '#f8fafc', cursor: 'not-allowed', color: '#475569', fontSize: '0.6rem' }}
                   />
                 </div>
 
-                <div>
-                  <strong>PhilHealth Accreditation No:</strong>{' '}
-                  <span style={{ textDecoration: 'underline' }}>{clinic?.philhealth_accreditation_no || 'B10034377'}</span>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <strong style={{ minWidth: '85px', color: '#334155' }}>PhilHealth Accred:</strong>
+                  <span style={{ color: '#1e293b', fontSize: '0.6rem', fontWeight: 500 }}>{clinic?.philhealth_accreditation_no || 'B10034377'}</span>
                 </div>
-                <div>
-                  <strong>Referred by:</strong>{' '}
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <strong style={{ minWidth: '85px', color: '#334155' }}>Referred by:</strong>
                   <input
                     type="text"
                     value={referredBy}
                     onChange={(e) => setReferredBy(e.target.value)}
-                    placeholder="Dr. Smith / Tagoloan RHU"
-                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', width: '60%' }}
+                    placeholder="Dr. Smith / RHU"
+                    style={{ border: '1px solid #cbd5e1', padding: '2px 4px', borderRadius: '3px', flex: 1, fontSize: '0.6rem' }}
                   />
                 </div>
 
-                <div>
-                  <strong>PhilHealth Identification Number (PIN):</strong>{' '}
-                  <span style={{ textDecoration: 'underline', fontWeight: 600 }}>{patient?.philhealth_no || '—'}</span>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <strong style={{ minWidth: '85px', color: '#334155' }}>PhilHealth PIN:</strong>
+                  <span style={{ color: '#1e293b', fontWeight: 600, fontSize: '0.6rem' }}>{patient?.philhealth_no || '—'}</span>
                 </div>
-                <div>
-                  <strong>PhilHealth Status:</strong>{' '}
-                  <label style={{ marginRight: '1rem' }}>
-                    <input type="radio" checked={patient?.philhealth_status === 'member'} readOnly /> ( ) Member
-                  </label>
-                  <label>
-                    <input type="radio" checked={patient?.philhealth_status === 'dependent'} readOnly /> ( ) Dependent
-                  </label>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <strong style={{ minWidth: '85px', color: '#334155' }}>PH Status:</strong>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.6rem', display: 'flex', alignItems: 'center', gap: '2px', cursor: 'default' }}>
+                      <input type="radio" checked={patient?.philhealth_status === 'member'} readOnly style={{ margin: 0 }} /> Member
+                    </label>
+                    <label style={{ fontSize: '0.6rem', display: 'flex', alignItems: 'center', gap: '2px', cursor: 'default' }}>
+                      <input type="radio" checked={patient?.philhealth_status === 'dependent'} readOnly style={{ margin: 0 }} /> Dependent
+                    </label>
+                  </div>
                 </div>
               </div>
 
               {/* Patient Profile Row */}
-              <div style={{ background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem', fontSize: '0.85rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                  <div><strong>Patient Name:</strong> {patient?.full_name || '—'}</div>
-                  <div><strong>Age:</strong> {patient?.age ?? '—'}</div>
-                  <div><strong>Date of Birth:</strong> {patient?.date_of_birth || '—'}</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                  <div><strong>Address:</strong> {patient?.address || '—'}</div>
-                  <div><strong>Sex:</strong> ({patient?.gender === 'male' ? '✓' : ' '}) Male ({patient?.gender === 'female' ? '✓' : ' '}) Female</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                  <div>
-                    <strong>Exposure Category:</strong>{' '}
-                    {(['I', 'II', 'III'] as const).map((cat) => (
-                      <label key={cat} style={{ marginRight: '0.5rem' }}>
-                        <input
-                          type="radio"
-                          name="exposure_cat"
-                          checked={exposureCategory === cat}
-                          onChange={() => setExposureCategory(cat)}
-                          disabled
-                        /> ({cat})
-                      </label>
-                    ))}
+              <div style={{ background: '#f1f5f9', padding: '0.35rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', marginBottom: '0.4rem', fontSize: '0.6rem', lineHeight: 1.4 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.6fr 1fr', gap: '0.2rem', marginBottom: '0.2rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#1e40af', minWidth: '85px' }}>Patient Name:</strong>
+                    <span style={{ color: '#0f172a', fontWeight: 600 }}>{patient?.full_name || '—'}</span>
                   </div>
-                  <div><strong>Date of Exposure:</strong> {bite?.bite_date || '—'}</div>
-                  <div><strong>Date Treatment Started:</strong> {cardDate}</div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#1e40af', minWidth: '35px' }}>Age:</strong>
+                    <span style={{ color: '#0f172a' }}>{patient?.age ?? '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#1e40af', minWidth: '35px' }}>DOB:</strong>
+                    <span style={{ color: '#0f172a' }}>{patient?.date_of_birth || '—'}</span>
+                  </div>
                 </div>
-                <div style={{ marginTop: '0.35rem' }}>
-                  <strong>Place of Exposure:</strong> {bite?.bite_place || 'Tagoloan, Misamis Oriental'}
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.2rem', marginBottom: '0.2rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#1e40af', minWidth: '85px' }}>Address:</strong>
+                    <span style={{ color: '#0f172a' }}>{patient?.address || '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#1e40af', minWidth: '35px' }}>Sex:</strong>
+                    <span style={{ color: '#0f172a' }}>
+                      <input type="checkbox" checked={patient?.gender === 'male'} readOnly style={{ margin: '0 2px' }} /> Male
+                      {' '}
+                      <input type="checkbox" checked={patient?.gender === 'female'} readOnly style={{ margin: '0 2px 0 6px' }} /> Female
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '0.2rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#1e40af', minWidth: '85px' }}>Exposure Cat:</strong>
+                    <div style={{ display: 'flex', gap: '0.3rem' }}>
+                      {(['I', 'II', 'III'] as const).map((cat) => (
+                        <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: '2px', cursor: 'default' }}>
+                          <input
+                            type="radio"
+                            name="exposure_cat"
+                            checked={exposureCategory === cat}
+                            onChange={() => setExposureCategory(cat)}
+                            disabled
+                            style={{ margin: 0 }}
+                          /> {cat}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#1e40af', minWidth: '70px' }}>Exp. Date:</strong>
+                    <span style={{ color: '#0f172a' }}>{bite?.bite_date || '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#1e40af', minWidth: '70px' }}>Treat. Start:</strong>
+                    <span style={{ color: '#0f172a' }}>{cardDate}</span>
+                  </div>
+                </div>
+                <div style={{ marginTop: '0.2rem', display: 'flex', alignItems: 'center' }}>
+                  <strong style={{ color: '#1e40af', minWidth: '85px' }}>Place of Exp:</strong>
+                  <span style={{ color: '#0f172a' }}>{bite?.bite_place || 'Tagoloan, Misamis Oriental'}</span>
                 </div>
               </div>
 
               {/* Checkbox Questions Sections (1, 2, 3, 4) */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem', fontSize: '0.8125rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginBottom: '0.45rem', fontSize: '0.6rem', lineHeight: 1.3 }}>
                 {/* 1. Mode of Animal Exposure */}
-                <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                  <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>1. Mode of Animal Exposure</strong>
+                <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.35rem' }}>
+                  <strong style={{ display: 'block', marginBottom: '0.2rem', color: '#1e40af', fontSize: '0.65rem', fontWeight: 700 }}>1. Mode of Animal Exposure</strong>
                   {[
-                    { key: 'nibbling_uncovered_skin', label: 'Nibbling/Licking of uncovered skin' },
-                    { key: 'nibbling_broken_skin', label: 'Nibbling/Licking of wounded/broken skin' },
+                    { key: 'nibbling_uncovered_skin', label: 'Nibbling/Licking uncovered skin' },
+                    { key: 'nibbling_broken_skin', label: 'Nibbling/Licking wounded skin' },
                     { key: 'scratch_abrasion', label: 'Scratch / Abrasion' },
                     { key: 'transdermal_bite', label: 'Transdermal Bite' },
-                    { key: 'handling_ingestion_raw_meat', label: 'Handling / Ingestion of raw infected meat' },
+                    { key: 'handling_ingestion_raw_meat', label: 'Handling/Ingestion raw meat' },
                   ].map((opt) => (
-                    <label key={opt.key} style={{ display: 'block', marginBottom: '0.25rem', cursor: 'pointer' }}>
+                    <label key={opt.key} style={{ display: 'block', marginBottom: '0.15rem', cursor: 'default', color: '#334155' }}>
                       <input
                         type="radio"
                         name="mode_of_exposure"
                         checked={modeOfExposure === opt.key}
                         onChange={() => setModeOfExposure(opt.key)}
                         disabled
+                        style={{ margin: '0 3px 0 0', verticalAlign: 'middle' }}
                       />{' '}
-                      ( ) {opt.label}
+                      {opt.label}
                     </label>
                   ))}
                 </div>
 
                 {/* 2, 3, 4 Sections */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   {/* 2. Body Part Affected */}
-                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>2. Body Part Affected / Exposed</strong>
+                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.35rem' }}>
+                    <strong style={{ display: 'block', marginBottom: '0.2rem', color: '#1e40af', fontSize: '0.65rem', fontWeight: 700 }}>2. Body Part Affected / Exposed</strong>
                     <input
                       type="text"
                       value={bodyPartExposed}
                       onChange={(e) => setBodyPartExposed(e.target.value)}
                       disabled
-                      placeholder="e.g. Left hand, Right lower leg, Head / Neck"
+                      placeholder="e.g. Left hand, Right leg"
                       style={{
                         width: '100%',
-                        padding: '6px 10px',
+                        padding: '3px 5px',
                         border: '1px solid #cbd5e1',
-                        borderRadius: '6px',
-                        fontSize: '0.85rem',
-                        marginBottom: '0.4rem',
+                        borderRadius: '3px',
+                        fontSize: '0.6rem',
+                        marginBottom: '0.2rem',
+                        backgroundColor: '#f8fafc',
+                        color: '#334155',
                       }}
                     />
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
                       {[
                         'Head & Neck',
                         'Upper Extremities',
                         'Lower Extremities',
-                        'Trunk / Torso',
-                        'Multiple Sites',
-                        'N/A (Ingestion)',
+                        'Trunk',
+                        'Multiple',
+                        'N/A',
                       ].map((preset) => (
                         <button
                           key={preset}
@@ -505,13 +584,14 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                           disabled
                           onClick={() => setBodyPartExposed((prev) => (prev ? `${prev}, ${preset}` : preset))}
                           style={{
-                            background: '#f1f5f9',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '4px',
-                            padding: '2px 6px',
-                            fontSize: '0.72rem',
-                            color: '#475569',
-                            cursor: 'pointer',
+                            background: '#e0f2fe',
+                            border: '1px solid #7dd3fc',
+                            borderRadius: '3px',
+                            padding: '2px 4px',
+                            fontSize: '0.55rem',
+                            color: '#0369a1',
+                            cursor: 'not-allowed',
+                            fontWeight: 500,
                           }}
                         >
                           + {preset}
@@ -521,10 +601,10 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                   </div>
 
                   {/* 3. Type of Animal */}
-                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>3. Type of Animal</strong>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.35rem' }}>
+                    <strong style={{ display: 'block', marginBottom: '0.2rem', color: '#1e40af', fontSize: '0.65rem', fontWeight: 700 }}>3. Type of Animal</strong>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', cursor: 'default', color: '#334155' }}>
                         <input
                           type="radio"
                           name="animal_type"
@@ -534,9 +614,10 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                             setAnimalTypeOthers('');
                           }}
                           disabled
+                          style={{ margin: 0 }}
                         /> Dog
                       </label>
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', cursor: 'default', color: '#334155' }}>
                         <input
                           type="radio"
                           name="animal_type"
@@ -546,15 +627,17 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                             setAnimalTypeOthers('');
                           }}
                           disabled
+                          style={{ margin: 0 }}
                         /> Cat
                       </label>
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', cursor: 'default', color: '#334155' }}>
                         <input
                           type="radio"
                           name="animal_type"
                           checked={animalType === 'Others'}
                           onChange={() => setAnimalType('Others')}
                           disabled
+                          style={{ margin: 0 }}
                         /> Others:
                       </label>
                       {animalType === 'Others' && (
@@ -563,14 +646,16 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                           value={animalTypeOthers}
                           onChange={(e) => setAnimalTypeOthers(e.target.value)}
                           disabled
-                          placeholder="Specify animal (e.g. Monkey, Bat, Rat)"
+                          placeholder="Monkey, Bat, Rat"
                           style={{
                             border: '1px solid #cbd5e1',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            fontSize: '0.8rem',
+                            padding: '3px 5px',
+                            borderRadius: '3px',
+                            fontSize: '0.6rem',
                             flex: 1,
-                            minWidth: '140px',
+                            minWidth: '80px',
+                            backgroundColor: '#f8fafc',
+                            color: '#334155',
                           }}
                         />
                       )}
@@ -578,55 +663,59 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                   </div>
 
                   {/* 4. Past History */}
-                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>4. Past History of animal bite</strong>
-                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.35rem' }}>
-                      <label>
+                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.35rem' }}>
+                    <strong style={{ display: 'block', marginBottom: '0.2rem', color: '#1e40af', fontSize: '0.65rem', fontWeight: 700 }}>4. Past animal bite history</strong>
+                    <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '0.2rem' }}>
+                      <label style={{ fontSize: '0.6rem', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', color: '#334155' }}>
                         <input
                           type="radio"
                           name="past_history"
                           checked={pastBiteHistory === true}
                           onChange={() => setPastBiteHistory(true)}
-                        /> ( ) Yes
+                          style={{ margin: 0 }}
+                        /> Yes
                       </label>
-                      <label>
+                      <label style={{ fontSize: '0.6rem', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', color: '#334155' }}>
                         <input
                           type="radio"
                           name="past_history"
                           checked={pastBiteHistory === false}
                           onChange={() => setPastBiteHistory(false)}
-                        /> ( ) No
+                          style={{ margin: 0 }}
+                        /> No
                       </label>
                     </div>
                     {pastBiteHistory && (
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.35rem' }}>
-                        <span>If yes, specify dates:</span>
+                      <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', marginBottom: '0.2rem', fontSize: '0.6rem' }}>
+                        <span style={{ color: '#475569' }}>Dates:</span>
                         <input
                           type="text"
                           value={pastBiteDates}
                           onChange={(e) => setPastBiteDates(e.target.value)}
                           placeholder="YYYY-MM-DD"
-                          style={{ border: '1px solid #cbd5e1', padding: '1px 4px', borderRadius: '4px', fontSize: '0.8rem' }}
+                          style={{ border: '1px solid #cbd5e1', padding: '2px 4px', borderRadius: '3px', fontSize: '0.6rem', flex: 1 }}
                         />
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <span>Was PEP Immunization completed:</span>
-                      <label style={{ marginLeft: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', fontSize: '0.6rem' }}>
+                      <span style={{ color: '#475569' }}>PEP completed:</span>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', color: '#334155' }}>
                         <input
                           type="radio"
                           name="pep_comp"
                           checked={pastPepCompleted === true}
                           onChange={() => setPastPepCompleted(true)}
-                        /> ( ) Yes
+                          style={{ margin: 0 }}
+                        /> Yes
                       </label>
-                      <label style={{ marginLeft: '0.5rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', color: '#334155' }}>
                         <input
                           type="radio"
                           name="pep_comp"
                           checked={pastPepCompleted === false}
                           onChange={() => setPastPepCompleted(false)}
-                        /> ( ) No
+                          style={{ margin: 0 }}
+                        /> No
                       </label>
                     </div>
                   </div>
@@ -634,78 +723,283 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
               </div>
 
               {/* Official Vaccination Grid Table */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <strong style={{ display: 'block', marginBottom: '0.5rem', textAlign: 'center', fontSize: '0.95rem', color: 'var(--text-h)' }}>
+              <div style={{ marginBottom: '0.4rem' }}>
+                <strong style={{ display: 'block', marginBottom: '0.25rem', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-h)', letterSpacing: '0.2px', fontWeight: 700 }}>
                   Period Exposure Vaccination Record
                 </strong>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
-                  <thead>
-                    <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-                      <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600 }}>Period</th>
-                      <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600 }}>Adm Route</th>
-                      <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600 }}>Date</th>
-                      <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600 }}>Given by</th>
-                      <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600 }}>Signature / Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {periods.map((item, idx) => {
-                      const rec = records.find((r) => r.dose_number === item.doseNum);
-                      const staff = rec?.administered_by || (rec as any)?.administeredBy;
-                      const staffName = typeof staff === 'object' ? staff?.name : null;
-                      const staffLicense = typeof staff === 'object' ? staff?.professional_license_no : null;
-                      return (
-                        <tr key={item.period} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1', fontWeight: 600 }}>
-                            {item.period === 'ERIG' ? (
-                              <span>ERIG {rec?.dosage_ml ? <u style={{ color: 'var(--primary)', fontWeight: 700 }}>{rec.dosage_ml}</u> : '_________________'} ml</span>
-                            ) : item.period === 'TT' ? (
-                              <span>TT (Tetanus Toxoid)</span>
-                            ) : item.period === 'ATS' ? (
-                              <span>ATS (Anti-Tetanus Serum)</span>
-                            ) : (
-                              item.period
-                            )}
-                          </td>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}>
-                            ({rec?.route === 'ID' ? '✓' : ' '}) ID &nbsp;&nbsp; ({rec?.route === 'IM' ? '✓' : ' '}) IM
-                          </td>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}>
-                            {rec?.treatment_date ? new Date(rec.treatment_date).toLocaleDateString() : rec?.scheduled_date || '—'}
-                          </td>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1' }}>
-                            {rec?.status === 'completed' || rec?.treatment_date ? (
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontWeight: 600 }}>{staffName || 'Nurse Staff'}</span>
-                                {staffLicense && (
-                                  <span style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 600 }}>
-                                    PRC: {staffLicense}
-                                  </span>
-                                )}
+                
+                {/* Primary Vaccination Series (DOH NRPCP 3-Dose Regimen) */}
+                <div style={{ marginBottom: '0.3rem' }}>
+                  <div style={{ background: '#dbeafe', padding: '0.15rem 0.3rem', borderRadius: '2px 2px 0 0', borderBottom: '1px solid #3b82f6' }}>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#1e40af', letterSpacing: '0.2px' }}>
+                      PRIMARY VACCINATION (3-Dose Regimen)
+                    </span>
+                  </div>
+                  <table className="treatment-card-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.6rem', marginBottom: '0.15rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600, width: '10%' }}>Period</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, width: '10%' }}>Route</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, width: '13%' }}>Date Given</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600, width: '22%' }}>Vaccine Details</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600, width: '25%' }}>Administered By</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, width: '20%' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {periods.filter(p => p.doseNum <= 28).map((item, idx) => {
+                        const rec = records.find((r) => r.dose_number === item.doseNum);
+                        const staff = rec?.administered_by || (rec as any)?.administeredBy;
+                        const staffName = typeof staff === 'object' ? staff?.name : null;
+                        const staffLicense = typeof staff === 'object' ? staff?.professional_license_no : null;
+                        return (
+                          <tr key={item.period} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                            <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#0f172a', fontSize: '0.6rem' }}>
+                              {item.period}
+                            </td>
+                            <td style={{ padding: '2px', border: '1px solid #cbd5e1', textAlign: 'center', fontSize: '0.55rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'center', gap: '3px', flexWrap: 'wrap' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '1px', whiteSpace: 'nowrap' }}>
+                                  <input type="checkbox" checked={rec?.route === 'ID'} readOnly style={{ margin: 0, width: '10px', height: '10px' }} /> ID
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '1px', whiteSpace: 'nowrap' }}>
+                                  <input type="checkbox" checked={rec?.route === 'IM'} readOnly style={{ margin: 0, width: '10px', height: '10px' }} /> IM
+                                </label>
                               </div>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: rec?.status === 'completed' ? 'var(--primary)' : '#64748b' }}>
-                            {rec?.status === 'completed' ? '✓ Signed (On File)' : rec?.status || 'Scheduled'}
-                          </td>
+                            </td>
+                            <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, fontSize: '0.55rem' }}>
+                              {rec?.treatment_date ? new Date(rec.treatment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : rec?.scheduled_date || '—'}
+                            </td>
+                            <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontSize: '0.55rem', lineHeight: 1.2 }}>
+                              {rec?.vaccine_type && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                  <span style={{ fontWeight: 600, color: '#0369a1' }}>{rec.vaccine_type}</span>
+                                  {rec?.batch_number && (
+                                    <span style={{ fontSize: '0.5rem', color: '#64748b' }}>Batch: {rec.batch_number}</span>
+                                  )}
+                                </div>
+                              )}
+                              {!rec?.vaccine_type && '—'}
+                            </td>
+                            <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontSize: '0.55rem', lineHeight: 1.2 }}>
+                              {rec?.status === 'completed' || rec?.treatment_date ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                  <span style={{ fontWeight: 600 }}>{staffName || 'Nurse Staff'}</span>
+                                  {staffLicense && (
+                                    <span style={{ fontSize: '0.5rem', color: '#0369a1', fontWeight: 600 }}>
+                                      PRC: {staffLicense}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: '0.55rem' }}>Not administered</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '2px', border: '1px solid #cbd5e1', textAlign: 'center', fontSize: '0.55rem' }}>
+                              {rec?.status === 'completed' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                                  <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ Done</span>
+                                  <span style={{ fontSize: '0.5rem', color: '#64748b' }}>Signed</span>
+                                </div>
+                              ) : (
+                                <span style={{ color: '#64748b' }}>{rec?.status || 'Scheduled'}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Booster Doses */}
+                {periods.some(p => p.doseNum >= 100 && p.doseNum < 200 && records.find(r => r.dose_number === p.doseNum)) && (
+                  <div style={{ marginBottom: '0.3rem' }}>
+                    <div style={{ background: '#fef3c7', padding: '0.15rem 0.3rem', borderRadius: '2px 2px 0 0', borderBottom: '1px solid #f59e0b' }}>
+                      <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#92400e', letterSpacing: '0.2px' }}>
+                        BOOSTER DOSES
+                      </span>
+                    </div>
+                    <table className="treatment-card-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.6rem', marginBottom: '0.15rem' }}>
+                      <thead>
+                        <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                          <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600, width: '10%' }}>Period</th>
+                          <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, width: '10%' }}>Route</th>
+                          <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, width: '13%' }}>Date Given</th>
+                          <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600, width: '22%' }}>Vaccine Details</th>
+                          <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600, width: '25%' }}>Administered By</th>
+                          <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, width: '20%' }}>Status</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {periods.filter(p => p.doseNum >= 100 && p.doseNum < 200).map((item, idx) => {
+                          const rec = records.find((r) => r.dose_number === item.doseNum);
+                          if (!rec) return null;
+                          const staff = rec?.administered_by || (rec as any)?.administeredBy;
+                          const staffName = typeof staff === 'object' ? staff?.name : null;
+                          const staffLicense = typeof staff === 'object' ? staff?.professional_license_no : null;
+                          return (
+                            <tr key={item.period} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fefce8' }}>
+                              <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#0f172a', fontSize: '0.6rem' }}>
+                                {item.period}
+                              </td>
+                              <td style={{ padding: '2px', border: '1px solid #cbd5e1', textAlign: 'center', fontSize: '0.55rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '3px', flexWrap: 'wrap' }}>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '1px', whiteSpace: 'nowrap' }}>
+                                    <input type="checkbox" checked={rec?.route === 'ID'} readOnly style={{ margin: 0, width: '10px', height: '10px' }} /> ID
+                                  </label>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '1px', whiteSpace: 'nowrap' }}>
+                                    <input type="checkbox" checked={rec?.route === 'IM'} readOnly style={{ margin: 0, width: '10px', height: '10px' }} /> IM
+                                  </label>
+                                </div>
+                              </td>
+                              <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, fontSize: '0.55rem' }}>
+                                {rec?.treatment_date ? new Date(rec.treatment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : rec?.scheduled_date || '—'}
+                              </td>
+                              <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontSize: '0.55rem', lineHeight: 1.2 }}>
+                                {rec?.vaccine_type && (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                    <span style={{ fontWeight: 600, color: '#0369a1' }}>{rec.vaccine_type}</span>
+                                    {rec?.batch_number && (
+                                      <span style={{ fontSize: '0.5rem', color: '#64748b' }}>Batch: {rec.batch_number}</span>
+                                    )}
+                                  </div>
+                                )}
+                                {!rec?.vaccine_type && '—'}
+                              </td>
+                              <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontSize: '0.55rem', lineHeight: 1.2 }}>
+                                {rec?.status === 'completed' || rec?.treatment_date ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                    <span style={{ fontWeight: 600 }}>{staffName || 'Nurse Staff'}</span>
+                                    {staffLicense && (
+                                      <span style={{ fontSize: '0.5rem', color: '#0369a1', fontWeight: 600 }}>
+                                        PRC: {staffLicense}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span style={{ color: '#94a3b8', fontSize: '0.55rem' }}>Not administered</span>
+                                )}
+                              </td>
+                              <td style={{ padding: '2px', border: '1px solid #cbd5e1', textAlign: 'center', fontSize: '0.55rem' }}>
+                                {rec?.status === 'completed' ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                                    <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ Done</span>
+                                    <span style={{ fontSize: '0.5rem', color: '#64748b' }}>Signed</span>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: '#64748b' }}>{rec?.status || 'Scheduled'}</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Immunoglobulins & Other Biologics */}
+                <div style={{ marginBottom: '0.15rem' }}>
+                  <div style={{ background: '#fce7f3', padding: '0.15rem 0.3rem', borderRadius: '2px 2px 0 0', borderBottom: '1px solid #ec4899' }}>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#831843', letterSpacing: '0.2px' }}>
+                      IMMUNOGLOBULINS & OTHER BIOLOGICS
+                    </span>
+                  </div>
+                  <table className="treatment-card-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.6rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600, width: '16%' }}>Type</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, width: '8%' }}>Dose</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, width: '8%' }}>Route</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, width: '12%' }}>Date</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600, width: '22%' }}>Product Details</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600, width: '22%' }}>Administered By</th>
+                        <th style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, width: '12%' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {periods.filter(p => p.doseNum >= 200).map((item, idx) => {
+                        const rec = records.find((r) => r.dose_number === item.doseNum);
+                        const staff = rec?.administered_by || (rec as any)?.administeredBy;
+                        const staffName = typeof staff === 'object' ? staff?.name : null;
+                        const staffLicense = typeof staff === 'object' ? staff?.professional_license_no : null;
+                        return (
+                          <tr key={item.period} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fdf2f8' }}>
+                            <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#0f172a', fontSize: '0.55rem' }}>
+                              {item.period === 'ERIG' && 'ERIG'}
+                              {item.period === 'TT' && 'TT (Tetanus)'}
+                              {item.period === 'ATS' && 'ATS (Anti-Tetanus)'}
+                            </td>
+                            <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, color: '#be185d', fontSize: '0.55rem' }}>
+                              {item.period === 'ERIG' && rec?.dosage_ml ? (
+                                <span>{rec.dosage_ml}ml</span>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: '0.5rem' }}>—</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '2px', border: '1px solid #cbd5e1', textAlign: 'center', fontSize: '0.55rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'center', gap: '2px', flexWrap: 'wrap' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '1px', whiteSpace: 'nowrap' }}>
+                                  <input type="checkbox" checked={rec?.route === 'ID'} readOnly style={{ margin: 0, width: '9px', height: '9px' }} /> ID
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '1px', whiteSpace: 'nowrap' }}>
+                                  <input type="checkbox" checked={rec?.route === 'IM'} readOnly style={{ margin: 0, width: '9px', height: '9px' }} /> IM
+                                </label>
+                              </div>
+                            </td>
+                            <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, fontSize: '0.55rem' }}>
+                              {rec?.treatment_date ? new Date(rec.treatment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : rec?.scheduled_date || '—'}
+                            </td>
+                            <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontSize: '0.55rem', lineHeight: 1.2 }}>
+                              {rec?.vaccine_type && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                  <span style={{ fontWeight: 600, color: '#0369a1' }}>{rec.vaccine_type}</span>
+                                  {rec?.batch_number && (
+                                    <span style={{ fontSize: '0.5rem', color: '#64748b' }}>Batch: {rec.batch_number}</span>
+                                  )}
+                                </div>
+                              )}
+                              {!rec?.vaccine_type && <span style={{ color: '#94a3b8' }}>—</span>}
+                            </td>
+                            <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontSize: '0.55rem', lineHeight: 1.2 }}>
+                              {rec?.status === 'completed' || rec?.treatment_date ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                  <span style={{ fontWeight: 600 }}>{staffName || 'Nurse Staff'}</span>
+                                  {staffLicense && (
+                                    <span style={{ fontSize: '0.5rem', color: '#0369a1', fontWeight: 600 }}>
+                                      PRC: {staffLicense}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: '0.55rem' }}>Not administered</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '2px', border: '1px solid #cbd5e1', textAlign: 'center', fontSize: '0.55rem' }}>
+                              {rec?.status === 'completed' ? (
+                                <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ Done</span>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: '0.5rem' }}>{rec?.status || 'N/A'}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Footer ICD 10 Code */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.35rem', fontSize: '0.6rem', marginTop: '0.25rem' }}>
                 <strong>ICD 10 Code:</strong>
                 <input
                   type="text"
                   value={icd10Code}
                   onChange={(e) => setIcd10Code(e.target.value)}
-                  placeholder="e.g. Z20.3"
-                  style={{ border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '4px', fontWeight: 700, width: '120px' }}
+                  placeholder="Z20.3"
+                  style={{ border: '1px solid #cbd5e1', padding: '2px 4px', borderRadius: '2px', fontWeight: 700, width: '80px', fontSize: '0.6rem' }}
                 />
               </div>
             </div>
@@ -718,52 +1012,55 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
           style={{
             background: 'var(--card-bg-solid, #f8fafc)',
             borderTop: '1px solid var(--border, #e2e8f0)',
-            padding: '1rem 1.5rem',
+            padding: '0.75rem 1rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}
         >
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #64748b)' }}>
-            Tagoloan RHU Official Animal Bite Treatment Form (3NF Compliant Schema)
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary, #64748b)' }}>
+            Tagoloan RHU Official Animal Bite Treatment Form
           </span>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <button
               onClick={onClose}
               className="btn-action"
               style={{
-                background: 'var(--card-bg-solid, #ffffff)',
-                border: '1px solid var(--border-glow, #cbd5e1)',
-                color: 'var(--text-primary, #1e293b)',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#475569',
                 padding: '0.5rem 1.25rem',
                 borderRadius: '8px',
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: 'pointer',
+                fontSize: '0.875rem',
+                transition: 'all 0.2s',
               }}
             >
               Cancel
             </button>
-            {!cardData?.form3_ready && (
-              <span style={{ maxWidth: 430, color: '#b45309', fontSize: 12, fontWeight: 600 }}>
-                {cardData?.form3_block_reason || 'Complete Doctor Form 2 before saving Form 3.'}
-              </span>
-            )}
             <button
-              onClick={handleSave}
-              disabled={saving || !cardData?.form3_ready}
+              onClick={handlePrint}
               style={{
-                background: 'var(--primary)',
+                background: '#16a34a',
                 color: '#ffffff',
                 border: 'none',
                 padding: '0.5rem 1.5rem',
                 borderRadius: '8px',
-                fontWeight: 600,
-                cursor: saving || !cardData?.form3_ready ? 'not-allowed' : 'pointer',
-                opacity: saving || !cardData?.form3_ready ? 0.55 : 1,
-                boxShadow: '0 2px 6px rgba(23, 101, 58, 0.3)',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(22, 163, 74, 0.3)',
+                fontSize: '0.875rem',
+                transition: 'all 0.2s',
+                minWidth: '160px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
               }}
             >
-              {saving ? 'Saving Card...' : 'Save Tagoloan Card'}
+              <HugeiconsIcon icon={PrinterIcon} size={18} />
+              Print Form
             </button>
           </div>
         </div>

@@ -252,7 +252,7 @@ export function RegistrationVitalsSection({
 
       {/* Row 2: BP + Temperature */}
       <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-        <FormField label="Blood Pressure (mmHg)" hint="Systolic / Diastolic">
+        <FormField label="Blood Pressure (mmHg)">
           <div
             style={{
               display: 'flex',

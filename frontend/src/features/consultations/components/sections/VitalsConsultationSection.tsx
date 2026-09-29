@@ -54,8 +54,12 @@ export default function VitalsConsultationSection({
 
   const formatTime = (t: string) => {
     if (!t) return null;
+    if (/(AM|PM)/i.test(t)) return t;
     try {
-      const [h, m] = t.split(':').map(Number);
+      const parts = t.split(':');
+      const h = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (isNaN(h) || isNaN(m)) return t;
       const ampm = h >= 12 ? 'PM' : 'AM';
       const hour12 = h % 12 || 12;
       return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`;

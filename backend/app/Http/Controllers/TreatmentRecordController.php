@@ -332,11 +332,11 @@ class TreatmentRecordController extends Controller
             'bite_id' => $activeIncident?->bite_id,
             'treatment_date' => $validated['consultation_date'] 
                 ? Carbon::parse($validated['consultation_date']) 
-                : Carbon::now(),
+                : Carbon::now('Asia/Manila'),
             
             // General consultation fields
-            'consultation_date' => $validated['consultation_date'] ?? Carbon::now()->toDateString(),
-            'consultation_time' => $validated['consultation_time'] ?? Carbon::now()->format('H:i'),
+            'consultation_date' => $validated['consultation_date'] ?? Carbon::now('Asia/Manila')->toDateString(),
+            'consultation_time' => $validated['consultation_time'] ?? Carbon::now('Asia/Manila')->format('H:i'),
             'mode_of_transaction' => in_array($validated['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral'])
                 ? $validated['mode_of_transaction']
                 : 'walk-in',
@@ -683,9 +683,9 @@ class TreatmentRecordController extends Controller
                 'clinic_id' => $clinicId,
                 'patient_id' => $patientId,
                 'bite_id' => $validated['bite_id'],
-                'treatment_date' => now(),
-                'consultation_date' => now()->toDateString(),
-                'consultation_time' => now()->format('H:i'),
+                'treatment_date' => now('Asia/Manila'),
+                'consultation_date' => now('Asia/Manila')->toDateString(),
+                'consultation_time' => now('Asia/Manila')->format('H:i'),
                 'nature_of_visit' => 'follow_up',
                 'consultation_types' => ['general'],
                 'chief_complaints' => 'Clinical Addendum Note',

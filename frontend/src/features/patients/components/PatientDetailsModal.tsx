@@ -320,6 +320,64 @@ function Form1InlineView({ patient: p, onEdit }: { patient: any; onEdit?: () => 
           <Form1Field label="Other Membership ID"     value={asDisplayValue(firstNonEmpty(other?.membership_id_no))} />
         </Box>
       </Form1Section>
+
+      {/* III. Consultation Details & Vitals */}
+      {(() => {
+        const latestConsultation =
+          p?.latest_consultation_record ||
+          p?.latestConsultationRecord ||
+          (Array.isArray(p?.treatment_records) ? p.treatment_records : Array.isArray(p?.treatmentRecords) ? p.treatmentRecords : []).find(
+            (r: any) => r && r.dose_number === null && r.consultation_date
+          ) ||
+          (Array.isArray(p?.treatment_records) ? p.treatment_records[0] : Array.isArray(p?.treatmentRecords) ? p.treatmentRecords[0] : null);
+
+        if (!latestConsultation) return null;
+
+        const formatTimeVal = (t?: string | null) => {
+          if (!t) return '—';
+          if (/(AM|PM)/i.test(t)) return t;
+          try {
+            const parts = t.split(':');
+            const h = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10);
+            if (isNaN(h) || isNaN(m)) return t;
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const hour12 = h % 12 || 12;
+            return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`;
+          } catch {
+            return t;
+          }
+        };
+
+        return (
+          <Form1Section title="III. Consultation Details & Vitals">
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)' }, gap: 2.5, mb: 2.5 }}>
+              <Form1Field
+                label="Date of Consultation"
+                value={latestConsultation.consultation_date
+                  ? new Date(latestConsultation.consultation_date + 'T00:00:00').toLocaleDateString('en-PH', {
+                      year: 'numeric', month: 'long', day: 'numeric',
+                    })
+                  : '—'}
+              />
+              <Form1Field
+                label="Consultation Time (AM/PM)"
+                value={formatTimeVal(latestConsultation.consultation_time)}
+              />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', lg: 'repeat(4,1fr)' }, gap: 2.5, mb: 2.5 }}>
+              <Form1Field label="Blood Pressure (mmHg)" value={asDisplayValue(latestConsultation.blood_pressure)} />
+              <Form1Field label="Temperature (°C)" value={latestConsultation.temperature ? `${latestConsultation.temperature} °C` : '—'} />
+              <Form1Field label="Height (cm)" value={latestConsultation.height ? `${latestConsultation.height} cm` : '—'} />
+              <Form1Field label="Weight (kg)" value={latestConsultation.weight ? `${latestConsultation.weight} kg` : '—'} />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)' }, gap: 2.5 }}>
+              <Form1Field label="Name of Attending Provider" value={asDisplayValue(latestConsultation.attending_provider)} />
+              <Form1Field label="Referred By" value={asDisplayValue(latestConsultation.referred_by)} />
+            </Box>
+          </Form1Section>
+        );
+      })()}
     </Box>
   );
 }

@@ -386,10 +386,8 @@ export default function QueueDisplayPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
       }}>
-        <span style={{ fontSize: 18 }}>🔔</span>
-        <span>PLEASE LISTEN FOR YOUR NUMBER AND PROCEED TO THE ASSIGNED STATION</span>
+        <span>PROCEED TO THE ASSIGNED STATION</span>
       </div>
 
       {/* ── Two Column Master Layout ── */}
@@ -692,33 +690,6 @@ export default function QueueDisplayPage() {
         </div>
       </div>
 
-      {/* ── Bottom Ticker ── */}
-      <div style={{
-        background: '#10b981',
-        padding: '10px 36px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontSize: 12,
-        fontWeight: 600,
-        color: '#ffffff',
-        borderTop: '1px solid #059669',
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.04)',
-      }}>
-        <span>🔔 Auto-refreshes every 5 seconds</span>
-        <span>
-          Triage: {triageWaiting.length} waiting
-          &nbsp;·&nbsp;
-          Station 1 (Intake): {st1Waiting.length} waiting
-          &nbsp;·&nbsp;
-          Station 2 (Follow-up): {st2Waiting.length} waiting
-          &nbsp;·&nbsp;
-          {queue.filter(q => q.status === 'completed').length} completed today
-        </span>
-        <a href="/queue" style={{ color: '#d1fae5', textDecoration: 'none', fontWeight: 700 }}>
-          ← Back to Dashboard
-        </a>
-      </div>
 
       {/* ── Voice / Chime Announcement Banner Overlay ── */}
       {lastCall && (

@@ -27,11 +27,31 @@ class MobileVaccinationCardController extends Controller
             ], 404);
         }
 
-        if ($patientObj->pivot?->status !== 'verified') {
-            return response()->json([
-                'message' => 'Patient profile linkage is pending verification by clinic staff before official vaccination card can be accessed.',
-                'verification_status' => $patientObj->pivot?->status ?? 'pending',
-            ], 404);
+        $pivotStatus = $patientObj->pivot?->status ?? 'pending';
+
+        if ($pivotStatus !== 'verified') {
+            // Auto-verify when clinic staff has already administered at least one dose —
+            // the presence of a completed treatment record is implicit identity confirmation.
+            $hasAdministeredDose = $patientObj->treatmentRecords()
+                ->where(function ($q) {
+                    $q->where('status', 'completed')
+                      ->orWhereNotNull('treatment_date');
+                })
+                ->exists();
+
+            if ($hasAdministeredDose && $patientObj->pivot) {
+                // Upgrade the linkage to verified automatically
+                $patientObj->pivot->update([
+                    'status'      => 'verified',
+                    'verified_at' => now(),
+                ]);
+                $pivotStatus = 'verified';
+            } else {
+                return response()->json([
+                    'message'             => 'Patient profile linkage is pending verification by clinic staff before official vaccination card can be accessed.',
+                    'verification_status' => $pivotStatus,
+                ], 404);
+            }
         }
 
         // Ensure patient has a secure scannable card token

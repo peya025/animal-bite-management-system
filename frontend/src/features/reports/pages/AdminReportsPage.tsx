@@ -12,8 +12,10 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { printDocument } from '../../../components/print/printDocument';
 import AdminDohReportsSection from '../components/AdminDohReportsSection';
+import PatientsReportSection from '../components/PatientsReportSection';
+import VaccineInventoryReportSection from '../components/VaccineInventoryReportSection';
 
-type Section = 'overview' | 'trends' | 'doh';
+type Section = 'overview' | 'trends' | 'doh' | 'patients' | 'inventory';
 type Report = 'surveillance' | 'pep' | 'followup' | 'awaiting' | 'referrals';
 type Filters = { from: string; to: string; category: 'ALL' | 'I' | 'II' | 'III' };
 type CountRow = { label: string; count: number };
@@ -388,9 +390,11 @@ export default function AdminReportsPage() {
       <Tab value="overview" label="Clinic overview" />
       <Tab value="trends" label="Trends & records" />
       <Tab value="doh" label="DOH submissions" />
+      <Tab value="patients" label="Patients" />
+      <Tab value="inventory" label="Vaccine inventory & wastage" />
     </Tabs>
 
-    {section !== 'doh' && <Paper component="form" onSubmit={applyFilters} elevation={0} sx={{ ...panelSx, p: 2, mb: 3 }}>
+    {(section === 'overview' || section === 'trends') && <Paper component="form" onSubmit={applyFilters} elevation={0} sx={{ ...panelSx, p: 2, mb: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
         <TextField select size="small" label="Period" value={preset} onChange={event => {
           const next = event.target.value;
@@ -415,7 +419,7 @@ export default function AdminReportsPage() {
       </Typography>
     </Paper>}
 
-    {section !== 'doh' && summaryError && <Alert severity="error" action={<Button color="inherit" onClick={() => setRefresh(value => value + 1)}>Retry</Button>} sx={{ mb: 2 }}>{summaryError}</Alert>}
+    {(section === 'overview' || section === 'trends') && summaryError && <Alert severity="error" action={<Button color="inherit" onClick={() => setRefresh(value => value + 1)}>Retry</Button>} sx={{ mb: 2 }}>{summaryError}</Alert>}
 
     {section === 'overview' && <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 2, mb: 2 }}>
@@ -532,5 +536,7 @@ export default function AdminReportsPage() {
     </>}
 
     {section === 'doh' && <AdminDohReportsSection />}
+    {section === 'patients' && <PatientsReportSection rolePrefix="admin" />}
+    {section === 'inventory' && <VaccineInventoryReportSection rolePrefix="admin" />}
   </Box>;
 }

@@ -774,6 +774,9 @@ export default function VaccinationSchedulePage() {
               .map((patient) => {
               const isMissed = patient.compliance_status === 'overdue_missed';
               const isDueToday = patient.compliance_status === 'due_today';
+              const showNextLabel = !isTriageDoctor && Boolean(patient.next_appointment);
+              const showOverdueNotice = Boolean(isMissed && patient.next_appointment && patient.next_appointment.late_days > 0);
+              const hasTextAbove = showNextLabel || showOverdueNotice;
 
               return (
                 <Paper
@@ -980,19 +983,21 @@ export default function VaccinationSchedulePage() {
                         flexDirection: 'column',
                         alignItems: { xs: 'flex-start', md: 'flex-end' },
                         justifyContent: 'center',
-                        gap: 1,
-                        minHeight: 48,
+                        gap: hasTextAbove ? 0.75 : 0,
+                        minHeight: hasTextAbove ? 44 : 'auto',
                       }}
                     >
-                      {patient.next_appointment && (
+                      {hasTextAbove && patient.next_appointment && (
                         <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-                          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>
-                            Next:{' '}
-                            <strong style={{ color: isMissed ? '#dc2626' : isDueToday ? '#d97706' : '#047857' }}>
-                              {patient.next_appointment.label} on {patient.next_appointment.scheduled_date_formatted}
-                            </strong>
-                          </Typography>
-                          {isMissed && patient.next_appointment && patient.next_appointment.late_days > 0 && (
+                          {showNextLabel && (
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>
+                              Next:{' '}
+                              <strong style={{ color: isMissed ? '#dc2626' : isDueToday ? '#d97706' : '#047857' }}>
+                                {patient.next_appointment.label} on {patient.next_appointment.scheduled_date_formatted}
+                              </strong>
+                            </Typography>
+                          )}
+                          {showOverdueNotice && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#dc2626' }}>
                               <HugeiconsIcon icon={AlertCircleIcon} size={13} />
                               <Typography variant="caption" sx={{ fontWeight: 600 }}>

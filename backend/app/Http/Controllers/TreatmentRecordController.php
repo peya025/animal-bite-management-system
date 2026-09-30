@@ -54,7 +54,7 @@ class TreatmentRecordController extends Controller
                 ->where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->where('bite_id', $activeIncident->bite_id)
-                ->whereNull('dose_number')
+                ->whereNull('dose_number')->whereNull('medication_given')
                 ->latest('consultation_date')
                 ->latest('treatment_id')
                 ->first();
@@ -63,7 +63,7 @@ class TreatmentRecordController extends Controller
             $latestTreatment = TreatmentRecord::with('administeredBy')
                 ->where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
-                ->whereNull('dose_number')
+                ->whereNull('dose_number')->whereNull('medication_given')
                 ->latest('consultation_date')
                 ->latest('treatment_id')
                 ->first();
@@ -122,7 +122,7 @@ class TreatmentRecordController extends Controller
             $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->where('bite_id', $activeIncident->bite_id)
-                ->whereNotNull('dose_number')
+                ->where(fn ($q) => $q->whereNotNull('dose_number')->orWhereNotNull('medication_given'))
                 ->where(function($q) {
                     $q->where('status', 'completed')
                       ->orWhere(function($sub) {
@@ -161,7 +161,12 @@ class TreatmentRecordController extends Controller
     {
         $clinicId = $request->user()->clinic_id;
 
+        if ($request->has('prophylaxis_orders') && !in_array($request->user()->role, ['triage', 'doctor', 'admin'], true)) {
+            abort(403, 'Only a doctor or administrator may prescribe prophylaxis in Form 2.');
+        }
+
         $validated = $request->validate([
+            ...\App\Services\ProphylaxisService::orderRules(),
             'patient_id' => 'required|exists:patients,patient_id',
             'queue_id' => 'nullable|exists:queues,queue_id',
             'bite_id' => 'nullable|exists:bite_incidents,bite_id',
@@ -217,6 +222,11 @@ class TreatmentRecordController extends Controller
             'provider_name' => 'nullable|string|max:255',
             'attending_provider' => 'nullable|string|max:255',
         ]);
+
+        if (!empty($validated['prescribed_vaccine_type'])
+            && \App\Services\ProphylaxisService::inventoryMedication($validated['prescribed_vaccine_type'])) {
+            return response()->json(['message' => 'Prescribe ATS, TT or ERIG in the separate prophylaxis section, not as a rabies vaccine.'], 422);
+        }
 
         // Resolve active BiteIncident
         $activeBiteId = $request->get('bite_id');
@@ -300,7 +310,7 @@ class TreatmentRecordController extends Controller
             $hasAdministeredVaccine = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
                 ->where('bite_id', $activeIncident->bite_id)
-                ->whereNotNull('dose_number')
+                ->where(fn ($q) => $q->whereNotNull('dose_number')->orWhereNotNull('medication_given'))
                 ->where(function($q) {
                     $q->where('status', 'completed')
                       ->orWhere(function($sub) {
@@ -313,7 +323,7 @@ class TreatmentRecordController extends Controller
                 $existingConsultation = TreatmentRecord::where('clinic_id', $clinicId)
                     ->where('patient_id', $validated['patient_id'])
                     ->where('bite_id', $activeIncident->bite_id)
-                    ->whereNull('dose_number')
+                    ->whereNull('dose_number')->whereNull('medication_given')
                     ->first();
 
                 if ($existingConsultation) {
@@ -325,11 +335,15 @@ class TreatmentRecordController extends Controller
             }
         }
 
+        app(\App\Services\ProphylaxisService::class)->validateOrders(
+            $validated['prophylaxis_orders'] ?? [], $validated['treatment_plan'] ?? 'full_pep'
+        );
+
         // Check if an initial scheduled TreatmentRecord was pre-filled by Registration Staff
         $existingScheduled = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $validated['patient_id'])
             ->where('bite_id', $activeIncident?->bite_id)
-            ->whereNull('dose_number')
+            ->whereNull('dose_number')->whereNull('medication_given')
             ->where('status', 'scheduled')
             ->first();
 
@@ -369,6 +383,7 @@ class TreatmentRecordController extends Controller
             'diagnosis' => $validated['diagnosis'] ?? null,
             'medication_treatment' => $validated['medication_treatment'] ?? null,
             'prescribed_vaccine_type' => $validated['prescribed_vaccine_type'] ?? null,
+            'prophylaxis_orders' => $validated['prophylaxis_orders'] ?? null,
             'laboratory_findings' => $validated['laboratory_findings'] ?? null,
             'performed_lab_test' => $validated['performed_lab_test'] ?? null,
             
@@ -679,7 +694,7 @@ class TreatmentRecordController extends Controller
         $consultation = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
             ->where('bite_id', $validated['bite_id'])
-            ->whereNull('dose_number')
+            ->whereNull('dose_number')->whereNull('medication_given')
             ->latest('treatment_id')
             ->first();
 

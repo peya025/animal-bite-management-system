@@ -702,12 +702,12 @@ export default function PatientDetailsModal({
         reg_referred_by: newExposure.reg_referred_by,
       });
       setNewExposureOpen(false);
-      setCheckInSuccess(`New exposure & consultation vitals registered. Sent to Doctor assessment (Queue #${res.data?.queue?.queue_number || '1'}).`);
+      setSuccessData({
+        queueNumber: res.data?.queue?.queue_number || '1',
+        patientName: `${patient.first_name} ${patient.last_name}`,
+        station: 'Triage / Doctor Assessment',
+      });
       if (onPatientUpdated) onPatientUpdated(p);
-      setTimeout(() => {
-        setCheckInSuccess(null);
-        onClose();
-      }, 1500);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to check in to triage');
     } finally {

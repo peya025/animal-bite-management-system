@@ -79,6 +79,14 @@ class VaccinationRecordController extends Controller
             }
 
             return response()->json([
+                'prophylaxis_records' => $activeIncident ? TreatmentRecord::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)->where('bite_id', $activeIncident->bite_id)
+                    ->where(fn ($q) => $q->whereNotNull('medication_given')->orWhereIn('dose_number', [200, 201, 300, 400, 401]))
+                    ->where('status', 'completed')->live()->with('administeredBy')->get()
+                    ->map(function ($record) {
+                        $record->medication_given ??= [200 => 'ERIG', 201 => 'HRIG', 300 => 'TT', 400 => 'ATS', 401 => 'TIG'][$record->dose_number] ?? null;
+                        return $record;
+                    }) : [],
                 'vaccination_records'  => $activeRecords,
                 'past_history_records' => $allRecords,
                 'is_returning_new_bite'=> (bool) ($activeIncident?->isReExposure()),
@@ -293,7 +301,7 @@ class VaccinationRecordController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'patient_id' => 'required|exists:patients,patient_id',
             'bite_id' => 'nullable|exists:bite_incidents,bite_id',
             'queue_id' => 'nullable|exists:queues,queue_id',
@@ -317,7 +325,7 @@ class VaccinationRecordController extends Controller
             'registry_no' => 'nullable|string|max:100',
             'hospital_no' => 'nullable|string|max:100',
             'referred_by' => 'nullable|string|max:255',
-            'doses' => 'required|array',
+            'doses' => 'present|array',
             'doses.*.period' => 'required|string',
             'doses.*.route' => 'nullable|in:ID,IM',
             'doses.*.date' => 'nullable|date',
@@ -331,11 +339,33 @@ class VaccinationRecordController extends Controller
             'additional_meds.erig' => 'nullable|boolean',
             'additional_meds.tt' => 'nullable|boolean',
             'additional_meds.ats' => 'nullable|boolean',
+            'prophylaxis_administrations' => 'sometimes|array|max:3',
+            'prophylaxis_administrations.*.medication' => 'required|distinct|string|max:100',
+            'prophylaxis_administrations.*.date' => 'required|date_format:Y-m-d|before_or_equal:today',
+            'prophylaxis_administrations.*.inventory_id' => 'required|integer|exists:vaccine_inventory,inventory_id',
+            'prophylaxis_administrations.*.inventory_units_used' => 'required|integer|min:1|max:999',
+            'prophylaxis_administrations.*.route' => 'required|in:IM,wound_infiltration',
+            'prophylaxis_administrations.*.injection_site' => 'required|string|max:255',
+            'prophylaxis_administrations.*.dosage_ml' => 'required|numeric|gt:0|max:999.99',
+            'prophylaxis_administrations.*.dose_iu' => 'nullable|numeric|gt:0|max:99999999',
             'icd_code' => 'nullable|string|max:20',
         ], [
             'doses.required' => "Please select a Vaccine Type for today's dose before saving.",
             'doses.min' => "Please select a Vaccine Type for today's dose before saving.",
         ]);
+
+        foreach ($validated['doses'] as $dose) {
+            if (!empty($dose['vaccine_type']) && \App\Services\ProphylaxisService::inventoryMedication($dose['vaccine_type'])) {
+                throw ValidationException::withMessages(['doses' => 'ATS, TT and ERIG must be recorded under prescribed prophylaxis, not as a rabies vaccine dose.']);
+            }
+        }
+
+        if (collect($validated['additional_meds'] ?? [])->contains(fn ($given) => (bool) $given)) {
+            throw ValidationException::withMessages(['additional_meds' => 'Use the prescribed prophylaxis administration fields, including dose, date, batch and site.']);
+        }
+        if (empty($validated['doses']) && empty($validated['prophylaxis_administrations'])) {
+            throw ValidationException::withMessages(['doses' => 'Record a vaccine dose or a prescribed prophylaxis administration before saving.']);
+        }
 
         $actingUser = $request->user();
         if (!$actingUser) {
@@ -384,6 +414,7 @@ class VaccinationRecordController extends Controller
 
             $treatmentIncident = BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
+                ->lockForUpdate()
                 ->find($biteId);
             if (!$treatmentIncident || $treatmentIncident->isAwaitingAssessment()) {
                 throw ValidationException::withMessages([
@@ -786,33 +817,10 @@ class VaccinationRecordController extends Controller
                 }
             }
 
-            // Store additional medications as treatment records with special markers
-            $additionalMeds = $request->input('additional_meds', []);
-            foreach (['erig', 'tt', 'ats'] as $med) {
-                if (!empty($additionalMeds[$med])) {
-                    $existingMed = TreatmentRecord::where('clinic_id', $clinicId)
-                        ->where('patient_id', $patientId)
-                        ->where('medication_given', strtoupper($med))
-                        ->when($biteId, function ($query) use ($biteId) {
-                            return $query->where('bite_id', $biteId);
-                        })
-                        ->first();
-
-                    if (!$existingMed) {
-                        TreatmentRecord::create([
-                            'clinic_id'        => $clinicId,
-                            'patient_id'       => $patientId,
-                            'bite_id'          => $biteId,
-                            'medication_given' => strtoupper($med),
-                            'treatment_date'   => now(),
-                            'administered_by'  => $userId,
-                            'administered_at'  => now(),
-                            'status'           => 'completed',
-                            'remarks'          => 'Additional medication administered',
-                        ]);
-                    }
-                }
-            }
+            app(\App\Services\ProphylaxisService::class)->administer(
+                $treatmentIncident->fresh(), $planType,
+                $validated['prophylaxis_administrations'] ?? [], $userId
+            );
 
             // ──────────────────────────────────────────────────────────────
             // ✨ AUTO-CREATE FOLLOW-UP APPOINTMENTS (Day 3, 7, 28, etc.)

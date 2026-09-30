@@ -176,8 +176,12 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
     { period: 'Booster 1', key: 'booster1', doseNum: 100 },
     { period: 'Booster 2', key: 'booster2', doseNum: 101 },
     { period: 'ERIG', key: 'erig', doseNum: 200 },
+    ...(records.some((record: any) => record.medication_given === 'HRIG' || record.dose_number === 201)
+      ? [{ period: 'HRIG', key: 'hrig', doseNum: 201 }] : []),
     { period: 'TT', key: 'tt', doseNum: 300 },
     { period: 'ATS', key: 'ats', doseNum: 400 },
+    ...(records.some((record: any) => record.medication_given === 'TIG' || record.dose_number === 401)
+      ? [{ period: 'TIG', key: 'tig', doseNum: 401 }] : []),
   ];
 
   return (
@@ -920,25 +924,26 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                     </thead>
                     <tbody>
                       {periods.filter(p => p.doseNum >= 200).map((item, idx) => {
-                        const rec = records.find((r) => r.dose_number === item.doseNum);
+                        const rec = records.find((r) => !r.voided_at && (r.dose_number === item.doseNum || (item.period === 'TT' ? ['TT', 'TD', 'TDAP', 'DTAP'].includes(r.medication_given?.toUpperCase()) : r.medication_given === item.period)));
                         const staff = rec?.administered_by || (rec as any)?.administeredBy;
                         const staffName = typeof staff === 'object' ? staff?.name : null;
                         const staffLicense = typeof staff === 'object' ? staff?.professional_license_no : null;
                         return (
                           <tr key={item.period} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fdf2f8' }}>
                             <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#0f172a', fontSize: '0.55rem' }}>
-                              {item.period === 'ERIG' && 'ERIG'}
-                              {item.period === 'TT' && 'TT (Tetanus)'}
+                              {['ERIG', 'HRIG', 'TIG'].includes(item.period) && item.period}
+                              {item.period === 'TT' && (rec?.medication_given || 'Tetanus vaccine')}
                               {item.period === 'ATS' && 'ATS (Anti-Tetanus)'}
                             </td>
                             <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, color: '#be185d', fontSize: '0.55rem' }}>
-                              {item.period === 'ERIG' && rec?.dosage_ml ? (
-                                <span>{rec.dosage_ml}ml</span>
+                              {rec?.dosage_ml ? (
+                                <span>{rec.dosage_ml} mL{rec.dose_iu ? ` / ${rec.dose_iu} IU` : ''}</span>
                               ) : (
                                 <span style={{ color: '#94a3b8', fontSize: '0.5rem' }}>—</span>
                               )}
                             </td>
                             <td style={{ padding: '2px', border: '1px solid #cbd5e1', textAlign: 'center', fontSize: '0.55rem' }}>
+                              {rec?.route === 'wound_infiltration' && <span>Wound infiltration: {rec.injection_site}</span>}
                               <div style={{ display: 'flex', justifyContent: 'center', gap: '2px', flexWrap: 'wrap' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '1px', whiteSpace: 'nowrap' }}>
                                   <input type="checkbox" checked={rec?.route === 'ID'} readOnly style={{ margin: 0, width: '9px', height: '9px' }} /> ID
@@ -952,15 +957,15 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                               {rec?.treatment_date ? new Date(rec.treatment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : rec?.scheduled_date || '—'}
                             </td>
                             <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontSize: '0.55rem', lineHeight: 1.2 }}>
-                              {rec?.vaccine_type && (
+                              {(rec?.vaccine_type || rec?.vaccine_brand) && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                  <span style={{ fontWeight: 600, color: '#0369a1' }}>{rec.vaccine_type}</span>
-                                  {rec?.batch_number && (
-                                    <span style={{ fontSize: '0.5rem', color: '#64748b' }}>Batch: {rec.batch_number}</span>
+                                  <span style={{ fontWeight: 600, color: '#0369a1' }}>{rec.vaccine_type || rec.vaccine_brand}</span>
+                                  {(rec?.batch_number || rec?.batch_no) && (
+                                    <span style={{ fontSize: '0.5rem', color: '#64748b' }}>Batch: {rec.batch_number || rec.batch_no}</span>
                                   )}
                                 </div>
                               )}
-                              {!rec?.vaccine_type && <span style={{ color: '#94a3b8' }}>—</span>}
+                              {!(rec?.vaccine_type || rec?.vaccine_brand) && <span style={{ color: '#94a3b8' }}>—</span>}
                             </td>
                             <td style={{ padding: '2px 3px', border: '1px solid #cbd5e1', fontSize: '0.55rem', lineHeight: 1.2 }}>
                               {rec?.status === 'completed' || rec?.treatment_date ? (

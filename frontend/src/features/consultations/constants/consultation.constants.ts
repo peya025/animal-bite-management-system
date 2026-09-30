@@ -129,6 +129,7 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
   diagnosis: '',
   medication_treatment: '',
   prescribed_vaccine_type: '',
+  prophylaxis_orders: { tetanus_vaccine: '', tetanus_passive: '', rig: '', tetanus_history: '', tetanus_last_dose: '', rig_weight_kg: '', rig_indication: '', notes: '' },
   name_of_provider: '',
   laboratory_findings: '',
   performed_lab_test: '',
@@ -148,15 +149,6 @@ export function getInitialTreatmentFormData(): TreatmentFormData {
 
 export const DEFAULT_FALLBACK_VACCINES: readonly string[] = [
   'Anti-Rabies Vaccine (ARV)',
-  'Tetanus Toxoid (TT)',
-  'Tetanus and Diphtheria (Td)',
-  'Rabies Immunoglobulin (RIG)',
-  'Human Rabies Immunoglobulin (HRIG)',
-  'Equine Rabies Immunoglobulin (ERIG)',
-  'Amoxicillin',
-  'Co-Amoxiclav (Augmentin)',
-  'Metronidazole',
-  'Wound Irrigation Solution',
 ];
 
 export const NATURE_OF_VISIT_OPTIONS: readonly { value: 'new_consultation' | 'new_admission' | 'follow_up'; label: string }[] = [

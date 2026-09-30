@@ -67,6 +67,8 @@ class TreatmentRecord extends Model
         'diagnosis',
         'medication_treatment',
         'prescribed_vaccine_type',
+        'prophylaxis_orders',
+        'dose_iu',
         'provider_name',
         'laboratory_findings',
         'performed_lab_test',
@@ -75,6 +77,8 @@ class TreatmentRecord extends Model
     ];
 
     protected $casts = [
+        'prophylaxis_orders' => 'array',
+        'dose_iu' => 'decimal:2',
         'dose_number' => 'integer',
         'inventory_units_used' => 'integer',
         'scheduled_date' => 'date:Y-m-d',

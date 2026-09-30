@@ -168,7 +168,7 @@ class BiteIncident extends Model
      */
     public function consultationRecords()
     {
-        return $this->treatmentRecords()->whereNull('dose_number');
+        return $this->treatmentRecords()->whereNull('dose_number')->whereNull('medication_given');
     }
 
     /** Vaccine administrations and scheduled doses for this episode. */

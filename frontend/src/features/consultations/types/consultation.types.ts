@@ -1,3 +1,4 @@
+import type { ProphylaxisOrders } from '../../../shared/types/prophylaxis';
 export const CONSULTATION_TYPES_VERSION = '1.0.0';
 
 export interface ConsultationTypesMap {
@@ -52,6 +53,7 @@ export interface TreatmentFormData {
   diagnosis: string; // saved as free text (checklist selections auto-fill this)
   medication_treatment: string; // saved as free text (inventory checklist auto-fills this)
   prescribed_vaccine_type: string; // doctor's structured PEP vaccine prescription (drives nurse Form 3)
+  prophylaxis_orders: ProphylaxisOrders;
 
   name_of_provider: string;
   laboratory_findings: string;
@@ -152,6 +154,7 @@ export interface TreatmentRecordPayload {
   diagnosis: string;
   medication_treatment: string;
   prescribed_vaccine_type?: string | null;
+  prophylaxis_orders?: ProphylaxisOrders;
   laboratory_findings: string;
   performed_lab_test: string;
   provider_name?: string | null;

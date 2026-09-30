@@ -15,6 +15,66 @@ use Carbon\Carbon;
 
 class VaccineInventoryController extends Controller
 {
+    /** Active ATS, TT and ERIG batches for the doctor's orders and the nurse's stock selection. */
+    public function prophylaxisStock(Request $request)
+    {
+        $clinicId = $request->user()->clinic_id;
+
+        // Fetch preset names for Tetanus category
+        $tetanusPresets = VaccineTypePreset::where(function ($q) use ($clinicId) {
+            $q->whereNull('clinic_id')->orWhere('clinic_id', $clinicId);
+        })->where(function ($q) {
+            $q->where('category', 'like', '%Tetanus%')
+              ->orWhere('category', 'like', '%Toxoid%')
+              ->orWhere('vaccine_name', 'like', '%tetan%')
+              ->orWhere('vaccine_name', 'like', '%toxoid%')
+              ->orWhereIn('vaccine_name', ['TT', 'Td', 'Tdap', 'DTaP']);
+        })->pluck('vaccine_name')->all();
+
+        $batches = VaccineInventory::where('clinic_id', $clinicId)
+            ->where('status', 'active')->where('current_quantity', '>', 0)
+            ->whereDate('expiration_date', '>=', now()->toDateString())
+            ->orderBy('expiration_date')->orderBy('created_at')->get([
+                'inventory_id', 'vaccine_type', 'batch_number', 'expiration_date', 'current_quantity',
+            ]);
+
+        $activeTetanusBrands = [];
+        foreach ($batches as $batch) {
+            if (\App\Services\ProphylaxisService::isTetanusBrand($batch->vaccine_type, $tetanusPresets)) {
+                $activeTetanusBrands[] = $batch->vaccine_type;
+            }
+        }
+
+        $tetanusBrands = array_values(array_unique(array_filter(array_merge($tetanusPresets, $activeTetanusBrands))));
+        if (empty($tetanusBrands)) {
+            $tetanusBrands = ['TT'];
+        }
+
+        $stock = ['TT' => [], 'ATS' => [], 'ERIG' => []];
+        foreach ($tetanusBrands as $brand) {
+            $stock[$brand] = [];
+        }
+
+        foreach ($batches as $batch) {
+            $name = $batch->vaccine_type;
+            if (\App\Services\ProphylaxisService::isTetanusBrand($name, $tetanusBrands)) {
+                $stock[$name][] = $batch;
+                if (preg_match('/(?:^|[^a-z])TT(?:$|[^a-z])|tetanus toxoid/i', $name)) {
+                    $stock['TT'][] = $batch;
+                }
+            } elseif (preg_match('/(?:^|[^a-z])ATS(?:$|[^a-z])|anti[- ]?tetanus serum/i', $name)) {
+                $stock['ATS'][] = $batch;
+            } elseif (preg_match('/(?:^|[^a-z])ERIG(?:$|[^a-z])|equine rabies immunoglobulin/i', $name)) {
+                $stock['ERIG'][] = $batch;
+            }
+        }
+
+        return response()->json([
+            'stock' => $stock,
+            'tetanus_brands' => $tetanusBrands,
+        ]);
+    }
+
     /**
      * List all vaccine inventory for the clinic (admin only)
      */

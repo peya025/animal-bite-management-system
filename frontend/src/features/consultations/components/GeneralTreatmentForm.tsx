@@ -18,6 +18,7 @@ import NatureOfVisitSection from './sections/NatureOfVisitSection';
 import ConsultationTypesSection from './sections/ConsultationTypesSection';
 import ClinicalNotesSection from './sections/ClinicalNotesSection';
 import PrescribedVaccineSection from './sections/PrescribedVaccineSection';
+import ProphylaxisOrderSection from './sections/ProphylaxisOrderSection';
 import ReExposureAssessmentSection from './sections/ReExposureAssessmentSection';
 import ProviderFindingsSection from './sections/ProviderFindingsSection';
 import ClinicalAddendumSection from './sections/ClinicalAddendumSection';
@@ -38,6 +39,8 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     error,
     vaccineNames,
     vaccineStockMap,
+    prophylaxisStock,
+    tetanusBrands,
     hasExistingRecord,
     isEditing,
     setIsEditing,
@@ -65,6 +68,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     handleClearDiagnoses,
     toggleHistory,
     handlePrescribedVaccineChange,
+    handleProphylaxisChange,
     handleSaveAddendum,
     handleSubmit,
     handleCancelEdit,
@@ -208,6 +212,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         />
 
         {/* SECTION 8: Prescribed PEP Vaccine (Doctor's Order & Live Inventory Badge) */}
+        <ProphylaxisOrderSection value={formData.prophylaxis_orders} stock={prophylaxisStock} tetanusBrands={tetanusBrands} disabled={isFormDisabled} onChange={handleProphylaxisChange} />
         <PrescribedVaccineSection
           prescribedVaccineType={formData.prescribed_vaccine_type}
           medicationTreatment={formData.medication_treatment}

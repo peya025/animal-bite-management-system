@@ -89,6 +89,7 @@ class TagoloanTreatmentCardController extends Controller
                 ->whereNotNull('nature_of_visit')
                 ->orderBy('consultation_date', 'desc')
                 ->orderBy('consultation_time', 'desc')
+                ->latest('treatment_id')
                 ->first();
         }
         $planAllowsTreatment = $latestBite

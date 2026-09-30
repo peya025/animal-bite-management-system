@@ -1,4 +1,8 @@
 import { useEffect, useState } from 'react';
+import ProphylaxisAdministrationSection from './ProphylaxisAdministrationSection';
+import type { ProphylaxisRecord } from './ProphylaxisAdministrationSection';
+import type { ProphylaxisAdministration, ProphylaxisStock } from '../../../shared/types/prophylaxis';
+import { isProphylaxisInventoryName } from '../../../shared/types/prophylaxis';
 import SignatureImage from '../../../shared/components/SignatureImage';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
@@ -150,11 +154,7 @@ interface ExistingVaccinationRecord {
   external_facility_name?: string | null;
 }
 
-interface AdditionalMeds {
-  erig: boolean;
-  tt: boolean;
-  ats: boolean;
-}
+
 
 const PERIOD_TO_DOSE_NUMBER: Record<string, number> = {
   'Day 0': 0,
@@ -494,11 +494,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const clinicalAssessmentLocked = isFormLocked;
   
   const [showFullSchedule, setShowFullSchedule] = useState(false); // 8.1: expand to show Day 28 + Boosters
-  const [additionalMeds, setAdditionalMeds] = useState<AdditionalMeds>({
-    erig: false,
-    tt: false,
-    ats: false,
-  });
+  const [prophylaxisAdministrations, setProphylaxisAdministrations] = useState<ProphylaxisAdministration[]>([]);
+  const [prophylaxisRecords, setProphylaxisRecords] = useState<ProphylaxisRecord[]>([]);
+  const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
+  const [prophylaxisOnly, setProphylaxisOnly] = useState(false);
   const [icdCode, setIcdCode] = useState('');
   const [saving, setSaving] = useState(false);
   const [signatureVersion, setSignatureVersion] = useState<string | null>(null);
@@ -586,7 +585,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         getVaccineNames(),
         getVaccinePresets(),
       ]);
-      setAvailableVaccineTypes(Array.isArray(names) ? names : []);
+      setAvailableVaccineTypes(Array.isArray(names) ? names.filter(name => !isProphylaxisInventoryName(name)) : []);
       setVaccinePresets(Array.isArray(presets) ? presets : []);
       setInventorySetupMessage('');
     } catch {
@@ -616,17 +615,22 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   const loadAllFormData = async () => {
+    setProphylaxisAdministrations([]);
+    setProphylaxisRecords([]);
+    setProphylaxisStock(undefined);
+    setProphylaxisOnly(false);
     const patientId = entry?.patient?.patient_id || entry?.patient?.id;
     if (!patientId) return;
 
     try {
       const activeBiteId = entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id;
       const biteIdParam = activeBiteId ? `?bite_id=${activeBiteId}` : '';
-      const [cardRes, apptRes, vacRes, incidentRes] = await Promise.all([
+      const [cardRes, apptRes, vacRes, incidentRes, stockRes] = await Promise.all([
         api.get(`/tagoloan-treatment-cards/patient/${patientId}${biteIdParam}`).catch(() => null),
         api.get(`/appointments?patient_id=${patientId}&status=scheduled`).catch(() => null),
         api.get(`/vaccination-records/patient/${patientId}${biteIdParam}`).catch(() => null),
         activeBiteId ? api.get(`/cases/${activeBiteId}`).catch(() => null) : Promise.resolve(null),
+        api.get('/inventory/prophylaxis-stock').catch(() => null),
       ]);
 
       const isReturning = Boolean(vacRes?.data?.is_returning_new_bite);
@@ -645,6 +649,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       setCurrentIncident(bite || null);
       setExistingRecordsData(records);
+      setProphylaxisRecords(vacRes?.data?.prophylaxis_records || []);
+      setProphylaxisStock(stockRes?.data?.stock || null);
 
       // Read doctor's prescribed vaccine from treatment record (Form 2 → hard-locks Form 3)
       const doctorPrescribed = consultation?.prescribed_vaccine_type || '';
@@ -1133,7 +1139,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     });
 
     // Only submit active uncompleted doses being administered today
-    const filledDoses = candidateDoses.filter(d => {
+    const filledDoses = prophylaxisOnly ? [] : candidateDoses.filter(d => {
       if (d.is_completed || !d.date || !d.vaccine_type) return false;
       // 22.1 — block prerequisite-locked doses from being submitted
       const PREREQ: Record<string, string> = { 'Day 3': 'Day 0', 'Day 7': 'Day 3', 'Day 28': 'Day 7', 'Booster 2': 'Booster 1' };
@@ -1144,8 +1150,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       }
       return true;
     });
-    if (filledDoses.length === 0) {
-      setError("Please select a Vaccine Type for today's dose before saving.");
+    if (filledDoses.length === 0 && prophylaxisAdministrations.length === 0) {
+      setError("Select a vaccine dose or record a prescribed prophylaxis administration before saving.");
       return;
     }
 
@@ -1202,7 +1208,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         })),
         bite_id: currentIncident?.bite_id || entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id || null,
         episode_type: manualReExposure ? 're_exposure' : (currentIncident?.episode_type || entry?.incident?.episode_type || 'primary'),
-        additional_meds: additionalMeds,
+        prophylaxis_administrations: prophylaxisAdministrations,
         icd_code: icdCode || null,
       });
 
@@ -1251,7 +1257,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               Patient Information & Exposure Details Locked
             </div>
             <div style={{ fontSize: 12, color: '#78350f' }}>
-              These fields cannot be edited because at least one dose has been administered for this incident. Only future doses can be recorded. For re-exposure cases, create a new treatment card.
+              These fields cannot be edited because at least one dose has been administered for this incident. Pending vaccine doses and prescribed tetanus / immunoglobulin administrations can still be recorded.
             </div>
           </div>
         </div>
@@ -2894,35 +2900,16 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       </div>
 
       {/* SECTION 4: ADDITIONAL MEDICATIONS & ICD CODE */}
-      <div style={{ marginTop: 32, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
-        <div>
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>Additional Medications</h3>
-          <div style={{ display: 'flex', gap: 24 }}>
-            {(['erig', 'tt', 'ats'] as const).map(med => {
-              const isReExposure = manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure' || entry?.incident?.episode_type === 're_exposure';
-              const isErigContraindicated = med === 'erig' && isReExposure;
-              return (
-                <label
-                  key={med}
-                  title={isErigContraindicated ? 'RIG omitted — contraindicated in previously immunized patients (DOH Rabies Manual)' : undefined}
-                  style={{ display: 'flex', alignItems: 'center', cursor: isErigContraindicated || readOnly ? 'not-allowed' : 'pointer', opacity: isErigContraindicated ? 0.45 : 1 }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={additionalMeds[med]}
-                    onChange={(e) => setAdditionalMeds(prev => ({ ...prev, [med]: e.target.checked }))}
-                    disabled={readOnly || isErigContraindicated}
-                    style={{ marginRight: 8 }}
-                  />
-                  <span style={{ fontSize: 13, color: isErigContraindicated ? '#9ca3af' : '#374151', fontWeight: 500 }}>
-                    {med.toUpperCase()}
-                    {isErigContraindicated && <span style={{ fontSize: 10, marginLeft: 4, color: '#6b7280' }}>(contraindicated)</span>}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
+      <div style={{ marginTop: 32 }}>
+        {!readOnly && <label style={{ display: 'block', marginBottom: 12 }}>
+          <input type="checkbox" checked={prophylaxisOnly} disabled={saving} onChange={e => setProphylaxisOnly(e.target.checked)} />
+          {' '}Record tetanus / immunoglobulin only for this visit (no rabies vaccine administered)
+        </label>}
+        <ProphylaxisAdministrationSection
+          orders={latestConsultation?.prophylaxis_orders} stock={prophylaxisStock} records={prophylaxisRecords}
+          value={prophylaxisAdministrations} onChange={setProphylaxisAdministrations}
+          disabled={readOnly || saving} today={getLocalDateString()}
+        />
         <div>
           <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>ICD 10 Code</label>
           <input type="text" value={icdCode} onChange={(e) => setIcdCode(e.target.value)} placeholder="e.g., W54.0" disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />

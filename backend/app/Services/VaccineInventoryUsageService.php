@@ -217,6 +217,7 @@ class VaccineInventoryUsageService
             $earliestBatch = VaccineInventory::where('clinic_id', $clinicId)
                 ->where('vaccine_type', $vaccineType)
                 ->where('status', 'active')
+                ->whereDate('expiration_date', '>=', now()->toDateString())
                 ->where('current_quantity', '>=', $quantity)
                 ->orderBy('expiration_date', 'asc')
                 ->orderBy('created_at', 'asc')
@@ -227,6 +228,7 @@ class VaccineInventoryUsageService
                 $batch = VaccineInventory::where('clinic_id', $clinicId)
                     ->where('inventory_id', $forceBatchId)
                     ->where('status', 'active')
+                    ->whereDate('expiration_date', '>=', now()->toDateString())
                     ->lockForUpdate()
                     ->first();
 

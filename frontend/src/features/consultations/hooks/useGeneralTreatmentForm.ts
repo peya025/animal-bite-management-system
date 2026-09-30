@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { normalizeProphylaxisOrders } from '../../../shared/types/prophylaxis';
+import type { ProphylaxisOrders, ProphylaxisStock } from '../../../shared/types/prophylaxis';
 import type {
   TreatmentFormData,
   VaccineStockMap,
@@ -24,6 +26,7 @@ import {
 import {
   fetchVaccineNames,
   fetchInventoryStock,
+  fetchProphylaxisStock,
   fetchPatientTreatmentRecord,
   submitTreatmentRecord,
   submitAddendumNote,
@@ -65,6 +68,8 @@ export function useGeneralTreatmentForm({
   const [error, setError] = useState('');
   const [vaccineNames, setVaccineNames] = useState<string[]>([]);
   const [vaccineStockMap, setVaccineStockMap] = useState<VaccineStockMap>({});
+  const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
+  const [tetanusBrands, setTetanusBrands] = useState<string[]>([]);
   const [currentUserName] = useState<string>(() => getCurrentUserName());
 
   // Track if a record has already been saved for this patient
@@ -100,6 +105,12 @@ export function useGeneralTreatmentForm({
   useEffect(() => {
     fetchVaccineNames().then(setVaccineNames);
     fetchInventoryStock().then(setVaccineStockMap);
+    fetchProphylaxisStock().then(res => {
+      setProphylaxisStock(res.stock);
+      if (res.tetanus_brands && res.tetanus_brands.length > 0) {
+        setTetanusBrands(res.tetanus_brands);
+      }
+    }).catch(() => setProphylaxisStock(null));
   }, []);
 
   const populateFormFromRecord = useCallback((record: any, preserveEmptyMeds: boolean = false) => {
@@ -153,6 +164,7 @@ export function useGeneralTreatmentForm({
       diagnosis: diagText,
       medication_treatment: record.prescribed_vaccine_type || medText,
       prescribed_vaccine_type: record.prescribed_vaccine_type || '',
+      prophylaxis_orders: normalizeProphylaxisOrders(record.prophylaxis_orders),
       name_of_provider: resolveHealthCareProvider(record) || prev.name_of_provider,
       name_of_attending_provider: resolveAttendingProvider(entry, record) || prev.name_of_attending_provider,
       laboratory_findings: record.laboratory_findings || '',
@@ -296,7 +308,7 @@ export function useGeneralTreatmentForm({
             checkedHistory: string[];
           }>();
           if (savedDraft) {
-            setFormData(savedDraft.formData);
+            setFormData({ ...INITIAL_FORM_DATA, ...savedDraft.formData });
             setCheckedDiagnoses(savedDraft.checkedDiagnoses ?? []);
             setCheckedHistory(savedDraft.checkedHistory ?? []);
           }
@@ -315,7 +327,7 @@ export function useGeneralTreatmentForm({
           checkedHistory: string[];
         }>();
         if (savedDraft) {
-          setFormData(savedDraft.formData);
+          setFormData({ ...INITIAL_FORM_DATA, ...savedDraft.formData });
           setCheckedDiagnoses(savedDraft.checkedDiagnoses ?? []);
           setCheckedHistory(savedDraft.checkedHistory ?? []);
         }
@@ -433,6 +445,14 @@ export function useGeneralTreatmentForm({
     });
   };
 
+  const handleProphylaxisChange = (orders: ProphylaxisOrders) => {
+    setFormData(prev => {
+      const next = { ...prev, prophylaxis_orders: orders };
+      saveDraftSnapshot(next);
+      return next;
+    });
+  };
+
   const handleSaveAddendum = async () => {
     const patientId = entry?.patient?.patient_id || entry?.patient?.id;
     if (!patientId || !addendumNote.trim()) return;
@@ -540,6 +560,14 @@ export function useGeneralTreatmentForm({
         diagnosis: formData.diagnosis,
         medication_treatment: formData.medication_treatment,
         prescribed_vaccine_type: formData.prescribed_vaccine_type || null,
+        prophylaxis_orders: {
+          ...formData.prophylaxis_orders,
+          tetanus_passive: '',
+          rig: '',
+          tetanus_history: '',
+          rig_weight_kg: '',
+          rig_indication: '',
+        },
         laboratory_findings: formData.laboratory_findings,
         performed_lab_test: formData.performed_lab_test,
         provider_name: formData.name_of_provider || currentUserName || null,
@@ -581,6 +609,8 @@ export function useGeneralTreatmentForm({
     error,
     vaccineNames,
     vaccineStockMap,
+    prophylaxisStock,
+    tetanusBrands,
     hasExistingRecord,
     isEditing,
     setIsEditing,
@@ -625,6 +655,7 @@ export function useGeneralTreatmentForm({
     handleClearDiagnoses,
     toggleHistory,
     handlePrescribedVaccineChange,
+    handleProphylaxisChange,
     handleSaveAddendum,
     handleSubmit,
     handleCancelEdit,

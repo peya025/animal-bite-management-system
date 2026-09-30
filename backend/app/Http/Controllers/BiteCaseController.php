@@ -6,6 +6,7 @@ use App\Models\BiteIncident;
 use App\Models\BiteIncidentIntake;
 use App\Models\Queue;
 use App\Models\QueueHistory;
+use App\Models\TreatmentRecord;
 use App\Models\VaccinationSchedule;
 use App\Services\GeocodingService;
 use Carbon\Carbon;
@@ -35,6 +36,25 @@ class BiteCaseController extends Controller
             'site_number' => 'nullable|string|max:255',
             'wound_description' => 'nullable|string',
             'remarks' => 'nullable|string',
+
+            // III. Consultation Details & Vitals — entered by Registration Staff during re-exposure check-in
+            'consultation_date' => 'nullable|date',
+            'consultation_time' => 'nullable|string|max:20',
+            'blood_pressure' => 'nullable|string|max:20',
+            'temperature' => 'nullable|string|max:10',
+            'height' => 'nullable|string|max:10',
+            'weight' => 'nullable|string|max:10',
+            'attending_provider' => 'nullable|string|max:255',
+            'referred_by' => 'nullable|string|max:255',
+            // Also support reg_ prefix from frontend form
+            'reg_date_of_consultation' => 'nullable|date',
+            'reg_consultation_time' => 'nullable|string|max:20',
+            'reg_blood_pressure' => 'nullable|string|max:20',
+            'reg_temperature' => 'nullable|string|max:10',
+            'reg_height' => 'nullable|string|max:10',
+            'reg_weight' => 'nullable|string|max:10',
+            'reg_attending_provider' => 'nullable|string|max:255',
+            'reg_referred_by' => 'nullable|string|max:255',
         ]);
 
         $clinicId = $request->user()->clinic_id;
@@ -81,6 +101,49 @@ class BiteCaseController extends Controller
                 'created_by' => $request->user()->id,
             ]);
 
+            // Resolve III. Consultation Details & Vitals entered by Registration
+            $consultationDate = $request->input('consultation_date')
+                ?? $request->input('reg_date_of_consultation')
+                ?? Carbon::today()->toDateString();
+            $consultationTime = $request->input('consultation_time')
+                ?? $request->input('reg_consultation_time')
+                ?? Carbon::now()->format('H:i');
+            $bloodPressure = $request->input('blood_pressure')
+                ?? $request->input('reg_blood_pressure');
+            $temperature = $request->input('temperature')
+                ?? $request->input('reg_temperature');
+            $height = $request->input('height')
+                ?? $request->input('reg_height');
+            $weight = $request->input('weight')
+                ?? $request->input('reg_weight');
+            $attendingProvider = $request->input('attending_provider')
+                ?? $request->input('reg_attending_provider');
+            $referredBy = $request->input('referred_by')
+                ?? $request->input('reg_referred_by');
+
+            // Create initial TreatmentRecord (status='scheduled', dose_number=null)
+            // with Section III Consultation Details & Vitals entered by Registration.
+            // This anchors to the new re-exposure episode (bite_id) so the Doctor
+            // sees these vitals read-only when opening Form 2.
+            $treatmentRecord = TreatmentRecord::create([
+                'clinic_id'           => $clinicId,
+                'patient_id'          => $validated['patient_id'],
+                'bite_id'             => $incident->bite_id,
+                'dose_number'         => null,
+                'status'              => 'scheduled',
+                'consultation_date'   => $consultationDate,
+                'treatment_date'      => $consultationDate,
+                'consultation_time'   => $consultationTime,
+                'blood_pressure'      => $bloodPressure,
+                'temperature'         => $temperature,
+                'height'              => $height,
+                'weight'              => $weight,
+                'attending_provider'  => $attendingProvider,
+                'referred_by'         => $referredBy,
+                'mode_of_transaction' => 'walk-in',
+                'administered_by'     => $request->user()->id,
+            ]);
+
             // Must scan ALL rows (including soft-deleted) because the
             // unique_daily_queue index covers deleted rows too.
             $lastQueueNumber = DB::table('queues')
@@ -100,7 +163,7 @@ class BiteCaseController extends Controller
                 'status' => 'waiting',
                 'checked_in_at' => now(),
                 'checked_in_by' => $request->user()->id,
-                'check_in_notes' => 'New exposure registered — Doctor assessment required before any treatment.',
+                'check_in_notes' => 'Re-exposure registered with vitals — Doctor assessment required before any treatment.',
                 'call_count' => 0,
             ]);
 
@@ -122,6 +185,7 @@ class BiteCaseController extends Controller
             return response()->json([
                 'message' => 'New exposure registered and sent to Doctor assessment.',
                 'incident' => $incident,
+                'treatment_record' => $treatmentRecord,
                 'queue' => $queue->load(['patient', 'biteIncident']),
             ], 201);
         });

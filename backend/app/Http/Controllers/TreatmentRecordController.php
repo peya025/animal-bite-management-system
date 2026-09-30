@@ -325,8 +325,15 @@ class TreatmentRecordController extends Controller
             }
         }
 
-        // Create general consultation treatment record
-        $treatmentRecord = TreatmentRecord::create([
+        // Check if an initial scheduled TreatmentRecord was pre-filled by Registration Staff
+        $existingScheduled = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $validated['patient_id'])
+            ->where('bite_id', $activeIncident?->bite_id)
+            ->whereNull('dose_number')
+            ->where('status', 'scheduled')
+            ->first();
+
+        $recordPayload = [
             'clinic_id' => $clinicId,
             'patient_id' => $validated['patient_id'],
             'bite_id' => $activeIncident?->bite_id,
@@ -371,7 +378,15 @@ class TreatmentRecordController extends Controller
             
             'status' => 'completed', // General consultation is completed when Form 2 is saved
             'administered_by' => $request->user()->id,
-        ]);
+        ];
+
+        if ($existingScheduled) {
+            unset($recordPayload['administered_by']);
+            $existingScheduled->update($recordPayload);
+            $treatmentRecord = $existingScheduled;
+        } else {
+            $treatmentRecord = TreatmentRecord::create($recordPayload);
+        }
 
         // ── Auto-advance queue: move patient from Triage/Doctor → Treatment/Vaccination station ──
         // Form 2 records the Doctor's diagnosis and treatment decision only.

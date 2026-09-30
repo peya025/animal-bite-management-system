@@ -172,6 +172,12 @@ class TagoloanTreatmentCardController extends Controller
      */
     public function store(Request $request)
     {
+        if ($request->user()->isTriage() && !$request->user()->isAdmin() && !$request->user()->isNursing()) {
+            return response()->json([
+                'message' => 'Unauthorized. Triage doctors are not permitted to save Form 3 treatment cards.',
+            ], 403);
+        }
+
         $clinicId = $request->user()->clinic_id;
 
         $validated = $request->validate([

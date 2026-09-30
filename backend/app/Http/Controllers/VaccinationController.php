@@ -142,6 +142,12 @@ class VaccinationController extends Controller
      */
     public function administer(Request $request, $id)
     {
+        if ($request->user()->isTriage() && !$request->user()->isAdmin() && !$request->user()->isNursing()) {
+            return response()->json([
+                'message' => 'Unauthorized. Triage doctors are not permitted to administer vaccines.',
+            ], 403);
+        }
+
         $schedule = VaccinationSchedule::where('clinic_id', $request->user()->clinic_id)
             ->findOrFail($id);
 

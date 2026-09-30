@@ -403,6 +403,7 @@ export default function PatientDetailsModal({
 
   const getInitialNewExposure = () => ({
     bite_date: new Date().toISOString().slice(0, 10),
+    mode_of_transaction: 'walk-in',
     reg_date_of_consultation: new Date().toISOString().slice(0, 10),
     reg_consultation_time: new Date().toTimeString().slice(0, 5),
     reg_blood_pressure: '',
@@ -498,6 +499,8 @@ export default function PatientDetailsModal({
       const res = await api.post('/cases/new-exposure', {
         patient_id: patientId,
         bite_date: newExposure.bite_date,
+        mode_of_transaction: newExposure.mode_of_transaction || 'walk-in',
+        reg_mode_of_transaction: newExposure.mode_of_transaction || 'walk-in',
         consultation_date: newExposure.reg_date_of_consultation,
         consultation_time: newExposure.reg_consultation_time,
         blood_pressure: newExposure.reg_blood_pressure,

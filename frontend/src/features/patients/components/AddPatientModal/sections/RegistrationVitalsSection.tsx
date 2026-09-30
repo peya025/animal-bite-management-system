@@ -118,6 +118,7 @@ export interface RegistrationVitalsFields {
   reg_weight: string;
   reg_attending_provider: string;
   reg_referred_by: string;
+  mode_of_transaction?: 'walk-in' | 'visited' | 'referral' | string;
 }
 
 export interface RegistrationVitalsSectionProps<T extends RegistrationVitalsFields = any> {
@@ -129,6 +130,7 @@ export interface RegistrationVitalsSectionProps<T extends RegistrationVitalsFiel
 }
 
 /**
+ * II. For CHU / RHU Personnel Only (Para sa Kinatawan ng CHU / RHU Lamang) &
  * III. Consultation Details & Vitals
  *
  * Entered by Registration Staff during patient registration (Add Patient)
@@ -138,6 +140,7 @@ export interface RegistrationVitalsSectionProps<T extends RegistrationVitalsFiel
  * Displayed in Form 1 print via patient-enrolment.blade.php.
  *
  * Field mapping to treatment_records columns:
+ *   mode_of_transaction       → mode_of_transaction ('walk-in' | 'visited' | 'referral')
  *   reg_date_of_consultation  → consultation_date
  *   reg_consultation_time     → consultation_time
  *   reg_blood_pressure        → blood_pressure  (stored as "systolic/diastolic")
@@ -234,11 +237,40 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
   };
 
   return (
-    <div className="fm-section">
-      <h3 className="fm-section-title">III. Consultation Details &amp; Vitals</h3>
-      <p className="registration-field-hint" style={{ marginBottom: 12, marginTop: -4 }}>
-        Entered by Registration Staff from the patient's referral paper or intake form. These values will be visible to the attending doctor in read-only mode.
-      </p>
+    <>
+      {/* SECTION II: For CHU / RHU Personnel Only */}
+      <div className="fm-section">
+        <h3 className="fm-section-title">
+          II. For CHU / RHU Personnel Only (Para sa Kinatawan ng CHU / RHU Lamang)
+        </h3>
+        <div className="fm-grid" style={{ marginBottom: 14 }}>
+          <FormField label="Mode of Transaction">
+            <div className="fm-radio-group">
+              {(['walk-in', 'visited', 'referral'] as const).map((mode) => (
+                <label key={mode} className="fm-radio">
+                  <input
+                    type="radio"
+                    name="mode_of_transaction"
+                    value={mode}
+                    checked={(data.mode_of_transaction || 'walk-in') === mode}
+                    onChange={onChange('mode_of_transaction')}
+                  />
+                  <span style={{ textTransform: 'capitalize' }}>
+                    {mode.replace('-', ' ')}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </FormField>
+        </div>
+      </div>
+
+      {/* SECTION III: Consultation Details & Vitals */}
+      <div className="fm-section">
+        <h3 className="fm-section-title">III. Consultation Details &amp; Vitals</h3>
+        <p className="registration-field-hint" style={{ marginBottom: 12, marginTop: -4 }}>
+          Entered by Registration Staff from the patient's referral paper or intake form. These values will be visible to the attending doctor in read-only mode.
+        </p>
 
       {/* Row 1: Date + Time */}
       <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
@@ -469,5 +501,6 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         </div>
       </div>
     </div>
+    </>
   );
 }

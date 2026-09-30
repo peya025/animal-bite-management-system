@@ -778,12 +778,25 @@ export default function PatientList() {
                       (p as any).appointments?.some((a: any) => a.status === 'scheduled') ||
                       (p as any).upcomingAppointment
                     );
-                    const hasActiveIncident = latestIncident && (latestIncident.status === 'active' || latestIncident.status === 'in_progress');
-                    const isOngoingTreatment = hasActiveIncident || hasPendingAppointments || (hasDosesAdministered && latestRecord.dose_number < 28);
-                    // Allow re-exposure registration after Day 3 (3rd dose) or later, when no pending appointments
-                    const hasCompletedMinimumDoses = hasDosesAdministered && latestRecord.dose_number >= 3 && !hasPendingAppointments;
-                    const isFollowUp = (hasDosesAdministered || hasCompletedTriage) && isOngoingTreatment;
-                    const canCheckIn = !activeQueue && !hasCompletedTriage;
+                    const hasActiveIncident = Boolean(
+                      latestIncident && ['active', 'in_progress', 'awaiting_assessment'].includes(latestIncident.status)
+                    );
+                    // Re-exposure eligibility:
+                    // 1. Patient finished Day 7 (primary series: Days 0, 3, 7 completed)
+                    // 2. If on a booster regimen, only AFTER the booster is finished (no pending appointments, incident completed)
+                    // 3. Not currently in an active queue today
+                    // 4. No pending / scheduled appointments for the current treatment course
+                    const hasCompletedDay7 = Boolean(
+                      (p as any).has_completed_primary ||
+                      (latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined && Number(latestRecord.dose_number) >= 7)
+                    );
+                    const canRegisterNewExposure = Boolean(
+                      canRegisterExposure &&
+                      !activeQueue &&
+                      hasCompletedDay7 &&
+                      !hasPendingAppointments &&
+                      !hasActiveIncident
+                    );
                     const mobileIntakeForCheckIn = !activeQueue ? getMobileIntakeReadyForCheckIn(p) : undefined;
                     const mobileIntakeIsDue = Boolean(
                       mobileIntakeForCheckIn && isMobileIntakeDueForCheckIn(p, mobileIntakeForCheckIn)
@@ -873,23 +886,10 @@ export default function PatientList() {
                               >
                                 Booked — Awaiting Check-In
                               </span>
-                            ) : canCheckIn && canRegisterExposure ? (
+                            ) : canRegisterNewExposure ? (
                               <button
                                 className="pm-btn-checkin"
-                                title="Register the bite or possible rabies exposure before Doctor assessment"
-                                onClick={(event) => {
-                                  (event.currentTarget as HTMLElement).blur();
-                                  setSelectedViewPatient(p);
-                                  setOpenReExposureOnView(true);
-                                  setShowViewModal(true);
-                                }}
-                              >
-                                Register Exposure
-                              </button>
-                            ) : hasCompletedMinimumDoses && !activeQueue && canRegisterExposure ? (
-                              <button
-                                className="pm-btn-checkin"
-                                title="Register a distinct new exposure before Doctor assessment"
+                                title="Register a distinct new rabies exposure incident (Re-Exposure)"
                                 style={{
                                   backgroundColor: '#0284c7',
                                   borderColor: '#0284c7',

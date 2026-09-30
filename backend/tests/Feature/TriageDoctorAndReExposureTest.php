@@ -547,4 +547,111 @@ class TriageDoctorAndReExposureTest extends TestCase
         $this->assertEquals(1, TreatmentRecord::where('bite_id', $incidentId)->whereNull('dose_number')->count());
         $this->assertEquals('completed', TreatmentRecord::where('bite_id', $incidentId)->whereNull('dose_number')->first()->status);
     }
+
+    public function test_re_exposure_registration_rejected_if_primary_series_not_completed()
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic, 'registration');
+
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-INCOMPLETE-1',
+            'first_name' => 'Incomplete',
+            'last_name' => 'Patient',
+            'birthdate' => '2000-01-01',
+            'gender' => 'Male',
+        ]);
+
+        // Patient only has Day 0, Day 7 is NOT completed
+        $incident = BiteIncident::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'episode_number' => 1,
+            'episode_type' => 'primary',
+            'bite_date' => Carbon::now()->subMonths(1)->toDateString(),
+            'status' => 'active',
+            'created_by' => $staff->id,
+        ]);
+
+        TreatmentRecord::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'dose_number' => 0,
+            'status' => 'completed',
+            'treatment_date' => Carbon::now()->subMonths(1)->toDateString(),
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson('/api/cases/new-exposure', [
+            'patient_id' => $patient->patient_id,
+            'bite_date' => Carbon::today()->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonFragment([
+            'message' => 'Patient is not eligible for re-exposure registration. The primary anti-rabies series (Days 0, 3, 7) must be completed first.',
+        ]);
+    }
+
+    public function test_re_exposure_registration_rejected_if_treatment_appointment_is_still_scheduled()
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic, 'registration');
+
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-SCHEDULED-1',
+            'first_name' => 'Scheduled',
+            'last_name' => 'Patient',
+            'birthdate' => '2000-01-01',
+            'gender' => 'Male',
+        ]);
+
+        $incident = BiteIncident::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'episode_number' => 1,
+            'episode_type' => 'primary',
+            'bite_date' => Carbon::now()->subMonths(1)->toDateString(),
+            'status' => 'completed',
+            'created_by' => $staff->id,
+        ]);
+
+        foreach ([0, 3, 7] as $dose) {
+            TreatmentRecord::create([
+                'clinic_id' => $clinic->id,
+                'patient_id' => $patient->patient_id,
+                'bite_id' => $incident->bite_id,
+                'dose_number' => $dose,
+                'status' => 'completed',
+                'treatment_date' => Carbon::now()->subMonths(1)->toDateString(),
+            ]);
+        }
+
+        // Active booster appointment scheduled (in-progress booster regimen)
+        Appointment::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'appointment_date' => Carbon::tomorrow()->toDateString(),
+            'scheduled_date' => Carbon::tomorrow()->toDateString(),
+            'status' => 'scheduled',
+            'appointment_type' => 'booster',
+            'dose_number' => 3,
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson('/api/cases/new-exposure', [
+            'patient_id' => $patient->patient_id,
+            'bite_date' => Carbon::today()->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonFragment([
+            'message' => 'Patient cannot register a new exposure while an active treatment appointment is still scheduled.',
+        ]);
+    }
 }
+

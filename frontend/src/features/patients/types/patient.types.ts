@@ -37,6 +37,7 @@ export interface Patient {
   memberships?: PatientMembership[];
   created_at: string;
   status?: 'active' | 'pending' | 'inactive';
+  has_completed_primary?: boolean;
 }
 
 export interface EnrolmentFormData {

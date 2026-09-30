@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../../shared/contexts/AuthContext';
 import { ROUTES } from '../../../shared/config/routes';
 import {
   Box,
@@ -43,7 +42,6 @@ import {
   RefreshIcon,
   UserMultiple02Icon,
   MailSend01Icon,
-  ViewIcon,
 } from '@hugeicons/core-free-icons';
 import api from '../../../services/api';
 import { TablePager } from '../../../components/data-display';
@@ -115,9 +113,6 @@ interface JourneyKPI {
 
 export default function VaccinationSchedulePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isTriageDoctor = user?.role === 'triage';
-  const canRecordDose = !isTriageDoctor && (user?.role === 'treatment' || Boolean(user?.is_nursing) || user?.role === 'admin' || user?.role === 'developer');
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [loading, setLoading] = useState(true);
@@ -394,15 +389,8 @@ export default function VaccinationSchedulePage() {
           >
             Vaccination Schedule
           </Typography>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginTop: '8px',
-              fontSize: '13px',
-            }}
-          >
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px' }}>
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{
@@ -774,9 +762,6 @@ export default function VaccinationSchedulePage() {
               .map((patient) => {
               const isMissed = patient.compliance_status === 'overdue_missed';
               const isDueToday = patient.compliance_status === 'due_today';
-              const showNextLabel = !isTriageDoctor && Boolean(patient.next_appointment);
-              const showOverdueNotice = Boolean(isMissed && patient.next_appointment && patient.next_appointment.late_days > 0);
-              const hasTextAbove = showNextLabel || showOverdueNotice;
 
               return (
                 <Paper
@@ -977,27 +962,16 @@ export default function VaccinationSchedulePage() {
                     </Box>
 
                     {/* Right Column: Actions & Recall Trigger */}
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: { xs: 'flex-start', md: 'flex-end' },
-                        justifyContent: 'center',
-                        gap: hasTextAbove ? 0.75 : 0,
-                        minHeight: hasTextAbove ? 44 : 'auto',
-                      }}
-                    >
-                      {hasTextAbove && patient.next_appointment && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: { xs: 'flex-start', md: 'flex-end' }, gap: 1 }}>
+                      {patient.next_appointment && (
                         <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-                          {showNextLabel && (
-                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>
-                              Next:{' '}
-                              <strong style={{ color: isMissed ? '#dc2626' : isDueToday ? '#d97706' : '#047857' }}>
-                                {patient.next_appointment.label} on {patient.next_appointment.scheduled_date_formatted}
-                              </strong>
-                            </Typography>
-                          )}
-                          {showOverdueNotice && (
+                          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>
+                            Next:{' '}
+                            <strong style={{ color: isMissed ? '#dc2626' : isDueToday ? '#d97706' : '#047857' }}>
+                              {patient.next_appointment.label} on {patient.next_appointment.scheduled_date_formatted}
+                            </strong>
+                          </Typography>
+                          {isMissed && patient.next_appointment && patient.next_appointment.late_days > 0 && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#dc2626' }}>
                               <HugeiconsIcon icon={AlertCircleIcon} size={13} />
                               <Typography variant="caption" sx={{ fontWeight: 600 }}>
@@ -1008,7 +982,7 @@ export default function VaccinationSchedulePage() {
                         </Box>
                       )}
 
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                         {isMissed && (
                           <Button
                             size="small"
@@ -1033,39 +1007,37 @@ export default function VaccinationSchedulePage() {
                           </Button>
                         )}
 
-                        {canRecordDose && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => {
-                              setSelectedRecordPatient(patient);
-                              setShowRecordForm(true);
-                            }}
-                            sx={{
-                              textTransform: 'none',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              py: 0.5,
-                              px: 1.25,
-                              borderRadius: '6px',
-                              borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : '#bbf7d0',
-                              color: isDark ? '#34d399' : '#166534',
-                              bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.5,
-                              '&:hover': { bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#dcfce7', borderColor: isDark ? '#34d399' : '#86efac' },
-                            }}
-                          >
-                            <HugeiconsIcon icon={Medicine01Icon} size={14} />
-                            Record Dose (Form 3)
-                          </Button>
-                        )}
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            setSelectedRecordPatient(patient);
+                            setShowRecordForm(true);
+                          }}
+                          sx={{
+                            textTransform: 'none',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            py: 0.5,
+                            px: 1.25,
+                            borderRadius: '6px',
+                            borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : '#bbf7d0',
+                            color: isDark ? '#34d399' : '#166534',
+                            bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            '&:hover': { bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#dcfce7', borderColor: isDark ? '#34d399' : '#86efac' },
+                          }}
+                        >
+                          <HugeiconsIcon icon={Medicine01Icon} size={14} />
+                          Record Dose (Form 3)
+                        </Button>
 
                         <Tooltip title="View / Print Official Tagoloan Treatment Card">
                           <Button
                             size="small"
-                            variant="outlined"
+                            variant="text"
                             onClick={() => {
                               setSelectedPatientId(patient.patient_id);
                               setCardModalOpen(true);
@@ -1075,24 +1047,12 @@ export default function VaccinationSchedulePage() {
                               fontSize: '11px',
                               fontWeight: 600,
                               py: 0.5,
-                              px: 1.25,
-                              borderRadius: '6px',
-                              borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : '#cbd5e1',
-                              color: isDark ? '#cbd5e1' : '#475569',
-                              bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.5,
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                              px: 0.75,
+                              color: isDark ? '#94a3b8' : '#64748b',
                               minWidth: 'auto',
-                              '&:hover': {
-                                bgcolor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#f8fafc',
-                                borderColor: isDark ? '#94a3b8' : '#94a3b8',
-                                color: isDark ? '#ffffff' : '#0f172a',
-                              },
+                              '&:hover': { bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9', color: isDark ? '#ffffff' : '#1e293b' },
                             }}
                           >
-                            <HugeiconsIcon icon={ViewIcon} size={14} />
                             Card
                           </Button>
                         </Tooltip>
@@ -1117,7 +1077,7 @@ export default function VaccinationSchedulePage() {
       )}
 
       {/* Form 3 Vaccination Record Modal */}
-      {canRecordDose && showRecordForm && selectedRecordPatient && (
+      {showRecordForm && selectedRecordPatient && (
         <VaccinationRecordForm
           open={showRecordForm}
           entry={{

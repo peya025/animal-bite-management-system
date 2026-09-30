@@ -23,6 +23,9 @@ async function requiredFields(page: Page) {
   await page.getByRole('button', { name: 'Switch to Manual Typing' }).click();
   await page.getByLabel('City / Municipality').fill('Tagoloan');
   await page.getByLabel('Barangay').fill('Poblacion');
+  await page.getByLabel('Contact Number (Mobile)', { exact: true }).fill('09123456789');
+  await page.getByLabel('Emergency Contact Name', { exact: true }).fill('Maria Santos');
+  await page.getByLabel('Emergency Contact Phone', { exact: true }).fill('09987654321');
 }
 
 test('Enter follows row order; Tab, Shift+Tab and native controls retain behavior', async ({ page }) => {

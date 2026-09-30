@@ -162,11 +162,19 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
       newFieldErrors.queue_priority_level = 'Priority is required';
     }
 
-    if (enrolment.contact_number && enrolment.contact_number.length !== 11) {
+    if (!enrolment.contact_number || !enrolment.contact_number.trim()) {
+      newFieldErrors.contact_number = 'Contact number is required';
+    } else if (enrolment.contact_number.length !== 11) {
       newFieldErrors.contact_number = 'Contact number must be exactly 11 digits.';
     }
 
-    if (enrolment.emergency_contact_phone && enrolment.emergency_contact_phone.length !== 11) {
+    if (!enrolment.emergency_contact_name || !enrolment.emergency_contact_name.trim()) {
+      newFieldErrors.emergency_contact_name = 'Emergency contact name is required';
+    }
+
+    if (!enrolment.emergency_contact_phone || !enrolment.emergency_contact_phone.trim()) {
+      newFieldErrors.emergency_contact_phone = 'Emergency contact phone is required';
+    } else if (enrolment.emergency_contact_phone.length !== 11) {
       newFieldErrors.emergency_contact_phone = 'Emergency contact phone must be exactly 11 digits.';
     }
 

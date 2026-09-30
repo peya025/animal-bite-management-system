@@ -344,6 +344,12 @@ class VaccinationRecordController extends Controller
             ], 401);
         }
 
+        if ($actingUser->isTriage() && !$actingUser->isAdmin() && !$actingUser->isNursing()) {
+            return response()->json([
+                'message' => 'Unauthorized. Triage doctors are not permitted to record vaccine doses (Form 3). Dose administration is strictly reserved for the Treatment Nurse.',
+            ], 403);
+        }
+
         // An absent signature or unchecked consent never blocks unsigned recording.
         DB::beginTransaction();
         try {

@@ -79,7 +79,7 @@ function App() {
           <Route path="/bite-cases/map" element={<Navigate to="/bite-map" replace />} />
           <Route path="/bite-intakes" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Bite Incident Intakes"><BiteCaseListPage /></AppLayout></ProtectedRoute>} />
           <Route path="/vaccinations" element={<ProtectedRoute allowedRoles={['triage', 'treatment', 'admin', 'developer']}><AppLayout title="Vaccination Schedule"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
-          <Route path="/vaccinations/record" element={<ProtectedRoute allowedRoles={['triage', 'treatment', 'admin', 'developer']}><AppLayout title="Vaccination Schedule"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
+          <Route path="/vaccinations/record" element={<ProtectedRoute allowedRoles={['treatment', 'admin', 'developer']}><AppLayout title="Vaccination Schedule"><VaccinationSchedulePage /></AppLayout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="User Management"><UserListPage /></AppLayout></ProtectedRoute>} />
           <Route path="/staff-activity" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Staff Activity Monitor"><StaffActivityPage /></AppLayout></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Reports & Analytics"><ReportsDashboardPage /></AppLayout></ProtectedRoute>} />

@@ -167,7 +167,7 @@ export const Title = styled('h3')({
   marginBottom: 10,
 });
 
-export const Message = styled('p')({
+export const Message = styled('div')({
   fontSize: 14,
   color: 'var(--text-secondary, #6b7280)',
   lineHeight: 1.6,

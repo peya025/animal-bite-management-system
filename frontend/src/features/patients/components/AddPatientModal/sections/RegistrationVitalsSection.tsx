@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FormField } from './FormField';
+import { RegistrationErrors } from '../registrationAccessibility';
 import type { EnrolmentFormData } from '../../../types';
 import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
@@ -126,6 +127,8 @@ export interface RegistrationVitalsSectionProps<T extends RegistrationVitalsFiel
     key: any
   ) => (ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   onDirectChange: (key: any, value: string) => void;
+  layout?: 'default' | 'two-column';
+  errors?: Record<string, string>;
 }
 
 /**
@@ -151,6 +154,8 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
   data,
   onChange,
   onDirectChange,
+  layout = 'two-column',
+  errors,
 }: RegistrationVitalsSectionProps<T>) {
   // --- Blood pressure split/combine ---
   const splitBP = (bp: string) => {
@@ -233,241 +238,530 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
     }
   };
 
-  return (
+  const sectionBody = (
     <div className="fm-section">
       <h3 className="fm-section-title">III. Consultation Details &amp; Vitals</h3>
       <p className="registration-field-hint" style={{ marginBottom: 12, marginTop: -4 }}>
         Entered by Registration Staff from the patient's referral paper or intake form. These values will be visible to the attending doctor in read-only mode.
       </p>
 
-      {/* Row 1: Date + Time */}
-      <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-        <FormField label="Date of Consultation">
-          <input
-            className="fm-input"
-            type="date"
-            name="reg_date_of_consultation"
-            value={data.reg_date_of_consultation}
-            onChange={onChange('reg_date_of_consultation')}
-          />
-        </FormField>
-        <FormField label="Consultation Time (AM/PM)">
-          <input
-            className="fm-input"
-            type="time"
-            name="reg_consultation_time"
-            value={data.reg_consultation_time}
-            onChange={onChange('reg_consultation_time')}
-          />
-        </FormField>
-      </div>
-
-      {/* Row 2: BP + Temperature */}
-      <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-        <FormField label="Blood Pressure (mmHg)">
+      {layout === 'two-column' ? (
+        <>
+          {/* Row 1: Date + Time */}
           <div
+            className="fm-grid fm-grid--2"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              border: '1px solid var(--input-border, #d1d5db)',
-              borderRadius: 8,
-              minHeight: 46,
-              height: 46,
-              background: 'var(--input-bg, #fff)',
-              overflow: 'hidden',
-              boxSizing: 'border-box' as const,
-              padding: '0 8px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '16px 20px',
+              marginBottom: 16,
             }}
           >
-            <input
-              type="number"
-              min={0}
-              max={300}
-              name="bp_systolic"
-              value={systolic}
-              onChange={handleSystolicChange}
-              placeholder="120"
-              style={{
-                width: '45%',
-                padding: '8px',
-                border: 'none',
-                outline: 'none',
-                fontSize: 14,
-                backgroundColor: 'transparent',
-                textAlign: 'center' as const,
-                color: 'var(--input-text, #111827)',
-                fontFamily: 'inherit',
-              }}
-            />
-            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-secondary, #6b7280)', userSelect: 'none' as const }}>
-              /
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={200}
-              name="bp_diastolic"
-              value={diastolic}
-              onChange={handleDiastolicChange}
-              placeholder="80"
-              style={{
-                width: '45%',
-                padding: '8px',
-                border: 'none',
-                outline: 'none',
-                fontSize: 14,
-                backgroundColor: 'transparent',
-                textAlign: 'center' as const,
-                color: 'var(--input-text, #111827)',
-                fontFamily: 'inherit',
-              }}
-            />
-          </div>
-        </FormField>
-
-        <FormField label="Temperature (°C)">
-          <input
-            className="fm-input"
-            type="text"
-            name="reg_temperature"
-            value={data.reg_temperature}
-            onChange={onChange('reg_temperature')}
-            placeholder="36.5"
-          />
-        </FormField>
-      </div>
-
-      {/* Row 3: Height + Weight */}
-      <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-        <FormField label="Height (cm)">
-          <input
-            className="fm-input"
-            type="text"
-            name="reg_height"
-            value={data.reg_height}
-            onChange={onChange('reg_height')}
-            placeholder="170"
-          />
-        </FormField>
-        <FormField label="Weight (kg)">
-          <input
-            className="fm-input"
-            type="text"
-            name="reg_weight"
-            value={data.reg_weight}
-            onChange={onChange('reg_weight')}
-            placeholder="70"
-          />
-        </FormField>
-      </div>
-
-      {/* Row 4: Attending Provider (full width) */}
-      <div style={{ marginBottom: 14 }}>
-        <FormField label="Name of Attending Provider" hint="Enter name from patient's referral paper form">
-          <input
-            className="fm-input"
-            type="text"
-            name="reg_attending_provider"
-            value={data.reg_attending_provider}
-            onChange={onChange('reg_attending_provider')}
-            placeholder="e.g. Dr. Juan Dela Cruz"
-          />
-        </FormField>
-      </div>
-
-      {/* Row 5: Referred By (City/Municipality → Barangay → Facility) */}
-      <div style={{ marginBottom: 14 }}>
-        <label className="fm-label">Referred by</label>
-        <div
-          className="fm-grid"
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 16px', marginTop: 6 }}
-        >
-          {/* 1. City / Municipality */}
-          <div>
-            <span
-              style={{
-                display: 'block',
-                fontSize: 12,
-                fontWeight: 500,
-                color: 'var(--text-secondary, #6b7280)',
-                marginBottom: 6,
-              }}
-            >
-              1. City / Municipality
-            </span>
-            <select
-              className="fm-select"
-              value={municipalityCode}
-              onChange={handleMunicipalityChange}
-            >
-              <option value="">— Select Municipality —</option>
-              {MISAMIS_ORIENTAL_MUNICIPALITIES.map(m => (
-                <option key={m.code} value={m.code}>
-                  {m.name}
-                </option>
-              ))}
-              <option value="other">Other / Outside MisOr</option>
-            </select>
+            <FormField label="Date of Consultation">
+              <input
+                className="fm-input"
+                type="date"
+                name="reg_date_of_consultation"
+                max={new Date().toISOString().split('T')[0]}
+                value={data.reg_date_of_consultation}
+                onChange={onChange('reg_date_of_consultation')}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+            </FormField>
+            <FormField label="Consultation Time (AM/PM)">
+              <input
+                className="fm-input"
+                type="time"
+                name="reg_consultation_time"
+                value={data.reg_consultation_time}
+                onChange={onChange('reg_consultation_time')}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+            </FormField>
           </div>
 
-          {/* 2. Barangay */}
-          <div>
-            <span
-              style={{
-                display: 'block',
-                fontSize: 12,
-                fontWeight: 500,
-                color: 'var(--text-secondary, #6b7280)',
-                marginBottom: 6,
-              }}
-            >
-              2. Barangay
-            </span>
-            <select
-              className="fm-select"
-              value={barangayName}
-              onChange={handleBarangayChange}
-              disabled={municipalityCode === 'other' || !municipalityCode}
-            >
-              <option value="">
-                {loadingBrgy
-                  ? 'Loading…'
-                  : !municipalityCode
-                  ? '— Select Municipality First —'
-                  : '— Select Barangay —'}
-              </option>
-              {barangays.map(b => (
-                <option key={b.code} value={b.name}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
+          {/* Row 2: Blood Pressure (Combined Systolic / Diastolic) + Temperature */}
+          <div
+            className="fm-grid fm-grid--2"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '16px 20px',
+              marginBottom: 16,
+            }}
+          >
+            <FormField label="Blood Pressure (mmHg)">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  border: '1px solid var(--text-secondary, #6b7280)',
+                  borderRadius: 8,
+                  minHeight: 46,
+                  height: 46,
+                  background: 'var(--input-bg, #fff)',
+                  overflow: 'hidden',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  padding: '0 8px',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = '#10b981';
+                  e.currentTarget.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.1)';
+                }}
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    e.currentTarget.style.borderColor = 'var(--text-secondary, #6b7280)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }
+                }}
+              >
+                <input
+                  type="number"
+                  min={0}
+                  max={300}
+                  name="bp_systolic"
+                  value={systolic}
+                  onChange={handleSystolicChange}
+                  placeholder="120"
+                  aria-label="Systolic Blood Pressure"
+                  style={{
+                    flex: 1,
+                    width: '45%',
+                    padding: '8px 4px',
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: 14,
+                    backgroundColor: 'transparent',
+                    textAlign: 'center',
+                    color: 'var(--input-text, #111827)',
+                    fontFamily: 'inherit',
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: 'var(--text-secondary, #6b7280)',
+                    padding: '0 6px',
+                    userSelect: 'none',
+                  }}
+                >
+                  /
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={200}
+                  name="bp_diastolic"
+                  value={diastolic}
+                  onChange={handleDiastolicChange}
+                  placeholder="80"
+                  aria-label="Diastolic Blood Pressure"
+                  style={{
+                    flex: 1,
+                    width: '45%',
+                    padding: '8px 4px',
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: 14,
+                    backgroundColor: 'transparent',
+                    textAlign: 'center',
+                    color: 'var(--input-text, #111827)',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </FormField>
+
+            <FormField label="Temperature (°C)">
+              <input
+                className="fm-input"
+                type="text"
+                name="reg_temperature"
+                value={data.reg_temperature}
+                onChange={onChange('reg_temperature')}
+                placeholder="36.5"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+            </FormField>
           </div>
 
-          {/* 3. Health Center / Facility Name */}
-          <div>
-            <span
+          {/* Row 3: Height + Weight */}
+          <div
+            className="fm-grid fm-grid--2"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '16px 20px',
+              marginBottom: 16,
+            }}
+          >
+            <FormField label="Height (cm)">
+              <input
+                className="fm-input"
+                type="text"
+                name="reg_height"
+                value={data.reg_height}
+                onChange={onChange('reg_height')}
+                placeholder="170"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+            </FormField>
+            <FormField label="Weight (kg)">
+              <input
+                className="fm-input"
+                type="text"
+                name="reg_weight"
+                value={data.reg_weight}
+                onChange={onChange('reg_weight')}
+                placeholder="70"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+            </FormField>
+          </div>
+
+          {/* Row 4: Attending Provider */}
+          <div style={{ marginBottom: 16 }}>
+            <FormField label="Name of Attending Provider" hint="From patient's referral paper form">
+              <input
+                className="fm-input"
+                type="text"
+                name="reg_attending_provider"
+                value={data.reg_attending_provider}
+                onChange={onChange('reg_attending_provider')}
+                placeholder="e.g. Dr. Juan Dela Cruz"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+            </FormField>
+          </div>
+
+          {/* Row 5: Referred by */}
+          <div style={{ marginTop: 8 }}>
+            <div style={{ marginBottom: 10 }}>
+              <label className="fm-label" style={{ fontWeight: 600, fontSize: 13, display: 'block' }}>
+                Referred by
+              </label>
+              <span className="registration-field-hint" style={{ display: 'block', marginTop: 2, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                Select referring facility location from referral paper form, or enter facility name manually.
+              </span>
+            </div>
+
+            <div
+              className="fm-grid fm-grid--2"
               style={{
-                display: 'block',
-                fontSize: 12,
-                fontWeight: 500,
-                color: 'var(--text-secondary, #6b7280)',
-                marginBottom: 6,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: '16px 20px',
+                marginBottom: 16,
               }}
             >
-              3. Health Center / Facility Name
-            </span>
-            <input
-              className="fm-input"
-              type="text"
-              name="reg_referred_by"
-              value={data.reg_referred_by}
-              onChange={onChange('reg_referred_by')}
-              placeholder="e.g. Barangay Health Station"
-            />
+              {/* 1. City / Municipality */}
+              <FormField label="1. City / Municipality">
+                <select
+                  className="fm-select"
+                  name="reg_referred_by_municipality"
+                  value={municipalityCode}
+                  onChange={handleMunicipalityChange}
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                >
+                  <option value="">— Select Municipality —</option>
+                  {MISAMIS_ORIENTAL_MUNICIPALITIES.map(m => (
+                    <option key={m.code} value={m.code}>
+                      {m.name}
+                    </option>
+                  ))}
+                  <option value="other">Other / Outside MisOr</option>
+                </select>
+              </FormField>
+
+              {/* 2. Barangay */}
+              <FormField label="2. Barangay">
+                <select
+                  className="fm-select"
+                  name="reg_referred_by_barangay"
+                  value={barangayName}
+                  onChange={handleBarangayChange}
+                  disabled={municipalityCode === 'other' || !municipalityCode}
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                >
+                  <option value="">
+                    {loadingBrgy
+                      ? 'Loading…'
+                      : !municipalityCode
+                      ? '— Select Municipality First —'
+                      : '— Select Barangay —'}
+                  </option>
+                  {barangays.map(b => (
+                    <option key={b.code} value={b.name}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            </div>
+
+            {/* 3. Health Center / Facility Name */}
+            <div style={{ marginBottom: 14 }}>
+              <FormField
+                label="3. Health Center / Facility Name"
+                hint="Auto-populates from municipality & barangay, or can be specified manually"
+              >
+                <input
+                  className="fm-input"
+                  type="text"
+                  name="reg_referred_by"
+                  value={data.reg_referred_by}
+                  onChange={onChange('reg_referred_by')}
+                  placeholder="e.g. Barangay Health Station / Rural Health Unit"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </FormField>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      ) : (
+        <>
+          {/* Row 1: Date + Time */}
+          <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
+            <FormField label="Date of Consultation">
+              <input
+                className="fm-input"
+                type="date"
+                name="reg_date_of_consultation"
+                max={new Date().toISOString().split('T')[0]}
+                value={data.reg_date_of_consultation}
+                onChange={onChange('reg_date_of_consultation')}
+              />
+            </FormField>
+            <FormField label="Consultation Time (AM/PM)">
+              <input
+                className="fm-input"
+                type="time"
+                name="reg_consultation_time"
+                value={data.reg_consultation_time}
+                onChange={onChange('reg_consultation_time')}
+              />
+            </FormField>
+          </div>
+
+          {/* Row 2: BP + Temperature */}
+          <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
+            <FormField label="Blood Pressure (mmHg)">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  border: '1px solid var(--input-border, #d1d5db)',
+                  borderRadius: 8,
+                  minHeight: 46,
+                  height: 46,
+                  background: 'var(--input-bg, #fff)',
+                  overflow: 'hidden',
+                  boxSizing: 'border-box' as const,
+                  padding: '0 8px',
+                }}
+              >
+                <input
+                  type="number"
+                  min={0}
+                  max={300}
+                  name="bp_systolic"
+                  value={systolic}
+                  onChange={handleSystolicChange}
+                  placeholder="120"
+                  style={{
+                    width: '45%',
+                    padding: '8px',
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: 14,
+                    backgroundColor: 'transparent',
+                    textAlign: 'center' as const,
+                    color: 'var(--input-text, #111827)',
+                    fontFamily: 'inherit',
+                  }}
+                />
+                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-secondary, #6b7280)', userSelect: 'none' as const }}>
+                  /
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={200}
+                  name="bp_diastolic"
+                  value={diastolic}
+                  onChange={handleDiastolicChange}
+                  placeholder="80"
+                  style={{
+                    width: '45%',
+                    padding: '8px',
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: 14,
+                    backgroundColor: 'transparent',
+                    textAlign: 'center' as const,
+                    color: 'var(--input-text, #111827)',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </FormField>
+
+            <FormField label="Temperature (°C)">
+              <input
+                className="fm-input"
+                type="text"
+                name="reg_temperature"
+                value={data.reg_temperature}
+                onChange={onChange('reg_temperature')}
+                placeholder="36.5"
+              />
+            </FormField>
+          </div>
+
+          {/* Row 3: Height + Weight */}
+          <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
+            <FormField label="Height (cm)">
+              <input
+                className="fm-input"
+                type="text"
+                name="reg_height"
+                value={data.reg_height}
+                onChange={onChange('reg_height')}
+                placeholder="170"
+              />
+            </FormField>
+            <FormField label="Weight (kg)">
+              <input
+                className="fm-input"
+                type="text"
+                name="reg_weight"
+                value={data.reg_weight}
+                onChange={onChange('reg_weight')}
+                placeholder="70"
+              />
+            </FormField>
+          </div>
+
+          {/* Row 4: Attending Provider (full width) */}
+          <div style={{ marginBottom: 14 }}>
+            <FormField label="Name of Attending Provider" hint="Enter name from patient's referral paper form">
+              <input
+                className="fm-input"
+                type="text"
+                name="reg_attending_provider"
+                value={data.reg_attending_provider}
+                onChange={onChange('reg_attending_provider')}
+                placeholder="e.g. Dr. Juan Dela Cruz"
+              />
+            </FormField>
+          </div>
+
+          {/* Row 5: Referred By (City/Municipality → Barangay → Facility) */}
+          <div style={{ marginBottom: 14 }}>
+            <label className="fm-label">Referred by</label>
+            <div
+              className="fm-grid"
+              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 16px', marginTop: 6 }}
+            >
+              {/* 1. City / Municipality */}
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: 'var(--text-secondary, #6b7280)',
+                    marginBottom: 6,
+                  }}
+                >
+                  1. City / Municipality
+                </span>
+                <select
+                  className="fm-select"
+                  name="reg_referred_by_municipality"
+                  value={municipalityCode}
+                  onChange={handleMunicipalityChange}
+                >
+                  <option value="">— Select Municipality —</option>
+                  {MISAMIS_ORIENTAL_MUNICIPALITIES.map(m => (
+                    <option key={m.code} value={m.code}>
+                      {m.name}
+                    </option>
+                  ))}
+                  <option value="other">Other / Outside MisOr</option>
+                </select>
+              </div>
+
+              {/* 2. Barangay */}
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: 'var(--text-secondary, #6b7280)',
+                    marginBottom: 6,
+                  }}
+                >
+                  2. Barangay
+                </span>
+                <select
+                  className="fm-select"
+                  name="reg_referred_by_barangay"
+                  value={barangayName}
+                  onChange={handleBarangayChange}
+                  disabled={municipalityCode === 'other' || !municipalityCode}
+                >
+                  <option value="">
+                    {loadingBrgy
+                      ? 'Loading…'
+                      : !municipalityCode
+                      ? '— Select Municipality First —'
+                      : '— Select Barangay —'}
+                  </option>
+                  {barangays.map(b => (
+                    <option key={b.code} value={b.name}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3. Health Center / Facility Name */}
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: 'var(--text-secondary, #6b7280)',
+                    marginBottom: 6,
+                  }}
+                >
+                  3. Health Center / Facility Name
+                </span>
+                <input
+                  className="fm-input"
+                  type="text"
+                  name="reg_referred_by"
+                  value={data.reg_referred_by}
+                  onChange={onChange('reg_referred_by')}
+                  placeholder="e.g. Barangay Health Station"
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
+  );
+
+  return errors ? (
+    <RegistrationErrors.Provider value={errors}>{sectionBody}</RegistrationErrors.Provider>
+  ) : (
+    sectionBody
   );
 }

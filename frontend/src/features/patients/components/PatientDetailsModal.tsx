@@ -1,6 +1,6 @@
 import { resolvePrintLogoUrls } from '../../../components/print/printHeaderHelper';
 import { waitForPrintImages } from '../../../components/print/printReady';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -19,6 +19,7 @@ import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmen
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import { RegistrationVitalsSection, type RegistrationVitalsFields } from './AddPatientModal/sections/RegistrationVitalsSection';
 import { RegistrationDialog } from './AddPatientModal/RegistrationDialog.styles';
+import ConfirmationDialog, { SuccessModal } from '../../../components/feedback/ConfirmationDialog';
 import PatientEditModal from './PatientEditModal';
 import api from '../../../shared/services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -421,19 +422,198 @@ export default function PatientDetailsModal({
   const [historySummary, setHistorySummary] = useState<any>(null);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
-  const [checkInSuccess, setCheckInSuccess] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [newExposureOpen, setNewExposureOpen] = useState(false);
   const [newExposure, setNewExposure] = useState<RegistrationVitalsFields & { bite_date: string }>(getInitialNewExposure);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [savingExposure, setSavingExposure] = useState(false);
+  const [successData, setSuccessData] = useState<{
+    queueNumber: number | string;
+    patientName: string;
+    station: string;
+  } | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const reExposureFormRef = useRef<HTMLDivElement | null>(null);
+  const submitBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const handleVitalsChange = (key: any) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     setNewExposure((prev) => ({ ...prev, [key]: ev.target.value }));
+    if (formErrors[key]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   };
 
   const handleVitalsDirectChange = (key: any, value: string) => {
     setNewExposure((prev) => ({ ...prev, [key]: value }));
+    if (formErrors[key]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
+
+  const handleReExposureKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (
+      event.key !== 'Enter' ||
+      event.defaultPrevented ||
+      event.nativeEvent.isComposing ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+    // Allow newlines inside textareas
+    if (target.tagName.toLowerCase() === 'textarea') {
+      return;
+    }
+
+    // Only process input and select controls
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    // Ignore buttons, submit triggers, disabled or readonly elements
+    if (
+      ('readOnly' in target && target.readOnly) ||
+      target.disabled ||
+      ['button', 'submit', 'reset', 'hidden'].includes((target as HTMLInputElement).type)
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const container = reExposureFormRef.current;
+    if (!container) return;
+
+    const focusable = Array.from(
+      container.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+        'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([disabled]):not([readonly]), select:not([disabled]):not([readonly]), textarea:not([disabled]):not([readonly])'
+      )
+    ).filter((el) => el.tabIndex >= 0 && el.getClientRects().length > 0);
+
+    const currentIndex = focusable.indexOf(target);
+    if (currentIndex === -1) return;
+
+    if (currentIndex < focusable.length - 1) {
+      focusable[currentIndex + 1].focus();
+      if (focusable[currentIndex + 1] instanceof HTMLInputElement) {
+        (focusable[currentIndex + 1] as HTMLInputElement).select?.();
+      }
+    } else {
+      // Final field reached: focus the primary action button without auto-submitting
+      submitBtnRef.current?.focus();
+    }
+  };
+
+  const handleValidateAndConfirm = () => {
+    const errors: Record<string, string> = {};
+    const today = new Date().toISOString().split('T')[0];
+
+    if (!newExposure.bite_date || !newExposure.bite_date.trim()) {
+      errors.bite_date = 'Date of re-exposure is required.';
+    } else if (newExposure.bite_date > today) {
+      errors.bite_date = 'Date of re-exposure cannot be in the future.';
+    }
+
+    if (newExposure.reg_date_of_consultation && newExposure.reg_date_of_consultation > today) {
+      errors.reg_date_of_consultation = 'Date of consultation cannot be in the future.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      setSubmitError('Please correct the highlighted fields before proceeding.');
+      if (errors.bite_date) {
+        const el = reExposureFormRef.current?.querySelector<HTMLInputElement>('input[name="bite_date"]');
+        el?.focus();
+      } else if (errors.reg_date_of_consultation) {
+        const el = reExposureFormRef.current?.querySelector<HTMLInputElement>('input[name="reg_date_of_consultation"]');
+        el?.focus();
+      }
+      return;
+    }
+
+    setFormErrors({});
+    setSubmitError(null);
+    setShowConfirmModal(true);
+  };
+
+  const executeRegisterNewExposure = async () => {
+    const patientId = p.patient_id || p.id;
+    setSavingExposure(true);
+    setSubmitError(null);
+    try {
+      const res = await api.post('/cases/new-exposure', {
+        patient_id: patientId,
+        bite_date: newExposure.bite_date,
+        consultation_date: newExposure.reg_date_of_consultation,
+        consultation_time: newExposure.reg_consultation_time,
+        blood_pressure: newExposure.reg_blood_pressure,
+        temperature: newExposure.reg_temperature,
+        height: newExposure.reg_height,
+        weight: newExposure.reg_weight,
+        attending_provider: newExposure.reg_attending_provider,
+        referred_by: newExposure.reg_referred_by,
+        reg_date_of_consultation: newExposure.reg_date_of_consultation,
+        reg_consultation_time: newExposure.reg_consultation_time,
+        reg_blood_pressure: newExposure.reg_blood_pressure,
+        reg_temperature: newExposure.reg_temperature,
+        reg_height: newExposure.reg_height,
+        reg_weight: newExposure.reg_weight,
+        reg_attending_provider: newExposure.reg_attending_provider,
+        reg_referred_by: newExposure.reg_referred_by,
+      });
+
+      setShowConfirmModal(false);
+      setNewExposureOpen(false);
+
+      const queueNumber = res.data?.queue?.queue_number || 1;
+      const patientName = res.data?.queue?.patient?.name || `${p.first_name} ${p.last_name}`;
+      setSuccessData({
+        queueNumber,
+        patientName,
+        station: 'Doctor Assessment (Station 1)',
+      });
+
+      if (onPatientUpdated) onPatientUpdated(p);
+    } catch (err: any) {
+      setShowConfirmModal(false);
+      setSubmitError(
+        err.response?.data?.message || err.message || 'Failed to register re-exposure. Please check the entered data.'
+      );
+    } finally {
+      setSavingExposure(false);
+    }
+  };
+
+  const handleDoneSuccess = () => {
+    setSuccessData(null);
+    setNewExposure(getInitialNewExposure());
+    setFormErrors({});
+    setSubmitError(null);
+    if (onPatientUpdated) onPatientUpdated(p);
+    onClose();
+  };
+
+  const handleCloseReExposure = () => {
+    if (savingExposure) return;
+    setNewExposureOpen(false);
+    setFormErrors({});
+    setSubmitError(null);
   };
 
   useEffect(() => {
@@ -443,8 +623,11 @@ export default function PatientDetailsModal({
       setHistorySummary(null);
       setSelectedEpisodeId(null);
       setActiveTab('form1');
-      setCheckInSuccess(null);
       setNewExposureOpen(false);
+      setShowConfirmModal(false);
+      setSuccessData(null);
+      setFormErrors({});
+      setSubmitError(null);
       setNewExposure(getInitialNewExposure());
       return;
     }
@@ -485,49 +668,6 @@ export default function PatientDetailsModal({
 
   const p = (fullPatient || patient) as any;
   const currentEp = episodes.find((e) => e.bite_id === selectedEpisodeId) || episodes[0] || null;
-
-  const handleRegisterNewExposure = async () => {
-    const patientId = p.patient_id || p.id;
-    // Validate: exposure date cannot be in the future
-    if (newExposure.bite_date && newExposure.bite_date > new Date().toISOString().split('T')[0]) {
-      alert('Exposure date cannot be a future date.');
-      return;
-    }
-    setCheckingIn(true);
-    try {
-      const res = await api.post('/cases/new-exposure', {
-        patient_id: patientId,
-        bite_date: newExposure.bite_date,
-        consultation_date: newExposure.reg_date_of_consultation,
-        consultation_time: newExposure.reg_consultation_time,
-        blood_pressure: newExposure.reg_blood_pressure,
-        temperature: newExposure.reg_temperature,
-        height: newExposure.reg_height,
-        weight: newExposure.reg_weight,
-        attending_provider: newExposure.reg_attending_provider,
-        referred_by: newExposure.reg_referred_by,
-        reg_date_of_consultation: newExposure.reg_date_of_consultation,
-        reg_consultation_time: newExposure.reg_consultation_time,
-        reg_blood_pressure: newExposure.reg_blood_pressure,
-        reg_temperature: newExposure.reg_temperature,
-        reg_height: newExposure.reg_height,
-        reg_weight: newExposure.reg_weight,
-        reg_attending_provider: newExposure.reg_attending_provider,
-        reg_referred_by: newExposure.reg_referred_by,
-      });
-      setNewExposureOpen(false);
-      setCheckInSuccess(`New exposure & consultation vitals registered. Sent to Doctor assessment (Queue #${res.data?.queue?.queue_number || '1'}).`);
-      if (onPatientUpdated) onPatientUpdated(p);
-      setTimeout(() => {
-        setCheckInSuccess(null);
-        onClose();
-      }, 1500);
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to check in to triage');
-    } finally {
-      setCheckingIn(false);
-    }
-  };
 
   const fakeEntry = {
     patient: p,
@@ -644,8 +784,9 @@ export default function PatientDetailsModal({
   };
 
   return (
-    <Dialog
-      open={open}
+    <>
+      <Dialog
+        open={open}
       onClose={onClose}
       maxWidth="md"
       fullWidth
@@ -720,12 +861,6 @@ export default function PatientDetailsModal({
         </Box>
       )}
 
-      {checkInSuccess && (
-        <Box sx={{ px: 3, py: 1.5, bgcolor: 'rgba(16, 185, 129, 0.1)', borderBottom: '1px solid var(--border-glow, #bbf7d0)', color: '#10b981', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-          ✓ {checkInSuccess}
-        </Box>
-      )}
-
       <DialogContent sx={{ p: 0, fontFamily: 'inherit', minHeight: 380, bgcolor: 'var(--bg-secondary, #f9fafb)' }}>
         {renderTabContent()}
       </DialogContent>
@@ -782,31 +917,33 @@ export default function PatientDetailsModal({
           </Button>
         </Box>
       </DialogActions>
+    </Dialog>
 
-      {/* ── Role-based Demographic Edit Modal ── */}
-      <PatientEditModal
-        open={showEditModal}
-        patient={p}
-        onClose={() => setShowEditModal(false)}
-        onSave={(updatedPatient) => {
-          setFullPatient((prev: any) => ({
-            ...(prev || {}),
-            ...(updatedPatient || {}),
-            details: {
-              ...((prev && prev.details) || {}),
-              ...((updatedPatient && updatedPatient.details) || {}),
-            },
-          }));
-          if (onPatientUpdated) onPatientUpdated(updatedPatient);
-          if (onEdit) onEdit(updatedPatient);
-        }}
-      />
+    {/* ── Role-based Demographic Edit Modal ── */}
+    <PatientEditModal
+      open={showEditModal}
+      patient={p}
+      onClose={() => setShowEditModal(false)}
+      onSave={(updatedPatient) => {
+        setFullPatient((prev: any) => ({
+          ...(prev || {}),
+          ...(updatedPatient || {}),
+          details: {
+            ...((prev && prev.details) || {}),
+            ...((updatedPatient && updatedPatient.details) || {}),
+          },
+        }));
+        if (onPatientUpdated) onPatientUpdated(updatedPatient);
+        if (onEdit) onEdit(updatedPatient);
+      }}
+    />
 
-      <Dialog
-        open={newExposureOpen}
-        onClose={() => !checkingIn && setNewExposureOpen(false)}
-        fullWidth
-        maxWidth="md"
+    <Dialog
+      open={newExposureOpen}
+      onClose={handleCloseReExposure}
+      disableEnforceFocus={showConfirmModal || Boolean(successData)}
+      fullWidth
+      maxWidth="md"
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: '16px',
@@ -819,7 +956,7 @@ export default function PatientDetailsModal({
         </DialogTitle>
         <DialogContent dividers sx={{ p: { xs: 2, sm: 3 } }}>
           <RegistrationDialog>
-            <div style={{ marginBottom: 12 }}>
+            <div ref={reExposureFormRef} onKeyDown={handleReExposureKeyDown} style={{ marginBottom: 12 }}>
               <div
                 style={{
                   display: 'flex',
@@ -842,56 +979,244 @@ export default function PatientDetailsModal({
                 </span>
               </div>
 
-              {/* Exposure Date Field */}
+              {submitError && (
+                <div
+                  className="registration-error"
+                  role="alert"
+                  style={{
+                    marginBottom: 18,
+                    padding: '12px 16px',
+                    border: '1px solid #fecaca',
+                    borderRadius: 8,
+                    background: '#fef2f2',
+                    color: '#991b1b',
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>⚠️</span>
+                  <span>{submitError}</span>
+                </div>
+              )}
+
+              {/* Exposure Date Field (Full Width) */}
               <div className="fm-section" style={{ marginBottom: 20 }}>
                 <h3 className="fm-section-title">Re-Exposure Incident Date</h3>
-                <div className="fm-grid fm-grid--2">
-                  <div className="fm-field">
-                    <label className="fm-label">
-                      Date of Re-Exposure / Bite <span>*</span>
-                    </label>
-                    <input
-                      className="fm-input"
-                      type="date"
-                      required
-                      max={new Date().toISOString().split('T')[0]}
-                      value={newExposure.bite_date}
-                      onChange={(e) => setNewExposure((prev) => ({ ...prev, bite_date: e.target.value }))}
-                    />
-                    <span className="registration-field-hint">Date when the re-bite or new animal exposure occurred</span>
-                  </div>
+                <div className="fm-field" style={{ width: '100%' }}>
+                  <label className="fm-label">
+                    Date of Re-Exposure / Bite <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
+                  </label>
+                  <input
+                    className="fm-input"
+                    type="date"
+                    name="bite_date"
+                    required
+                    max={new Date().toISOString().split('T')[0]}
+                    value={newExposure.bite_date}
+                    onChange={(e) => {
+                      setNewExposure((prev) => ({ ...prev, bite_date: e.target.value }));
+                      if (formErrors.bite_date) {
+                        setFormErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.bite_date;
+                          return next;
+                        });
+                      }
+                      if (submitError) setSubmitError(null);
+                    }}
+                    style={{
+                      width: '100%',
+                      maxWidth: '100%',
+                      borderColor: formErrors.bite_date ? 'var(--registration-error-color, #dc2626)' : undefined,
+                    }}
+                  />
+                  <span className="registration-field-hint">
+                    Date when the re-bite or new animal exposure occurred (cannot be in the future)
+                  </span>
+                  {formErrors.bite_date && (
+                    <span
+                      className="registration-field-error"
+                      style={{ color: '#dc2626', fontSize: 12, marginTop: 4, display: 'block' }}
+                    >
+                      {formErrors.bite_date}
+                    </span>
+                  )}
                 </div>
               </div>
 
               {/* Section III. Consultation Details & Vitals */}
               <RegistrationVitalsSection
+                layout="two-column"
                 data={newExposure}
                 onChange={handleVitalsChange}
                 onDirectChange={handleVitalsDirectChange}
+                errors={formErrors}
               />
             </div>
           </RegistrationDialog>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-glow, #e5e7eb)', justifyContent: 'space-between' }}>
-          <Button onClick={() => setNewExposureOpen(false)} disabled={checkingIn} sx={{ textTransform: 'none', color: '#64748b' }}>
+        <DialogActions
+          sx={{
+            px: 3,
+            py: 2,
+            borderTop: '1px solid var(--border-glow, #e5e7eb)',
+            justifyContent: 'space-between',
+            position: 'sticky',
+            bottom: 0,
+            bgcolor: 'var(--card-bg-solid, #ffffff)',
+            zIndex: 10,
+          }}
+        >
+          <Button
+            onClick={handleCloseReExposure}
+            disabled={savingExposure}
+            sx={{ textTransform: 'none', color: '#64748b', fontWeight: 600, fontFamily: 'inherit' }}
+          >
             Cancel
           </Button>
           <Button
+            ref={submitBtnRef}
             variant="contained"
-            onClick={handleRegisterNewExposure}
-            disabled={checkingIn}
+            onClick={handleValidateAndConfirm}
+            disabled={savingExposure}
             sx={{
               bgcolor: '#0284c7',
               '&:hover': { bgcolor: '#0369a1' },
               fontWeight: 700,
               textTransform: 'none',
               px: 3,
+              py: 1,
+              fontFamily: 'inherit',
             }}
           >
-            {checkingIn ? 'Saving & Booking…' : 'Save Vitals & Book to Doctor'}
+            {savingExposure ? 'Saving & Booking…' : 'Save Vitals & Book to Doctor'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Dialog>
+
+      {/* ── Confirmation Modal Before Booking ── */}
+      {showConfirmModal && (
+        <ConfirmationDialog
+          variant="confirm"
+          title="Confirm Re-Exposure Registration"
+          message={
+            <div style={{ textAlign: 'left', lineHeight: 1.5 }}>
+              <div style={{ margin: '0 0 12px 0', fontSize: 14, color: 'var(--text-main, #374151)' }}>
+                Are you sure you want to register this re-exposure incident and book <strong>{p.first_name} {p.last_name}</strong> to the Doctor queue?
+              </div>
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  fontSize: 12.5,
+                  color: '#475569',
+                }}
+              >
+                <div style={{ marginBottom: 4 }}>
+                  <strong>Patient:</strong> {p.last_name}, {p.first_name} (#{p.patient_number || p.patient_id})
+                </div>
+                <div style={{ marginBottom: 4 }}>
+                  <strong>Re-Exposure Date:</strong> {newExposure.bite_date}
+                </div>
+                {newExposure.reg_date_of_consultation && (
+                  <div style={{ marginBottom: 4 }}>
+                    <strong>Consultation Date:</strong> {newExposure.reg_date_of_consultation}{' '}
+                    {newExposure.reg_consultation_time ? `(${newExposure.reg_consultation_time})` : ''}
+                  </div>
+                )}
+                <div>
+                  <strong>Assigned Destination:</strong> Doctor Assessment (Station 1)
+                </div>
+              </div>
+            </div>
+          }
+          confirmLabel="Confirm & Book to Doctor"
+          cancelLabel="Cancel / Go Back"
+          loading={savingExposure}
+          loadingLabel="Saving..."
+          onConfirm={executeRegisterNewExposure}
+          onCancel={() => setShowConfirmModal(false)}
+        />
+      )}
+
+      {/* ── Success Modal After Booking ── */}
+      {successData && (
+        <SuccessModal
+          title="Successfully Registered"
+          message={
+            <div style={{ textAlign: 'center', marginTop: 4 }}>
+              <div style={{ fontSize: 13.5, color: 'var(--text-secondary, #4b5563)', margin: '0 0 16px' }}>
+                Re-exposure incident and Section III consultation vitals recorded successfully.
+              </div>
+
+              {/* Live Queue Card */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)',
+                  border: '1px solid #bae6fd',
+                  borderRadius: 12,
+                  padding: '16px 20px',
+                  margin: '0 auto 12px',
+                  textAlign: 'center',
+                  maxWidth: 320,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: '#0369a1',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  Live Queue Number
+                </div>
+                <div
+                  style={{
+                    fontSize: 38,
+                    fontWeight: 800,
+                    color: '#0284c7',
+                    margin: '4px 0',
+                    fontFamily: 'monospace',
+                    letterSpacing: '-1px',
+                  }}
+                >
+                  #{successData.queueNumber}
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1e293b', marginTop: 4 }}>
+                  {successData.patientName}
+                </div>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    marginTop: 10,
+                    background: '#dbeafe',
+                    color: '#1d4ed8',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    padding: '4px 12px',
+                    borderRadius: 999,
+                  }}
+                >
+                  <span>🩺 Assigned: {successData.station}</span>
+                </div>
+              </div>
+            </div>
+          }
+          confirmLabel="Done"
+          hideCancel={true}
+          autoClose={0}
+          onConfirm={handleDoneSuccess}
+        />
+      )}
+    </>
   );
 }

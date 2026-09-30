@@ -1118,6 +1118,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
     const patientId = entry?.patient?.patient_id || entry?.patient?.id;
 
+    if (currentUser?.role === 'triage') {
+      setError('Triage doctors are not permitted to record vaccine doses (Form 3). Dose administration must be recorded by the Treatment Nurse.');
+      return;
+    }
+
     // Auto-fill today's date for candidate doses with vaccine type selected
     const todayStr = getLocalDateString();
     const candidateDoses = doses.map(d => {
@@ -2930,7 +2935,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
           {!readOnly && (
-            <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
+            <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving || currentUser?.role === 'triage'}>
               {saving ? 'Saving…' : '✓ Save Record'}
             </button>
           )}
@@ -2961,7 +2966,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
           <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>{readOnly ? 'Close' : 'Cancel'}</button>
           {!readOnly && (
-            <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
+            <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving || currentUser?.role === 'triage'}>
               {saving ? 'Saving…' : '✓ Save Record'}
             </button>
           )}

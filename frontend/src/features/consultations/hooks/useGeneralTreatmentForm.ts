@@ -272,6 +272,7 @@ export function useGeneralTreatmentForm({
           if (isRegistrationStaffPrefill && record) {
             setFormData((prev) => ({
               ...prev,
+              mode_of_transaction:  record.mode_of_transaction || prev.mode_of_transaction || 'walk-in',
               date_of_consultation: record.consultation_date || prev.date_of_consultation,
               consultation_time:    record.consultation_time || prev.consultation_time,
               blood_pressure:       record.blood_pressure || prev.blood_pressure,

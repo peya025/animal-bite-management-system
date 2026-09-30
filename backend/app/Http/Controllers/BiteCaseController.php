@@ -58,12 +58,36 @@ class BiteCaseController extends Controller
         ]);
 
         $clinicId = $request->user()->clinic_id;
-        abort_unless(
-            \App\Models\Patient::where('clinic_id', $clinicId)
-                ->where('patient_id', $validated['patient_id'])
-                ->exists(),
-            404
-        );
+        $patient = \App\Models\Patient::where('clinic_id', $clinicId)
+            ->where('patient_id', $validated['patient_id'])
+            ->first();
+
+        abort_unless($patient, 404);
+
+        if (!$patient->has_completed_primary) {
+            return response()->json([
+                'message' => 'Patient is not eligible for re-exposure registration. The primary anti-rabies series (Days 0, 3, 7) must be completed first.',
+            ], 422);
+        }
+
+        $hasPendingAppointments = $patient->appointments()
+            ->where('status', 'scheduled')
+            ->exists();
+        if ($hasPendingAppointments) {
+            return response()->json([
+                'message' => 'Patient cannot register a new exposure while an active treatment appointment is still scheduled.',
+            ], 422);
+        }
+
+        $activeQueue = $patient->queues()
+            ->whereDate('created_at', Carbon::today())
+            ->whereIn('status', ['waiting', 'in_consultation', 'serving', 'called', 'no_response', 'absent', 'second_chance', 'final_recall'])
+            ->exists();
+        if ($activeQueue) {
+            return response()->json([
+                'message' => 'Patient cannot register a new exposure while currently active in a clinic queue.',
+            ], 422);
+        }
 
         return DB::transaction(function () use ($validated, $clinicId, $request) {
             // Serialize episode numbering per permanent patient profile.
@@ -140,7 +164,9 @@ class BiteCaseController extends Controller
                 'weight'              => $weight,
                 'attending_provider'  => $attendingProvider,
                 'referred_by'         => $referredBy,
-                'mode_of_transaction' => 'walk-in',
+                'mode_of_transaction' => in_array($request->input('mode_of_transaction') ?? $request->input('reg_mode_of_transaction'), ['walk-in', 'visited', 'referral'])
+                    ? ($request->input('mode_of_transaction') ?? $request->input('reg_mode_of_transaction'))
+                    : 'walk-in',
                 'administered_by'     => $request->user()->id,
             ]);
 

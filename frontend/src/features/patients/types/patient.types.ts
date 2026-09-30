@@ -37,6 +37,7 @@ export interface Patient {
   memberships?: PatientMembership[];
   created_at: string;
   status?: 'active' | 'pending' | 'inactive';
+  has_completed_primary?: boolean;
 }
 
 export interface EnrolmentFormData {
@@ -81,6 +82,8 @@ export interface EnrolmentFormData {
   indigenous_tribe: string;
   other_membership_custom_name: string;
   other_membership_custom_id: string;
+  // II. For CHU / RHU Personnel Only
+  mode_of_transaction: 'walk-in' | 'visited' | 'referral' | string;
   // III. Consultation Details & Vitals (entered by Registration Staff during patient registration)
   reg_date_of_consultation: string;
   reg_consultation_time: string;
@@ -134,6 +137,8 @@ export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
   indigenous_tribe: '',
   other_membership_custom_name: '',
   other_membership_custom_id: '',
+  // II. For CHU / RHU Personnel Only
+  mode_of_transaction: 'walk-in',
   // III. Consultation Details & Vitals
   reg_date_of_consultation: '',
   reg_consultation_time: '',

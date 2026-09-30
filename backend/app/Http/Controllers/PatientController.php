@@ -241,8 +241,10 @@ class PatientController extends Controller
             'other_membership' => 'nullable|string|max:500',
             'other_membership_name' => 'nullable|string|max:500',
             'other_membership_no' => 'nullable|string|max:500',
-            // III. Consultation Details & Vitals — entered by Registration Staff
+            // II. For CHU / RHU Personnel Only & III. Consultation Details & Vitals — entered by Registration Staff
             // These are stored in treatment_records, NOT in patients/patient_details.
+            'mode_of_transaction'       => 'nullable|in:walk-in,visited,referral',
+            'reg_mode_of_transaction'   => 'nullable|in:walk-in,visited,referral',
             'reg_date_of_consultation'  => 'nullable|date',
             'reg_consultation_time'     => 'nullable|string|max:10',
             'reg_blood_pressure'        => 'nullable|string|max:20',
@@ -351,6 +353,9 @@ class PatientController extends Controller
                 // (same convention used by TreatmentRecordController::store).
                 // nature_of_visit and chief_complaints are left null here — the Doctor
                 // will complete the remaining clinical fields when they open Form 2.
+                $modeOfTx = $request->input('mode_of_transaction') ?? $request->input('reg_mode_of_transaction');
+                $validMode = in_array($modeOfTx, ['walk-in', 'visited', 'referral']) ? $modeOfTx : 'walk-in';
+
                 TreatmentRecord::create([
                     'clinic_id'             => $clinicId,
                     'patient_id'            => $patient->patient_id,
@@ -366,7 +371,7 @@ class PatientController extends Controller
                     'weight'                => $request->input('reg_weight'),
                     'attending_provider'    => $request->input('reg_attending_provider'),
                     'referred_by'           => $request->input('reg_referred_by'),
-                    'mode_of_transaction'   => 'walk-in',
+                    'mode_of_transaction'   => $validMode,
                     'administered_by'       => $request->user()->id,
                 ]);
             }

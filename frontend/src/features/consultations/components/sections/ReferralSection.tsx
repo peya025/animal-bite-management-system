@@ -30,23 +30,39 @@ export default function ReferralSection({
       </h3>
 
       <div className="fm-grid">
-        <FormField label="Mode of Transaction" className="fm-grid--full">
+        <FormField
+          label="Mode of Transaction"
+          className="fm-grid--full"
+          hint="Set by Registration Staff during patient registration (View-only for Doctor)"
+        >
           <div className="fm-radio-group">
-            {(['walk-in', 'visited', 'referral'] as const).map((mode) => (
-              <label key={mode} className="fm-radio">
-                <input
-                  type="radio"
-                  name="mode_of_transaction"
-                  value={mode}
-                  checked={formData.mode_of_transaction === mode}
-                  onChange={onFieldChange('mode_of_transaction')}
-                  disabled={isFormDisabled}
-                />
-                <span style={{ textTransform: 'capitalize' }}>
-                  {mode.replace('-', ' ')}
-                </span>
-              </label>
-            ))}
+            {(['walk-in', 'visited', 'referral'] as const).map((mode) => {
+              const isSelected = (formData.mode_of_transaction || 'walk-in') === mode;
+              return (
+                <label
+                  key={mode}
+                  className="fm-radio"
+                  style={{
+                    cursor: 'default',
+                    opacity: isSelected ? 1 : 0.65,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="mode_of_transaction"
+                    value={mode}
+                    checked={isSelected}
+                    onChange={() => {}}
+                    disabled={true}
+                    readOnly={true}
+                    style={{ cursor: 'default' }}
+                  />
+                  <span style={{ textTransform: 'capitalize', fontWeight: isSelected ? 600 : 400 }}>
+                    {mode.replace('-', ' ')}
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </FormField>
       </div>

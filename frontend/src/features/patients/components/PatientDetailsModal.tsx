@@ -17,6 +17,8 @@ import { LockOutlined as LockIcon } from '@mui/icons-material';
 import { Icon } from '../../../shared/components/ui/Icon';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
+import { RegistrationVitalsSection, type RegistrationVitalsFields } from './AddPatientModal/sections/RegistrationVitalsSection';
+import { RegistrationDialog } from './AddPatientModal/RegistrationDialog.styles';
 import PatientEditModal from './PatientEditModal';
 import api from '../../../shared/services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -30,6 +32,7 @@ interface PatientDetailsModalProps {
   onEdit?: (patient: Patient) => void;
   onPatientUpdated?: (patient: any) => void;
   readOnly?: boolean;
+  initialNewExposureOpen?: boolean;
 }
 
 // ── Read-only Banner ─────────────────────────────────────────────────────────
@@ -333,11 +336,24 @@ export default function PatientDetailsModal({
   onEdit,
   onPatientUpdated,
   readOnly = false,
+  initialNewExposureOpen = false,
 }: PatientDetailsModalProps) {
   const { user } = useAuth();
   const userData = localStorage.getItem('userData');
   const userRole = user?.role || (userData ? (JSON.parse(userData)?.role ?? '') : '');
   const canRegisterExposure = ['registration', 'developer'].includes(userRole?.toLowerCase());
+
+  const getInitialNewExposure = () => ({
+    bite_date: new Date().toISOString().slice(0, 10),
+    reg_date_of_consultation: new Date().toISOString().slice(0, 10),
+    reg_consultation_time: new Date().toTimeString().slice(0, 5),
+    reg_blood_pressure: '',
+    reg_temperature: '',
+    reg_height: '',
+    reg_weight: '',
+    reg_attending_provider: '',
+    reg_referred_by: '',
+  });
 
   const [printing, setPrinting] = useState(false);
   const [activeTab, setActiveTab] = useState('form1');
@@ -350,9 +366,17 @@ export default function PatientDetailsModal({
   const [checkInSuccess, setCheckInSuccess] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [newExposureOpen, setNewExposureOpen] = useState(false);
-  const [newExposure, setNewExposure] = useState({
-    bite_date: new Date().toISOString().slice(0, 10),
-  });
+  const [newExposure, setNewExposure] = useState<RegistrationVitalsFields & { bite_date: string }>(getInitialNewExposure);
+
+  const handleVitalsChange = (key: any) => (
+    ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    setNewExposure((prev) => ({ ...prev, [key]: ev.target.value }));
+  };
+
+  const handleVitalsDirectChange = (key: any, value: string) => {
+    setNewExposure((prev) => ({ ...prev, [key]: value }));
+  };
 
   useEffect(() => {
     if (!open || !patient) {
@@ -362,16 +386,32 @@ export default function PatientDetailsModal({
       setSelectedEpisodeId(null);
       setActiveTab('form1');
       setCheckInSuccess(null);
+      setNewExposureOpen(false);
+      setNewExposure(getInitialNewExposure());
       return;
     }
+
+    if (initialNewExposureOpen) {
+      setNewExposureOpen(true);
+    }
+
     const patientId = (patient as any).patient_id || (patient as any).id;
     setLoadingDetails(true);
     Promise.all([
       api.get(`/patients/${patientId}`).catch(() => null),
       api.get(`/cases/patient/${patientId}/episodes`).catch(() => null),
     ]).then(([pRes, epRes]) => {
-      if (pRes?.data) setFullPatient(pRes.data);
-      else setFullPatient(patient);
+      if (pRes?.data) {
+        const fetched = pRes.data;
+        setFullPatient(fetched);
+        setNewExposure((prev) => ({
+          ...prev,
+          reg_height: prev.reg_height || fetched.details?.height || fetched.latest_treatment_record?.height || '',
+          reg_weight: prev.reg_weight || fetched.details?.weight || fetched.latest_treatment_record?.weight || '',
+        }));
+      } else {
+        setFullPatient(patient);
+      }
 
       if (epRes?.data) {
         setEpisodes(epRes.data.episodes || []);
@@ -381,7 +421,7 @@ export default function PatientDetailsModal({
         }
       }
     }).finally(() => setLoadingDetails(false));
-  }, [open, patient]);
+  }, [open, patient, initialNewExposureOpen]);
 
   if (!patient) return null;
 
@@ -400,9 +440,26 @@ export default function PatientDetailsModal({
       const res = await api.post('/cases/new-exposure', {
         patient_id: patientId,
         bite_date: newExposure.bite_date,
+        consultation_date: newExposure.reg_date_of_consultation,
+        consultation_time: newExposure.reg_consultation_time,
+        blood_pressure: newExposure.reg_blood_pressure,
+        temperature: newExposure.reg_temperature,
+        height: newExposure.reg_height,
+        weight: newExposure.reg_weight,
+        attending_provider: newExposure.reg_attending_provider,
+        referred_by: newExposure.reg_referred_by,
+        reg_date_of_consultation: newExposure.reg_date_of_consultation,
+        reg_consultation_time: newExposure.reg_consultation_time,
+        reg_blood_pressure: newExposure.reg_blood_pressure,
+        reg_temperature: newExposure.reg_temperature,
+        reg_height: newExposure.reg_height,
+        reg_weight: newExposure.reg_weight,
+        reg_attending_provider: newExposure.reg_attending_provider,
+        reg_referred_by: newExposure.reg_referred_by,
       });
       setNewExposureOpen(false);
-      setCheckInSuccess(`New exposure registered. Sent to Doctor assessment (Queue #${res.data?.queue?.queue_number || '1'}).`);
+      setCheckInSuccess(`New exposure & consultation vitals registered. Sent to Doctor assessment (Queue #${res.data?.queue?.queue_number || '1'}).`);
+      if (onPatientUpdated) onPatientUpdated(p);
       setTimeout(() => {
         setCheckInSuccess(null);
         onClose();
@@ -691,24 +748,89 @@ export default function PatientDetailsModal({
         open={newExposureOpen}
         onClose={() => !checkingIn && setNewExposureOpen(false)}
         fullWidth
-        maxWidth="sm"
+        maxWidth="md"
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: '16px',
+            overflow: 'hidden',
+          },
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Check In New Exposure for Doctor</DialogTitle>
-        <DialogContent dividers>
-          <Typography sx={{ fontSize: 13, color: '#475569', mb: 2 }}>
-            Record the exposure date, then send the patient to the Doctor. The Doctor completes the assessment and determines any treatment; Registration does not need to fill out another clinical form.
-          </Typography>
-          <Box sx={{ maxWidth: 320 }}>
-            <TextField label="Exposure date" type="date" required size="small" value={newExposure.bite_date}
-              onChange={(event) => setNewExposure({ ...newExposure, bite_date: event.target.value })}
-              slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: new Date().toISOString().split('T')[0] } }} />
-          </Box>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 18, borderBottom: '1px solid var(--border-glow, #e5e7eb)', pb: 1.5 }}>
+          Re-Exposure Registration &amp; Consultation Vitals
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: { xs: 2, sm: 3 } }}>
+          <RegistrationDialog>
+            <div style={{ marginBottom: 12 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  background: 'var(--info-bg, #eff6ff)',
+                  border: '1px solid var(--info-border, #bfdbfe)',
+                  borderRadius: 8,
+                  padding: '12px 14px',
+                  fontSize: 13,
+                  color: 'var(--info-text, #1d4ed8)',
+                  marginBottom: 18,
+                }}
+              >
+                <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>📋</span>
+                <span>
+                  <strong>Station 1 Registration Check-In:</strong> Record the re-exposure incident date and fill in{' '}
+                  <strong>Section III. Consultation Details &amp; Vitals</strong> before booking to proceed to the Doctor.
+                  The attending Doctor will review these vitals in Form 2.
+                </span>
+              </div>
+
+              {/* Exposure Date Field */}
+              <div className="fm-section" style={{ marginBottom: 20 }}>
+                <h3 className="fm-section-title">Re-Exposure Incident Date</h3>
+                <div className="fm-grid fm-grid--2">
+                  <div className="fm-field">
+                    <label className="fm-label">
+                      Date of Re-Exposure / Bite <span>*</span>
+                    </label>
+                    <input
+                      className="fm-input"
+                      type="date"
+                      required
+                      max={new Date().toISOString().split('T')[0]}
+                      value={newExposure.bite_date}
+                      onChange={(e) => setNewExposure((prev) => ({ ...prev, bite_date: e.target.value }))}
+                    />
+                    <span className="registration-field-hint">Date when the re-bite or new animal exposure occurred</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section III. Consultation Details & Vitals */}
+              <RegistrationVitalsSection
+                data={newExposure}
+                onChange={handleVitalsChange}
+                onDirectChange={handleVitalsDirectChange}
+              />
+            </div>
+          </RegistrationDialog>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setNewExposureOpen(false)} disabled={checkingIn}>Cancel</Button>
-          <Button variant="contained" onClick={handleRegisterNewExposure} disabled={checkingIn}
-            sx={{ bgcolor: '#0284c7', '&:hover': { bgcolor: '#0369a1' } }}>
-            {checkingIn ? 'Checking in…' : 'Check In to Doctor'}
+        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-glow, #e5e7eb)', justifyContent: 'space-between' }}>
+          <Button onClick={() => setNewExposureOpen(false)} disabled={checkingIn} sx={{ textTransform: 'none', color: '#64748b' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleRegisterNewExposure}
+            disabled={checkingIn}
+            sx={{
+              bgcolor: '#0284c7',
+              '&:hover': { bgcolor: '#0369a1' },
+              fontWeight: 700,
+              textTransform: 'none',
+              px: 3,
+            }}
+          >
+            {checkingIn ? 'Saving & Booking…' : 'Save Vitals & Book to Doctor'}
           </Button>
         </DialogActions>
       </Dialog>

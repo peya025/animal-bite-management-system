@@ -444,4 +444,107 @@ class TriageDoctorAndReExposureTest extends TestCase
             'count' => 1,
         ]);
     }
+
+    public function test_re_exposure_registration_records_consultation_vitals_for_doctor()
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic, 'registration');
+        $doctor = $this->createDoctor($clinic);
+
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-8888',
+            'first_name' => 'Jose',
+            'last_name' => 'Rizal',
+            'birthdate' => '1985-06-19',
+            'gender' => 'Male',
+        ]);
+
+        // Prior episode completed
+        $priorIncident = BiteIncident::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'episode_number' => 1,
+            'episode_type' => 'primary',
+            'bite_date' => Carbon::now()->subMonths(10)->toDateString(),
+            'status' => 'completed',
+            'created_by' => $staff->id,
+        ]);
+
+        foreach ([0, 3, 7] as $dose) {
+            TreatmentRecord::create([
+                'clinic_id' => $clinic->id,
+                'patient_id' => $patient->patient_id,
+                'bite_id' => $priorIncident->bite_id,
+                'dose_number' => $dose,
+                'status' => 'completed',
+                'treatment_date' => Carbon::now()->subMonths(10)->toDateString(),
+            ]);
+        }
+
+        Sanctum::actingAs($staff);
+
+        // Registration staff registers re-exposure with Section III vitals
+        $response = $this->postJson('/api/cases/new-exposure', [
+            'patient_id' => $patient->patient_id,
+            'bite_date' => Carbon::today()->subDay()->toDateString(),
+            'consultation_date' => Carbon::today()->toDateString(),
+            'consultation_time' => '10:30',
+            'blood_pressure' => '120/80',
+            'temperature' => '36.5',
+            'height' => '170',
+            'weight' => '65',
+            'attending_provider' => 'Dr. Jose',
+            'referred_by' => 'Tagoloan RHU',
+        ]);
+
+        $response->assertStatus(201);
+        $incidentId = $response->json('incident.bite_id');
+        $this->assertNotNull($incidentId);
+
+        // Verify TreatmentRecord with scheduled status and vitals was created
+        $treatmentRecord = TreatmentRecord::where('bite_id', $incidentId)
+            ->whereNull('dose_number')
+            ->first();
+        $this->assertNotNull($treatmentRecord);
+        $this->assertEquals('scheduled', $treatmentRecord->status);
+        $this->assertEquals('120/80', $treatmentRecord->blood_pressure);
+        $this->assertEquals('36.5', $treatmentRecord->temperature);
+        $this->assertEquals('170', $treatmentRecord->height);
+        $this->assertEquals('65', $treatmentRecord->weight);
+        $this->assertEquals('Tagoloan RHU', $treatmentRecord->referred_by);
+
+        // Doctor loads patient treatment record for this episode
+        Sanctum::actingAs($doctor);
+        $doctorResponse = $this->getJson("/api/treatment-records/patient/{$patient->patient_id}?bite_id={$incidentId}");
+        $doctorResponse->assertStatus(200);
+        $this->assertEquals('120/80', $doctorResponse->json('latest_treatment.blood_pressure'));
+        $this->assertEquals('36.5', $doctorResponse->json('latest_treatment.temperature'));
+        $this->assertEquals('170', $doctorResponse->json('latest_treatment.height'));
+        $this->assertEquals('65', $doctorResponse->json('latest_treatment.weight'));
+        $this->assertEquals('Dr. Jose', $doctorResponse->json('latest_treatment.attending_provider'));
+
+        // Doctor submits Form 2 to finalize assessment
+        $form2Response = $this->postJson('/api/treatment-records', [
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incidentId,
+            'consultation_date' => Carbon::today()->toDateString(),
+            'consultation_time' => '10:30',
+            'mode_of_transaction' => 'walk-in',
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['consultation'],
+            'chief_complaints' => 'Patient had a new bite from an unknown dog.',
+            'diagnosis' => 'Possible Rabies Exposure Category II',
+            'treatment_plan' => 'two_dose_booster',
+            'blood_pressure' => '120/80',
+            'temperature' => '36.5',
+            'height' => '170',
+            'weight' => '65',
+        ]);
+        $form2Response->assertStatus(201);
+
+        // Verify there is only 1 consultation record for this episode and it was updated to completed
+        $this->assertEquals(1, TreatmentRecord::where('bite_id', $incidentId)->whereNull('dose_number')->count());
+        $this->assertEquals('completed', TreatmentRecord::where('bite_id', $incidentId)->whereNull('dose_number')->first()->status);
+    }
 }

@@ -109,19 +109,31 @@ const EXTENDED_FALLBACK_BARANGAYS: Record<string, PsgcItem[]> = {
   ],
 };
 
-interface RegistrationVitalsSectionProps {
-  data: EnrolmentFormData;
+export interface RegistrationVitalsFields {
+  reg_date_of_consultation: string;
+  reg_consultation_time: string;
+  reg_blood_pressure: string;
+  reg_temperature: string;
+  reg_height: string;
+  reg_weight: string;
+  reg_attending_provider: string;
+  reg_referred_by: string;
+}
+
+export interface RegistrationVitalsSectionProps<T extends RegistrationVitalsFields = any> {
+  data: T;
   onChange: (
-    key: keyof EnrolmentFormData
+    key: any
   ) => (ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
-  onDirectChange: (key: keyof EnrolmentFormData, value: string) => void;
+  onDirectChange: (key: any, value: string) => void;
 }
 
 /**
  * III. Consultation Details & Vitals
  *
- * Entered by Registration Staff during patient registration (Add Patient).
- * Values are saved to the treatment_records table (see PatientController::store).
+ * Entered by Registration Staff during patient registration (Add Patient)
+ * and during Re-Exposure registration check-in.
+ * Values are saved to the treatment_records table (see PatientController::store & BiteCaseController::registerNewExposure).
  * Displayed read-only in Form 2 (VitalsConsultationSection with readOnly=true).
  * Displayed in Form 1 print via patient-enrolment.blade.php.
  *
@@ -135,11 +147,11 @@ interface RegistrationVitalsSectionProps {
  *   reg_attending_provider    → attending_provider
  *   reg_referred_by           → referred_by  (full facility name string)
  */
-export function RegistrationVitalsSection({
+export function RegistrationVitalsSection<T extends RegistrationVitalsFields = any>({
   data,
   onChange,
   onDirectChange,
-}: RegistrationVitalsSectionProps) {
+}: RegistrationVitalsSectionProps<T>) {
   // --- Blood pressure split/combine ---
   const splitBP = (bp: string) => {
     if (!bp) return { systolic: '', diastolic: '' };

@@ -58,6 +58,7 @@ export default function PatientList() {
   const [showEditModal,        setShowEditModal]        = useState(false);
   const [selectedViewPatient,   setSelectedViewPatient]   = useState<Patient | null>(null);
   const [showViewModal,        setShowViewModal]        = useState(false);
+  const [openReExposureOnView, setOpenReExposureOnView] = useState(false);
 
   const [checkInModalData,     setCheckInModalData]     = useState<{
     patientName: string;
@@ -879,6 +880,7 @@ export default function PatientList() {
                                 onClick={(event) => {
                                   (event.currentTarget as HTMLElement).blur();
                                   setSelectedViewPatient(p);
+                                  setOpenReExposureOnView(true);
                                   setShowViewModal(true);
                                 }}
                               >
@@ -901,6 +903,7 @@ export default function PatientList() {
                                 onClick={(event) => {
                                   (event.currentTarget as HTMLElement).blur();
                                   setSelectedViewPatient(p);
+                                  setOpenReExposureOnView(true);
                                   setShowViewModal(true);
                                 }}
                               >
@@ -941,6 +944,7 @@ export default function PatientList() {
                               onClick={(e) => {
                                 (e.currentTarget as HTMLElement)?.blur();
                                 setSelectedViewPatient(p);
+                                setOpenReExposureOnView(false);
                                 setShowViewModal(true);
                               }}
                             >
@@ -1076,9 +1080,11 @@ export default function PatientList() {
       <PatientDetailsModal
         open={showViewModal}
         patient={selectedViewPatient}
+        initialNewExposureOpen={openReExposureOnView}
         onClose={() => {
           setShowViewModal(false);
           setSelectedViewPatient(null);
+          setOpenReExposureOnView(false);
         }}
         onPatientUpdated={() => {
           fetchPatients();

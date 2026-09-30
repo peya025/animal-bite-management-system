@@ -63,9 +63,10 @@ export async function createPatientRecord(
     other_membership_name: membershipFields.other_membership_name,
     other_membership_no: membershipFields.other_membership_no,
 
-    // III. Consultation Details & Vitals — forwarded to backend so PatientController
-    // can create an initial TreatmentRecord for this episode.  All fields are optional;
-    // the backend will skip TreatmentRecord creation when every field is blank.
+    // II. For CHU / RHU Personnel Only & III. Consultation Details & Vitals
+    // Forwarded to backend so PatientController can create an initial TreatmentRecord for this episode.
+    mode_of_transaction: enrolment.mode_of_transaction || 'walk-in',
+    reg_mode_of_transaction: enrolment.mode_of_transaction || 'walk-in',
     reg_date_of_consultation: cleanField(enrolment.reg_date_of_consultation),
     reg_consultation_time: cleanField(enrolment.reg_consultation_time),
     reg_blood_pressure: cleanField(enrolment.reg_blood_pressure),

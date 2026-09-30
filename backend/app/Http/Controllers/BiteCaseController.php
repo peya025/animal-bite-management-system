@@ -164,7 +164,9 @@ class BiteCaseController extends Controller
                 'weight'              => $weight,
                 'attending_provider'  => $attendingProvider,
                 'referred_by'         => $referredBy,
-                'mode_of_transaction' => 'walk-in',
+                'mode_of_transaction' => in_array($request->input('mode_of_transaction') ?? $request->input('reg_mode_of_transaction'), ['walk-in', 'visited', 'referral'])
+                    ? ($request->input('mode_of_transaction') ?? $request->input('reg_mode_of_transaction'))
+                    : 'walk-in',
                 'administered_by'     => $request->user()->id,
             ]);
 

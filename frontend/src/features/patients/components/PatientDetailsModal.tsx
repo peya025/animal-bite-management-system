@@ -404,6 +404,7 @@ export default function PatientDetailsModal({
 
   const getInitialNewExposure = () => ({
     bite_date: new Date().toISOString().slice(0, 10),
+    mode_of_transaction: 'walk-in',
     reg_date_of_consultation: new Date().toISOString().slice(0, 10),
     reg_consultation_time: new Date().toTimeString().slice(0, 5),
     reg_blood_pressure: '',
@@ -668,6 +669,51 @@ export default function PatientDetailsModal({
 
   const p = (fullPatient || patient) as any;
   const currentEp = episodes.find((e) => e.bite_id === selectedEpisodeId) || episodes[0] || null;
+
+  const handleRegisterNewExposure = async () => {
+    const patientId = p.patient_id || p.id;
+    // Validate: exposure date cannot be in the future
+    if (newExposure.bite_date && newExposure.bite_date > new Date().toISOString().split('T')[0]) {
+      alert('Exposure date cannot be a future date.');
+      return;
+    }
+    setCheckingIn(true);
+    try {
+      const res = await api.post('/cases/new-exposure', {
+        patient_id: patientId,
+        bite_date: newExposure.bite_date,
+        mode_of_transaction: newExposure.mode_of_transaction || 'walk-in',
+        reg_mode_of_transaction: newExposure.mode_of_transaction || 'walk-in',
+        consultation_date: newExposure.reg_date_of_consultation,
+        consultation_time: newExposure.reg_consultation_time,
+        blood_pressure: newExposure.reg_blood_pressure,
+        temperature: newExposure.reg_temperature,
+        height: newExposure.reg_height,
+        weight: newExposure.reg_weight,
+        attending_provider: newExposure.reg_attending_provider,
+        referred_by: newExposure.reg_referred_by,
+        reg_date_of_consultation: newExposure.reg_date_of_consultation,
+        reg_consultation_time: newExposure.reg_consultation_time,
+        reg_blood_pressure: newExposure.reg_blood_pressure,
+        reg_temperature: newExposure.reg_temperature,
+        reg_height: newExposure.reg_height,
+        reg_weight: newExposure.reg_weight,
+        reg_attending_provider: newExposure.reg_attending_provider,
+        reg_referred_by: newExposure.reg_referred_by,
+      });
+      setNewExposureOpen(false);
+      setCheckInSuccess(`New exposure & consultation vitals registered. Sent to Doctor assessment (Queue #${res.data?.queue?.queue_number || '1'}).`);
+      if (onPatientUpdated) onPatientUpdated(p);
+      setTimeout(() => {
+        setCheckInSuccess(null);
+        onClose();
+      }, 1500);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to check in to triage');
+    } finally {
+      setCheckingIn(false);
+    }
+  };
 
   const fakeEntry = {
     patient: p,

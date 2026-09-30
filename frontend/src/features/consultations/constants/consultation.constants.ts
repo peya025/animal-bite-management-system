@@ -1,4 +1,5 @@
 import type { ConsultationTypesMap, TreatmentFormData } from '../types/consultation.types';
+import { getManilaCurrentDateTime } from '../../../shared/utils';
 
 export const ANIMAL_BITE_DIAGNOSES: readonly string[] = [
   'Rabies Exposure (PEP Indicated)',
@@ -116,8 +117,8 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
   pertinent_history: '',
   reason_for_referral: 'For further evaluation and management.',
   actions_taken: '',
-  date_of_consultation: new Date().toISOString().split('T')[0],
-  consultation_time: new Date().toTimeString().slice(0, 5),
+  date_of_consultation: getManilaCurrentDateTime().date,
+  consultation_time: getManilaCurrentDateTime().time,
   blood_pressure: '',
   temperature: '',
   height: '',
@@ -134,6 +135,16 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
   name_of_attending_provider: '',
   referred_by: '',
 };
+
+export function getInitialTreatmentFormData(): TreatmentFormData {
+  const { date, time } = getManilaCurrentDateTime();
+  return {
+    ...INITIAL_FORM_DATA,
+    date_of_consultation: date,
+    consultation_time: time,
+  };
+}
+
 
 export const DEFAULT_FALLBACK_VACCINES: readonly string[] = [
   'Anti-Rabies Vaccine (ARV)',

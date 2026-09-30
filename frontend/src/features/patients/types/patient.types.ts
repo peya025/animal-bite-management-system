@@ -1,3 +1,5 @@
+import { getManilaCurrentDateTime } from '../../../shared/utils';
+
 export interface PsgcItem {
   code: string;
   name: string;
@@ -142,6 +144,16 @@ export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
   reg_attending_provider: '',
   reg_referred_by: '',
 };
+
+export function getInitialEnrolmentData(): EnrolmentFormData {
+  const { date, time } = getManilaCurrentDateTime();
+  return {
+    ...INITIAL_ENROLMENT_DATA,
+    reg_date_of_consultation: date,
+    reg_consultation_time: time,
+  };
+}
+
 
 export interface AddPatientModalProps {
   onClose: () => void;

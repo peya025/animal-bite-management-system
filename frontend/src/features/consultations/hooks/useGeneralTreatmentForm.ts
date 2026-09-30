@@ -29,6 +29,7 @@ import {
   submitAddendumNote,
 } from '../services/consultationService';
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import { getManilaCurrentDateTime } from '../../../shared/utils';
 
 export function useGeneralTreatmentForm({
   open,
@@ -171,9 +172,12 @@ export function useGeneralTreatmentForm({
 
     const initialAttending = resolveAttendingProvider(entry);
     const initialProvider = resolveHealthCareProvider();
+    const { date: manilaDate, time: manilaTime } = getManilaCurrentDateTime();
 
     setFormData(() => ({
       ...INITIAL_FORM_DATA,
+      date_of_consultation: manilaDate,
+      consultation_time: manilaTime,
       last_name: entry.patient.last_name || '',
       first_name: entry.patient.first_name || '',
       middle_name: entry.patient.middle_name || '',

@@ -6,7 +6,7 @@ import FormModal from '../../../../components/forms/FormModal';
 import { formatPhilHealthNumber, formatPWDNumber } from '../../../../shared/utils';
 import { PatientFormContent } from '../../styles/AddPatientModal.styles';
 import type { AddPatientModalProps, EnrolmentFormData } from '../../types';
-import { INITIAL_ENROLMENT_DATA } from '../../types';
+import { getInitialEnrolmentData } from '../../types';
 import { useAddressLocation } from '../../hooks';
 import { createPatientRecord } from '../../services';
 import { useFormDraft } from '../../../../shared/hooks/useFormDraft';
@@ -24,7 +24,17 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
 
   const [enrolment, setEnrolment] = useState<EnrolmentFormData>(() => {
     const saved = draft.readDraft<EnrolmentFormData>();
-    return saved ?? INITIAL_ENROLMENT_DATA;
+    if (!saved) {
+      return getInitialEnrolmentData();
+    }
+    // Form reopened with draft: keep saved draft values,
+    // but if consultation date/time were not previously set in draft, fill them with Manila current date/time.
+    const fresh = getInitialEnrolmentData();
+    return {
+      ...saved,
+      reg_date_of_consultation: saved.reg_date_of_consultation || fresh.reg_date_of_consultation,
+      reg_consultation_time: saved.reg_consultation_time || fresh.reg_consultation_time,
+    };
   });
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
@@ -231,7 +241,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
           <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           {draft.hasDraft && draft.status === 'idle' && (
             <button type="button" className="fm-btn fm-btn--cancel" style={{ fontSize: 12, padding: '4px 10px' }}
-              onClick={() => { setEnrolment(INITIAL_ENROLMENT_DATA); draft.clearDraft(); }}
+              onClick={() => { setEnrolment(getInitialEnrolmentData()); draft.clearDraft(); }}
               disabled={saving}>
               Discard draft
             </button>

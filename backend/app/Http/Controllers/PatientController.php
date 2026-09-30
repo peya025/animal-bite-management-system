@@ -30,6 +30,7 @@ class PatientController extends Controller
                 'details',
                 'memberships',
                 'latestTreatmentRecord',
+                'latestConsultationRecord',
                 'upcomingAppointment',
                 'biteIncidents' => function ($bi) {
                     $bi->latest('bite_date');
@@ -320,7 +321,7 @@ class PatientController extends Controller
                     'is_previously_vaccinated' => null,
                     'bite_date'             => $request->input('reg_date_of_consultation')
                         ? Carbon::parse($request->input('reg_date_of_consultation'))->toDateString()
-                        : Carbon::today()->toDateString(),
+                        : Carbon::now('Asia/Manila')->toDateString(),
                     'bite_place'            => null,
                     'site_washed'           => null,
                     'exposure_type'         => 'unassessed',
@@ -340,7 +341,10 @@ class PatientController extends Controller
 
                 $consultationDate = $request->input('reg_date_of_consultation')
                     ? Carbon::parse($request->input('reg_date_of_consultation'))->toDateString()
-                    : Carbon::today()->toDateString();
+                    : Carbon::now('Asia/Manila')->toDateString();
+
+                $consultationTime = $request->input('reg_consultation_time')
+                    ?: Carbon::now('Asia/Manila')->format('H:i');
 
                 // Create the consultation TreatmentRecord with vitals pre-filled.
                 // dose_number is null to mark this as a general consultation record
@@ -355,7 +359,7 @@ class PatientController extends Controller
                     'status'                => 'scheduled', // Valid ENUM: scheduled|completed|missed|rescheduled|cancelled
                     'consultation_date'     => $consultationDate,
                     'treatment_date'        => $consultationDate,
-                    'consultation_time'     => $request->input('reg_consultation_time'),
+                    'consultation_time'     => $consultationTime,
                     'blood_pressure'        => $request->input('reg_blood_pressure'),
                     'temperature'           => $request->input('reg_temperature'),
                     'height'                => $request->input('reg_height'),
@@ -390,6 +394,7 @@ class PatientController extends Controller
                 'registeredBy',
                 'details',
                 'memberships',
+                'latestConsultationRecord',
                 // Form 2: Bite cases with their nested treatment records
                 'biteIncidents' => function($query) {
                     $query->with(['treatmentRecords' => function($q) {

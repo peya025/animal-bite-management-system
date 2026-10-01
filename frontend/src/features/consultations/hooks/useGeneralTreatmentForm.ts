@@ -70,6 +70,7 @@ export function useGeneralTreatmentForm({
   const [vaccineStockMap, setVaccineStockMap] = useState<VaccineStockMap>({});
   const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
   const [tetanusBrands, setTetanusBrands] = useState<string[]>([]);
+  const [atsBrands, setAtsBrands] = useState<string[]>([]);
   const [currentUserName] = useState<string>(() => getCurrentUserName());
 
   // Track if a record has already been saved for this patient
@@ -109,6 +110,9 @@ export function useGeneralTreatmentForm({
       setProphylaxisStock(res.stock);
       if (res.tetanus_brands && res.tetanus_brands.length > 0) {
         setTetanusBrands(res.tetanus_brands);
+      }
+      if (res.ats_brands && res.ats_brands.length > 0) {
+        setAtsBrands(res.ats_brands);
       }
     }).catch(() => setProphylaxisStock(null));
   }, []);
@@ -611,6 +615,7 @@ export function useGeneralTreatmentForm({
     vaccineStockMap,
     prophylaxisStock,
     tetanusBrands,
+    atsBrands,
     hasExistingRecord,
     isEditing,
     setIsEditing,

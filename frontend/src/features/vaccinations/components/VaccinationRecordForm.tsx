@@ -497,7 +497,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [prophylaxisAdministrations, setProphylaxisAdministrations] = useState<ProphylaxisAdministration[]>([]);
   const [prophylaxisRecords, setProphylaxisRecords] = useState<ProphylaxisRecord[]>([]);
   const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
-  const [prophylaxisOnly, setProphylaxisOnly] = useState(false);
   const [icdCode, setIcdCode] = useState('');
   const [saving, setSaving] = useState(false);
   const [signatureVersion, setSignatureVersion] = useState<string | null>(null);
@@ -618,7 +617,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     setProphylaxisAdministrations([]);
     setProphylaxisRecords([]);
     setProphylaxisStock(undefined);
-    setProphylaxisOnly(false);
     const patientId = entry?.patient?.patient_id || entry?.patient?.id;
     if (!patientId) return;
 
@@ -1139,7 +1137,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     });
 
     // Only submit active uncompleted doses being administered today
-    const filledDoses = prophylaxisOnly ? [] : candidateDoses.filter(d => {
+    const filledDoses = candidateDoses.filter(d => {
       if (d.is_completed || !d.date || !d.vaccine_type) return false;
       // 22.1 — block prerequisite-locked doses from being submitted
       const PREREQ: Record<string, string> = { 'Day 3': 'Day 0', 'Day 7': 'Day 3', 'Day 28': 'Day 7', 'Booster 2': 'Booster 1' };
@@ -3044,50 +3042,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       {/* SECTION 4: ADDITIONAL MEDICATIONS & ICD CODE */}
       <div style={{ marginTop: 16 }}>
-        {!readOnly && (
-          <div
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: 10,
-              padding: '10px 14px',
-              marginBottom: 12,
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-            }}
-          >
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 10,
-                cursor: saving ? 'not-allowed' : 'pointer',
-                margin: 0,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={prophylaxisOnly}
-                disabled={saving}
-                onChange={(e) => setProphylaxisOnly(e.target.checked)}
-                style={{
-                  width: 16,
-                  height: 16,
-                  marginTop: 2,
-                  accentColor: '#059669',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                }}
-              />
-              <div>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', display: 'block' }}>
-                  Record tetanus / immunoglobulin only for this visit
-                </span>
-                <span style={{ fontSize: 12, color: '#64748b', display: 'block', marginTop: 1 }}>
-                  No rabies vaccine administered this session — check if patient received only TT or RIG
-                </span>
-              </div>
-            </label>
-          </div>
-        )}
         <ProphylaxisAdministrationSection
           orders={latestConsultation?.prophylaxis_orders}
           stock={prophylaxisStock}

@@ -19,11 +19,13 @@ export function normalizeProphylaxisOrders(value?: Partial<ProphylaxisOrders> | 
     [key, String(value?.[key as keyof ProphylaxisOrders] ?? '')])) as unknown as ProphylaxisOrders;
 }
 
-export const PROPHYLAXIS_GROUPS = ['tetanus_vaccine', 'tetanus_passive', 'rig'] as const;
+export const PROPHYLAXIS_GROUPS = ['tetanus_passive', 'tetanus_vaccine', 'rig'] as const;
 export type ProphylaxisGroup = typeof PROPHYLAXIS_GROUPS[number];
 
 export const PROPHYLAXIS_LABELS: Record<ProphylaxisGroup, string> = {
-  tetanus_vaccine: 'Tetanus vaccine', tetanus_passive: 'Tetanus passive protection', rig: 'Rabies immunoglobulin',
+  tetanus_passive: 'Anti-Tetanus Serum (ATS)',
+  tetanus_vaccine: 'Tetanus vaccine (TT)',
+  rig: 'Rabies immunoglobulin (RIG)',
 };
 
 export const PROPHYLAXIS_PRODUCTS: Record<ProphylaxisGroup, string[]> = {
@@ -43,6 +45,7 @@ export type ProphylaxisStock = Record<string, ProphylaxisStockBatch[]>;
 export interface ProphylaxisStockResponse {
   stock: ProphylaxisStock;
   tetanus_brands?: string[];
+  ats_brands?: string[];
 }
 
 export function isProphylaxisInventoryName(name: string): boolean {

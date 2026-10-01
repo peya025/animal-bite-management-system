@@ -344,9 +344,9 @@ class VaccinationRecordController extends Controller
             'prophylaxis_administrations.*.date' => 'required|date_format:Y-m-d|before_or_equal:today',
             'prophylaxis_administrations.*.inventory_id' => 'required|integer|exists:vaccine_inventory,inventory_id',
             'prophylaxis_administrations.*.inventory_units_used' => 'required|integer|min:1|max:999',
-            'prophylaxis_administrations.*.route' => 'required|in:IM,wound_infiltration',
-            'prophylaxis_administrations.*.injection_site' => 'required|string|max:255',
-            'prophylaxis_administrations.*.dosage_ml' => 'required|numeric|gt:0|max:999.99',
+            'prophylaxis_administrations.*.route' => 'nullable|in:IM,wound_infiltration',
+            'prophylaxis_administrations.*.injection_site' => 'nullable|string|max:255',
+            'prophylaxis_administrations.*.dosage_ml' => 'nullable|numeric|gt:0|max:999.99',
             'prophylaxis_administrations.*.dose_iu' => 'nullable|numeric|gt:0|max:99999999',
             'icd_code' => 'nullable|string|max:20',
         ], [

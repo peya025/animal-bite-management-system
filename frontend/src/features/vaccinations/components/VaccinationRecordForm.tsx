@@ -2784,19 +2784,147 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             </tbody>
           </table>
             {!readOnly && (
-              <div className="print:hidden" style={{ marginTop: 14, padding: 14, border: '1px solid #cbd5e1', borderRadius: 8 }}>
-                <strong>Electronic signature (optional)</strong>
-                {signatureVersion && currentUser?.id ? <>
-                  <p>Review your signature. This choice applies to new local vaccine doses saved now.</p>
-                  <SignatureImage key={signatureVersion} onReady={setSignatureReady}
-                    endpoint={`/users/${currentUser.id}/signature?version=${encodeURIComponent(signatureVersion)}`} />
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-                    <input type="checkbox" checked={applySignature} disabled={!signatureReady || saving}
-                      onChange={event => setApplySignature(event.target.checked)} />
-                    I confirm this is my signature and choose to apply it to these doses.
-                  </label>
-                </> : <p>{signatureLoadError ? 'Signature could not be loaded. You can still save without one and hand-sign the printed record.' : 'No signature available. You can save without one and hand-sign the printed record.'}</p>}
-                <button type="button" disabled={saving} onClick={() => setSignatureRefresh(value => value + 1)} style={{ marginTop: 8 }}>Refresh signature</button>
+              <div className="print:hidden" style={{ marginTop: 24 }}>
+                {/* Header above card */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      backgroundColor: '#f3e8ff',
+                      color: '#9333ea',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                      <path d="m15 5 4 4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <strong style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Electronic signature</strong>
+                      <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 400 }}>(optional)</span>
+                      {signatureReady && (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: '#047857', background: '#ecfdf5', padding: '1px 8px', borderRadius: 99, border: '1px solid #a7f3d0', marginLeft: 6 }}>
+                          ✓ Signature Ready
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748b' }}>
+                      Applied to all new local vaccine doses saved in this session
+                    </p>
+                  </div>
+                </div>
+
+                {/* Main Card Box */}
+                <div
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 14,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {/* Top Centered Signature Display Area */}
+                  <div
+                    style={{
+                      padding: '24px 20px',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      minHeight: 100,
+                      background: '#fafbfc',
+                    }}
+                  >
+                    {signatureVersion && currentUser?.id ? (
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                        <SignatureImage
+                          key={signatureVersion}
+                          onReady={setSignatureReady}
+                          endpoint={`/users/${currentUser.id}/signature?version=${encodeURIComponent(signatureVersion)}`}
+                        />
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: 13, color: '#64748b', margin: 0, textAlign: 'center' }}>
+                        {signatureLoadError
+                          ? 'Signature could not be loaded. You can still save without one and hand-sign the printed record.'
+                          : 'No signature available. You can save without one and hand-sign the printed record.'}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Bottom Control Bar */}
+                  <div
+                    style={{
+                      borderTop: '1px solid #e2e8f0',
+                      background: '#ffffff',
+                      padding: '12px 18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 16,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        cursor: !signatureReady || saving ? 'not-allowed' : 'pointer',
+                        margin: 0,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={applySignature}
+                        disabled={!signatureReady || saving}
+                        onChange={(event) => setApplySignature(event.target.checked)}
+                        style={{
+                          width: 17,
+                          height: 17,
+                          accentColor: '#059669',
+                          borderRadius: 4,
+                          cursor: !signatureReady || saving ? 'not-allowed' : 'pointer',
+                        }}
+                      />
+                      <span style={{ fontSize: 13, fontWeight: 500, color: '#334155' }}>
+                        I confirm this is my signature and apply it to these doses
+                      </span>
+                    </label>
+
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => setSignatureRefresh((value) => value + 1)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: 'none',
+                        border: 'none',
+                        padding: '4px 8px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: '#0d9488',
+                        cursor: saving ? 'not-allowed' : 'pointer',
+                        borderRadius: 6,
+                        transition: 'opacity 0.15s',
+                      }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                      </svg>
+                      Refresh
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -2901,19 +3029,81 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       {/* SECTION 4: ADDITIONAL MEDICATIONS & ICD CODE */}
       <div style={{ marginTop: 32 }}>
-        {!readOnly && <label style={{ display: 'block', marginBottom: 12 }}>
-          <input type="checkbox" checked={prophylaxisOnly} disabled={saving} onChange={e => setProphylaxisOnly(e.target.checked)} />
-          {' '}Record tetanus / immunoglobulin only for this visit (no rabies vaccine administered)
-        </label>}
+        {!readOnly && (
+          <div
+            style={{
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: 12,
+              padding: '16px 20px',
+              marginBottom: 20,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+            }}
+          >
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                margin: 0,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={prophylaxisOnly}
+                disabled={saving}
+                onChange={(e) => setProphylaxisOnly(e.target.checked)}
+                style={{
+                  width: 18,
+                  height: 18,
+                  marginTop: 2,
+                  accentColor: '#059669',
+                  cursor: saving ? 'not-allowed' : 'pointer',
+                }}
+              />
+              <div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', display: 'block' }}>
+                  Record tetanus / immunoglobulin only for this visit
+                </span>
+                <span style={{ fontSize: 13, color: '#64748b', display: 'block', marginTop: 2 }}>
+                  No rabies vaccine administered this session — check if patient received only TT or RIG
+                </span>
+              </div>
+            </label>
+          </div>
+        )}
         <ProphylaxisAdministrationSection
-          orders={latestConsultation?.prophylaxis_orders} stock={prophylaxisStock} records={prophylaxisRecords}
-          value={prophylaxisAdministrations} onChange={setProphylaxisAdministrations}
-          disabled={readOnly || saving} today={getLocalDateString()}
+          orders={latestConsultation?.prophylaxis_orders}
+          stock={prophylaxisStock}
+          records={prophylaxisRecords}
+          value={prophylaxisAdministrations}
+          onChange={setProphylaxisAdministrations}
+          disabled={readOnly || saving}
+          today={getLocalDateString()}
+          icdCode={icdCode}
+          onIcdCodeChange={setIcdCode}
         />
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>ICD 10 Code</label>
-          <input type="text" value={icdCode} onChange={(e) => setIcdCode(e.target.value)} placeholder="e.g., W54.0" disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
-        </div>
+        {prophylaxisAdministrations.length === 0 && (
+          <div style={{ marginTop: 16 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>ICD 10 Code</label>
+            <input
+              type="text"
+              value={icdCode}
+              onChange={(e) => setIcdCode(e.target.value)}
+              placeholder="e.g., W54.0"
+              disabled={readOnly}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid var(--input-border)',
+                borderRadius: 6,
+                fontSize: 13,
+                backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined,
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Inline footer buttons */}

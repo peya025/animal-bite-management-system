@@ -145,11 +145,16 @@ class ProphylaxisService
                 if (empty($item['dose_iu']) || (float) $item['dose_iu'] > $maximum + 0.001) {
                     $this->fail("{$medication} requires a dose in IU no greater than the weight-based maximum of {$maximum} IU.");
                 }
-                if ($item['route'] !== 'wound_infiltration') {
+                if (($item['route'] ?? 'wound_infiltration') !== 'wound_infiltration') {
                     $this->fail('RIG must be documented as wound infiltration.');
                 }
-            } elseif ($item['route'] !== 'IM') {
-                $this->fail('Tetanus prophylaxis must be documented as IM administration.');
+            } else {
+                $item['route'] = !empty($item['route']) ? $item['route'] : 'IM';
+                if ($item['route'] !== 'IM') {
+                    $this->fail('Tetanus prophylaxis must be documented as IM administration.');
+                }
+                $item['injection_site'] = !empty($item['injection_site']) ? $item['injection_site'] : 'Right deltoid';
+                $item['dosage_ml'] = !empty($item['dosage_ml']) ? $item['dosage_ml'] : '0.5';
             }
             if ($group === 'tetanus_passive' && empty($item['dose_iu'])) {
                 $this->fail('Record the administered ATS dose in IU.');

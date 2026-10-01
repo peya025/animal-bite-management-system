@@ -26,5 +26,5 @@ export default function SignatureImage({ endpoint, onReady }: {
   if (!image || image.endpoint !== endpoint) return <span>Loading signature…</span>;
   return <img src={image.url} alt="Staff signature" onLoad={() => onReady?.(true)}
     onError={() => { setFailed(true); onReady?.(false); }}
-    style={{ display: 'block', maxWidth: 200, maxHeight: 85, objectFit: 'contain', background: '#fff' }} />;
+    style={{ display: 'block', maxWidth: 200, maxHeight: 85, objectFit: 'contain', background: '#fff', margin: '0 auto' }} />;
 }

@@ -199,7 +199,7 @@ export default function AddEditInventoryDialog({
         manufactured_date: manufacturedDate,
         expiration_date: expirationDate,
         shelf_life_months: shelfLife,
-        open_vial_hours: matchedPreset?.is_multidose ? (matchedPreset.default_open_vial_hours ?? null) : (editItem?.open_vial_hours ?? null),
+        open_vial_hours: matchedPreset?.default_open_vial_hours ?? (editItem?.open_vial_hours ?? null),
         doses_per_vial: effectiveDpv,
         cold_chain_notes: matchedPreset?.storage_temperature_notes || editItem?.cold_chain_notes || '',
         remarks: '',
@@ -291,7 +291,7 @@ export default function AddEditInventoryDialog({
         ...prev,
         vaccine_type: vaccineType,
         shelf_life_months: nextShelfLife,
-        open_vial_hours: matchedPreset?.is_multidose ? (matchedPreset.default_open_vial_hours ?? null) : null,
+        open_vial_hours: matchedPreset?.default_open_vial_hours ?? null,
         doses_per_vial: nextDpv,
         cold_chain_notes: matchedPreset?.storage_temperature_notes ?? prev.cold_chain_notes,
         expiration_date: prev.manufactured_date

@@ -360,7 +360,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                           <Typography sx={{ fontSize: 13, color: '#334155', fontWeight: 600 }}>
                             • {preset.doses_per_vial || 1} patients per vial
                           </Typography>
-                          {preset.default_open_vial_hours ? (
+                          {preset.is_multidose && preset.default_open_vial_hours ? (
                             <Typography sx={{ fontSize: 13, color: '#334155', fontWeight: 600 }}>
                               • Use within {preset.default_open_vial_hours} hours after opening
                             </Typography>
@@ -382,6 +382,12 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
                         />
                       </Box>
                     )}
+
+                    {!preset.is_multidose && preset.default_open_vial_hours ? (
+                      <Typography sx={{ fontSize: 13, color: '#334155', fontWeight: 600, mb: 1.5 }}>
+                        Valid for {preset.default_open_vial_hours} hours after opening
+                      </Typography>
+                    ) : null}
 
                     {/* Optional Storage Notes */}
                     {preset.storage_temperature_notes && (

@@ -399,13 +399,12 @@ class VaccineInventoryController extends Controller
             'administration_route' => 'nullable|string|max:150',
             'is_multidose' => 'nullable|boolean',
             'regimen_units_per_patient' => 'nullable|numeric|min:0.1|max:999.99',
+            'default_open_vial_hours' => 'required|integer|min:1|max:' . $maxHours,
         ];
 
         if ($isMultidose) {
-            $rules['default_open_vial_hours'] = 'required|integer|min:1|max:' . $maxHours;
             $rules['doses_per_vial'] = 'required|integer|min:1|max:100';
         } else {
-            $rules['default_open_vial_hours'] = 'nullable|integer';
             $rules['doses_per_vial'] = 'nullable|integer';
         }
 
@@ -421,7 +420,7 @@ class VaccineInventoryController extends Controller
             [
                 'category' => $request->category ?? 'Anti-Rabies Vaccines (ARV)',
                 'default_shelf_life_months' => $request->input('default_shelf_life_months', 24),
-                'default_open_vial_hours' => $isMultidose ? (int) $request->input('default_open_vial_hours', 6) : null,
+                'default_open_vial_hours' => (int) $request->input('default_open_vial_hours'),
                 'storage_temperature_notes' => $request->storage_temperature_notes,
                 'dosing_regimen_notes' => $request->dosing_regimen_notes,
                 'administration_route' => $request->input('administration_route', 'Intradermal (ID) / Intramuscular (IM)'),
@@ -436,7 +435,7 @@ class VaccineInventoryController extends Controller
             ->where('vaccine_type', $preset->vaccine_name)
             ->update([
                 'doses_per_vial' => $preset->is_multidose ? max(1, (int) $preset->doses_per_vial) : 1,
-                'open_vial_hours' => $preset->is_multidose ? $preset->default_open_vial_hours : null,
+                'open_vial_hours' => $preset->default_open_vial_hours,
             ]);
 
         return response()->json([
@@ -467,13 +466,12 @@ class VaccineInventoryController extends Controller
             'administration_route' => 'nullable|string|max:150',
             'is_multidose' => 'nullable|boolean',
             'regimen_units_per_patient' => 'nullable|numeric|min:0.1|max:999.99',
+            'default_open_vial_hours' => 'required|integer|min:1|max:' . $maxHours,
         ];
 
         if ($isMultidose) {
-            $rules['default_open_vial_hours'] = 'required|integer|min:1|max:' . $maxHours;
             $rules['doses_per_vial'] = 'required|integer|min:1|max:100';
         } else {
-            $rules['default_open_vial_hours'] = 'nullable|integer';
             $rules['doses_per_vial'] = 'nullable|integer';
         }
 
@@ -497,12 +495,11 @@ class VaccineInventoryController extends Controller
         if ($isMultidose) {
             $data['is_multidose'] = true;
             $data['doses_per_vial'] = max(1, (int) $request->input('doses_per_vial', 1));
-            $data['default_open_vial_hours'] = (int) $request->input('default_open_vial_hours', 6);
         } else {
             $data['is_multidose'] = false;
             $data['doses_per_vial'] = 1;
-            $data['default_open_vial_hours'] = null;
         }
+        $data['default_open_vial_hours'] = (int) $request->input('default_open_vial_hours');
 
         $preset->update($data);
 
@@ -511,7 +508,7 @@ class VaccineInventoryController extends Controller
             ->where('vaccine_type', $preset->vaccine_name)
             ->update([
                 'doses_per_vial' => $preset->is_multidose ? max(1, (int) $preset->doses_per_vial) : 1,
-                'open_vial_hours' => $preset->is_multidose ? $preset->default_open_vial_hours : null,
+                'open_vial_hours' => $preset->default_open_vial_hours,
             ]);
 
         return response()->json([

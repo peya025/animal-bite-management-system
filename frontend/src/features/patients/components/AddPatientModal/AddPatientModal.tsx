@@ -156,10 +156,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
       newFieldErrors.date_of_birth = 'Date of Birth cannot be a future date.';
     }
     if (canQueuePatient && !enrolment.queue_priority_group) {
-      newFieldErrors.queue_priority_group = 'Queue category is required';
-    }
-    if (canQueuePatient && enrolment.queue_priority_group !== 'normal' && !enrolment.queue_priority_level) {
-      newFieldErrors.queue_priority_level = 'Priority is required';
+      newFieldErrors.queue_priority_group = 'Priority category is required';
     }
 
     if (!enrolment.contact_number || !enrolment.contact_number.trim()) {
@@ -214,7 +211,11 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     setSaving(true);
 
     try {
-      await createPatientRecord(enrolment, {
+      const submissionEnrolment: EnrolmentFormData = {
+        ...enrolment,
+        queue_priority_level: enrolment.queue_priority_group === 'normal' ? 'normal' : 'priority',
+      };
+      await createPatientRecord(submissionEnrolment, {
         full: loc.full,
         munName: loc.munName,
         brgyName: loc.brgyName,

@@ -1216,3 +1216,17 @@ input[type='month']:hover::-webkit-calendar-picker-indicator {
 [data-theme='dark'] .sd-card:hover {
   box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25) !important;
 }
+
+/* Treatment Nurse — Form 3 Responsive 2-column grid */
+.form3-equal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 640px) {
+  .form3-equal-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

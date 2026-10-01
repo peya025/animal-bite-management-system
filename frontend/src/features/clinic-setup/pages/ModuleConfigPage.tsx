@@ -38,8 +38,7 @@ const FORM1_SECTIONS: FieldSection[] = [
       { key: 'mother_maiden_name', label: "Mother's Maiden Name", description: 'Mother maiden name' },
       { key: 'civil_status', label: 'Civil Status', description: 'Patient civil status' },
       { key: 'spouse_name', label: "Spouse's Name", description: 'Shown only when Civil Status is Married' },
-      { key: 'queue_priority_group', label: 'Queue Category', description: 'Shown when registration can create a queue ticket' },
-      { key: 'queue_priority_level', label: 'Priority', description: 'Shown for a non-normal queue category' },
+      { key: 'queue_priority_group', label: 'Priority Category', description: 'Shown when registration can create a queue ticket' },
     ],
   },
   {

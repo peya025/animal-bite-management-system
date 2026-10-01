@@ -72,8 +72,8 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
       </div>
 
       {showQueueFields && (
-        <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-          <FormField id="field-queue_priority_group" label="Queue Category" required error={!!errors.queue_priority_group} errorText={errors.queue_priority_group}>
+        <div className="fm-grid fm-grid--2">
+          <FormField id="field-queue_priority_group" label="Priority Category" required error={!!errors.queue_priority_group} errorText={errors.queue_priority_group}>
             <select className="fm-select" name="queue_priority_group" value={data.queue_priority_group} onChange={onChange('queue_priority_group')} style={errors.queue_priority_group ? { borderColor: '#ef4444' } : undefined}>
               <option value="normal">Normal</option>
               <option value="pregnant">Pregnant</option>
@@ -81,19 +81,6 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
               <option value="pwd">PWD</option>
             </select>
           </FormField>
-          {data.queue_priority_group !== 'normal' && (
-            <FormField id="field-queue_priority_level" label="Priority" required error={!!errors.queue_priority_level} errorText={errors.queue_priority_level}>
-              <select
-                className="fm-select"
-                name="queue_priority_level" value={data.queue_priority_level}
-                onChange={onChange('queue_priority_level')}
-                style={errors.queue_priority_level ? { borderColor: '#ef4444' } : undefined}
-              >
-                <option value="priority">Priority</option>
-                <option value="normal">Normal</option>
-              </select>
-            </FormField>
-          )}
         </div>
       )}
 

@@ -1,10 +1,11 @@
 // @ts-nocheck
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { printWhenReady } from '../../../components/print/printReady';
-import React, { useState, useEffect } from 'react';
 import api from '../../../services/api';
 import { Icon } from '../../../shared/components/ui/Icon';
 import { HugeiconsIcon } from '@hugeicons/react';
+import SignatureImage from '../../../shared/components/SignatureImage';
 import { PrinterIcon } from '@hugeicons/core-free-icons';
 import { getGlobalPrintLogos } from '../../../components/print';
 
@@ -794,6 +795,14 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                                       PRC: {staffLicense}
                                     </span>
                                   )}
+                                  {rec?.treatment_id && (
+                                    <div style={{ marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                                      <SignatureImage
+                                        endpoint={`/vaccination-records/${rec.treatment_id}/signature`}
+                                        style={{ maxHeight: 22, maxWidth: 90, objectFit: 'contain' }}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
                                 <span style={{ color: '#94a3b8', fontSize: '0.55rem' }}>Not administered</span>
@@ -879,6 +888,14 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                                       <span style={{ fontSize: '0.5rem', color: '#0369a1', fontWeight: 600 }}>
                                         PRC: {staffLicense}
                                       </span>
+                                    )}
+                                    {rec?.treatment_id && (
+                                      <div style={{ marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                                        <SignatureImage
+                                          endpoint={`/vaccination-records/${rec.treatment_id}/signature`}
+                                          style={{ maxHeight: 22, maxWidth: 90, objectFit: 'contain' }}
+                                        />
+                                      </div>
                                     )}
                                   </div>
                                 ) : (
@@ -975,6 +992,14 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                                     <span style={{ fontSize: '0.5rem', color: '#0369a1', fontWeight: 600 }}>
                                       PRC: {staffLicense}
                                     </span>
+                                  )}
+                                  {rec?.treatment_id && (
+                                    <div style={{ marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                                      <SignatureImage
+                                        endpoint={`/vaccination-records/${rec.treatment_id}/signature`}
+                                        style={{ maxHeight: 22, maxWidth: 90, objectFit: 'contain' }}
+                                      />
+                                    </div>
                                   )}
                                 </div>
                               ) : (

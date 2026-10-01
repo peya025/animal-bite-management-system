@@ -172,6 +172,9 @@ class ProphylaxisService
                 $this->fail("{$medication} requires a matching, unexpired clinic inventory batch with enough stock.");
             }
 
+            $dosageML = (isset($item['dosage_ml']) && $item['dosage_ml'] !== '' && $item['dosage_ml'] !== null) ? $item['dosage_ml'] : null;
+            $doseIU = (isset($item['dose_iu']) && $item['dose_iu'] !== '' && $item['dose_iu'] !== null) ? $item['dose_iu'] : null;
+
             $record = TreatmentRecord::create([
                 'clinic_id' => $incident->clinic_id, 'patient_id' => $incident->patient_id,
                 'bite_id' => $incident->bite_id, 'medication_given' => $medication,
@@ -179,7 +182,7 @@ class ProphylaxisService
                 'administered_at' => now(), 'status' => 'completed',
                 'vaccine_brand' => $batch->vaccine_type,
                 'route' => $item['route'], 'injection_site' => $item['injection_site'],
-                'dosage_ml' => $item['dosage_ml'], 'dose_iu' => $item['dose_iu'] ?? null,
+                'dosage_ml' => $dosageML, 'dose_iu' => $doseIU,
                 'remarks' => 'Prophylaxis administered against Form 2 order #'.$consultation->treatment_id,
             ]);
             $usage = app(VaccineInventoryUsageService::class)->deductForTreatment(

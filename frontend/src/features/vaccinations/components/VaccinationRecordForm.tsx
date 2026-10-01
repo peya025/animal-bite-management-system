@@ -3028,23 +3028,23 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       </div>
 
       {/* SECTION 4: ADDITIONAL MEDICATIONS & ICD CODE */}
-      <div style={{ marginTop: 32 }}>
+      <div style={{ marginTop: 16 }}>
         {!readOnly && (
           <div
             style={{
               background: '#ffffff',
               border: '1px solid #e2e8f0',
-              borderRadius: 12,
-              padding: '16px 20px',
-              marginBottom: 20,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+              borderRadius: 10,
+              padding: '10px 14px',
+              marginBottom: 12,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
             }}
           >
             <label
               style={{
                 display: 'flex',
                 alignItems: 'flex-start',
-                gap: 12,
+                gap: 10,
                 cursor: saving ? 'not-allowed' : 'pointer',
                 margin: 0,
               }}
@@ -3055,18 +3055,18 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 disabled={saving}
                 onChange={(e) => setProphylaxisOnly(e.target.checked)}
                 style={{
-                  width: 18,
-                  height: 18,
+                  width: 16,
+                  height: 16,
                   marginTop: 2,
                   accentColor: '#059669',
                   cursor: saving ? 'not-allowed' : 'pointer',
                 }}
               />
               <div>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', display: 'block' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', display: 'block' }}>
                   Record tetanus / immunoglobulin only for this visit
                 </span>
-                <span style={{ fontSize: 13, color: '#64748b', display: 'block', marginTop: 2 }}>
+                <span style={{ fontSize: 12, color: '#64748b', display: 'block', marginTop: 1 }}>
                   No rabies vaccine administered this session — check if patient received only TT or RIG
                 </span>
               </div>

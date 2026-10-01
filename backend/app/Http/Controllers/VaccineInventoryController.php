@@ -20,7 +20,7 @@ class VaccineInventoryController extends Controller
     {
         $clinicId = $request->user()->clinic_id;
 
-        // Fetch preset names for Tetanus category
+        // Fetch preset names for Tetanus Toxoid category (excluding ATS / Serum)
         $tetanusPresets = VaccineTypePreset::where(function ($q) use ($clinicId) {
             $q->whereNull('clinic_id')->orWhere('clinic_id', $clinicId);
         })->where(function ($q) {
@@ -29,6 +29,22 @@ class VaccineInventoryController extends Controller
               ->orWhere('vaccine_name', 'like', '%tetan%')
               ->orWhere('vaccine_name', 'like', '%toxoid%')
               ->orWhereIn('vaccine_name', ['TT', 'Td', 'Tdap', 'DTaP']);
+        })->where(function ($q) {
+            $q->where('category', 'not like', '%Serum%')
+              ->where('category', 'not like', '%ATS%')
+              ->where('vaccine_name', 'not like', '%ATS%')
+              ->where('vaccine_name', 'not like', '%serum%');
+        })->pluck('vaccine_name')->all();
+
+        // Fetch preset names for Anti-Tetanus Serum (ATS) category
+        $atsPresets = VaccineTypePreset::where(function ($q) use ($clinicId) {
+            $q->whereNull('clinic_id')->orWhere('clinic_id', $clinicId);
+        })->where(function ($q) {
+            $q->where('category', 'like', '%Serum%')
+              ->orWhere('category', 'like', '%ATS%')
+              ->orWhere('vaccine_name', 'like', '%ATS%')
+              ->orWhere('vaccine_name', 'like', '%anti-tetanus%')
+              ->orWhere('vaccine_name', 'like', '%serum%');
         })->pluck('vaccine_name')->all();
 
         $batches = VaccineInventory::where('clinic_id', $clinicId)
@@ -39,8 +55,11 @@ class VaccineInventoryController extends Controller
             ]);
 
         $activeTetanusBrands = [];
+        $activeAtsBrands = [];
         foreach ($batches as $batch) {
-            if (\App\Services\ProphylaxisService::isTetanusBrand($batch->vaccine_type, $tetanusPresets)) {
+            if (\App\Services\ProphylaxisService::isAtsBrand($batch->vaccine_type, $atsPresets)) {
+                $activeAtsBrands[] = $batch->vaccine_type;
+            } elseif (\App\Services\ProphylaxisService::isTetanusBrand($batch->vaccine_type, $tetanusPresets)) {
                 $activeTetanusBrands[] = $batch->vaccine_type;
             }
         }
@@ -50,28 +69,36 @@ class VaccineInventoryController extends Controller
             $tetanusBrands = ['TT'];
         }
 
+        $atsBrands = array_values(array_unique(array_filter(array_merge(['ATS'], $atsPresets, $activeAtsBrands))));
+
         $stock = ['TT' => [], 'ATS' => [], 'ERIG' => []];
         foreach ($tetanusBrands as $brand) {
+            $stock[$brand] = [];
+        }
+        foreach ($atsBrands as $brand) {
             $stock[$brand] = [];
         }
 
         foreach ($batches as $batch) {
             $name = $batch->vaccine_type;
-            if (\App\Services\ProphylaxisService::isTetanusBrand($name, $tetanusBrands)) {
+            if (\App\Services\ProphylaxisService::isAtsBrand($name, $atsBrands)) {
+                $stock['ATS'][] = $batch;
+                $stock[$name][] = $batch;
+            } elseif (\App\Services\ProphylaxisService::isTetanusBrand($name, $tetanusBrands)) {
                 $stock[$name][] = $batch;
                 if (preg_match('/(?:^|[^a-z])TT(?:$|[^a-z])|tetanus toxoid/i', $name)) {
                     $stock['TT'][] = $batch;
                 }
-            } elseif (preg_match('/(?:^|[^a-z])ATS(?:$|[^a-z])|anti[- ]?tetanus serum/i', $name)) {
-                $stock['ATS'][] = $batch;
             } elseif (preg_match('/(?:^|[^a-z])ERIG(?:$|[^a-z])|equine rabies immunoglobulin/i', $name)) {
                 $stock['ERIG'][] = $batch;
+                $stock[$name][] = $batch;
             }
         }
 
         return response()->json([
             'stock' => $stock,
             'tetanus_brands' => $tetanusBrands,
+            'ats_brands' => $atsBrands,
         ]);
     }
 

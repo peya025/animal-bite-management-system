@@ -45,6 +45,7 @@ export type ProphylaxisStock = Record<string, ProphylaxisStockBatch[]>;
 export interface ProphylaxisStockResponse {
   stock: ProphylaxisStock;
   tetanus_brands?: string[];
+  ats_brands?: string[];
 }
 
 export function isProphylaxisInventoryName(name: string): boolean {

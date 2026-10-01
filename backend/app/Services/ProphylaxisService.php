@@ -20,7 +20,7 @@ class ProphylaxisService
     {
         $name = trim($vaccineType);
         if ($name === '') return false;
-        if (preg_match('/(?:^|[^a-z])ATS(?:$|[^a-z])|anti[- ]?tetanus serum/i', $name)) {
+        if (preg_match('/(?:^|[^a-z])ATS(?:$|[^a-z])|anti[- ]?tetanus serum|tetanus serum/i', $name)) {
             return false;
         }
         foreach ($knownBrands as $brand) {
@@ -31,11 +31,23 @@ class ProphylaxisService
         return (bool) preg_match('/(?:^|[^a-z])(?:TT|Td|Tdap|DTaP)(?:$|[^a-z])|tetan|toxoid|tetavax/i', $name);
     }
 
+    public static function isAtsBrand(string $vaccineType, array $knownBrands = []): bool
+    {
+        $name = trim($vaccineType);
+        if ($name === '') return false;
+        foreach ($knownBrands as $brand) {
+            if (strcasecmp($brand, $name) === 0) {
+                return true;
+            }
+        }
+        return (bool) preg_match('/(?:^|[^a-z])ATS(?:$|[^a-z])|anti[- ]?tetanus serum|tetanus serum/i', $name);
+    }
+
     public static function inventoryMedication(string $vaccineType, array $knownBrands = []): ?string
     {
         $name = trim($vaccineType);
         if (preg_match('/(?:^|[^a-z])ERIG(?:$|[^a-z])|equine rabies immunoglobulin|equine rabies immune globulin/i', $name)) return 'ERIG';
-        if (preg_match('/(?:^|[^a-z])ATS(?:$|[^a-z])|anti[- ]?tetanus serum/i', $name)) return 'ATS';
+        if (self::isAtsBrand($name, $knownBrands)) return 'ATS';
         if (self::isTetanusBrand($name, $knownBrands)) {
             foreach ($knownBrands as $brand) {
                 if (strcasecmp($brand, $name) === 0) {
@@ -52,7 +64,7 @@ class ProphylaxisService
         return [
             'prophylaxis_orders' => 'nullable|array:tetanus_vaccine,tetanus_passive,rig,tetanus_history,tetanus_last_dose,rig_weight_kg,rig_indication,notes',
             'prophylaxis_orders.tetanus_vaccine' => 'nullable|string|max:100',
-            'prophylaxis_orders.tetanus_passive' => 'nullable|in:none,ATS',
+            'prophylaxis_orders.tetanus_passive' => 'nullable|string|max:100',
             'prophylaxis_orders.rig' => 'nullable|in:none,ERIG',
             'prophylaxis_orders.tetanus_history' => 'nullable|in:unknown,incomplete,complete',
             'prophylaxis_orders.tetanus_last_dose' => 'nullable|date_format:Y-m-d|before_or_equal:today',
@@ -72,7 +84,7 @@ class ProphylaxisService
                 $this->fail('Record verified weight and a clinical indication before prescribing RIG.');
             }
         }
-        if (($orders['tetanus_passive'] ?? null) === 'ATS' && empty(trim($orders['notes'] ?? ''))) {
+        if (($orders['tetanus_passive'] ?? 'none') !== 'none' && !empty($orders['tetanus_passive']) && empty(trim($orders['notes'] ?? ''))) {
             $this->fail('ATS requires product-specific dose and precaution instructions from the doctor.');
         }
     }
@@ -93,8 +105,9 @@ class ProphylaxisService
         foreach ($administrations as $item) {
             $medication = $item['medication'];
             $isTetanus = self::isTetanusBrand($medication, array_filter([$orders['tetanus_vaccine'] ?? null]));
-            $group = $isTetanus ? 'tetanus_vaccine' : collect(self::GROUPS)->search(fn ($products) => in_array($medication, $products, true));
-            if (!$group || ($orders[$group] ?? null) !== $medication) {
+            $isAts = self::isAtsBrand($medication, array_filter([$orders['tetanus_passive'] ?? null]));
+            $group = $isTetanus ? 'tetanus_vaccine' : ($isAts ? 'tetanus_passive' : collect(self::GROUPS)->search(fn ($products) => in_array($medication, $products, true)));
+            if (!$group || (($orders[$group] ?? null) !== $medication && ($orders[$group] ?? null) === 'none')) {
                 $this->fail("{$medication} has no matching doctor prescription in Form 2.");
             }
             $existing = TreatmentRecord::where('clinic_id', $incident->clinic_id)

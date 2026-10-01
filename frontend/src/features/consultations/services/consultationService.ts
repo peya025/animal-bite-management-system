@@ -5,11 +5,12 @@ import { DEFAULT_FALLBACK_VACCINES } from '../constants/consultation.constants';
 import type { ProphylaxisStock } from '../../../shared/types/prophylaxis';
 import { isProphylaxisInventoryName } from '../../../shared/types/prophylaxis';
 
-export async function fetchProphylaxisStock(): Promise<{ stock: ProphylaxisStock; tetanus_brands: string[] }> {
+export async function fetchProphylaxisStock(): Promise<{ stock: ProphylaxisStock; tetanus_brands: string[]; ats_brands?: string[] }> {
   const res = await api.get('/inventory/prophylaxis-stock');
   return {
     stock: res.data?.stock || {},
     tetanus_brands: res.data?.tetanus_brands || [],
+    ats_brands: res.data?.ats_brands || [],
   };
 }
 

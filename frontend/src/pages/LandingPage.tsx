@@ -585,6 +585,7 @@ export default function LandingPage() {
                 { key: 'Anti-Rabies Vaccines (ARV)', label: 'Anti-Rabies (ARV)' },
                 { key: 'Rabies Immunoglobulins (RIG)', label: 'Immunoglobulins (RIG)' },
                 { key: 'Tetanus & Toxoids', label: 'Tetanus & Toxoids' },
+                { key: 'Anti-Tetanus Serum (ATS)', label: 'Anti-Tetanus Serum (ATS)' },
               ].map((item) => (
                 <button
                   key={item.key}
@@ -629,6 +630,14 @@ export default function LandingPage() {
                     badgeLabel: 'Tetanus',
                     contextLine: 'Wound infection prophylaxis administered via Intramuscular (IM) injection according to patient immunization history.',
                     defaultRoute: 'Intramuscular (IM)',
+                  },
+                  {
+                    key: 'Anti-Tetanus Serum (ATS)',
+                    title: 'Anti-Tetanus Serum (ATS)',
+                    icon: <HugeiconsIcon icon={BandageIcon} size={22} color="#dc2626" />,
+                    badgeLabel: 'Anti-Tetanus Serum',
+                    contextLine: 'Passive tetanus immunization providing rapid antibody protection for high-risk dirty or tetanus-prone wounds.',
+                    defaultRoute: 'Intramuscular (IM) / Subcutaneous (SC)',
                   },
                 ]
                   .filter((sec) => activeCat === 'All' || activeCat === sec.key)

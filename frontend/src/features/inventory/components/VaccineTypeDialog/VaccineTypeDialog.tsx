@@ -38,6 +38,7 @@ const CATEGORIES = [
   'Anti-Rabies Vaccines (ARV)',
   'Rabies Immunoglobulins (RIG)',
   'Tetanus & Toxoids',
+  'Anti-Tetanus Serum (ATS)',
   'Other Biologicals',
 ];
 

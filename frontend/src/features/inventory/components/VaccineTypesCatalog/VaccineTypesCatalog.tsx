@@ -50,6 +50,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; color: string; border: strin
   'Anti-Rabies Vaccines (ARV)': { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
   'Rabies Immunoglobulins (RIG)': { bg: '#ecfeff', color: '#0f766e', border: '#a5f3fc' },
   'Tetanus & Toxoids': { bg: '#fff7ed', color: '#c2410c', border: '#fdba74' },
+  'Anti-Tetanus Serum (ATS)': { bg: '#fef2f2', color: '#991b1b', border: '#fca5a5' },
   'Other Biologicals': { bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe' },
 };
 
@@ -226,6 +227,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
               <MenuItem value="Anti-Rabies Vaccines (ARV)">Anti-Rabies Vaccines (ARV)</MenuItem>
               <MenuItem value="Rabies Immunoglobulins (RIG)">Rabies Immunoglobulins (RIG)</MenuItem>
               <MenuItem value="Tetanus & Toxoids">Tetanus &amp; Toxoids</MenuItem>
+              <MenuItem value="Anti-Tetanus Serum (ATS)">Anti-Tetanus Serum (ATS)</MenuItem>
               <MenuItem value="Other Biologicals">Other Biologicals</MenuItem>
             </Select>
           </Grid>

@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Patient;
+use App\Models\Appointment;
 use App\Models\AuditLog;
 use App\Models\BiteIncident;
+use App\Models\BiteIncidentIntake;
+use App\Models\Patient;
+use App\Models\Queue;
+use App\Models\QueueHistory;
 use App\Models\TreatmentRecord;
 use App\Services\PatientMembershipService;
 use Carbon\Carbon;
@@ -592,5 +596,242 @@ class PatientController extends Controller
             ->get();
 
         return response()->json($vaccinations);
+    }
+
+    /**
+     * Check in a returning patient who missed their initial triage schedule
+     * and place them into today's Triage Doctor queue.
+     * POST /api/patients/{id}/check-in
+     * Access: admin, registration, developer
+     */
+    public function checkIn(Request $request, $id)
+    {
+        $clinicId = $request->user()->clinic_id;
+        $patient = Patient::where('clinic_id', $clinicId)->find($id);
+        if (!$patient) {
+            return response()->json([
+                'message' => 'This patient is no longer available in your clinic. Refresh the patient list and try again.',
+                'code' => 'patient_not_found',
+            ], 404);
+        }
+        $todayDate = Carbon::today()->toDateString();
+
+        // 1. Idempotency: If already active in today's queue, return existing queue entry without creating duplicate
+        $activeStatuses = ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'];
+        $existingQueue = Queue::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->where('queue_date', $todayDate)
+            ->whereNull('deleted_at')
+            ->whereIn('status', $activeStatuses)
+            ->first();
+
+        if ($existingQueue) {
+            return response()->json([
+                'message' => "{$patient->first_name} {$patient->last_name} is already active in today's Doctor Triage queue (Queue #{$existingQueue->queue_number})",
+                'queue' => $existingQueue->load(['patient', 'biteIncident']),
+                'queue_number' => $existingQueue->queue_number,
+                'station' => 'Doctor Assessment',
+                'already_checked_in' => true,
+            ], 200);
+        }
+
+        // 2. Eligibility: verify patient has not already completed triage / started treatment
+        $hasCompletedDoses = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereNotNull('dose_number')
+            ->where('status', 'completed')
+            ->exists();
+
+        $hasCompletedConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereNull('dose_number')
+            ->where(function ($q) {
+                $q->where('status', 'completed')
+                  ->orWhereNotNull('nature_of_visit')
+                  ->orWhereNotNull('diagnosis');
+            })
+            ->exists();
+
+        $hasConfirmedEpisode = BiteIncident::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->where(function ($q) {
+                $q->whereNotNull('confirmed_at')
+                  ->orWhereIn('status', ['active', 'completed'])
+                  ->orWhereIn('episode_type', ['primary', 're_exposure']);
+            })
+            ->exists();
+
+        if ($hasCompletedDoses || $hasCompletedConsultation || $hasConfirmedEpisode) {
+            return response()->json([
+                'message' => 'This patient has already proceeded to Doctor Triage or started treatment.',
+            ], 422);
+        }
+
+        // 3. Eligibility: verify patient is returning on a later date (registered or scheduled before today)
+        $regDate = Carbon::parse($patient->created_at)->toDateString();
+        $pastAppointment = Appointment::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->where(function ($q) use ($todayDate) {
+                $q->whereDate('scheduled_date', '<', $todayDate)
+                  ->orWhereDate('appointment_date', '<', $todayDate);
+            })
+            ->whereIn('status', ['scheduled', 'missed'])
+            ->first();
+
+        $pastConsultationRecord = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereNull('dose_number')
+            ->where('status', 'scheduled')
+            ->whereDate('consultation_date', '<', $todayDate)
+            ->first();
+
+        $pastQueue = Queue::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereDate('queue_date', '<', $todayDate)
+            ->first();
+
+        $isReturningOnLaterDate = ($regDate < $todayDate)
+            || ($pastAppointment !== null)
+            || ($pastConsultationRecord !== null)
+            || ($pastQueue !== null);
+
+        if (!$isReturningOnLaterDate) {
+            return response()->json([
+                'message' => 'Check In is for returning patients who were previously registered or scheduled and are returning on a later date.',
+            ], 422);
+        }
+
+        return DB::transaction(function () use ($request, $clinicId, $patient, $todayDate, $pastAppointment) {
+            // Auto-expire stale unserved tickets from prior days
+            app(QueueController::class)->expireStaleTickets($clinicId, $todayDate);
+
+            // Race-safe queue number generation
+            $lockName = "queue_checkin_{$clinicId}_{$todayDate}";
+            $lockTimeout = 5;
+            $isMysql = DB::connection()->getDriverName() === 'mysql';
+
+            if ($isMysql) {
+                DB::statement("SELECT GET_LOCK(?, ?)", [$lockName, $lockTimeout]);
+            }
+
+            try {
+                $maxNumber = DB::table('queues')
+                    ->where('clinic_id', $clinicId)
+                    ->where('queue_date', $todayDate)
+                    ->max('queue_number');
+
+                $nextQueueNumber = $maxNumber ? ($maxNumber + 1) : 1;
+
+                // Priority category
+                $patientDetail = $patient->details;
+                $category = 'regular';
+                if ($pastAppointment && $pastAppointment->booked_by_account_id) {
+                    $category = 'appointment';
+                } elseif ($patientDetail) {
+                    if ($patientDetail->fourps_member === 'yes' || $patientDetail->has_membership === 'pwd') {
+                        $category = 'pwd';
+                    } elseif ($patient->age >= 60) {
+                        $category = 'senior_citizen';
+                    } elseif ($patientDetail->has_membership === 'pregnant') {
+                        $category = 'pregnant';
+                    }
+                }
+
+                // Look for existing bite incident stub (created during registration or pending)
+                $biteIncident = BiteIncident::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patient->patient_id)
+                    ->whereIn('status', ['awaiting_assessment', 'pending_assessment'])
+                    ->latest('bite_id')
+                    ->first();
+
+                // Reuse and update existing consultation appointment
+                $appointment = $pastAppointment ?? Appointment::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patient->patient_id)
+                    ->whereIn('status', ['scheduled', 'missed'])
+                    ->orderBy('scheduled_date', 'asc')
+                    ->first();
+
+                if ($appointment) {
+                    $appointment->update([
+                        'status' => 'confirmed',
+                        'appointment_date' => $todayDate,
+                        'scheduled_date' => $todayDate,
+                        'queue_number' => $nextQueueNumber,
+                    ]);
+
+                    if ($appointment->biteIntake()->exists()) {
+                        $intake = $appointment->biteIntake()->where('status', 'pending')->first();
+                        if ($intake) {
+                            $intake->update([
+                                'status' => 'converted',
+                                'checked_in_by' => $request->user()->id,
+                                'checked_in_at' => now(),
+                                'bite_id' => $biteIncident?->bite_id,
+                            ]);
+                        }
+                    }
+                }
+
+                // Update existing scheduled TreatmentRecord stub (vitals from registration) for current date and time
+                $treatmentRecord = TreatmentRecord::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patient->patient_id)
+                    ->whereNull('dose_number')
+                    ->where('status', 'scheduled')
+                    ->latest('record_id')
+                    ->first();
+
+                if ($treatmentRecord) {
+                    $treatmentRecord->update([
+                        'consultation_date' => $todayDate,
+                        'treatment_date' => $todayDate,
+                        'consultation_time' => Carbon::now('Asia/Manila')->format('H:i'),
+                    ]);
+                }
+
+                // Create Queue entry for Triage Doctor queue
+                $queue = Queue::create([
+                    'clinic_id'      => $clinicId,
+                    'patient_id'     => $patient->patient_id,
+                    'appointment_id' => $appointment?->appointment_id,
+                    'bite_id'        => $biteIncident?->bite_id,
+                    'queue_number'   => $nextQueueNumber,
+                    'queue_date'     => $todayDate,
+                    'visit_type'     => 'new_case',
+                    'queue_category' => $category,
+                    'priority'       => 'normal',
+                    'status'         => 'waiting',
+                    'checked_in_at'  => now(),
+                    'checked_in_by'  => $request->user()->id,
+                    'check_in_notes' => 'Returning patient checked in for Triage Doctor assessment',
+                    'call_count'     => 0,
+                ]);
+
+                QueueHistory::create([
+                    'queue_id'     => $queue->queue_id,
+                    'clinic_id'    => $clinicId,
+                    'patient_id'   => $patient->patient_id,
+                    'action'       => 'checked_in',
+                    'from_status'  => null,
+                    'to_status'    => 'waiting',
+                    'call_count'   => 0,
+                    'performed_by' => $request->user()->id,
+                    'notes'        => 'Returning patient checked in for Triage Doctor assessment',
+                    'occurred_at'  => now(),
+                ]);
+
+                Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
+
+                return response()->json([
+                    'message' => "{$patient->first_name} {$patient->last_name} checked in successfully to Doctor Triage (Queue #{$nextQueueNumber})",
+                    'queue' => $queue->load(['patient', 'biteIncident']),
+                    'queue_number' => $nextQueueNumber,
+                    'station' => 'Doctor Assessment',
+                ], 200);
+            } finally {
+                if ($isMysql) {
+                    DB::statement("SELECT RELEASE_LOCK(?)", [$lockName]);
+                }
+            }
+        });
     }
 }

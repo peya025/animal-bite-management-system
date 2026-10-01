@@ -68,6 +68,7 @@ export default function PatientList() {
   } | null>(null);
   const [checkInError,         setCheckInError]         = useState('');
   const [checkingInIntakeId,   setCheckingInIntakeId]   = useState<number | null>(null);
+  const [checkingInPatientId,  setCheckingInPatientId]  = useState<number | null>(null);
 
   const { clinic: authClinic } = useAuth();
   const userData   = localStorage.getItem('userData');
@@ -178,6 +179,86 @@ export default function PatientList() {
     } finally {
       setCheckingInIntakeId(null);
     }
+  };
+
+  const handleTriageCheckIn = async (patient: Patient) => {
+    const patientId = patient.patient_id || (patient as any).id;
+    if (!patientId) {
+      setCheckInError('The patient record could not be identified. Please refresh the page and try again.');
+      return;
+    }
+
+    setCheckingInPatientId(patientId);
+    try {
+      const response = await api.post(`/patients/${patientId}/check-in`);
+      const queue = response.data?.queue;
+      setCheckInModalData({
+        patientName: fullName(patient),
+        patientNumber: patient.patient_number || '',
+        queueNumber: response.data?.queue_number || queue?.queue_number || '',
+        station: 'Doctor Assessment',
+      });
+      fetchPatients();
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        setCheckInError('This patient is no longer available in your clinic. The patient list has been refreshed. Please select an available patient.');
+        await fetchPatients();
+        return;
+      }
+      setCheckInError(err.response?.data?.message || 'Unable to check in this patient for Doctor Triage.');
+    } finally {
+      setCheckingInPatientId(null);
+    }
+  };
+
+  const isReturningPatientAwaitingTriage = (p: Patient) => {
+    // 1. Must not already be active in today's queue
+    const activeQueue = (p as any).queues?.[0];
+    const hasActiveQueueToday = Boolean(
+      activeQueue &&
+      ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(activeQueue.status)
+    );
+    if (hasActiveQueueToday) return false;
+
+    // 2. Must not have completed triage assessment or received doses
+    const latestRecord = (p as any).latest_treatment_record;
+    const hasDosesAdministered = Boolean(
+      latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined
+    );
+    if (hasDosesAdministered) return false;
+
+    const biteIncidentsList = (p as any).bite_incidents || (p as any).biteIncidents || [];
+    const hasConfirmedEpisode = biteIncidentsList.some((bi: any) =>
+      bi.confirmed_at || ['active', 'completed'].includes(bi.status) || ['primary', 're_exposure'].includes(bi.episode_type)
+    );
+    if (hasConfirmedEpisode) return false;
+
+    const latestConsultation = (p as any).latest_consultation_record || (p as any).latestConsultationRecord;
+    const hasCompletedConsultation = Boolean(
+      latestConsultation && (
+        latestConsultation.status === 'completed' ||
+        Boolean(latestConsultation.nature_of_visit) ||
+        Boolean(latestConsultation.diagnosis)
+      )
+    );
+    if (hasCompletedConsultation) return false;
+
+    // 3. Must be returning on a later date (registered or scheduled before today)
+    const today = new Date();
+    const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const regDateStr = p.created_at ? p.created_at.slice(0, 10) : '';
+    const isRegisteredBeforeToday = Boolean(regDateStr && regDateStr < todayDateStr);
+
+    const appointments: any[] = (p as any).appointments || [];
+    const hasPastConsultationAppt = appointments.some((a: any) => {
+      if (a.appointment_type && a.appointment_type !== 'consultation') return false;
+      if (a.dose_number !== null && a.dose_number !== undefined && Number(a.dose_number) > 0) return false;
+      if (!['scheduled', 'missed'].includes(a.status)) return false;
+      const apptDateStr = String(a.scheduled_date || a.appointment_date || '').slice(0, 10);
+      return Boolean(apptDateStr && apptDateStr < todayDateStr);
+    });
+
+    return isRegisteredBeforeToday || hasPastConsultationAppt;
   };
 
   // Debounce search input (wait 400ms after user stops typing)
@@ -422,8 +503,18 @@ export default function PatientList() {
       return { label: doseName, icon: CheckmarkCircle02Icon, bg: '#ecfdf5', color: '#059669' };
     }
 
-    // 6. Pre-Triage States (No bite intake or treatment record yet)
-    const hasTriage = Boolean((p as any).bite_incidents?.length || (p as any).biteIncidents?.length || record);
+    // 6. Pre-Triage States (No completed bite assessment or treatment record yet)
+    const biteIncidentsList = (p as any).bite_incidents || (p as any).biteIncidents || [];
+    const hasConfirmedIncident = biteIncidentsList.some((bi: any) =>
+      bi.confirmed_at || ['active', 'completed'].includes(bi.status) || ['primary', 're_exposure'].includes(bi.episode_type)
+    );
+    const hasCompletedConsultation = Boolean(
+      (p as any).latest_consultation_record?.status === 'completed' ||
+      (p as any).latest_consultation_record?.nature_of_visit ||
+      (p as any).latest_consultation_record?.diagnosis ||
+      (record && (record.status === 'completed' || record.nature_of_visit || record.diagnosis))
+    );
+    const hasTriage = Boolean(hasConfirmedIncident || hasCompletedConsultation || (record && record.dose_number !== null && record.dose_number !== undefined));
     if (!hasTriage) {
       if (p.registration_source === 'mobile' || Boolean((p as any).accounts?.length)) {
         return { label: 'Pre-Registered (Awaiting Intake)', icon: UserMultiple02Icon, bg: '#fef3c7', color: '#92400e' };
@@ -801,6 +892,12 @@ export default function PatientList() {
                     const mobileIntakeIsDue = Boolean(
                       mobileIntakeForCheckIn && isMobileIntakeDueForCheckIn(p, mobileIntakeForCheckIn)
                     );
+                    const isReturningAwaitingTriage = isReturningPatientAwaitingTriage(p);
+                    const canCheckInReturning = Boolean(
+                      isAuthorizedRegistrationRole &&
+                      !activeQueue &&
+                      isReturningAwaitingTriage
+                    );
                     const patientId = p.patient_id || p.id;
 
                     return (
@@ -886,6 +983,34 @@ export default function PatientList() {
                               >
                                 Booked — Awaiting Check-In
                               </span>
+                            ) : canCheckInReturning ? (
+                              <button
+                                className="pm-btn-checkin"
+                                title="Patient was previously registered or scheduled but did not proceed to Triage. Check in to today's Doctor Triage queue."
+                                disabled={checkingInPatientId === patientId}
+                                style={{
+                                  fontSize: '12px',
+                                  padding: '4px 12px',
+                                  textTransform: 'none',
+                                  fontWeight: 600,
+                                  borderRadius: '6px',
+                                  backgroundColor: '#10b981',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  cursor: checkingInPatientId === patientId ? 'not-allowed' : 'pointer',
+                                  opacity: checkingInPatientId === patientId ? 0.7 : 1,
+                                  boxShadow: '0 2px 6px rgba(16,185,129,0.3)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  handleTriageCheckIn(p);
+                                }}
+                              >
+                                {checkingInPatientId === patientId ? 'Checking in...' : 'Check In'}
+                              </button>
                             ) : canRegisterNewExposure ? (
                               <button
                                 className="pm-btn-checkin"

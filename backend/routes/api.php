@@ -267,6 +267,10 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             Route::post('/{patient}/accounts/{account}/reject', [PatientAccessController::class, 'reject']);
         });
 
+        // Registration Staff check-in for returning patients who missed initial triage
+        Route::post('/{id}/check-in', [PatientController::class, 'checkIn'])
+            ->middleware('role:admin,registration,developer');
+
         // Update (All clinical roles can update contact/address; legal identity restricted to admin/registration)
         Route::put('/{id}', [PatientController::class, 'update'])
             ->middleware('role:admin,registration,triage,treatment,doctor,nurse,staff');

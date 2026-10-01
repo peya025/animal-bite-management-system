@@ -99,6 +99,17 @@ class RegistrationReturningPatientCheckInTest extends TestCase
         $patient->updated_at = $pastDate;
         $patient->save();
 
+        // A prior scheduled stub should stay untouched when a newer one exists.
+        $olderTreatmentRecord = TreatmentRecord::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'dose_number' => null,
+            'status' => 'scheduled',
+            'consultation_date' => $pastDate->copy()->subDay()->toDateString(),
+            'treatment_date' => $pastDate->copy()->subDay()->toDateString(),
+            'consultation_time' => '08:00',
+        ]);
+
         // Vitals entered at registration (TreatmentRecord stub)
         $treatmentRecord = TreatmentRecord::create([
             'clinic_id' => $clinic->id,
@@ -147,6 +158,10 @@ class RegistrationReturningPatientCheckInTest extends TestCase
         // TreatmentRecord stub updated with today's date
         $treatmentRecord->refresh();
         $this->assertEquals(Carbon::today()->toDateString(), Carbon::parse($treatmentRecord->consultation_date)->toDateString());
+        $this->assertEquals(
+            $pastDate->copy()->subDay()->toDateString(),
+            Carbon::parse($olderTreatmentRecord->refresh()->consultation_date)->toDateString()
+        );
     }
 
     public function test_check_in_reuses_and_updates_past_consultation_appointment()

@@ -777,7 +777,7 @@ class PatientController extends Controller
                     ->where('patient_id', $patient->patient_id)
                     ->whereNull('dose_number')
                     ->where('status', 'scheduled')
-                    ->latest('record_id')
+                    ->latest('treatment_id')
                     ->first();
 
                 if ($treatmentRecord) {

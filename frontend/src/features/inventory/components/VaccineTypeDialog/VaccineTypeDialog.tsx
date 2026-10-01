@@ -38,6 +38,7 @@ const CATEGORIES = [
   'Anti-Rabies Vaccines (ARV)',
   'Rabies Immunoglobulins (RIG)',
   'Tetanus & Toxoids',
+  'Anti-Tetanus Serum (ATS)',
   'Other Biologicals',
 ];
 
@@ -66,7 +67,7 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
         category: preset.category || 'Anti-Rabies Vaccines (ARV)',
         is_multidose: isMulti,
         doses_per_vial: isMulti ? Math.max(1, Number(preset.doses_per_vial ?? 3)) : 1,
-        default_open_vial_hours: isMulti ? (preset.default_open_vial_hours ?? 6) : null,
+        default_open_vial_hours: preset.default_open_vial_hours ?? 6,
         storage_temperature_notes: preset.storage_temperature_notes || '',
       });
     } else {
@@ -89,7 +90,7 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
       ...prev,
       is_multidose: isMulti,
       doses_per_vial: isMulti ? (prev.doses_per_vial > 1 ? prev.doses_per_vial : 3) : 1,
-      default_open_vial_hours: isMulti ? (prev.default_open_vial_hours || 6) : null,
+      default_open_vial_hours: isMulti ? (prev.default_open_vial_hours || 6) : prev.default_open_vial_hours,
     }));
     setErrors((prev) => {
       const next = { ...prev };
@@ -106,13 +107,16 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
       next.vaccine_name = 'Vaccine name / brand is required.';
     }
 
-    if (form.is_multidose) {
-      if (!form.doses_per_vial || form.doses_per_vial < 1) {
-        next.doses_per_vial = 'Enter patients per vial (at least 1).';
-      }
+    {
       const hours = Number(form.default_open_vial_hours);
       if (!form.default_open_vial_hours || isNaN(hours) || hours < 1 || hours > 8) {
         next.default_open_vial_hours = 'Enter valid hours after opening (1–8 hours).';
+      }
+    }
+
+    if (form.is_multidose) {
+      if (!form.doses_per_vial || form.doses_per_vial < 1) {
+        next.doses_per_vial = 'Enter patients per vial (at least 1).';
       }
     }
 
@@ -129,7 +133,7 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
       category: form.category,
       is_multidose: form.is_multidose,
       doses_per_vial: form.is_multidose ? Math.max(1, Number(form.doses_per_vial || 1)) : 1,
-      default_open_vial_hours: form.is_multidose ? Number(form.default_open_vial_hours) : null,
+      default_open_vial_hours: Number(form.default_open_vial_hours),
       storage_temperature_notes: form.storage_temperature_notes.trim() || null,
       default_shelf_life_months: preset?.default_shelf_life_months ?? 24,
       regimen_units_per_patient: preset?.regimen_units_per_patient ?? 1,
@@ -297,8 +301,8 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
               />
             </Box>
 
-            {form.is_multidose && (
-              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              {form.is_multidose && (
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
                     Patients per Vial
@@ -320,40 +324,40 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
                   />
                 </Grid>
 
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
-                    Valid After Opening
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    type="number"
-                    placeholder="e.g. 6"
-                    value={form.default_open_vial_hours ?? ''}
-                    onChange={(e) => {
-                      setForm((prev) => ({
-                        ...prev,
-                        default_open_vial_hours: e.target.value ? Number(e.target.value) : null,
-                      }));
-                      setErrors((prev) => ({ ...prev, default_open_vial_hours: '' }));
-                    }}
-                    error={!!errors.default_open_vial_hours}
-                    helperText={errors.default_open_vial_hours}
-                    slotProps={{
-                      htmlInput: { min: 1, max: 8 },
-                      input: {
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>hours</Typography>
-                          </InputAdornment>
-                        ),
-                      },
-                    }}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-                  />
-                </Grid>
+              )}
+              <Grid size={{ xs: 12, sm: form.is_multidose ? 6 : 12 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', mb: 0.5 }}>
+                  Valid After Opening
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  placeholder="e.g. 6"
+                  value={form.default_open_vial_hours ?? ''}
+                  onChange={(e) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      default_open_vial_hours: e.target.value ? Number(e.target.value) : null,
+                    }));
+                    setErrors((prev) => ({ ...prev, default_open_vial_hours: '' }));
+                  }}
+                  error={!!errors.default_open_vial_hours}
+                  helperText={errors.default_open_vial_hours || 'How many hours an opened vial remains valid.'}
+                  slotProps={{
+                    htmlInput: { min: 1, max: 8 },
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Typography sx={{ fontSize: 12, color: '#64748b' }}>hours</Typography>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+                />
               </Grid>
-            )}
+            </Grid>
           </Box>
 
           <Divider sx={{ borderColor: '#f1f5f9' }} />

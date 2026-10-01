@@ -497,7 +497,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [prophylaxisAdministrations, setProphylaxisAdministrations] = useState<ProphylaxisAdministration[]>([]);
   const [prophylaxisRecords, setProphylaxisRecords] = useState<ProphylaxisRecord[]>([]);
   const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
-  const [prophylaxisOnly, setProphylaxisOnly] = useState(false);
   const [icdCode, setIcdCode] = useState('');
   const [saving, setSaving] = useState(false);
   const [signatureVersion, setSignatureVersion] = useState<string | null>(null);
@@ -618,7 +617,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     setProphylaxisAdministrations([]);
     setProphylaxisRecords([]);
     setProphylaxisStock(undefined);
-    setProphylaxisOnly(false);
     const patientId = entry?.patient?.patient_id || entry?.patient?.id;
     if (!patientId) return;
 
@@ -1139,7 +1137,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     });
 
     // Only submit active uncompleted doses being administered today
-    const filledDoses = prophylaxisOnly ? [] : candidateDoses.filter(d => {
+    const filledDoses = candidateDoses.filter(d => {
       if (d.is_completed || !d.date || !d.vaccine_type) return false;
       // 22.1 — block prerequisite-locked doses from being submitted
       const PREREQ: Record<string, string> = { 'Day 3': 'Day 0', 'Day 7': 'Day 3', 'Day 28': 'Day 7', 'Booster 2': 'Booster 1' };
@@ -1268,10 +1266,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           PATIENT &amp; REGISTRATION INFORMATION
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div className="form3-equal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date</label>
-            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} max={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
+            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} max={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined, boxSizing: 'border-box' }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
@@ -1291,11 +1289,12 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 color: '#374151',
                 fontWeight: 600,
                 cursor: 'not-allowed',
+                boxSizing: 'border-box',
               }}
             />
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div className="form3-equal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
               Hospital No. <span style={{ fontSize: 11, fontWeight: 400, color: '#6b7280' }}>(Admin Managed)</span>
@@ -1408,28 +1407,27 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.philhealth_pin}</div>
           )}
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Patient Name <span style={{ color: '#ef4444' }}>*</span></label>
-          <input type="text" value={formData.patient_name} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} placeholder="Last, First Middle" />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        {/* Row 1: Patient Name (left) & Date of Birth (right) */}
+        <div className="form3-equal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Age</label>
-            <input type="text" value={formData.age} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Patient Name <span style={{ color: '#ef4444' }}>*</span></label>
+            <input type="text" value={formData.patient_name} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280', boxSizing: 'border-box' }} placeholder="Last, First Middle" />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date of Birth</label>
-            <input type="date" value={formData.date_of_birth} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} />
+            <input type="date" value={formData.date_of_birth} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280', boxSizing: 'border-box' }} />
           </div>
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Address</label>
-          <input type="text" value={formData.address} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+
+        {/* Row 2: Age (left) & Sex (right) */}
+        <div className="form3-equal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Sex</label>
-            <div style={{ display: 'flex', gap: 24 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Age</label>
+            <input type="text" value={formData.age} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280', boxSizing: 'border-box' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Sex</label>
+            <div style={{ display: 'flex', alignItems: 'center', minHeight: 38, gap: 24 }}>
               <label style={{ display: 'flex', alignItems: 'center', cursor: 'default' }}>
                 <input type="radio" name="sex" value="male" checked={formData.sex === 'male'} readOnly style={{ marginRight: 6 }} />
                 <span style={{ fontSize: 13, color: '#6b7280' }}>Male</span>
@@ -1440,14 +1438,28 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               </label>
             </div>
           </div>
+        </div>
+
+        {/* Row 3: Address alone */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Address</label>
+          <input type="text" value={formData.address} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280', boxSizing: 'border-box' }} />
+        </div>
+
+        {/* Row 4: Exposure Category alone, horizontally centered (label & radio options as one group) */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
           <div id="field-exposure_category" style={{
-            padding: fieldErrors.exposure_category ? '10px' : '0px',
+            display: 'inline-flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            padding: fieldErrors.exposure_category ? '10px 16px' : '0px',
             border: fieldErrors.exposure_category ? '2px solid #ef4444' : 'none',
             borderRadius: '8px',
             backgroundColor: fieldErrors.exposure_category ? '#fef2f2' : 'transparent',
           }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.exposure_category ? '#dc2626' : '#374151', marginBottom: 8 }}>Exposure Category <span style={{ color: '#ef4444' }}>*</span></label>
-            <div style={{ display: 'flex', gap: 16 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.exposure_category ? '#dc2626' : '#374151', marginBottom: 8, textAlign: 'center' }}>Exposure Category <span style={{ color: '#ef4444' }}>*</span></label>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 20 }}>
               {(['I', 'II', 'III'] as const).map((cat) => (
                 <label key={cat} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
                   <input type="radio" name="exposure_category" value={cat} checked={formData.exposure_category === cat} onChange={handleFieldChange('exposure_category')} disabled={clinicalAssessmentLocked} style={{ marginRight: 6 }} />
@@ -1456,11 +1468,12 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               ))}
             </div>
             {fieldErrors.exposure_category && (
-              <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.exposure_category}</div>
+              <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6, textAlign: 'center' }}>⚠ {fieldErrors.exposure_category}</div>
             )}
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+
+        <div className="form3-equal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}>
           <div id="field-date_of_exposure" style={{
             padding: fieldErrors.date_of_exposure ? '10px' : '0px',
             border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : 'none',
@@ -3029,50 +3042,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       {/* SECTION 4: ADDITIONAL MEDICATIONS & ICD CODE */}
       <div style={{ marginTop: 16 }}>
-        {!readOnly && (
-          <div
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: 10,
-              padding: '10px 14px',
-              marginBottom: 12,
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-            }}
-          >
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 10,
-                cursor: saving ? 'not-allowed' : 'pointer',
-                margin: 0,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={prophylaxisOnly}
-                disabled={saving}
-                onChange={(e) => setProphylaxisOnly(e.target.checked)}
-                style={{
-                  width: 16,
-                  height: 16,
-                  marginTop: 2,
-                  accentColor: '#059669',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                }}
-              />
-              <div>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', display: 'block' }}>
-                  Record tetanus / immunoglobulin only for this visit
-                </span>
-                <span style={{ fontSize: 12, color: '#64748b', display: 'block', marginTop: 1 }}>
-                  No rabies vaccine administered this session — check if patient received only TT or RIG
-                </span>
-              </div>
-            </label>
-          </div>
-        )}
         <ProphylaxisAdministrationSection
           orders={latestConsultation?.prophylaxis_orders}
           stock={prophylaxisStock}

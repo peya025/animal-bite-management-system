@@ -144,7 +144,7 @@ export default function ProphylaxisAdministrationSection({
           </div>
           <div>
             <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-              Prescribed prophylaxis administration
+              Doctor's Prescription Tetanus
             </h4>
             <p style={{ margin: '1px 0 0', fontSize: 12, color: '#64748b' }}>
               Confirm only injections actually given — orders do not mark as administered
@@ -179,12 +179,16 @@ export default function ProphylaxisAdministrationSection({
         )}
 
         {PROPHYLAXIS_GROUPS.map((group) => {
-          const isTetanus = group === 'tetanus_vaccine';
+          const isTetanusVaccine = group === 'tetanus_vaccine';
+          const isTetanusPassive = group === 'tetanus_passive';
+          const isTetanus = isTetanusVaccine || isTetanusPassive;
+          const defaultProduct = isTetanusPassive ? 'ATS' : 'TT';
+
           const orderedProduct = orders?.[group] || '';
           const isOrdered = isTetanus
             ? Boolean(orderedProduct && orderedProduct !== 'none')
             : PROPHYLAXIS_PRODUCTS[group].includes(orderedProduct);
-          const product = isTetanus ? (isOrdered ? orderedProduct : 'TT') : orderedProduct;
+          const product = isTetanus ? (isOrdered ? orderedProduct : defaultProduct) : orderedProduct;
 
           const previous = records.filter((record) => {
             const med = (record.medication_given || '').toUpperCase();
@@ -192,11 +196,11 @@ export default function ProphylaxisAdministrationSection({
           });
 
           // If this group is not ordered and has no previous records, don't display section
-          if (!isOrdered && previous.length === 0 && !isTetanus) {
+          if (!isOrdered && previous.length === 0 && !isTetanusVaccine) {
             return null;
           }
 
-          const batches = stock?.[product as keyof ProphylaxisStock] || (isTetanus ? stock?.['TT'] : []) || [];
+          const batches = stock?.[product as keyof ProphylaxisStock] || (isTetanus ? stock?.[defaultProduct] : []) || [];
           const item = value.find((record) => record.medication === product);
           const isChecked = Boolean(item);
 

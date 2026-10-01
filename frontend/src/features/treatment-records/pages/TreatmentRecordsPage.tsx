@@ -356,18 +356,23 @@ function TreatmentForm({ record: r, onChange, isDark = false }: FormProps) {
             </select>
           </div>
         </div>
-        <div style={{gridColumn:'1/-1'}}><label style={lbl}>Patient Name <span style={{color:'#ef4444'}}>*</span></label><input style={inp} value={r.patientName} onChange={e=>set('patientName',e.target.value)} placeholder="Last, First Middle" /></div>
-        <div><label style={lbl}>Age</label><input style={inp} value={r.age} onChange={e=>set('age',e.target.value)} placeholder="e.g. 25" /></div>
+        {/* Row 1: Patient Name & Date of Birth */}
+        <div><label style={lbl}>Patient Name <span style={{color:'#ef4444'}}>*</span></label><input style={inp} value={r.patientName} onChange={e=>set('patientName',e.target.value)} placeholder="Last, First Middle" /></div>
         <div><label style={lbl}>Date of Birth</label><input style={inp} type="date" value={r.dateOfBirth} onChange={e=>set('dateOfBirth',e.target.value)} max={new Date().toISOString().split('T')[0]} /></div>
-        <div style={{gridColumn:'1/-1'}}><label style={lbl}>Address</label><input style={inp} value={r.address} onChange={e=>set('address',e.target.value)} /></div>
+        {/* Row 2: Age & Sex */}
+        <div><label style={lbl}>Age</label><input style={inp} value={r.age} onChange={e=>set('age',e.target.value)} placeholder="e.g. 25" /></div>
         <div><label style={lbl}>Sex</label>
-          <div style={{display:'flex',gap:16,paddingTop:6}}>
+          <div style={{display:'flex',gap:16,paddingTop:6,minHeight:38,alignItems:'center'}}>
             <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:isDark?'#f8fafc':'#111827'}}><input type="radio" checked={r.sex==='male'} onChange={()=>set('sex','male')} style={{accentColor:'#10b981'}} /> Male</label>
             <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:isDark?'#f8fafc':'#111827'}}><input type="radio" checked={r.sex==='female'} onChange={()=>set('sex','female')} style={{accentColor:'#10b981'}} /> Female</label>
           </div>
         </div>
-        <div><label style={lbl}>Exposure Category</label>
-          <div style={{display:'flex',gap:12,paddingTop:6}}>
+        {/* Row 3: Address alone */}
+        <div style={{gridColumn:'1/-1'}}><label style={lbl}>Address</label><input style={inp} value={r.address} onChange={e=>set('address',e.target.value)} /></div>
+        {/* Row 4: Exposure Category alone, horizontally centered */}
+        <div style={{gridColumn:'1/-1', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center'}}>
+          <label style={{...lbl, textAlign: 'center'}}>Exposure Category</label>
+          <div style={{display:'flex',gap:16,paddingTop:6,justifyContent:'center'}}>
             {(['I','II','III'] as const).map(v=>(
               <label key={v} style={{display:'flex',alignItems:'center',gap:5,fontSize:13,color:isDark?'#f8fafc':'#111827'}}><input type="radio" checked={r.exposure===v} onChange={()=>set('exposure',v)} style={{accentColor:'#10b981'}} /> {v}</label>
             ))}

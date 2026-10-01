@@ -117,7 +117,8 @@ export default function VaccinationSchedulePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isTriageDoctor = user?.role === 'triage';
-  const canRecordDose = !isTriageDoctor && (user?.role === 'treatment' || Boolean(user?.is_nursing) || user?.role === 'admin' || user?.role === 'developer');
+  const isNurse = user?.role === 'treatment' || Boolean(user?.is_nursing) || Boolean(user?.is_solo_nurse) || Boolean(user?.roles?.some((r: any) => r.slug === 'intake_nurse' || r.slug === 'follow_up_nurse'));
+  const canRecordDose = !isTriageDoctor && !isNurse && (user?.role === 'admin' || user?.role === 'developer');
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [loading, setLoading] = useState(true);

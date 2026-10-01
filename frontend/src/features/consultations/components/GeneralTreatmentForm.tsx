@@ -41,6 +41,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     vaccineStockMap,
     prophylaxisStock,
     tetanusBrands,
+    atsBrands,
     hasExistingRecord,
     isEditing,
     setIsEditing,
@@ -212,7 +213,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         />
 
         {/* SECTION 8: Prescribed PEP Vaccine (Doctor's Order & Live Inventory Badge) */}
-        <ProphylaxisOrderSection value={formData.prophylaxis_orders} stock={prophylaxisStock} tetanusBrands={tetanusBrands} disabled={isFormDisabled} onChange={handleProphylaxisChange} />
+        <ProphylaxisOrderSection value={formData.prophylaxis_orders} stock={prophylaxisStock} tetanusBrands={tetanusBrands} atsBrands={atsBrands} disabled={isFormDisabled} onChange={handleProphylaxisChange} />
         <PrescribedVaccineSection
           prescribedVaccineType={formData.prescribed_vaccine_type}
           medicationTreatment={formData.medication_treatment}

@@ -16,7 +16,7 @@ export default function ProphylaxisOrderSection({
   disabled,
   onChange,
 }: ProphylaxisOrderSectionProps) {
-  const orders = { ...EMPTY_PROPHYLAXIS_ORDERS, ...value, tetanus_passive: '', rig: '', tetanus_history: '', rig_weight_kg: '', rig_indication: '' };
+  const orders = { ...EMPTY_PROPHYLAXIS_ORDERS, ...value };
   const change = (key: keyof ProphylaxisOrders, next: string) => onChange({ ...orders, [key]: next });
 
   // Resolve available tetanus brands from props, live inventory stock, or current selection
@@ -39,6 +39,9 @@ export default function ProphylaxisOrderSection({
 
   const selectedBrand = orders.tetanus_vaccine && orders.tetanus_vaccine !== 'none' ? orders.tetanus_vaccine : '';
 
+  const atsBatches = stock?.['ATS'] || [];
+  const atsUnits = atsBatches.reduce((sum, batch) => sum + batch.current_quantity, 0);
+
   return (
     <div className="fm-section">
       <h3 className="fm-section-title">Tetanus Prophylaxis Order</h3>
@@ -47,7 +50,35 @@ export default function ProphylaxisOrderSection({
       </p>
       <div className="fm-grid">
         <label className="fm-field">
-          <span className="fm-label">Tetanus vaccine</span>
+          <span className="fm-label">ATS (Anti-Tetanus Serum)</span>
+          <select
+            className="fm-select"
+            aria-label="Tetanus passive protection"
+            value={orders.tetanus_passive}
+            disabled={disabled}
+            onChange={(e) => change('tetanus_passive', e.target.value)}
+          >
+            <option value="">Assessment pending</option>
+            <option value="none">Not indicated / not ordered</option>
+            <option value="ATS">ATS (Anti-Tetanus Serum)</option>
+          </select>
+          <span className="registration-field-hint" style={{ marginTop: 4, display: 'block' }}>
+            ATS:{' '}
+            {stock === undefined ? (
+              'checking clinic stock…'
+            ) : stock === null ? (
+              'inventory unavailable'
+            ) : (
+              <>
+                {atsUnits} vial{atsUnits === 1 ? '' : 's'} in {atsBatches.length} active batch{atsBatches.length === 1 ? '' : 'es'}
+                {atsUnits === 0 ? ' — no clinic stock' : ''}
+              </>
+            )}
+          </span>
+        </label>
+
+        <label className="fm-field">
+          <span className="fm-label">Tetanus vaccine (TT)</span>
           <select
             className="fm-select"
             aria-label="Tetanus vaccine"

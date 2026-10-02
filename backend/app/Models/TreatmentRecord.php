@@ -9,6 +9,15 @@ class TreatmentRecord extends Model
 {
     use HasFactory;
 
+    public const LOCAL_RECEIVING_FACILITY = 'Tagoloan Rural Health Unit (RHU) / ABTC';
+
+    public static function isExternalReferralDestination(?string $destination): bool
+    {
+        $destination = trim((string) $destination);
+
+        return $destination !== '' && strcasecmp($destination, self::LOCAL_RECEIVING_FACILITY) !== 0;
+    }
+
     protected $table = 'treatment_records';
     protected $primaryKey = 'treatment_id';
 

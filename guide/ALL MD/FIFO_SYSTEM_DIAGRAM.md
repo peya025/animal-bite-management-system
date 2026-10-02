@@ -1,4 +1,4 @@
-# FIFO System Visual Diagram
+       # FIFO System Visual Diagram
 
 ## 📊 System Architecture
 

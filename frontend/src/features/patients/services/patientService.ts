@@ -74,7 +74,7 @@ export async function createPatientRecord(
     reg_height: cleanField(enrolment.reg_height),
     reg_weight: cleanField(enrolment.reg_weight),
     reg_attending_provider: cleanField(enrolment.reg_attending_provider),
-    reg_referred_by: cleanField(enrolment.reg_referred_by),
+    reg_referred_by: enrolment.mode_of_transaction === 'referral' ? cleanField(enrolment.reg_referred_by) : null,
 
     // Strip frontend-only fields not known to the backend
     other_memberships: undefined,

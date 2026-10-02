@@ -266,6 +266,111 @@ class TriageDoctorAndReExposureTest extends TestCase
         ]);
     }
 
+    public function test_incoming_form_1_referral_moves_from_triage_to_treatment_after_form_2(): void
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic);
+        $doctor = $this->createDoctor($clinic);
+
+        Sanctum::actingAs($staff);
+        $registration = $this->postJson('/api/patients', [
+            'first_name' => 'Ana',
+            'last_name' => 'Reyes',
+            'gender' => 'female',
+            'date_of_birth' => '1990-01-01',
+            'address' => 'Tagoloan, Misamis Oriental',
+            'mode_of_transaction' => 'referral',
+            'reg_date_of_consultation' => Carbon::today()->toDateString(),
+            'reg_referred_by' => 'Barangay Health Station',
+        ])->assertCreated();
+
+        $patientId = $registration->json('patient.patient_id');
+        $incident = BiteIncident::where('patient_id', $patientId)->firstOrFail();
+        $queue = Queue::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patientId,
+            'bite_id' => $incident->bite_id,
+            'queue_number' => 1,
+            'queue_date' => Carbon::today()->toDateString(),
+            'visit_type' => 'new_case',
+            'status' => 'waiting',
+            'priority' => 'normal',
+            'queue_category' => 'regular',
+            'checked_in_by' => $staff->id,
+        ]);
+
+        Sanctum::actingAs($doctor);
+        $this->postJson('/api/treatment-records', [
+            'patient_id' => $patientId,
+            'queue_id' => $queue->queue_id,
+            'bite_id' => $incident->bite_id,
+            'consultation_date' => Carbon::today()->toDateString(),
+            'mode_of_transaction' => 'referral',
+            'referred_by' => 'Barangay Health Station',
+            'referred_to' => 'Tagoloan Rural Health Unit (RHU) / ABTC',
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['consultation'],
+            'chief_complaints' => 'Dog bite on left arm',
+        ])->assertCreated();
+
+        $queue->refresh();
+        $this->assertSame('vaccination', $queue->visit_type);
+        $this->assertSame('waiting', $queue->status);
+        $this->assertDatabaseHas('treatment_plans', [
+            'bite_id' => $incident->bite_id,
+            'plan_type' => 'full_pep',
+        ]);
+
+        $this->getJson('/api/queue/next?station=treatment')
+            ->assertOk()
+            ->assertJsonPath('next_patient.queue_id', $queue->queue_id);
+    }
+
+    public function test_explicit_external_referral_completes_the_triage_queue_ticket(): void
+    {
+        $clinic = $this->createClinic();
+        $doctor = $this->createDoctor($clinic);
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-EXT-REF',
+            'first_name' => 'Maria',
+            'last_name' => 'Santos',
+            'birthdate' => '1990-01-01',
+            'gender' => 'Female',
+        ]);
+        $queue = Queue::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => null,
+            'queue_number' => 1,
+            'queue_date' => Carbon::today()->toDateString(),
+            'visit_type' => 'new_case',
+            'status' => 'waiting',
+            'priority' => 'normal',
+            'queue_category' => 'regular',
+            'checked_in_by' => $doctor->id,
+        ]);
+
+        Sanctum::actingAs($doctor);
+        $this->postJson('/api/treatment-records', [
+            'patient_id' => $patient->patient_id,
+            'queue_id' => $queue->queue_id,
+            'consultation_date' => Carbon::today()->toDateString(),
+            'mode_of_transaction' => 'referral',
+            'referred_to' => 'External Medical Center',
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['consultation'],
+            'chief_complaints' => 'Needs external care',
+        ])->assertCreated();
+
+        $queue->refresh();
+        $this->assertSame('new_case', $queue->visit_type);
+        $this->assertSame('completed', $queue->status);
+        $this->getJson('/api/queue/next?station=treatment')
+            ->assertOk()
+            ->assertJsonPath('next_patient', null);
+    }
+
     public function test_doctor_can_save_re_exposure_decision_and_refer_to_treatment()
     {
         $clinic = $this->createClinic();

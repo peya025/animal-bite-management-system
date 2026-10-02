@@ -413,7 +413,11 @@ class TreatmentRecordController extends Controller
             ]);
         }
 
-        $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral';
+        // Form 1 "Referral" means the patient was referred into this clinic.
+        // Only a different, explicit destination is an outgoing referral.
+        $referredToFacility = trim((string) ($validated['referred_to'] ?? ''));
+        $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral'
+            && TreatmentRecord::isExternalReferralDestination($referredToFacility);
         $planType = $validated['treatment_plan'] ?? null;
         if (!$planType && !$isReferralOut) {
             // A completed Form 2 consultation that is not referred out approves standard Full PEP.
@@ -460,7 +464,6 @@ class TreatmentRecordController extends Controller
 
         $todayQueue = null;
         $planStopsImmediateTreatment = in_array($planType, ['continue_existing_schedule', 'no_vaccine'], true);
-        $referredToFacility = $validated['referred_to'] ?? 'External Medical Facility';
 
         if (!empty($validated['queue_id'])) {
             $todayQueue = \App\Models\Queue::where('clinic_id', $clinicId)

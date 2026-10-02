@@ -196,13 +196,6 @@ export default function VitalsConsultationSection({
           </span>
         </FormField>
 
-        {/* Referred By — plain text, not a dropdown */}
-        <div className="fm-field" style={{ gridColumn: '1 / -1' }}>
-          <label className="fm-label">Referred by</label>
-          <span style={{ ...RO, display: 'block', marginTop: 4 }}>
-            {formData.referred_by || EMPTY}
-          </span>
-        </div>
       </div>
     </div>
   );

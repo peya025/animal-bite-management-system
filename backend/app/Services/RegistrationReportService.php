@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Appointment;
 use App\Models\BiteIncident;
+use App\Models\TreatmentRecord;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -173,7 +174,7 @@ class RegistrationReportService
                 'date' => $case->transferred_at->toDateString(), 'type' => 'Transfer', 'outcome' => 'Transferred out'];
         }
         foreach ($records->whereNull('dose_number') as $record) {
-            if (trim((string) $record->referred_to) !== '') {
+            if (TreatmentRecord::isExternalReferralDestination($record->referred_to)) {
                 $date = $record->consultation_date ?? $record->created_at;
                 if ($date && $date->toDateString() <= $today->toDateString()) {
                     $referrals[] = ['destination' => $record->referred_to, 'reason' => $record->reason_for_referral,

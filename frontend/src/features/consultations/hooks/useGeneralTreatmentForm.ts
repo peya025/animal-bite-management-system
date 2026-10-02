@@ -312,7 +312,14 @@ export function useGeneralTreatmentForm({
             checkedHistory: string[];
           }>();
           if (savedDraft) {
-            setFormData({ ...INITIAL_FORM_DATA, ...savedDraft.formData });
+            setFormData({
+              ...INITIAL_FORM_DATA,
+              ...savedDraft.formData,
+              ...(isRegistrationStaffPrefill && record ? {
+                mode_of_transaction: record.mode_of_transaction || 'walk-in',
+                referred_by: record.referred_by || '',
+              } : {}),
+            });
             setCheckedDiagnoses(savedDraft.checkedDiagnoses ?? []);
             setCheckedHistory(savedDraft.checkedHistory ?? []);
           }
@@ -540,18 +547,14 @@ export function useGeneralTreatmentForm({
         consultation_date: formData.date_of_consultation,
         consultation_time: formData.consultation_time,
         mode_of_transaction: formData.mode_of_transaction || 'walk-in',
-        referred_from: formData.referred_from || null,
+        referred_from: existingRecord?.referred_from || null,
         referred_to:
           formData.mode_of_transaction === 'referral'
             ? formData.referred_to || 'Tagoloan Rural Health Unit (RHU) / ABTC'
             : null,
-        pertinent_history:
-          formData.mode_of_transaction === 'referral' ? formData.pertinent_history : null,
-        reason_for_referral:
-          formData.mode_of_transaction === 'referral'
-            ? formData.reason_for_referral || 'For further evaluation and management.'
-            : null,
-        actions_taken: formData.mode_of_transaction === 'referral' ? formData.actions_taken : null,
+        pertinent_history: existingRecord?.pertinent_history ?? null,
+        reason_for_referral: existingRecord?.reason_for_referral ?? null,
+        actions_taken: existingRecord?.actions_taken ?? null,
         blood_pressure: formData.blood_pressure || null,
         temperature: formData.temperature || null,
         height: formData.height || null,

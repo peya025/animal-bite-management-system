@@ -57,7 +57,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     setTreatmentPlan,
     patientReportedIntake,
     checkedDiagnoses,
-    checkedHistory,
     fieldErrors,
     isFormDisabled,
     isNatureOfVisitAutomatic,
@@ -67,7 +66,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     handleFieldBlur,
     toggleDiagnosis,
     handleClearDiagnoses,
-    toggleHistory,
     handlePrescribedVaccineChange,
     handleProphylaxisChange,
     handleSaveAddendum,
@@ -156,11 +154,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         {/* SECTION 2: CHU / RHU Personnel Only */}
         <ReferralSection
           formData={formData}
-          isFormDisabled={isFormDisabled}
-          checkedHistory={checkedHistory}
-          onFieldChange={handleFieldChange}
-          onSetReferredFrom={(val) => setFormData((prev) => ({ ...prev, referred_from: val }))}
-          onToggleHistory={toggleHistory}
         />
 
         {/* SECTION 3: Consultation Details & Vitals */}

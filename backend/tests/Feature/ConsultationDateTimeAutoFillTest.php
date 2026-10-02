@@ -80,6 +80,7 @@ class ConsultationDateTimeAutoFillTest extends TestCase
             'gender' => 'male',
             'date_of_birth' => '1990-01-01',
             'address' => 'Tagoloan, Misamis Oriental',
+            'mode_of_transaction' => 'referral',
             'reg_date_of_consultation' => $consultDate,
             'reg_consultation_time' => $consultTime,
             'reg_blood_pressure' => '120/80',
@@ -98,6 +99,8 @@ class ConsultationDateTimeAutoFillTest extends TestCase
             'consultation_date' => $consultDate,
             'consultation_time' => $consultTime,
             'status' => 'scheduled',
+            'mode_of_transaction' => 'referral',
+            'referred_by' => 'Tagoloan RHU',
             'blood_pressure' => '120/80',
             'temperature' => '36.5',
         ]);

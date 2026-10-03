@@ -24,7 +24,6 @@ import {
   Baby01Icon,
   AlertCircleIcon,
   InjectionIcon,
-  Doctor01Icon,
   ArrowTurnBackwardIcon,
   Clock01Icon,
   Call02Icon,
@@ -80,6 +79,39 @@ const isIntakeStationEntry = (entry: QueueEntry) => {
   return ['vaccination', 'observation'].includes(entry.visit_type)
     && (stationName.includes('intake') || stationName.includes('station 1') || !isFollowUpStationEntry(entry));
 };
+
+function formatQueuePatientName(patient: {
+  name?: string;
+  first_name?: string;
+  middle_name?: string | null;
+  last_name?: string;
+  suffix?: string | null;
+}): string {
+  if (!patient) return '';
+  const last = (patient.last_name || '').trim();
+  const first = (patient.first_name || '').trim();
+  const middle = (patient.middle_name || '').trim();
+  const suffix = (patient.suffix || '').trim();
+
+  if (last && first) {
+    const firstMiddle = [first, middle].filter(Boolean).join(' ');
+    const fullName = `${last}, ${firstMiddle}`;
+    return suffix ? `${fullName} ${suffix}` : fullName;
+  }
+
+  if (patient.name) {
+    const raw = patient.name.trim();
+    if (raw.includes(',')) return raw;
+    const parts = raw.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const l = parts.pop()!;
+      return `${l}, ${parts.join(' ')}`;
+    }
+    return raw;
+  }
+
+  return '';
+}
 
 function getCategoryHugeicon(cat: string) {
   switch (cat) {
@@ -557,14 +589,11 @@ export default function QueueDashboard() {
           e.consultation_notes?.toLowerCase().includes('gamma')
         );
 
-        // Check attending doctor / staff
-        const attending = e.handled_by_user || (typeof e.handled_by === 'object' && e.handled_by !== null ? (e.handled_by as { id: number; name: string; role: string }) : e.handledBy);
-
         return (
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
               <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-h)', lineHeight: 1.3 }}>
-                {e.patient.name}
+                {formatQueuePatientName(e.patient)}
               </Typography>
 
               {/* Active patient indicator */}
@@ -590,18 +619,6 @@ export default function QueueDashboard() {
                 }}>
                   <HugeiconsIcon icon={InjectionIcon} size={11} strokeWidth={2.4} />
                   RIG / GI
-                </Box>
-              )}
-
-              {/* Attending doctor / staff indicator */}
-              {attending?.name && (
-                <Box sx={{
-                  display: 'inline-flex', alignItems: 'center', gap: 0.4,
-                  px: 0.75, py: 0.15, bgcolor: '#eff6ff', color: '#1d4ed8',
-                  border: '1px solid #bfdbfe', borderRadius: 1, fontSize: 10, fontWeight: 600,
-                }}>
-                  <HugeiconsIcon icon={Doctor01Icon} size={11} strokeWidth={2.2} />
-                  Dr. {attending.name}
                 </Box>
               )}
 

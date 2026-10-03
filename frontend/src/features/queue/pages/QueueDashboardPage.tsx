@@ -289,13 +289,13 @@ export default function QueueDashboard() {
     try {
       await fn();
       toast(successMsg);
-      reload();
+      await reload();
     } catch (err: any) {
       const status = err?.response?.status;
       const msg = err?.response?.data?.message;
       if (status === 409) {
         toast(msg || 'This patient is currently being called or attended by another workstation.', 'warning');
-        reload();
+        await reload();
       } else {
         toast(msg ?? errMsg, 'error');
       }
@@ -309,7 +309,7 @@ export default function QueueDashboard() {
   const handleServe      = (e: QueueEntry) => run(() => serveQueuePatient(e.queue_id),  `#${e.queue_number} is now being served`,           'Failed to mark as serving');
   const handleNoResponse = (e: QueueEntry) => run(() => markNoResponse(e.queue_id),     `#${e.queue_number} moved to Second Chance Queue`, 'Failed to mark no response');
   const handleRecall     = (e: QueueEntry) => run(() => recallQueuePatient(e.queue_id), `#${e.queue_number} recalled`,                     'Failed to recall patient');
-  const handleReturnToQueue = (e: QueueEntry) => run(() => returnQueuePatientToQueue(e.queue_id), `#${e.queue_number} returned to waiting queue`, 'Failed to return patient to queue');
+  const handleReturnToQueue = (e: QueueEntry) => run(() => returnQueuePatientToQueue(e.queue_id), 'Patient returned to the queue.', 'Failed to return patient to queue');
   const handleAbsent     = (e: QueueEntry) => run(() => markAbsent(e.queue_id),         `#${e.queue_number} marked as No-Show`,            'Failed to mark absent');
   const handleCancel     = (e: QueueEntry) => run(() => cancelQueueEntry(e.queue_id),   `Cancelled #${e.queue_number}`,                    'Failed to cancel');
   const handleTrash      = (e: QueueEntry) => run(() => trashQueueEntry(e.queue_id),    `#${e.queue_number} moved to trash`,               'Failed to trash entry');
@@ -1101,9 +1101,9 @@ export default function QueueDashboard() {
       {!isRegistrationStaff && (
         <SecondChanceQueuePanel
           entries={visibleSecondChanceQueue}
-          loading={loading}
+          loading={loading || actionPending}
           onRecall={e => setRecallTarget(e)}
-          onReturnToQueue={e => setReturnTarget(e)}
+          onReturnToQueue={handleReturnToQueue}
           onAbsent={e => setAbsentTarget(e)}
           canManage={!isRegistrationStaff}
         />

@@ -136,6 +136,7 @@ export function useGeneralTreatmentForm({
     setFormData((prev) => ({
       ...prev,
       mode_of_transaction: record.mode_of_transaction || '',
+      exposure_category: record.exposure_category ?? prev.exposure_category,
       referred_from: record.referred_from || '',
       referred_to: record.referred_to || '',
       referred_by: record.referred_by || '',
@@ -237,7 +238,9 @@ export function useGeneralTreatmentForm({
 
     fetchPatientTreatmentRecord(pid, fetchBiteId)
       .then((data) => {
-        const record = data?.latest_treatment;
+        const category = data?.exposure_category ?? data?.active_bite_incident?.exposure_category ?? '';
+        const record = data?.latest_treatment ? { ...data.latest_treatment, exposure_category: category } : null;
+        setFormData(prev => ({ ...prev, exposure_category: category }));
         const isVaccinated = Boolean(data?.has_administered_vaccine);
         const isReturning = Boolean(data?.is_returning_new_bite);
         const needsReExposureDecision = Boolean(data?.requires_re_exposure_decision);
@@ -315,6 +318,7 @@ export function useGeneralTreatmentForm({
             setFormData({
               ...INITIAL_FORM_DATA,
               ...savedDraft.formData,
+              exposure_category: savedDraft.formData.exposure_category ?? category,
               ...(isRegistrationStaffPrefill && record ? {
                 mode_of_transaction: record.mode_of_transaction || 'walk-in',
                 referred_by: record.referred_by || '',
@@ -500,6 +504,10 @@ export function useGeneralTreatmentForm({
 
     const newFieldErrors: Record<string, string> = {};
 
+    if (!formData.exposure_category) {
+      newFieldErrors.exposure_category = 'Please select Exposure Category';
+    }
+
     if (!formData.nature_of_visit) {
       newFieldErrors.nature_of_visit = 'Please select Nature of Visit';
     }
@@ -524,8 +532,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints'];
+        ? ['nature_of_visit', 'exposure_category', 'chief_complaints']
+        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -540,6 +548,7 @@ export function useGeneralTreatmentForm({
     try {
       const patientId = entry.patient.patient_id || entry.patient.id;
       const payload: TreatmentRecordPayload = {
+        exposure_category: formData.exposure_category,
         patient_id: patientId,
         queue_id: entry.queue_id || null,
         bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
@@ -583,11 +592,12 @@ export function useGeneralTreatmentForm({
       };
 
       const res = await submitTreatmentRecord(payload);
+      window.dispatchEvent(new Event('exposure-category-saved'));
 
       setHasExistingRecord(true);
       setIsEditing(false);
       if (res?.treatment_record) {
-        setExistingRecord(res.treatment_record);
+        setExistingRecord({ ...res.treatment_record, exposure_category: formData.exposure_category });
       }
 
       draft.clearDraft();

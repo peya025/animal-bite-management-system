@@ -199,7 +199,7 @@ class DualNurseWorkstationTest extends TestCase
         $this->assertDatabaseHas('bite_incidents', [
             'bite_id' => $incident->bite_id,
             'bite_place' => 'Matangad, Gitagum',
-            'severity' => 'severe',
+            'severity' => 'moderate', // Form 3 cannot overwrite the approved category.
             'exposure_mode' => 'scratch_abrasion',
             'exposure_type' => 'scratch',
             'body_part_exposed' => 'upper_extremities',

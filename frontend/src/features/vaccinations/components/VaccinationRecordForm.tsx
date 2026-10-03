@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSavedExposureCategory } from '../hooks/useSavedExposureCategory';
 import ProphylaxisAdministrationSection from './ProphylaxisAdministrationSection';
 import type { ProphylaxisRecord } from './ProphylaxisAdministrationSection';
 import type { ProphylaxisAdministration, ProphylaxisStock } from '../../../shared/types/prophylaxis';
@@ -66,7 +67,6 @@ interface TreatmentFormData {
   date_of_birth: string;
   address: string;
   sex: 'male' | 'female' | '';
-  exposure_category: 'I' | 'II' | 'III' | '';
   date_of_exposure: string;
   date_treatment_started: string;
   place_of_exposure: string;
@@ -305,7 +305,6 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   date_of_birth: '',
   address: '',
   sex: '',
-  exposure_category: '',
   date_of_exposure: '',
   date_treatment_started: '',
   place_of_exposure: '',
@@ -489,9 +488,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   // For new incidents, all doses are is_completed=false, so form stays unlocked.
   const hasCompletedDoseInCurrentIncident = doses.some(dose => dose.is_completed || dose.inventory_linked);
   const isFormLocked = readOnly || hasCompletedDoseInCurrentIncident;
-  // The nurse owns Form 3 exposure classification and anatomical details.
+  // The nurse owns the remaining exposure and anatomical details; category is from Form 2.
   // They lock only after a dose has been administered or in read-only mode.
   const clinicalAssessmentLocked = isFormLocked;
+  const savedExposureCategory = useSavedExposureCategory(open,
+    entry?.patient?.patient_id || entry?.patient?.id,
+    entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id);
+  const exposureCategory = savedExposureCategory ?? '';
   
   const [showFullSchedule, setShowFullSchedule] = useState(false); // 8.1: expand to show Day 28 + Boosters
   const [prophylaxisAdministrations, setProphylaxisAdministrations] = useState<ProphylaxisAdministration[]>([]);
@@ -685,7 +688,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         registry_no: prev.registry_no || card?.registry_no || bite?.case_number || '',
         hospital_no: card?.hospital_no || clinicHospitalNo || prev.hospital_no || '',
         referred_by: resolvedReferredBy || prev.referred_by || '',
-        exposure_category: card?.exposure_category || bite?.exposure_category || prev.exposure_category || '',
         date_of_exposure: resolvedExposureDate || prev.date_of_exposure,
         date_treatment_started: treatmentStartDate || prev.date_treatment_started,
         place_of_exposure: bite?.bite_place || intake?.place_of_exposure || intake?.bite_place || prev.place_of_exposure,
@@ -1060,8 +1062,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     if (isPhilHealthMember && formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
       newFieldErrors.philhealth_pin = 'PhilHealth PIN must be exactly 12 digits.';
     }
-    if (!formData.exposure_category) {
-      newFieldErrors.exposure_category = 'Please select Exposure Category';
+    if (!exposureCategory) {
+      newFieldErrors.exposure_category = 'Exposure Category must be assessed and saved in Form 2.';
     }
     if (!formData.date_of_exposure) {
       newFieldErrors.date_of_exposure = 'Please enter Date of Exposure';
@@ -1446,7 +1448,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           <input type="text" value={formData.address} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280', boxSizing: 'border-box' }} />
         </div>
 
-        {/* Row 4: Exposure Category alone, horizontally centered (label & radio options as one group) */}
+        {/* Row 4: Doctor-assessed Exposure Category, read-only */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
           <div id="field-exposure_category" style={{
             display: 'inline-flex',
@@ -1458,15 +1460,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             borderRadius: '8px',
             backgroundColor: fieldErrors.exposure_category ? '#fef2f2' : 'transparent',
           }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.exposure_category ? '#dc2626' : '#374151', marginBottom: 8, textAlign: 'center' }}>Exposure Category <span style={{ color: '#ef4444' }}>*</span></label>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 20 }}>
-              {(['I', 'II', 'III'] as const).map((cat) => (
-                <label key={cat} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input type="radio" name="exposure_category" value={cat} checked={formData.exposure_category === cat} onChange={handleFieldChange('exposure_category')} disabled={clinicalAssessmentLocked} style={{ marginRight: 6 }} />
-                  <span style={{ fontSize: 13, color: fieldErrors.exposure_category ? '#991b1b' : '#374151' }}>{cat}</span>
-                </label>
-              ))}
-            </div>
+            <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Exposure Category</span>
+            <output aria-label="Exposure Category" style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
+              {exposureCategory ? `Category ${exposureCategory}` : 'Not yet assessed'}
+            </output>
+            <small style={{ color: '#64748b', marginTop: 4 }}>Read-only — assessed in Form 2</small>
             {fieldErrors.exposure_category && (
               <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6, textAlign: 'center' }}>⚠ {fieldErrors.exposure_category}</div>
             )}
@@ -2137,7 +2135,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               </div>
               <div>
                 <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>CATEGORY &amp; NATURE</span>
-                <strong>Category {formData.exposure_category || currentIncident?.severity || 'II'} · {currentIncident?.exposure_type || 'Bite'}</strong>
+                <strong>{exposureCategory ? `Category ${exposureCategory}` : 'Not yet assessed'} · {currentIncident?.exposure_type || 'Bite'}</strong>
               </div>
               <div>
                 <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>ANIMAL INVOLVED</span>

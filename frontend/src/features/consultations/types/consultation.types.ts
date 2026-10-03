@@ -49,6 +49,7 @@ export interface TreatmentFormData {
   consultation_types: ConsultationTypesMap;
 
   // Clinical Notes
+  exposure_category: 'I' | 'II' | 'III' | '';
   chief_complaints: string;
   diagnosis: string; // saved as free text (checklist selections auto-fill this)
   medication_treatment: string; // saved as free text (inventory checklist auto-fills this)
@@ -132,6 +133,7 @@ export interface GeneralTreatmentFormProps {
 }
 
 export interface TreatmentRecordPayload {
+  exposure_category: 'I' | 'II' | 'III' | '';
   patient_id: number | string;
   queue_id?: number | string | null;
   bite_id?: number | string | null;

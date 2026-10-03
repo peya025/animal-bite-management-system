@@ -53,7 +53,7 @@ export default function ExposureAssessmentSection({
             Patient-Reported Mobile Intake
           </div>
           <p style={{ margin: '0 0 12px', color: '#475569', fontSize: 12 }}>
-            Patient-reported information only. The nurse verifies the exposure details and category in Form 3.
+            Patient-reported information only. The doctor assesses Exposure Category in Form 2; the nurse verifies the other exposure details in Form 3.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px 18px', fontSize: 12.5 }}>
             <div>

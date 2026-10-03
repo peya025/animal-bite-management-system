@@ -105,6 +105,7 @@ export const INITIAL_CONSULTATION_TYPES: ConsultationTypesMap = {
 };
 
 export const INITIAL_FORM_DATA: TreatmentFormData = {
+  exposure_category: '',
   last_name: '',
   first_name: '',
   middle_name: '',

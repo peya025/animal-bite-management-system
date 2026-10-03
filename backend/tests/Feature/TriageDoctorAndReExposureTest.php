@@ -179,7 +179,7 @@ class TriageDoctorAndReExposureTest extends TestCase
 
         Sanctum::actingAs($doctor);
 
-        // Doctor fills Form 2 without duplicating the nurse-owned exposure assessment.
+        // Doctor owns category; other exposure details remain nurse-owned.
         $response = $this->postJson('/api/treatment-records', [
             'patient_id' => $patient->patient_id,
             'queue_id' => $queue->queue_id,
@@ -190,6 +190,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             'consultation_types' => ['consultation'],
             'chief_complaints' => 'Dog bite on left arm',
             'diagnosis' => 'Category III dog bite',
+            'exposure_category' => 'III',
         ]);
 
         $response->assertStatus(201);
@@ -219,13 +220,13 @@ class TriageDoctorAndReExposureTest extends TestCase
         $this->assertNotNull($incident->confirmed_at);
         $this->assertSame($doctor->id, $incident->confirmed_by);
         $this->assertNull($incident->exposure_mode);
-        $this->assertSame('unassessed', $incident->severity);
+        $this->assertSame('severe', $incident->severity);
 
         $this->getJson("/api/tagoloan-treatment-cards/patient/{$patient->patient_id}?bite_id={$incident->bite_id}")
             ->assertOk()
             ->assertJsonPath('form3_ready', true)
             ->assertJsonPath('bite_incident.mode_of_exposure', null)
-            ->assertJsonPath('bite_incident.exposure_category', null);
+            ->assertJsonPath('bite_incident.exposure_category', 'III');
 
         $nurse = $this->createStaff($clinic, 'treatment');
         Sanctum::actingAs($nurse);
@@ -233,8 +234,8 @@ class TriageDoctorAndReExposureTest extends TestCase
             'patient_id' => $patient->patient_id,
             'bite_id' => $incident->bite_id,
             'card_date' => Carbon::today()->toDateString(),
-            // The nurse owns these Form 3 exposure values.
-            'exposure_category' => 'III',
+            // A stale Form 3 category cannot overwrite the doctor's category.
+            'exposure_category' => 'I',
             'date_of_exposure' => Carbon::today()->subDay()->toDateString(),
             'place_of_exposure' => 'Matangad, Gitagum',
             'mode_of_exposure' => 'scratch_abrasion',

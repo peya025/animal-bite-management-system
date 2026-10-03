@@ -12,6 +12,8 @@ class BiteIncident extends Model
     protected $table = 'bite_incidents';
     protected $primaryKey = 'bite_id';
 
+    protected $appends = ['exposure_category'];
+
     protected $fillable = [
         'clinic_id',
         'patient_id',
@@ -226,6 +228,12 @@ class BiteIncident extends Model
             return (string) $this->intake->bite_category;
         }
         return 'Unassessed';
+    }
+
+    public function getExposureCategoryAttribute(): ?string
+    {
+        $category = $this->bite_category;
+        return in_array($category, ['I', 'II', 'III'], true) ? $category : null;
     }
 
     public function getRigTypeAttribute(): ?string

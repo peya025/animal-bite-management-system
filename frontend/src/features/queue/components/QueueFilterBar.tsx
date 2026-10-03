@@ -152,22 +152,19 @@ export function QueueFilterBar({
                   </Box>
                 </MenuItem>
               )}
-              {!simplifiedStatus && (
-                <>
-                  <Divider sx={{ my: 0.5, borderColor: isDark ? 'rgba(255,255,255,0.08)' : undefined }} />
-                  {/* Recall */}
-                  <MenuItem value="second_chance">
+              {!simplifiedStatus && [
+                  <Divider key="recall-divider" sx={{ my: 0.5, borderColor: isDark ? 'rgba(255,255,255,0.08)' : undefined }} />,
+                  <MenuItem key="second_chance" value="second_chance">
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
                       <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={14} /> Second Chance
                     </Box>
-                  </MenuItem>
-                  <MenuItem value="final_recall">
+                  </MenuItem>,
+                  <MenuItem key="final_recall" value="final_recall">
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
                       <HugeiconsIcon icon={AlertCircleIcon} size={14} /> Final Recall
                     </Box>
-                  </MenuItem>
-                </>
-              )}
+                  </MenuItem>,
+              ]}
               <Divider sx={{ my: 0.5, borderColor: isDark ? 'rgba(255,255,255,0.08)' : undefined }} />
               {/* Terminal */}
               <MenuItem value="completed">
@@ -181,25 +178,23 @@ export function QueueFilterBar({
                     <HugeiconsIcon icon={Cancel01Icon} size={14} /> Cancelled / Absent
                   </Box>
                 </MenuItem>
-              ) : (
-                <>
-                  <MenuItem value="cancelled">
+              ) : [
+                  <MenuItem key="cancelled" value="cancelled">
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
                       <HugeiconsIcon icon={Cancel01Icon} size={14} /> Cancelled
                     </Box>
-                  </MenuItem>
-                  <MenuItem value="absent">
+                  </MenuItem>,
+                  <MenuItem key="absent" value="absent">
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
                       <HugeiconsIcon icon={UserBlock01Icon} size={14} /> No-Show / Absent
                     </Box>
-                  </MenuItem>
-                  <MenuItem value="no_response">
+                  </MenuItem>,
+                  <MenuItem key="no_response" value="no_response">
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
                       <HugeiconsIcon icon={VolumeMute01Icon} size={14} /> No Response
                     </Box>
-                  </MenuItem>
-                </>
-              )}
+                  </MenuItem>,
+              ]}
             </Select>
           </FormControl>
         </Grid>

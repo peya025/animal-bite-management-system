@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
+import { useSavedExposureCategory } from '../hooks/useSavedExposureCategory';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { printWhenReady } from '../../../components/print/printReady';
 import api from '../../../services/api';
@@ -19,7 +20,7 @@ interface Props {
   initialExposureCategory?: 'I' | 'II' | 'III' | '';
 }
 
-export default function TagoloanTreatmentCardModal({ open, onClose, patientId, biteId, onSaved, initialExposureCategory = '' }: Props) {
+export default function TagoloanTreatmentCardModal({ open, onClose, patientId, biteId, onSaved }: Props) {
   const { clinic: authClinic } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -29,7 +30,8 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
   const [registryNo, setRegistryNo] = useState('');
   const [hospitalNo, setHospitalNo] = useState('');
   const [referredBy, setReferredBy] = useState('');
-  const [exposureCategory, setExposureCategory] = useState<'I' | 'II' | 'III' | ''>(initialExposureCategory);
+  const savedExposureCategory = useSavedExposureCategory(open, patientId, biteId);
+  const exposureCategory = savedExposureCategory ?? cardData?.bite_incident?.exposure_category ?? cardData?.existing_card?.exposure_category ?? '';
   const [modeOfExposure, setModeOfExposure] = useState<string>('transdermal_bite');
   const [bodyPartExposed, setBodyPartExposed] = useState<string>('other_parts');
   const [animalType, setAnimalType] = useState('Dog');
@@ -42,8 +44,6 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
 
   useEffect(() => {
     if (open && patientId) {
-      // Reset to prop value first, then loadCardData will override if a saved card exists
-      setExposureCategory(initialExposureCategory);
       loadCardData();
     }
   }, [open, patientId, biteId]);
@@ -65,7 +65,6 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
         setRegistryNo(existing.registry_no || '');
         setHospitalNo(existing.hospital_no || clinicHospitalNo || res.data.patient?.hospital_no || '');
         setReferredBy(existing.referred_by || res.data.bite_incident?.referred_from || '');
-        setExposureCategory(existing.exposure_category || '');
         setModeOfExposure(existing.mode_of_exposure || 'transdermal_bite');
         setBodyPartExposed(existing.body_part_exposed || 'other_parts');
         // Normalize animal_type to 'Dog', 'Cat', or 'Others' regardless of case stored in DB
@@ -92,8 +91,6 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
         setHospitalNo(clinicHospitalNo || res.data?.patient?.hospital_no || '');
         setReferredBy(res.data.bite_incident?.referred_from || '');
         if (res.data.bite_incident?.case_number) setRegistryNo(res.data.bite_incident.case_number);
-        if (res.data.bite_incident?.exposure_category) setExposureCategory(res.data.bite_incident.exposure_category);
-        else if (initialExposureCategory) setExposureCategory(initialExposureCategory);
         if (res.data.bite_incident?.mode_of_exposure) setModeOfExposure(res.data.bite_incident.mode_of_exposure);
         if (res.data.bite_incident?.body_part_exposed) setBodyPartExposed(res.data.bite_incident.body_part_exposed);
         if (res.data.bite_incident?.animal_type) {
@@ -136,7 +133,6 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
         registry_no: registryNo,
         hospital_no: hospitalNo,
         referred_by: referredBy,
-        exposure_category: exposureCategory || null,
         mode_of_exposure: modeOfExposure || null,
         body_part_exposed: bodyPartExposed || null,
         animal_type: animalType,
@@ -496,20 +492,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '0.2rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <strong style={{ color: '#1e40af', minWidth: '85px' }}>Exposure Cat:</strong>
-                    <div style={{ display: 'flex', gap: '0.3rem' }}>
-                      {(['I', 'II', 'III'] as const).map((cat) => (
-                        <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: '2px', cursor: 'default' }}>
-                          <input
-                            type="radio"
-                            name="exposure_cat"
-                            checked={exposureCategory === cat}
-                            onChange={() => setExposureCategory(cat)}
-                            disabled
-                            style={{ margin: 0 }}
-                          /> {cat}
-                        </label>
-                      ))}
-                    </div>
+                    <output aria-label="Exposure Category">{exposureCategory ? `Category ${exposureCategory}` : 'Not yet assessed'}</output>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <strong style={{ color: '#1e40af', minWidth: '70px' }}>Exp. Date:</strong>

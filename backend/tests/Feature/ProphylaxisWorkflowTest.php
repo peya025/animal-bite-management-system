@@ -147,6 +147,7 @@ class ProphylaxisWorkflowTest extends TestCase
 
     public function test_category_two_requires_documented_immunocompromised_indication(): void
     {
+        $this->incident->update(['severity' => 'moderate']);
         $payload = ['patient_id' => $this->incident->patient_id, 'bite_id' => $this->incident->bite_id,
             'exposure_category' => 'II', 'doses' => [], 'prophylaxis_administrations' => [$this->administration()]];
         $this->postJson('/api/vaccination-records', $payload)->assertUnprocessable();

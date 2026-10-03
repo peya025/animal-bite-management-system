@@ -914,7 +914,9 @@ export default function QueueDashboard() {
             </Tooltip>
           )}
           <Tooltip title="Refresh">
-            <IconButton size="small" onClick={reload} disabled={loading}><RefreshIcon sx={{ fontSize: 18 }} /></IconButton>
+            <span>
+              <IconButton size="small" onClick={reload} disabled={loading}><RefreshIcon sx={{ fontSize: 18 }} /></IconButton>
+            </span>
           </Tooltip>
         </Stack>
       </Box>

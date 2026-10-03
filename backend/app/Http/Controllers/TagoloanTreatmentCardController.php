@@ -82,6 +82,9 @@ class TagoloanTreatmentCardController extends Controller
             ->first();
 
         $latestConsultation = null;
+        if ($existingCard && $latestBite) {
+            $existingCard->setRelation('biteIncident', $latestBite);
+        }
         if ($latestBite) {
             $latestConsultation = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
@@ -119,12 +122,7 @@ class TagoloanTreatmentCardController extends Controller
                 'referred_from' => $latestBite->referred_from,
                 'mode_of_exposure' => $latestBite->exposure_mode,
                 'exposure_type' => $latestBite->exposure_type,
-                'exposure_category' => match ($latestBite->severity) {
-                    'minor' => 'I',
-                    'moderate' => 'II',
-                    'severe' => 'III',
-                    default => null,
-                },
+                'exposure_category' => $latestBite->exposure_category ?? $existingCard?->exposure_category,
                 'severity' => $latestBite->severity,
                 'site_washed' => $latestBite->site_washed,
                 'body_part_exposed' => $latestBite->body_part_exposed ?? $latestBite->site_number,
@@ -188,7 +186,7 @@ class TagoloanTreatmentCardController extends Controller
             'registry_no' => 'nullable|string|max:100',
             'hospital_no' => 'nullable|string|max:100',
             'referred_by' => 'nullable|string|max:255',
-            'exposure_category' => 'nullable|in:I,II,III',
+            // Exposure category is read-only here; legacy client values are ignored.
             'date_of_exposure' => 'nullable|date|before_or_equal:today',
             'place_of_exposure' => 'nullable|string|max:255',
             'mode_of_exposure' => 'nullable|in:nibbling_uncovered_skin,nibbling_broken_skin,scratch_abrasion,transdermal_bite,handling_ingestion_raw_meat',
@@ -227,12 +225,6 @@ class TagoloanTreatmentCardController extends Controller
             ], 422);
         }
 
-        $severity = match ($validated['exposure_category'] ?? null) {
-            'I' => 'minor',
-            'II' => 'moderate',
-            'III' => 'severe',
-            default => null,
-        };
         $exposureType = match ($validated['mode_of_exposure'] ?? null) {
             'nibbling_uncovered_skin', 'nibbling_broken_skin' => 'lick',
             'scratch_abrasion' => 'scratch',
@@ -267,7 +259,6 @@ class TagoloanTreatmentCardController extends Controller
         $incident->update(array_filter([
             'bite_date' => $validated['date_of_exposure'] ?? null,
             'bite_place' => $validated['place_of_exposure'] ?? null,
-            'severity' => $severity,
             'exposure_mode' => $validated['mode_of_exposure'] ?? null,
             'exposure_type' => $exposureType,
             'body_part_exposed' => $validated['body_part_exposed'] ?? null,
@@ -295,12 +286,7 @@ class TagoloanTreatmentCardController extends Controller
             ],
             array_merge($validated, [
                 'clinic_id' => $clinicId,
-                'exposure_category' => match ($incident->severity) {
-                    'minor' => 'I',
-                    'moderate' => 'II',
-                    'severe' => 'III',
-                    default => null,
-                },
+                ...($incident->exposure_category !== null ? ['exposure_category' => $incident->exposure_category] : []),
                 'mode_of_exposure' => $incident->exposure_mode,
                 'body_part_exposed' => $incident->body_part_exposed ?: $incident->site_number,
                 'animal_type' => $incident->animal_type,

@@ -150,6 +150,10 @@ class TreatmentRecordController extends Controller
             'is_returning_new_bite' => (bool) ($activeIncident?->isReExposure()),
             'requires_re_exposure_decision' => $requiresReExposureDecision,
             'active_bite_incident' => $activeIncident,
+            'exposure_category' => $activeIncident?->exposure_category
+                ?? ($activeIncident ? \App\Models\TagoloanTreatmentCard::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)->where('bite_id', $activeIncident->bite_id)
+                    ->latest()->first()?->exposure_category : null),
             'episode_history' => $episodeHistory,
         ]);
     }
@@ -170,6 +174,7 @@ class TreatmentRecordController extends Controller
             'patient_id' => 'required|exists:patients,patient_id',
             'queue_id' => 'nullable|exists:queues,queue_id',
             'bite_id' => 'nullable|exists:bite_incidents,bite_id',
+            'exposure_category' => 'sometimes|required|in:I,II,III',
             'treatment_plan' => 'nullable|in:full_pep,single_booster,two_dose_booster,continue_existing_schedule,no_vaccine',
 
             // Optional New Bite Incident updates from Doctor Form 2
@@ -255,8 +260,8 @@ class TreatmentRecordController extends Controller
         if (!$activeIncident && $queueForEpisode && $queueForEpisode->visit_type === 'new_case') {
             // Registration may create a new-case queue before an episode is linked.
             // Preserve that workflow by creating an unassessed episode here. The
-            // nurse owns category, wound location, animal, and exposure details in
-            // Form 3; Form 2 owns the Doctor's diagnosis and treatment decision.
+            // nurse owns wound location, animal, and exposure details in Form 3;
+            // Form 2 owns category, diagnosis, and the treatment decision.
             $episodeNumber = (BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
                 ->max('episode_number') ?? 0) + 1;
@@ -404,8 +409,14 @@ class TreatmentRecordController extends Controller
         }
 
         // ── Auto-advance queue: move patient from Triage/Doctor → Treatment/Vaccination station ──
-        // Form 2 records the Doctor's diagnosis and treatment decision only.
-        // Nurse-owned exposure/category/body-site values remain untouched here.
+        // Save category on the same episode used by Form 3, reports and treatment.
+        // An older client omitting category must not erase a saved assessment.
+        if (isset($validated['exposure_category'])) {
+            $activeIncident->update(['severity' => match ($validated['exposure_category']) {
+                'I' => 'minor', 'II' => 'moderate', 'III' => 'severe',
+            }]);
+            \Illuminate\Support\Facades\Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
+        }
         if (!$activeIncident->confirmed_at) {
             $activeIncident->update([
                 'confirmed_by' => $request->user()->id,

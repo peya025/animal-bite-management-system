@@ -38,12 +38,7 @@ class DohReportService
             if ($category && $category !== 'ALL') {
                 $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
                 $sev = $severityMap[$category] ?? null;
-                $query->where(function ($q) use ($category, $sev) {
-                    $q->whereHas('intake', fn($sub) => $sub->where('bite_category', $category));
-                    if ($sev) {
-                        $q->orWhere('severity', $sev);
-                    }
-                });
+                $query->where('severity', $sev);
             }
 
             $cases = $query->get();
@@ -56,9 +51,9 @@ class DohReportService
             $ageBelow15 = $cases->filter(fn($c) => $c->patient && $c->patient->age < 15)->count();
             $age15Above = $cases->filter(fn($c) => $c->patient && $c->patient->age >= 15)->count();
 
-            $cat1 = $cases->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === 'I')->count();
-            $cat2 = $cases->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === 'II')->count();
-            $cat3 = $cases->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === 'III')->count();
+            $cat1 = $cases->filter(fn($c) => $c->bite_category === 'I')->count();
+            $cat2 = $cases->filter(fn($c) => $c->bite_category === 'II')->count();
+            $cat3 = $cases->filter(fn($c) => $c->bite_category === 'III')->count();
 
             $tcv = $cases->filter(fn($c) => $c->treatmentRecords->count() > 0)->count();
             $hrig = $cases->filter(fn($c) => ($c->intake?->rig_type ?? $c->rig_type) === 'HRIG')->count();
@@ -200,12 +195,7 @@ class DohReportService
         if ($category && $category !== 'ALL') {
             $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
             $sev = $severityMap[$category] ?? null;
-            $query->where(function ($q) use ($category, $sev) {
-                $q->whereHas('intake', fn($sub) => $sub->where('bite_category', $category));
-                if ($sev) {
-                    $q->orWhere('severity', $sev);
-                }
-            });
+            $query->where('severity', $sev);
         }
 
         $cases = $query->get();
@@ -214,9 +204,9 @@ class DohReportService
         $female = $cases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'female')->count();
         $givenPep = $cases->filter(fn($c) => $c->treatmentRecords->count() > 0)->count();
 
-        $cat1 = $cases->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === 'I')->count();
-        $cat2 = $cases->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === 'II')->count();
-        $cat3 = $cases->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === 'III')->count();
+        $cat1 = $cases->filter(fn($c) => $c->bite_category === 'I')->count();
+        $cat2 = $cases->filter(fn($c) => $c->bite_category === 'II')->count();
+        $cat3 = $cases->filter(fn($c) => $c->bite_category === 'III')->count();
         $totalCases = $cases->count();
 
         $completedCat1 = $this->getCompleted($cases, 'I');
@@ -236,12 +226,7 @@ class DohReportService
             if ($category && $category !== 'ALL') {
                 $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
                 $sev = $severityMap[$category] ?? null;
-                $wQuery->where(function ($q) use ($category, $sev) {
-                    $q->whereHas('intake', fn($sub) => $sub->where('bite_category', $category));
-                    if ($sev) {
-                        $q->orWhere('severity', $sev);
-                    }
-                });
+                $wQuery->where('severity', $sev);
             }
 
             $wCases = $wQuery->get();
@@ -250,9 +235,9 @@ class DohReportService
             $wFemale = $wCases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'female')->count();
             $wPep = $wCases->filter(fn($c) => $c->treatmentRecords->count() > 0)->count();
 
-            $wCat1 = $wCases->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === 'I')->count();
-            $wCat2 = $wCases->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === 'II')->count();
-            $wCat3 = $wCases->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === 'III')->count();
+            $wCat1 = $wCases->filter(fn($c) => $c->bite_category === 'I')->count();
+            $wCat2 = $wCases->filter(fn($c) => $c->bite_category === 'II')->count();
+            $wCat3 = $wCases->filter(fn($c) => $c->bite_category === 'III')->count();
 
             $wComp1 = $this->getCompleted($wCases, 'I');
             $wComp2 = $this->getCompleted($wCases, 'II');
@@ -369,12 +354,7 @@ class DohReportService
             if ($category && $category !== 'ALL') {
                 $severityMap = ['I' => 'minor', 'II' => 'moderate', 'III' => 'severe'];
                 $sev = $severityMap[$category] ?? null;
-                $query->where(function ($qB) use ($category, $sev) {
-                    $qB->whereHas('intake', fn($sub) => $sub->where('bite_category', $category));
-                    if ($sev) {
-                        $qB->orWhere('severity', $sev);
-                    }
-                });
+                $query->where('severity', $sev);
             }
 
             $cases = $query->get();
@@ -386,7 +366,7 @@ class DohReportService
             $qRigTotal = 0;
 
             foreach (['I', 'II', 'III'] as $cat) {
-                $catCases = $cases->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === $cat);
+                $catCases = $cases->filter(fn($c) => $c->bite_category === $cat);
                 $catCasesCount = $catCases->count();
                 $catPepCount = $catCases->filter(fn($c) => $c->treatmentRecords->count() > 0)->count();
                 $catCompCount = $catCases->filter(fn($c) => $c->status === 'completed' || $c->patient?->has_completed_primary)->count();
@@ -482,7 +462,7 @@ class DohReportService
                 'age' => $c->patient?->age ?? '—',
                 'gender' => $c->patient?->gender ? ucfirst($c->patient->gender) : '—',
                 'bite_date' => $c->bite_date ? Carbon::parse($c->bite_date)->format('Y-m-d') : '—',
-                'category' => $c->intake?->bite_category ?? $c->bite_category ?? '—',
+                'category' => $c->bite_category ?? '—',
                 'animal_type' => ucfirst($c->intake?->animal_type ?? $c->animal_type ?? '—'),
                 'animal_status' => ucfirst($c->intake?->animal_status ?? $c->animal_status ?? '—'),
                 'place_of_exposure' => $c->intake?->place_of_bite ?? $c->bite_location ?? '—',
@@ -510,7 +490,7 @@ class DohReportService
     private function getCompleted($cases, string $category): int
     {
         return $cases
-            ->filter(fn($c) => ($c->intake?->bite_category ?? $c->bite_category) === $category)
+            ->filter(fn($c) => $c->bite_category === $category)
             ->filter(fn($c) => $c->status === 'completed' || $c->patient?->has_completed_primary)
             ->count();
     }

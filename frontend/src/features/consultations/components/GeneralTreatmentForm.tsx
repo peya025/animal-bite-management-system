@@ -185,6 +185,21 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         )}
 
         {/* SECTION 6: Clinical Notes (Chief Complaints + Diagnosis checklist) */}
+        <div className="fm-section" id="field-exposure_category">
+          <h3 className="fm-section-title" id="exposure-category-label">Exposure Category <span style={{ color: '#ef4444' }}>*</span></h3>
+          <div role="radiogroup" aria-labelledby="exposure-category-label" aria-required="true" style={{ display: 'flex', gap: 24 }}>
+            {(['I', 'II', 'III'] as const).map(category => (
+              <label key={category} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                <input type="radio" name="exposure_category" value={category}
+                  checked={formData.exposure_category === category}
+                  onChange={handleFieldChange('exposure_category')}
+                  disabled={isFormDisabled} />
+                {category}
+              </label>
+            ))}
+          </div>
+          {fieldErrors.exposure_category && <p role="alert" style={{ color: '#dc2626', fontSize: 12 }}>{fieldErrors.exposure_category}</p>}
+        </div>
         <ClinicalNotesSection
           formData={formData}
           isFormDisabled={isFormDisabled}

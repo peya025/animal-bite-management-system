@@ -107,7 +107,7 @@ class ProphylaxisService
             $isTetanus = self::isTetanusBrand($medication, array_filter([$orders['tetanus_vaccine'] ?? null]));
             $isAts = self::isAtsBrand($medication, array_filter([$orders['tetanus_passive'] ?? null]));
             $group = $isTetanus ? 'tetanus_vaccine' : ($isAts ? 'tetanus_passive' : collect(self::GROUPS)->search(fn ($products) => in_array($medication, $products, true)));
-            if (!$group || (($orders[$group] ?? null) !== $medication && ($orders[$group] ?? null) === 'none')) {
+            if (!$group || ($orders[$group] ?? null) !== $medication) {
                 $this->fail("{$medication} has no matching doctor prescription in Form 2.");
             }
             $existing = TreatmentRecord::where('clinic_id', $incident->clinic_id)

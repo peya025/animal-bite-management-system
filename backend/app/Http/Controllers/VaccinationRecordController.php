@@ -42,6 +42,7 @@ class VaccinationRecordController extends Controller
                     ->first();
 
             // All past historical records for this patient
+            $activeIncident?->loadMissing('intake');
             $allRecords = TreatmentRecord::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->whereNotNull('dose_number')
@@ -76,6 +77,10 @@ class VaccinationRecordController extends Controller
                     ->where('patient_id', $patientId)
                     ->latest()
                     ->first();
+            }
+
+            if ($card && $activeIncident) {
+                $card->setRelation('biteIncident', $activeIncident);
             }
 
             return response()->json([
@@ -305,7 +310,7 @@ class VaccinationRecordController extends Controller
             'patient_id' => 'required|exists:patients,patient_id',
             'bite_id' => 'nullable|exists:bite_incidents,bite_id',
             'queue_id' => 'nullable|exists:queues,queue_id',
-            'exposure_category' => 'nullable|in:I,II,III',
+            // Exposure category is read-only here; legacy client values are ignored.
             'date_of_exposure' => 'nullable|date',
             'date_treatment_started' => 'nullable|date',
             'place_of_exposure' => 'nullable|string|max:255',
@@ -499,13 +504,6 @@ class VaccinationRecordController extends Controller
                 $animalType = 'other';
             }
 
-            $severity = match ($request->input('exposure_category')) {
-                'I' => 'minor',
-                'II' => 'moderate',
-                'III' => 'severe',
-                default => null,
-            };
-
             $animalStatus = $request->input('animal_status');
             $animalAvailable = $request->input('animal_available');
             $animalAvailableBool = match ($animalAvailable) {
@@ -528,7 +526,6 @@ class VaccinationRecordController extends Controller
                 'bite_place' => $request->input('place_of_exposure'),
                 'exposure_mode' => $verifiedMode,
                 'exposure_type' => $verifiedMode ? $exposureTypeMap[$verifiedMode] : null,
-                'severity' => $severity,
                 'body_part_exposed' => $verifiedBodyPart,
                 'site_number' => $request->input('body_part_detail'),
                 'animal_type' => $animalType ?: null,
@@ -761,12 +758,7 @@ class VaccinationRecordController extends Controller
             // ──────────────────────────────────────────────────────────────
             $modeOfExposure = $treatmentIncident->exposure_mode;
             $bodyPartExposed = $treatmentIncident->body_part_exposed ?: $treatmentIncident->site_number;
-            $exposureCategory = match ($treatmentIncident->severity) {
-                'minor' => 'I',
-                'moderate' => 'II',
-                'severe' => 'III',
-                default => null,
-            };
+            $exposureCategory = $treatmentIncident->exposure_category;
 
             $card = TagoloanTreatmentCard::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
@@ -784,7 +776,7 @@ class VaccinationRecordController extends Controller
                 'registry_no'        => $request->registry_no,
                 'hospital_no'        => $request->hospital_no,
                 'referred_by'        => $request->referred_by,
-                'exposure_category'  => $exposureCategory,
+                ...($exposureCategory !== null ? ['exposure_category' => $exposureCategory] : []),
                 'mode_of_exposure'   => $modeOfExposure,
                 'body_part_exposed'  => $bodyPartExposed,
                 'animal_type'        => $treatmentIncident->animal_type,

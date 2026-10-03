@@ -28,6 +28,12 @@ import {
   DoseCard,
   DoseRow,
 } from './form3';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  LockIcon,
+  AlertCircleIcon,
+  CheckmarkCircle02Icon,
+} from '@hugeicons/core-free-icons';
 
 const BORDER_RADIUS = 8;
 
@@ -1332,7 +1338,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           alignItems: 'center',
           gap: 10
         }}>
-          <span style={{ fontSize: 20 }}>🔒</span>
+          <HugeiconsIcon icon={LockIcon} size={20} color="#b45309" />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#92400e', marginBottom: 2 }}>
               Patient Information &amp; Exposure Details Locked
@@ -1556,8 +1562,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       {/* 4. VACCINATION RECORD */}
       <FormSection title="Vaccination record" showDivider={false}>
         {inventorySetupMessage && (
-          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(245, 158, 11, 0.12)', border: '1px solid #fde68a', borderRadius: BORDER_RADIUS, color: '#92400e', fontSize: 12 }}>
-            ⚠ {inventorySetupMessage}
+          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(245, 158, 11, 0.12)', border: '1px solid #fde68a', borderRadius: BORDER_RADIUS, color: '#92400e', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <HugeiconsIcon icon={AlertCircleIcon} size={14} color="#92400e" />
+            <span>{inventorySetupMessage}</span>
           </div>
         )}
 
@@ -1632,7 +1639,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
               onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
             >
-              {manualReExposure ? '✓ Re-bite active' : 'Re-bite / re-exposure'}
+              {manualReExposure ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color="#b45309" />
+                  <span>Re-bite active</span>
+                </span>
+              ) : (
+                'Re-bite / re-exposure'
+              )}
             </button>
           )}
           <button

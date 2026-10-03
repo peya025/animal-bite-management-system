@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 
 /** Authenticated image fetch: never exposes tokens in an image URL. */
-export default function SignatureImage({ endpoint, onReady }: {
+export default function SignatureImage({ endpoint, onReady, style, silentFallback }: {
   endpoint: string;
   onReady?: (ready: boolean) => void;
+  style?: React.CSSProperties;
+  silentFallback?: boolean;
 }) {
   const [image, setImage] = useState<{ endpoint: string; url: string } | null>(null);
   const [failed, setFailed] = useState(false);
@@ -22,9 +24,9 @@ export default function SignatureImage({ endpoint, onReady }: {
     return () => { active = false; if (reader.readyState === FileReader.LOADING) reader.abort(); };
   }, [endpoint, onReady]);
 
-  if (failed) return <span>Signature preview unavailable.</span>;
-  if (!image || image.endpoint !== endpoint) return <span>Loading signature…</span>;
+  if (failed) return silentFallback ? null : <span>Signature preview unavailable.</span>;
+  if (!image || image.endpoint !== endpoint) return silentFallback ? null : <span>Loading signature…</span>;
   return <img src={image.url} alt="Staff signature" onLoad={() => onReady?.(true)}
     onError={() => { setFailed(true); onReady?.(false); }}
-    style={{ display: 'block', maxWidth: 200, maxHeight: 85, objectFit: 'contain', background: '#fff', margin: '0 auto' }} />;
+    style={{ display: 'block', maxWidth: 200, maxHeight: 85, objectFit: 'contain', background: '#fff', margin: '0 auto', ...style }} />;
 }

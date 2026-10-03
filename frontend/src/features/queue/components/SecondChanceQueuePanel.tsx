@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, Tooltip, IconButton, Chip, Paper, Collapse, Button } from '@mui/material';
+import { Box, Typography, Tooltip, IconButton, Chip, Paper, Collapse, Button, useTheme } from '@mui/material';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   UserRemove01Icon,
@@ -19,14 +19,16 @@ interface SecondChanceQueuePanelProps {
 }
 
 function StageTag({ status }: { status: string }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const isFinal = status === 'final_recall';
   return (
     <Box sx={{
       display: 'inline-flex', alignItems: 'center', gap: 0.5,
       px: 1.25, py: 0.3,
-      bgcolor: isFinal ? '#fef2f2' : '#fff7ed',
-      color: isFinal ? '#dc2626' : '#ea580c',
-      border: `1px solid ${isFinal ? '#fecaca' : '#fed7aa'}`,
+      bgcolor: isFinal ? (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2') : (isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5'),
+      color: isFinal ? '#dc2626' : (isDark ? '#34d399' : '#059669'),
+      border: `1px solid ${isFinal ? (isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca') : (isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0')}`,
       borderRadius: 1.5, fontSize: 10.5, fontWeight: 700,
       textTransform: 'uppercase', letterSpacing: '0.04em',
     }}>
@@ -38,6 +40,8 @@ function StageTag({ status }: { status: string }) {
 export function SecondChanceQueuePanel({
   entries, loading, onRecall, onReturnToQueue, onAbsent, canManage = true,
 }: SecondChanceQueuePanelProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [expanded, setExpanded] = useState(() => entries.length > 0);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
 
@@ -63,9 +67,9 @@ export function SecondChanceQueuePanel({
       id="second-chance-panel"
       elevation={0}
       sx={{
-        border: '1.5px solid #fed7aa',
+        border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #a7f3d0',
         borderRadius: 3,
-        bgcolor: '#fffbf7',
+        bgcolor: isDark ? '#111827' : '#f0fdf4',
         overflow: 'hidden',
         mb: 3,
       }}
@@ -76,26 +80,34 @@ export function SecondChanceQueuePanel({
         sx={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           px: 3, py: 2,
-          background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
-          borderBottom: expanded ? '1px solid #fed7aa' : 'none',
+          background: isDark
+            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%)'
+            : 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+          borderBottom: expanded ? (isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #a7f3d0') : 'none',
           cursor: 'pointer',
           userSelect: 'none',
           transition: 'background 0.15s ease',
-          '&:hover': { background: 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)' },
+          '&:hover': {
+            background: isDark
+              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.22) 100%)'
+              : 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
+          },
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box sx={{
             width: 34, height: 34, borderRadius: 2,
-            bgcolor: '#ea580c', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)',
           }}>
             <Typography sx={{ fontSize: 16, color: '#fff', fontWeight: 700 }}>↩</Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#9a3412', lineHeight: 1.2 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 14, color: isDark ? '#ffffff' : '#064e3b', lineHeight: 1.2 }}>
               Second Chance Queue
             </Typography>
-            <Typography sx={{ fontSize: 12, color: '#c2410c' }}>
+            <Typography sx={{ fontSize: 12, color: isDark ? '#a7f3d0' : '#047857' }}>
               Patients who missed their call — awaiting recall or return to queue
             </Typography>
           </Box>
@@ -106,13 +118,13 @@ export function SecondChanceQueuePanel({
             label={`${entries.length} patient${entries.length !== 1 ? 's' : ''}`}
             size="small"
             sx={{
-              bgcolor: entries.length > 0 ? '#ea580c' : '#fdba74',
+              bgcolor: entries.length > 0 ? '#059669' : (isDark ? 'rgba(255,255,255,0.1)' : '#9ca3af'),
               color: '#fff',
               fontWeight: 700,
               fontSize: 11,
             }}
           />
-          <IconButton size="small" sx={{ color: '#ea580c' }}>
+          <IconButton size="small" sx={{ color: isDark ? '#a7f3d0' : '#059669' }}>
             <HugeiconsIcon icon={expanded ? ArrowUp01Icon : ArrowDown01Icon} size={18} strokeWidth={2.2} />
           </IconButton>
         </Box>
@@ -145,8 +157,8 @@ export function SecondChanceQueuePanel({
                     gap: 2,
                     p: 1.5,
                     borderRadius: 2,
-                    bgcolor: isFinalRecall ? '#fef2f2' : '#fff',
-                    border: `1px solid ${isFinalRecall ? '#fecaca' : '#e5e7eb'}`,
+                    bgcolor: isFinalRecall ? (isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2') : (isDark ? '#1f2937' : '#ffffff'),
+                    border: `1px solid ${isFinalRecall ? (isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca') : (isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb')}`,
                     transition: 'box-shadow 0.15s',
                     '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
                   }}
@@ -154,13 +166,13 @@ export function SecondChanceQueuePanel({
                   {/* Queue number */}
                   <Box sx={{
                     width: 40, height: 40, borderRadius: 2,
-                    bgcolor: isFinalRecall ? '#fee2e2' : '#fff7ed',
+                    bgcolor: isFinalRecall ? (isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2') : (isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5'),
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     flexShrink: 0,
                   }}>
                     <Typography sx={{
                       fontWeight: 800, fontSize: 15,
-                      color: isFinalRecall ? '#dc2626' : '#ea580c',
+                      color: isFinalRecall ? '#dc2626' : (isDark ? '#34d399' : '#059669'),
                     }}>
                       {entry.queue_number}
                     </Typography>
@@ -169,20 +181,20 @@ export function SecondChanceQueuePanel({
                   {/* Patient info */}
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                      <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#111827', lineHeight: 1.2 }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: isDark ? '#ffffff' : '#111827', lineHeight: 1.2 }}>
                         {entry.patient.name}
                       </Typography>
                       <StageTag status={entry.status} />
                     </Box>
-                    <Typography sx={{ fontSize: 11.5, color: '#6b7280', mt: 0.3 }}>
+                    <Typography sx={{ fontSize: 11.5, color: isDark ? '#94a3b8' : '#6b7280', mt: 0.3 }}>
                       {entry.patient.age}y · {entry.patient.gender}
                       &nbsp;·&nbsp;
-                      <Box component="span" sx={{ color: '#ea580c' }}>
+                      <Box component="span" sx={{ color: isDark ? '#34d399' : '#059669', fontWeight: 600 }}>
                         {VISIT_LABEL[entry.visit_type] ?? entry.visit_type}
                       </Box>
                       &nbsp;·&nbsp;missed {missedTime}
                       {entry.call_count > 0 && (
-                        <Box component="span" sx={{ ml: 0.5, color: '#9ca3af' }}>
+                        <Box component="span" sx={{ ml: 0.5, color: isDark ? '#64748b' : '#9ca3af' }}>
                           · called {entry.call_count}×
                         </Box>
                       )}
@@ -204,21 +216,23 @@ export function SecondChanceQueuePanel({
                           px: 1.75,
                           py: 0.5,
                           borderRadius: '6px',
-                          border: '1px solid #bfdbfe',
-                          bgcolor: '#eff6ff',
-                          color: '#1d4ed8',
+                          border: isDark ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #a7f3d0',
+                          bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                          color: isDark ? '#34d399' : '#047857',
                           lineHeight: 1.4,
                           whiteSpace: 'nowrap',
                           boxShadow: 'none',
+                          transition: 'all 0.15s ease',
                           '&:hover': {
-                            bgcolor: '#dbeafe',
-                            borderColor: '#93c5fd',
+                            bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#d1fae5',
+                            borderColor: isDark ? '#10b981' : '#6ee7b7',
+                            color: isDark ? '#a7f3d0' : '#065f46',
                             boxShadow: 'none',
                           },
                           '&:disabled': {
-                            bgcolor: '#f3f4f6',
-                            color: '#9ca3af',
-                            borderColor: '#e5e7eb',
+                            bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f3f4f6',
+                            color: isDark ? '#6b7280' : '#9ca3af',
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e5e7eb',
                             cursor: 'not-allowed',
                             pointerEvents: 'auto',
                           },

@@ -335,14 +335,20 @@ class VaccineInventoryController extends Controller
     }
 
     /**
-     * Get unique vaccine names available in inventory (for form dropdowns).
+     * Get unique active anti-rabies vaccine names available in inventory stock (for PEP form dropdowns).
      * Access: all authenticated staff
      */
     public function vaccineNames(Request $request)
     {
         $clinicId = $request->user()->clinic_id;
 
-        $names = VaccineInventory::where('clinic_id', $clinicId)
+        $presets = VaccineTypePreset::where(function ($q) use ($clinicId) {
+            $q->whereNull('clinic_id')->orWhere('clinic_id', $clinicId);
+        })->get()->keyBy(function ($p) {
+            return strtolower(trim($p->vaccine_name));
+        });
+
+        $stockTypes = VaccineInventory::where('clinic_id', $clinicId)
             ->where('status', 'active')
             ->where('current_quantity', '>', 0)
             ->orderBy('vaccine_type')
@@ -350,7 +356,31 @@ class VaccineInventoryController extends Controller
             ->unique()
             ->values();
 
-        return response()->json(['vaccine_names' => $names]);
+        $antiRabiesNames = $stockTypes->filter(function ($type) use ($presets) {
+            $name = trim($type);
+            if ($name === '') {
+                return false;
+            }
+
+            $matchedPreset = $presets->get(strtolower($name));
+            if ($matchedPreset && !empty($matchedPreset->category)) {
+                $cat = $matchedPreset->category;
+                if (preg_match('/tetanus|toxoid|serum|ats|immunoglobulin|rig/i', $cat)) {
+                    return false;
+                }
+                if (preg_match('/rabies|arv/i', $cat)) {
+                    return true;
+                }
+            }
+
+            if (preg_match('/(?:^|[^a-z])(?:TT|Td|Tdap|DTaP|ATS|ERIG|HRIG|RIG)(?:$|[^a-z])|tetan|toxoid|tetav|tetax|anti[- ]?tetanus|serum|equine rabies|rabies immunoglobulin|immune globulin/i', $name)) {
+                return false;
+            }
+
+            return true;
+        })->values();
+
+        return response()->json(['vaccine_names' => $antiRabiesNames]);
     }
 
     /**

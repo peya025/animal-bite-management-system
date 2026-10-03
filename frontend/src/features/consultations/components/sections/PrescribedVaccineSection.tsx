@@ -21,6 +21,10 @@ export default function PrescribedVaccineSection({
   onChange,
 }: PrescribedVaccineSectionProps) {
   const stock = prescribedVaccineType ? vaccineStockMap[prescribedVaccineType] : undefined;
+  const displayOptions = [...vaccineNames];
+  if (prescribedVaccineType && !displayOptions.includes(prescribedVaccineType)) {
+    displayOptions.unshift(prescribedVaccineType);
+  }
 
   return (
     <div className="fm-section">
@@ -81,7 +85,7 @@ export default function PrescribedVaccineSection({
               style={{ flex: 1, minWidth: 260 }}
             >
               <option value="">— No PEP vaccine prescribed (Category I only) —</option>
-              {vaccineNames.map((name) => (
+              {displayOptions.map((name) => (
                 <option key={name} value={name}>
                   {name}
                 </option>

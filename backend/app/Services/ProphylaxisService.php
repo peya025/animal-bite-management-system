@@ -62,7 +62,8 @@ class ProphylaxisService
     public static function orderRules(): array
     {
         return [
-            'prophylaxis_orders' => 'nullable|array:tetanus_vaccine,tetanus_passive,rig,tetanus_history,tetanus_last_dose,rig_weight_kg,rig_indication,notes',
+            'prophylaxis_orders' => 'nullable|array:tetanus_category,tetanus_vaccine,tetanus_passive,rig,tetanus_history,tetanus_last_dose,rig_weight_kg,rig_indication,notes',
+            'prophylaxis_orders.tetanus_category' => 'nullable|in:ats,tt,ats_tt,not_indicated',
             'prophylaxis_orders.tetanus_vaccine' => 'nullable|string|max:100',
             'prophylaxis_orders.tetanus_passive' => 'nullable|string|max:100',
             'prophylaxis_orders.rig' => 'nullable|in:none,ERIG',
@@ -76,6 +77,22 @@ class ProphylaxisService
 
     public function validateOrders(array $orders, string $planType): void
     {
+        $cat = $orders['tetanus_category'] ?? null;
+        if ($cat === 'ats' && (empty($orders['tetanus_passive']) || $orders['tetanus_passive'] === 'none')) {
+            $this->fail('Please select an available ATS product.');
+        }
+        if ($cat === 'tt' && (empty($orders['tetanus_vaccine']) || $orders['tetanus_vaccine'] === 'none')) {
+            $this->fail('Please select an available TT vaccine product.');
+        }
+        if ($cat === 'ats_tt') {
+            if (empty($orders['tetanus_passive']) || $orders['tetanus_passive'] === 'none') {
+                $this->fail('Please select an available ATS product.');
+            }
+            if (empty($orders['tetanus_vaccine']) || $orders['tetanus_vaccine'] === 'none') {
+                $this->fail('Please select an available TT vaccine product.');
+            }
+        }
+
         if (in_array($orders['rig'] ?? null, self::GROUPS['rig'], true)) {
             if ($planType !== 'full_pep') {
                 $this->fail('RIG requires a full PEP order; it is not part of a booster-only or no-vaccine plan.');

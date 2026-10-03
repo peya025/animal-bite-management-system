@@ -17,9 +17,10 @@ export async function fetchProphylaxisStock(): Promise<{ stock: ProphylaxisStock
 export async function fetchVaccineNames(): Promise<string[]> {
   try {
     const res = await api.get('/inventory/vaccine-names');
-    return (res.data?.vaccine_names || [...DEFAULT_FALLBACK_VACCINES]).filter((name: string) => !isProphylaxisInventoryName(name));
+    const names: string[] = res.data?.vaccine_names || [];
+    return names.filter((name: string) => !isProphylaxisInventoryName(name));
   } catch {
-    return [...DEFAULT_FALLBACK_VACCINES];
+    return [];
   }
 }
 

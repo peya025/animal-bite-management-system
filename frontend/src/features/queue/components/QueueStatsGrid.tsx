@@ -248,7 +248,7 @@ export function SecondaryCountersRow({ stats }: SecondaryCountersRowProps) {
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
         <HugeiconsIcon icon={UserCheck01Icon} size={15} strokeWidth={1.8} style={{ color: '#34d399' }} />
-        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Second Chance: <strong style={{ color: secondChance > 0 ? '#fb923c' : (isDark ? '#ffffff' : '#111827') }}>{secondChance}</strong></span>
+        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Second Chance: <strong style={{ color: secondChance > 0 ? (isDark ? '#34d399' : '#059669') : (isDark ? '#ffffff' : '#111827') }}>{secondChance}</strong></span>
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
@@ -285,10 +285,10 @@ export function QueueProgressBar({ stats }: QueueProgressBarProps) {
     <Paper
       elevation={0}
       sx={{
-        borderRadius: '20px',
+        borderRadius: 3,
         p: 2.5,
-        mt: 3,
-        mb: 2,
+        mt: 0,
+        mb: 3,
         ...(isDark
           ? {
               background: '#111827',
@@ -308,7 +308,7 @@ export function QueueProgressBar({ stats }: QueueProgressBarProps) {
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {secondChanceTotal > 0 && (
-            <Typography sx={{ fontSize: 11.5, color: '#fb923c', fontWeight: 600 }}>
+            <Typography sx={{ fontSize: 11.5, color: isDark ? '#a7f3d0' : '#047857', fontWeight: 600 }}>
               ↩ {secondChanceTotal} in recall queue
             </Typography>
           )}

@@ -18,8 +18,10 @@ class PatientAccountAuthController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:patient_accounts,email'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'phone.regex' => 'Mobile number must start with 09 and contain 11 digits.',
         ]);
 
         $account = PatientAccount::create($validated);
@@ -78,7 +80,9 @@ class PatientAccountAuthController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
+        ], [
+            'phone.regex' => 'Mobile number must start with 09 and contain 11 digits.',
         ]);
 
         $request->user()->update($validated);

@@ -77,7 +77,7 @@ export default function UserCreatePage() {
           else delete next.email;
           break;
         case 'phone':
-          if (form.phone && form.phone.length !== 11) next.phone = 'Phone number must be exactly 11 digits.';
+          if (form.phone && !/^09\d{9}$/.test(form.phone.trim())) next.phone = 'Mobile number must start with 09 and contain 11 digits.';
           else delete next.phone;
           break;
         case 'role':
@@ -102,7 +102,7 @@ export default function UserCreatePage() {
     if (!form.name.trim()) next.name = 'Full name is required.';
     if (!form.email.trim()) next.email = 'Email address is required.';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = 'Enter a valid email address.';
-    if (form.phone && form.phone.length !== 11) next.phone = 'Phone number must be exactly 11 digits.';
+    if (form.phone && !/^09\d{9}$/.test(form.phone.trim())) next.phone = 'Mobile number must start with 09 and contain 11 digits.';
     if (!form.role) next.role = 'Please select a role.';
     if (!form.password) next.password = 'Password is required.';
     else if (form.password.length < 8) next.password = 'Password must be at least 8 characters.';

@@ -55,9 +55,11 @@ class UserController extends Controller
             'role'                    => 'nullable|string',
             'workstation_role'        => 'nullable|string',
             'roles'                   => 'nullable|array',
-            'phone'                   => 'nullable|string|max:50',
+            'phone'                   => ['nullable', 'string', 'regex:/^09\d{9}$/'],
             'professional_license_no' => 'nullable|string|max:100',
             ...StaffSignatureService::rules(),
+        ], [
+            'phone.regex' => 'Mobile number must start with 09 and contain 11 digits.',
         ]);
 
         $signatures = app(StaffSignatureService::class);
@@ -117,10 +119,12 @@ class UserController extends Controller
             'role'                    => 'nullable|string',
             'workstation_role'        => 'nullable|string',
             'roles'                   => 'nullable|array',
-            'phone'                   => 'nullable|string|max:50',
+            'phone'                   => ['nullable', 'string', 'regex:/^09\d{9}$/'],
             'professional_license_no' => 'nullable|string|max:100',
             ...StaffSignatureService::rules(),
             'is_active'               => 'sometimes|boolean',
+        ], [
+            'phone.regex' => 'Mobile number must start with 09 and contain 11 digits.',
         ]);
 
         $signatures = app(StaffSignatureService::class);

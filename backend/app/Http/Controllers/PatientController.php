@@ -210,10 +210,10 @@ class PatientController extends Controller
             'age' => 'nullable|integer|min:0|max:150',
             'date_of_birth' => 'nullable|date|before_or_equal:today',
             'address' => 'nullable|string',
-            'contact_number' => 'nullable|string|max:50',
+            'contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
             'email' => 'nullable|string|email|max:255',
             'emergency_contact_name' => 'nullable|string|max:255',
-            'emergency_contact_number' => 'nullable|string|max:50',
+            'emergency_contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
             'hospital_no' => 'nullable|string|max:100',
             // Extended Form 1 fields
             'blood_type' => 'nullable|string|max:10',
@@ -257,7 +257,10 @@ class PatientController extends Controller
             'reg_weight'                => 'nullable|string|max:10',
             'reg_attending_provider'    => 'nullable|string|max:255',
             'reg_referred_by'           => 'nullable|string|max:255',
-        ], $membershipService->validationRules()));
+        ], array_merge($membershipService->validationRules(), [
+            'contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
+            'emergency_contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
+        ])));
 
         $patient = DB::transaction(function () use ($request, $membershipService) {
             $patient = Patient::create([
@@ -457,10 +460,10 @@ class PatientController extends Controller
             'age' => 'nullable|integer|min:0|max:150',
             'date_of_birth' => 'nullable|date|before_or_equal:today',
             'address' => 'nullable|string',
-            'contact_number' => 'nullable|string|max:50',
+            'contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
             'email' => 'nullable|string|email|max:255',
             'emergency_contact_name' => 'nullable|string|max:255',
-            'emergency_contact_number' => 'nullable|string|max:50',
+            'emergency_contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
             'hospital_no' => 'nullable|string|max:100',
             // Extended Form 1 fields
             'blood_type' => 'nullable|string|max:10',
@@ -492,7 +495,10 @@ class PatientController extends Controller
             'other_membership' => 'nullable|string|max:500',
             'other_membership_name' => 'nullable|string|max:500',
             'other_membership_no' => 'nullable|string|max:500',
-        ], $membershipService->validationRules()));
+        ], array_merge($membershipService->validationRules(), [
+            'contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
+            'emergency_contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
+        ])));
 
         DB::transaction(function () use ($request, $patient, $membershipService) {
             $patient->update($request->only([

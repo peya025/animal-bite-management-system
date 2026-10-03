@@ -54,8 +54,8 @@ export default function UserProfilePage() {
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (form.phone && form.phone.length !== 11) {
-      setMessage('Phone number must be exactly 11 digits.');
+    if (form.phone && !/^09\d{9}$/.test(form.phone.trim())) {
+      setMessage('Mobile number must start with 09 and contain 11 digits.');
       return;
     }
     setConfirmSave(true);

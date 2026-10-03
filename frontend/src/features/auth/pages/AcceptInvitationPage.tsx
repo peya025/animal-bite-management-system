@@ -81,8 +81,8 @@ export default function AcceptInvitationPage() {
       return;
     }
 
-    if (phone && phone.length !== 11) {
-      setError('Phone number must be exactly 11 digits');
+    if (phone && !/^09\d{9}$/.test(phone.trim())) {
+      setError('Mobile number must start with 09 and contain 11 digits.');
       return;
     }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { normalizeProphylaxisOrders } from '../../../shared/types/prophylaxis';
+import { normalizeProphylaxisOrders, getTetanusCategoryFromOrders } from '../../../shared/types/prophylaxis';
 import type { ProphylaxisOrders, ProphylaxisStock } from '../../../shared/types/prophylaxis';
 import type {
   TreatmentFormData,
@@ -525,6 +525,29 @@ export function useGeneralTreatmentForm({
       newFieldErrors.chief_complaints = 'Please enter Chief Complaints';
     }
 
+    // Tetanus Prophylaxis Order Validation
+    const pOrders = formData.prophylaxis_orders;
+    const tetanusCat = pOrders?.tetanus_category || getTetanusCategoryFromOrders(pOrders);
+
+    if (!tetanusCat) {
+      newFieldErrors.tetanus_category = 'Please select the tetanus prophylaxis assessment.';
+    } else if (tetanusCat === 'ats') {
+      if (!pOrders.tetanus_passive || pOrders.tetanus_passive === 'none') {
+        newFieldErrors.tetanus_passive = 'Please select an available ATS product.';
+      }
+    } else if (tetanusCat === 'tt') {
+      if (!pOrders.tetanus_vaccine || pOrders.tetanus_vaccine === 'none') {
+        newFieldErrors.tetanus_vaccine = 'Please select an available TT vaccine product.';
+      }
+    } else if (tetanusCat === 'ats_tt') {
+      if (!pOrders.tetanus_passive || pOrders.tetanus_passive === 'none') {
+        newFieldErrors.tetanus_passive = 'Please select an available ATS product.';
+      }
+      if (!pOrders.tetanus_vaccine || pOrders.tetanus_vaccine === 'none') {
+        newFieldErrors.tetanus_vaccine = 'Please select an available TT vaccine product.';
+      }
+    }
+
     setFieldErrors(newFieldErrors);
 
     if (Object.keys(newFieldErrors).length > 0) {
@@ -532,8 +555,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'exposure_category', 'chief_complaints']
-        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints'];
+        ? ['nature_of_visit', 'exposure_category', 'chief_complaints', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine']
+        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -578,11 +601,7 @@ export function useGeneralTreatmentForm({
         prescribed_vaccine_type: formData.prescribed_vaccine_type || null,
         prophylaxis_orders: {
           ...formData.prophylaxis_orders,
-          tetanus_passive: '',
-          rig: '',
-          tetanus_history: '',
-          rig_weight_kg: '',
-          rig_indication: '',
+          tetanus_category: tetanusCat,
         },
         laboratory_findings: formData.laboratory_findings,
         performed_lab_test: formData.performed_lab_test,

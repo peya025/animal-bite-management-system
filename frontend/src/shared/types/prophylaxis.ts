@@ -1,4 +1,5 @@
 export interface ProphylaxisOrders {
+  tetanus_category?: string;
   tetanus_vaccine: string;
   tetanus_passive: string;
   rig: string;
@@ -10,13 +11,35 @@ export interface ProphylaxisOrders {
 }
 
 export const EMPTY_PROPHYLAXIS_ORDERS: ProphylaxisOrders = {
-  tetanus_vaccine: '', tetanus_passive: '', rig: '', tetanus_history: '',
+  tetanus_category: '', tetanus_vaccine: '', tetanus_passive: '', rig: '', tetanus_history: '',
   tetanus_last_dose: '', rig_weight_kg: '', rig_indication: '', notes: '',
 };
 
+export function getTetanusCategoryFromOrders(orders?: Partial<ProphylaxisOrders> | null): string {
+  if (!orders) return '';
+  if (orders.tetanus_category !== undefined && orders.tetanus_category !== null && orders.tetanus_category !== '') {
+    return orders.tetanus_category;
+  }
+  const hasAts = Boolean(orders.tetanus_passive && orders.tetanus_passive !== 'none');
+  const hasTt = Boolean(orders.tetanus_vaccine && orders.tetanus_vaccine !== 'none');
+  const isAtsNone = orders.tetanus_passive === 'none';
+  const isTtNone = orders.tetanus_vaccine === 'none';
+
+  if (hasAts && hasTt) return 'ats_tt';
+  if (hasAts) return 'ats';
+  if (hasTt) return 'tt';
+  if (isAtsNone && isTtNone) return 'not_indicated';
+
+  return '';
+}
+
 export function normalizeProphylaxisOrders(value?: Partial<ProphylaxisOrders> | null): ProphylaxisOrders {
-  return Object.fromEntries(Object.keys(EMPTY_PROPHYLAXIS_ORDERS).map(key =>
+  const normalized = Object.fromEntries(Object.keys(EMPTY_PROPHYLAXIS_ORDERS).map(key =>
     [key, String(value?.[key as keyof ProphylaxisOrders] ?? '')])) as unknown as ProphylaxisOrders;
+  if (!normalized.tetanus_category) {
+    normalized.tetanus_category = getTetanusCategoryFromOrders(value);
+  }
+  return normalized;
 }
 
 export const PROPHYLAXIS_GROUPS = ['tetanus_passive', 'tetanus_vaccine', 'rig'] as const;
@@ -49,7 +72,7 @@ export interface ProphylaxisStockResponse {
 }
 
 export function isProphylaxisInventoryName(name: string): boolean {
-  return /(?:^|[^a-z])(?:TT|ATS|ERIG|Td|Tdap|DTaP)(?:$|[^a-z])|tetan|toxoid|tetavax|anti[- ]?tetanus|equine rabies/i.test(name);
+  return /(?:^|[^a-z])(?:TT|Td|Tdap|DTaP|ATS|ERIG|HRIG|RIG)(?:$|[^a-z])|tetan|toxoid|tetav|tetax|anti[- ]?tetanus|serum|equine rabies|rabies immunoglobulin|immune globulin/i.test(name);
 }
 
 export interface ProphylaxisAdministration {

@@ -21,6 +21,32 @@ import {
 } from '../../patients/hooks/useAddressLocation';
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
+import {
+  SegmentedControl,
+  ChipGroup,
+  FormSection,
+  DoseCard,
+  DoseRow,
+} from './form3';
+
+const BORDER_RADIUS = 8;
+
+const MODE_OF_EXPOSURE_CHIPS = [
+  { key: 'nibbling_uncovered', label: 'Lick, intact skin' },
+  { key: 'nibbling_wounded', label: 'Lick, broken skin' },
+  { key: 'scratch_abrasion', label: 'Scratch' },
+  { key: 'transdermal_bite', label: 'Bite' },
+  { key: 'handling_ingestion', label: 'Raw meat contact' },
+] as const;
+
+const BODY_PART_CHIPS = [
+  { key: 'head_neck', label: 'Head & neck' },
+  { key: 'upper_extremities', label: 'Arm / hand' },
+  { key: 'lower_extremities', label: 'Leg / foot' },
+  { key: 'trunk_torso', label: 'Trunk' },
+  { key: 'multiple_sites', label: 'Multiple' },
+  { key: 'na_ingestion', label: 'Ingestion' },
+] as const;
 
 export function cleanPurok(val: string): string {
   if (!val) return '';
@@ -305,8 +331,8 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   date_of_birth: '',
   address: '',
   sex: '',
-  date_of_exposure: '',
-  date_treatment_started: '',
+  date_of_exposure: getLocalDateString(),
+  date_treatment_started: getLocalDateString(),
   place_of_exposure: '',
   mode_of_exposure: {
     nibbling_uncovered: false,
@@ -515,7 +541,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     setSignatureLoadError(false);
     if (open && !readOnly) {
       api.get('/staff-signature').then(response => {
-        if (active) setSignatureVersion(response.data.signature_path);
+        if (active) {
+          const path = response.data?.signature_path;
+          setSignatureVersion(path || null);
+          if (path) {
+            setSignatureReady(true);
+            setApplySignature(true);
+          }
+        }
       }).catch(() => { if (active) setSignatureLoadError(true); });
     }
     return () => { active = false; };
@@ -537,6 +570,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [latestConsultation, setLatestConsultation] = useState<any>(null);
   const [patientReportedIntake, setPatientReportedIntake] = useState<any>(null);
   const [showHistoricalPEP, setShowHistoricalPEP] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('');
 
   const isPhilHealthMember = Boolean(
     entry?.patient?.philhealth_member === 'yes' ||
@@ -547,6 +581,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   useEffect(() => {
     if (open && entry?.patient) {
+      setSelectedPeriod('');
       const pObj = entry.patient;
       const dObj = entry.patient.details || {};
       const isMember = Boolean(
@@ -688,8 +723,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         registry_no: prev.registry_no || card?.registry_no || bite?.case_number || '',
         hospital_no: card?.hospital_no || clinicHospitalNo || prev.hospital_no || '',
         referred_by: resolvedReferredBy || prev.referred_by || '',
-        date_of_exposure: resolvedExposureDate || prev.date_of_exposure,
-        date_treatment_started: treatmentStartDate || prev.date_treatment_started,
+        date_of_exposure: resolvedExposureDate || prev.date_of_exposure || getLocalDateString(),
+        date_treatment_started: treatmentStartDate || prev.date_treatment_started || getLocalDateString(),
         place_of_exposure: bite?.bite_place || intake?.place_of_exposure || intake?.bite_place || prev.place_of_exposure,
         date: cardDate || day0AdministeredDate || prev.date || getLocalDateString(),
         mode_of_exposure: {
@@ -1181,8 +1216,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       await api.post('/vaccination-records', {
         patient_id: patientId,
         queue_id: entry.queue_id,
-        apply_signature: applySignature && signatureReady,
-        signature_version: applySignature && signatureReady ? signatureVersion : null,
+        apply_signature: Boolean(applySignature && (signatureReady || signatureVersion)),
+        signature_version: (applySignature && signatureVersion) ? signatureVersion : null,
         ...formData,
         mode_of_exposure: Object.keys(formData.mode_of_exposure).filter(
           key => formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]
@@ -1237,6 +1272,52 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         ? ['Day 0', 'Day 3', 'Day 7']
         : null;
 
+  const candidateDoseList = orderedDosePeriods
+    ? doses.filter(d => orderedDosePeriods.includes(d.period))
+    : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
+    ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
+    : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period)));
+
+  const PREREQ: Record<string, string> = {
+    'Day 3':     'Day 0',
+    'Day 7':     'Day 3',
+    'Day 28':    'Day 7',
+    'Booster 2': 'Booster 1',
+  };
+
+  const isDosePrerequisiteLocked = (period: string) => {
+    const prereqPeriod = PREREQ[period];
+    if (!prereqPeriod) return false;
+    const prereqDose = doses.find(d => d.period === prereqPeriod);
+    return !prereqDose || (!prereqDose.is_completed && !prereqDose.inventory_linked);
+  };
+
+  const activeCandidate = candidateDoseList.find(d => !d.is_completed && !d.inventory_linked && !isDosePrerequisiteLocked(d.period));
+  const activeUnlockedPeriod = activeCandidate ? activeCandidate.period : (candidateDoseList[0]?.period || 'Day 0');
+  const currentExpandedPeriod = selectedPeriod || activeUnlockedPeriod;
+
+  const handleToggleExposureMode = (key: string) => {
+    if (clinicalAssessmentLocked) return;
+    setFormData(prev => ({
+      ...prev,
+      mode_of_exposure: {
+        ...prev.mode_of_exposure,
+        [key]: !prev.mode_of_exposure[key as keyof typeof prev.mode_of_exposure],
+      },
+    }));
+  };
+
+  const handleToggleBodyPart = (key: string) => {
+    if (clinicalAssessmentLocked) return;
+    setFormData(prev => ({
+      ...prev,
+      body_part_affected: {
+        ...prev.body_part_affected,
+        [key]: !prev.body_part_affected[key as keyof typeof prev.body_part_affected],
+      },
+    }));
+  };
+
   const formContent = (
     <div style={{ padding: inline ? '0' : '24px 32px' }}>
       {/* Lock Alert - Show when form has completed doses */}
@@ -1244,7 +1325,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         <div style={{
           backgroundColor: '#fffbeb',
           border: '1px solid #fbbf24',
-          borderRadius: 8,
+          borderRadius: BORDER_RADIUS,
           padding: 12,
           marginBottom: 20,
           display: 'flex',
@@ -1254,7 +1335,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           <span style={{ fontSize: 20 }}>🔒</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#92400e', marginBottom: 2 }}>
-              Patient Information & Exposure Details Locked
+              Patient Information &amp; Exposure Details Locked
             </div>
             <div style={{ fontSize: 12, color: '#78350f' }}>
               These fields cannot be edited because at least one dose has been administered for this incident. Pending vaccine doses and prescribed tetanus / immunoglobulin administrations can still be recorded.
@@ -1262,1825 +1343,403 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
         </div>
       )}
-      
-      {/* SECTION 1: PATIENT & REGISTRATION INFORMATION */}
-      <div style={{ marginBottom: 32 }}>
-        <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          PATIENT &amp; REGISTRATION INFORMATION
-        </h3>
-        <div className="form3-equal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date</label>
-            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} max={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined, boxSizing: 'border-box' }} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Registry No. <span style={{ fontSize: 11, fontWeight: 400, color: '#6b7280' }}>(Admin / System Managed)</span>
-            </label>
-            <input
-              type="text"
-              value={formData.registry_no || '—'}
-              readOnly
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--input-border)',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                fontWeight: 600,
-                cursor: 'not-allowed',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-        </div>
-        <div className="form3-equal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Hospital No. <span style={{ fontSize: 11, fontWeight: 400, color: '#6b7280' }}>(Admin Managed)</span>
-            </label>
-            <input
-              type="text"
-              value={formData.hospital_no || ''}
-              placeholder="Not assigned (Managed in Admin Patient Profile)"
-              readOnly
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--input-border)',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                fontWeight: formData.hospital_no ? 600 : 400,
-                cursor: 'not-allowed',
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Referred by
-            </label>
-            <input
-              type="text"
-              value={formData.referred_by || ''}
-              readOnly
-              disabled
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--input-border)',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: 'var(--bg-secondary, #e8fdf6)',
-                color: '#374151',
-                cursor: 'not-allowed',
-                fontWeight: 500,
-              }}
-              placeholder="— Form 2 Consultation"
-            />
-          </div>
-        </div>
-        <div id="field-philhealth_pin" style={{
-          marginBottom: 16,
-          padding: fieldErrors.philhealth_pin ? '12px' : '0px',
-          border: fieldErrors.philhealth_pin ? '2px solid #ef4444' : 'none',
-          borderRadius: '8px',
-          backgroundColor: fieldErrors.philhealth_pin ? '#fef2f2' : 'transparent',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.philhealth_pin ? '#dc2626' : '#374151' }}>
-              PhilHealth Identification Number (PIN)
-            </label>
-            {!isPhilHealthMember && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', padding: '2px 8px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <span>⚠</span> No PhilHealth Information Provided in Form 1
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <input
-              type="text"
-              value={isPhilHealthMember ? formData.philhealth_pin : 'No PhilHealth Information Provided in Form 1'}
-              onChange={handleFieldChange('philhealth_pin')}
-              placeholder={isPhilHealthMember ? "XX-XXXXXXXXX-X" : "No PhilHealth Information Provided in Form 1"}
-              maxLength={14}
-              disabled={readOnly || !isPhilHealthMember}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                border: fieldErrors.philhealth_pin ? '2px solid #ef4444' : !isPhilHealthMember ? '1px dashed #fca5a5' : '1px solid var(--input-border)',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: !isPhilHealthMember ? '#fef2f2' : readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                color: !isPhilHealthMember ? '#dc2626' : '#111827',
-                fontWeight: !isPhilHealthMember ? 500 : 400,
-                fontStyle: !isPhilHealthMember ? 'italic' : 'normal',
-                cursor: !isPhilHealthMember ? 'not-allowed' : undefined,
-              }}
-            />
-            <select
-              value={isPhilHealthMember ? formData.philhealth_type : ''}
-              onChange={handleFieldChange('philhealth_type')}
-              disabled={readOnly || !isPhilHealthMember}
-              style={{
-                padding: '8px 12px',
-                border: !isPhilHealthMember ? '1px dashed #fca5a5' : '1px solid var(--input-border)',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: !isPhilHealthMember ? '#fef2f2' : readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                color: !isPhilHealthMember ? '#dc2626' : '#111827',
-                outline: 'none',
-                cursor: !isPhilHealthMember ? 'not-allowed' : undefined,
-              }}
-            >
-              <option value="">{isPhilHealthMember ? '— Select —' : '— Not Provided —'}</option>
-              {isPhilHealthMember && (
-                <>
-                  <option value="member">Member</option>
-                  <option value="dependent">Dependent</option>
-                </>
-              )}
-            </select>
-          </div>
-          {fieldErrors.philhealth_pin && (
-            <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.philhealth_pin}</div>
-          )}
-        </div>
-        {/* Row 1: Patient Name (left) & Date of Birth (right) */}
-        <div className="form3-equal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Patient Name <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="text" value={formData.patient_name} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280', boxSizing: 'border-box' }} placeholder="Last, First Middle" />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date of Birth</label>
-            <input type="date" value={formData.date_of_birth} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280', boxSizing: 'border-box' }} />
-          </div>
-        </div>
 
-        {/* Row 2: Age (left) & Sex (right) */}
-        <div className="form3-equal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Age</label>
-            <input type="text" value={formData.age} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280', boxSizing: 'border-box' }} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Sex</label>
-            <div style={{ display: 'flex', alignItems: 'center', minHeight: 38, gap: 24 }}>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: 'default' }}>
-                <input type="radio" name="sex" value="male" checked={formData.sex === 'male'} readOnly style={{ marginRight: 6 }} />
-                <span style={{ fontSize: 13, color: '#6b7280' }}>Male</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: 'default' }}>
-                <input type="radio" name="sex" value="female" checked={formData.sex === 'female'} readOnly style={{ marginRight: 6 }} />
-                <span style={{ fontSize: 13, color: '#6b7280' }}>Female</span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* Row 3: Address alone */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Address</label>
-          <input type="text" value={formData.address} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280', boxSizing: 'border-box' }} />
-        </div>
-
-        {/* Row 4: Doctor-assessed Exposure Category, read-only */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-          <div id="field-exposure_category" style={{
-            display: 'inline-flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            padding: fieldErrors.exposure_category ? '10px 16px' : '0px',
-            border: fieldErrors.exposure_category ? '2px solid #ef4444' : 'none',
-            borderRadius: '8px',
-            backgroundColor: fieldErrors.exposure_category ? '#fef2f2' : 'transparent',
-          }}>
-            <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Exposure Category</span>
-            <output aria-label="Exposure Category" style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
-              {exposureCategory ? `Category ${exposureCategory}` : 'Not yet assessed'}
-            </output>
-            <small style={{ color: '#64748b', marginTop: 4 }}>Read-only — assessed in Form 2</small>
-            {fieldErrors.exposure_category && (
-              <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6, textAlign: 'center' }}>⚠ {fieldErrors.exposure_category}</div>
-            )}
-          </div>
-        </div>
-
-        <div className="form3-equal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}>
-          <div id="field-date_of_exposure" style={{
-            padding: fieldErrors.date_of_exposure ? '10px' : '0px',
-            border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : 'none',
-            borderRadius: '8px',
-            backgroundColor: fieldErrors.date_of_exposure ? '#fef2f2' : 'transparent',
-          }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.date_of_exposure ? '#dc2626' : '#374151', marginBottom: 6 }}>
-              Date of Exposure <span style={{ color: '#ef4444' }}>*</span>
-            </label>
-            <input 
-              type="date" 
-              value={formData.date_of_exposure} 
-              onChange={handleFieldChange('date_of_exposure')} 
-              max={new Date().toISOString().split('T')[0]}
+      {/* 1. EXPOSURE */}
+      <FormSection title="Exposure">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 12 }}>
+          <div id="field-mode_of_exposure">
+            <ChipGroup
+              label="Mode of exposure"
+              options={MODE_OF_EXPOSURE_CHIPS}
+              selectedKeys={formData.mode_of_exposure}
+              onToggle={handleToggleExposureMode}
               disabled={clinicalAssessmentLocked}
-              style={{ 
-                width: '100%', 
-                padding: '8px 12px', 
-                border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : '1px solid var(--input-border)', 
-                borderRadius: 6, 
-                fontSize: 13, 
-                backgroundColor: readOnly ? '#f3f4f6' : undefined,
-                cursor: readOnly ? 'not-allowed' : undefined,
-              }} 
+              error={fieldErrors.mode_of_exposure}
             />
-            {fieldErrors.date_of_exposure && (
-              <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.date_of_exposure}</div>
-            )}
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Date Treatment Started
-            </label>
-            <input 
-              type="date" 
-              value={formData.date_treatment_started} 
-              onChange={handleFieldChange('date_treatment_started')} 
-              max={new Date().toISOString().split('T')[0]}
-              disabled={readOnly} 
-              style={{ 
-                width: '100%', 
-                padding: '8px 12px', 
-                border: '1px solid var(--input-border)', 
-                borderRadius: 6, 
-                fontSize: 13, 
-                backgroundColor: readOnly ? '#f3f4f6' : undefined,
-                cursor: readOnly ? 'not-allowed' : undefined,
-              }} 
+
+          <div id="field-body_part_affected">
+            <ChipGroup
+              label="Body part"
+              options={BODY_PART_CHIPS}
+              selectedKeys={formData.body_part_affected}
+              onToggle={handleToggleBodyPart}
+              disabled={clinicalAssessmentLocked}
+              error={fieldErrors.body_part_affected}
             />
           </div>
         </div>
+
         <div>
-          {/* ── Label row: "Place of Exposure" label + toggle button side by side ── */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Place of Exposure</label>
-            {false && !readOnly && (
-              <button
-                type="button"
-                onClick={() => expLoc.setUseManual(!expLoc.useManual)}
-                style={{
-                  padding: '5px 12px', fontSize: 12, fontWeight: 600,
-                  background: '#f8fbff', color: '#475569',
-                  border: '1px solid #cfd8e3', borderRadius: 10,
-                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6,
-                  flexShrink: 0, whiteSpace: 'nowrap',
-                  boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
-                }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {expLoc.useManual ? (
-                    <>
-                      <path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/>
-                      <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/>
-                      <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/>
-                      <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/>
-                    </>
-                  ) : (
-                    <>
-                      <path d="M12 20h9"/>
-                      <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"/>
-                    </>
-                  )}
-                </svg>
-                {expLoc.useManual ? 'Switch to Dropdown' : 'Switch to Manual Typing'}
-              </button>
-            )}
-          </div>
-
-          {/* ── Same dropdown UI as Add Patient residential address ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-
-            {/* API error warning */}
-            {expLoc.apiError && !expLoc.useManual && (
-              <div style={{ padding: '6px 10px', background: '#fef9c3', border: '1px solid #fcd34d', borderRadius: 6, fontSize: 12, color: '#92400e' }}>
-                ⚠ Address API unavailable. <button type="button" onClick={() => expLoc.setUseManual(true)} style={{ background: 'none', border: 'none', color: '#b45309', cursor: 'pointer', textDecoration: 'underline', fontSize: 12, padding: 0 }}>Switch to manual entry</button>
-              </div>
-            )}
-
-            {expLoc.useManual ? (
-              /* ── Manual free-text mode ── */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>City / Municipality</label>
-                    <input
-                      type="text"
-                      value={expLoc.manualMun}
-                      onChange={e => expLoc.setManualMun(e.target.value)}
-                      disabled={clinicalAssessmentLocked}
-                      placeholder="Enter municipality"
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border, #d1d5db)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Barangay</label>
-                    <input
-                      type="text"
-                      value={expLoc.manualBrgy}
-                      onChange={e => expLoc.setManualBrgy(e.target.value)}
-                      disabled={clinicalAssessmentLocked}
-                      placeholder="Enter barangay"
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border, #d1d5db)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Purok / Zone</label>
-                  <input
-                    type="text"
-                    value={purok}
-                    onChange={e => setPurok(e.target.value)}
-                    onBlur={e => setPurok(cleanPurok(e.target.value))}
-                    disabled={clinicalAssessmentLocked || !expLoc.manualBrgy}
-                    placeholder="e.g. Purok 1, Zone 2"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid var(--input-border, #d1d5db)',
-                      borderRadius: 6,
-                      fontSize: 13,
-                      boxSizing: 'border-box',
-                      backgroundColor: (readOnly || !expLoc.manualBrgy) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                      color: (readOnly || !expLoc.manualBrgy) ? '#6b7280' : '#1f2937',
-                      fontFamily: 'inherit',
-                    }}
-                  />
-                </div>
-              </div>
-            ) : (
-              /* ── Dropdown mode ── */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>City / Municipality *</label>
-                    <select
-                      value={expLoc.municipality}
-                      onChange={e => {
-                        expLoc.setMunicipality(e.target.value);
-                        setPurok('');
-                      }}
-                      disabled={clinicalAssessmentLocked || expLoc.loadingMun}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border, #d1d5db)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
-                    >
-                      <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
-                      {expLoc.municipalities.map(m => (
-                        <option key={m.code} value={m.code}>{m.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Barangay *</label>
-                    <select
-                      value={expLoc.barangay}
-                      onChange={e => {
-                        expLoc.setBarangay(e.target.value);
-                        setPurok('');
-                      }}
-                      disabled={clinicalAssessmentLocked || !expLoc.municipality || expLoc.loadingBrgy}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border, #d1d5db)', borderRadius: 6, fontSize: 13, backgroundColor: (readOnly || !expLoc.municipality) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
-                    >
-                      <option value="">{expLoc.loadingBrgy ? 'Loading…' : (expLoc.municipality ? '— Select —' : '— Select Municipality First —')}</option>
-                      {expLoc.barangays.map(b => (
-                        <option key={b.code} value={b.code}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Purok / Zone</label>
-                  <input
-                    type="text"
-                    value={purok}
-                    onChange={e => setPurok(e.target.value)}
-                    onBlur={e => setPurok(cleanPurok(e.target.value))}
-                    disabled={clinicalAssessmentLocked || (!expLoc.barangay && !expLoc.manualBrgy)}
-                    placeholder={(!expLoc.barangay && !expLoc.manualBrgy) ? 'Select Barangay first' : 'e.g. Purok 1, Zone 2'}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid var(--input-border, #d1d5db)',
-                      borderRadius: 6,
-                      fontSize: 13,
-                      boxSizing: 'border-box',
-                      backgroundColor: (readOnly || (!expLoc.barangay && !expLoc.manualBrgy)) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                      color: (readOnly || (!expLoc.barangay && !expLoc.manualBrgy)) ? '#6b7280' : '#1f2937',
-                      fontFamily: 'inherit',
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Read-only display when form is read-only and value came from bite record */}
-            {readOnly && !expLoc.full && !purok && formData.place_of_exposure && (
-              <div style={{ padding: '7px 11px', background: 'var(--bg-secondary, #f9fafb)', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, color: '#374151' }}>
-                {formData.place_of_exposure}
-              </div>
-            )}
-          </div>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)', marginBottom: 6 }}>
+            Exact location (optional)
+          </label>
+          <input
+            type="text"
+            value={formData.body_part_affected_text}
+            onChange={handleFieldChange('body_part_affected_text')}
+            placeholder="e.g. left forearm, near the wrist"
+            disabled={clinicalAssessmentLocked}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: '1px solid var(--input-border, #d1d5db)',
+              borderRadius: BORDER_RADIUS,
+              fontSize: 13,
+              backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+              color: 'var(--input-text, #111827)',
+              boxSizing: 'border-box',
+              outline: 'none',
+            }}
+          />
         </div>
-      </div>
+      </FormSection>
 
-      {/* SECTION 2: EXPOSURE DETAILS */}
-      <div style={{ marginBottom: 32 }}>
-        <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>EXPOSURE DETAILS</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>1. Mode of Animal Exposure</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                ['nibbling_uncovered', 'Nibbling/Licking of uncovered skin'],
-                ['nibbling_wounded', 'Nibbling/Licking of wounded/broken skin'],
-                ['scratch_abrasion', 'Scratch / Abrasion'],
-                ['transdermal_bite', 'Transdermal Bite'],
-                ['handling_ingestion', 'Handling / Ingestion of raw infected meat'],
-              ].map(([key, label]) => (
-                <label key={key} style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input type="checkbox" checked={formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]} onChange={handleCheckboxChange('mode_of_exposure', key as any)} disabled={clinicalAssessmentLocked} style={{ marginRight: 8, marginTop: 2 }} />
-                  <span style={{ fontSize: 13, color: '#374151' }}>{label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>2. Body Part Affected / Exposed</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.head_neck} 
-                  onChange={handleCheckboxChange('body_part_affected', 'head_neck')} 
-                  disabled={clinicalAssessmentLocked}
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Head & Neck</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.upper_extremities} 
-                  onChange={handleCheckboxChange('body_part_affected', 'upper_extremities')} 
-                  disabled={clinicalAssessmentLocked}
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Upper Extremities (Arm/Hand)</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.lower_extremities} 
-                  onChange={handleCheckboxChange('body_part_affected', 'lower_extremities')} 
-                  disabled={clinicalAssessmentLocked}
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Lower Extremities (Leg/Foot)</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.trunk_torso} 
-                  onChange={handleCheckboxChange('body_part_affected', 'trunk_torso')} 
-                  disabled={clinicalAssessmentLocked}
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Trunk / Torso</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.multiple_sites} 
-                  onChange={handleCheckboxChange('body_part_affected', 'multiple_sites')} 
-                  disabled={clinicalAssessmentLocked}
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Multiple Sites</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.na_ingestion} 
-                  onChange={handleCheckboxChange('body_part_affected', 'na_ingestion')} 
-                  disabled={clinicalAssessmentLocked}
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>N/A (Ingestion)</span>
-              </label>
-            </div>
-            <input
+      {/* 2. ANIMAL */}
+      <FormSection title="Animal">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 16 }}>
+          <div id="field-animal_type">
+            <SegmentedControl
+              label="Species"
+              options={[
+                { value: 'dog', label: 'Dog' },
+                { value: 'cat', label: 'Cat' },
+                { value: 'other', label: 'Other' },
+              ]}
+              value={formData.animal_type}
+              onChange={(val) => setFormData(prev => ({
+                ...prev,
+                animal_type: val,
+                animal_type_other: val === 'other' ? prev.animal_type_other : '',
+              }))}
+              disabled={clinicalAssessmentLocked}
+              error={fieldErrors.animal_type || (formData.animal_type === 'other' ? fieldErrors.animal_type_other : undefined)}
+            />
+            {formData.animal_type === 'other' && (
+              <input
                 type="text"
-                value={formData.body_part_affected_text}
-                onChange={handleFieldChange('body_part_affected_text')}
-                placeholder="Specify exact location (optional)"
+                value={formData.animal_type_other}
+                onChange={handleFieldChange('animal_type_other')}
+                placeholder="Specify other species"
                 disabled={clinicalAssessmentLocked}
                 style={{
                   width: '100%',
-                  padding: '7px 10px',
-                  border: '1px solid var(--input-border)',
-                  borderRadius: 4,
+                  marginTop: 8,
+                  padding: '8px 12px',
+                  border: '1px solid var(--input-border, #d1d5db)',
+                  borderRadius: BORDER_RADIUS,
                   fontSize: 13,
-                  backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                  boxSizing: 'border-box',
                 }}
-              />
-          </div>
-
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>3. Animal Details & Observation Status</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
-              {FORM3_ANIMAL_SPECIES_OPTIONS.map(({ value, label }) => (
-                <label key={value} style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="vr_animal_type"
-                    checked={formData.animal_type === value}
-                    onChange={() => setFormData((prev) => ({
-                      ...prev,
-                      animal_type: value,
-                      animal_type_other: value === 'other' ? prev.animal_type_other : '',
-                    }))}
-                    disabled={clinicalAssessmentLocked}
-                    style={{ marginRight: 6 }}
-                  />
-                  <span style={{ fontSize: 13, color: '#374151' }}>{label}</span>
-                </label>
-              ))}
-              {formData.animal_type === 'other' && (
-                <input
-                  type="text"
-                  value={formData.animal_type_other}
-                  onChange={handleFieldChange('animal_type_other')}
-                  placeholder="Specify the other animal species"
-                  disabled={clinicalAssessmentLocked}
-                  style={{
-                    flex: 1,
-                    minWidth: 160,
-                    padding: '6px 10px',
-                    border: '1px solid var(--input-border)',
-                    borderRadius: 4,
-                    fontSize: 13,
-                    backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : undefined,
-                  }}
-                />
-              )}
-            </div>
-
-            <div style={{ marginTop: 10, padding: '12px 14px', background: 'var(--bg-secondary, #f8fafc)', borderRadius: 6, border: '1px solid var(--input-border, #e2e8f0)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-                <div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>
-                    Animal Ownership
-                  </span>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    {[
-                      { value: 'owned', label: 'Owned' },
-                      { value: 'stray', label: 'Stray' },
-                      { value: 'unknown', label: 'Unknown' },
-                    ].map(opt => (
-                      <label key={opt.value} style={{ display: 'flex', alignItems: 'center', cursor: clinicalAssessmentLocked ? 'default' : 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="vr_animal_status"
-                          value={opt.value}
-                          checked={formData.animal_status === opt.value}
-                          onChange={handleFieldChange('animal_status')}
-                          disabled={clinicalAssessmentLocked}
-                          style={{ marginRight: 5 }}
-                        />
-                        <span style={{ fontSize: 12, color: '#374151' }}>{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>
-                    Available for 14-day Observation?
-                  </span>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    {[
-                      { value: 'yes', label: 'Yes' },
-                      { value: 'no', label: 'No' },
-                      { value: 'unknown', label: 'Unknown' },
-                    ].map(opt => (
-                      <label key={opt.value} style={{ display: 'flex', alignItems: 'center', cursor: clinicalAssessmentLocked ? 'default' : 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="vr_animal_available"
-                          value={opt.value}
-                          checked={formData.animal_available === opt.value}
-                          onChange={handleFieldChange('animal_available')}
-                          disabled={clinicalAssessmentLocked}
-                          style={{ marginRight: 5 }}
-                        />
-                        <span style={{ fontSize: 12, color: '#374151' }}>{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>
-                    Animal Condition
-                  </span>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    {[
-                      { value: 'healthy', label: 'Apparently Healthy' },
-                      { value: 'sick', label: 'Sick' },
-                      { value: 'died', label: 'Dead / Killed' },
-                      { value: 'unknown', label: 'Unknown' },
-                    ].map(opt => (
-                      <label key={opt.value} style={{ display: 'flex', alignItems: 'center', cursor: clinicalAssessmentLocked ? 'default' : 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="vr_animal_condition"
-                          value={opt.value}
-                          checked={formData.animal_condition === opt.value}
-                          onChange={handleFieldChange('animal_condition')}
-                          disabled={clinicalAssessmentLocked}
-                          style={{ marginRight: 5 }}
-                        />
-                        <span style={{ fontSize: 12, color: '#374151' }}>{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        {patientReportedIntake && (
-          <p style={{ margin: '12px 0 0', padding: '8px 10px', borderRadius: 6, background: '#eff6ff', color: '#1e40af', fontSize: 11.5 }}>
-            Past-bite and PEP answers may be prefilled from the patient-reported mobile intake. Verify them before saving Form 3.
-          </p>
-        )}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 24 }}>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>4. Past History of animal bite</p>
-            <div style={{ display: 'flex', gap: 24 }}>
-              {['yes', 'no', 'unsure'].map(v => (
-                <label key={v} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input type="radio" name="past_history_bite" value={v} checked={formData.past_history_bite === v} onChange={handleFieldChange('past_history_bite')} disabled={isFormLocked} style={{ marginRight: 6 }} />
-                  <span style={{ fontSize: 13, color: '#374151', textTransform: 'capitalize' }}>{v}</span>
-                </label>
-              ))}
-            </div>
-            {formData.past_history_bite === 'yes' && (
-              <input
-                type="text"
-                value={formData.past_bite_dates}
-                onChange={handleFieldChange('past_bite_dates')}
-                placeholder="Approximate previous bite date(s)"
-                disabled={isFormLocked}
-                style={{ width: '100%', marginTop: 10, padding: '7px 10px', border: '1px solid var(--input-border)', borderRadius: 4, fontSize: 13 }}
               />
             )}
           </div>
+
           <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Previous PEP / Rabies Vaccination</p>
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-              {[
+            <SegmentedControl
+              label="Ownership"
+              options={[
+                { value: 'owned', label: 'Owned' },
+                { value: 'stray', label: 'Stray' },
+                { value: 'unknown', label: 'Unknown' },
+              ]}
+              value={formData.animal_status || 'unknown'}
+              onChange={(val) => setFormData(prev => ({ ...prev, animal_status: val as any }))}
+              disabled={clinicalAssessmentLocked}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <div>
+            <SegmentedControl
+              label="Available for 14-day observation"
+              options={[
+                { value: 'yes', label: 'Yes' },
+                { value: 'no', label: 'No' },
+                { value: 'unknown', label: 'Unknown' },
+              ]}
+              value={formData.animal_available || 'unknown'}
+              onChange={(val) => setFormData(prev => ({ ...prev, animal_available: val as any }))}
+              disabled={clinicalAssessmentLocked}
+            />
+          </div>
+
+          <div>
+            <SegmentedControl
+              label="Condition"
+              options={[
+                { value: 'healthy', label: 'Healthy' },
+                { value: 'sick', label: 'Sick' },
+                { value: 'died', label: 'Dead' },
+                { value: 'unknown', label: 'Unknown' },
+              ]}
+              value={formData.animal_condition || 'unknown'}
+              onChange={(val) => setFormData(prev => ({ ...prev, animal_condition: val as any }))}
+              disabled={clinicalAssessmentLocked}
+            />
+          </div>
+        </div>
+      </FormSection>
+
+      {/* 3. HISTORY */}
+      <FormSection title="History">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <div>
+            <SegmentedControl
+              label="Past animal bite"
+              options={[
+                { value: 'yes', label: 'Yes' },
+                { value: 'no', label: 'No' },
+                { value: 'unsure', label: 'Unsure' },
+              ]}
+              value={formData.past_history_bite || ''}
+              onChange={(val) => setFormData(prev => ({ ...prev, past_history_bite: val }))}
+              disabled={isFormLocked}
+            />
+          </div>
+
+          <div>
+            <SegmentedControl
+              label="Previous rabies vaccination"
+              options={[
                 { value: 'completed', label: 'Completed' },
                 { value: 'incomplete', label: 'Incomplete' },
                 { value: 'none', label: 'None' },
                 { value: 'unsure', label: 'Unsure' },
-              ].map(opt => (
-                <label key={opt.value} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="pep_completed"
-                    value={opt.value}
-                    checked={formData.pep_completed === opt.value || (opt.value === 'completed' && formData.pep_completed === 'yes') || (opt.value === 'none' && formData.pep_completed === 'no')}
-                    onChange={handleFieldChange('pep_completed')}
-                    disabled={isFormLocked}
-                    style={{ marginRight: 5 }}
-                  />
-                  <span style={{ fontSize: 13, color: '#374151' }}>{opt.label}</span>
-                </label>
-              ))}
-            </div>
+              ]}
+              value={
+                formData.pep_completed === 'yes'
+                  ? 'completed'
+                  : formData.pep_completed === 'no'
+                  ? 'none'
+                  : formData.pep_completed || ''
+              }
+              onChange={(val) => setFormData(prev => ({ ...prev, pep_completed: val }))}
+              disabled={isFormLocked}
+            />
             {patientReportedIntake?.prior_pep_date && (
-              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#6b7280' }}>
+              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#64748b' }}>
                 Reported prior date: <strong>{patientReportedIntake.prior_pep_date}</strong>
               </p>
             )}
           </div>
         </div>
-      </div>
 
-      {/* ── SEPARATE SECTION: DOCTOR FINDINGS & NEW BITE EXPOSURE SUMMARY (BOOSTER / RE-EXPOSURE) ── */}
-      {(isBoosterPlan || isReturningNewBite || (currentIncident?.episode_number && Number(currentIncident.episode_number) > 1)) && (
-        <div style={{ marginBottom: 28 }}>
-          {/* Card 1: Doctor Triage Findings & Clinical Orders */}
-          <div style={{
-            padding: '18px 20px',
-            borderRadius: 12,
-            border: '1.5px solid #bfdbfe',
-            background: 'linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%)',
-            marginBottom: 16,
-            boxShadow: '0 2px 8px rgba(30, 58, 138, 0.06)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid #dbeafe', paddingBottom: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 22 }}>🩺</span>
-                <div>
-                  <h4 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#1e40af' }}>
-                    Doctor Consultation &amp; Triage Findings (Form 2)
-                  </h4>
-                  <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#475569' }}>
-                    Clinical triage vitals and prescribed rabies vaccination regimen from the attending physician.
-                  </p>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', backgroundColor: '#dbeafe', padding: '3px 9px', borderRadius: 12 }}>
-                  Dr. {latestConsultation?.attending_provider || latestConsultation?.provider_name || 'Attending Physician'}
-                </span>
-                <span style={{ fontSize: 11, color: '#64748b' }}>
-                  {latestConsultation?.consultation_date || formData.date}
-                </span>
-              </div>
-            </div>
-
-            {/* Vitals Highlights: Temperature & Blood Pressure */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14, padding: '12px 16px', borderRadius: 8, backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}>
-              <div>
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Body Temperature</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-                  <strong style={{ fontSize: 15, color: '#1e293b' }}>
-                    {latestConsultation?.temperature ? `${latestConsultation.temperature} °C` : 'Not recorded'}
-                  </strong>
-                  {latestConsultation?.temperature && (
-                    parseFloat(latestConsultation.temperature) >= 38.0 ? (
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b91c1c', background: '#fee2e2', padding: '1px 6px', borderRadius: 4 }}>High Fever</span>
-                    ) : parseFloat(latestConsultation.temperature) >= 37.5 ? (
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>Low Grade</span>
-                    ) : (
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '1px 6px', borderRadius: 4 }}>Afebrile</span>
-                    )
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Blood Pressure</span>
-                <strong style={{ fontSize: 15, color: '#1e293b', display: 'block', marginTop: 3 }}>
-                  {latestConsultation?.blood_pressure ? `${latestConsultation.blood_pressure} mmHg` : '—'}
-                </strong>
-              </div>
-
-              <div>
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Weight / Height</span>
-                <span style={{ fontSize: 13, color: '#334155', fontWeight: 600, display: 'block', marginTop: 4 }}>
-                  {latestConsultation?.weight ? `${latestConsultation.weight} kg` : '—'} · {latestConsultation?.height ? `${latestConsultation.height} cm` : '—'}
-                </span>
-              </div>
-
-              <div>
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Doctor Prescribed Regimen</span>
-                <span style={{
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  color: '#4338ca',
-                  backgroundColor: '#e0e7ff',
-                  padding: '2px 8px',
-                  borderRadius: 6,
-                  display: 'inline-block',
-                  marginTop: 3
-                }}>
-                  {doctorPlanType === 'two_dose_booster'
-                    ? '🛡️ 2-Dose Booster (Day 0, 3)'
-                    : doctorPlanType === 'single_booster'
-                      ? '🛡️ 1-Dose Booster (Day 0)'
-                      : doctorPlanType === 'full_pep'
-                        ? 'Full PEP (Day 0, 3, 7)'
-                        : 'Re-Exposure Regimen'}
-                </span>
-              </div>
-            </div>
-
-            {/* Doctor Clinical Impression & Orders */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 14, fontSize: 12.5 }}>
-              <div style={{ padding: '10px 12px', borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <strong style={{ color: '#334155', display: 'block', marginBottom: 3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                  Doctor Diagnosis / Clinical Impression:
-                </strong>
-                <span style={{ color: '#0f172a' }}>
-                  {latestConsultation?.diagnosis || 'Animal bite exposure, awaiting clinical impression.'}
-                </span>
-                {latestConsultation?.chief_complaints && (
-                  <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
-                    <em>Chief complaint:</em> {latestConsultation.chief_complaints}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ padding: '10px 12px', borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <strong style={{ color: '#334155', display: 'block', marginBottom: 3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                  Prescribed PEP Vaccine Brand:
-                </strong>
-                <span style={{ fontWeight: 700, color: prescribedVaccineType ? '#15803d' : '#b45309' }}>
-                  {prescribedVaccineType ? `💉 ${prescribedVaccineType}` : '⚠️ Follow clinic standard vaccine'}
-                </span>
-                {latestConsultation?.medication_treatment && (
-                  <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
-                    <em>Orders:</em> {latestConsultation.medication_treatment}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: New Bite Incident & Exposure Details */}
-          <div style={{
-            padding: '16px 20px',
-            borderRadius: 12,
-            border: '1.5px solid #fed7aa',
-            background: '#fffaf5',
-            boxShadow: '0 2px 6px rgba(234, 88, 12, 0.05)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid #ffedd5', paddingBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 18 }}>⚠️</span>
-                <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                  New Bite Exposure Details (Episode #{currentIncident?.episode_number || 2})
-                </h4>
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#9a3412', backgroundColor: '#ffedd5', padding: '2px 8px', borderRadius: 10 }}>
-                {currentIncident?.episode_type === 're_exposure' ? 'Re-Exposure Case' : 'New Animal Incident'}
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, fontSize: 12.5, color: '#334155' }}>
-              <div>
-                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>EXPOSURE DATE</span>
-                <strong>{formData.date_of_exposure || currentIncident?.bite_date || 'Not recorded'}</strong>
-              </div>
-              <div>
-                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>INCIDENT LOCATION</span>
-                <strong>{formData.place_of_exposure || currentIncident?.bite_place || 'Misamis Oriental'}</strong>
-              </div>
-              <div>
-                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>CATEGORY &amp; NATURE</span>
-                <strong>{exposureCategory ? `Category ${exposureCategory}` : 'Not yet assessed'} · {currentIncident?.exposure_type || 'Bite'}</strong>
-              </div>
-              <div>
-                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>ANIMAL INVOLVED</span>
-                <strong>
-                  {formData.animal_type ? formData.animal_type.toUpperCase() : (currentIncident?.animal_type ? currentIncident.animal_type.toUpperCase() : 'CANINE')}
-                  {currentIncident?.animal_status ? ` (${currentIncident.animal_status})` : ''}
-                </strong>
-              </div>
-            </div>
-
-            {(formData.body_part_affected_text || currentIncident?.body_part_exposed || currentIncident?.wound_description) && (
-              <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed #fed7aa', display: 'flex', gap: 16, fontSize: 12, color: '#431407' }}>
-                {(formData.body_part_affected_text || currentIncident?.body_part_exposed) && (
-                  <div>
-                    <strong>Anatomical Site:</strong> {formData.body_part_affected_text || currentIncident?.body_part_exposed}
-                  </div>
-                )}
-                {currentIncident?.wound_description && (
-                  <div>
-                    <strong>Wound Characteristics:</strong> {currentIncident.wound_description}
-                  </div>
-                )}
-                {currentIncident?.site_washed !== undefined && (
-                  <div>
-                    <strong>Washed:</strong> {currentIncident.site_washed ? 'Yes (Soap & Water)' : 'No'}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* SECTION 3: VACCINATION RECORD */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-          <div>
-            <h3 style={{ color: isBoosterPlan ? '#7c3aed' : '#10b981', fontSize: 14, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {isBoosterPlan ? '🛡️ RE-EXPOSURE BOOSTER VACCINE ADMINISTRATION' : 'PERIOD EXPOSURE VACCINATION RECORD'}
-            </h3>
-            <span style={{ fontSize: 12, color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: isBoosterPlan ? '#7c3aed' : '#10b981' }}></span>
-              {isBoosterPlan ? 'Dedicated Episode Booster Table • Historical Records Archived Below' : 'Automatic FIFO Stock Deduction on Save • Cross-Clinic Continuity Supported'}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* 8.2 — Re-Exposure / Re-Bite toggle */}
-            {!readOnly && (
-              <button
-                type="button"
-                onClick={() => {
-                  setManualReExposure(v => !v);
-                  // Reset show full schedule when switching modes
-                  setShowFullSchedule(false);
-                }}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '6px 12px',
-                  backgroundColor: manualReExposure ? '#fef3c7' : 'var(--card-bg-solid, #ffffff)',
-                  border: `1px solid ${manualReExposure ? '#f59e0b' : '#cbd5e1'}`,
-                  borderRadius: 6, fontSize: 12, fontWeight: 700,
-                  color: manualReExposure ? '#92400e' : '#64748b',
-                  cursor: 'pointer',
-                }}
-                title="Toggle if this is a new bite on a previously vaccinated patient (DOH 2-dose booster protocol)"
-              >
-                {manualReExposure ? '🔄 Re-Bite Active' : '🔄 Re-Bite / Re-Exposure?'}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setTransferModalOpen(true)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 12px',
-                backgroundColor: 'var(--card-bg-solid, #ffffff)',
-                border: '1px solid var(--border-glow, #cbd5e1)',
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--text-h, #1e293b)',
-                cursor: 'pointer',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-              }}
-            >
-              📄 Transfer Out / Referral Slip
-            </button>
-          </div>
-        </div>
-
-        {isBoosterPlan ? (
-          <div style={{
-            marginBottom: 16,
-            padding: '12px 16px',
-            backgroundColor: '#f5f3ff',
-            border: '1.5px solid #c4b5fd',
-            borderRadius: 8,
-            color: '#4c1d95',
-            fontSize: 13,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 10,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>🛡️</span>
-              <div>
-                <div style={{ fontWeight: 700 }}>
-                  {doctorPlanType === 'single_booster' ? 'Single-Dose Booster Regimen' : 'Two-Dose Booster Regimen (Day 0 & Day 3)'}
-                </div>
-                <div style={{ fontSize: 12, color: '#5b21b6', marginTop: 1 }}>
-                  {doctorPlanType === 'single_booster'
-                    ? 'Doctor ordered Day 0 booster only. Administer dose below and complete consultation.'
-                    : 'Doctor ordered Day 0 and Day 3 boosters per re-exposure management guidelines.'}
-                </div>
-              </div>
-            </div>
-            <span style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: '#5b21b6',
-              background: '#ede9fe',
-              padding: '4px 10px',
-              borderRadius: 14,
-              border: '1px solid #ddd6fe'
-            }}>
-              Episode #{currentIncident?.episode_number || 2} Active
-            </span>
-          </div>
-        ) : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
-          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid var(--border-glow, #a7f3d0)', borderRadius: 6, color: 'var(--text-h, #065f46)', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>🛡️</span>
-            <span><strong>Legacy re-exposure record</strong>: This historical schedule predates the Doctor-plan workflow. Follow its documented order; all new exposures require a Doctor decision before any dose is recorded.</span>
-          </div>
-        )}
-
-        {inventorySetupMessage && (
-          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(245, 158, 11, 0.12)', border: '1px solid var(--border-glow, #fde68a)', borderRadius: 6, color: 'var(--text-b, #92400e)', fontSize: 12 }}>
-            ⚠ {inventorySetupMessage}
-          </div>
-        )}
-
-        {isReturningNewBite && pastHistoryRecords.length > 0 && (
-          <div style={{
-            marginBottom: 16,
-            padding: '12px 16px',
-            borderRadius: 8,
-            backgroundColor: 'rgba(16, 185, 129, 0.12)',
-            border: '1px solid var(--border-glow, #a7f3d0)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-          }}>
-            <span style={{ fontSize: 20 }}>🛡️</span>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-h, #065f46)' }}>
-                Prior Immunization History Verified ({pastHistoryRecords.filter(r => r.status === 'completed').length} completed doses on file)
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-b, #047857)', marginTop: 2 }}>
-                Patient is returning with a new animal bite exposure. A fresh vaccination regimen has been initiated — doses below are open for recording today's treatment.
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div style={{ overflowX: 'auto', border: '1px solid var(--border-glow, #e5e7eb)', borderRadius: 8, backgroundColor: 'var(--card-bg-solid, #ffffff)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead>
-              <tr style={{ backgroundColor: 'var(--table-header-bg, #f8fafc)', borderBottom: '2px solid var(--border-glow, #e2e8f0)' }}>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 85 }}>Period</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 95 }}>Route</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 125 }}>Date</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 185 }}>Vaccine Type & Source</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 195 }}>FIFO Batch Preview</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 105 }}>Stock Units</th>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 155 }}>Given by / Attended by</th>
-                <th style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 110 }}>Signature</th>
-                <th style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 100 }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(orderedDosePeriods
-                ? doses.filter(d => orderedDosePeriods.includes(d.period))
-                : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
-                ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
-                : showFullSchedule
-                  ? doses
-                  : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period)))
-              ).map((dose, index) => {
-                const isFilled = Boolean(dose.date);
-                const isLinked = dose.inventory_linked;
-                const isCompleted = Boolean(dose.is_completed || isLinked);
-
-                // 22.1 — Prerequisite dose lock
-                // Determine which dose must be completed before this one can be recorded.
-                // Chain: Day 3 → requires Day 0 | Day 7 → requires Day 3 | Day 28 → requires Day 7
-                const PREREQ: Record<string, string> = {
-                  'Day 3':     'Day 0',
-                  'Day 7':     'Day 3',
-                  'Day 28':    'Day 7',
-                  'Booster 2': 'Booster 1',
-                };
-                const prereqPeriod = PREREQ[dose.period];
-                const prereqDose = prereqPeriod ? doses.find(d => d.period === prereqPeriod) : undefined;
-                const isPrerequisiteLocked =
-                  !isCompleted &&
-                  !!prereqDose &&
-                  !prereqDose.is_completed &&
-                  !prereqDose.inventory_linked;
-
-                const isLocked = readOnly || isCompleted || isPrerequisiteLocked;
-                const hasFifoError = Boolean(fifoErrors[dose.period]);
-                const candidateList = orderedDosePeriods
-                  ? doses.filter(d => orderedDosePeriods.includes(d.period))
-                  : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
-                  ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
-                  : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period)));
-                const activeCandidateIdx = candidateList.findIndex(d => !d.is_completed && !d.inventory_linked && !PREREQ[d.period]?.includes(doses.find(x => x.period === PREREQ[d.period])?.is_completed === false ? 'no' : 'yes'));
-                const isActiveFollowUp = !readOnly && !isCompleted && !isPrerequisiteLocked && index === activeCandidateIdx;
-                const isActivelyRecording = !isCompleted && !isPrerequisiteLocked && (isActiveFollowUp || Boolean(dose.vaccine_type || dose.is_external));
-                const showRequiredWarning = isActivelyRecording && !dose.is_external && !dose.vaccine_type;
-
-                return (
-                  <tr
-                    key={dose.period}
-                    style={{
-                      borderBottom: '1px solid #f1f5f9',
-                      backgroundColor: isPrerequisiteLocked ? 'var(--bg-secondary, #f9fafb)' : isCompleted ? '#f0fdf4' : isActiveFollowUp ? '#f0fdf4' : isFilled ? 'var(--table-header-bg, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
-                      boxShadow: isActiveFollowUp ? 'inset 4px 0 0 #10b981' : isPrerequisiteLocked ? 'inset 4px 0 0 #f59e0b' : undefined,
-                      opacity: isPrerequisiteLocked ? 0.65 : 1,
-                    }}
-                  >
-                    {/* 1. Period */}
-                    <td style={{ padding: '10px 12px', fontWeight: 700, color: isCompleted ? '#15803d' : isPrerequisiteLocked ? '#92400e' : '#1e293b' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          {isCompleted && <span style={{ color: '#16a34a', fontSize: 14 }}>✓</span>}
-                          {isPrerequisiteLocked && <span style={{ color: '#f59e0b', fontSize: 13 }}>🔒</span>}
-                          <span>{isBoosterPlan ? (dose.period === 'Day 0' ? 'Booster (Day 0)' : dose.period === 'Day 3' ? 'Booster (Day 3)' : dose.period) : dose.period}</span>
-                          {isActiveFollowUp && (
-                            <span style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              padding: '1px 6px',
-                              borderRadius: 4,
-                              backgroundColor: '#dcfce7',
-                              color: '#15803d',
-                              border: '1px solid #86efac',
-                            }}>
-                              Ready to Administer
-                            </span>
-                          )}
-                          {isPrerequisiteLocked && prereqPeriod && (
-                            <span
-                              title={`Prerequisite dose (${prereqPeriod}) must be administered before ${dose.period} can be recorded.`}
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                padding: '1px 6px',
-                                borderRadius: 4,
-                                backgroundColor: '#fef3c7',
-                                color: '#92400e',
-                                border: '1px solid #fcd34d',
-                                cursor: 'help',
-                              }}
-                            >
-                              Locked — {prereqPeriod} pending
-                            </span>
-                          )}
-                        </div>
-                        {isActiveFollowUp && dose.schedule_drift_days !== undefined && dose.schedule_drift_days > 0 && (
-                          <span style={{ fontSize: 10.5, color: '#dc2626', fontWeight: 600 }}>
-                            ⚠️ {dose.schedule_drift_days}d overdue
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* 2. Route */}
-                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                      <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
-                        {(['ID', 'IM'] as const).map(route => (
-                          <label key={route} style={{ display: 'inline-flex', alignItems: 'center', cursor: isLocked ? 'default' : 'pointer', fontSize: 12, fontWeight: 500, color: '#475569' }}>
-                            <input
-                              type="radio"
-                              name={`route_${index}`}
-                              value={route}
-                              checked={dose.route === route}
-                              onChange={() => handleDoseChange(index, 'route', route)}
-                              disabled={isLocked}
-                              style={{ marginRight: 4 }}
-                            />
-                            {route}
-                          </label>
-                        ))}
-                      </div>
-                    </td>
-
-                    {/* 3. Date */}
-                    <td style={{ padding: '8px 10px' }}>
-                      <input
-                        type="date"
-                        value={dose.date}
-                        onChange={(e) => handleDoseChange(index, 'date', e.target.value)}
-                        disabled={isLocked}
-                        max={isActiveFollowUp ? new Date().toISOString().split('T')[0] : undefined}
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          border: isFilled ? '1px solid #94a3b8' : '1px solid #cbd5e1',
-                          borderRadius: 5,
-                          fontSize: 12,
-                          backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
-                          color: isCompleted ? '#334155' : '#0f172a',
-                          cursor: isCompleted ? 'not-allowed' : 'text',
-                          fontWeight: isCompleted ? 600 : 400,
-                        }}
-                      />
-                      {isActiveFollowUp && dose.ideal_date && dose.ideal_date !== dose.date && (
-                        <div
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 3,
-                            marginTop: 4,
-                            padding: '2px 6px',
-                            backgroundColor: (dose.schedule_drift_days || 0) > 0 ? '#fef2f2' : '#eff6ff',
-                            border: `1px solid ${(dose.schedule_drift_days || 0) > 0 ? '#fecaca' : '#bfdbfe'}`,
-                            borderRadius: 4,
-                            fontSize: 10,
-                            color: (dose.schedule_drift_days || 0) > 0 ? '#b91c1c' : '#1d4ed8',
-                            fontWeight: 600,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          <span>{(dose.schedule_drift_days || 0) > 0 ? '⚠️' : 'ℹ️'}</span>
-                          <span>
-                            {(dose.schedule_drift_days || 0) > 0
-                              ? `Was scheduled: ${dose.ideal_date} (+${dose.schedule_drift_days}d late)`
-                              : `Was scheduled: ${dose.ideal_date}`}
-                          </span>
-                        </div>
-                      )}
-                      {!isActiveFollowUp && dose.schedule_drift_days !== undefined && dose.schedule_drift_days !== 0 && (
-                        <div
-                          title={dose.schedule_adjustment_reason || 'Operating schedule adjustment'}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 3,
-                            marginTop: 4,
-                            padding: '2px 6px',
-                            backgroundColor: '#fffbeb',
-                            border: '1px solid #fde68a',
-                            borderRadius: 4,
-                            fontSize: 10,
-                            color: '#b45309',
-                            fontWeight: 600,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          <span>ℹ️</span>
-                          <span>
-                            Ideal: {dose.ideal_date || 'Standard'} ({dose.schedule_drift_days > 0 ? `+${dose.schedule_drift_days}d` : `${dose.schedule_drift_days}d`})
-                          </span>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* 4. Vaccine Type & Source Selection */}
-                    <td style={{ padding: '8px 10px' }}>
-                      {/* Doctor's Order badge — shown when vaccine is prescribed */}
-                      {prescribedVaccineType && !isCompleted && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4, fontSize: 10, fontWeight: 700, color: '#166534', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 99, padding: '2px 8px', width: 'fit-content' }}>
-                          🩺 Doctor's Order: {prescribedVaccineType}
-                        </div>
-                      )}
-                      <select
-                        value={dose.vaccine_type}
-                        onChange={(e) => handleDoseVaccineTypeChange(index, e.target.value)}
-                        disabled={isLocked || Boolean(prescribedVaccineType && !isCompleted)}
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          border: showRequiredWarning ? '1.5px solid #ef4444' : prescribedVaccineType && !isCompleted ? '1.5px solid #86efac' : '1px solid #cbd5e1',
-                          borderRadius: 5,
-                          fontSize: 12,
-                          backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : prescribedVaccineType && !isCompleted ? '#f0fdf4' : 'var(--card-bg-solid, #ffffff)',
-                          color: dose.vaccine_type ? '#166534' : '#64748b',
-                          fontWeight: dose.vaccine_type ? 700 : 400,
-                          cursor: (isCompleted || Boolean(prescribedVaccineType && !isCompleted)) ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        <option value="">— Select Vaccine —</option>
-                        {availableVaccineTypes.map((vType) => (
-                          <option key={vType} value={vType}>
-                            {vType}
-                          </option>
-                        ))}
-                      </select>
-
-                      {/* Transferred-in external toggle */}
-                      <div style={{ marginTop: 4 }}>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#0369a1', cursor: isLocked ? 'default' : 'pointer', fontWeight: 500 }}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(dose.is_external)}
-                            disabled={isLocked}
-                            onChange={(e) => handleDoseChange(index, 'is_external', e.target.checked)}
-                          />
-                          <span>Transferred-In (External Clinic)</span>
-                        </label>
-                        {dose.is_external && (
-                          <input
-                            type="text"
-                            value={dose.external_facility_name || ''}
-                            placeholder="External hospital / clinic name"
-                            disabled={isLocked}
-                            onChange={(e) => handleDoseChange(index, 'external_facility_name', e.target.value)}
-                            style={{
-                              width: '100%',
-                              marginTop: 4,
-                              padding: '3px 6px',
-                              fontSize: 10.5,
-                              borderRadius: 4,
-                              border: '1px solid #7dd3fc',
-                              backgroundColor: '#f0f9ff',
-                              color: '#0c4a6e',
-                            }}
-                          />
-                        )}
-                      </div>
-
-                      {showRequiredWarning ? (
-                        <div style={{ color: '#dc2626', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
-                          Required to record dose
-                        </div>
-                      ) : isActiveFollowUp && dose.vaccine_type ? (
-                        <div style={{ color: '#15803d', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
-                          ✓ Ready to record for today
-                        </div>
-                      ) : isActiveFollowUp && !dose.vaccine_type ? (
-                        <div style={{ color: '#059669', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
-                          👉 Select vaccine to record
-                        </div>
-                      ) : dose.date && !dose.vaccine_type && !isCompleted ? (
-                        <div style={{ color: '#0369a1', fontSize: 10, fontWeight: 500, marginTop: 3 }}>
-                          📅 Scheduled follow-up
-                        </div>
-                      ) : null}
-                    </td>
-
-                    {/* 5. FIFO Batch & Open-Vial Preview */}
-                    <td style={{ padding: '8px 10px' }}>
-                      {dose.is_external ? (
-                        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 2, padding: '4px 8px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1' }}>
-                            🏥 Transferred-In Dose
-                          </span>
-                          <span style={{ fontSize: 10, color: '#0284c7' }}>
-                            {dose.external_facility_name || 'External Facility'} (0 local stock deducted)
-                          </span>
-                        </div>
-                      ) : isCompleted ? (
-                        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 2, padding: '4px 8px', backgroundColor: dose.inventory_units_used === '0' ? '#ecfeff' : '#dcfce7', border: dose.inventory_units_used === '0' ? '1px solid #a5f3fc' : '1px solid #86efac', borderRadius: 6 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: dose.inventory_units_used === '0' ? '#0e7490' : '#15803d' }}>
-                            ✓ Batch: {dose.batch_number || 'Administered'} {dose.inventory_units_used === '0' ? '(Shared Vial)' : dose.inventory_units_used ? `(${dose.inventory_units_used} deducted)` : ''}
-                          </span>
-                          {dose.expiration_date && (
-                            <span style={{ fontSize: 10, color: dose.inventory_units_used === '0' ? '#155e75' : '#166534' }}>
-                              Exp: {dose.expiration_date}
-                            </span>
-                          )}
-                        </div>
-                      ) : dose.vaccine_type ? (
-                        dose.batch_number ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '5px 8px', backgroundColor: dose.is_open_vial ? '#ecfeff' : '#eff6ff', border: dose.is_open_vial ? '1px solid #a5f3fc' : '1px solid #bfdbfe', borderRadius: 6 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: dose.is_open_vial ? '#0e7490' : '#1e40af' }}>
-                                {dose.is_open_vial ? `🟢 Open Vial (Dose ${dose.next_dose_index} of ${dose.total_doses})` : `📦 Opening New Vial (Dose 1 of ${dose.total_doses || 1})`}
-                              </span>
-                              {dose.available_stock !== undefined && (
-                                <span style={{ fontSize: 10, fontWeight: 700, color: dose.available_stock > 5 ? '#059669' : '#d97706' }}>
-                                  {dose.available_stock} in stock
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#475569' }}>
-                              <span>Batch: {dose.batch_number} {dose.expiration_date ? `• Exp: ${dose.expiration_date}` : ''}</span>
-                              <span style={{ color: dose.is_open_vial ? '#0891b2' : '#1d4ed8', fontWeight: 600 }}>
-                                {dose.is_open_vial ? '0 vials deducted' : '1 vial deducted'}
-                              </span>
-                            </div>
-                          </div>
-                        ) : hasFifoError ? (
-                          <div style={{ padding: '4px 8px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, color: '#dc2626', fontSize: 11, fontWeight: 600 }}>
-                            ⚠ Out of Stock / No FIFO Batch
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
-                            Fetching FIFO allocation...
-                          </span>
-                        )
-                      ) : (
-                        <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
-                          Select vaccine to preview
-                        </span>
-                      )}
-                    </td>
-
-                    {/* 6. Automated Stock Allocation */}
-                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                      {dose.is_external ? (
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 6, backgroundColor: '#f0f9ff', color: '#0369a1', fontSize: 11, fontWeight: 600 }}>
-                          External (0 stock)
-                        </span>
-                      ) : isCompleted ? (
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 6, backgroundColor: 'var(--card-bg-nested, #f8fafc)', color: '#475569', fontSize: 11, fontWeight: 600 }}>
-                          {dose.inventory_units_used === '0' ? 'Shared Vial' : `${dose.inventory_units_used || 1} vial(s)`}
-                        </span>
-                      ) : dose.vaccine_type && dose.batch_number ? (
-                        dose.is_open_vial ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 5, backgroundColor: '#cffafe', color: '#0e7490', fontSize: 10, fontWeight: 700 }}>
-                              🤝 Auto-Shared
-                            </span>
-                            <span style={{ fontSize: 10, color: '#0891b2', fontWeight: 600 }}>0 stock</span>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 5, backgroundColor: '#dbeafe', color: '#1e40af', fontSize: 10, fontWeight: 700 }}>
-                              📦 Auto-New
-                            </span>
-                            <span style={{ fontSize: 10, color: '#1d4ed8', fontWeight: 600 }}>1 vial</span>
-                          </div>
-                        )
-                      ) : (
-                        <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>
-                      )}
-                    </td>
-
-                    {/* 7. Given by / Attended by */}
-                    <td style={{ padding: '8px 12px' }}>
-                      {isCompleted ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ fontWeight: 600, color: '#1e293b', fontSize: 12 }}>
-                              {dose.given_by || 'Staff Nurse'}
-                            </span>
-                            <span title="Verified Clinician" style={{ color: '#16a34a', fontSize: 12, fontWeight: 700 }}>✓</span>
-                          </div>
-                          {dose.license_no ? (
-                            <span style={{ fontSize: 10.5, color: '#0369a1', fontWeight: 600 }}>
-                              PRC: {dose.license_no}
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: 10, color: '#64748b' }}>
-                              Licensed Staff
-                            </span>
-                          )}
-                        </div>
-                      ) : dose.is_external ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#0369a1' }}>
-                            🏥 {dose.external_facility_name || dose.given_by || 'External Clinic'}
-                          </span>
-                          <span style={{ fontSize: 10, color: '#64748b' }}>External Clinician</span>
-                        </div>
-                      ) : (isActiveFollowUp || isActivelyRecording) ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <span style={{ fontWeight: 600, color: '#1e293b', fontSize: 12 }}>
-                              {currentUser?.name || dose.given_by || 'Current Nurse'}
-                            </span>
-                            <span style={{
-                              fontSize: 9,
-                              fontWeight: 700,
-                              padding: '1px 5px',
-                              borderRadius: 4,
-                              backgroundColor: '#dbeafe',
-                              color: '#1d4ed8',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.04em',
-                            }}>
-                              Attending
-                            </span>
-                          </div>
-                          {(currentUser?.professional_license_no || dose.license_no) ? (
-                            <span style={{ fontSize: 10.5, color: '#0369a1', fontWeight: 600 }}>
-                              PRC: {currentUser?.professional_license_no || dose.license_no}
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: 10, color: '#64748b' }}>
-                              Registered Nurse
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>—</span>
-                      )}
-                    </td>
-
-                    {/* 8. Signature */}
-                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                      {isCompleted ? (
-                        dose.signature_path && dose.treatment_id ? (
-                          <SignatureImage endpoint={`/vaccination-records/${dose.treatment_id}/signature`} />
-                        ) : <span className="print:hidden" style={{ color: '#64748b', fontSize: 12 }}>Unsigned</span>
-                      ) : dose.is_external ? (
-                        <span style={{ fontSize: 12 }}>External record</span>
-                      ) : (
-                        <span style={{ fontSize: 12, color: '#64748b' }}>
-                          {applySignature && signatureReady ? 'Signature selected' : 'Optional; hand-sign printout'}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* 9. Status Pill */}
-                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                      {dose.is_external ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: 10, fontWeight: 700 }}>
-                          🏥 External
-                        </span>
-                      ) : isCompleted ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, backgroundColor: '#dcfce7', color: '#15803d', fontSize: 10, fontWeight: 700 }}>
-                          ✓ Administered
-                        </span>
-                      ) : (isActiveFollowUp || isActivelyRecording) ? (
-                        dose.vaccine_type && dose.batch_number ? (
-                          dose.is_open_vial ? (
-                            <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: '#cffafe', color: '#0891b2', fontSize: 10, fontWeight: 700 }}>
-                              Auto-Shared ({dose.next_dose_index}/{dose.total_doses})
-                            </span>
-                          ) : (
-                            <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: '#dbeafe', color: '#1e40af', fontSize: 10, fontWeight: 700 }}>
-                              Auto-New Vial (1/{dose.total_doses || 1})
-                            </span>
-                          )
-                        ) : (
-                          <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: '#fee2e2', color: '#b91c1c', fontSize: 10, fontWeight: 700 }}>
-                            Missing Stock Info
-                          </span>
-                        )
-                      ) : (
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: 'var(--card-bg-nested, #e4fbf4)', color: '#64748b', fontSize: 10, fontWeight: 500 }}>
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-            {!readOnly && (
-              <div className="print:hidden" style={{ marginTop: 24 }}>
-                {/* Header above card */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                  <div
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 10,
-                      backgroundColor: '#f3e8ff',
-                      color: '#9333ea',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                      <path d="m15 5 4 4" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <strong style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Electronic signature</strong>
-                      <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 400 }}>(optional)</span>
-                      {signatureReady && (
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#047857', background: '#ecfdf5', padding: '1px 8px', borderRadius: 99, border: '1px solid #a7f3d0', marginLeft: 6 }}>
-                          ✓ Signature Ready
-                        </span>
-                      )}
-                    </div>
-                    <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748b' }}>
-                      Applied to all new local vaccine doses saved in this session
-                    </p>
-                  </div>
-                </div>
-
-                {/* Main Card Box */}
-                <div
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 14,
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {/* Top Centered Signature Display Area */}
-                  <div
-                    style={{
-                      padding: '24px 20px',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      minHeight: 100,
-                      background: '#fafbfc',
-                    }}
-                  >
-                    {signatureVersion && currentUser?.id ? (
-                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
-                        <SignatureImage
-                          key={signatureVersion}
-                          onReady={setSignatureReady}
-                          endpoint={`/users/${currentUser.id}/signature?version=${encodeURIComponent(signatureVersion)}`}
-                        />
-                      </div>
-                    ) : (
-                      <p style={{ fontSize: 13, color: '#64748b', margin: 0, textAlign: 'center' }}>
-                        {signatureLoadError
-                          ? 'Signature could not be loaded. You can still save without one and hand-sign the printed record.'
-                          : 'No signature available. You can save without one and hand-sign the printed record.'}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Bottom Control Bar */}
-                  <div
-                    style={{
-                      borderTop: '1px solid #e2e8f0',
-                      background: '#ffffff',
-                      padding: '12px 18px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 16,
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <label
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        cursor: !signatureReady || saving ? 'not-allowed' : 'pointer',
-                        margin: 0,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={applySignature}
-                        disabled={!signatureReady || saving}
-                        onChange={(event) => setApplySignature(event.target.checked)}
-                        style={{
-                          width: 17,
-                          height: 17,
-                          accentColor: '#059669',
-                          borderRadius: 4,
-                          cursor: !signatureReady || saving ? 'not-allowed' : 'pointer',
-                        }}
-                      />
-                      <span style={{ fontSize: 13, fontWeight: 500, color: '#334155' }}>
-                        I confirm this is my signature and apply it to these doses
-                      </span>
-                    </label>
-
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => setSignatureRefresh((value) => value + 1)}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        background: 'none',
-                        border: 'none',
-                        padding: '4px 8px',
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: '#0d9488',
-                        cursor: saving ? 'not-allowed' : 'pointer',
-                        borderRadius: 6,
-                        transition: 'opacity 0.15s',
-                      }}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                      </svg>
-                      Refresh
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-          {/* 8.1 — Expand / Collapse Day 28 + Booster rows (primary regimen only) */}
-          {false && !orderedDosePeriods && !(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && !readOnly && (
-            <div style={{ textAlign: 'center', marginTop: 10 }}>
-              <button
-                type="button"
-                onClick={() => setShowFullSchedule(v => !v)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '6px 16px',
-                  background: showFullSchedule ? 'var(--card-bg-nested, #e4fbf4)' : '#f0fdf4',
-                  border: `1px solid ${showFullSchedule ? '#cbd5e1' : '#a7f3d0'}`,
-                  borderRadius: 20, fontSize: 12, fontWeight: 600,
-                  color: showFullSchedule ? '#475569' : '#065f46',
-                  cursor: 'pointer', transition: 'all 0.15s',
-                }}
-              >
-                {showFullSchedule
-                  ? '▲ Hide Booster Doses'
-                  : '▼ Show Booster 1 / Booster 2 (optional follow-up)'}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* ── Collapsible Prior Immunization History (Read Only) ── */}
-        {false && pastHistoryRecords.length > 0 && isBoosterPlan && (
-          <div style={{ marginTop: 20, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
-            <button
-              type="button"
-              onClick={() => setShowHistoricalPEP(prev => !prev)}
-              style={{
-                width: '100%',
-                padding: '10px 16px',
-                background: '#f8fafc',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16 }}>📁</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>
-                  Historical Primary PEP Immunization Course (Episode 1: {pastHistoryRecords.filter(r => r.status === 'completed').length} Completed Doses)
-                </span>
-              </div>
-              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
-                {showHistoricalPEP ? '▲ Hide Historical Records' : '▼ View Historical PEP Record'}
-              </span>
-            </button>
-
-            {showHistoricalPEP && (
-              <div style={{ padding: '12px 16px', background: '#ffffff', borderTop: '1px solid #e2e8f0' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Dose Period</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Date Administered</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Vaccine Brand</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Batch No.</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Administered By</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'center', color: '#475569' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pastHistoryRecords.map((r, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '8px 10px', fontWeight: 600, color: '#1e293b' }}>
-                          Day {r.dose_number}
-                        </td>
-                        <td style={{ padding: '8px 10px', color: '#475569' }}>
-                          {r.treatment_date || '—'}
-                        </td>
-                        <td style={{ padding: '8px 10px', color: '#475569' }}>
-                          {r.vaccine_brand || 'ARV'}
-                        </td>
-                        <td style={{ padding: '8px 10px', color: '#475569' }}>
-                          {r.batch_no || '—'}
-                        </td>
-                        <td style={{ padding: '8px 10px', color: '#475569' }}>
-                          {(typeof r.administered_by === 'object' && r.administered_by?.name) ? r.administered_by.name : (r.administeredBy?.name || 'Staff')}
-                        </td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '1px 8px', borderRadius: 10 }}>
-                            Completed ✓
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* SECTION 4: ADDITIONAL MEDICATIONS & ICD CODE */}
-      <div style={{ marginTop: 16 }}>
-        <ProphylaxisAdministrationSection
-          orders={latestConsultation?.prophylaxis_orders}
-          stock={prophylaxisStock}
-          records={prophylaxisRecords}
-          value={prophylaxisAdministrations}
-          onChange={setProphylaxisAdministrations}
-          disabled={readOnly || saving}
-          today={getLocalDateString()}
-          icdCode={icdCode}
-          onIcdCodeChange={setIcdCode}
-        />
-        {prophylaxisAdministrations.length === 0 && (
-          <div style={{ marginTop: 16 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>ICD 10 Code</label>
+        {formData.past_history_bite === 'yes' && (
+          <div style={{ marginTop: 12 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)', marginBottom: 6 }}>
+              Approximate previous bite date(s)
+            </label>
             <input
               type="text"
-              value={icdCode}
-              onChange={(e) => setIcdCode(e.target.value)}
-              placeholder="e.g., W54.0"
-              disabled={readOnly}
+              value={formData.past_bite_dates || ''}
+              onChange={handleFieldChange('past_bite_dates')}
+              placeholder="Approximate previous bite date(s)"
+              disabled={isFormLocked}
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid var(--input-border)',
-                borderRadius: 6,
+                border: '1px solid var(--input-border, #d1d5db)',
+                borderRadius: BORDER_RADIUS,
                 fontSize: 13,
-                backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined,
+                backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                color: 'var(--input-text, #111827)',
+                boxSizing: 'border-box',
+                outline: 'none',
               }}
             />
           </div>
         )}
-      </div>
+      </FormSection>
 
-      {/* Inline footer buttons */}
-      {inline && (
-        <div style={{ marginTop: 32, paddingTop: 20, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: 12, alignItems: 'center' }}>
-          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
-          {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
+      {/* 4. VACCINATION RECORD */}
+      <FormSection title="Vaccination record" showDivider={false}>
+        {inventorySetupMessage && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(245, 158, 11, 0.12)', border: '1px solid #fde68a', borderRadius: BORDER_RADIUS, color: '#92400e', fontSize: 12 }}>
+            ⚠ {inventorySetupMessage}
+          </div>
+        )}
+
+        {/* Dose List: active/selected dose as DoseCard, other doses as DoseRow */}
+        <div style={{ marginBottom: 12 }}>
+          {candidateDoseList.map((dose) => {
+            const isCompleted = Boolean(dose.is_completed || dose.inventory_linked);
+            const isPrereqLocked = isDosePrerequisiteLocked(dose.period);
+            const isLocked = readOnly || isCompleted || isPrereqLocked;
+            const isExpanded = dose.period === currentExpandedPeriod;
+
+            if (isExpanded) {
+              const doseIndex = doses.findIndex(d => d.period === dose.period);
+              return (
+                <DoseCard
+                  key={dose.period}
+                  dose={dose}
+                  index={doseIndex}
+                  isToday={dose.period === activeUnlockedPeriod}
+                  isCompleted={isCompleted}
+                  isLocked={isLocked}
+                  prescribedVaccineType={prescribedVaccineType}
+                  availableVaccineTypes={availableVaccineTypes}
+                  fifoError={fifoErrors[dose.period]}
+                  readOnly={readOnly}
+                  currentUser={currentUser}
+                  applySignature={applySignature}
+                  signatureReady={signatureReady}
+                  signatureVersion={signatureVersion}
+                  signatureLoadError={signatureLoadError}
+                  onDoseChange={handleDoseChange}
+                  onDoseVaccineTypeChange={handleDoseVaccineTypeChange}
+                  onToggleSignature={setApplySignature}
+                  onSignatureReady={() => setSignatureReady(true)}
+                  onRefreshSignature={() => setSignatureRefresh(v => v + 1)}
+                />
+              );
+            }
+
+            return (
+              <DoseRow
+                key={dose.period}
+                dose={dose}
+                isCompleted={isCompleted}
+                isPrerequisiteLocked={isPrereqLocked}
+                prereqPeriod={PREREQ[dose.period]}
+                onClick={() => setSelectedPeriod(dose.period)}
+              />
+            );
+          })}
+        </div>
+
+        {/* Secondary text buttons below the list */}
+        <div style={{ display: 'flex', gap: 16, marginTop: 12, alignItems: 'center' }}>
           {!readOnly && (
-            <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving || currentUser?.role === 'triage'}>
-              {saving ? 'Saving…' : '✓ Save Record'}
+            <button
+              type="button"
+              onClick={() => {
+                setManualReExposure(v => !v);
+                setShowFullSchedule(false);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: manualReExposure ? '#b45309' : '#047857',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+                textDecoration: 'none',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+            >
+              {manualReExposure ? '✓ Re-bite active' : 'Re-bite / re-exposure'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setTransferModalOpen(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: '#047857',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: 'pointer',
+              textDecoration: 'none',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+          >
+            Transfer out / referral slip
+          </button>
+        </div>
+
+        {/* Subtle helper line */}
+        <p style={{ fontSize: 12, color: '#64748b', marginTop: 12, marginBottom: 0 }}>
+          Automatic FIFO stock deduction on save · Cross-clinic continuity supported
+        </p>
+      </FormSection>
+
+      {/* PROPHYLAXIS (ATS / TT / RIG) ADMINISTRATION IF PRESCRIBED */}
+      {(latestConsultation?.prophylaxis_orders && latestConsultation.prophylaxis_orders.length > 0) && (
+        <div style={{ marginTop: 24, borderTop: '1px solid var(--border-color, #e5e7eb)', paddingTop: 20 }}>
+          <ProphylaxisAdministrationSection
+            orders={latestConsultation?.prophylaxis_orders}
+            stock={prophylaxisStock}
+            records={prophylaxisRecords}
+            value={prophylaxisAdministrations}
+            onChange={setProphylaxisAdministrations}
+            disabled={readOnly || saving}
+            today={getLocalDateString()}
+            icdCode={icdCode}
+            onIcdCodeChange={setIcdCode}
+          />
+        </div>
+      )}
+
+      {/* Sticky footer for inline mode */}
+      {inline && (
+        <div
+          style={{
+            position: 'sticky',
+            bottom: 0,
+            background: 'var(--card-bg-solid, #ffffff)',
+            borderTop: '1px solid var(--border-color, #e5e7eb)',
+            padding: '16px 0',
+            marginTop: 24,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: 12,
+            zIndex: 10,
+          }}
+        >
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
+          {error && (
+            <span style={{ fontSize: 13, color: '#ef4444', marginRight: 12, fontWeight: 500 }}>
+              {error}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            style={{
+              padding: '8px 20px',
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: BORDER_RADIUS,
+              border: '1px solid var(--border-color, #d1d5db)',
+              background: 'var(--card-bg-solid, #ffffff)',
+              color: 'var(--text-secondary, #475569)',
+              cursor: saving ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {readOnly ? 'Close' : 'Cancel'}
+          </button>
+
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={saving || currentUser?.role === 'triage'}
+              style={{
+                padding: '8px 20px',
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: BORDER_RADIUS,
+                border: 'none',
+                background: '#047857',
+                color: '#ffffff',
+                cursor: (saving || currentUser?.role === 'triage') ? 'not-allowed' : 'pointer',
+                opacity: (saving || currentUser?.role === 'triage') ? 0.6 : 1,
+                transition: 'background-color 0.15s ease',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+              }}
+            >
+              {saving ? 'Saving…' : `Save and record ${activeUnlockedPeriod}`}
             </button>
           )}
         </div>
@@ -3111,7 +1770,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>{readOnly ? 'Close' : 'Cancel'}</button>
           {!readOnly && (
             <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving || currentUser?.role === 'triage'}>
-              {saving ? 'Saving…' : '✓ Save Record'}
+              {saving ? 'Saving…' : `Save and record ${activeUnlockedPeriod}`}
             </button>
           )}
         </>

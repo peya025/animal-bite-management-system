@@ -955,13 +955,7 @@ export default function QueueDashboard() {
             </Tooltip>
           )}
 
-          {!isRegistrationStaff && !isTriageDoctor && (
-            <Tooltip title="Trash Bin">
-              <IconButton size="small" onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
-                <TrashBinIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-            </Tooltip>
-          )}
+
           <Tooltip title="Refresh">
             <span>
               <IconButton size="small" onClick={reload} disabled={loading}><RefreshIcon sx={{ fontSize: 18 }} /></IconButton>

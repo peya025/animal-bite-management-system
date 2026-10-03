@@ -29,6 +29,7 @@ export const skipQueuePatient        = (id: number) => api.post(`/queue/${id}/sk
 export const serveQueuePatient       = (id: number) => api.post(`/queue/${id}/serve`);
 export const markNoResponse          = (id: number) => api.post(`/queue/${id}/no-response`);
 export const recallQueuePatient      = (id: number) => api.post(`/queue/${id}/recall`);
+export const returnQueuePatientToQueue = (id: number) => api.post(`/queue/${id}/return-to-queue`);
 export const markAbsent              = (id: number) => api.post(`/queue/${id}/absent`);
 export const cancelQueueEntry        = (id: number) => api.post(`/queue/${id}/cancel`);
 export const updateQueuePriority     = (id: number, priority: string) => api.put(`/queue/${id}/priority`, { priority });

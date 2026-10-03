@@ -28,12 +28,12 @@ export function email(value: string): string {
   return re.test(value.trim()) ? '' : 'Enter a valid email address.';
 }
 
-/** Philippine mobile number (09xxxxxxxxx or +639xxxxxxxxx). */
+/** Philippine mobile number (must start with 09 and contain exactly 11 digits). */
 export function phoneNumber(value: string): string {
-  const re = /^(\+?63|0)9\d{9}$/;
-  return re.test(value.replace(/\s/g, ''))
+  const re = /^09\d{9}$/;
+  return re.test(value.trim())
     ? ''
-    : 'Enter a valid Philippine mobile number (e.g. 09171234567).';
+    : 'Mobile number must start with 09 and contain 11 digits.';
 }
 
 /** Password strength: at least 8 characters. */

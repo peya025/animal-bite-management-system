@@ -139,9 +139,13 @@ export default function PatientEditModal({
     if (!patient) return;
     const patientId = patient.patient_id || patient.id;
 
-    // Validate: date of birth cannot be in the future
-    if (formData.date_of_birth && formData.date_of_birth > new Date().toISOString().split('T')[0]) {
-      setError('Date of Birth cannot be a future date.');
+    // Validate: contact numbers must start with 09 and contain 11 digits
+    if (formData.contact_number && !/^09\d{9}$/.test(formData.contact_number.trim())) {
+      setError('Mobile number must start with 09 and contain 11 digits.');
+      return;
+    }
+    if (formData.emergency_contact_number && !/^09\d{9}$/.test(formData.emergency_contact_number.trim())) {
+      setError('Emergency contact phone must start with 09 and contain 11 digits.');
       return;
     }
 

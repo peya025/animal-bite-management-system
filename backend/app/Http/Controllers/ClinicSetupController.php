@@ -134,7 +134,7 @@ class ClinicSetupController extends Controller
             'name' => 'required|string|max:255',
             'subtitle' => 'nullable|string|max:255',
             'address' => 'nullable|string',
-            'contact_number' => 'nullable|string|max:50',
+            'contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
             'email' => 'nullable|email|max:255',
             'license_number' => 'nullable|string|max:255',
             'hospital_no' => 'nullable|string|max:100',
@@ -147,6 +147,8 @@ class ClinicSetupController extends Controller
             'remove_left_print_logo' => 'nullable',
             'right_print_logo' => 'nullable|image|max:2048',
             'remove_right_print_logo' => 'nullable',
+        ], [
+            'contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
         ]);
 
         $clinic = $request->user()->clinic;

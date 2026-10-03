@@ -161,8 +161,8 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
 
     if (!enrolment.contact_number || !enrolment.contact_number.trim()) {
       newFieldErrors.contact_number = 'Contact number is required';
-    } else if (enrolment.contact_number.length !== 11) {
-      newFieldErrors.contact_number = 'Contact number must be exactly 11 digits.';
+    } else if (!/^09\d{9}$/.test(enrolment.contact_number.trim())) {
+      newFieldErrors.contact_number = 'Mobile number must start with 09 and contain 11 digits.';
     }
 
     if (!enrolment.emergency_contact_name || !enrolment.emergency_contact_name.trim()) {
@@ -171,8 +171,8 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
 
     if (!enrolment.emergency_contact_phone || !enrolment.emergency_contact_phone.trim()) {
       newFieldErrors.emergency_contact_phone = 'Emergency contact phone is required';
-    } else if (enrolment.emergency_contact_phone.length !== 11) {
-      newFieldErrors.emergency_contact_phone = 'Emergency contact phone must be exactly 11 digits.';
+    } else if (!/^09\d{9}$/.test(enrolment.emergency_contact_phone.trim())) {
+      newFieldErrors.emergency_contact_phone = 'Emergency contact phone must start with 09 and contain 11 digits.';
     }
 
     if (enrolment.philhealth_no && enrolment.philhealth_no.replace(/\D/g, '').length !== 12) {

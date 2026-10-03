@@ -144,7 +144,9 @@ class StaffInvitationController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'password' => 'required|string|min:8|confirmed',
-            'phone' => 'nullable|string|max:50',
+            'phone' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
+        ], [
+            'phone.regex' => 'Mobile number must start with 09 and contain 11 digits.',
         ]);
 
         $invitation = StaffInvitation::where('token', $token)->first();

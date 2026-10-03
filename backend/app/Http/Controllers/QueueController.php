@@ -530,6 +530,51 @@ class QueueController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
+    // POST /queue/{id}/return-to-queue  —  SECOND_CHANCE / FINAL_RECALL → WAITING
+    // ────────────────────────────────────────────────────────────────────────
+    public function returnToQueue(Request $request, $id)
+    {
+        return DB::transaction(function () use ($request, $id) {
+            $queue = Queue::where('clinic_id', $request->user()->clinic_id)
+                ->whereNull('deleted_at')
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            if (!in_array($queue->status, ['second_chance', 'final_recall', 'no_response'])) {
+                return response()->json([
+                    'message' => 'Patient must be in second chance queue to return to queue. Current: ' . $queue->status,
+                ], 400);
+            }
+
+            $stage = $queue->status === 'final_recall' ? 'Final Recall' : 'Second Chance';
+            $this->logHistory($queue, 'returned_to_queue', 'waiting', $request->user()->id, "Returned to queue from {$stage}");
+
+            $returnNote = '[Brought Back] Returned to waiting queue at ' . now()->format('H:i');
+            $existingNotes = $queue->check_in_notes;
+            $updatedNotes  = $existingNotes
+                ? $existingNotes . ' | ' . $returnNote
+                : $returnNote;
+
+            $queue->update([
+                'status'           => 'waiting',
+                'called_at'        => null,
+                'no_response_at'   => null,
+                'second_chance_at' => null,
+                'final_recall_at'  => null,
+                'recall_stage'     => null,
+                'check_in_notes'   => $updatedNotes,
+            ]);
+
+            $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+
+            return response()->json([
+                'message' => 'Patient returned to the queue.',
+                'queue'   => $queue->fresh()->load(['patient', 'biteIncident']),
+            ]);
+        });
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
     // POST /queue/{id}/absent  —  FINAL_RECALL / SECOND_CHANCE → ABSENT (No-Show)
     // ────────────────────────────────────────────────────────────────────────
     public function markAbsent(Request $request, $id)

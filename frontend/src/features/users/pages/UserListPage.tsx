@@ -376,8 +376,8 @@ export default function UserListPage() {
   const save = async () => {
     if (!editing) return;
     const { id, name, email, phone, workstation_role, professional_license_no, signature_data, remove_signature, password, is_active } = editing;
-    if (phone && phone.length !== 11) {
-      setNotice('Phone number must be exactly 11 digits.');
+    if (phone && !/^09\d{9}$/.test(phone.trim())) {
+      setNotice('Mobile number must start with 09 and contain 11 digits.');
       return;
     }
     try {
@@ -421,8 +421,8 @@ export default function UserListPage() {
       setNotice('Password must be at least 8 characters.');
       return;
     }
-    if (newUser.phone && newUser.phone.length !== 11) {
-      setNotice('Phone number must be exactly 11 digits.');
+    if (newUser.phone && !/^09\d{9}$/.test(newUser.phone.trim())) {
+      setNotice('Mobile number must start with 09 and contain 11 digits.');
       return;
     }
     setCreating(true);

@@ -38,10 +38,13 @@ class PatientProfileController extends Controller
             'gender' => ['required', 'in:male,female'],
             'date_of_birth' => ['nullable', 'date', 'before:today'],
             'address' => ['nullable', 'string', 'max:255'],
-            'contact_number' => ['nullable', 'string', 'max:50'],
+            'contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
             'email' => ['nullable', 'string', 'email', 'max:255'],
             'emergency_contact_name' => ['nullable', 'string', 'max:255'],
-            'emergency_contact_number' => ['nullable', 'string', 'max:50'],
+            'emergency_contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
+        ], [
+            'contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
+            'emergency_contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
         ]);
 
         $detailsData = $request->validate(array_merge([

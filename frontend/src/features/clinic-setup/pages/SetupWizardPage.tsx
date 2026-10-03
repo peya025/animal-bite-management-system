@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { SetupWizardRoot } from '../styles/SetupWizard.styles';
 import { ROUTES } from '../../../shared/config/routes';
@@ -173,14 +173,11 @@ export default function SetupWizard() {
       const step3Errors: Record<string, string> = {};
       if (!setupData.address) step3Errors.address = 'Address is required';
       if (!setupData.phone) step3Errors.phone = 'Phone number is required';
+      else if (!/^09\d{9}$/.test(setupData.phone.trim())) step3Errors.phone = 'Mobile number must start with 09 and contain 11 digits.';
       if (!setupData.email) step3Errors.email = 'Email Address is required';
       
       if (Object.keys(step3Errors).length > 0) {
         setErrors(step3Errors);
-        return;
-      }
-      if (setupData.phone.length !== 11) {
-        setErrors({ phone: 'Phone number must be exactly 11 digits' });
         return;
       }
     }

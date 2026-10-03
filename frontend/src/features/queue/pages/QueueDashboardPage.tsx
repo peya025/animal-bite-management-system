@@ -51,7 +51,6 @@ import {
   QueueProgressBar,
   TrashBinModal,
   SecondChanceQueuePanel,
-  TreatmentTransferArchivePanel,
   TreatmentCompletedPanel,
   QueuePatientDetailModal,
   PatientHistoryLookupModal,
@@ -289,13 +288,13 @@ export default function QueueDashboard() {
     try {
       await fn();
       toast(successMsg);
-      reload();
+      await reload();
     } catch (err: any) {
       const status = err?.response?.status;
       const msg = err?.response?.data?.message;
       if (status === 409) {
         toast(msg || 'This patient is currently being called or attended by another workstation.', 'warning');
-        reload();
+        await reload();
       } else {
         toast(msg ?? errMsg, 'error');
       }
@@ -309,7 +308,7 @@ export default function QueueDashboard() {
   const handleServe      = (e: QueueEntry) => run(() => serveQueuePatient(e.queue_id),  `#${e.queue_number} is now being served`,           'Failed to mark as serving');
   const handleNoResponse = (e: QueueEntry) => run(() => markNoResponse(e.queue_id),     `#${e.queue_number} moved to Second Chance Queue`, 'Failed to mark no response');
   const handleRecall     = (e: QueueEntry) => run(() => recallQueuePatient(e.queue_id), `#${e.queue_number} recalled`,                     'Failed to recall patient');
-  const handleReturnToQueue = (e: QueueEntry) => run(() => returnQueuePatientToQueue(e.queue_id), `#${e.queue_number} returned to waiting queue`, 'Failed to return patient to queue');
+  const handleReturnToQueue = (e: QueueEntry) => run(() => returnQueuePatientToQueue(e.queue_id), 'Patient returned to the queue.', 'Failed to return patient to queue');
   const handleAbsent     = (e: QueueEntry) => run(() => markAbsent(e.queue_id),         `#${e.queue_number} marked as No-Show`,            'Failed to mark absent');
   const handleCancel     = (e: QueueEntry) => run(() => cancelQueueEntry(e.queue_id),   `Cancelled #${e.queue_number}`,                    'Failed to cancel');
   const handleTrash      = (e: QueueEntry) => run(() => trashQueueEntry(e.queue_id),    `#${e.queue_number} moved to trash`,               'Failed to trash entry');
@@ -326,12 +325,6 @@ export default function QueueDashboard() {
   const isTriageDoctor = user?.role === 'triage'
     || user?.roles?.some((role: any) => ['triage', 'doctor'].includes(role.slug));
   const isTreatmentNurse = user?.role === 'treatment' || user?.is_nursing || hasIntakeNurseRole || hasFollowUpNurseRole;
-  const transferredToTreatmentEntries = isTriageDoctor
-    ? queue.filter(entry =>
-        entry.visit_type === 'vaccination'
-        && (entry.consultation_notes?.includes('completed Form 2') || entry.consultation_notes?.includes('Form 2'))
-      )
-    : [];
   const completedTreatmentEntries = isTreatmentNurse
     ? queue.filter(entry => entry.visit_type === 'vaccination' && entry.status === 'completed')
     : [];
@@ -421,7 +414,9 @@ export default function QueueDashboard() {
       ? true
       : statusFilter === 'cancelled_or_absent'
         ? (q.status === 'cancelled' || q.status === 'absent')
-        : q.status === statusFilter;
+        : statusFilter === 'serving'
+          ? (q.status === 'serving' || q.status === 'in_consultation')
+          : q.status === statusFilter;
     const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
 
     let matchVisitType = true;
@@ -943,7 +938,7 @@ export default function QueueDashboard() {
             </Tooltip>
           )}
 
-          {!isRegistrationStaff && (
+          {!isRegistrationStaff && !isTriageDoctor && (
             <Tooltip title="Trash Bin">
               <IconButton size="small" onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
                 <TrashBinIcon sx={{ fontSize: 18 }} />
@@ -1015,11 +1010,17 @@ export default function QueueDashboard() {
               onClick={() => document.getElementById('second-chance-panel')?.scrollIntoView({ behavior: 'smooth' })}
               sx={{
                 display: 'inline-flex', alignItems: 'center', gap: 0.75,
-                px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c',
-                border: '1px solid #fed7aa', borderRadius: 1.5,
+                px: 1.25, py: 0.3,
+                bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                color: isDark ? '#34d399' : '#059669',
+                border: isDark ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid #a7f3d0',
+                borderRadius: 1.5,
                 fontSize: 11.5, fontWeight: 500, fontFamily: "'Poppins', sans-serif",
                 cursor: 'pointer', transition: 'all 0.15s ease',
-                '&:hover': { bgcolor: '#ffedd5', borderColor: '#fdba74' },
+                '&:hover': {
+                  bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#d1fae5',
+                  borderColor: isDark ? '#10b981' : '#6ee7b7',
+                },
               }}
             >
               <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={12} strokeWidth={2} />
@@ -1045,7 +1046,7 @@ export default function QueueDashboard() {
                 : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only'
                 : undefined
             }
-            simplifiedStatus={!isTriageDoctor}
+            simplifiedStatus={true}
             onClear={() => {
               setSearch('');
               setStatusFilter('');
@@ -1094,27 +1095,20 @@ export default function QueueDashboard() {
         />
       </Paper>
 
-      {/* ── 7. Today's Progress Bar ── */}
-      <QueueProgressBar stats={stationStats} />
-
-      {/* ── 8. Historical / Reference Archive Panels ── */}
+      {/* ── 7. Second Chance Queue (Middle) ── */}
       {!isRegistrationStaff && (
         <SecondChanceQueuePanel
           entries={visibleSecondChanceQueue}
-          loading={loading}
+          loading={loading || actionPending}
           onRecall={e => setRecallTarget(e)}
-          onReturnToQueue={e => setReturnTarget(e)}
+          onReturnToQueue={handleReturnToQueue}
           onAbsent={e => setAbsentTarget(e)}
           canManage={!isRegistrationStaff}
         />
       )}
 
-      {isTriageDoctor && (
-        <TreatmentTransferArchivePanel
-          entries={transferredToTreatmentEntries}
-          loading={loading}
-        />
-      )}
+      {/* ── 8. Today's Queue Progress (Bottom) ── */}
+      <QueueProgressBar stats={stationStats} />
 
       {isTreatmentNurse && (
         <TreatmentCompletedPanel

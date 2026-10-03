@@ -486,6 +486,14 @@ export default function ClinicInformation() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleSubmit = async () => {
+    if (clinic.contact_number && !/^09\d{9}$/.test(clinic.contact_number.trim())) {
+      setSnackbar({
+        open: true,
+        message: 'Mobile number must start with 09 and contain 11 digits.',
+        severity: 'error',
+      });
+      return;
+    }
     setSaving(true);
     try {
       const formData = new FormData();

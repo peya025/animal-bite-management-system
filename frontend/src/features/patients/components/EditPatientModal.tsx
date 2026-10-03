@@ -110,13 +110,13 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       return;
     }
 
-    if (enrolment.contact_number && enrolment.contact_number.length !== 11) {
-      setError('Contact number must be exactly 11 digits.');
+    if (enrolment.contact_number && !/^09\d{9}$/.test(enrolment.contact_number.trim())) {
+      setError('Mobile number must start with 09 and contain 11 digits.');
       return;
     }
 
-    if (enrolment.emergency_contact_phone && enrolment.emergency_contact_phone.length !== 11) {
-      setError('Emergency contact phone must be exactly 11 digits.');
+    if (enrolment.emergency_contact_phone && !/^09\d{9}$/.test(enrolment.emergency_contact_phone.trim())) {
+      setError('Emergency contact phone must start with 09 and contain 11 digits.');
       return;
     }
 

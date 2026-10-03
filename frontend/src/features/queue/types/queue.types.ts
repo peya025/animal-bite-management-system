@@ -161,7 +161,7 @@ export const STATUS_CFG: Record<QueueStatus, { bg: string; color: string; label:
   completed:       { bg: '#ecfdf5', color: '#059669', label: 'Completed'        },
   cancelled:       { bg: '#f3f4f6', color: '#6b7280', label: 'Cancelled'        },
   no_response:     { bg: '#fdf4ff', color: '#9333ea', label: 'No Response'      },
-  second_chance:   { bg: '#fff7ed', color: '#ea580c', label: 'Second Chance'    },
+  second_chance:   { bg: '#ecfdf5', color: '#059669', label: 'Second Chance'    },
   final_recall:    { bg: '#fef2f2', color: '#dc2626', label: 'Final Recall'     },
   absent:          { bg: '#f1f5f9', color: '#475569', label: 'Absent'           },
 };

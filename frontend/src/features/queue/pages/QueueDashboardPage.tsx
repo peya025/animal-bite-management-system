@@ -51,7 +51,6 @@ import {
   QueueProgressBar,
   TrashBinModal,
   SecondChanceQueuePanel,
-  TreatmentTransferArchivePanel,
   TreatmentCompletedPanel,
   QueuePatientDetailModal,
   PatientHistoryLookupModal,
@@ -326,12 +325,6 @@ export default function QueueDashboard() {
   const isTriageDoctor = user?.role === 'triage'
     || user?.roles?.some((role: any) => ['triage', 'doctor'].includes(role.slug));
   const isTreatmentNurse = user?.role === 'treatment' || user?.is_nursing || hasIntakeNurseRole || hasFollowUpNurseRole;
-  const transferredToTreatmentEntries = isTriageDoctor
-    ? queue.filter(entry =>
-        entry.visit_type === 'vaccination'
-        && (entry.consultation_notes?.includes('completed Form 2') || entry.consultation_notes?.includes('Form 2'))
-      )
-    : [];
   const completedTreatmentEntries = isTreatmentNurse
     ? queue.filter(entry => entry.visit_type === 'vaccination' && entry.status === 'completed')
     : [];
@@ -1015,11 +1008,17 @@ export default function QueueDashboard() {
               onClick={() => document.getElementById('second-chance-panel')?.scrollIntoView({ behavior: 'smooth' })}
               sx={{
                 display: 'inline-flex', alignItems: 'center', gap: 0.75,
-                px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c',
-                border: '1px solid #fed7aa', borderRadius: 1.5,
+                px: 1.25, py: 0.3,
+                bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                color: isDark ? '#34d399' : '#059669',
+                border: isDark ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid #a7f3d0',
+                borderRadius: 1.5,
                 fontSize: 11.5, fontWeight: 500, fontFamily: "'Poppins', sans-serif",
                 cursor: 'pointer', transition: 'all 0.15s ease',
-                '&:hover': { bgcolor: '#ffedd5', borderColor: '#fdba74' },
+                '&:hover': {
+                  bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#d1fae5',
+                  borderColor: isDark ? '#10b981' : '#6ee7b7',
+                },
               }}
             >
               <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={12} strokeWidth={2} />
@@ -1094,10 +1093,7 @@ export default function QueueDashboard() {
         />
       </Paper>
 
-      {/* ── 7. Today's Progress Bar ── */}
-      <QueueProgressBar stats={stationStats} />
-
-      {/* ── 8. Historical / Reference Archive Panels ── */}
+      {/* ── 7. Second Chance Queue (Middle) ── */}
       {!isRegistrationStaff && (
         <SecondChanceQueuePanel
           entries={visibleSecondChanceQueue}
@@ -1109,12 +1105,8 @@ export default function QueueDashboard() {
         />
       )}
 
-      {isTriageDoctor && (
-        <TreatmentTransferArchivePanel
-          entries={transferredToTreatmentEntries}
-          loading={loading}
-        />
-      )}
+      {/* ── 8. Today's Queue Progress (Bottom) ── */}
+      <QueueProgressBar stats={stationStats} />
 
       {isTreatmentNurse && (
         <TreatmentCompletedPanel

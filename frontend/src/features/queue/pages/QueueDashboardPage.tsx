@@ -998,7 +998,7 @@ export default function QueueDashboard() {
                 : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only'
                 : undefined
             }
-            simplifiedStatus={isTreatmentNurse}
+            simplifiedStatus={!isTriageDoctor}
             onClear={() => {
               setSearch('');
               setStatusFilter('');

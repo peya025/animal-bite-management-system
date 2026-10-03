@@ -25,6 +25,7 @@ import {
   PersonOff as NoRespIcon,
   Replay as RecallIcon,
   PersonOff as AbsentIcon,
+  Undo as ReturnQueueIcon,
 } from '@mui/icons-material';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -37,7 +38,7 @@ import {
 import api from '../../../shared/services/api';
 import { useQueueEntry } from '../hooks';
 import { STATUS_CFG, PRIORITY_CFG, VISIT_LABEL, getPriorityDisplayLabel, waitTime, type QueueEntry } from '../types';
-import { cancelQueueEntry, markNoResponse, recallQueuePatient, markAbsent } from '../services';
+import { cancelQueueEntry, markNoResponse, recallQueuePatient, markAbsent, returnQueuePatientToQueue } from '../services';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
@@ -600,9 +601,10 @@ export default function QueuePatientDetailModal({
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [cancelDialog,   setCancelDialog]   = useState(false);
   const [completeDialog, setCompleteDialog] = useState(false);
-  const [noRespDialog,   setNoRespDialog]   = useState(false);
-  const [recallDialog,   setRecallDialog]   = useState(false);
-  const [absentDialog,   setAbsentDialog]   = useState(false);
+  const [noRespDialog,      setNoRespDialog]      = useState(false);
+  const [recallDialog,      setRecallDialog]      = useState(false);
+  const [returnQueueDialog, setReturnQueueDialog] = useState(false);
+  const [absentDialog,      setAbsentDialog]      = useState(false);
 
   const handleNoResponse = async () => {
     if (!queueId) return;
@@ -617,6 +619,22 @@ export default function QueuePatientDetailModal({
       onSaved?.();
     } catch {
       toast('Failed to mark no response', 'error');
+    }
+  };
+
+  const handleReturnToQueue = async () => {
+    if (!queueId) return;
+    try {
+      await returnQueuePatientToQueue(Number(queueId));
+      setSuccessModal({
+        open: true,
+        title: 'Returned to Queue',
+        message: `Queue #${entry?.queue_number} has been returned to the waiting queue.`,
+      });
+      reload();
+      onSaved?.();
+    } catch {
+      toast('Failed to return patient to queue', 'error');
     }
   };
 
@@ -853,9 +871,14 @@ export default function QueuePatientDetailModal({
               </MenuItem>
             )}
             {['second_chance','final_recall'].includes(entry.status) && (
-              <MenuItem onClick={() => { setMenuAnchor(null); setRecallDialog(true); }} sx={{ gap: 1.5, fontSize: 13 }}>
-                <RecallIcon sx={{ fontSize: 17, color: '#ea580c' }} /> Recall
-              </MenuItem>
+              <>
+                <MenuItem onClick={() => { setMenuAnchor(null); setReturnQueueDialog(true); }} sx={{ gap: 1.5, fontSize: 13, color: '#2563eb' }}>
+                  <ReturnQueueIcon sx={{ fontSize: 17 }} /> Return to Waiting Queue
+                </MenuItem>
+                <MenuItem onClick={() => { setMenuAnchor(null); setRecallDialog(true); }} sx={{ gap: 1.5, fontSize: 13 }}>
+                  <RecallIcon sx={{ fontSize: 17, color: '#ea580c' }} /> Recall
+                </MenuItem>
+              </>
             )}
             {entry.status === 'final_recall' && (
               <MenuItem onClick={() => { setMenuAnchor(null); setAbsentDialog(true); }} sx={{ gap: 1.5, fontSize: 13, color: '#dc2626' }}>
@@ -876,6 +899,14 @@ export default function QueuePatientDetailModal({
               confirmLabel="Move to Second Chance" cancelLabel="Go Back"
               onConfirm={() => { setNoRespDialog(false); handleNoResponse(); }}
               onCancel={() => setNoRespDialog(false)} />
+          )}
+          {returnQueueDialog && (
+            <ConfirmationDialog variant="confirm"
+              title="Return to Waiting Queue"
+              message={<>Return <strong>#{entry.queue_number} · {entry.patient?.name}</strong> to the waiting queue?</>}
+              confirmLabel="Return to Queue" cancelLabel="Go Back"
+              onConfirm={() => { setReturnQueueDialog(false); handleReturnToQueue(); }}
+              onCancel={() => setReturnQueueDialog(false)} />
           )}
           {recallDialog && (
             <ConfirmationDialog variant="confirm"

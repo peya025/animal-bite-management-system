@@ -27,6 +27,7 @@ import {
   Doctor01Icon,
   ArrowTurnBackwardIcon,
   Clock01Icon,
+  Call02Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 
@@ -38,7 +39,7 @@ import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, CATEGORY_CFG, CATEGORY_LABEL, ge
 import { useQueueData } from '../hooks';
 import {
   callQueuePatient, skipQueuePatient, serveQueuePatient, markNoResponse,
-  recallQueuePatient, markAbsent, cancelQueueEntry,
+  recallQueuePatient, returnQueuePatientToQueue, markAbsent, cancelQueueEntry,
   updateQueuePriority, trashQueueEntry,
 } from '../services';
 import {
@@ -271,6 +272,7 @@ export default function QueueDashboard() {
   const [completeTarget,   setCompleteTarget]   = useState<QueueEntry | null>(null);
   const [noRespTarget,     setNoRespTarget]     = useState<QueueEntry | null>(null);
   const [recallTarget,     setRecallTarget]     = useState<QueueEntry | null>(null);
+  const [returnTarget,     setReturnTarget]     = useState<QueueEntry | null>(null);
   const [absentTarget,     setAbsentTarget]     = useState<QueueEntry | null>(null);
   const [trashTarget,      setTrashTarget]      = useState<QueueEntry | null>(null);
   const [showTrashBin,     setShowTrashBin]     = useState(false);
@@ -307,6 +309,7 @@ export default function QueueDashboard() {
   const handleServe      = (e: QueueEntry) => run(() => serveQueuePatient(e.queue_id),  `#${e.queue_number} is now being served`,           'Failed to mark as serving');
   const handleNoResponse = (e: QueueEntry) => run(() => markNoResponse(e.queue_id),     `#${e.queue_number} moved to Second Chance Queue`, 'Failed to mark no response');
   const handleRecall     = (e: QueueEntry) => run(() => recallQueuePatient(e.queue_id), `#${e.queue_number} recalled`,                     'Failed to recall patient');
+  const handleReturnToQueue = (e: QueueEntry) => run(() => returnQueuePatientToQueue(e.queue_id), `#${e.queue_number} returned to waiting queue`, 'Failed to return patient to queue');
   const handleAbsent     = (e: QueueEntry) => run(() => markAbsent(e.queue_id),         `#${e.queue_number} marked as No-Show`,            'Failed to mark absent');
   const handleCancel     = (e: QueueEntry) => run(() => cancelQueueEntry(e.queue_id),   `Cancelled #${e.queue_number}`,                    'Failed to cancel');
   const handleTrash      = (e: QueueEntry) => run(() => trashQueueEntry(e.queue_id),    `#${e.queue_number} moved to trash`,               'Failed to trash entry');
@@ -351,25 +354,28 @@ export default function QueueDashboard() {
       : isTreatmentNurse
         ? secondChanceQueue.filter(entry => TREATMENT_VISIT_TYPES.includes(entry.visit_type))
         : secondChanceQueue;
+  const roleScopedSecondChanceQueue = isTriageDoctor
+    ? secondChanceQueue.filter(entry => TRIAGE_VISIT_TYPES.includes(entry.visit_type))
+    : stationScopedSecondChanceQueue;
   const visibleSecondChanceQueue = (isTreatmentNurse && !isSoloNurse && hasFollowUpNurseRole && !hasIntakeNurseRole)
     ? []
-    : stationScopedSecondChanceQueue;
+    : roleScopedSecondChanceQueue;
   const roleScopedQueue = isTriageDoctor
     ? queue.filter(entry => TRIAGE_VISIT_TYPES.includes(entry.visit_type))
     : stationScopedQueue;
   const stationStats = {
     ...stats,
-    total: stationScopedQueue.length + stationScopedSecondChanceQueue.length,
-    waiting: stationScopedQueue.filter(entry => entry.status === 'waiting').length,
-    called: stationScopedQueue.filter(entry => entry.status === 'called').length,
-    in_consultation: stationScopedQueue.filter(entry => entry.status === 'in_consultation').length,
-    serving: stationScopedQueue.filter(entry => entry.status === 'serving').length,
-    completed: stationScopedQueue.filter(entry => entry.status === 'completed').length,
-    cancelled: stationScopedQueue.filter(entry => entry.status === 'cancelled').length,
-    absent: stationScopedQueue.filter(entry => entry.status === 'absent').length,
-    no_response: stationScopedQueue.filter(entry => entry.status === 'no_response').length,
-    second_chance: stationScopedSecondChanceQueue.filter(entry => entry.status === 'second_chance').length,
-    final_recall: stationScopedSecondChanceQueue.filter(entry => entry.status === 'final_recall').length,
+    total: roleScopedQueue.length + roleScopedSecondChanceQueue.length,
+    waiting: roleScopedQueue.filter(entry => entry.status === 'waiting').length,
+    called: roleScopedQueue.filter(entry => entry.status === 'called').length,
+    in_consultation: roleScopedQueue.filter(entry => entry.status === 'in_consultation').length,
+    serving: roleScopedQueue.filter(entry => entry.status === 'serving').length,
+    completed: roleScopedQueue.filter(entry => entry.status === 'completed').length,
+    cancelled: roleScopedQueue.filter(entry => entry.status === 'cancelled').length,
+    absent: roleScopedQueue.filter(entry => entry.status === 'absent').length,
+    no_response: roleScopedQueue.filter(entry => entry.status === 'no_response').length,
+    second_chance: roleScopedSecondChanceQueue.filter(entry => entry.status === 'second_chance').length,
+    final_recall: roleScopedSecondChanceQueue.filter(entry => entry.status === 'final_recall').length,
   };
   const roleScopedNextEntry = isTriageDoctor || isTreatmentNurse
     ? getScopedNextEntry(roleScopedQueue)
@@ -760,6 +766,7 @@ export default function QueueDashboard() {
         const isWaiting = e.status === 'waiting';
         const isCalled  = e.status === 'called';
         const isServing = e.status === 'serving' || e.status === 'in_consultation';
+        const isSecondChance = e.status === 'second_chance' || e.status === 'final_recall';
         const isActive  = MAIN_STATUSES.includes(e.status);
         const isDone    = ['completed', 'cancelled', 'absent'].includes(e.status);
         const canCancelOrTrash = !isTriageDoctor && !isTreatmentNurse;
@@ -767,12 +774,42 @@ export default function QueueDashboard() {
         return (
           <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', alignItems: 'center' }}>
 
+            {/* Call — waiting only */}
+            {isWaiting && (
+              <Tooltip title="Call Patient">
+                <IconButton size="small" onClick={() => setCallTarget(e)}
+                  sx={actionBtn('#059669', '#ecfdf5', '#a7f3d0', '#d1fae5', '#6ee7b7', '#047857')}>
+                  <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
+                </IconButton>
+              </Tooltip>
+            )}
+
             {/* No Response — waiting or called */}
             {(isWaiting || isCalled) && (
               <Tooltip title="No Response — Move to Second Chance">
                 <IconButton size="small" onClick={() => setNoRespTarget(e)}
                   sx={actionBtn('#9333ea', '#faf5ff', '#e9d5ff', '#f3e8ff', '#d8b4fe', '#7e22ce')}>
                   <HugeiconsIcon icon={UserBlock01Icon} size={16} strokeWidth={2} />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {/* Return to Queue — second chance or final recall (if filtered) */}
+            {isSecondChance && (
+              <Tooltip title="Return to Waiting Queue">
+                <IconButton size="small" onClick={() => setReturnTarget(e)}
+                  sx={actionBtn('#2563eb', '#eff6ff', '#bfdbfe', '#dbeafe', '#93c5fd', '#1d4ed8')}>
+                  <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={16} strokeWidth={2} />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {/* Recall — second chance or final recall (if filtered) */}
+            {isSecondChance && (
+              <Tooltip title="Recall Patient">
+                <IconButton size="small" onClick={() => setRecallTarget(e)}
+                  sx={actionBtn('#ea580c', '#fff7ed', '#fed7aa', '#ffedd5', '#fdba74', '#c2410c')}>
+                  <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
@@ -974,7 +1011,17 @@ export default function QueueDashboard() {
             </Typography>
           </Box>
           {visibleSecondChanceQueue.length > 0 && (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500, fontFamily: "'Poppins', sans-serif" }}>
+            <Box
+              onClick={() => document.getElementById('second-chance-panel')?.scrollIntoView({ behavior: 'smooth' })}
+              sx={{
+                display: 'inline-flex', alignItems: 'center', gap: 0.75,
+                px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c',
+                border: '1px solid #fed7aa', borderRadius: 1.5,
+                fontSize: 11.5, fontWeight: 500, fontFamily: "'Poppins', sans-serif",
+                cursor: 'pointer', transition: 'all 0.15s ease',
+                '&:hover': { bgcolor: '#ffedd5', borderColor: '#fdba74' },
+              }}
+            >
               <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={12} strokeWidth={2} />
               {visibleSecondChanceQueue.length} in Second Chance Queue
             </Box>
@@ -998,7 +1045,7 @@ export default function QueueDashboard() {
                 : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only'
                 : undefined
             }
-            simplifiedStatus={isTreatmentNurse}
+            simplifiedStatus={!isTriageDoctor}
             onClear={() => {
               setSearch('');
               setStatusFilter('');
@@ -1050,14 +1097,15 @@ export default function QueueDashboard() {
       {/* ── 7. Today's Progress Bar ── */}
       <QueueProgressBar stats={stationStats} />
 
-      {/* ── 8. Historical / Reference Archive Panels (Collapsed by default) ── */}
-      {visibleSecondChanceQueue.length > 0 && (
+      {/* ── 8. Historical / Reference Archive Panels ── */}
+      {!isRegistrationStaff && (
         <SecondChanceQueuePanel
           entries={visibleSecondChanceQueue}
           loading={loading}
           onRecall={e => setRecallTarget(e)}
+          onReturnToQueue={e => setReturnTarget(e)}
           onAbsent={e => setAbsentTarget(e)}
-          canManage={!isRegistrationStaff && !isTreatmentNurse}
+          canManage={!isRegistrationStaff}
         />
       )}
 
@@ -1099,6 +1147,14 @@ export default function QueueDashboard() {
           confirmLabel="Move to Second Chance" cancelLabel="Go Back"
           onConfirm={() => { handleNoResponse(noRespTarget); setNoRespTarget(null); }}
           onCancel={() => setNoRespTarget(null)} />
+      )}
+
+      {returnTarget && (
+        <ConfirmationDialog variant="confirm" title="Return to Queue"
+          message={<>Return <strong>#{returnTarget.queue_number} · {returnTarget.patient.name}</strong> to the waiting queue?</>}
+          confirmLabel="Return to Queue" cancelLabel="Cancel"
+          onConfirm={() => { handleReturnToQueue(returnTarget); setReturnTarget(null); }}
+          onCancel={() => setReturnTarget(null)} />
       )}
 
       {recallTarget && (

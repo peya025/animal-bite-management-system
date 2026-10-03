@@ -429,9 +429,10 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             Route::post('/{id}/serve',       [QueueController::class, 'serve']);
             Route::post('/{id}/complete',    [QueueController::class, 'complete']);
             Route::post('/{id}/no-response', [QueueController::class, 'noResponse']);
-            Route::post('/{id}/recall',      [QueueController::class, 'recall']);
-            Route::post('/{id}/absent',      [QueueController::class, 'markAbsent']);
-            Route::post('/{id}/skip',        [QueueController::class, 'skip']);
+            Route::post('/{id}/recall',          [QueueController::class, 'recall']);
+            Route::post('/{id}/return-to-queue', [QueueController::class, 'returnToQueue']);
+            Route::post('/{id}/absent',          [QueueController::class, 'markAbsent']);
+            Route::post('/{id}/skip',            [QueueController::class, 'skip']);
         });
 
         // Trash bin (all staff)

@@ -1,25 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, Tooltip, IconButton, Chip, Paper, Collapse } from '@mui/material';
+import { Box, Typography, Tooltip, IconButton, Chip, Paper, Collapse, Button } from '@mui/material';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Call02Icon,
   UserRemove01Icon,
-  ArrowUpRight01Icon,
-  ArrowTurnBackwardIcon,
   ArrowDown01Icon,
   ArrowUp01Icon,
 } from '@hugeicons/core-free-icons';
-import { useNavigate } from 'react-router-dom';
 import type { QueueEntry } from '../types';
-import { STATUS_CFG, VISIT_LABEL, timeSince } from '../types';
-import { buildRoute, ROUTES } from '../../../shared/config/routes';
+import { VISIT_LABEL, timeSince } from '../types';
 
 interface SecondChanceQueuePanelProps {
   entries: QueueEntry[];
   loading?: boolean;
-  onRecall: (entry: QueueEntry) => void;
-  onReturnToQueue?: (entry: QueueEntry) => void;
-  onAbsent: (entry: QueueEntry) => void;
+  onRecall?: (entry: QueueEntry) => void;
+  onReturnToQueue?: (entry: QueueEntry) => void | Promise<void>;
+  onAbsent?: (entry: QueueEntry) => void;
   canManage?: boolean;
 }
 
@@ -43,8 +38,18 @@ function StageTag({ status }: { status: string }) {
 export function SecondChanceQueuePanel({
   entries, loading, onRecall, onReturnToQueue, onAbsent, canManage = true,
 }: SecondChanceQueuePanelProps) {
-  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(() => entries.length > 0);
+  const [submittingId, setSubmittingId] = useState<number | null>(null);
+
+  const handleBringBack = async (entry: QueueEntry) => {
+    if (submittingId !== null || loading) return;
+    setSubmittingId(entry.queue_id);
+    try {
+      await onReturnToQueue?.(entry);
+    } finally {
+      setSubmittingId(null);
+    }
+  };
 
   // Auto-expand when a patient is moved to second chance
   useEffect(() => {
@@ -128,7 +133,6 @@ export function SecondChanceQueuePanel({
         {entries.length > 0 && (
           <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {entries.map(entry => {
-              const statusCfg = STATUS_CFG[entry.status] ?? STATUS_CFG.cancelled;
               const isFinalRecall = entry.status === 'final_recall';
               const missedTime = timeSince(entry.no_response_at);
 
@@ -185,94 +189,47 @@ export function SecondChanceQueuePanel({
                     </Typography>
                   </Box>
 
-                  {/* Status badge */}
-                  <Box sx={{
-                    display: 'none',
-                    '@media (min-width: 768px)': { display: 'inline-flex' },
-                    px: 1.5, py: 0.4,
-                    bgcolor: statusCfg.bg, color: statusCfg.color,
-                    borderRadius: 1.5, fontSize: 11.5, fontWeight: 600,
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {statusCfg.label}
-                  </Box>
-
                   {/* Actions */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                    {/* Return to Queue */}
+                    {/* Bring Back */}
                     {canManage && onReturnToQueue && (
-                      <Tooltip title="Return patient to waiting queue">
-                        <button
-                          type="button"
-                          onClick={() => onReturnToQueue(entry)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            padding: '5px 12px',
-                            background: '#eff6ff',
-                            border: '1px solid #bfdbfe',
-                            borderRadius: 6,
-                            color: '#1d4ed8',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                            transition: 'all 0.15s ease',
-                            whiteSpace: 'nowrap',
-                          }}
-                          onMouseEnter={el => { (el.currentTarget as HTMLElement).style.background = '#dbeafe'; }}
-                          onMouseLeave={el => { (el.currentTarget as HTMLElement).style.background = '#eff6ff'; }}
-                        >
-                          <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={13} strokeWidth={2.2} />
-                          Return to Queue
-                        </button>
-                      </Tooltip>
-                    )}
-
-                    {/* Recall (Call directly from Second Chance) */}
-                    {canManage && (
-                      <Tooltip title={`Call patient now${isFinalRecall ? ' (Final Recall)' : ' (Recall)'}`}>
-                        <IconButton
-                          size="small"
-                          onClick={() => onRecall(entry)}
-                          sx={{
-                            color: isFinalRecall ? '#dc2626' : '#ea580c',
-                            bgcolor: isFinalRecall ? '#fef2f2' : '#fff7ed',
-                            border: `1px solid ${isFinalRecall ? '#fecaca' : '#fed7aa'}`,
-                            borderRadius: '8px', width: 32, height: 32,
-                            transition: 'all 0.15s',
-                            '&:hover': {
-                              bgcolor: isFinalRecall ? '#fee2e2' : '#ffedd5',
-                              transform: 'translateY(-1px)',
-                              boxShadow: '0 2px 5px rgba(234,88,12,0.2)',
-                            },
-                          }}
-                        >
-                          <HugeiconsIcon icon={Call02Icon} size={15} strokeWidth={2.2} />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-
-                    {/* View */}
-                    <Tooltip title="View patient details">
-                      <IconButton
+                      <Button
                         size="small"
-                        onClick={() => navigate(buildRoute(ROUTES.QUEUE.PATIENT_DETAIL, { queueId: entry.queue_id }))}
+                        disabled={submittingId !== null || loading}
+                        onClick={() => handleBringBack(entry)}
                         sx={{
-                          color: '#059669', bgcolor: '#ecfdf5',
-                          border: '1px solid #a7f3d0',
-                          borderRadius: '8px', width: 32, height: 32,
-                          transition: 'all 0.15s',
-                          '&:hover': { bgcolor: '#d1fae5', transform: 'translateY(-1px)' },
+                          textTransform: 'none',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          px: 1.75,
+                          py: 0.5,
+                          borderRadius: '6px',
+                          border: '1px solid #bfdbfe',
+                          bgcolor: '#eff6ff',
+                          color: '#1d4ed8',
+                          lineHeight: 1.4,
+                          whiteSpace: 'nowrap',
+                          boxShadow: 'none',
+                          '&:hover': {
+                            bgcolor: '#dbeafe',
+                            borderColor: '#93c5fd',
+                            boxShadow: 'none',
+                          },
+                          '&:disabled': {
+                            bgcolor: '#f3f4f6',
+                            color: '#9ca3af',
+                            borderColor: '#e5e7eb',
+                            cursor: 'not-allowed',
+                            pointerEvents: 'auto',
+                          },
                         }}
                       >
-                        <HugeiconsIcon icon={ArrowUpRight01Icon} size={15} strokeWidth={2.2} />
-                      </IconButton>
-                    </Tooltip>
+                        Bring Back
+                      </Button>
+                    )}
 
                     {/* Absent — only on final recall */}
-                    {canManage && isFinalRecall && (
+                    {canManage && isFinalRecall && onAbsent && (
                       <Tooltip title="Mark as Absent (no more recalls)">
                         <IconButton
                           size="small"

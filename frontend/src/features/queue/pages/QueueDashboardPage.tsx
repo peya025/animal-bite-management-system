@@ -421,7 +421,9 @@ export default function QueueDashboard() {
       ? true
       : statusFilter === 'cancelled_or_absent'
         ? (q.status === 'cancelled' || q.status === 'absent')
-        : q.status === statusFilter;
+        : statusFilter === 'serving'
+          ? (q.status === 'serving' || q.status === 'in_consultation')
+          : q.status === statusFilter;
     const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
 
     let matchVisitType = true;
@@ -943,7 +945,7 @@ export default function QueueDashboard() {
             </Tooltip>
           )}
 
-          {!isRegistrationStaff && (
+          {!isRegistrationStaff && !isTriageDoctor && (
             <Tooltip title="Trash Bin">
               <IconButton size="small" onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
                 <TrashBinIcon sx={{ fontSize: 18 }} />
@@ -1045,7 +1047,7 @@ export default function QueueDashboard() {
                 : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only'
                 : undefined
             }
-            simplifiedStatus={!isTriageDoctor}
+            simplifiedStatus={true}
             onClear={() => {
               setSearch('');
               setStatusFilter('');

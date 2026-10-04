@@ -19,6 +19,7 @@ import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmen
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import { RegistrationVitalsSection, type RegistrationVitalsFields } from './AddPatientModal/sections/RegistrationVitalsSection';
 import { RegistrationDialog } from './AddPatientModal/RegistrationDialog.styles';
+import { RegistrationErrors } from './AddPatientModal/registrationAccessibility';
 import ConfirmationDialog, { SuccessModal } from '../../../components/feedback/ConfirmationDialog';
 import PatientEditModal from './PatientEditModal';
 import api from '../../../shared/services/api';
@@ -443,6 +444,7 @@ export default function PatientDetailsModal({
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     setNewExposure((prev) => ({ ...prev, [key]: ev.target.value }));
+    if (submitError) setSubmitError(null);
     if (formErrors[key]) {
       setFormErrors((prev) => {
         const next = { ...prev };
@@ -454,13 +456,16 @@ export default function PatientDetailsModal({
 
   const handleVitalsDirectChange = (key: any, value: string) => {
     setNewExposure((prev) => ({ ...prev, [key]: value }));
-    if (formErrors[key]) {
-      setFormErrors((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    }
+    if (submitError) setSubmitError(null);
+    setFormErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      if (key === 'reg_blood_pressure') {
+        delete next.bp_systolic;
+        delete next.bp_diastolic;
+      }
+      return next;
+    });
   };
 
   const handleReExposureKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -525,25 +530,111 @@ export default function PatientDetailsModal({
     const errors: Record<string, string> = {};
     const today = new Date().toISOString().split('T')[0];
 
+    // Re-exposure bite date
     if (!newExposure.bite_date || !newExposure.bite_date.trim()) {
       errors.bite_date = 'Date of re-exposure is required.';
     } else if (newExposure.bite_date > today) {
       errors.bite_date = 'Date of re-exposure cannot be in the future.';
     }
 
-    if (newExposure.reg_date_of_consultation && newExposure.reg_date_of_consultation > today) {
+    // Section II: Referral health facility
+    if (newExposure.mode_of_transaction === 'referral') {
+      if (!newExposure.reg_referred_by || !newExposure.reg_referred_by.trim()) {
+        errors.reg_referred_by = 'Referring health center or facility name is required.';
+      }
+    }
+
+    // Section III: Date of Consultation
+    if (!newExposure.reg_date_of_consultation || !newExposure.reg_date_of_consultation.trim()) {
+      errors.reg_date_of_consultation = 'Date of consultation is required.';
+    } else if (newExposure.reg_date_of_consultation > today) {
       errors.reg_date_of_consultation = 'Date of consultation cannot be in the future.';
+    }
+
+    // Consultation Time
+    if (!newExposure.reg_consultation_time || !newExposure.reg_consultation_time.trim()) {
+      errors.reg_consultation_time = 'Consultation time is required.';
+    }
+
+    // Blood Pressure (Systolic and Diastolic)
+    const bp = newExposure.reg_blood_pressure ? newExposure.reg_blood_pressure.trim() : '';
+    const [sys, dia] = bp ? bp.split('/') : ['', ''];
+    const hasSys = Boolean(sys && sys.trim());
+    const hasDia = Boolean(dia && dia.trim());
+    if (!hasSys || !hasDia) {
+      errors.reg_blood_pressure = 'Blood pressure (both systolic and diastolic) is required.';
+    } else {
+      const s = Number(sys);
+      const d = Number(dia);
+      if (isNaN(s) || isNaN(d) || s < 40 || s > 300 || d < 20 || d > 200) {
+        errors.reg_blood_pressure = 'Please enter a valid blood pressure (e.g. 120/80).';
+      }
+    }
+
+    // Temperature (°C)
+    const tempStr = newExposure.reg_temperature ? newExposure.reg_temperature.trim() : '';
+    if (!tempStr) {
+      errors.reg_temperature = 'Temperature is required.';
+    } else {
+      const temp = Number(tempStr);
+      if (isNaN(temp) || temp < 30 || temp > 45) {
+        errors.reg_temperature = 'Please enter a valid temperature between 30°C and 45°C.';
+      }
+    }
+
+    // Height (cm)
+    const heightStr = newExposure.reg_height ? newExposure.reg_height.trim() : '';
+    if (!heightStr) {
+      errors.reg_height = 'Height is required.';
+    } else {
+      const h = Number(heightStr);
+      if (isNaN(h) || h < 20 || h > 300) {
+        errors.reg_height = 'Please enter a valid height in cm (e.g. 170).';
+      }
+    }
+
+    // Weight (kg)
+    const weightStr = newExposure.reg_weight ? newExposure.reg_weight.trim() : '';
+    if (!weightStr) {
+      errors.reg_weight = 'Weight is required.';
+    } else {
+      const w = Number(weightStr);
+      if (isNaN(w) || w < 1 || w > 500) {
+        errors.reg_weight = 'Please enter a valid weight in kg (e.g. 70).';
+      }
+    }
+
+    // Name of Attending Provider
+    if (!newExposure.reg_attending_provider || !newExposure.reg_attending_provider.trim()) {
+      errors.reg_attending_provider = 'Name of attending provider is required.';
     }
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      setSubmitError('Please correct the highlighted fields before proceeding.');
-      if (errors.bite_date) {
-        const el = reExposureFormRef.current?.querySelector<HTMLInputElement>('input[name="bite_date"]');
-        el?.focus();
-      } else if (errors.reg_date_of_consultation) {
-        const el = reExposureFormRef.current?.querySelector<HTMLInputElement>('input[name="reg_date_of_consultation"]');
-        el?.focus();
+      setSubmitError('Please complete all required consultation details and vitals before proceeding.');
+
+      const errorKeysPriority = [
+        'bite_date',
+        'reg_referred_by',
+        'reg_date_of_consultation',
+        'reg_consultation_time',
+        'reg_blood_pressure',
+        'reg_temperature',
+        'reg_height',
+        'reg_weight',
+        'reg_attending_provider',
+      ];
+      const firstKey = errorKeysPriority.find((k) => errors[k]);
+      if (firstKey) {
+        if (firstKey === 'reg_blood_pressure') {
+          const el = reExposureFormRef.current?.querySelector<HTMLInputElement>('input[name="bp_systolic"]');
+          el?.focus();
+        } else {
+          const el = reExposureFormRef.current?.querySelector<HTMLInputElement | HTMLSelectElement>(
+            `[name="${firstKey}"]`
+          );
+          el?.focus();
+        }
       }
       return;
     }
@@ -1015,106 +1106,109 @@ export default function PatientDetailsModal({
         </DialogTitle>
         <DialogContent dividers sx={{ p: { xs: 2, sm: 3 } }}>
           <RegistrationDialog>
-            <div ref={reExposureFormRef} onKeyDown={handleReExposureKeyDown} style={{ marginBottom: 12 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 10,
-                  background: 'var(--info-bg, #eff6ff)',
-                  border: '1px solid var(--info-border, #bfdbfe)',
-                  borderRadius: 8,
-                  padding: '12px 14px',
-                  fontSize: 13,
-                  color: 'var(--info-text, #1d4ed8)',
-                  marginBottom: 18,
-                }}
-              >
-                <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>📋</span>
-                <span>
-                  <strong>Station 1 Registration Check-In:</strong> Record the re-exposure incident date and fill in{' '}
-                  <strong>Section III. Consultation Details &amp; Vitals</strong> before booking to proceed to the Doctor.
-                  The attending Doctor will review these vitals in Form 2.
-                </span>
-              </div>
-
-              {submitError && (
+            <RegistrationErrors.Provider value={formErrors}>
+              <div ref={reExposureFormRef} onKeyDown={handleReExposureKeyDown} style={{ marginBottom: 12 }}>
                 <div
-                  className="registration-error"
-                  role="alert"
                   style={{
-                    marginBottom: 18,
-                    padding: '12px 16px',
-                    border: '1px solid #fecaca',
-                    borderRadius: 8,
-                    background: '#fef2f2',
-                    color: '#991b1b',
-                    fontSize: 13,
-                    lineHeight: 1.5,
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: 'flex-start',
                     gap: 10,
+                    background: 'var(--info-bg, #eff6ff)',
+                    border: '1px solid var(--info-border, #bfdbfe)',
+                    borderRadius: 8,
+                    padding: '12px 14px',
+                    fontSize: 13,
+                    color: 'var(--info-text, #1d4ed8)',
+                    marginBottom: 18,
                   }}
                 >
-                  <span style={{ fontSize: 16 }}>⚠️</span>
-                  <span>{submitError}</span>
-                </div>
-              )}
-
-              {/* Exposure Date Field (Full Width) */}
-              <div className="fm-section" style={{ marginBottom: 20 }}>
-                <h3 className="fm-section-title">Re-Exposure Incident Date</h3>
-                <div className="fm-field" style={{ width: '100%' }}>
-                  <label className="fm-label">
-                    Date of Re-Exposure / Bite <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
-                  </label>
-                  <input
-                    className="fm-input"
-                    type="date"
-                    name="bite_date"
-                    required
-                    max={new Date().toISOString().split('T')[0]}
-                    value={newExposure.bite_date}
-                    onChange={(e) => {
-                      setNewExposure((prev) => ({ ...prev, bite_date: e.target.value }));
-                      if (formErrors.bite_date) {
-                        setFormErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.bite_date;
-                          return next;
-                        });
-                      }
-                      if (submitError) setSubmitError(null);
-                    }}
-                    style={{
-                      width: '100%',
-                      maxWidth: '100%',
-                      borderColor: formErrors.bite_date ? 'var(--registration-error-color, #dc2626)' : undefined,
-                    }}
-                  />
-                  <span className="registration-field-hint">
-                    Date when the re-bite or new animal exposure occurred (cannot be in the future)
+                  <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>📋</span>
+                  <span>
+                    <strong>Station 1 Registration Check-In:</strong> Record the re-exposure incident date and fill in{' '}
+                    <strong>Section III. Consultation Details &amp; Vitals</strong> before booking to proceed to the Doctor.
+                    The attending Doctor will review these vitals in Form 2.
                   </span>
-                  {formErrors.bite_date && (
-                    <span
-                      className="registration-field-error"
-                      style={{ color: '#dc2626', fontSize: 12, marginTop: 4, display: 'block' }}
-                    >
-                      {formErrors.bite_date}
-                    </span>
-                  )}
                 </div>
-              </div>
 
-              {/* Section III. Consultation Details & Vitals */}
-              <RegistrationVitalsSection
-                layout="two-column"
-                data={newExposure}
-                onChange={handleVitalsChange}
-                onDirectChange={handleVitalsDirectChange}
-                errors={formErrors}
-              />
-            </div>
+                {submitError && (
+                  <div
+                    className="registration-error"
+                    role="alert"
+                    style={{
+                      marginBottom: 18,
+                      padding: '12px 16px',
+                      border: '1px solid #fecaca',
+                      borderRadius: 8,
+                      background: '#fef2f2',
+                      color: '#991b1b',
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>⚠️</span>
+                    <span>{submitError}</span>
+                  </div>
+                )}
+
+                {/* Exposure Date Field (Full Width) */}
+                <div className="fm-section" style={{ marginBottom: 20 }}>
+                  <h3 className="fm-section-title">Re-Exposure Incident Date</h3>
+                  <div className="fm-field" style={{ width: '100%' }}>
+                    <label className="fm-label" htmlFor="bite_date">
+                      Date of Re-Exposure / Bite <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
+                    </label>
+                    <input
+                      className="fm-input"
+                      type="date"
+                      id="bite_date"
+                      name="bite_date"
+                      required
+                      max={new Date().toISOString().split('T')[0]}
+                      value={newExposure.bite_date}
+                      onChange={(e) => {
+                        setNewExposure((prev) => ({ ...prev, bite_date: e.target.value }));
+                        if (formErrors.bite_date) {
+                          setFormErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.bite_date;
+                            return next;
+                          });
+                        }
+                        if (submitError) setSubmitError(null);
+                      }}
+                      style={{
+                        width: '100%',
+                        maxWidth: '100%',
+                        borderColor: formErrors.bite_date ? 'var(--registration-error-color, #dc2626)' : undefined,
+                      }}
+                    />
+                    <span className="registration-field-hint">
+                      Date when the re-bite or new animal exposure occurred (cannot be in the future)
+                    </span>
+                    {formErrors.bite_date && (
+                      <span
+                        className="registration-field-error"
+                        style={{ color: '#dc2626', fontSize: 12, marginTop: 4, display: 'block' }}
+                      >
+                        {formErrors.bite_date}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Section III. Consultation Details & Vitals */}
+                <RegistrationVitalsSection
+                  layout="two-column"
+                  data={newExposure}
+                  onChange={handleVitalsChange}
+                  onDirectChange={handleVitalsDirectChange}
+                  errors={formErrors}
+                />
+              </div>
+            </RegistrationErrors.Provider>
           </RegistrationDialog>
         </DialogContent>
         <DialogActions

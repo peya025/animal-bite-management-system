@@ -76,8 +76,8 @@ export function FormField({ id, label, required, error, errorText, hint, classNa
         </label>
       )}
       {decorate(children)}
-      {hint && <span id={uid + '-hint'} className="registration-field-hint">{hint}</span>}
-      {invalid && message && <span id={uid + '-error'} className="registration-field-error">{message}</span>}
+      {hint && <span id={uid + '-hint'} className="registration-field-hint" style={{ fontFamily: "'Poppins', sans-serif" }}>{hint}</span>}
+      {invalid && message && <span id={uid + '-error'} className="registration-field-error" style={{ fontFamily: "'Poppins', sans-serif" }}>{message}</span>}
     </div>
   );
 }

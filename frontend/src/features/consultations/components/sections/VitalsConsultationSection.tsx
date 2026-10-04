@@ -3,7 +3,7 @@ import type { TreatmentFormData } from '../../types/consultation.types';
 import { splitBloodPressure } from '../../utils/consultationHelpers';
 import { FormField } from '../FormField';
 import VitalStatusIndicator from '../VitalStatusIndicator';
-import { getBloodPressureStatus, getTemperatureStatus } from '../../utils/vitalSignStatus';
+import { getTemperatureStatus } from '../../utils/vitalSignStatus';
 
 interface VitalsConsultationSectionProps {
   formData: TreatmentFormData;
@@ -17,6 +17,8 @@ interface VitalsConsultationSectionProps {
   onSetReferredBy: (val: string) => void;
 }
 
+const POPPINS = "'Poppins', sans-serif";
+
 /** Style for every read-only value cell */
 const RO: React.CSSProperties = {
   display: 'block',
@@ -24,6 +26,7 @@ const RO: React.CSSProperties = {
   padding: '11px 12px',
   fontSize: 14,
   fontWeight: 600,
+  fontFamily: POPPINS,
   color: 'var(--input-text, #111827)',
   background: 'var(--bg-secondary, #f8fafc)',
   border: '1px solid var(--border-color, #e2e8f0)',
@@ -33,7 +36,7 @@ const RO: React.CSSProperties = {
 };
 
 const EMPTY = (
-  <span style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--text-muted, #9ca3af)' }}>
+  <span style={{ fontStyle: 'italic', fontWeight: 400, fontFamily: POPPINS, color: 'var(--text-muted, #9ca3af)' }}>
     —
   </span>
 );
@@ -49,7 +52,6 @@ export default function VitalsConsultationSection({
   formData,
 }: VitalsConsultationSectionProps) {
   const { systolic, diastolic } = splitBloodPressure(formData.blood_pressure);
-  const bloodPressureStatus = getBloodPressureStatus(systolic, diastolic);
   const temperatureStatus = getTemperatureStatus(formData.temperature);
 
   const formatTime = (t: string) => {
@@ -115,13 +117,7 @@ export default function VitalsConsultationSection({
 
         {/* Blood Pressure */}
         <FormField label="Blood Pressure (mmHg)" hint="Systolic / Diastolic">
-          <span
-            style={{
-              ...RO,
-              borderColor: bloodPressureStatus?.borderColor || RO.borderColor,
-              background: bloodPressureStatus?.backgroundColor || RO.background,
-            }}
-          >
+          <span style={RO}>
             {formData.blood_pressure
               ? (
                 <>
@@ -133,9 +129,6 @@ export default function VitalsConsultationSection({
               )
               : EMPTY}
           </span>
-          {bloodPressureStatus && formData.blood_pressure && (
-            <VitalStatusIndicator status={bloodPressureStatus} />
-          )}
         </FormField>
 
         {/* Temperature */}

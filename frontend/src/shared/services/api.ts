@@ -37,7 +37,9 @@ api.interceptors.request.use(
   error => Promise.reject(error),
 );
 
-// On 401, clear storage and bounce to login
+let last403NotificationTime = 0;
+
+// Handle response errors: 401 unauthenticated redirect vs 403 permission-denied popup
 api.interceptors.response.use(
   response => response,
   (error: AxiosError) => {
@@ -47,7 +49,24 @@ api.interceptors.response.use(
       localStorage.removeItem('clinicData');
       localStorage.removeItem(LAST_ACTIVITY_KEY);
       window.location.href = '/login'; // Can't import ROUTES here — circular dep risk, literal is safe
+      return Promise.reject(error);
     }
+
+    if (error.response?.status === 403) {
+      // Debounce 403 popups so concurrent forbidden calls don't fire multiple alerts
+      const now = Date.now();
+      if (now - last403NotificationTime > 1500) {
+        last403NotificationTime = now;
+        const serverMessage = (error.response.data as any)?.message;
+        window.dispatchEvent(
+          new CustomEvent('app-access-denied', {
+            detail: { message: serverMessage || undefined },
+          })
+        );
+      }
+      return Promise.reject(error);
+    }
+
     return Promise.reject(error);
   },
 );

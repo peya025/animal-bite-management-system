@@ -457,6 +457,28 @@ class NotificationBellTest extends TestCase
 
         $this->assertTrue($nurseNotifs->contains('title', 'Treatment Only'));
         $this->assertFalse($nurseNotifs->contains('title', 'Triage Only'));
+
+        $registrationStaff = User::create([
+            'clinic_id' => $this->clinic->id,
+            'name' => 'Reg Staff',
+            'email' => 'reg@test.com',
+            'password' => bcrypt('password'),
+            'role' => 'registration',
+            'is_active' => true,
+        ]);
+
+        Notification::create([
+            'clinic_id' => $this->clinic->id,
+            'role' => null,
+            'type' => 'inventory_low_stock',
+            'category' => 'inventory',
+            'title' => 'Low Stock Notice',
+            'message' => 'Inventory is low',
+            'is_active' => true,
+        ]);
+
+        $regNotifs = $this->service->getNotificationsForUser($registrationStaff);
+        $this->assertFalse($regNotifs->contains('title', 'Low Stock Notice'));
     }
 
     public function test_high_risk_area_resolution_when_records_corrected()

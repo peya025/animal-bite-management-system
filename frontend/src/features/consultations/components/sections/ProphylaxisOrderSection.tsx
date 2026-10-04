@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { EMPTY_PROPHYLAXIS_ORDERS, getTetanusCategoryFromOrders } from '../../../../shared/types/prophylaxis';
 import type { ProphylaxisOrders, ProphylaxisStock } from '../../../../shared/types/prophylaxis';
 import { FormField } from '../FormField';
@@ -28,14 +29,11 @@ export default function ProphylaxisOrderSection({
 
   // Available ATS brands from stock / props / current selection
   const atsSet = new Set<string>();
-  (atsBrands || []).forEach((b) => atsSet.add(b));
-  if (stock) {
-    Object.keys(stock).forEach((key) => {
-      if ((key === 'ATS' || key.toLowerCase().includes('ats') || key.toLowerCase().includes('serum')) && (stock[key]?.length ?? 0) > 0) {
-        atsSet.add(key);
-      }
-    });
-  }
+  (atsBrands || []).forEach((b) => {
+    if ((stock?.[b]?.length ?? 0) > 0 || (stock?.['ATS']?.length ?? 0) > 0 || b === orders.tetanus_passive) {
+      atsSet.add(b);
+    }
+  });
   if (orders.tetanus_passive && orders.tetanus_passive !== 'none') {
     atsSet.add(orders.tetanus_passive);
   }
@@ -46,14 +44,11 @@ export default function ProphylaxisOrderSection({
 
   // Available TT brands from stock / props / current selection
   const brandsSet = new Set<string>();
-  (tetanusBrands || []).forEach((b) => brandsSet.add(b));
-  if (stock) {
-    Object.keys(stock).forEach((key) => {
-      if (key !== 'ATS' && key !== 'ERIG' && !key.toLowerCase().includes('ats') && !key.toLowerCase().includes('serum') && (stock[key]?.length ?? 0) > 0) {
-        brandsSet.add(key);
-      }
-    });
-  }
+  (tetanusBrands || []).forEach((b) => {
+    if ((stock?.[b]?.length ?? 0) > 0 || (stock?.['TT']?.length ?? 0) > 0 || b === orders.tetanus_vaccine) {
+      brandsSet.add(b);
+    }
+  });
   if (orders.tetanus_vaccine && orders.tetanus_vaccine !== 'none') {
     brandsSet.add(orders.tetanus_vaccine);
   }
@@ -63,17 +58,39 @@ export default function ProphylaxisOrderSection({
   const availableTtBrands = Array.from(brandsSet);
 
   // Calculate total active ATS stock
-  const totalAtsStock = availableAtsBrands.reduce((sum, brand) => {
-    const batches = stock?.[brand] || stock?.['ATS'] || [];
-    return sum + batches.reduce((bSum, b) => bSum + b.current_quantity, 0);
-  }, 0);
+  const totalAtsStock = useMemo(() => {
+    if (!stock) return 0;
+    const seen = new Set<number>();
+    let sum = 0;
+    availableAtsBrands.forEach((brand) => {
+      const batches = stock[brand] || (brand === 'ATS' ? stock['ATS'] : []) || [];
+      batches.forEach((b) => {
+        if (!seen.has(b.inventory_id)) {
+          seen.add(b.inventory_id);
+          sum += b.current_quantity;
+        }
+      });
+    });
+    return sum;
+  }, [stock, availableAtsBrands]);
   const isAtsNoStock = stock !== undefined && stock !== null && totalAtsStock === 0;
 
   // Calculate total active TT stock
-  const totalTtStock = availableTtBrands.reduce((sum, brand) => {
-    const batches = stock?.[brand] || [];
-    return sum + batches.reduce((bSum, b) => bSum + b.current_quantity, 0);
-  }, 0);
+  const totalTtStock = useMemo(() => {
+    if (!stock) return 0;
+    const seen = new Set<number>();
+    let sum = 0;
+    availableTtBrands.forEach((brand) => {
+      const batches = stock[brand] || (brand === 'TT' ? stock['TT'] : []) || [];
+      batches.forEach((b) => {
+        if (!seen.has(b.inventory_id)) {
+          seen.add(b.inventory_id);
+          sum += b.current_quantity;
+        }
+      });
+    });
+    return sum;
+  }, [stock, availableTtBrands]);
   const isTtNoStock = stock !== undefined && stock !== null && totalTtStock === 0;
 
   // Handler when doctor selects primary Tetanus Prophylaxis category
@@ -217,7 +234,7 @@ export default function ProphylaxisOrderSection({
               <option value="" disabled hidden>[ Select available TT vaccine ▼ ]</option>
               {availableTtBrands.map((brand) => (
                 <option key={brand} value={brand}>
-                  {brand}
+                  {brand === 'TT' ? 'TT (Tetanus Toxoid)' : brand}
                 </option>
               ))}
             </select>
@@ -229,7 +246,7 @@ export default function ProphylaxisOrderSection({
             ) : orders.tetanus_vaccine && orders.tetanus_vaccine !== 'none' ? (
               (() => {
                 const brand = orders.tetanus_vaccine;
-                const batches = stock?.[brand] || [];
+                const batches = stock?.[brand] || (brand === 'TT' ? stock?.['TT'] : []) || [];
                 const units = batches.reduce((sum, batch) => sum + batch.current_quantity, 0);
                 return (
                   <span className="registration-field-hint" style={{ marginTop: 4, display: 'block' }}>

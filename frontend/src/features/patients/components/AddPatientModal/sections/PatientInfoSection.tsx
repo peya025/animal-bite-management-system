@@ -42,7 +42,40 @@ export function PatientInfoSection({ data, onChange, errors = {}, showQueueField
           </div>
         </FormField>
         <FormField id="field-date_of_birth" label="Date of Birth" required error={!!errors.date_of_birth} errorText={errors.date_of_birth}>
-          <input className="fm-input" type="date" name="date_of_birth" value={data.date_of_birth} onChange={onChange('date_of_birth')} max={new Date().toISOString().split('T')[0]} style={errors.date_of_birth ? { borderColor: '#ef4444' } : undefined} />
+          <input
+            className="fm-input"
+            type="date"
+            name="date_of_birth"
+            id="date_of_birth"
+            min="1900-01-01"
+            max={new Date().toISOString().split('T')[0]}
+            value={data.date_of_birth}
+            onChange={(e) => {
+              let val = e.target.value;
+              if (val) {
+                const parts = val.split('-');
+                if (parts.length > 0 && parts[0].length > 4) {
+                  parts[0] = parts[0].slice(0, 4);
+                  val = parts.join('-');
+                }
+              }
+              const customEv = { ...e, target: { ...e.target, value: val, name: 'date_of_birth' } } as any;
+              onChange('date_of_birth')(customEv);
+            }}
+            onInput={(e) => {
+              const target = e.currentTarget;
+              if (target.value) {
+                const parts = target.value.split('-');
+                if (parts.length > 0 && parts[0].length > 4) {
+                  parts[0] = parts[0].slice(0, 4);
+                  target.value = parts.join('-');
+                  const customEv = { target: { value: target.value, name: 'date_of_birth' } } as any;
+                  onChange('date_of_birth')(customEv);
+                }
+              }
+            }}
+            style={errors.date_of_birth ? { borderColor: '#ef4444' } : undefined}
+          />
         </FormField>
         <FormField label="Blood Type">
           <select className="fm-select" name="blood_type" value={data.blood_type} onChange={onChange('blood_type')}>

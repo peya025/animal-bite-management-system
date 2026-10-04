@@ -25,7 +25,17 @@ export const RegistrationDialog = styled('div')({
   '&& .fm-textarea': { minHeight: 96, fontSize: 14 },
   '&& .fm-input:hover:not(:disabled), && .fm-select:hover:not(:disabled), && .fm-textarea:hover:not(:disabled)': { borderColor: '#10b981 !important' },
   '&& .fm-input:disabled, && .fm-select:disabled': { background: 'var(--bg-secondary, #f1f5f9)', color: 'var(--text-secondary, #64748b)', opacity: 1, cursor: 'not-allowed' },
-  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea)': { borderColor: 'var(--registration-error-color) !important' },
+  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea), && :is(.fm-input, .fm-select, .fm-textarea)[aria-invalid="true"], && .fm-field--error input, && .fm-field--error select, && .fm-field--error textarea': {
+    borderColor: '#ef4444 !important',
+  },
+  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea):hover, && :is(.fm-input, .fm-select, .fm-textarea)[aria-invalid="true"]:hover, && .fm-field--error input:hover, && .fm-field--error select:hover, && .fm-field--error textarea:hover': {
+    borderColor: '#dc2626 !important',
+  },
+  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea):focus, && .fm-field--error :is(.fm-input, .fm-select, .fm-textarea):focus-visible, && :is(.fm-input, .fm-select, .fm-textarea)[aria-invalid="true"]:focus, && :is(.fm-input, .fm-select, .fm-textarea)[aria-invalid="true"]:focus-visible, && .fm-field--error input:focus, && .fm-field--error select:focus, && .fm-field--error textarea:focus': {
+    outline: 'none !important',
+    borderColor: '#ef4444 !important',
+    boxShadow: '0 0 0 4px rgba(239, 68, 68, 0.18) !important',
+  },
   '&& :is(.fm-input, .fm-select, .fm-textarea):focus, && :is(input, select, textarea):focus, && :is(input, select, textarea):focus-visible': { outline: 'none !important', borderColor: '#10b981 !important', boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.1) !important' },
   '&& .fm-radio-group': { minHeight: 46, alignItems: 'center', paddingTop: '0 !important', gap: '8px 20px' },
   '&& .fm-radio': { minHeight: 44, padding: '0 8px', borderRadius: 6 },

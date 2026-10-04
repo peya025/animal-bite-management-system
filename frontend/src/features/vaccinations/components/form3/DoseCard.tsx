@@ -10,6 +10,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { SegmentedControl } from './SegmentedControl';
 import SignatureImage from '../../../../shared/components/SignatureImage';
+import { sanitizeDateInput } from '../../../../shared/utils/date';
 
 interface DoseCardProps {
   dose: any;
@@ -182,7 +183,17 @@ export function DoseCard({
           <input
             type="date"
             value={dose.date || ''}
-            onChange={(e) => onDoseChange(index, 'date', e.target.value)}
+            min="1000-01-01"
+            max="9999-12-31"
+            onInput={(e) => {
+              const target = e.currentTarget;
+              const val = sanitizeDateInput(target.value);
+              if (val !== target.value) {
+                target.value = val;
+                onDoseChange(index, 'date', val);
+              }
+            }}
+            onChange={(e) => onDoseChange(index, 'date', sanitizeDateInput(e.target.value))}
             disabled={isLocked}
             style={{
               width: '100%',

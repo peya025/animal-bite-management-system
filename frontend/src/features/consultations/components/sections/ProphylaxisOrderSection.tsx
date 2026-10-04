@@ -246,14 +246,43 @@ export default function ProphylaxisOrderSection({
         )}
 
         {/* Last Tetanus Dose (If Known) Date Picker */}
-        <FormField label="Last tetanus dose (if known)">
+        <FormField
+          id="field-tetanus_last_dose"
+          label="Last tetanus dose (if known)"
+          error={!!errors?.tetanus_last_dose}
+          errorText={errors?.tetanus_last_dose}
+        >
           <input
             className="fm-input"
             type="date"
+            id="tetanus_last_dose"
             name="tetanus_last_dose"
             value={orders.tetanus_last_dose || ''}
             disabled={disabled}
-            onChange={(e) => onChange({ ...orders, tetanus_last_dose: e.target.value })}
+            min="1000-01-01"
+            max="9999-12-31"
+            onChange={(e) => {
+              let val = e.target.value;
+              if (val) {
+                const parts = val.split('-');
+                if (parts.length > 0 && parts[0].length > 4) {
+                  parts[0] = parts[0].slice(0, 4);
+                  val = parts.join('-');
+                }
+              }
+              onChange({ ...orders, tetanus_last_dose: val });
+            }}
+            onInput={(e) => {
+              const target = e.currentTarget;
+              if (target.value) {
+                const parts = target.value.split('-');
+                if (parts.length > 0 && parts[0].length > 4) {
+                  parts[0] = parts[0].slice(0, 4);
+                  target.value = parts.join('-');
+                  onChange({ ...orders, tetanus_last_dose: target.value });
+                }
+              }
+            }}
           />
         </FormField>
       </div>

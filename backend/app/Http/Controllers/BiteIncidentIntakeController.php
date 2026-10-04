@@ -212,6 +212,8 @@ class BiteIncidentIntakeController extends Controller
 
             Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
 
+            app(\App\Services\NotificationService::class)->notifyQueueEvent($queue->load('patient'), 'checked_in', $request->user());
+
             return response()->json([
                 'message' => 'Mobile bite intake checked in and sent to Doctor assessment.',
                 'incident' => $incident,

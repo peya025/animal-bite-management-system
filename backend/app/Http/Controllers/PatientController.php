@@ -856,6 +856,8 @@ class PatientController extends Controller
 
                 Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
 
+                app(\App\Services\NotificationService::class)->notifyQueueEvent($queue->load('patient'), 'checked_in', $request->user());
+
                 return response()->json([
                     'message' => "{$patient->first_name} {$patient->last_name} checked in successfully to Doctor Triage (Queue #{$nextQueueNumber})",
                     'queue' => $queue->load(['patient', 'biteIncident']),

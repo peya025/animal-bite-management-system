@@ -14,6 +14,7 @@ use App\Http\Controllers\Mobile\MobileNotificationController;
 use App\Http\Controllers\Mobile\MobileVaccinationCardController;
 use App\Http\Controllers\Mobile\PatientAccountAuthController;
 use App\Http\Controllers\Mobile\PatientProfileController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PatientAccessController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\QueueController;
@@ -191,6 +192,14 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
         Route::get('/audit-logs/summary', [AuditLogController::class, 'summary']);
         Route::get('/audit-logs/user/{userId}', [AuditLogController::class, 'userActivity']);
+    });
+
+    // Web System & Staff Notifications
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
     });
 
     // Clinic Module Configuration (all authenticated users can view, admin can update)

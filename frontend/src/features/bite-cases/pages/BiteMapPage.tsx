@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import {
+  Alert,
   Box,
   Button,
   ButtonGroup,
@@ -39,12 +40,53 @@ export default function BiteMapPage() {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const locationParam = searchParams.get('location');
+  const periodParam = searchParams.get('period');
+  const categoryParam = searchParams.get('category');
+
   const [data, setData] = useState<BiteMapData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [datePreset, setDatePreset] = useState<string>('all');
-  const [selectedSeverity, setSelectedSeverity] = useState<string>('all');
+  const [datePreset, setDatePreset] = useState<string>(() => periodParam || 'all');
+  const [selectedSeverity, setSelectedSeverity] = useState<string>(() => categoryParam || 'all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'pins' | 'heatmap'>('pins');
+
+  useEffect(() => {
+    if (periodParam && ['all', 'week', 'month', 'last30'].includes(periodParam)) {
+      setDatePreset(periodParam);
+    }
+  }, [periodParam]);
+
+  useEffect(() => {
+    if (categoryParam && ['all', 'severe', 'moderate', 'minor'].includes(categoryParam)) {
+      setSelectedSeverity(categoryParam);
+    }
+  }, [categoryParam]);
+
+  const targetLocationCases = useMemo(() => {
+    if (!data?.cases || !locationParam) return null;
+    const lower = locationParam.toLowerCase();
+    const matched = data.cases.filter(
+      (c) =>
+        (c.barangay && c.barangay.toLowerCase().includes(lower)) ||
+        (c.municipality && c.municipality.toLowerCase().includes(lower)) ||
+        (c.address && c.address.toLowerCase().includes(lower))
+    );
+    return matched.length > 0 ? matched : null;
+  }, [data?.cases, locationParam]);
+
+  const mapCenterOverride = useMemo(() => {
+    if (targetLocationCases && targetLocationCases.length > 0) {
+      const latSum = targetLocationCases.reduce((sum, c) => sum + c.latitude, 0);
+      const lngSum = targetLocationCases.reduce((sum, c) => sum + c.longitude, 0);
+      return {
+        latitude: latSum / targetLocationCases.length,
+        longitude: lngSum / targetLocationCases.length,
+      };
+    }
+    return data?.map_center || null;
+  }, [targetLocationCases, data?.map_center]);
 
   const computeDateRange = (preset: string): { date_from?: string; date_to?: string } => {
     const today = new Date();
@@ -151,6 +193,15 @@ export default function BiteMapPage() {
           </Tooltip>
         </Stack>
       </Box>
+
+      {locationParam && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2.5, borderRadius: 2 }}
+        >
+          Surveillance Focus: Showing reported bite incidents for <strong>{locationParam}</strong> (Reporting Period: <strong>{datePreset === 'month' ? 'This Month' : datePreset === 'week' ? 'This Week' : datePreset === 'last30' ? 'Last 30 Days' : 'All Time'}</strong>, Category: <strong>{selectedSeverity === 'severe' ? 'Category III (Severe)' : selectedSeverity === 'moderate' ? 'Category II (Moderate)' : selectedSeverity === 'minor' ? 'Category I (Minor)' : 'All Categories'}</strong>).
+        </Alert>
+      )}
 
       {/* Filter controls are now inside the same map container below */}
 
@@ -709,8 +760,8 @@ export default function BiteMapPage() {
             <Box sx={{ position: 'relative', height: '650px', width: '100%' }}>
               <BiteMap
                 cases={data.cases}
-                mapCenter={data.map_center}
-                mapZoom={data.map_zoom}
+                mapCenter={mapCenterOverride}
+                mapZoom={targetLocationCases ? 15 : data.map_zoom}
                 viewMode={viewMode}
               />
               <MapLegend />

@@ -144,9 +144,9 @@ function downloadCsvFile(content: string, filename: string) {
   const blob = new Blob([BOM + content], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   
-  if (navigator.msSaveBlob) {
+  if ((navigator as any).msSaveBlob) {
     // IE 10+
-    navigator.msSaveBlob(blob, filename);
+    (navigator as any).msSaveBlob(blob, filename);
   } else {
     const url = URL.createObjectURL(blob);
     link.href = url;

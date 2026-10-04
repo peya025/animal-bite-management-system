@@ -35,7 +35,7 @@ class NotificationService
             'category'    => 'inventory',
             'title'       => 'Stock Received',
             'message'     => "Stock received: {$qty} vials of {$vaccine} (Batch #{$batch}).",
-            'action_url'  => '/inventory',
+            'action_url'  => "/inventory?tab=stockcard&batchId={$inventory->inventory_id}",
             'data'        => [
                 'inventory_id' => $inventory->inventory_id,
                 'vaccine_type' => $vaccine,
@@ -72,7 +72,7 @@ class NotificationService
             'category'    => 'inventory',
             'title'       => 'New Vaccine Setup',
             'message'     => "New vaccine setup: {$name} ({$category}) registered.",
-            'action_url'  => '/inventory',
+            'action_url'  => "/inventory/types?presetId={$preset->id}",
             'data'        => [
                 'preset_id'    => $preset->id,
                 'vaccine_name' => $name,
@@ -97,6 +97,8 @@ class NotificationService
         $isTreatment = in_array($queue->visit_type, ['vaccination', 'follow_up', 'observation', 'booster'], true);
         $stationName = $isTreatment ? 'Treatment' : 'Triage';
         $targetRole = $isTreatment ? 'treatment' : 'triage';
+        $stationParam = $isTreatment ? 'treatment' : 'triage';
+        $queueDate = $queue->queue_date ? Carbon::parse($queue->queue_date)->toDateString() : now()->toDateString();
 
         $title = $eventType === 'registered' ? "Queue Registration: {$stationName}" : "Queue Check-In: {$stationName}";
         $message = "Patient checked in: {$patientName} (Queue #{$queue->queue_number}, {$stationName}).";
@@ -110,12 +112,15 @@ class NotificationService
             'category'    => 'queue',
             'title'       => $title,
             'message'     => $message,
-            'action_url'  => '/queue',
+            'action_url'  => "/queue?station={$stationParam}&queueId={$queue->queue_id}&date={$queueDate}",
             'data'        => [
                 'queue_id'     => $queue->queue_id,
                 'queue_number' => $queue->queue_number,
+                'patient_id'   => $queue->patient_id,
+                'patient_name' => $patientName,
                 'visit_type'   => $queue->visit_type,
                 'station'      => $stationName,
+                'queue_date'   => $queueDate,
                 'event_type'   => $eventType,
                 'actor_id'     => $actor?->id,
             ],
@@ -145,9 +150,11 @@ class NotificationService
             'category'       => 'appointment',
             'title'          => 'Appointment Scheduled',
             'message'        => "New appointment booked: {$patientName} for {$dose} on {$dateStr}.",
-            'action_url'     => '/vaccinations/schedule',
+            'action_url'     => "/vaccinations?tab=matrix&patient_id={$appointment->patient_id}&appointment_id={$appointment->appointment_id}&dose={$appointment->dose_number}",
             'data'           => [
                 'appointment_id' => $appointment->appointment_id,
+                'patient_id'     => $appointment->patient_id,
+                'patient_name'   => $patientName,
                 'dose_number'    => $appointment->dose_number,
                 'appointment_date'=> $dateStr,
                 'actor_id'       => $actor?->id,
@@ -223,7 +230,7 @@ class NotificationService
                         'type'        => 'inventory_out_of_stock',
                         'title'       => 'Out of Stock Alert',
                         'message'     => "Out of Stock: {$vaccineName} has 0 usable vials remaining in inventory.",
-                        'action_url'  => '/inventory',
+                        'action_url'  => '/inventory?tab=table&search=' . urlencode($vaccineName) . '&statusFilter=depleted',
                         'alert_key'   => $outKey,
                         'is_active'   => true,
                         'status'      => 'sent',
@@ -256,7 +263,7 @@ class NotificationService
                         'type'        => 'inventory_low_stock',
                         'title'       => 'Vaccine Inventory Alert',
                         'message'     => "Vaccine Inventory Alert: {$vaccineName} stock is running low ({$usableQty} vials remaining).",
-                        'action_url'  => '/inventory',
+                        'action_url'  => '/inventory?tab=table&search=' . urlencode($vaccineName) . '&statusFilter=low-stock',
                         'alert_key'   => $lowKey,
                         'is_active'   => true,
                         'status'      => 'sent',
@@ -321,7 +328,7 @@ class NotificationService
                         'type'        => 'batch_expired',
                         'title'       => 'Expired Vaccine Alert',
                         'message'     => "Expired Vaccine Alert: {$batch->vaccine_type} (Batch #{$batch->batch_number}) expired on {$expDate->format('M d, Y')} ({$batch->current_quantity} vials remaining).",
-                        'action_url'  => '/inventory',
+                        'action_url'  => "/inventory?tab=stockcard&batchId={$batch->inventory_id}",
                         'alert_key'   => $expiredKey,
                         'is_active'   => true,
                         'status'      => 'sent',
@@ -353,7 +360,7 @@ class NotificationService
                         'type'        => 'batch_near_expiry',
                         'title'       => 'Near-Expiry Stock Alert',
                         'message'     => "Near-Expiry Stock Alert: {$batch->vaccine_type} (Batch #{$batch->batch_number}) expires in {$daysRemaining} day(s) on {$expDate->format('M d, Y')} ({$batch->current_quantity} vials remaining).",
-                        'action_url'  => '/inventory',
+                        'action_url'  => "/inventory?tab=stockcard&batchId={$batch->inventory_id}",
                         'alert_key'   => $nearKey,
                         'is_active'   => true,
                         'status'      => 'sent',
@@ -454,7 +461,7 @@ class NotificationService
                     'type'           => 'vaccination_overdue',
                     'title'          => 'Overdue Vaccination Alert',
                     'message'        => "Overdue PEP Vaccination: {$patientName} is {$daysOverdue} day(s) overdue for {$doseLabel} (scheduled for {$date->format('M d, Y')}).",
-                    'action_url'     => '/queue',
+                    'action_url'     => "/vaccinations?tab=missed&patient_id={$appt->patient_id}&appointment_id={$appt->appointment_id}&dose={$appt->dose_number}&status_context=overdue",
                     'alert_key'      => $alertKey,
                     'is_active'      => true,
                     'status'         => 'sent',
@@ -545,7 +552,7 @@ class NotificationService
                         'type'        => 'high_risk_area',
                         'title'       => 'High-Risk Exposure Area Alert',
                         'message'     => "High-Risk Exposure Area Alert: {$location} is classified as High Risk ({$total} incident(s), {$riskScore}% severity score in {$periodLabel}).",
-                        'action_url'  => '/bite-cases',
+                        'action_url'  => '/bite-map?location=' . urlencode($location) . '&period=month&category=severe',
                         'alert_key'   => $alertKey,
                         'is_active'   => true,
                         'status'      => 'sent',

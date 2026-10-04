@@ -151,6 +151,7 @@ export function SecondChanceQueuePanel({
               return (
                 <Box
                   key={entry.queue_id}
+                  id={`queue-second-chance-${entry.queue_id}`}
                   sx={{
                     display: 'flex',
                     alignItems: 'center',

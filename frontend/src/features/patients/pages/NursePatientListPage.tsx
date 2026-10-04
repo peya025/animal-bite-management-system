@@ -40,8 +40,9 @@ import VaccinationRecordForm from '../../vaccinations/components/VaccinationReco
 import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import StatCard from '../../../components/common/StatCard/StatCard';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
+import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
 
 import api from '../../../shared/services/api';
 
@@ -101,6 +102,26 @@ export default function NursePatientListPage() {
   const toast = (message: string, severity: 'success' | 'error' = 'success') =>
     setSnackbar({ open: true, message, severity });
 
+  const [searchParams] = useSearchParams();
+  const patientIdParam = searchParams.get('patient_id');
+  const tabParam = searchParams.get('tab');
+  const doseParam = searchParams.get('dose');
+
+  const [statusChangeAlert, setStatusChangeAlert] = useState<string | null>(null);
+  const [patientNotFound, setPatientNotFound] = useState(false);
+
+  useEffect(() => {
+    if (tabParam && ['due_today', 'online', 'upcoming', 'overdue', 'all'].includes(tabParam)) {
+      setTab(tabParam as any);
+    }
+  }, [tabParam]);
+
+  useEffect(() => {
+    if (doseParam && ['all', '3', '7', 'booster'].includes(doseParam)) {
+      setDoseFilter(doseParam as any);
+    }
+  }, [doseParam]);
+
   const loadPatients = async () => {
     setLoading(true);
     try {
@@ -111,11 +132,24 @@ export default function NursePatientListPage() {
           dose: doseFilter !== 'all' ? doseFilter : undefined,
           page: page + 1,
           per_page: rowsPerPage,
+          patient_id: patientIdParam || undefined,
         },
       });
       const dataList = response.data.data || [];
       setPatients(dataList);
       setTotalCount(response.data.total || 0);
+
+      if (response.data.target_page && response.data.target_page - 1 !== page) {
+        setPage(response.data.target_page - 1);
+      }
+      if (response.data.target_status_changed) {
+        setStatusChangeAlert(`Notice: Patient ${response.data.target_patient_name || ''} was scheduled for this visit, but their status has changed or their vaccination dose was already completed.`);
+      } else {
+        setStatusChangeAlert(null);
+      }
+      if (response.data.target_not_found) {
+        setPatientNotFound(true);
+      }
 
       setKpiStats({
         dueToday: response.data.due_today_count ?? 0,
@@ -130,6 +164,17 @@ export default function NursePatientListPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!patientIdParam || loading || patients.length === 0) return;
+    const targetId = parseInt(patientIdParam, 10);
+    const exists = patients.some(p => p.patient_id === targetId);
+    if (exists) {
+      setTimeout(() => {
+        highlightRecordElement(`nurse-patient-${targetId}`);
+      }, 350);
+    }
+  }, [patientIdParam, loading, patients]);
 
   const handleCheckIn = async (patient: Patient) => {
     setCheckingInId(patient.patient_id);
@@ -784,6 +829,16 @@ export default function NursePatientListPage() {
         </Box>
       </Box>
 
+      {statusChangeAlert && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2.5, borderRadius: 2 }}
+          onClose={() => setStatusChangeAlert(null)}
+        >
+          {statusChangeAlert}
+        </Alert>
+      )}
+
       {/* ── Top Circular Ring Summary Cards ── */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
         <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('due_today'); setPage(0); }}>
@@ -968,6 +1023,7 @@ export default function NursePatientListPage() {
           loading={loading}
           skeletonRows={rowsPerPage}
           rowKey={(p) => p.patient_id}
+          rowId={(p) => `nurse-patient-${p.patient_id}`}
           emptyIcon={<HugeiconsIcon icon={Medicine01Icon} size={36} color="#d1d5db" />}
           emptyTitle="No patients found"
           emptySubtitle={
@@ -1059,6 +1115,18 @@ export default function NursePatientListPage() {
           onConfirm={handleCancelCheckIn}
           onCancel={() => setPatientToCancelCheckIn(null)}
           onClose={() => setPatientToCancelCheckIn(null)}
+        />
+      )}
+
+      {patientNotFound && (
+        <ConfirmationDialog
+          variant="danger"
+          title="Patient Record Not Found"
+          message={`The requested patient #${patientIdParam} could not be located in this clinic's records.`}
+          confirmLabel="Close"
+          hideCancel
+          onConfirm={() => setPatientNotFound(false)}
+          onClose={() => setPatientNotFound(false)}
         />
       )}
 

@@ -24,8 +24,10 @@ class VaccinationJourneyController extends Controller
      */
     public function journeyMatrix(Request $request): JsonResponse
     {
-        $clinicId = 1;
+        $clinicId = $request->user()?->clinic_id ?? 1;
         $search = $request->get('search');
+        $patientId = $request->get('patient_id') ? (int) $request->get('patient_id') : null;
+        $appointmentId = $request->get('appointment_id') ? (int) $request->get('appointment_id') : null;
         $channelFilter = $request->get('channel', 'all'); // 'all', 'walk_in', 'online'
         $statusFilter = $request->get('status', 'all');   // 'all', 'due_today', 'overdue', 'on_track', 'completed', 'awaiting_triage'
         $today = Carbon::today();
@@ -49,6 +51,24 @@ class VaccinationJourneyController extends Controller
         }
 
         $patients = $query->orderBy('created_at', 'desc')->get();
+
+        // If target patient was requested but not found by search, ensure they are loaded
+        if ($patientId && !$patients->contains('patient_id', $patientId)) {
+            $targetP = Patient::with([
+                'biteIncidents.treatmentPlan',
+                'treatmentRecords.administeredBy',
+                'appointments' => function ($q) {
+                    $q->orderBy('scheduled_date', 'asc')->orderBy('appointment_date', 'asc');
+                },
+                'patientAccounts',
+            ])
+            ->where('clinic_id', $clinicId)
+            ->find($patientId);
+
+            if ($targetP) {
+                $patients->push($targetP);
+            }
+        }
 
         $matrix = [];
         $kpi = [
@@ -282,8 +302,28 @@ class VaccinationJourneyController extends Controller
                 $kpi['on_track']++;
             }
 
+            $isTargetPatient = $patientId && ((int)$p->patient_id === $patientId);
+
+            if ($isTargetPatient) {
+                $statusChanged = $statusFilter !== 'all' && $patientStatus !== $statusFilter;
+                $targetPatientInfo = [
+                    'patient_id' => $p->patient_id,
+                    'found' => true,
+                    'current_status' => $patientStatus,
+                    'status_changed' => $statusChanged,
+                    'message' => $statusChanged
+                        ? ($patientStatus === 'completed'
+                            ? 'This overdue appointment has already been completed.'
+                            : "Patient schedule status is currently {$patientStatus}.")
+                        : null,
+                ];
+            }
+
             if ($statusFilter !== 'all' && $patientStatus !== $statusFilter) {
-                continue;
+                // If it's the target patient, we still include it so the user can see the record!
+                if (!$isTargetPatient) {
+                    continue;
+                }
             }
 
             $activeBite = $reExposureIncidents->last() ?? $primaryIncident;
@@ -313,6 +353,20 @@ class VaccinationJourneyController extends Controller
 
         $page = max(1, (int) $request->get('page', 1));
         $perPage = max(1, (int) $request->get('per_page', 10));
+
+        // If target patient was specified, auto-navigate to the page containing them
+        if ($patientId) {
+            foreach ($matrix as $idx => $mRow) {
+                if ((int)$mRow['patient_id'] === $patientId) {
+                    $page = (int) floor($idx / $perPage) + 1;
+                    if (isset($targetPatientInfo)) {
+                        $targetPatientInfo['target_page'] = $page;
+                    }
+                    break;
+                }
+            }
+        }
+
         $totalRows = count($matrix);
         $offset = ($page - 1) * $perPage;
         $paginatedPatients = array_slice($matrix, $offset, $perPage);
@@ -326,6 +380,7 @@ class VaccinationJourneyController extends Controller
                 'last_page' => max(1, (int) ceil($totalRows / $perPage)),
             ],
             'patients' => $paginatedPatients,
+            'target_patient' => $targetPatientInfo ?? ($patientId ? ['found' => false, 'patient_id' => $patientId] : null),
         ]);
     }
 

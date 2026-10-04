@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
 import {
   Alert, Box, CircularProgress, IconButton,
   Paper, Snackbar, Stack, Tooltip, Typography,
@@ -312,6 +313,10 @@ export default function QueueDashboard() {
   const [showTrashBin,     setShowTrashBin]     = useState(false);
   const [showHistoryLookup, setShowHistoryLookup] = useState(false);
 
+  const [searchParams] = useSearchParams();
+  const queueIdParam = searchParams.get('queueId');
+  const stationParam = searchParams.get('station');
+
 
   const [actionPending, setActionPending] = useState(false);
 
@@ -514,6 +519,52 @@ export default function QueueDashboard() {
       document.getElementById('queue-table-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
+
+  // Sync station from URL search parameter (e.g. from notification)
+  useEffect(() => {
+    if (stationParam) {
+      if (stationParam === 'station_1' || stationParam === 'intake') {
+        setStationMode('intake');
+        if (!isTriageDoctor) setVisitTypeFilter('intake');
+      } else if (stationParam === 'station_2' || stationParam === 'follow_up') {
+        setStationMode('follow_up');
+        if (!isTriageDoctor) setVisitTypeFilter('follow_up_station');
+      }
+    }
+  }, [stationParam, isTriageDoctor]);
+
+  // Locate and highlight referenced queue entry or open historical detail modal
+  useEffect(() => {
+    if (!queueIdParam || loading) return;
+    const targetId = parseInt(queueIdParam, 10);
+    if (!targetId) return;
+
+    // 1. Check if present in current active queue view
+    const activeIdx = sortedQueue.findIndex(e => e.queue_id === targetId);
+    if (activeIdx !== -1) {
+      const targetPage = Math.floor(activeIdx / rowsPerPage);
+      if (page !== targetPage) {
+        setPage(targetPage);
+      }
+      setTimeout(() => {
+        highlightRecordElement(`queue-entry-${targetId}`);
+      }, 350);
+      return;
+    }
+
+    // 2. Check if present in visible second chance queue
+    const scIdx = visibleSecondChanceQueue.findIndex(e => e.queue_id === targetId);
+    if (scIdx !== -1) {
+      setTimeout(() => {
+        highlightRecordElement(`queue-second-chance-${targetId}`);
+      }, 350);
+      return;
+    }
+
+    // 3. Historical, completed, or cancelled ticket:
+    // Open QueuePatientDetailModal without injecting old patient into Today's Queue
+    setSelectedQueueId(targetId);
+  }, [queueIdParam, loading, sortedQueue, visibleSecondChanceQueue, rowsPerPage, page]);
 
   // ── Table Columns (Sentence Case Headers) ─────────────────────────────────
 
@@ -1105,6 +1156,7 @@ export default function QueueDashboard() {
           loading={loading}
           skeletonRows={rowsPerPage}
           rowKey={e => e.queue_id}
+          rowId={e => `queue-entry-${e.queue_id}`}
           rowBg={e => {
             if (e.status === 'serving' || e.status === 'in_consultation') return 'rgba(236, 253, 245, 0.75)';
             if (e.status === 'called') return 'rgba(255, 251, 235, 0.85)';

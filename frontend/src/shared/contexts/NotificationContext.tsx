@@ -10,6 +10,7 @@ import {
 } from '../utils/accessControl';
 import type { NotificationRecord } from '../components/NotificationButton';
 import { NotificationToastContainer } from '../components/notifications/NotificationToastContainer';
+import { resolveNotificationDestination } from '../utils/notificationNavigation';
 
 interface NotificationContextValue {
   notifications: NotificationRecord[];
@@ -182,9 +183,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const handleToastView = useCallback((notification: NotificationRecord) => {
     markAsRead(notification.id);
 
-    if (notification.action_url) {
-      if (canUserAccessRoute(user, notification.action_url)) {
-        navigate(notification.action_url);
+    const targetUrl = resolveNotificationDestination(notification, user);
+
+    if (targetUrl) {
+      if (canUserAccessRoute(user, targetUrl)) {
+        navigate(targetUrl);
       } else {
         showAccessDenied();
       }

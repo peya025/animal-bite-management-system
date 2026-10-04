@@ -47,6 +47,8 @@ export interface DataTableProps<T> {
   skeletonRows?: number;
   /** Unique key extractor for each row (function or string property name) */
   rowKey: ((row: T) => string | number) | string;
+  /** Optional HTML element id for row (useful for target highlighting) */
+  rowId?: (row: T) => string;
   /** Optional per-row background colour override */
   rowBg?: (row: T) => string | undefined;
   /** Click handler for an entire row */
@@ -70,6 +72,7 @@ export default function DataTable<T>({
   data: dataProp,
   loading = false,
   rowKey,
+  rowId,
   rowBg,
   onRowClick,
   emptyIcon,
@@ -190,6 +193,7 @@ export default function DataTable<T>({
             rows.map((row, idx) => (
               <TableRow
                 key={getKey(row, idx)}
+                id={rowId ? rowId(row) : undefined}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 sx={{
                   bgcolor: rowBg

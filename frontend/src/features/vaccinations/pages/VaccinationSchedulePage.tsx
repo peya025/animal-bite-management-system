@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { ROUTES } from '../../../shared/config/routes';
+import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
 import {
   Box,
   Paper,
@@ -134,13 +135,31 @@ export default function VaccinationSchedulePage() {
     online_count: 0,
   });
 
+  // URL query params for notification deep-linking
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+
+  const targetPatientId = searchParams.get('patient_id') ? Number(searchParams.get('patient_id')) : null;
+  const targetAppointmentId = searchParams.get('appointment_id') ? Number(searchParams.get('appointment_id')) : null;
+  const targetDose = searchParams.get('dose');
+  const statusContext = searchParams.get('status_context');
+
+  const [recordNotFoundDialog, setRecordNotFoundDialog] = useState(false);
+  const [statusChangeMessage, setStatusChangeMessage] = useState<string | null>(null);
+
   // Pagination
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
 
   // Filters & Tabs
-  const [activeTab, setActiveTab] = useState<'matrix' | 'today' | 'online' | 'missed'>('matrix');
+  const [activeTab, setActiveTab] = useState<'matrix' | 'today' | 'online' | 'missed'>(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && ['matrix', 'today', 'online', 'missed'].includes(tabFromUrl)) {
+      return tabFromUrl as any;
+    }
+    return 'matrix';
+  });
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState<'all' | 'walk_in' | 'online'>('all');
@@ -154,6 +173,14 @@ export default function VaccinationSchedulePage() {
     }, 300);
     return () => clearTimeout(handler);
   }, [search]);
+
+  // Sync tab from URL query params (supports same-page notification clicks & refresh)
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && ['matrix', 'today', 'online', 'missed'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl as any);
+    }
+  }, [searchParams]);
 
   // Treatment Card Modal
   const [cardModalOpen, setCardModalOpen] = useState(false);
@@ -194,17 +221,50 @@ export default function VaccinationSchedulePage() {
           search: debouncedSearch.trim() || undefined,
           channel: channelParam,
           status: statusParam,
+          patient_id: targetPatientId || undefined,
+          appointment_id: targetAppointmentId || undefined,
           page: page + 1,
           per_page: rowsPerPage,
         },
       });
 
-      setPatients(res.data.patients || []);
+      const fetchedList: PatientJourney[] = res.data.patients || [];
+      setPatients(fetchedList);
       if (res.data.pagination) {
         setTotalCount(res.data.pagination.total);
+        if (typeof res.data.pagination.page === 'number' && res.data.pagination.page - 1 !== page) {
+          setPage(res.data.pagination.page - 1);
+        }
       }
       if (res.data.kpi) {
         setKpi(res.data.kpi);
+      }
+
+      // Check target patient if one was requested via notification
+      if (targetPatientId) {
+        const targetInfo = res.data.target_patient;
+        if (targetInfo && targetInfo.found === false) {
+          setRecordNotFoundDialog(true);
+        } else if (targetInfo && targetInfo.status_changed && targetInfo.message) {
+          setStatusChangeMessage(targetInfo.message);
+        } else if (statusContext === 'overdue') {
+          const inList = fetchedList.find(p => p.patient_id === targetPatientId);
+          if (inList && targetDose !== null && targetDose !== undefined) {
+            const doseObj = inList.doses?.find(d => String(d.dose_number) === String(targetDose));
+            if (doseObj && doseObj.status === 'completed') {
+              setStatusChangeMessage(`This overdue appointment (${doseObj.label}) has already been completed.`);
+            }
+          }
+        }
+
+        // Highlight after render
+        const patientExists = fetchedList.some(p => p.patient_id === targetPatientId);
+        if (patientExists) {
+          highlightRecordElement(`journey-patient-${targetPatientId}`, false, 350);
+          if (targetDose !== null && targetDose !== undefined && targetDose !== '') {
+            highlightRecordElement(`dose-pill-${targetPatientId}-${targetDose}`, true, 500);
+          }
+        }
       }
     } catch (err: any) {
       setFeedback({
@@ -214,7 +274,7 @@ export default function VaccinationSchedulePage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, channelFilter, activeTab, page, rowsPerPage]);
+  }, [debouncedSearch, channelFilter, activeTab, page, rowsPerPage, targetPatientId, targetAppointmentId, targetDose, statusContext]);
 
   useEffect(() => {
     fetchJourneyData();
@@ -738,6 +798,17 @@ export default function VaccinationSchedulePage() {
         </Box>
       </Paper>
 
+      {/* Status Change Notice Banner */}
+      {statusChangeMessage && (
+        <Alert
+          severity="info"
+          onClose={() => setStatusChangeMessage(null)}
+          sx={{ mb: 2, borderRadius: '10px' }}
+        >
+          <strong>Record Update:</strong> {statusChangeMessage}
+        </Alert>
+      )}
+
       {/* Patient Stepper Matrix List */}
       {loading ? (
         <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '12px', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)' }}>
@@ -782,6 +853,7 @@ export default function VaccinationSchedulePage() {
               return (
                 <Paper
                   key={`journey-p-${patient.patient_id}`}
+                  id={`journey-patient-${patient.patient_id}`}
                   sx={{
                     p: 2.5,
                     borderRadius: '12px',
@@ -916,6 +988,7 @@ export default function VaccinationSchedulePage() {
                             )}
                             <Tooltip title={tooltipText} arrow>
                               <Box
+                                id={`dose-pill-${patient.patient_id}-${dose.dose_number}`}
                                 sx={{
                                   px: 1.5, py: 0.75,
                                   borderRadius: '8px',
@@ -1342,6 +1415,35 @@ export default function VaccinationSchedulePage() {
           autoClose={3500}
           onConfirm={() => setSuccessModal(null)}
           onClose={() => setSuccessModal(null)}
+        />
+      )}
+
+      {/* Record Not Found Modal */}
+      {recordNotFoundDialog && (
+        <ConfirmationDialog
+          title="Patient Record Not Found"
+          message="The referenced patient or vaccination schedule record could not be found or has been removed from this clinic."
+          confirmLabel="Dismiss"
+          hideCancel
+          variant="danger"
+          onConfirm={() => {
+            setRecordNotFoundDialog(false);
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('patient_id');
+            nextParams.delete('appointment_id');
+            nextParams.delete('dose');
+            nextParams.delete('status_context');
+            setSearchParams(nextParams, { replace: true });
+          }}
+          onClose={() => {
+            setRecordNotFoundDialog(false);
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('patient_id');
+            nextParams.delete('appointment_id');
+            nextParams.delete('dose');
+            nextParams.delete('status_context');
+            setSearchParams(nextParams, { replace: true });
+          }}
         />
       )}
     </Box>

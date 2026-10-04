@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../../shared/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -89,7 +89,7 @@ export type LocationSummary = {
   last_incident_days_ago: number | null;
 };
 
-type CaseSummary = {
+export type CaseSummary = {
   bite_id: number;
   case_number: string;
   patient_id?: number;
@@ -1806,20 +1806,50 @@ function CaseRow({ row, index }: { row: CaseSummary; index: number }) {
 export default function BiteCaseRiskDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const locationParam = searchParams.get('location');
+  const rangeParam = searchParams.get('range');
+  const severityParam = searchParams.get('severity');
+
   const [tab, setTab] = useState<'risk' | 'cases'>('risk');
   const [filters, setFilters] = useState<Filters>({
     search: '',
-    severity: '',
+    severity: severityParam && ['minor', 'moderate', 'severe'].includes(severityParam) ? severityParam : '',
     status: '',
     animal: '',
-    range: 'all',
+    range: rangeParam && ['7d', '14d', '30d', '90d', 'all'].includes(rangeParam) ? (rangeParam as any) : 'all',
     customFrom: '',
     customTo: '',
   });
+
+  useEffect(() => {
+    if (rangeParam && ['7d', '14d', '30d', '90d', 'all'].includes(rangeParam)) {
+      setFilters((f) => ({ ...f, range: rangeParam as any }));
+    }
+  }, [rangeParam]);
+
+  useEffect(() => {
+    if (severityParam && ['minor', 'moderate', 'severe'].includes(severityParam)) {
+      setFilters((f) => ({ ...f, severity: severityParam }));
+    }
+  }, [severityParam]);
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedLocationForBreakdown, setSelectedLocationForBreakdown] = useState<LocationSummary | null>(null);
+
+  // Auto-open breakdown modal for requested location from notification
+  useEffect(() => {
+    if (!locationParam || loading || !data?.locations) return;
+    const lower = locationParam.toLowerCase();
+    const matched = data.locations.find(
+      (l) => l.location.toLowerCase() === lower || l.location.toLowerCase().includes(lower)
+    );
+    if (matched) {
+      setSelectedLocationForBreakdown(matched);
+    }
+  }, [locationParam, loading, data]);
 
   type StatFilterType = 'total' | 'active' | 'completed' | 'high_priority' | 'overdue' | 'compliance' | null;
   const [statFilter, setStatFilter] = useState<StatFilterType>(null);

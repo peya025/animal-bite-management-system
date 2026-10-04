@@ -28,6 +28,11 @@ class PatientController extends Controller
         $clinicId = $request->user()->clinic_id;
         $tab = $request->get('tab', 'all');
 
+        $nowManila = Carbon::now('Asia/Manila');
+        $todayDate = $nowManila->toDateString();
+        $startOfDay = $nowManila->copy()->startOfDay();
+        $endOfDay = $nowManila->copy()->endOfDay();
+
         $query = Patient::where('clinic_id', $clinicId)
             ->with([
                 'registeredBy',
@@ -46,9 +51,17 @@ class PatientController extends Controller
                     $bi->latest();
                 },
                 'accounts',
-                'queues' => function ($q) {
-                    $q->whereDate('created_at', \Carbon\Carbon::today())
-                      ->whereIn('status', ['waiting', 'in_consultation', 'serving', 'called', 'no_response', 'absent', 'second_chance', 'final_recall', 'requires_checkin'])
+                'queues' => function ($q) use ($todayDate, $startOfDay, $endOfDay) {
+                    $q->whereNull('deleted_at')
+                      ->where(function ($sub) use ($todayDate, $startOfDay, $endOfDay) {
+                          $sub->where('queue_date', $todayDate)
+                              ->orWhereBetween('checked_in_at', [$startOfDay, $endOfDay])
+                              ->orWhere(function ($ts) use ($startOfDay, $endOfDay) {
+                                  $ts->whereNull('queue_date')
+                                     ->whereBetween('created_at', [$startOfDay, $endOfDay]);
+                              });
+                      })
+                      ->where('status', '!=', 'cancelled')
                       ->latest();
                 }
             ]);
@@ -56,18 +69,17 @@ class PatientController extends Controller
         // Tab-based filtering
         switch ($tab) {
             case 'today_queue':
-                $query->where(function ($q) {
-                    $q->whereHas('queues', function ($qu) {
-                        $qu->whereIn('status', ['waiting', 'in_consultation', 'requires_checkin', 'called', 'serving', 'second_chance', 'final_recall'])
-                           ->whereDate('created_at', \Carbon\Carbon::today());
-                    })->orWhereHas('appointments', function ($app) {
-                        $app->where(function ($d) {
-                            $d->where(function ($sub) {
-                                $sub->whereDate('appointment_date', \Carbon\Carbon::today())
-                                    ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
-                            })->whereIn('status', ['scheduled', 'confirmed']);
-                        })->orWhere('status', 'confirmed');
-                    });
+                $query->whereHas('queues', function ($qu) use ($todayDate, $startOfDay, $endOfDay) {
+                    $qu->whereNull('deleted_at')
+                       ->where(function ($sub) use ($todayDate, $startOfDay, $endOfDay) {
+                           $sub->where('queue_date', $todayDate)
+                               ->orWhereBetween('checked_in_at', [$startOfDay, $endOfDay])
+                               ->orWhere(function ($ts) use ($startOfDay, $endOfDay) {
+                                   $ts->whereNull('queue_date')
+                                      ->whereBetween('created_at', [$startOfDay, $endOfDay]);
+                               });
+                       })
+                       ->where('status', '!=', 'cancelled');
                 });
                 break;
 
@@ -86,10 +98,10 @@ class PatientController extends Controller
                 break;
 
             case 'overdue':
-                $query->whereHas('appointments', function ($q) {
-                    $q->where(function ($d) {
-                        $d->where('appointment_date', '<', \Carbon\Carbon::today())
-                          ->orWhere('scheduled_date', '<', \Carbon\Carbon::today());
+                $query->whereHas('appointments', function ($q) use ($todayDate) {
+                    $q->where(function ($d) use ($todayDate) {
+                        $d->whereDate('appointment_date', '<', $todayDate)
+                          ->orWhereDate('scheduled_date', '<', $todayDate);
                     })->whereIn('status', ['scheduled', 'missed']);
                 });
                 break;
@@ -132,10 +144,30 @@ class PatientController extends Controller
             });
         }
 
-        // Sort
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
+        // Sort: for today_queue, prioritize today's queue sequence (queue_number asc) unless explicitly overridden
+        if ($tab === 'today_queue' && !$request->has('sort_by')) {
+            $query->orderBy(
+                Queue::select('queue_number')
+                    ->whereColumn('queues.patient_id', 'patients.patient_id')
+                    ->where('queues.clinic_id', $clinicId)
+                    ->whereNull('queues.deleted_at')
+                    ->where(function ($sub) use ($todayDate, $startOfDay, $endOfDay) {
+                        $sub->where('queue_date', $todayDate)
+                            ->orWhereBetween('checked_in_at', [$startOfDay, $endOfDay])
+                            ->orWhere(function ($ts) use ($startOfDay, $endOfDay) {
+                                $ts->whereNull('queue_date')
+                                   ->whereBetween('created_at', [$startOfDay, $endOfDay]);
+                            });
+                    })
+                    ->orderBy('queue_number', 'asc')
+                    ->limit(1),
+                'asc'
+            );
+        } else {
+            $sortBy = $request->get('sort_by', 'created_at');
+            $sortOrder = $request->get('sort_order', 'desc');
+            $query->orderBy($sortBy, $sortOrder);
+        }
 
         // Paginate
         $perPage = $request->get('per_page', 15);
@@ -144,18 +176,17 @@ class PatientController extends Controller
         // Summary counts for tabs
         $allCount = Patient::where('clinic_id', $clinicId)->count();
 
-        $todayQueueCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
-            $q->whereHas('queues', function ($qu) {
-                $qu->whereIn('status', ['waiting', 'in_consultation', 'requires_checkin', 'called', 'serving', 'second_chance', 'final_recall'])
-                   ->whereDate('created_at', \Carbon\Carbon::today());
-            })->orWhereHas('appointments', function ($app) {
-                $app->where(function ($d) {
-                    $d->where(function ($sub) {
-                        $sub->whereDate('appointment_date', \Carbon\Carbon::today())
-                            ->orWhereDate('scheduled_date', \Carbon\Carbon::today());
-                    })->whereIn('status', ['scheduled', 'confirmed']);
-                })->orWhere('status', 'confirmed');
-            });
+        $todayQueueCount = Patient::where('clinic_id', $clinicId)->whereHas('queues', function ($qu) use ($todayDate, $startOfDay, $endOfDay) {
+            $qu->whereNull('deleted_at')
+               ->where(function ($sub) use ($todayDate, $startOfDay, $endOfDay) {
+                   $sub->where('queue_date', $todayDate)
+                       ->orWhereBetween('checked_in_at', [$startOfDay, $endOfDay])
+                       ->orWhere(function ($ts) use ($startOfDay, $endOfDay) {
+                           $ts->whereNull('queue_date')
+                              ->whereBetween('created_at', [$startOfDay, $endOfDay]);
+                       });
+               })
+               ->where('status', '!=', 'cancelled');
         })->count();
 
         $onlineCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
@@ -170,10 +201,10 @@ class PatientController extends Controller
               });
         })->count();
 
-        $overdueCount = Patient::where('clinic_id', $clinicId)->whereHas('appointments', function ($q) {
-            $q->where(function ($d) {
-                $d->where('appointment_date', '<', \Carbon\Carbon::today())
-                  ->orWhere('scheduled_date', '<', \Carbon\Carbon::today());
+        $overdueCount = Patient::where('clinic_id', $clinicId)->whereHas('appointments', function ($q) use ($todayDate) {
+            $q->where(function ($d) use ($todayDate) {
+                $d->whereDate('appointment_date', '<', $todayDate)
+                  ->orWhereDate('scheduled_date', '<', $todayDate);
             })->whereIn('status', ['scheduled', 'missed']);
         })->count();
 

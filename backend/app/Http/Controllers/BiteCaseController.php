@@ -637,6 +637,30 @@ class BiteCaseController extends Controller
                     && !in_array($appointment->status, ['completed', 'cancelled'], true);
             });
         };
+        $getOverdueInfo = function (BiteIncident $case) {
+            $overdueAppts = $case->appointments->filter(function ($appointment) {
+                $scheduled = $appointment->scheduled_date ?? $appointment->appointment_date;
+                return $scheduled && Carbon::parse($scheduled)->lt(Carbon::today())
+                    && !in_array($appointment->status, ['completed', 'cancelled'], true);
+            });
+            if ($overdueAppts->isEmpty()) {
+                return [
+                    'is_overdue' => false,
+                    'days_overdue' => 0,
+                    'overdue_dose' => null,
+                ];
+            }
+            $earliest = $overdueAppts->sortBy(fn ($a) => $a->scheduled_date ?? $a->appointment_date)->first();
+            $scheduledDate = Carbon::parse($earliest->scheduled_date ?? $earliest->appointment_date)->startOfDay();
+            $daysOverdue = max(1, abs(Carbon::today()->diffInDays($scheduledDate)));
+            $doseLabel = $earliest->dose_number ? "Dose {$earliest->dose_number}" : ($earliest->appointment_type ?: 'PEP Dose');
+
+            return [
+                'is_overdue' => true,
+                'days_overdue' => $daysOverdue,
+                'overdue_dose' => $doseLabel,
+            ];
+        };
 
         $locations = $cases->groupBy(fn (BiteIncident $case) => trim((string) $case->bite_place) ?: 'Unknown')
             ->map(function ($locationCases, $location) use ($previousCases, $hasReceivedDose, $hasOverdueDose) {
@@ -671,7 +695,7 @@ class BiteCaseController extends Controller
                     'trend' => is_null($previousCount) ? 'new' : ($total > $previousCount ? 'up' : ($total < $previousCount ? 'down' : 'neutral')),
                     'trend_diff' => is_null($previousCount) ? null : $total - $previousCount,
                     'last_incident' => $lastIncident?->format('M d, Y'),
-                    'last_incident_days_ago' => $lastIncident ? Carbon::today()->diffInDays($lastIncident) : null,
+                    'last_incident_days_ago' => $lastIncident ? abs(Carbon::today()->diffInDays($lastIncident)) : null,
                 ];
             })->sortByDesc('risk_score')->values();
 
@@ -691,16 +715,21 @@ class BiteCaseController extends Controller
                 'pep_compliance' => $activeCases->count() ? (int) round($patientsWithDose / $activeCases->count() * 100) : 0,
             ],
             'locations' => $locations,
-            'cases' => $cases->sortByDesc('bite_date')->values()->map(function (BiteIncident $case) {
+            'cases' => $cases->sortByDesc('bite_date')->values()->map(function (BiteIncident $case) use ($getOverdueInfo) {
+                $overdue = $getOverdueInfo($case);
                 return [
                     'bite_id' => $case->bite_id,
                     'case_number' => $case->case_number,
-                    'patient_name' => $case->patient?->full_name ?? 'Unknown patient',
+                    'patient_id' => $case->patient_id,
+                    'patient_name' => $case->patient?->name ?? 'Unknown patient',
                     'bite_date' => $case->bite_date?->format('M d, Y'),
                     'location' => trim((string) $case->bite_place) ?: 'Unknown',
                     'category' => $case->bite_category,
                     'animal_type' => strtolower(trim((string) ($case->intake?->animal_type ?: $case->animal_type ?: 'other'))),
                     'status' => $case->status,
+                    'is_overdue' => $overdue['is_overdue'],
+                    'days_overdue' => $overdue['days_overdue'],
+                    'overdue_dose' => $overdue['overdue_dose'],
                 ];
             }),
             'risk_alerts' => [

@@ -56,18 +56,6 @@ import {
 import api from '../../../services/api';
 import { ROUTES } from '../../../shared/config/routes';
 
-// Import accessibility components and utilities
-import { AccessibleProgress, AccessibleIconButton } from '../components/AccessibleComponents';
-import {
-  exportLocationsToCsv,
-  exportCasesToCsv,
-  type ColumnKey,
-  getStoredColumnVisibility,
-  saveColumnVisibility,
-  DEFAULT_VISIBLE_COLUMNS,
-} from '../utils/biteCaseUtils';
-import '../styles/biteCasesAccessibility.css';
-
 export type PriorityLevel = 'high' | 'medium' | 'low' | 'limited_data';
 type RiskLevel = 'high' | 'medium' | 'low';
 
@@ -164,7 +152,7 @@ export const priorityConfig: Record<
   limited_data: {
     label: 'Limited Data (<3 cases)',
     shortLabel: 'Limited data',
-    color: 'var(--bc-text-secondary)',
+    color: 'var(--bc-muted)',
     background: 'var(--bc-surface-3)',
     border: 'var(--bc-border)',
     desc: 'Fewer than 3 cases. Score is shown for reference only.',
@@ -292,12 +280,9 @@ export function formatDaysAgo(days: number | null): string {
 function Progress({ value, color, width = 74 }: { value: number; color: string; width?: number }) {
   const clampedValue = Math.min(100, Math.max(0, value));
   return (
-    <AccessibleProgress 
-      value={clampedValue} 
-      color={color} 
-      width={width}
-      label={`Progress: ${clampedValue}%`}
-    />
+    <Box sx={{ width, height: 4, borderRadius: 2, bgcolor: 'var(--bc-track)', overflow: 'hidden' }}>
+      <Box sx={{ width: `${clampedValue}%`, height: '100%', borderRadius: 2, bgcolor: color }} />
+    </Box>
   );
 }
 
@@ -387,7 +372,7 @@ function StatCard({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, mt: 0.2 }}>
           <Typography
             sx={{
-              color: active ? color : 'var(--bc-text-secondary)',
+              color: active ? color : 'var(--bc-muted)',
               fontSize: 9.5,
               fontWeight: active ? 700 : 600,
               letterSpacing: '.02em',
@@ -403,7 +388,7 @@ function StatCard({
               <InfoOutlined
                 sx={{
                   fontSize: 11,
-                  color: active ? color : 'var(--bc-text-secondary)',
+                  color: active ? color : 'var(--bc-muted)',
                   cursor: 'help',
                   flexShrink: 0,
                 }}
@@ -456,9 +441,6 @@ function PriorityPill({
       <InfoOutlined sx={{ fontSize: 13, color: c.color, flexShrink: 0 }} />
     );
 
-  // Use stroke/outline for high and medium, filled for low and limited
-  const useStroke = level === 'high' || level === 'medium';
-
   const pillContent = (
     <Box
       onClick={onClick}
@@ -473,16 +455,13 @@ function PriorityPill({
         borderRadius: 20,
         fontSize: 11,
         fontWeight: 600,
-        bgcolor: useStroke ? 'transparent' : c.background,
+        bgcolor: c.background,
         color: c.color,
-        border: useStroke ? `2px solid ${c.color}` : `1px solid ${c.border}`,
+        border: `1px solid ${c.border}`,
         cursor: onClick ? 'pointer' : 'default',
         whiteSpace: 'nowrap',
-        transition: 'transform 0.15s ease, background-color 0.15s ease',
-        '&:hover': onClick ? { 
-          transform: 'scale(1.04)',
-          bgcolor: useStroke ? `${c.color}10` : c.background,
-        } : undefined,
+        transition: 'transform 0.15s ease',
+        '&:hover': onClick ? { transform: 'scale(1.04)' } : undefined,
       }}
     >
       {icon}
@@ -491,7 +470,7 @@ function PriorityPill({
           <>
             <span>Limited data</span>
             {score !== undefined && (
-              <span style={{ color: 'var(--bc-text-secondary)', fontWeight: 500, marginLeft: 4 }}>
+              <span style={{ color: 'var(--bc-muted)', fontWeight: 500, marginLeft: 4 }}>
                 · {score}
               </span>
             )}
@@ -541,7 +520,7 @@ function CasesSeverityCell({
         {totalCases}
       </Typography>
       {allZero ? (
-        <Typography sx={{ fontSize: 10, color: 'var(--bc-text-secondary)' }}>—</Typography>
+        <Typography sx={{ fontSize: 10, color: 'var(--bc-muted)' }}>—</Typography>
       ) : (
         <Tooltip title={tooltipText} arrow>
           <Box
@@ -636,7 +615,7 @@ function LastIncidentCell({
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'nowrap' }}>
         {daysAgo !== null && (
-          <Typography sx={{ fontSize: 10, color: 'var(--bc-text-secondary)', whiteSpace: 'nowrap' }}>
+          <Typography sx={{ fontSize: 10, color: 'var(--bc-muted)', whiteSpace: 'nowrap' }}>
             {formatDaysAgo(daysAgo)}
           </Typography>
         )}
@@ -716,7 +695,7 @@ function Count({ count, color }: { count: number; color: string }) {
   return count > 0 ? (
     <Typography sx={{ fontSize: 12, color, fontWeight: 700 }}>{count}</Typography>
   ) : (
-    <Typography sx={{ color: 'var(--bc-text-secondary)', fontSize: 13 }}>—</Typography>
+    <Typography sx={{ color: 'var(--bc-muted)', fontSize: 13 }}>—</Typography>
   );
 }
 
@@ -842,12 +821,7 @@ function ExplainabilityModal({
               width: 40,
               height: 40,
               borderRadius: '10px',
-              bgcolor: breakdown.priorityLevel === 'high' || breakdown.priorityLevel === 'medium'
-                ? 'transparent'
-                : cfg.background,
-              border: breakdown.priorityLevel === 'high' || breakdown.priorityLevel === 'medium'
-                ? `2px solid ${cfg.color}`
-                : 'none',
+              bgcolor: cfg.background,
               color: cfg.color,
               display: 'grid',
               placeItems: 'center',
@@ -866,12 +840,12 @@ function ExplainabilityModal({
                 sx={{ fontSize: 10, height: 20, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text-3)', fontWeight: 600 }}
               />
             </Box>
-            <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mt: 0.2 }}>
+            <Typography sx={{ fontSize: 12, color: 'var(--bc-muted)', mt: 0.2 }}>
               Descriptive Surveillance Priority Breakdown
             </Typography>
           </Box>
         </Box>
-        <IconButton onClick={onClose} size="small" aria-label="Close dialog" sx={{ color: 'var(--bc-text-secondary)', '&:hover': { color: 'var(--bc-text-2)' } }}>
+        <IconButton onClick={onClose} size="small" aria-label="Close dialog" sx={{ color: 'var(--bc-muted)', '&:hover': { color: 'var(--bc-text-2)' } }}>
           <CloseOutlined fontSize="small" />
         </IconButton>
       </DialogTitle>
@@ -884,12 +858,8 @@ function ExplainabilityModal({
             p: 2,
             mb: 2,
             borderRadius: '12px',
-            border: breakdown.priorityLevel === 'high' || breakdown.priorityLevel === 'medium'
-              ? `2px solid ${cfg.color}`
-              : `1px solid ${cfg.border}`,
-            bgcolor: breakdown.priorityLevel === 'high' || breakdown.priorityLevel === 'medium'
-              ? 'transparent'
-              : cfg.background,
+            border: `1px solid ${cfg.border}`,
+            bgcolor: cfg.background,
             display: 'flex',
             flexDirection: 'column',
             gap: 1.25,
@@ -906,13 +876,13 @@ function ExplainabilityModal({
 
             <Tooltip title="Formula: (Category III × 1.5 + Category II) / Total Cases × 100" arrow>
               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'help' }}>
-                <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)', fontWeight: 600 }}>
+                <Typography sx={{ fontSize: 11, color: 'var(--bc-muted)', fontWeight: 600 }}>
                   Share of severe exposures:
                 </Typography>
                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'var(--bc-text)' }}>
                   {Math.min(100, location.risk_score)}%
                 </Typography>
-                <InfoOutlined sx={{ fontSize: 12, color: 'var(--bc-text-secondary)' }} />
+                <InfoOutlined sx={{ fontSize: 12, color: 'var(--bc-muted)' }} />
               </Box>
             </Tooltip>
           </Box>
@@ -943,8 +913,8 @@ function ExplainabilityModal({
               p: 1.75,
               mb: 2,
               borderRadius: '10px',
-              border: '2px solid var(--bc-red)',
-              bgcolor: 'transparent',
+              border: '1px solid var(--bc-danger-border)',
+              bgcolor: 'var(--bc-danger-bg)',
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
@@ -983,7 +953,7 @@ function ExplainabilityModal({
                           {c.patient_name}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.2 }}>
-                          <Typography sx={{ fontSize: 10.5, fontFamily: 'monospace', color: 'var(--bc-text-secondary)' }}>
+                          <Typography sx={{ fontSize: 10.5, fontFamily: 'monospace', color: 'var(--bc-muted)' }}>
                             Case #{c.case_number}
                           </Typography>
                           {c.overdue_dose && (
@@ -1090,7 +1060,7 @@ function ExplainabilityModal({
                   1. Case Burden
                 </Typography>
                 <Tooltip title="Measures total bite volume normalized against the most active area during this surveillance period." arrow>
-                  <InfoOutlined sx={{ fontSize: 13, color: 'var(--bc-text-secondary)', cursor: 'help' }} />
+                  <InfoOutlined sx={{ fontSize: 13, color: 'var(--bc-muted)', cursor: 'help' }} />
                 </Tooltip>
               </Box>
               <Chip label="Weight: 35%" size="small" sx={{ height: 18, fontSize: 9.5, bgcolor: 'var(--bc-track)', fontWeight: 600 }} />
@@ -1114,7 +1084,7 @@ function ExplainabilityModal({
                   2. Exposure Severity
                 </Typography>
                 <Tooltip title="Percentage of assessed bite cases categorized as Category III severe rabies exposures requiring RIG and full vaccination." arrow>
-                  <InfoOutlined sx={{ fontSize: 13, color: 'var(--bc-text-secondary)', cursor: 'help' }} />
+                  <InfoOutlined sx={{ fontSize: 13, color: 'var(--bc-muted)', cursor: 'help' }} />
                 </Tooltip>
               </Box>
               <Chip label="Weight: 35%" size="small" sx={{ height: 18, fontSize: 9.5, bgcolor: 'var(--bc-track)', fontWeight: 600 }} />
@@ -1138,7 +1108,7 @@ function ExplainabilityModal({
                   3. Overdue PEP Follow-Up
                 </Typography>
                 <Tooltip title="Proportion of patients who missed scheduled follow-up vaccine doses (Day 3, 7, 14, 28) and require immediate recall." arrow>
-                  <InfoOutlined sx={{ fontSize: 13, color: 'var(--bc-text-secondary)', cursor: 'help' }} />
+                  <InfoOutlined sx={{ fontSize: 13, color: 'var(--bc-muted)', cursor: 'help' }} />
                 </Tooltip>
               </Box>
               <Chip label="Weight: 20%" size="small" sx={{ height: 18, fontSize: 9.5, bgcolor: 'var(--bc-track)', fontWeight: 600 }} />
@@ -1162,7 +1132,7 @@ function ExplainabilityModal({
                   4. Trend Velocity
                 </Typography>
                 <Tooltip title="Surge or decline in incident velocity compared to the immediately preceding surveillance period of identical length." arrow>
-                  <InfoOutlined sx={{ fontSize: 13, color: 'var(--bc-text-secondary)', cursor: 'help' }} />
+                  <InfoOutlined sx={{ fontSize: 13, color: 'var(--bc-muted)', cursor: 'help' }} />
                 </Tooltip>
               </Box>
               <Chip label="Weight: 10%" size="small" sx={{ height: 18, fontSize: 9.5, bgcolor: 'var(--bc-track)', fontWeight: 600 }} />
@@ -1208,7 +1178,7 @@ function ExplainabilityModal({
               size="small"
               sx={{ bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text-3)', fontWeight: 600, fontSize: 11 }}
             />
-            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-text-secondary)', fontStyle: 'italic', ml: 0.5 }}>
+            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-muted)', fontStyle: 'italic', ml: 0.5 }}>
               *“Other” includes monkeys, bats, livestock (swine/cattle), and other non-canine/feline mammals.
             </Typography>
           </Box>
@@ -1244,8 +1214,8 @@ function ExplainabilityModal({
               gap: 0.75,
             }}
           >
-            <InfoOutlined sx={{ fontSize: 14, color: 'var(--bc-text-secondary)', flexShrink: 0 }} />
-            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-text-secondary)', lineHeight: 1.4 }}>
+            <InfoOutlined sx={{ fontSize: 14, color: 'var(--bc-muted)', flexShrink: 0 }} />
+            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-muted)', lineHeight: 1.4 }}>
               Descriptive clinic records summary to help staff prioritize follow-up calls and community awareness; not an official epidemiological rabies declaration.
             </Typography>
           </Box>
@@ -1377,7 +1347,7 @@ function LocationRow({
           left: 0,
           zIndex: 1,
           bgcolor: rowBg,
-          color: 'var(--bc-text-secondary)',
+          color: 'var(--bc-muted)',
           fontFamily: 'monospace',
           fontSize: 11,
           width: 44,
@@ -1433,7 +1403,7 @@ function LocationRow({
                 />
               )}
             </Box>
-            <Typography sx={{ fontSize: 10, color: 'var(--bc-text-secondary)', whiteSpace: 'nowrap' }}>
+            <Typography sx={{ fontSize: 10, color: 'var(--bc-muted)', whiteSpace: 'nowrap' }}>
               {row.location_level || 'Villanueva'}
             </Typography>
           </Box>
@@ -1504,7 +1474,7 @@ function LocationRow({
               ▼ {row.trend_diff}
             </Typography>
           ) : (
-            <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)' }}>—</Typography>
+            <Typography sx={{ fontSize: 11, color: 'var(--bc-muted)' }}>—</Typography>
           )}
         </TableCell>
       )}
@@ -1622,7 +1592,7 @@ function LocationMobileCard({
       {/* Top Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--bc-text-secondary)', fontWeight: 600 }}>
+          <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--bc-muted)', fontWeight: 600 }}>
             #{index + 1}
           </Typography>
           <Box>
@@ -1645,7 +1615,7 @@ function LocationMobileCard({
                 />
               )}
             </Box>
-            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-text-secondary)' }}>
+            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-muted)' }}>
               {row.location_level || 'Villanueva'}
             </Typography>
           </Box>
@@ -1666,7 +1636,7 @@ function LocationMobileCard({
         }}
       >
         <Box sx={{ textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 9.5, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <Typography sx={{ fontSize: 9.5, color: 'var(--bc-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
             Cases
           </Typography>
           <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'var(--bc-text)' }}>
@@ -1680,7 +1650,7 @@ function LocationMobileCard({
         </Box>
 
         <Box sx={{ textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 9.5, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <Typography sx={{ fontSize: 9.5, color: 'var(--bc-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
             Follow-up
           </Typography>
           <Typography sx={{ fontSize: 13, fontWeight: 700, color: complianceColor }}>
@@ -1698,14 +1668,14 @@ function LocationMobileCard({
         </Box>
 
         <Box sx={{ textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 9.5, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <Typography sx={{ fontSize: 9.5, color: 'var(--bc-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
             Last Incident
           </Typography>
           <Typography sx={{ fontSize: 11, fontWeight: 600, color: 'var(--bc-text-2)' }}>
             {row.last_incident ?? '—'}
           </Typography>
           {row.last_incident_days_ago !== null && (
-            <Typography sx={{ fontSize: 9.5, color: 'var(--bc-text-secondary)' }}>
+            <Typography sx={{ fontSize: 9.5, color: 'var(--bc-muted)' }}>
               {formatDaysAgo(row.last_incident_days_ago)}
             </Typography>
           )}
@@ -1753,7 +1723,7 @@ function CaseRow({ row, index }: { row: CaseSummary; index: number }) {
   };
   return (
     <TableRow hover sx={{ '&:hover': { bgcolor: 'var(--bc-surface-2)' } }}>
-      <TableCell align="center" sx={{ color: 'var(--bc-text-secondary)', fontFamily: 'monospace' }}>
+      <TableCell align="center" sx={{ color: 'var(--bc-muted)', fontFamily: 'monospace' }}>
         {index + 1}
       </TableCell>
       <TableCell>
@@ -1787,7 +1757,7 @@ function CaseRow({ row, index }: { row: CaseSummary; index: number }) {
             py: 0.3,
             borderRadius: 20,
             bgcolor: `${statusColor[row.status] ?? '#6b7280'}18`,
-            color: statusColor[row.status] ?? 'var(--bc-text-secondary)',
+            color: statusColor[row.status] ?? 'var(--bc-muted)',
             fontSize: 10,
             fontWeight: 600,
             textTransform: 'capitalize',
@@ -2075,19 +2045,48 @@ export default function BiteCaseRiskDashboard() {
   };
 
   const exportCsv = () => {
-    if (tab === 'risk') {
-      if (!sortedLocations.length) {
-        alert('No locations data to export');
-        return;
-      }
-      exportLocationsToCsv(sortedLocations, 'bite-cases-locations.csv');
-    } else {
-      if (!displayedCases.length) {
-        alert('No cases data to export');
-        return;
-      }
-      exportCasesToCsv(displayedCases, 'bite-cases.csv');
-    }
+    if (!sortedLocations.length) return;
+    const rows = [
+      [
+        'Location',
+        'Location Level',
+        'Priority Level',
+        'Priority',
+        'Cases',
+        'Category III',
+        'Category II',
+        'Category I',
+        'PEP Compliance',
+        'Overdue Doses',
+        'Trend',
+        'Last Incident',
+      ],
+      ...sortedLocations.map((row) => {
+        const b = computePriorityBreakdown(row, maxCases);
+        return [
+          row.location,
+          row.location_level || 'Area',
+          b.priorityLevel,
+          `${b.compositeScore}/100`,
+          row.total_cases,
+          row.cat_3,
+          row.cat_2,
+          row.cat_1,
+          `${row.pep_compliance}%`,
+          row.overdue_doses,
+          row.last_incident ?? '',
+        ];
+      }),
+    ];
+    const csv = rows
+      .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
+      .join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'location-surveillance-summary.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleFilterLocation = (locationName: string) => {
@@ -2166,8 +2165,8 @@ export default function BiteCaseRiskDashboard() {
           >
             Dashboard
           </button>
-          <span style={{ color: 'var(--bc-text-secondary)' }}>›</span>
-          <span style={{ color: 'var(--bc-text-secondary)' }}>Bite Cases Summary</span>
+          <span style={{ color: 'var(--bc-muted)' }}>›</span>
+          <span style={{ color: 'var(--bc-muted)' }}>Bite Cases Summary</span>
         </div>
       </Box>
 
@@ -2253,8 +2252,8 @@ export default function BiteCaseRiskDashboard() {
           sx={{
             mb: 1.25,
             borderRadius: '8px',
-            border: '2px solid var(--bc-red)',
-            bgcolor: 'transparent',
+            border: '1px solid var(--bc-danger-border)',
+            bgcolor: 'var(--bc-danger-bg)',
             overflow: 'hidden',
           }}
         >
@@ -2316,11 +2315,7 @@ export default function BiteCaseRiskDashboard() {
               size="small"
               aria-label="Dismiss surveillance banner"
               onClick={() => setBannerDismissed(true)}
-              sx={{ 
-                color: 'var(--bc-red-strong)', 
-                p: 0.25, 
-                '&:hover': { bgcolor: 'var(--bc-red)10' } 
-              }}
+              sx={{ color: 'var(--bc-red-strong)', p: 0.25, '&:hover': { bgcolor: 'var(--bc-danger-bg-2)' } }}
             >
               <Clear sx={{ fontSize: 14 }} />
             </IconButton>
@@ -2332,7 +2327,7 @@ export default function BiteCaseRiskDashboard() {
                 px: 1.5,
                 pb: 1,
                 pt: 0.25,
-                borderTop: '1px solid var(--bc-red)',
+                borderTop: '1px solid var(--bc-danger-border)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 0.75,
@@ -2353,12 +2348,12 @@ export default function BiteCaseRiskDashboard() {
                     sx={{
                       bgcolor: 'var(--bc-surface)',
                       color: 'var(--bc-red-strong)',
-                      border: '1.5px solid var(--bc-red)',
+                      border: '1px solid var(--bc-danger-border)',
                       fontWeight: 600,
                       fontSize: 10.5,
                       height: 24,
                       cursor: 'pointer',
-                      '&:hover': { bgcolor: 'var(--bc-red)10' },
+                      '&:hover': { bgcolor: 'var(--bc-danger-bg-2)' },
                     }}
                   />
                 ))}
@@ -2375,12 +2370,12 @@ export default function BiteCaseRiskDashboard() {
                     sx={{
                       bgcolor: 'var(--bc-surface)',
                       color: 'var(--bc-amber)',
-                      border: '1.5px solid var(--bc-amber)',
+                      border: '1px solid var(--bc-amber-border)',
                       fontWeight: 600,
                       fontSize: 10.5,
                       height: 24,
                       cursor: 'pointer',
-                      '&:hover': { bgcolor: 'var(--bc-amber)10' },
+                      '&:hover': { bgcolor: 'var(--bc-amber-bg)' },
                     }}
                   />
                 )}
@@ -2465,7 +2460,7 @@ export default function BiteCaseRiskDashboard() {
             input: {
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchOutlined sx={{ color: 'var(--bc-text-secondary)', fontSize: 16 }} />
+                  <SearchOutlined sx={{ color: 'var(--bc-muted)', fontSize: 16 }} />
                 </InputAdornment>
               ),
             },
@@ -2593,7 +2588,7 @@ export default function BiteCaseRiskDashboard() {
 
       {filters.range === 'custom' && (
         <Box sx={{ display: 'flex', gap: 1, mb: 1.25, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)' }}>Custom range:</Typography>
+          <Typography sx={{ fontSize: 11, color: 'var(--bc-muted)' }}>Custom range:</Typography>
           <TextField
             label="From"
             type="date"
@@ -2635,7 +2630,7 @@ export default function BiteCaseRiskDashboard() {
                 onClick={(e) => setFormulaAnchorEl(e.currentTarget)}
                 startIcon={<HelpOutlineOutlined sx={{ fontSize: 13 }} />}
                 sx={{
-                  color: 'var(--bc-text-secondary)',
+                  color: 'var(--bc-muted)',
                   textTransform: 'none',
                   fontSize: 11,
                   py: 0.2,
@@ -2673,16 +2668,7 @@ export default function BiteCaseRiskDashboard() {
             startIcon={<FileDownloadOutlined fontSize="small" />}
             variant="outlined"
             size="small"
-            aria-label={`Export ${tab === 'risk' ? 'location summary' : 'cases'} to CSV file`}
-            sx={{ 
-              ml: 'auto', 
-              minHeight: 44,
-              borderColor: 'var(--bc-border-strong)', 
-              color: 'var(--bc-text-3)', 
-              textTransform: 'none', 
-              fontSize: 11,
-              py: 0 
-            }}
+            sx={{ ml: 'auto', borderColor: 'var(--bc-border-strong)', color: 'var(--bc-text-3)', textTransform: 'none', fontSize: 11, height: 26, py: 0 }}
           >
             Export CSV
           </Button>
@@ -2711,7 +2697,7 @@ export default function BiteCaseRiskDashboard() {
               ))
             ) : (
               <Box sx={{ py: 6, textAlign: 'center' }}>
-                <SearchOutlined sx={{ fontSize: 40, color: 'var(--bc-text-secondary)', mb: 1 }} />
+                <SearchOutlined sx={{ fontSize: 40, color: 'var(--bc-muted)', mb: 1 }} />
                 <Typography sx={{ fontSize: 13, color: 'var(--bc-text-3)', fontWeight: 600, mb: 1 }}>
                   No bite cases match these filters
                 </Typography>
@@ -2741,7 +2727,6 @@ export default function BiteCaseRiskDashboard() {
             <Table
               stickyHeader
               size="small"
-              aria-label={tab === 'risk' ? 'Location Priority Summary Table' : 'All Bite Cases Table'}
               sx={{
                 minWidth: tab === 'risk' ? { xs: 720, md: '100%' } : 820,
                 '& .MuiTableCell-root': { borderBottom: '0.5px solid var(--bc-border-soft)', fontSize: 11.5, py: 0.85, px: 1 },
@@ -2752,8 +2737,6 @@ export default function BiteCaseRiskDashboard() {
                   <TableRow>
                     {/* # - Sticky Left 0 */}
                     <TableCell
-                      component="th"
-                      scope="col"
                       align="center"
                       sx={{
                         position: 'sticky',
@@ -2762,7 +2745,7 @@ export default function BiteCaseRiskDashboard() {
                         bgcolor: 'var(--bc-surface)',
                         width: 44,
                         minWidth: 44,
-                        color: 'var(--bc-text-secondary)',
+                        color: 'var(--bc-muted)',
                         fontWeight: 700,
                         fontSize: '10px !important',
                         letterSpacing: '.04em',
@@ -2776,7 +2759,6 @@ export default function BiteCaseRiskDashboard() {
                         direction={sortKey === 'rank' ? sortOrder : 'asc'}
                         onClick={() => handleSort('rank')}
                         sx={{ fontSize: '10px !important' }}
-                        aria-label={sortKey === 'rank' ? `Sorted by rank ${sortOrder}ending` : 'Sort by rank'}
                       >
                         #
                       </TableSortLabel>
@@ -2784,15 +2766,13 @@ export default function BiteCaseRiskDashboard() {
 
                     {/* LOCATION - Sticky Left 44 */}
                     <TableCell
-                      component="th"
-                      scope="col"
                       sx={{
                         position: 'sticky',
                         left: 44,
                         zIndex: 3,
                         bgcolor: 'var(--bc-surface)',
                         boxShadow: '3px 0 6px -2px rgba(0,0,0,0.05)',
-                        color: 'var(--bc-text-secondary)',
+                        color: 'var(--bc-muted)',
                         fontWeight: 700,
                         fontSize: '10px !important',
                         letterSpacing: '.04em',
@@ -2806,7 +2786,6 @@ export default function BiteCaseRiskDashboard() {
                         direction={sortKey === 'location' ? sortOrder : 'asc'}
                         onClick={() => handleSort('location')}
                         sx={{ fontSize: '10px !important' }}
-                        aria-label={sortKey === 'location' ? `Sorted by location ${sortOrder}ending` : 'Sort by location'}
                       >
                         LOCATION
                       </TableSortLabel>
@@ -2814,12 +2793,10 @@ export default function BiteCaseRiskDashboard() {
 
                     {/* PRIORITY */}
                     <TableCell
-                      component="th"
-                      scope="col"
                       align="center"
                       sx={{
                         bgcolor: 'var(--bc-surface)',
-                        color: 'var(--bc-text-secondary)',
+                        color: 'var(--bc-muted)',
                         fontWeight: 700,
                         fontSize: '10px !important',
                         letterSpacing: '.04em',
@@ -2834,7 +2811,6 @@ export default function BiteCaseRiskDashboard() {
                           direction={sortKey === 'priority' ? sortOrder : 'desc'}
                           onClick={() => handleSort('priority')}
                           sx={{ fontSize: '10px !important' }}
-                          aria-label={sortKey === 'priority' ? `Sorted by priority ${sortOrder}ending` : 'Sort by priority'}
                         >
                           PRIORITY
                         </TableSortLabel>
@@ -2845,14 +2821,7 @@ export default function BiteCaseRiskDashboard() {
                               e.stopPropagation();
                               setLegendAnchorEl(e.currentTarget);
                             }}
-                            aria-label="Show surveillance priority guide"
-                            sx={{ 
-                              p: 0.2, 
-                              minWidth: 44, 
-                              minHeight: 44,
-                              color: 'var(--bc-text-secondary)', 
-                              '&:hover': { color: 'var(--bc-brand-text)', bgcolor: 'var(--bc-success-bg)' } 
-                            }}
+                            sx={{ p: 0.2, color: 'var(--bc-muted)', '&:hover': { color: 'var(--bc-brand-text)', bgcolor: 'var(--bc-success-bg)' } }}
                           >
                             <InfoOutlined sx={{ fontSize: 13 }} />
                           </IconButton>
@@ -2862,12 +2831,10 @@ export default function BiteCaseRiskDashboard() {
 
                     {/* CASES */}
                     <TableCell
-                      component="th"
-                      scope="col"
                       align="center"
                       sx={{
                         bgcolor: 'var(--bc-surface)',
-                        color: 'var(--bc-text-secondary)',
+                        color: 'var(--bc-muted)',
                         fontWeight: 700,
                         fontSize: '10px !important',
                         letterSpacing: '.04em',
@@ -2882,7 +2849,6 @@ export default function BiteCaseRiskDashboard() {
                           direction={sortKey === 'cases' ? sortOrder : 'desc'}
                           onClick={() => handleSort('cases')}
                           sx={{ fontSize: '10px !important' }}
-                          aria-label={sortKey === 'cases' ? `Sorted by cases ${sortOrder}ending` : 'Sort by cases'}
                         >
                           CASES
                         </TableSortLabel>
@@ -2892,8 +2858,6 @@ export default function BiteCaseRiskDashboard() {
                     {/* Optional: Severe (Cat III) */}
                     {optionalColumns.cat_3 && (
                       <TableCell
-                        component="th"
-                        scope="col"
                         align="center"
                         sx={{
                           bgcolor: 'var(--bc-surface)',
@@ -2975,7 +2939,7 @@ export default function BiteCaseRiskDashboard() {
                         align="center"
                         sx={{
                           bgcolor: 'var(--bc-surface)',
-                          color: 'var(--bc-text-secondary)',
+                          color: 'var(--bc-muted)',
                           fontWeight: 700,
                           fontSize: '10px !important',
                           letterSpacing: '.04em',
@@ -2993,7 +2957,7 @@ export default function BiteCaseRiskDashboard() {
                       align="center"
                       sx={{
                         bgcolor: 'var(--bc-surface)',
-                        color: 'var(--bc-text-secondary)',
+                        color: 'var(--bc-muted)',
                         fontWeight: 700,
                         fontSize: '10px !important',
                         letterSpacing: '.04em',
@@ -3020,7 +2984,7 @@ export default function BiteCaseRiskDashboard() {
                         align="center"
                         sx={{
                           bgcolor: 'var(--bc-surface)',
-                          color: 'var(--bc-text-secondary)',
+                          color: 'var(--bc-muted)',
                           fontWeight: 700,
                           fontSize: '10px !important',
                           letterSpacing: '.04em',
@@ -3045,7 +3009,7 @@ export default function BiteCaseRiskDashboard() {
                       align="center"
                       sx={{
                         bgcolor: 'var(--bc-surface)',
-                        color: 'var(--bc-text-secondary)',
+                        color: 'var(--bc-muted)',
                         fontWeight: 700,
                         fontSize: '10px !important',
                         letterSpacing: '.04em',
@@ -3073,7 +3037,7 @@ export default function BiteCaseRiskDashboard() {
                         zIndex: 3,
                         bgcolor: 'var(--bc-surface)',
                         boxShadow: '-3px 0 6px -2px rgba(0,0,0,0.05)',
-                        color: 'var(--bc-text-secondary)',
+                        color: 'var(--bc-muted)',
                         fontWeight: 700,
                         fontSize: '10px !important',
                         letterSpacing: '.04em',
@@ -3095,7 +3059,7 @@ export default function BiteCaseRiskDashboard() {
                         align={['#', 'SEVERITY', 'ANIMAL', 'STATUS'].includes(header) ? 'center' : 'left'}
                         sx={{
                           bgcolor: 'var(--bc-surface)',
-                          color: 'var(--bc-text-secondary)',
+                          color: 'var(--bc-muted)',
                           fontWeight: 700,
                           fontSize: '10px !important',
                           letterSpacing: '.04em',
@@ -3147,7 +3111,7 @@ export default function BiteCaseRiskDashboard() {
                       sx={{ py: 6 }}
                     >
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                        <SearchOutlined sx={{ fontSize: 38, color: 'var(--bc-text-secondary)' }} />
+                        <SearchOutlined sx={{ fontSize: 38, color: 'var(--bc-muted)' }} />
                         <Typography sx={{ fontSize: 13, color: 'var(--bc-text-3)', fontWeight: 600 }}>
                           No bite cases match these filters
                         </Typography>
@@ -3231,9 +3195,9 @@ export default function BiteCaseRiskDashboard() {
             </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <InfoOutlined sx={{ fontSize: 16, color: 'var(--bc-text-secondary)', mt: 0.2, flexShrink: 0 }} />
+            <InfoOutlined sx={{ fontSize: 16, color: 'var(--bc-muted)', mt: 0.2, flexShrink: 0 }} />
             <Box>
-              <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'var(--bc-text-secondary)' }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'var(--bc-muted)' }}>
                 Limited Data: &lt;3 Cases
               </Typography>
               <Typography sx={{ fontSize: 11, color: 'var(--bc-text-3)', lineHeight: 1.4 }}>
@@ -3284,22 +3248,22 @@ export default function BiteCaseRiskDashboard() {
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0.6, fontSize: 11 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
             <Typography sx={{ fontSize: 11, color: 'var(--bc-text-2)', fontWeight: 600 }}>1. Relative Burden (35%)</Typography>
-            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-text-secondary)' }}>Cases normalized against highest area</Typography>
+            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-muted)' }}>Cases normalized against highest area</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
             <Typography sx={{ fontSize: 11, color: 'var(--bc-text-2)', fontWeight: 600 }}>2. Severity Rate (35%)</Typography>
-            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-text-secondary)' }}>Category III high-risk rabies exposures</Typography>
+            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-muted)' }}>Category III high-risk rabies exposures</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
             <Typography sx={{ fontSize: 11, color: 'var(--bc-text-2)', fontWeight: 600 }}>3. Overdue Doses (20%)</Typography>
-            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-text-secondary)' }}>Missed PEP vaccine appointments</Typography>
+            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-muted)' }}>Missed PEP vaccine appointments</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
             <Typography sx={{ fontSize: 11, color: 'var(--bc-text-2)', fontWeight: 600 }}>4. Period Velocity (10%)</Typography>
-            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-text-secondary)' }}>Surge or trend change vs prior period</Typography>
+            <Typography sx={{ fontSize: 10.5, color: 'var(--bc-muted)' }}>Surge or trend change vs prior period</Typography>
           </Box>
         </Box>
-        <Typography sx={{ fontSize: 10, color: 'var(--bc-text-secondary)', mt: 1.25, fontStyle: 'italic' }}>
+        <Typography sx={{ fontSize: 10, color: 'var(--bc-muted)', mt: 1.25, fontStyle: 'italic' }}>
           * Areas with fewer than 3 cases are labeled Limited Data to prevent single-incident distortion.
         </Typography>
       </Popover>
@@ -3320,7 +3284,7 @@ export default function BiteCaseRiskDashboard() {
           },
         }}
       >
-        <Typography sx={{ px: 1.5, py: 0.5, fontSize: 11, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase' }}>
+        <Typography sx={{ px: 1.5, py: 0.5, fontSize: 11, fontWeight: 700, color: 'var(--bc-muted)', textTransform: 'uppercase' }}>
           Toggle Columns
         </Typography>
         <MenuItem dense onClick={() => toggleOptionalColumn('cat_3')}>

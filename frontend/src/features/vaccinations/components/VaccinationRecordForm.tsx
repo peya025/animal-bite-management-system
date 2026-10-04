@@ -1637,6 +1637,163 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             </span>
           )}
         </div>
+
+        {/* Place of Exposure Address */}
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-light, #e5e7eb)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)' }}>
+              Place of Exposure
+            </label>
+            <button
+              type="button"
+              onClick={() => expLoc.setUseManual(!expLoc.useManual)}
+              disabled={clinicalAssessmentLocked}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '4px 8px',
+                color: '#047857',
+                fontSize: 12,
+                fontWeight: 500,
+                cursor: clinicalAssessmentLocked ? 'not-allowed' : 'pointer',
+                opacity: clinicalAssessmentLocked ? 0.5 : 1,
+                textDecoration: 'none',
+              }}
+              onMouseEnter={(e) => { if (!clinicalAssessmentLocked) e.currentTarget.style.textDecoration = 'underline'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+            >
+              {expLoc.useManual ? 'Switch to Dropdown' : 'Switch to Manual'}
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary, #6b7280)', marginBottom: 4 }}>
+                Municipality
+              </label>
+              {expLoc.useManual ? (
+                <input
+                  type="text"
+                  value={expLoc.manualMun}
+                  onChange={(e) => expLoc.setManualMun(e.target.value)}
+                  placeholder="e.g. Tagoloan"
+                  disabled={clinicalAssessmentLocked}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--input-border, #d1d5db)',
+                    borderRadius: BORDER_RADIUS,
+                    fontSize: 13,
+                    backgroundColor: clinicalAssessmentLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                    color: 'var(--input-text, #111827)',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                  }}
+                />
+              ) : (
+                <select
+                  value={expLoc.municipality}
+                  onChange={(e) => expLoc.setMunicipality(e.target.value)}
+                  disabled={clinicalAssessmentLocked || expLoc.loadingMun}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--input-border, #d1d5db)',
+                    borderRadius: BORDER_RADIUS,
+                    fontSize: 13,
+                    backgroundColor: (clinicalAssessmentLocked || expLoc.loadingMun) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                    color: 'var(--input-text, #111827)',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
+                  {expLoc.municipalities.map((item) => (
+                    <option key={item.code} value={item.code}>{item.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary, #6b7280)', marginBottom: 4 }}>
+                Barangay
+              </label>
+              {expLoc.useManual ? (
+                <input
+                  type="text"
+                  value={expLoc.manualBrgy}
+                  onChange={(e) => expLoc.setManualBrgy(e.target.value)}
+                  placeholder="e.g. Poblacion"
+                  disabled={clinicalAssessmentLocked}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--input-border, #d1d5db)',
+                    borderRadius: BORDER_RADIUS,
+                    fontSize: 13,
+                    backgroundColor: clinicalAssessmentLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                    color: 'var(--input-text, #111827)',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                  }}
+                />
+              ) : (
+                <select
+                  value={expLoc.barangay}
+                  onChange={(e) => expLoc.setBarangay(e.target.value)}
+                  disabled={clinicalAssessmentLocked || !expLoc.municipality || expLoc.loadingBrgy}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--input-border, #d1d5db)',
+                    borderRadius: BORDER_RADIUS,
+                    fontSize: 13,
+                    backgroundColor: (clinicalAssessmentLocked || !expLoc.municipality || expLoc.loadingBrgy) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                    color: 'var(--input-text, #111827)',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="">{expLoc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
+                  {expLoc.barangays.map((item) => (
+                    <option key={item.code} value={item.code}>{item.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary, #6b7280)', marginBottom: 4 }}>
+                Purok / Zone / Street
+              </label>
+              <input
+                type="text"
+                value={purok}
+                onChange={(e) => setPurok(e.target.value)}
+                placeholder="e.g. Purok 3"
+                disabled={clinicalAssessmentLocked || (!expLoc.useManual && !expLoc.barangay)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid var(--input-border, #d1d5db)',
+                  borderRadius: BORDER_RADIUS,
+                  fontSize: 13,
+                  backgroundColor: (clinicalAssessmentLocked || (!expLoc.useManual && !expLoc.barangay)) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                  color: 'var(--input-text, #111827)',
+                  boxSizing: 'border-box',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          </div>
+
+          {formData.place_of_exposure && (
+            <div style={{ marginTop: 8, padding: '8px 12px', backgroundColor: 'var(--bg-secondary, #f9fafb)', borderRadius: BORDER_RADIUS, fontSize: 12, color: 'var(--text-secondary, #6b7280)' }}>
+              <strong>Full address:</strong> {formData.place_of_exposure}
+            </div>
+          )}
+        </div>
       </FormSection>
 
       {/* 2. ANIMAL */}

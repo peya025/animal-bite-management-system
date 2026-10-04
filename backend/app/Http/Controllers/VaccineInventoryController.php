@@ -468,6 +468,8 @@ class VaccineInventoryController extends Controller
                 'open_vial_hours' => $preset->default_open_vial_hours,
             ]);
 
+        app(\App\Services\NotificationService::class)->notifyVaccinePresetCreated($preset, $request->user());
+
         return response()->json([
             'message' => 'Vaccine registered successfully',
             'preset' => $preset,
@@ -777,6 +779,8 @@ class VaccineInventoryController extends Controller
                     'description' => "Initial inventory created for batch {$inventory->batch_number}",
                 ]);
 
+                app(\App\Services\NotificationService::class)->notifyStockReceived($inventory, $request->user(), (int) $request->quantity);
+
                 return response()->json([
                     'message'   => 'Vaccine inventory added successfully',
                     'inventory' => $inventory,
@@ -983,6 +987,12 @@ class VaccineInventoryController extends Controller
             'new_values' => ['current_quantity' => $newQty, 'status' => $newStatus, 'transaction_type' => $type],
             'description' => "Stock adjusted for batch {$inventory->batch_number}: {$type} {$quantity}",
         ]);
+
+        if ($type === 'received') {
+            app(\App\Services\NotificationService::class)->notifyStockReceived($inventory, $request->user(), $quantity);
+        } else {
+            app(\App\Services\NotificationService::class)->syncInventoryAlerts($inventory->clinic_id);
+        }
 
         return response()->json([
             'message'   => 'Stock adjusted successfully',

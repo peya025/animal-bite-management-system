@@ -210,6 +210,8 @@ class MobileAppointmentController extends Controller
                 'send_time'          => now(),
             ]);
 
+            app(\App\Services\NotificationService::class)->notifyAppointmentEvent($appointment, 'booked');
+
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();

@@ -963,6 +963,8 @@ class QueueController extends Controller
 
                 $this->flushCache($clinicId, $todayDate);
 
+                app(\App\Services\NotificationService::class)->notifyQueueEvent($queue->load('patient'), 'checked_in', $request->user());
+
                 return response()->json([
                     'message'        => "Patient added to queue as #{$nextQueueNumber}",
                     'queue'          => $queue->load(['patient', 'biteIncident']),

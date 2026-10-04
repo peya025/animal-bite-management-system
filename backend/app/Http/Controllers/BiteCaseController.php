@@ -208,6 +208,8 @@ class BiteCaseController extends Controller
 
             Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
 
+            app(\App\Services\NotificationService::class)->notifyQueueEvent($queue->load('patient'), 'registered', $request->user());
+
             return response()->json([
                 'message' => 'New exposure registered and sent to Doctor assessment.',
                 'incident' => $incident,

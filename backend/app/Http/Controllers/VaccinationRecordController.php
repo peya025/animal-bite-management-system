@@ -1245,6 +1245,8 @@ class VaccinationRecordController extends Controller
                 'created_by' => $userId,
             ]);
 
+            app(\App\Services\NotificationService::class)->notifyAppointmentEvent($appt, 'scheduled', request()->user());
+
             // ✨ Create in-app notification for linked mobile accounts
             $patient = \App\Models\Patient::with('accounts')->find($patientId);
             if ($patient && $patient->accounts->isNotEmpty()) {

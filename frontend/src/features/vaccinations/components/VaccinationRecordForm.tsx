@@ -914,6 +914,42 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  const scrollToFirstError = (elementId: string) => {
+    setTimeout(() => {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+
+      let scrollParent: HTMLElement | null = el.parentElement;
+      while (scrollParent && scrollParent !== document.body) {
+        const overflowY = window.getComputedStyle(scrollParent).overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll') {
+          break;
+        }
+        scrollParent = scrollParent.parentElement;
+      }
+
+      if (scrollParent && scrollParent !== document.body) {
+        const parentRect = scrollParent.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const relativeTop = elRect.top - parentRect.top + scrollParent.scrollTop;
+        scrollParent.scrollTo({
+          top: Math.max(0, relativeTop - 24),
+          behavior: 'smooth',
+        });
+      } else {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      const focusable = el.querySelector<HTMLElement>(
+        'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex="0"]'
+      ) || (el.matches('input, select, textarea, button') ? el : null);
+
+      if (focusable) {
+        focusable.focus({ preventScroll: true });
+      }
+    }, 50);
+  };
+
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -924,7 +960,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
     if (key === 'date_of_exposure') {
       setFormData(prev => {
-        // Only set date_treatment_started if it's currently blank; do NOT overwrite existing saved or chosen date
         const nextTreatmentDate = prev.date_treatment_started || value;
         if (!prev.date_treatment_started && value) {
           setDoses(d => calculateDoseDates(value, d));
@@ -945,13 +980,15 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       setFormData(prev => ({ ...prev, [key]: value }));
     }
 
-    if (fieldErrors[key]) {
-      setFieldErrors(prev => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    }
+    setFieldErrors(prev => {
+      if (!prev[key] && (key !== 'body_part_affected_text' || !prev.body_part_affected)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      if (key === 'body_part_affected_text' && value.trim()) {
+        delete next.body_part_affected;
+      }
+      return next;
+    });
   };
 
   const handleCheckboxChange = (section: 'mode_of_exposure' | 'body_part_affected', key: string) => (
@@ -978,6 +1015,22 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const handleDoseChange = (index: number, field: keyof VaccinationDose, value: string | boolean) => {
     if (doses[index]?.is_completed || doses[index]?.inventory_linked) return;
+    const currentPeriod = doses[index]?.period;
+
+    setFieldErrors(fe => {
+      const next = { ...fe };
+      if (currentPeriod) {
+        delete next[`dose_${currentPeriod}_${String(field)}`];
+        delete next[`dose_${currentPeriod}_date`];
+        delete next[`dose_${currentPeriod}_route`];
+        delete next[`dose_${currentPeriod}_external_facility_name`];
+      }
+      if (field === 'date') delete next.dose_date;
+      if (field === 'route') delete next.route;
+      if (field === 'external_facility_name') delete next.external_facility_name;
+      return next;
+    });
+
     setDoses(prev => {
       const updated = prev.map((dose, i) => {
         if (i === index) {
@@ -1009,6 +1062,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     if (!selectedDose || selectedDose.is_completed || selectedDose.inventory_linked) return;
 
     setFifoErrors(prev => ({ ...prev, [selectedDose.period]: '' }));
+    setFieldErrors(fe => {
+      const next = { ...fe };
+      delete next[`dose_${selectedDose.period}_vaccine_type`];
+      delete next.vaccine_type;
+      delete next[`fifo_${selectedDose.period}`];
+      delete next.fifo;
+      return next;
+    });
 
     const todayStr = getLocalDateString();
     const suggestedUnits = vaccineType ? getSuggestedWholeUnits(vaccineType) : '1';
@@ -1096,69 +1157,125 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, doses]);
 
+  const FIELD_ORDER = [
+    'mode_of_exposure',
+    'body_part_affected',
+    'body_part_affected_text',
+    'animal_type',
+    'animal_type_other',
+    'animal_status',
+    'animal_available',
+    'animal_condition',
+    'past_history_bite',
+    'past_bite_dates',
+    'pep_completed',
+    'dose_route',
+    'dose_date',
+    'vaccine_type',
+    'external_facility_name',
+    'fifo',
+  ];
+
+  const getElementIdForErrorKey = (errorKey: string, period: string): string => {
+    if (errorKey === 'mode_of_exposure') return 'field-mode_of_exposure';
+    if (errorKey === 'body_part_affected') return 'field-body_part_affected';
+    if (errorKey === 'body_part_affected_text') return 'field-body_part_affected_text';
+    if (errorKey === 'animal_type') return 'field-animal_type';
+    if (errorKey === 'animal_type_other') return 'field-animal_type_other';
+    if (errorKey === 'animal_status') return 'field-animal_status';
+    if (errorKey === 'animal_available') return 'field-animal_available';
+    if (errorKey === 'animal_condition') return 'field-animal_condition';
+    if (errorKey === 'past_history_bite') return 'field-past_history_bite';
+    if (errorKey === 'past_bite_dates') return 'field-past_bite_dates';
+    if (errorKey === 'pep_completed') return 'field-pep_completed';
+    if (errorKey.includes('route')) return `field-dose_route-${period}`;
+    if (errorKey.includes('date') && errorKey.includes('dose')) return `field-dose_date-${period}`;
+    if (errorKey === 'dose_date') return `field-dose_date-${period}`;
+    if (errorKey.includes('vaccine_type') || errorKey === 'vaccine_type') return `field-vaccine_type-${period}`;
+    if (errorKey.includes('external_facility') || errorKey === 'external_facility_name') return `field-dose_external_facility-${period}`;
+    if (errorKey.includes('fifo') || errorKey === 'fifo') return `field-fifo-${period}`;
+    return `field-${errorKey}`;
+  };
+
   const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
-    const today = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
 
-    if (isPhilHealthMember && formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
-      newFieldErrors.philhealth_pin = 'PhilHealth PIN must be exactly 12 digits.';
-    }
-    if (!exposureCategory) {
-      newFieldErrors.exposure_category = 'Exposure Category must be assessed and saved in Form 2.';
-    }
-    if (!formData.date_of_exposure) {
-      newFieldErrors.date_of_exposure = 'Please enter Date of Exposure';
-    } else if (formData.date_of_exposure > today) {
-      newFieldErrors.date_of_exposure = 'Date of Exposure cannot be a future date.';
-    }
-    if (formData.date_treatment_started && formData.date_treatment_started > today) {
-      newFieldErrors.date_treatment_started = 'Date Treatment Started cannot be a future date.';
-    }
-    if (!Object.values(formData.mode_of_exposure).some(Boolean)) {
-      newFieldErrors.mode_of_exposure = 'Please select at least one mode of exposure.';
-    }
-    if (!Object.values(formData.body_part_affected).some(Boolean) && !formData.body_part_affected_text.trim()) {
-      newFieldErrors.body_part_affected = 'Please select or specify the affected body part.';
-    }
-    if (!formData.animal_type) {
-      newFieldErrors.animal_type = 'Please select the animal type.';
-    } else if (formData.animal_type === 'other' && !formData.animal_type_other.trim()) {
-      newFieldErrors.animal_type_other = 'Please specify the other animal.';
+    if (!clinicalAssessmentLocked) {
+      if (!Object.values(formData.mode_of_exposure).some(Boolean)) {
+        newFieldErrors.mode_of_exposure = 'Please select an option.';
+      }
+      if (!Object.values(formData.body_part_affected).some(Boolean) && !formData.body_part_affected_text.trim()) {
+        newFieldErrors.body_part_affected = 'Please select an option.';
+      }
+      if (!formData.animal_type) {
+        newFieldErrors.animal_type = 'Please select an option.';
+      } else if (formData.animal_type === 'other' && !formData.animal_type_other.trim()) {
+        newFieldErrors.animal_type_other = 'This field is required.';
+      }
     }
 
-    // Validate dose dates — only check doses the nurse is actually submitting now
-    // (has vaccine_type + date set, not already completed).
-    // Scheduled future rows (Day 3, Day 7) without a vaccine type selected are skipped.
-    // NOTE: actual check happens below after filledDoses is computed
+    // Auto-fill today's date for candidate doses with vaccine type selected
+    const candidateDoses = doses.map(d => {
+      if (d.vaccine_type && !d.date) {
+        return { ...d, date: todayStr };
+      }
+      return d;
+    });
+
+    // Only submit active uncompleted doses being administered today
+    const filledDoses = candidateDoses.filter(d => {
+      if (d.is_completed || !d.date || !d.vaccine_type) return false;
+      const PREREQ: Record<string, string> = { 'Day 3': 'Day 0', 'Day 7': 'Day 3', 'Day 28': 'Day 7', 'Booster 2': 'Booster 1' };
+      const prereqPeriod = PREREQ[d.period];
+      if (prereqPeriod) {
+        const prereq = doses.find(x => x.period === prereqPeriod);
+        if (prereq && !prereq.is_completed && !prereq.inventory_linked) return false;
+      }
+      return true;
+    });
+
+    const activeDose = candidateDoses.find(d => !d.is_completed && !d.inventory_linked && !isDosePrerequisiteLocked(d.period));
+    const targetPeriod = activeDose ? activeDose.period : activeUnlockedPeriod;
+
+    if (activeDose && prophylaxisAdministrations.length === 0) {
+      if (!activeDose.vaccine_type) {
+        newFieldErrors[`dose_${activeDose.period}_vaccine_type`] = 'Please select an option.';
+        newFieldErrors.vaccine_type = 'Please select an option.';
+      }
+      if (!activeDose.date) {
+        newFieldErrors[`dose_${activeDose.period}_date`] = 'Please enter a valid date.';
+        newFieldErrors.dose_date = 'Please enter a valid date.';
+      } else if (activeDose.date > todayStr) {
+        newFieldErrors[`dose_${activeDose.period}_date`] = 'Date cannot be a future date.';
+        newFieldErrors.dose_date = 'Date cannot be a future date.';
+      }
+      if (activeDose.is_external && !activeDose.external_facility_name?.trim()) {
+        newFieldErrors[`dose_${activeDose.period}_external_facility_name`] = 'This field is required.';
+        newFieldErrors.external_facility_name = 'This field is required.';
+      }
+      if (!activeDose.is_external && fifoErrors[activeDose.period]) {
+        newFieldErrors[`fifo_${activeDose.period}`] = fifoErrors[activeDose.period];
+        newFieldErrors.fifo = fifoErrors[activeDose.period];
+      }
+    }
 
     setFieldErrors(newFieldErrors);
 
     if (Object.keys(newFieldErrors).length > 0) {
-      const errorList = Object.values(newFieldErrors);
-      setError(`Required: ${errorList.join(' • ')}`);
-
-      const fieldOrder = ['philhealth_pin', 'exposure_category', 'date_of_exposure', 'mode_of_exposure', 'body_part_affected', 'animal_type'];
-      const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
+      setError('');
+      const firstErrorKey = FIELD_ORDER.find(key => (
+        newFieldErrors[key] ||
+        newFieldErrors[`dose_${targetPeriod}_${key}`] ||
+        newFieldErrors[`dose_${targetPeriod}_date`] && key === 'dose_date' ||
+        newFieldErrors[`dose_${targetPeriod}_vaccine_type`] && key === 'vaccine_type' ||
+        newFieldErrors[`dose_${targetPeriod}_external_facility_name`] && key === 'external_facility_name' ||
+        newFieldErrors[`fifo_${targetPeriod}`] && key === 'fifo'
+      )) || Object.keys(newFieldErrors)[0];
 
       if (firstErrorKey) {
-        setTimeout(() => {
-          const el = document.getElementById(`field-${firstErrorKey}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            const scrollParent = el.closest('[class*="Body"]') || el.closest('.fm-body');
-            if (scrollParent) {
-              const rect = el.getBoundingClientRect();
-              const parentRect = scrollParent.getBoundingClientRect();
-              if (rect.top < parentRect.top || rect.bottom > parentRect.bottom) {
-                scrollParent.scrollBy({ top: rect.top - parentRect.top - 40, behavior: 'smooth' });
-              }
-            }
-            const focusable = el.querySelector('input, select') as HTMLElement;
-            if (focusable) {
-              focusable.focus({ preventScroll: true });
-            }
-          }
-        }, 50);
+        const elementId = getElementIdForErrorKey(firstErrorKey, targetPeriod);
+        scrollToFirstError(elementId);
       }
       return;
     }
@@ -1170,36 +1287,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       return;
     }
 
-    // Auto-fill today's date for candidate doses with vaccine type selected
-    const todayStr = getLocalDateString();
-    const candidateDoses = doses.map(d => {
-      if (d.vaccine_type && !d.date) {
-        return { ...d, date: todayStr };
-      }
-      return d;
-    });
-
-    // Only submit active uncompleted doses being administered today
-    const filledDoses = candidateDoses.filter(d => {
-      if (d.is_completed || !d.date || !d.vaccine_type) return false;
-      // 22.1 — block prerequisite-locked doses from being submitted
-      const PREREQ: Record<string, string> = { 'Day 3': 'Day 0', 'Day 7': 'Day 3', 'Day 28': 'Day 7', 'Booster 2': 'Booster 1' };
-      const prereqPeriod = PREREQ[d.period];
-      if (prereqPeriod) {
-        const prereq = doses.find(x => x.period === prereqPeriod);
-        if (prereq && !prereq.is_completed && !prereq.inventory_linked) return false;
-      }
-      return true;
-    });
     if (filledDoses.length === 0 && prophylaxisAdministrations.length === 0) {
       setError("Select a vaccine dose or record a prescribed prophylaxis administration before saving.");
       return;
     }
 
-    // Validate: doses being submitted now cannot have future dates
     const futureDose = filledDoses.find(d => d.date && d.date > todayStr);
     if (futureDose) {
-      setError(`${futureDose.period} administration date cannot be a future date.`);
+      newFieldErrors[`dose_${futureDose.period}_date`] = 'Date cannot be a future date.';
+      newFieldErrors.dose_date = 'Date cannot be a future date.';
+      setFieldErrors(newFieldErrors);
+      scrollToFirstError(`field-dose_date-${futureDose.period}`);
       return;
     }
 
@@ -1210,7 +1308,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         return;
       }
       if (!d.inventory_linked && fifoErrors[d.period] && units > 0) {
-        setError(`Cannot save dose ${d.period}: ${fifoErrors[d.period]}`);
+        newFieldErrors[`fifo_${d.period}`] = fifoErrors[d.period];
+        setFieldErrors(newFieldErrors);
+        scrollToFirstError(`field-fifo-${d.period}`);
         return;
       }
     }
@@ -1257,7 +1357,79 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       draft.clearDraft();
       onClose();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save treatment record');
+      if (err.response?.status === 422 && err.response?.data?.errors) {
+        const backendErrors = err.response.data.errors;
+        const mappedErrors: Record<string, string> = {};
+
+        for (const [key, msgs] of Object.entries(backendErrors)) {
+          const msg = Array.isArray(msgs) ? msgs[0] : String(msgs);
+          if (key === 'mode_of_exposure' || key.startsWith('mode_of_exposure.')) {
+            mappedErrors.mode_of_exposure = msg;
+          } else if (key === 'body_part_affected' || key.startsWith('body_part_affected.')) {
+            mappedErrors.body_part_affected = msg;
+          } else if (key === 'body_part_detail') {
+            mappedErrors.body_part_affected_text = msg;
+          } else if (key === 'animal_type') {
+            mappedErrors.animal_type = msg;
+          } else if (key === 'animal_type_other') {
+            mappedErrors.animal_type_other = msg;
+          } else if (key === 'animal_status') {
+            mappedErrors.animal_status = msg;
+          } else if (key === 'animal_available') {
+            mappedErrors.animal_available = msg;
+          } else if (key === 'animal_condition') {
+            mappedErrors.animal_condition = msg;
+          } else if (key === 'past_history_bite') {
+            mappedErrors.past_history_bite = msg;
+          } else if (key === 'past_bite_dates') {
+            mappedErrors.past_bite_dates = msg;
+          } else if (key === 'pep_completed') {
+            mappedErrors.pep_completed = msg;
+          } else if (key.startsWith('doses.')) {
+            const parts = key.split('.');
+            const doseIdx = parseInt(parts[1], 10);
+            const doseField = parts[2];
+            const dosePeriod = filledDoses[doseIdx]?.period || targetPeriod;
+            if (doseField === 'vaccine_type') {
+              mappedErrors[`dose_${dosePeriod}_vaccine_type`] = msg;
+              mappedErrors.vaccine_type = msg;
+            } else if (doseField === 'date') {
+              mappedErrors[`dose_${dosePeriod}_date`] = msg;
+              mappedErrors.dose_date = msg;
+            } else if (doseField === 'route') {
+              mappedErrors[`dose_${dosePeriod}_route`] = msg;
+              mappedErrors.route = msg;
+            } else if (doseField === 'external_facility_name') {
+              mappedErrors[`dose_${dosePeriod}_external_facility_name`] = msg;
+              mappedErrors.external_facility_name = msg;
+            } else {
+              mappedErrors[`dose_${dosePeriod}_vaccine_type`] = msg;
+            }
+          } else if (key === 'doses') {
+            mappedErrors[`dose_${targetPeriod}_vaccine_type`] = msg;
+            mappedErrors.vaccine_type = msg;
+          } else {
+            mappedErrors[key] = msg;
+          }
+        }
+
+        setFieldErrors(mappedErrors);
+        const firstErrorKey = FIELD_ORDER.find(key => (
+          mappedErrors[key] ||
+          mappedErrors[`dose_${targetPeriod}_${key}`] ||
+          mappedErrors[`dose_${targetPeriod}_date`] && key === 'dose_date' ||
+          mappedErrors[`dose_${targetPeriod}_vaccine_type`] && key === 'vaccine_type' ||
+          mappedErrors[`dose_${targetPeriod}_external_facility_name`] && key === 'external_facility_name' ||
+          mappedErrors[`fifo_${targetPeriod}`] && key === 'fifo'
+        )) || Object.keys(mappedErrors)[0];
+
+        if (firstErrorKey) {
+          const elementId = getElementIdForErrorKey(firstErrorKey, targetPeriod);
+          scrollToFirstError(elementId);
+        }
+      } else {
+        setError(err.response?.data?.message || 'Failed to save treatment record');
+      }
     } finally {
       setSaving(false);
     }
@@ -1304,24 +1476,46 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const handleToggleExposureMode = (key: string) => {
     if (clinicalAssessmentLocked) return;
-    setFormData(prev => ({
-      ...prev,
-      mode_of_exposure: {
+    setFormData(prev => {
+      const nextMode = {
         ...prev.mode_of_exposure,
         [key]: !prev.mode_of_exposure[key as keyof typeof prev.mode_of_exposure],
-      },
-    }));
+      };
+      if (Object.values(nextMode).some(Boolean)) {
+        setFieldErrors(fe => {
+          if (!fe.mode_of_exposure) return fe;
+          const next = { ...fe };
+          delete next.mode_of_exposure;
+          return next;
+        });
+      }
+      return {
+        ...prev,
+        mode_of_exposure: nextMode,
+      };
+    });
   };
 
   const handleToggleBodyPart = (key: string) => {
     if (clinicalAssessmentLocked) return;
-    setFormData(prev => ({
-      ...prev,
-      body_part_affected: {
+    setFormData(prev => {
+      const nextBodyPart = {
         ...prev.body_part_affected,
         [key]: !prev.body_part_affected[key as keyof typeof prev.body_part_affected],
-      },
-    }));
+      };
+      if (Object.values(nextBodyPart).some(Boolean)) {
+        setFieldErrors(fe => {
+          if (!fe.body_part_affected) return fe;
+          const next = { ...fe };
+          delete next.body_part_affected;
+          return next;
+        });
+      }
+      return {
+        ...prev,
+        body_part_affected: nextBodyPart,
+      };
+    });
   };
 
   const formContent = (
@@ -1376,8 +1570,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
         </div>
 
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)', marginBottom: 6 }}>
+        <div id="field-body_part_affected_text">
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.body_part_affected_text ? '#dc2626' : 'var(--text-h, #374151)', marginBottom: 6 }}>
             Exact location (optional)
           </label>
           <input
@@ -1389,15 +1583,40 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid var(--input-border, #d1d5db)',
+              border: fieldErrors.body_part_affected_text ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
               borderRadius: BORDER_RADIUS,
               fontSize: 13,
               backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
               color: 'var(--input-text, #111827)',
               boxSizing: 'border-box',
               outline: 'none',
+              boxShadow: fieldErrors.body_part_affected_text ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+            }}
+            onFocus={(e) => {
+              if (fieldErrors.body_part_affected_text) {
+                e.currentTarget.style.borderColor = '#ef4444';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.25)';
+              } else {
+                e.currentTarget.style.borderColor = '#10b981';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.2)';
+              }
+            }}
+            onBlur={(e) => {
+              if (fieldErrors.body_part_affected_text) {
+                e.currentTarget.style.borderColor = '#ef4444';
+                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.15)';
+              } else {
+                e.currentTarget.style.borderColor = 'var(--input-border, #d1d5db)';
+                e.currentTarget.style.boxShadow = 'none';
+              }
             }}
           />
+          {fieldErrors.body_part_affected_text && (
+            <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 4, display: 'block' }}>
+              {fieldErrors.body_part_affected_text}
+            </span>
+          )}
         </div>
       </FormSection>
 
@@ -1413,35 +1632,70 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 { value: 'other', label: 'Other' },
               ]}
               value={formData.animal_type}
-              onChange={(val) => setFormData(prev => ({
-                ...prev,
-                animal_type: val,
-                animal_type_other: val === 'other' ? prev.animal_type_other : '',
-              }))}
+              onChange={(val) => {
+                setFormData(prev => ({
+                  ...prev,
+                  animal_type: val,
+                  animal_type_other: val === 'other' ? prev.animal_type_other : '',
+                }));
+                setFieldErrors(fe => {
+                  const next = { ...fe };
+                  delete next.animal_type;
+                  if (val !== 'other') delete next.animal_type_other;
+                  return next;
+                });
+              }}
               disabled={clinicalAssessmentLocked}
-              error={fieldErrors.animal_type || (formData.animal_type === 'other' ? fieldErrors.animal_type_other : undefined)}
+              error={fieldErrors.animal_type}
             />
             {formData.animal_type === 'other' && (
-              <input
-                type="text"
-                value={formData.animal_type_other}
-                onChange={handleFieldChange('animal_type_other')}
-                placeholder="Specify other species"
-                disabled={clinicalAssessmentLocked}
-                style={{
-                  width: '100%',
-                  marginTop: 8,
-                  padding: '8px 12px',
-                  border: '1px solid var(--input-border, #d1d5db)',
-                  borderRadius: BORDER_RADIUS,
-                  fontSize: 13,
-                  boxSizing: 'border-box',
-                }}
-              />
+              <div id="field-animal_type_other" style={{ marginTop: 8 }}>
+                <input
+                  type="text"
+                  value={formData.animal_type_other}
+                  onChange={handleFieldChange('animal_type_other')}
+                  placeholder="Specify other species"
+                  disabled={clinicalAssessmentLocked}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: fieldErrors.animal_type_other ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
+                    borderRadius: BORDER_RADIUS,
+                    fontSize: 13,
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                    boxShadow: fieldErrors.animal_type_other ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
+                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                  }}
+                  onFocus={(e) => {
+                    if (fieldErrors.animal_type_other) {
+                      e.currentTarget.style.borderColor = '#ef4444';
+                      e.currentTarget.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.25)';
+                    } else {
+                      e.currentTarget.style.borderColor = '#10b981';
+                      e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.2)';
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (fieldErrors.animal_type_other) {
+                      e.currentTarget.style.borderColor = '#ef4444';
+                      e.currentTarget.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.15)';
+                    } else {
+                      e.currentTarget.style.borderColor = 'var(--input-border, #d1d5db)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }
+                  }}
+                />
+                {fieldErrors.animal_type_other && (
+                  <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 4, display: 'block' }}>
+                    {fieldErrors.animal_type_other}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
-          <div>
+          <div id="field-animal_status">
             <SegmentedControl
               label="Ownership"
               options={[
@@ -1450,14 +1704,22 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 { value: 'unknown', label: 'Unknown' },
               ]}
               value={formData.animal_status || 'unknown'}
-              onChange={(val) => setFormData(prev => ({ ...prev, animal_status: val as any }))}
+              onChange={(val) => {
+                setFormData(prev => ({ ...prev, animal_status: val as any }));
+                setFieldErrors(fe => {
+                  const next = { ...fe };
+                  delete next.animal_status;
+                  return next;
+                });
+              }}
               disabled={clinicalAssessmentLocked}
+              error={fieldErrors.animal_status}
             />
           </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-          <div>
+          <div id="field-animal_available">
             <SegmentedControl
               label="Available for 14-day observation"
               options={[
@@ -1466,12 +1728,20 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 { value: 'unknown', label: 'Unknown' },
               ]}
               value={formData.animal_available || 'unknown'}
-              onChange={(val) => setFormData(prev => ({ ...prev, animal_available: val as any }))}
+              onChange={(val) => {
+                setFormData(prev => ({ ...prev, animal_available: val as any }));
+                setFieldErrors(fe => {
+                  const next = { ...fe };
+                  delete next.animal_available;
+                  return next;
+                });
+              }}
               disabled={clinicalAssessmentLocked}
+              error={fieldErrors.animal_available}
             />
           </div>
 
-          <div>
+          <div id="field-animal_condition">
             <SegmentedControl
               label="Condition"
               options={[
@@ -1481,8 +1751,16 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 { value: 'unknown', label: 'Unknown' },
               ]}
               value={formData.animal_condition || 'unknown'}
-              onChange={(val) => setFormData(prev => ({ ...prev, animal_condition: val as any }))}
+              onChange={(val) => {
+                setFormData(prev => ({ ...prev, animal_condition: val as any }));
+                setFieldErrors(fe => {
+                  const next = { ...fe };
+                  delete next.animal_condition;
+                  return next;
+                });
+              }}
               disabled={clinicalAssessmentLocked}
+              error={fieldErrors.animal_condition}
             />
           </div>
         </div>
@@ -1491,7 +1769,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       {/* 3. HISTORY */}
       <FormSection title="History">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-          <div>
+          <div id="field-past_history_bite">
             <SegmentedControl
               label="Past animal bite"
               options={[
@@ -1500,12 +1778,21 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 { value: 'unsure', label: 'Unsure' },
               ]}
               value={formData.past_history_bite || ''}
-              onChange={(val) => setFormData(prev => ({ ...prev, past_history_bite: val }))}
+              onChange={(val) => {
+                setFormData(prev => ({ ...prev, past_history_bite: val }));
+                setFieldErrors(fe => {
+                  const next = { ...fe };
+                  delete next.past_history_bite;
+                  if (val !== 'yes') delete next.past_bite_dates;
+                  return next;
+                });
+              }}
               disabled={isFormLocked}
+              error={fieldErrors.past_history_bite}
             />
           </div>
 
-          <div>
+          <div id="field-pep_completed">
             <SegmentedControl
               label="Previous rabies vaccination"
               options={[
@@ -1521,8 +1808,16 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   ? 'none'
                   : formData.pep_completed || ''
               }
-              onChange={(val) => setFormData(prev => ({ ...prev, pep_completed: val }))}
+              onChange={(val) => {
+                setFormData(prev => ({ ...prev, pep_completed: val }));
+                setFieldErrors(fe => {
+                  const next = { ...fe };
+                  delete next.pep_completed;
+                  return next;
+                });
+              }}
               disabled={isFormLocked}
+              error={fieldErrors.pep_completed}
             />
             {patientReportedIntake?.prior_pep_date && (
               <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#64748b' }}>
@@ -1533,8 +1828,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
 
         {formData.past_history_bite === 'yes' && (
-          <div style={{ marginTop: 12 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)', marginBottom: 6 }}>
+          <div id="field-past_bite_dates" style={{ marginTop: 12 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.past_bite_dates ? '#dc2626' : 'var(--text-h, #374151)', marginBottom: 6 }}>
               Approximate previous bite date(s)
             </label>
             <input
@@ -1546,15 +1841,40 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid var(--input-border, #d1d5db)',
+                border: fieldErrors.past_bite_dates ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
                 borderRadius: BORDER_RADIUS,
                 fontSize: 13,
                 backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
                 color: 'var(--input-text, #111827)',
                 boxSizing: 'border-box',
                 outline: 'none',
+                boxShadow: fieldErrors.past_bite_dates ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
+                transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+              }}
+              onFocus={(e) => {
+                if (fieldErrors.past_bite_dates) {
+                  e.currentTarget.style.borderColor = '#ef4444';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.25)';
+                } else {
+                  e.currentTarget.style.borderColor = '#10b981';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.2)';
+                }
+              }}
+              onBlur={(e) => {
+                if (fieldErrors.past_bite_dates) {
+                  e.currentTarget.style.borderColor = '#ef4444';
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.15)';
+                } else {
+                  e.currentTarget.style.borderColor = 'var(--input-border, #d1d5db)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
               }}
             />
+            {fieldErrors.past_bite_dates && (
+              <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 4, display: 'block' }}>
+                {fieldErrors.past_bite_dates}
+              </span>
+            )}
           </div>
         )}
       </FormSection>
@@ -1589,6 +1909,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   prescribedVaccineType={prescribedVaccineType}
                   availableVaccineTypes={availableVaccineTypes}
                   fifoError={fifoErrors[dose.period]}
+                  fieldErrors={fieldErrors}
                   readOnly={readOnly}
                   currentUser={currentUser}
                   applySignature={applySignature}

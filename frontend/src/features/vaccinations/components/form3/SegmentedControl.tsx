@@ -30,7 +30,7 @@ export function SegmentedControl<T extends string = string>({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
       {label && (
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: error ? '#dc2626' : 'var(--text-h, #374151)' }}>
           {label}
         </span>
       )}
@@ -40,7 +40,7 @@ export function SegmentedControl<T extends string = string>({
         style={{
           display: 'inline-flex',
           background: 'var(--bg-secondary, #f1f5f9)',
-          border: error ? '1px solid #ef4444' : '1px solid var(--border-color, #e2e8f0)',
+          border: error ? '1.5px solid #ef4444' : '1px solid var(--border-color, #e2e8f0)',
           borderRadius: BORDER_RADIUS,
           padding: 3,
           gap: 2,
@@ -48,6 +48,8 @@ export function SegmentedControl<T extends string = string>({
           maxWidth: '100%',
           flexWrap: 'wrap',
           boxSizing: 'border-box',
+          boxShadow: error ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
+          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
         }}
       >
         {options.map((opt) => {
@@ -64,7 +66,7 @@ export function SegmentedControl<T extends string = string>({
                 border: 'none',
                 borderRadius: BORDER_RADIUS,
                 background: isSelected ? '#047857' : 'transparent',
-                color: isSelected ? '#ffffff' : 'var(--text-secondary, #475569)',
+                color: isSelected ? '#ffffff' : error ? '#991b1b' : 'var(--text-secondary, #475569)',
                 fontWeight: isSelected ? 600 : 500,
                 fontSize: 13,
                 padding: '7px 16px',
@@ -75,7 +77,11 @@ export function SegmentedControl<T extends string = string>({
               }}
               onFocus={(e) => {
                 if (!isSelected) {
-                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.3)';
+                  if (error) {
+                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.3)';
+                  } else {
+                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.3)';
+                  }
                 }
               }}
               onBlur={(e) => {
@@ -87,7 +93,11 @@ export function SegmentedControl<T extends string = string>({
           );
         })}
       </div>
-      {error && <span style={{ color: '#ef4444', fontSize: 12 }}>{error}</span>}
+      {error && (
+        <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 2, display: 'block' }}>
+          {error}
+        </span>
+      )}
     </div>
   );
 }

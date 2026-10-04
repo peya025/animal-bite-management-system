@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { normalizeProphylaxisOrders, getTetanusCategoryFromOrders } from '../../../shared/types/prophylaxis';
 import type { ProphylaxisOrders, ProphylaxisStock } from '../../../shared/types/prophylaxis';
 import type {
@@ -48,6 +48,9 @@ export function useGeneralTreatmentForm({
     hideConsultationType ?? (userRole === 'triage' || userRole === 'doctor');
   const selectedIncident = entry?.incident || entry?.bite_incident || entry?.biteIncident;
 
+  const entryRef = useRef(entry);
+  entryRef.current = entry;
+
   // Build a stable draft key from patient + bite so each clinical episode
   // has its own isolated draft.
   const patientId = entry?.patient?.patient_id ?? entry?.patient?.id ?? null;
@@ -57,6 +60,9 @@ export function useGeneralTreatmentForm({
     entry?.bite_incident?.bite_id ??
     entry?.biteIncident?.bite_id ??
     null;
+  const sessionKey = open && patientId ? `${patientId}-${biteId ?? 'active'}` : null;
+  const loadedSessionKeyRef = useRef<string | null>(null);
+
   const draftKey =
     open && patientId && !readOnly
       ? `treatment-${patientId}${biteId ? `-${biteId}` : ''}`
@@ -171,7 +177,7 @@ export function useGeneralTreatmentForm({
       prescribed_vaccine_type: record.prescribed_vaccine_type || '',
       prophylaxis_orders: normalizeProphylaxisOrders(record.prophylaxis_orders),
       name_of_provider: resolveHealthCareProvider(record) || prev.name_of_provider,
-      name_of_attending_provider: resolveAttendingProvider(entry, record) || prev.name_of_attending_provider,
+      name_of_attending_provider: resolveAttendingProvider(entryRef.current, record) || prev.name_of_attending_provider,
       laboratory_findings: record.laboratory_findings || '',
       performed_lab_test: record.performed_lab_test || '',
     }));
@@ -181,13 +187,22 @@ export function useGeneralTreatmentForm({
 
     const histText = asText(record.pertinent_history);
     setCheckedHistory(PERTINENT_HISTORY_OPTIONS.filter((h) => histText.includes(h)));
-  }, [entry]);
+  }, []);
 
   // Load existing treatment record when opening form
   useEffect(() => {
-    if (!(open && entry?.patient)) return;
+    if (!open || !patientId) {
+      loadedSessionKeyRef.current = null;
+      return;
+    }
 
-    const initialAttending = resolveAttendingProvider(entry);
+    if (loadedSessionKeyRef.current === sessionKey) {
+      return;
+    }
+    loadedSessionKeyRef.current = sessionKey;
+
+    const currentEntry = entryRef.current;
+    const initialAttending = resolveAttendingProvider(currentEntry);
     const initialProvider = resolveHealthCareProvider();
     const { date: manilaDate, time: manilaTime } = getManilaCurrentDateTime();
 
@@ -195,12 +210,12 @@ export function useGeneralTreatmentForm({
       ...INITIAL_FORM_DATA,
       date_of_consultation: manilaDate,
       consultation_time: manilaTime,
-      last_name: entry.patient.last_name || '',
-      first_name: entry.patient.first_name || '',
-      middle_name: entry.patient.middle_name || '',
-      suffix: entry.patient.suffix || '',
-      age: String(entry.patient.age || ''),
-      address: entry.patient.address || 'Misamis Oriental',
+      last_name: currentEntry?.patient?.last_name || '',
+      first_name: currentEntry?.patient?.first_name || '',
+      middle_name: currentEntry?.patient?.middle_name || '',
+      suffix: currentEntry?.patient?.suffix || '',
+      age: String(currentEntry?.patient?.age || ''),
+      address: currentEntry?.patient?.address || 'Misamis Oriental',
       name_of_provider: initialProvider,
       name_of_attending_provider: initialAttending,
       medication_treatment: '',
@@ -223,18 +238,8 @@ export function useGeneralTreatmentForm({
       setPatientReportedIntake(intake);
     }
 
-    const pid = entry.patient.patient_id || entry.patient.id;
-    if (!pid) {
-      setHasExistingRecord(false);
-      setIsEditing(true);
-      return;
-    }
-
-    const fetchBiteId =
-      entry?.bite_id ||
-      entry?.incident?.bite_id ||
-      entry?.bite_incident?.bite_id ||
-      entry?.biteIncident?.bite_id;
+    const pid = patientId;
+    const fetchBiteId = biteId;
 
     fetchPatientTreatmentRecord(pid, fetchBiteId)
       .then((data) => {
@@ -259,7 +264,7 @@ export function useGeneralTreatmentForm({
         }
 
         const isNewSession =
-          entry?.visit_type === 'new_case' || entry?.visit_type === 'consultation' || isReturning;
+          entryRef.current?.visit_type === 'new_case' || entryRef.current?.visit_type === 'consultation' || isReturning;
 
         // A TreatmentRecord created by Registration Staff has status='scheduled'
         // and no chief_complaints. It is NOT a completed Doctor Form 2 entry —
@@ -302,7 +307,7 @@ export function useGeneralTreatmentForm({
               referred_by:          record.referred_by || prev.referred_by,
             }));
           }
-          const resolvedAttending = resolveAttendingProvider(entry, null, data?.patient);
+          const resolvedAttending = resolveAttendingProvider(entryRef.current, null, data?.patient);
           if (resolvedAttending) {
             setFormData((prev) => ({ ...prev, name_of_attending_provider: resolvedAttending }));
           }
@@ -347,7 +352,7 @@ export function useGeneralTreatmentForm({
           setCheckedHistory(savedDraft.checkedHistory ?? []);
         }
       });
-  }, [open, entry, populateFormFromRecord, selectedIncident]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, sessionKey, patientId, biteId, populateFormFromRecord, selectedIncident, draftKey, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Save the complete form snapshot to draft storage */
   const saveDraftSnapshot = useCallback(
@@ -379,15 +384,21 @@ export function useGeneralTreatmentForm({
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
+    const val = ev.target.value;
     setFormData((prev) => {
-      const next = { ...prev, [key]: ev.target.value };
+      const next = { ...prev, [key]: val };
       saveDraftSnapshot(next);
       return next;
     });
-    if (fieldErrors[key]) {
+    if (fieldErrors[key as string] && (typeof val !== 'string' || val.trim())) {
       setFieldErrors((prev) => {
         const next = { ...prev };
-        delete next[key];
+        delete next[key as string];
+        if (Object.keys(next).length === 0) {
+          setError('');
+        } else {
+          setError(`Required: ${Object.values(next).join(' • ')}`);
+        }
         return next;
       });
     }
@@ -398,10 +409,16 @@ export function useGeneralTreatmentForm({
   ) => {
     setFormData((prev) => {
       const updatedTypes = { ...prev.consultation_types, [key]: ev.target.checked };
-      if (Object.values(updatedTypes).some((v) => v) && fieldErrors.consultation_types) {
+      const hasAny = Object.values(updatedTypes).some((v) => v);
+      if (hasAny && fieldErrors.consultation_types) {
         setFieldErrors((errs) => {
           const next = { ...errs };
           delete next.consultation_types;
+          if (Object.keys(next).length === 0) {
+            setError('');
+          } else {
+            setError(`Required: ${Object.values(next).join(' • ')}`);
+          }
           return next;
         });
       }
@@ -461,11 +478,52 @@ export function useGeneralTreatmentForm({
   };
 
   const handleProphylaxisChange = (orders: ProphylaxisOrders) => {
-    setFormData(prev => {
-      const next = { ...prev, prophylaxis_orders: orders };
-      saveDraftSnapshot(next);
-      return next;
+    const nextOrders = normalizeProphylaxisOrders(orders);
+    setFormData((prev) => ({ ...prev, prophylaxis_orders: nextOrders }));
+    saveDraftSnapshot({ ...formData, prophylaxis_orders: nextOrders });
+
+    setFieldErrors((errs) => {
+      let changed = false;
+      const next = { ...errs };
+      const tetanusCat = nextOrders.tetanus_category || getTetanusCategoryFromOrders(nextOrders);
+      if (tetanusCat && next.tetanus_category) {
+        delete next.tetanus_category;
+        changed = true;
+      }
+      if (nextOrders.tetanus_passive && nextOrders.tetanus_passive !== 'none' && next.tetanus_passive) {
+        delete next.tetanus_passive;
+        changed = true;
+      }
+      if (nextOrders.tetanus_vaccine && nextOrders.tetanus_vaccine !== 'none' && next.tetanus_vaccine) {
+        delete next.tetanus_vaccine;
+        changed = true;
+      }
+      if (changed) {
+        if (Object.keys(next).length === 0) {
+          setError('');
+        } else {
+          setError(`Required: ${Object.values(next).join(' • ')}`);
+        }
+        return next;
+      }
+      return errs;
     });
+  };
+
+  const handleTreatmentPlanChange = (plan: string) => {
+    setTreatmentPlan(plan);
+    if (plan && fieldErrors.treatment_plan) {
+      setFieldErrors((errs) => {
+        const next = { ...errs };
+        delete next.treatment_plan;
+        if (Object.keys(next).length === 0) {
+          setError('');
+        } else {
+          setError(`Required: ${Object.values(next).join(' • ')}`);
+        }
+        return next;
+      });
+    }
   };
 
   const handleSaveAddendum = async () => {
@@ -497,16 +555,7 @@ export function useGeneralTreatmentForm({
   };
 
   const handleSubmit = async () => {
-    if (requiresReExposureDecision && !treatmentPlan) {
-      setError('Doctor treatment decision is required for this new exposure.');
-      return;
-    }
-
     const newFieldErrors: Record<string, string> = {};
-
-    if (!formData.exposure_category) {
-      newFieldErrors.exposure_category = 'Please select Exposure Category';
-    }
 
     if (!formData.nature_of_visit) {
       newFieldErrors.nature_of_visit = 'Please select Nature of Visit';
@@ -521,8 +570,16 @@ export function useGeneralTreatmentForm({
       }
     }
 
+    if (!formData.exposure_category) {
+      newFieldErrors.exposure_category = 'Please select Exposure Category';
+    }
+
     if (!formData.chief_complaints.trim()) {
       newFieldErrors.chief_complaints = 'Please enter Chief Complaints';
+    }
+
+    if (requiresReExposureDecision && !treatmentPlan) {
+      newFieldErrors.treatment_plan = 'Please select a Doctor treatment decision.';
     }
 
     // Tetanus Prophylaxis Order Validation
@@ -555,8 +612,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'exposure_category', 'chief_complaints', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine']
-        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine'];
+        ? ['nature_of_visit', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine']
+        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -660,7 +717,7 @@ export function useGeneralTreatmentForm({
     savingAddendum,
     addendumSuccess,
     treatmentPlan,
-    setTreatmentPlan,
+    setTreatmentPlan: handleTreatmentPlanChange,
     episodeHistory,
     patientReportedIntake,
     checkedDiagnoses,

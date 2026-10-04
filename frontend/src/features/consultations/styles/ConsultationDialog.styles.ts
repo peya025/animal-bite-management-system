@@ -24,7 +24,7 @@ export const ConsultationDialog = styled('div')({
   '&& .fm-grid--1': { gridTemplateColumns: 'minmax(0, 1fr)' },
   '&& .fm-grid--2': { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' },
   '&& .fm-grid--full': { gridColumn: '1 / -1' },
-  '&& .fm-field': { minWidth: 0, gap: 8, scrollMarginBlock: 20, display: 'flex', flexDirection: 'column' },
+  '&& .fm-field': { minWidth: 0, gap: 8, scrollMarginTop: 90, scrollMarginBlock: 80, display: 'flex', flexDirection: 'column' },
   '&& .fm-field--error': { padding: '0 !important', border: '0 !important', background: 'transparent !important', boxShadow: 'none !important' },
   '&& .fm-label': { fontSize: 13, lineHeight: 1.5, fontWeight: 600, color: 'var(--text-h, #374151)' },
   '&& .fm-label span': { color: 'var(--registration-error-color)', marginLeft: 2 },
@@ -74,8 +74,34 @@ export const ConsultationDialog = styled('div')({
     cursor: 'not-allowed',
     borderColor: 'var(--border-color, #cbd5e1) !important',
   },
-  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea)': {
-    borderColor: 'var(--registration-error-color) !important',
+  '&& .fm-field--error :is(input, select, textarea), && :is(input, select, textarea)[aria-invalid="true"]': {
+    borderColor: '#ef4444 !important',
+  },
+  '&& .fm-field--error :is(input, select, textarea):hover, && :is(input, select, textarea)[aria-invalid="true"]:hover': {
+    borderColor: '#dc2626 !important',
+  },
+  '&& .fm-field--error :is(input, select, textarea):focus, && .fm-field--error :is(input, select, textarea):focus-visible, && :is(input, select, textarea)[aria-invalid="true"]:focus, && :is(input, select, textarea)[aria-invalid="true"]:focus-visible': {
+    outline: 'none !important',
+    borderColor: '#ef4444 !important',
+    boxShadow: '0 0 0 4px rgba(239, 68, 68, 0.18) !important',
+  },
+  '&& .fm-field--error .fm-radio-group, && .fm-field--error [role="radiogroup"], && .fm-field--error [role="group"]': {
+    border: '1.5px solid #ef4444 !important',
+    borderRadius: 8,
+    padding: '8px 12px',
+    backgroundColor: '#fef2f2',
+    transition: 'border-color 0.15s, background-color 0.15s',
+  },
+  '&& .fm-field--error:focus-within .fm-radio-group, && .fm-field--error:focus-within [role="radiogroup"], && .fm-field--error:focus-within [role="group"]': {
+    borderColor: '#dc2626 !important',
+    boxShadow: '0 0 0 4px rgba(239, 68, 68, 0.18) !important',
+  },
+  '&& .fm-field--error input[type="radio"], && .fm-field--error input[type="checkbox"]': {
+    accentColor: '#dc2626 !important',
+  },
+  '&& .fm-field--error input[type="radio"]:focus, && .fm-field--error input[type="checkbox"]:focus': {
+    outline: '2px solid #ef4444 !important',
+    outlineOffset: 2,
   },
   '&& button:focus-visible': {
     outline: '3px solid #10b981',
@@ -108,8 +134,8 @@ export const ConsultationDialog = styled('div')({
     display: 'block',
     fontSize: 12,
     lineHeight: 1.5,
-    fontWeight: 500,
-    color: 'var(--registration-error-color)',
+    fontWeight: 600,
+    color: 'var(--registration-error-color, #dc2626)',
     marginTop: 4,
   },
   '&& .registration-field-hint': { fontSize: 12, lineHeight: 1.5, color: 'var(--text-secondary, #475569)', marginTop: 4 },

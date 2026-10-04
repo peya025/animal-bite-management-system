@@ -26,9 +26,9 @@ export function getTetanusCategoryFromOrders(orders?: Partial<ProphylaxisOrders>
   const isTtNone = orders.tetanus_vaccine === 'none';
 
   if (hasAts && hasTt) return 'ats_tt';
-  if (hasAts) return 'ats';
-  if (hasTt) return 'tt';
   if (isAtsNone && isTtNone) return 'not_indicated';
+  if (hasAts || (isTtNone && orders.tetanus_passive !== undefined && !isAtsNone)) return 'ats';
+  if (hasTt || (isAtsNone && orders.tetanus_vaccine !== undefined && !isTtNone)) return 'tt';
 
   return '';
 }

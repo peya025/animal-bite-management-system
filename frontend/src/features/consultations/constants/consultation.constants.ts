@@ -130,7 +130,7 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
   diagnosis: '',
   medication_treatment: '',
   prescribed_vaccine_type: '',
-  prophylaxis_orders: { tetanus_vaccine: '', tetanus_passive: '', rig: '', tetanus_history: '', tetanus_last_dose: '', rig_weight_kg: '', rig_indication: '', notes: '' },
+  prophylaxis_orders: { tetanus_category: '', tetanus_vaccine: '', tetanus_passive: '', rig: '', tetanus_history: '', tetanus_last_dose: '', rig_weight_kg: '', rig_indication: '', notes: '' },
   name_of_provider: '',
   laboratory_findings: '',
   performed_lab_test: '',

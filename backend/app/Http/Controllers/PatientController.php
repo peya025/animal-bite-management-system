@@ -673,6 +673,16 @@ class PatientController extends Controller
             ], 422);
         }
 
+        // Pre-registered mobile accounts who have only created an account
+        // (no appointment booked, no bite intake submitted) cannot be checked in
+        $isMobileOrAccount = ($patient->registration_source === 'mobile') || $patient->accounts()->exists();
+        $hasIntakeOrAppt = $patient->biteIntakes()->exists() || $patient->appointments()->exists() || $patient->biteIncidents()->exists();
+        if ($isMobileOrAccount && !$hasIntakeOrAppt) {
+            return response()->json([
+                'message' => 'This patient is only pre-registered from the mobile app and has not booked an appointment or submitted an intake.',
+            ], 422);
+        }
+
         // 3. Eligibility: verify patient is returning on a later date (registered or scheduled before today)
         $regDate = Carbon::parse($patient->created_at)->toDateString();
         $pastAppointment = Appointment::where('clinic_id', $clinicId)

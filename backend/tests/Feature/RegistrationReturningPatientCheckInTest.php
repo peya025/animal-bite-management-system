@@ -379,4 +379,35 @@ class RegistrationReturningPatientCheckInTest extends TestCase
             'queue_date' => Carbon::today()->toDateString(),
         ]);
     }
+
+    public function test_pre_registered_mobile_patient_without_intake_or_appointment_cannot_be_checked_in()
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic, 'registration');
+
+        // Pre-registered patient created on past date from mobile app
+        $pastDate = Carbon::now()->subDays(5);
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'first_name' => 'Maria',
+            'last_name' => 'Santos',
+            'gender' => 'female',
+            'age' => 24,
+            'date_of_birth' => '2000-05-15',
+            'contact_number' => '09987654321',
+            'registration_source' => 'mobile',
+        ]);
+        $patient->timestamps = false;
+        $patient->created_at = $pastDate;
+        $patient->updated_at = $pastDate;
+        $patient->save();
+
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson("/api/patients/{$patient->patient_id}/check-in");
+        $response->assertStatus(422)
+            ->assertJsonPath('message', 'This patient is only pre-registered from the mobile app and has not booked an appointment or submitted an intake.');
+
+        $this->assertDatabaseCount('queues', 0);
+    }
 }

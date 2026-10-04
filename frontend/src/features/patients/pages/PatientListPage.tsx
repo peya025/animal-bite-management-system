@@ -134,6 +134,29 @@ export default function PatientList() {
     return hasIntake || hasConfirmedBooking || isMobileRegistered;
   };
 
+  // Helper to detect patients who only created an account (pre-registered)
+  // and have neither booked an appointment nor submitted an intake or incident
+  const isPreRegisteredOnly = (p: Patient) => {
+    const isMobileOrAccount =
+      p.registration_source === 'mobile' ||
+      p.registration_source === 'online' ||
+      Boolean((p as any).accounts?.length) ||
+      Boolean((p as any).is_online_registration);
+
+    if (!isMobileOrAccount) return false;
+
+    const appointments: any[] = (p as any).appointments || [];
+    if (appointments.length > 0) return false;
+
+    const biteIntakes: any[] = (p as any).bite_intakes || (p as any).biteIntakes || [];
+    if (biteIntakes.length > 0) return false;
+
+    const biteIncidents: any[] = (p as any).bite_incidents || (p as any).biteIncidents || [];
+    if (biteIncidents.length > 0) return false;
+
+    return true;
+  };
+
   const getMobileIntakeReadyForCheckIn = (p: Patient) => {
     const intakes = (p as any).bite_intakes || (p as any).biteIntakes || [];
     const appointments = (p as any).appointments || [];
@@ -182,6 +205,11 @@ export default function PatientList() {
   };
 
   const handleTriageCheckIn = async (patient: Patient) => {
+    if (isPreRegisteredOnly(patient)) {
+      setCheckInError('This patient is only pre-registered from the mobile app and has not booked an appointment or submitted an intake.');
+      return;
+    }
+
     const patientId = patient.patient_id || (patient as any).id;
     if (!patientId) {
       setCheckInError('The patient record could not be identified. Please refresh the page and try again.');
@@ -212,6 +240,10 @@ export default function PatientList() {
   };
 
   const isReturningPatientAwaitingTriage = (p: Patient) => {
+    // 0. Pre-registered accounts who only created an account (no appointment booked, no intake submitted)
+    // are not awaiting triage and cannot be checked in
+    if (isPreRegisteredOnly(p)) return false;
+
     // 1. Must not already be active in today's queue
     const activeQueue = (p as any).queues?.[0];
     const hasActiveQueueToday = Boolean(
@@ -516,7 +548,7 @@ export default function PatientList() {
     );
     const hasTriage = Boolean(hasConfirmedIncident || hasCompletedConsultation || (record && record.dose_number !== null && record.dose_number !== undefined));
     if (!hasTriage) {
-      if (p.registration_source === 'mobile' || Boolean((p as any).accounts?.length)) {
+      if (isPreRegisteredOnly(p) || p.registration_source === 'mobile' || Boolean((p as any).accounts?.length) || Boolean((p as any).is_online_registration)) {
         return { label: 'Pre-Registered (Awaiting Intake)', icon: UserMultiple02Icon, bg: '#fef3c7', color: '#92400e' };
       }
       const regDate = new Date(p.created_at);
@@ -888,13 +920,15 @@ export default function PatientList() {
                       !hasPendingAppointments &&
                       !hasActiveIncident
                     );
-                    const mobileIntakeForCheckIn = !activeQueue ? getMobileIntakeReadyForCheckIn(p) : undefined;
+                    const isPreRegistered = tab === 'pre_registered' || isPreRegisteredOnly(p);
+                    const mobileIntakeForCheckIn = (!activeQueue && !isPreRegistered) ? getMobileIntakeReadyForCheckIn(p) : undefined;
                     const mobileIntakeIsDue = Boolean(
                       mobileIntakeForCheckIn && isMobileIntakeDueForCheckIn(p, mobileIntakeForCheckIn)
                     );
                     const isReturningAwaitingTriage = isReturningPatientAwaitingTriage(p);
                     const canCheckInReturning = Boolean(
                       isAuthorizedRegistrationRole &&
+                      !isPreRegistered &&
                       !activeQueue &&
                       isReturningAwaitingTriage
                     );

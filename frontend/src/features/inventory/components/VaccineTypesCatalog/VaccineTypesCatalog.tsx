@@ -34,12 +34,13 @@ import {
   Archive as ArchiveIcon,
   AcUnit as ColdChainIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../../../../shared/config/routes';
 import { useAuth } from '../../../../shared/contexts/AuthContext';
 import { getVaccinePresets, deleteVaccinePreset } from '../../services/vaccineInventoryService';
 import VaccineTypeDialog from '../VaccineTypeDialog/VaccineTypeDialog';
 import ConfirmationDialog from '../../../../components/feedback/ConfirmationDialog';
+import { highlightRecordElement } from '../../../../shared/utils/notificationNavigation';
 import type { VaccineTypePreset } from '../../types';
 
 interface VaccineTypesCatalogProps {
@@ -89,6 +90,10 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
     return () => window.clearTimeout(timer);
   }, []);
 
+  const [searchParams] = useSearchParams();
+  const presetIdParam = searchParams.get('presetId');
+  const [presetNotFound, setPresetNotFound] = useState(false);
+
   const filteredPresets = useMemo(() => {
     return presets.filter((preset) => {
       const matchSearch = preset.vaccine_name.toLowerCase().includes(search.toLowerCase())
@@ -97,6 +102,20 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
       return matchSearch && matchCategory;
     });
   }, [categoryFilter, presets, search]);
+
+  // Locate and highlight referenced vaccine preset
+  useEffect(() => {
+    if (!presetIdParam || loading || presets.length === 0) return;
+    const targetId = parseInt(presetIdParam, 10);
+    const found = presets.find((p) => p.id === targetId);
+    if (found) {
+      setTimeout(() => {
+        highlightRecordElement(`vaccine-preset-${targetId}`);
+      }, 350);
+    } else {
+      setPresetNotFound(true);
+    }
+  }, [presetIdParam, loading, presets]);
 
   const handleDelete = async () => {
     if (!deleteTarget?.id) return;
@@ -278,6 +297,7 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
             return (
               <Grid size={{ xs: 12, md: 6, xl: 4 }} key={preset.id || preset.vaccine_name}>
                 <Card
+                  id={`vaccine-preset-${preset.id}`}
                   elevation={0}
                   sx={{
                     height: '100%',
@@ -442,6 +462,19 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
           confirmLabel="OK"
           hideCancel
           onConfirm={() => setSuccessModal(null)}
+        />
+      )}
+
+      {/* Preset Not Found Dialog */}
+      {presetNotFound && (
+        <ConfirmationDialog
+          variant="danger"
+          title="Vaccine Setup Not Found"
+          message={`The requested vaccine setup record #${presetIdParam} could not be located in this clinic's catalog.`}
+          confirmLabel="Close"
+          hideCancel
+          onConfirm={() => setPresetNotFound(false)}
+          onClose={() => setPresetNotFound(false)}
         />
       )}
     </Box>

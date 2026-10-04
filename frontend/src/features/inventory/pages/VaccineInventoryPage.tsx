@@ -45,6 +45,7 @@ import type { InventoryItem, VaccineTypePreset } from '../types';
 import { getVaccinePresets } from '../services/vaccineInventoryService';
 import { deriveInventoryStatus } from '../utils/inventoryStatus';
 import { daysUntil } from '../../../shared/utils';
+import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
 
 interface VaccineInventoryProps {
   initialTab?: 'table' | 'stockcard' | 'fifo' | 'administrations';
@@ -79,8 +80,11 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const location = useLocation();
   const navigate = useNavigate();
 
-  const searchParams = new URLSearchParams(location.search);
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const tabParam = searchParams.get('tab');
+  const batchParam = searchParams.get('batchId') || searchParams.get('initialItemId');
+  const searchUrlParam = searchParams.get('search');
+  const statusFilterUrlParam = searchParams.get('statusFilter');
 
   const defaultTab = initialTab
     || (location.pathname.includes('/administrations') ? 'administrations' : undefined)
@@ -91,19 +95,25 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(15);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState(() => searchUrlParam || '');
+  const [statusFilter, setStatusFilter] = useState(() => statusFilterUrlParam || '');
   const [batchFilter, setBatchFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [expiryFrom, setExpiryFrom] = useState('');
   const [expiryTo, setExpiryTo] = useState('');
   const [view, setView] = useState<'table' | 'stockcard' | 'fifo' | 'administrations'>(defaultTab);
-  const [selectedStockCardId, setSelectedStockCardId] = useState<number | null>(null);
+  const [selectedStockCardId, setSelectedStockCardId] = useState<number | null>(() => batchParam ? parseInt(batchParam, 10) : null);
+  const [batchNotFound, setBatchNotFound] = useState(false);
 
   useEffect(() => {
-    const batchParam = searchParams.get('batchId') || searchParams.get('initialItemId');
     if (batchParam) {
       setSelectedStockCardId(parseInt(batchParam, 10));
+    }
+    if (searchUrlParam !== null) {
+      setSearch(searchUrlParam);
+    }
+    if (statusFilterUrlParam !== null) {
+      setStatusFilter(statusFilterUrlParam);
     }
     if (tabParam === 'stockcard') {
       setView('stockcard');
@@ -111,10 +121,8 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
       setView('administrations');
     } else if (tabParam && ['table', 'fifo', 'administrations'].includes(tabParam)) {
       setView((isNurseRole || isAdminRole) && tabParam === 'fifo' ? 'table' : tabParam as any);
-    } else {
-      setView('table');
     }
-  }, [initialTab, isAdminRole, isNurseRole, location.pathname, tabParam, searchParams]);
+  }, [initialTab, isAdminRole, isNurseRole, location.pathname, tabParam, batchParam, searchUrlParam, statusFilterUrlParam]);
 
   useEffect(() => {
     const handleReset = () => {
@@ -222,6 +230,26 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
     const start = page * rowsPerPage;
     return filteredItems.slice(start, start + rowsPerPage);
   }, [filteredItems, page, rowsPerPage]);
+
+  // Locate and highlight referenced batch or report not found
+  useEffect(() => {
+    if (!batchParam || loading || items.length === 0) return;
+    const targetId = parseInt(batchParam, 10);
+    const exists = items.some(i => i.inventory_id === targetId);
+    if (!exists) {
+      setBatchNotFound(true);
+      return;
+    }
+
+    if (view === 'table') {
+      const matchIdx = filteredItems.findIndex(i => i.inventory_id === targetId);
+      if (matchIdx !== -1) {
+        const targetPage = Math.floor(matchIdx / rowsPerPage);
+        if (page !== targetPage) setPage(targetPage);
+        setTimeout(() => highlightRecordElement(`inventory-batch-${targetId}`), 350);
+      }
+    }
+  }, [batchParam, loading, items, view, filteredItems, rowsPerPage, page]);
 
   const stats = useMemo(() => {
     return items.reduce((summary, item) => {
@@ -676,6 +704,19 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           confirmLabel="OK"
           hideCancel
           onConfirm={() => setSuccessModal(null)}
+        />
+      )}
+
+      {/* Batch Not Found Dialog */}
+      {batchNotFound && (
+        <ConfirmationDialog
+          variant="danger"
+          title="Vaccine Batch Not Found"
+          message={`The requested vaccine batch #${batchParam} could not be located in this clinic's inventory.`}
+          confirmLabel="Close"
+          hideCancel
+          onConfirm={() => setBatchNotFound(false)}
+          onClose={() => setBatchNotFound(false)}
         />
       )}
 

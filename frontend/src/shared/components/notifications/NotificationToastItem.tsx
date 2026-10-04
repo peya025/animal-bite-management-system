@@ -92,7 +92,12 @@ export function NotificationToastItem({
   const messageText = notification.message || (notification as any).text || '';
 
   return (
-    <ToastCard isClosing={isClosing} variant={visuals.variant}>
+    <ToastCard
+      isClosing={isClosing}
+      variant={visuals.variant}
+      onClick={handleView}
+      style={{ cursor: canView ? 'pointer' : 'default' }}
+    >
       <ToastIconBox variant={visuals.variant}>
         <Icon name={visuals.icon} size={16} />
       </ToastIconBox>
@@ -101,7 +106,10 @@ export function NotificationToastItem({
           <ToastTitle>{notification.title}</ToastTitle>
           <ToastCloseBtn
             type="button"
-            onClick={handleClose}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClose();
+            }}
             title="Dismiss notification"
             aria-label="Dismiss notification"
           >
@@ -115,7 +123,13 @@ export function NotificationToastItem({
         <ToastFooter>
           <ToastTime>{notification.time_ago || 'Just now'}</ToastTime>
           {canView && (
-            <ToastViewButton type="button" onClick={handleView}>
+            <ToastViewButton
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleView();
+              }}
+            >
               View &rarr;
             </ToastViewButton>
           )}

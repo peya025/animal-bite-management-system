@@ -684,6 +684,28 @@ class AppointmentController extends Controller
             $res['overdue_count']        = $overdueCount;
             $res['completed_today_count'] = $completedTodayCount;
 
+            if ($request->filled('patient_id')) {
+                $targetId = (int) $request->patient_id;
+                $targetInPage = collect($patients->items())->firstWhere('patient_id', $targetId);
+                if (!$targetInPage) {
+                    $allIds = (clone $query)->pluck('patients.patient_id')->toArray();
+                    $targetIndex = array_search($targetId, $allIds);
+                    if ($targetIndex !== false) {
+                        $perPage = (int) $request->get('per_page', 15);
+                        $targetPage = (int) floor($targetIndex / $perPage) + 1;
+                        $res['target_page'] = $targetPage;
+                    } else {
+                        $existingPatient = Patient::where('clinic_id', $clinicId)->find($targetId);
+                        if ($existingPatient) {
+                            $res['target_status_changed'] = true;
+                            $res['target_patient_name'] = $existingPatient->first_name . ' ' . $existingPatient->last_name;
+                        } else {
+                            $res['target_not_found'] = true;
+                        }
+                    }
+                }
+            }
+
             return response()->json($res);
         } catch (\Exception $e) {
             \Log::error('Get nurse patients error: ' . $e->getMessage());

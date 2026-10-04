@@ -76,6 +76,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAccessDenied } from '../contexts/AccessDeniedContext';
 import { canUserAccessRoute } from '../utils/accessControl';
 
+import { resolveNotificationDestination } from '../utils/notificationNavigation';
+
 export default function NotificationButton() {
   const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuth();
@@ -114,14 +116,19 @@ export default function NotificationButton() {
   }, [isOpen]);
 
   const handleItemClick = (item: NotificationRecord) => {
+    // Always close dropdown upon selection
+    setIsOpen(false);
+
+    // Mark only this notification as read, updating the unread count
     if (item.is_unread) {
       markAsRead(item.id);
     }
 
-    if (item.action_url) {
-      setIsOpen(false);
-      if (canUserAccessRoute(user, item.action_url)) {
-        navigate(item.action_url);
+    const destinationUrl = resolveNotificationDestination(item, user);
+
+    if (destinationUrl) {
+      if (canUserAccessRoute(user, destinationUrl)) {
+        navigate(destinationUrl);
       } else {
         // Keep user on their current authorized page and show popup
         showAccessDenied();

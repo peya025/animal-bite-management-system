@@ -213,12 +213,17 @@ export default function PatientList() {
 
   const isReturningPatientAwaitingTriage = (p: Patient) => {
     // 1. Must not already be active in today's queue
-    const activeQueue = (p as any).queues?.[0];
-    const hasActiveQueueToday = Boolean(
-      activeQueue &&
-      ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(activeQueue.status)
+    const todayQueues: any[] = (p as any).queues || [];
+    const hasActiveQueueToday = todayQueues.some((q: any) =>
+      ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
     );
     if (hasActiveQueueToday) return false;
+
+    // Check if patient specifically requires check-in today after 3 missed calls
+    const requiresCheckinToday = todayQueues.some((q: any) =>
+      q.status === 'requires_checkin' || (q.status === 'no_response' && Number(q.call_count) >= 3)
+    );
+    if (requiresCheckinToday) return true;
 
     // 2. Must not have completed triage assessment or received doses
     const latestRecord = (p as any).latest_treatment_record;
@@ -368,7 +373,14 @@ export default function PatientList() {
   };
 
   const getLiveStatus = (p: Patient): { label: string; icon?: any; bg: string; color: string; isPastAppt?: boolean } => {
-    const activeQueue = (p as any).queues?.[0];
+    const todayQueues: any[] = (p as any).queues || [];
+    const activeQueue = todayQueues.find((q: any) =>
+      ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
+    );
+    const requiresCheckinQueue = todayQueues.find((q: any) =>
+      q.status === 'requires_checkin' || (q.status === 'no_response' && Number(q.call_count) >= 3)
+    );
+    const inactiveQueue = todayQueues[0];
     const appts: any[] = (p as any).appointments || [];
     const todayDate = new Date();
     const todayStr = todayDate.toDateString();
@@ -390,11 +402,27 @@ export default function PatientList() {
       if (activeQueue.status === 'second_chance' || activeQueue.status === 'final_recall') {
         return { label: `Queue #${activeQueue.queue_number || ''} (Recall at Triage)`, icon: AlertCircleIcon, bg: '#fef3c7', color: '#92400e', isPastAppt: true };
       }
-      if (activeQueue.status === 'no_response') {
-        return { label: `Queue #${activeQueue.queue_number || ''} (No Response at Triage)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
+    }
+
+    if (requiresCheckinQueue && !activeQueue) {
+      return {
+        label: `Queue #${requiresCheckinQueue.queue_number || ''} (Requires Check-In)`,
+        icon: AlertCircleIcon,
+        bg: '#fee2e2',
+        color: '#b91c1c',
+        isPastAppt: true,
+      };
+    }
+
+    if (inactiveQueue && !activeQueue) {
+      if (inactiveQueue.status === 'requires_checkin') {
+        return { label: `Queue #${inactiveQueue.queue_number || ''} (Requires Check-In)`, icon: AlertCircleIcon, bg: '#fee2e2', color: '#b91c1c', isPastAppt: true };
       }
-      if (activeQueue.status === 'absent') {
-        return { label: `Queue #${activeQueue.queue_number || ''} (Absent at Triage)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
+      if (inactiveQueue.status === 'no_response') {
+        return { label: `Queue #${inactiveQueue.queue_number || ''} (No Response at Triage)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
+      }
+      if (inactiveQueue.status === 'absent') {
+        return { label: `Queue #${inactiveQueue.queue_number || ''} (Absent at Triage)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
       }
     }
 
@@ -856,7 +884,13 @@ export default function PatientList() {
                   {patients.map(p => {
                     const statusInfo = getLiveStatus(p);
                     const isOnline = isOnlinePatient(p);
-                    const activeQueue = (p as any).queues?.[0];
+                    const todayQueues: any[] = (p as any).queues || [];
+                    const activeQueue = todayQueues.find((q: any) =>
+                      ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
+                    );
+                    const requiresCheckinQueue = todayQueues.find((q: any) =>
+                      q.status === 'requires_checkin' || (q.status === 'no_response' && Number(q.call_count) >= 3)
+                    );
                     const latestRecord = (p as any).latest_treatment_record;
                     const hasDosesAdministered = Boolean(latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined);
                     const hasCompletedTriage = Boolean(
@@ -896,7 +930,7 @@ export default function PatientList() {
                     const canCheckInReturning = Boolean(
                       isAuthorizedRegistrationRole &&
                       !activeQueue &&
-                      isReturningAwaitingTriage
+                      (isReturningAwaitingTriage || Boolean(requiresCheckinQueue))
                     );
                     const patientId = p.patient_id || p.id;
 
@@ -986,7 +1020,11 @@ export default function PatientList() {
                             ) : canCheckInReturning ? (
                               <button
                                 className="pm-btn-checkin"
-                                title="Patient was previously registered or scheduled but did not proceed to Triage. Check in to today's Doctor Triage queue."
+                                title={
+                                  requiresCheckinQueue
+                                    ? "Patient did not respond 3 times. Check in to restart triage queue with a fresh 0/3 count."
+                                    : "Patient was previously registered or scheduled but did not proceed to Triage. Check in to today's Doctor Triage queue."
+                                }
                                 disabled={checkingInPatientId === patientId}
                                 style={{
                                   fontSize: '12px',

@@ -34,7 +34,8 @@ export type QueueStatus =
   | 'no_response'
   | 'second_chance'
   | 'final_recall'
-  | 'absent';
+  | 'absent'
+  | 'requires_checkin';
 
 // ── Main entry ───────────────────────────────────────────────────────────────
 export interface QueueEntry {
@@ -164,6 +165,7 @@ export const STATUS_CFG: Record<QueueStatus, { bg: string; color: string; label:
   second_chance:   { bg: '#ecfdf5', color: '#059669', label: 'Second Chance'    },
   final_recall:    { bg: '#fef2f2', color: '#dc2626', label: 'Final Recall'     },
   absent:          { bg: '#f1f5f9', color: '#475569', label: 'Absent'           },
+  requires_checkin:{ bg: '#fee2e2', color: '#b91c1c', label: 'Requires Check-in' },
 };
 
 export const PRIORITY_CFG: Record<string, { bg: string; color: string; label: string }> = {
@@ -190,7 +192,7 @@ export function getPriorityDisplayLabel(
 /** Groups for quick status checks */
 export const MAIN_STATUSES: QueueStatus[]   = ['waiting', 'called', 'in_consultation', 'serving'];
 export const SECOND_STATUSES: QueueStatus[] = ['second_chance', 'final_recall'];
-export const DONE_STATUSES: QueueStatus[]   = ['completed', 'cancelled', 'absent', 'no_response'];
+export const DONE_STATUSES: QueueStatus[]   = ['completed', 'cancelled', 'absent', 'no_response', 'requires_checkin'];
 
 export function waitTime(checkedIn: string): string {
   const diff = Math.floor((Date.now() - new Date(checkedIn).getTime()) / 60000);

@@ -48,7 +48,7 @@ class PatientController extends Controller
                 'accounts',
                 'queues' => function ($q) {
                     $q->whereDate('created_at', \Carbon\Carbon::today())
-                      ->whereIn('status', ['waiting', 'in_consultation', 'serving', 'called', 'no_response', 'absent', 'second_chance', 'final_recall'])
+                      ->whereIn('status', ['waiting', 'in_consultation', 'serving', 'called', 'no_response', 'absent', 'second_chance', 'final_recall', 'requires_checkin'])
                       ->latest();
                 }
             ]);
@@ -58,7 +58,8 @@ class PatientController extends Controller
             case 'today_queue':
                 $query->where(function ($q) {
                     $q->whereHas('queues', function ($qu) {
-                        $qu->whereIn('status', ['waiting', 'in_consultation']);
+                        $qu->whereIn('status', ['waiting', 'in_consultation', 'requires_checkin', 'called', 'serving', 'second_chance', 'final_recall'])
+                           ->whereDate('created_at', \Carbon\Carbon::today());
                     })->orWhereHas('appointments', function ($app) {
                         $app->where(function ($d) {
                             $d->where(function ($sub) {
@@ -145,7 +146,8 @@ class PatientController extends Controller
 
         $todayQueueCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
             $q->whereHas('queues', function ($qu) {
-                $qu->whereIn('status', ['waiting', 'in_consultation']);
+                $qu->whereIn('status', ['waiting', 'in_consultation', 'requires_checkin', 'called', 'serving', 'second_chance', 'final_recall'])
+                   ->whereDate('created_at', \Carbon\Carbon::today());
             })->orWhereHas('appointments', function ($app) {
                 $app->where(function ($d) {
                     $d->where(function ($sub) {
@@ -696,18 +698,31 @@ class PatientController extends Controller
             ->whereDate('queue_date', '<', $todayDate)
             ->first();
 
+        $hasRequiresCheckinToday = Queue::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->where('queue_date', $todayDate)
+            ->whereNull('deleted_at')
+            ->where(function ($q) {
+                $q->where('status', 'requires_checkin')
+                  ->orWhere(function ($sub) {
+                      $sub->where('status', 'no_response')
+                          ->where('call_count', '>=', 3);
+                  });
+            })
+            ->exists();
+
         $isReturningOnLaterDate = ($regDate < $todayDate)
             || ($pastAppointment !== null)
             || ($pastConsultationRecord !== null)
             || ($pastQueue !== null);
 
-        if (!$isReturningOnLaterDate) {
+        if (!$isReturningOnLaterDate && !$hasRequiresCheckinToday) {
             return response()->json([
                 'message' => 'Check In is for returning patients who were previously registered or scheduled and are returning on a later date.',
             ], 422);
         }
 
-        return DB::transaction(function () use ($request, $clinicId, $patient, $todayDate, $pastAppointment) {
+        return DB::transaction(function () use ($request, $clinicId, $patient, $todayDate, $pastAppointment, $hasRequiresCheckinToday) {
             // Auto-expire stale unserved tickets from prior days
             app(QueueController::class)->expireStaleTickets($clinicId, $todayDate);
 
@@ -794,6 +809,10 @@ class PatientController extends Controller
                     ]);
                 }
 
+                $checkInNotes = $hasRequiresCheckinToday
+                    ? 'Patient re-checked in at Registration after 3 missed triage calls'
+                    : 'Returning patient checked in for Triage Doctor assessment';
+
                 // Create Queue entry for Triage Doctor queue
                 $queue = Queue::create([
                     'clinic_id'      => $clinicId,
@@ -808,7 +827,7 @@ class PatientController extends Controller
                     'status'         => 'waiting',
                     'checked_in_at'  => now(),
                     'checked_in_by'  => $request->user()->id,
-                    'check_in_notes' => 'Returning patient checked in for Triage Doctor assessment',
+                    'check_in_notes' => $checkInNotes,
                     'call_count'     => 0,
                 ]);
 
@@ -821,7 +840,7 @@ class PatientController extends Controller
                     'to_status'    => 'waiting',
                     'call_count'   => 0,
                     'performed_by' => $request->user()->id,
-                    'notes'        => 'Returning patient checked in for Triage Doctor assessment',
+                    'notes'        => $checkInNotes,
                     'occurred_at'  => now(),
                 ]);
 

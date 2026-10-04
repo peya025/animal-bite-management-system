@@ -46,7 +46,7 @@ export function SecondChanceQueuePanel({
   const [submittingId, setSubmittingId] = useState<number | null>(null);
 
   const handleBringBack = async (entry: QueueEntry) => {
-    if (submittingId !== null || loading) return;
+    if (submittingId !== null || loading || entry.call_count >= 3) return;
     setSubmittingId(entry.queue_id);
     try {
       await onReturnToQueue?.(entry);
@@ -194,8 +194,12 @@ export function SecondChanceQueuePanel({
                       </Box>
                       &nbsp;·&nbsp;missed {missedTime}
                       {entry.call_count > 0 && (
-                        <Box component="span" sx={{ ml: 0.5, color: isDark ? '#64748b' : '#9ca3af' }}>
-                          · called {entry.call_count}×
+                        <Box component="span" sx={{
+                          ml: 0.5,
+                          color: entry.call_count >= 3 ? (isDark ? '#f87171' : '#dc2626') : (isDark ? '#a78bfa' : '#7e22ce'),
+                          fontWeight: 600,
+                        }}>
+                          · No Response {Math.min(entry.call_count, 3)}/3
                         </Box>
                       )}
                     </Typography>
@@ -205,41 +209,45 @@ export function SecondChanceQueuePanel({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
                     {/* Bring Back */}
                     {canManage && onReturnToQueue && (
-                      <Button
-                        size="small"
-                        disabled={submittingId !== null || loading}
-                        onClick={() => handleBringBack(entry)}
-                        sx={{
-                          textTransform: 'none',
-                          fontSize: 12,
-                          fontWeight: 600,
-                          px: 1.75,
-                          py: 0.5,
-                          borderRadius: '6px',
-                          border: isDark ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #a7f3d0',
-                          bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
-                          color: isDark ? '#34d399' : '#047857',
-                          lineHeight: 1.4,
-                          whiteSpace: 'nowrap',
-                          boxShadow: 'none',
-                          transition: 'all 0.15s ease',
-                          '&:hover': {
-                            bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#d1fae5',
-                            borderColor: isDark ? '#10b981' : '#6ee7b7',
-                            color: isDark ? '#a7f3d0' : '#065f46',
-                            boxShadow: 'none',
-                          },
-                          '&:disabled': {
-                            bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f3f4f6',
-                            color: isDark ? '#6b7280' : '#9ca3af',
-                            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e5e7eb',
-                            cursor: 'not-allowed',
-                            pointerEvents: 'auto',
-                          },
-                        }}
-                      >
-                        Bring Back
-                      </Button>
+                      <Tooltip title={entry.call_count >= 3 ? "Patient did not respond 3 times. Please return to Registration for check-in." : ""}>
+                        <span>
+                          <Button
+                            size="small"
+                            disabled={submittingId !== null || loading || entry.call_count >= 3}
+                            onClick={() => handleBringBack(entry)}
+                            sx={{
+                              textTransform: 'none',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              px: 1.75,
+                              py: 0.5,
+                              borderRadius: '6px',
+                              border: isDark ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #a7f3d0',
+                              bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                              color: isDark ? '#34d399' : '#047857',
+                              lineHeight: 1.4,
+                              whiteSpace: 'nowrap',
+                              boxShadow: 'none',
+                              transition: 'all 0.15s ease',
+                              '&:hover': {
+                                bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#d1fae5',
+                                borderColor: isDark ? '#10b981' : '#6ee7b7',
+                                color: isDark ? '#a7f3d0' : '#065f46',
+                                boxShadow: 'none',
+                              },
+                              '&:disabled': {
+                                bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f3f4f6',
+                                color: isDark ? '#6b7280' : '#9ca3af',
+                                borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e5e7eb',
+                                cursor: 'not-allowed',
+                                pointerEvents: 'auto',
+                              },
+                            }}
+                          >
+                            Bring Back
+                          </Button>
+                        </span>
+                      </Tooltip>
                     )}
 
                     {/* Absent — only on final recall */}

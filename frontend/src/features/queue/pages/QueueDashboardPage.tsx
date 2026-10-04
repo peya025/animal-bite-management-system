@@ -38,7 +38,7 @@ import type { QueueEntry } from '../types';
 import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, CATEGORY_CFG, CATEGORY_LABEL, getPriorityDisplayLabel, waitTime, MAIN_STATUSES } from '../types';
 import { useQueueData } from '../hooks';
 import {
-  callQueuePatient, skipQueuePatient, serveQueuePatient, markNoResponse,
+  skipQueuePatient, serveQueuePatient, markNoResponse,
   recallQueuePatient, returnQueuePatientToQueue, markAbsent, cancelQueueEntry,
   updateQueuePriority, trashQueueEntry,
 } from '../services';
@@ -166,6 +166,10 @@ function getRegistrationStatusDisplay(entry: QueueEntry): { label: string; bg: s
     return { label: 'Absent', bg: '#f1f5f9', color: '#475569' };
   }
 
+  if (entry.status === 'requires_checkin') {
+    return { label: 'Requires Check-in', bg: '#fee2e2', color: '#b91c1c' };
+  }
+
   if (entry.status === 'no_response') {
     return { label: 'No Response', bg: '#fdf4ff', color: '#9333ea' };
   }
@@ -264,7 +268,6 @@ export default function QueueDashboard() {
   const [rowsPerPage,  setRowsPerPage]  = useState(15);
 
   // ── Confirmation targets ────────────────────────────────────────────────────
-  const [callTarget,       setCallTarget]       = useState<QueueEntry | null>(null);
   const [serveTarget,      setServeTarget]       = useState<QueueEntry | null>(null);
   const [selectedQueueId,  setSelectedQueueId]  = useState<number | null>(null);
   const [cancelTarget,     setCancelTarget]     = useState<QueueEntry | null>(null);
@@ -286,8 +289,18 @@ export default function QueueDashboard() {
     if (actionPending) return;
     setActionPending(true);
     try {
-      await fn();
-      toast(successMsg);
+      const res = (await fn()) as any;
+      const backendMsg = res?.data?.message;
+      if (res?.data?.requires_checkin) {
+        toast(backendMsg || 'Patient did not respond 3 times. Please return to Registration for check-in.', 'warning');
+        setSuccessModal({
+          open: true,
+          title: 'Registration Check-in Required',
+          message: 'Patient did not respond 3 times. Please return to Registration for check-in.',
+        });
+      } else {
+        toast(backendMsg || successMsg);
+      }
       await reload();
     } catch (err: any) {
       const status = err?.response?.status;
@@ -303,12 +316,23 @@ export default function QueueDashboard() {
     }
   };
 
-  const handleCall       = (e: QueueEntry) => run(() => callQueuePatient(e.queue_id),   `Called #${e.queue_number} · ${e.patient.name}`,   'Failed to call patient');
   const handleSkip       = (e: QueueEntry) => run(() => skipQueuePatient(e.queue_id),   `#${e.queue_number} skipped — calling next patient`, 'Failed to skip patient');
   const handleServe      = (e: QueueEntry) => run(() => serveQueuePatient(e.queue_id),  `#${e.queue_number} is now being served`,           'Failed to mark as serving');
   const handleNoResponse = (e: QueueEntry) => run(() => markNoResponse(e.queue_id),     `#${e.queue_number} moved to Second Chance Queue`, 'Failed to mark no response');
-  const handleRecall     = (e: QueueEntry) => run(() => recallQueuePatient(e.queue_id), `#${e.queue_number} recalled`,                     'Failed to recall patient');
-  const handleReturnToQueue = (e: QueueEntry) => run(() => returnQueuePatientToQueue(e.queue_id), 'Patient returned to the queue.', 'Failed to return patient to queue');
+  const handleRecall     = (e: QueueEntry) => {
+    if (e.call_count >= 3) {
+      toast('Patient did not respond 3 times. Please return to Registration for check-in.', 'warning');
+      return;
+    }
+    run(() => recallQueuePatient(e.queue_id), `#${e.queue_number} recalled`, 'Failed to recall patient');
+  };
+  const handleReturnToQueue = (e: QueueEntry) => {
+    if (e.call_count >= 3) {
+      toast('Patient did not respond 3 times. Please return to Registration for check-in.', 'warning');
+      return;
+    }
+    run(() => returnQueuePatientToQueue(e.queue_id), 'Patient returned to the queue.', 'Failed to return patient to queue');
+  };
   const handleAbsent     = (e: QueueEntry) => run(() => markAbsent(e.queue_id),         `#${e.queue_number} marked as No-Show`,            'Failed to mark absent');
   const handleCancel     = (e: QueueEntry) => run(() => cancelQueueEntry(e.queue_id),   `Cancelled #${e.queue_number}`,                    'Failed to cancel');
   const handleTrash      = (e: QueueEntry) => run(() => trashQueueEntry(e.queue_id),    `#${e.queue_number} moved to trash`,               'Failed to trash entry');
@@ -604,8 +628,14 @@ export default function QueueDashboard() {
                 </Box>
               )}
               {e.call_count > 0 && (
-                <Box sx={{ px: 0.8, py: 0.15, bgcolor: '#f3e8ff', color: '#7e22ce', borderRadius: 1, fontSize: 10, fontWeight: 600 }}>
-                  Called {e.call_count}×
+                <Box sx={{
+                  px: 0.8, py: 0.15,
+                  bgcolor: e.call_count >= 3 ? '#fee2e2' : '#f3e8ff',
+                  color: e.call_count >= 3 ? '#b91c1c' : '#7e22ce',
+                  border: e.call_count >= 3 ? '1px solid #fca5a5' : 'none',
+                  borderRadius: 1, fontSize: 10, fontWeight: 600,
+                }}>
+                  No Response {Math.min(e.call_count, 3)}/3
                 </Box>
               )}
             </Box>
@@ -769,19 +799,9 @@ export default function QueueDashboard() {
         return (
           <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', alignItems: 'center' }}>
 
-            {/* Call — waiting only */}
-            {isWaiting && (
-              <Tooltip title="Call Patient">
-                <IconButton size="small" onClick={() => setCallTarget(e)}
-                  sx={actionBtn('#059669', '#ecfdf5', '#a7f3d0', '#d1fae5', '#6ee7b7', '#047857')}>
-                  <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
-                </IconButton>
-              </Tooltip>
-            )}
-
-            {/* No Response — waiting or called */}
+            {/* No Response / Second Chance — waiting or called */}
             {(isWaiting || isCalled) && (
-              <Tooltip title="No Response — Move to Second Chance">
+              <Tooltip title={e.call_count >= 2 ? "No Response (3/3) — Mark Requires Registration Check-in" : `No Response (${e.call_count + 1}/3) — Move to Second Chance`}>
                 <IconButton size="small" onClick={() => setNoRespTarget(e)}
                   sx={actionBtn('#9333ea', '#faf5ff', '#e9d5ff', '#f3e8ff', '#d8b4fe', '#7e22ce')}>
                   <HugeiconsIcon icon={UserBlock01Icon} size={16} strokeWidth={2} />
@@ -791,21 +811,27 @@ export default function QueueDashboard() {
 
             {/* Return to Queue — second chance or final recall (if filtered) */}
             {isSecondChance && (
-              <Tooltip title="Return to Waiting Queue">
-                <IconButton size="small" onClick={() => setReturnTarget(e)}
-                  sx={actionBtn('#2563eb', '#eff6ff', '#bfdbfe', '#dbeafe', '#93c5fd', '#1d4ed8')}>
-                  <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={16} strokeWidth={2} />
-                </IconButton>
+              <Tooltip title={e.call_count >= 3 ? "Patient did not respond 3 times. Please return to Registration for check-in." : "Return to Waiting Queue"}>
+                <span>
+                  <IconButton size="small" onClick={() => setReturnTarget(e)}
+                    disabled={e.call_count >= 3}
+                    sx={actionBtn('#2563eb', '#eff6ff', '#bfdbfe', '#dbeafe', '#93c5fd', '#1d4ed8')}>
+                    <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={16} strokeWidth={2} />
+                  </IconButton>
+                </span>
               </Tooltip>
             )}
 
             {/* Recall — second chance or final recall (if filtered) */}
             {isSecondChance && (
-              <Tooltip title="Recall Patient">
-                <IconButton size="small" onClick={() => setRecallTarget(e)}
-                  sx={actionBtn('#ea580c', '#fff7ed', '#fed7aa', '#ffedd5', '#fdba74', '#c2410c')}>
-                  <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
-                </IconButton>
+              <Tooltip title={e.call_count >= 3 ? "Patient did not respond 3 times. Please return to Registration for check-in." : "Recall Patient"}>
+                <span>
+                  <IconButton size="small" onClick={() => setRecallTarget(e)}
+                    disabled={e.call_count >= 3}
+                    sx={actionBtn('#ea580c', '#fff7ed', '#fed7aa', '#ffedd5', '#fdba74', '#c2410c')}>
+                    <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
+                  </IconButton>
+                </span>
               </Tooltip>
             )}
 
@@ -1119,14 +1145,6 @@ export default function QueueDashboard() {
 
       {/* ── Confirmation Dialogs ── */}
 
-      {callTarget && (
-        <ConfirmationDialog variant="confirm" title="Call Patient"
-          message={<>Call <strong>#{callTarget.queue_number} · {callTarget.patient.name}</strong> to the station?</>}
-          confirmLabel="Call Now" cancelLabel="Cancel"
-          onConfirm={() => { handleCall(callTarget); setCallTarget(null); }}
-          onCancel={() => setCallTarget(null)} />
-      )}
-
       {serveTarget && (
         <ConfirmationDialog variant="confirm" title="Patient Responded"
           message={<><strong>#{serveTarget.queue_number} · {serveTarget.patient.name}</strong> has responded. Start serving?</>}
@@ -1136,9 +1154,24 @@ export default function QueueDashboard() {
       )}
 
       {noRespTarget && (
-        <ConfirmationDialog variant="confirm" title="No Response"
-          message={<><strong>#{noRespTarget.queue_number} · {noRespTarget.patient.name}</strong> did not respond. Move to Second Chance Queue and continue with next patient?</>}
-          confirmLabel="Move to Second Chance" cancelLabel="Go Back"
+        <ConfirmationDialog
+          variant={noRespTarget.call_count >= 2 ? "danger" : "confirm"}
+          title={noRespTarget.call_count >= 2 ? "No Response (3/3)" : `No Response (${noRespTarget.call_count + 1}/3)`}
+          message={
+            noRespTarget.call_count >= 2 ? (
+              <>
+                <strong>#{noRespTarget.queue_number} · {noRespTarget.patient.name}</strong> did not respond 3 times.
+                <br /><br />
+                This will mark them as <strong>Requires Registration Check-in</strong> and remove them from active queues. The patient must return to Registration to check in again.
+              </>
+            ) : (
+              <>
+                Move <strong>#{noRespTarget.queue_number} · {noRespTarget.patient.name}</strong> to Second Chance Queue and continue with next patient?
+              </>
+            )
+          }
+          confirmLabel={noRespTarget.call_count >= 2 ? "Mark Requires Check-in" : "Move to Second Chance"}
+          cancelLabel="Go Back"
           onConfirm={() => { handleNoResponse(noRespTarget); setNoRespTarget(null); }}
           onCancel={() => setNoRespTarget(null)} />
       )}

@@ -221,6 +221,9 @@ export default function DoctorPatientListPage() {
           if (activeQueue.status === 'second_chance' || activeQueue.status === 'final_recall') {
             return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (Recall)`} size="small" sx={{ bgcolor: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 600 }} /></Box>;
           }
+          if (activeQueue.status === 'requires_checkin') {
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (Requires Check-In)`} size="small" sx={{ bgcolor: '#fee2e2', color: '#b91c1c', fontSize: 11, fontWeight: 600 }} /></Box>;
+          }
           if (activeQueue.status === 'no_response') {
             return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (Called · No Response)`} size="small" sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 600 }} /></Box>;
           }

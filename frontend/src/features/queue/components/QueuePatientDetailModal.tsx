@@ -205,6 +205,17 @@ function ModalPatientHero({
               }} />
               <span style={{ color: statusCfg.color, fontWeight: 600 }}>{statusCfg.label}</span>
             </Box>
+            {entry.call_count > 0 && (
+              <>
+                <span>·</span>
+                <span style={{
+                  color: entry.call_count >= 3 ? '#dc2626' : '#7e22ce',
+                  fontWeight: 600,
+                }}>
+                  No Response {Math.min(entry.call_count, 3)}/3
+                </span>
+              </>
+            )}
           </Box>
         </Box>
       </Box>
@@ -609,12 +620,24 @@ export default function QueuePatientDetailModal({
   const handleNoResponse = async () => {
     if (!queueId) return;
     try {
-      await markNoResponse(Number(queueId));
-      setSuccessModal({
-        open: true,
-        title: 'No Response Recorded',
-        message: `Queue #${entry?.queue_number} moved to the Second Chance Queue.`,
-      });
+      const res = await markNoResponse(Number(queueId));
+      if (res.data?.requires_checkin || (entry && entry.call_count >= 2)) {
+        setSuccessModal({
+          open: true,
+          title: 'Registration Check-in Required',
+          message: 'Patient did not respond 3 times. Please return to Registration for check-in.',
+          onConfirm: () => {
+            onSaved?.();
+            onClose();
+          },
+        });
+      } else {
+        setSuccessModal({
+          open: true,
+          title: 'No Response Recorded',
+          message: `Queue #${entry?.queue_number} moved to the Second Chance Queue.`,
+        });
+      }
       reload();
       onSaved?.();
     } catch {
@@ -624,6 +647,10 @@ export default function QueuePatientDetailModal({
 
   const handleReturnToQueue = async () => {
     if (!queueId) return;
+    if (entry && entry.call_count >= 3) {
+      toast('Patient did not respond 3 times. Please return to Registration for check-in.', 'error');
+      return;
+    }
     try {
       await returnQueuePatientToQueue(Number(queueId));
       setSuccessModal({
@@ -640,6 +667,10 @@ export default function QueuePatientDetailModal({
 
   const handleRecall = async () => {
     if (!queueId) return;
+    if (entry && entry.call_count >= 3) {
+      toast('Patient did not respond 3 times. Please return to Registration for check-in.', 'error');
+      return;
+    }
     try {
       await recallQueuePatient(Number(queueId));
       setSuccessModal({
@@ -867,16 +898,25 @@ export default function QueuePatientDetailModal({
           >
             {['waiting','called','in_consultation'].includes(entry.status) && (
               <MenuItem onClick={() => { setMenuAnchor(null); setNoRespDialog(true); }} sx={{ gap: 1.5, fontSize: 13 }}>
-                <NoRespIcon sx={{ fontSize: 17, color: '#9333ea' }} /> No Response
+                <NoRespIcon sx={{ fontSize: 17, color: '#9333ea' }} />
+                {entry.call_count >= 2 ? 'No Response (3/3)' : `No Response (${entry.call_count + 1}/3)`}
               </MenuItem>
             )}
             {['second_chance','final_recall'].includes(entry.status) && (
               <>
-                <MenuItem onClick={() => { setMenuAnchor(null); setReturnQueueDialog(true); }} sx={{ gap: 1.5, fontSize: 13, color: '#2563eb' }}>
+                <MenuItem
+                  disabled={entry.call_count >= 3}
+                  onClick={() => { setMenuAnchor(null); setReturnQueueDialog(true); }}
+                  sx={{ gap: 1.5, fontSize: 13, color: entry.call_count >= 3 ? '#9ca3af' : '#2563eb' }}
+                >
                   <ReturnQueueIcon sx={{ fontSize: 17 }} /> Return to Waiting Queue
                 </MenuItem>
-                <MenuItem onClick={() => { setMenuAnchor(null); setRecallDialog(true); }} sx={{ gap: 1.5, fontSize: 13 }}>
-                  <RecallIcon sx={{ fontSize: 17, color: '#ea580c' }} /> Recall
+                <MenuItem
+                  disabled={entry.call_count >= 3}
+                  onClick={() => { setMenuAnchor(null); setRecallDialog(true); }}
+                  sx={{ gap: 1.5, fontSize: 13, color: entry.call_count >= 3 ? '#9ca3af' : undefined }}
+                >
+                  <RecallIcon sx={{ fontSize: 17, color: entry.call_count >= 3 ? '#9ca3af' : '#ea580c' }} /> Recall
                 </MenuItem>
               </>
             )}
@@ -894,11 +934,24 @@ export default function QueuePatientDetailModal({
 
           {/* Confirmation Dialogs */}
           {noRespDialog && (
-            <ConfirmationDialog variant="confirm" title="No Response"
-              message={<><strong>#{entry.queue_number} · {entry.patient?.name}</strong> did not respond. Move to Second Chance Queue?</>}
-              confirmLabel="Move to Second Chance" cancelLabel="Go Back"
+            <ConfirmationDialog
+              variant={entry.call_count >= 2 ? 'danger' : 'confirm'}
+              title={entry.call_count >= 2 ? 'No Response (3/3)' : `No Response (${entry.call_count + 1}/3)`}
+              message={
+                entry.call_count >= 2 ? (
+                  <>
+                    <strong>#{entry.queue_number} · {entry.patient?.name}</strong> did not respond 3 times.<br /><br />
+                    This will mark them as <strong>Requires Registration Check-in</strong> and remove them from active queues. The patient must return to Registration to check in again.
+                  </>
+                ) : (
+                  <><strong>#{entry.queue_number} · {entry.patient?.name}</strong> did not respond. Move to Second Chance Queue?</>
+                )
+              }
+              confirmLabel={entry.call_count >= 2 ? 'Mark Requires Check-in' : 'Move to Second Chance'}
+              cancelLabel="Go Back"
               onConfirm={() => { setNoRespDialog(false); handleNoResponse(); }}
-              onCancel={() => setNoRespDialog(false)} />
+              onCancel={() => setNoRespDialog(false)}
+            />
           )}
           {returnQueueDialog && (
             <ConfirmationDialog variant="confirm"

@@ -14,7 +14,7 @@ class QueueController extends Controller
     // ── Status groups ────────────────────────────────────────────────────────
     const MAIN_STATUSES   = ['waiting', 'called', 'in_consultation', 'serving'];
     const SECOND_STATUSES = ['second_chance', 'final_recall'];
-    const DONE_STATUSES   = ['completed', 'cancelled', 'absent', 'no_response'];
+    const DONE_STATUSES   = ['completed', 'cancelled', 'absent', 'no_response', 'requires_checkin'];
 
     // Priority order for category-based sorting (lower = higher priority)
     const CATEGORY_ORDER = [
@@ -65,6 +65,7 @@ class QueueController extends Controller
         $query = Queue::where('clinic_id', $clinicId)
             ->whereNull('deleted_at')
             ->where('status', 'waiting')
+            ->where('call_count', '<', 3)
             ->where(function ($q) use ($date) {
                 $q->where('queue_date', $date)
                   ->orWhere(function ($s) use ($date) {
@@ -311,12 +312,17 @@ class QueueController extends Controller
                 return response()->json(['message' => 'Patient was already called by another staff member'], 409);
             }
 
+            if (($queue->call_count ?? 0) >= 3 || $queue->status === 'requires_checkin') {
+                return response()->json([
+                    'message' => 'Patient did not respond 3 times. Please return to Registration for check-in.',
+                ], 422);
+            }
+
             $this->logHistory($queue, 'called', 'called', $request->user()->id, 'Auto call-next');
 
             $queue->update([
                 'status'             => 'called',
                 'called_at'          => now(),
-                'call_count'         => ($queue->call_count ?? 0) + 1,
                 'handled_by'         => $request->user()->id,
                 'served_by'          => $request->user()->id,
                 'serving_started_at' => now(),
@@ -348,6 +354,13 @@ class QueueController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($id);
 
+            if (($queue->call_count ?? 0) >= 3 || $queue->status === 'requires_checkin') {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Patient did not respond 3 times. Please return to Registration for check-in.',
+                ], 422);
+            }
+
             if ($queue->status !== 'waiting') {
                 DB::rollBack();
                 return response()->json([
@@ -360,7 +373,6 @@ class QueueController extends Controller
             $queue->update([
                 'status'             => 'called',
                 'called_at'          => now(),
-                'call_count'         => ($queue->call_count ?? 0) + 1,
                 'handled_by'         => $userId,
                 'served_by'          => $userId,
                 'serving_started_at' => now(),
@@ -459,36 +471,53 @@ class QueueController extends Controller
                 ], 400);
             }
 
-            // Use recall_stage to determine which miss this is
-            $recallStage = $queue->recall_stage;
+            // Use call_count to determine which No Response miss this is (max 3 occurrences)
+            $currentCount = (int) ($queue->call_count ?? 0);
+            $newCount = $currentCount + 1;
 
-            if ($recallStage === 'second_chance') {
-                // Second miss → final_recall
-                $this->logHistory($queue, 'no_response', 'final_recall', $request->user()->id, 'Missed second call — Final Recall');
+            if ($newCount >= 3) {
+                // Third miss → requires_checkin
+                $this->logHistory($queue, 'no_response', 'requires_checkin', $request->user()->id, 'Patient did not respond 3 times. Please return to Registration for check-in.');
                 $queue->update([
-                    'status'          => 'final_recall',
+                    'status'          => 'requires_checkin',
+                    'recall_stage'    => 'requires_checkin',
+                    'call_count'      => 3,
                     'no_response_at'  => now(),
-                    'recall_stage'    => 'final_recall',
-                    'final_recall_at' => now(),
                 ]);
-                $msg = "#{$queue->queue_number} missed second call — moved to Final Recall";
-            } else {
-                // First miss → second_chance
-                $this->logHistory($queue, 'no_response', 'second_chance', $request->user()->id, 'Missed first call — Second Chance');
+                $msg = 'Patient did not respond 3 times. Please return to Registration for check-in.';
+                $requiresCheckin = true;
+            } elseif ($newCount === 2) {
+                // Second miss → second_chance
+                $this->logHistory($queue, 'no_response', 'second_chance', $request->user()->id, 'Missed second call — Second Chance (2/3)');
                 $queue->update([
                     'status'           => 'second_chance',
                     'no_response_at'   => now(),
                     'recall_stage'     => 'second_chance',
                     'second_chance_at' => now(),
+                    'call_count'       => 2,
                 ]);
                 $msg = "#{$queue->queue_number} moved to Second Chance Queue";
+                $requiresCheckin = false;
+            } else {
+                // First miss → second_chance
+                $this->logHistory($queue, 'no_response', 'second_chance', $request->user()->id, 'Missed first call — Second Chance (1/3)');
+                $queue->update([
+                    'status'           => 'second_chance',
+                    'no_response_at'   => now(),
+                    'recall_stage'     => 'second_chance',
+                    'second_chance_at' => now(),
+                    'call_count'       => 1,
+                ]);
+                $msg = "#{$queue->queue_number} moved to Second Chance Queue";
+                $requiresCheckin = false;
             }
 
             $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json([
-                'message' => $msg,
-                'queue'   => $queue->fresh()->load(['patient', 'biteIncident']),
+                'message'          => $msg,
+                'queue'            => $queue->fresh()->load(['patient', 'biteIncident']),
+                'requires_checkin' => $requiresCheckin ?? false,
             ]);
         });
     }
@@ -504,6 +533,12 @@ class QueueController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($id);
 
+            if (($queue->call_count ?? 0) >= 3 || $queue->status === 'requires_checkin') {
+                return response()->json([
+                    'message' => 'Patient did not respond 3 times. Please return to Registration for check-in.',
+                ], 422);
+            }
+
             if (!in_array($queue->status, ['second_chance', 'final_recall'])) {
                 return response()->json([
                     'message' => 'Patient must be in second chance or final recall to recall. Current: ' . $queue->status,
@@ -516,7 +551,6 @@ class QueueController extends Controller
             $queue->update([
                 'status'     => 'called',
                 'called_at'  => now(),
-                'call_count' => ($queue->call_count ?? 0) + 1,
                 'handled_by' => $request->user()->id,
             ]);
 
@@ -539,6 +573,12 @@ class QueueController extends Controller
                 ->whereNull('deleted_at')
                 ->lockForUpdate()
                 ->findOrFail($id);
+
+            if (($queue->call_count ?? 0) >= 3 || $queue->status === 'requires_checkin') {
+                return response()->json([
+                    'message' => 'Patient did not respond 3 times. Please return to Registration for check-in.',
+                ], 422);
+            }
 
             if (!in_array($queue->status, ['second_chance', 'final_recall', 'no_response'])) {
                 return response()->json([
@@ -1088,23 +1128,37 @@ class QueueController extends Controller
                 ], 400);
             }
 
-            $this->logHistory($queue, 'skipped', 'waiting', $userId,
-                'Patient skipped — returned to waiting queue to allow next patient to be called');
+            $isThirdMiss = ($queue->call_count ?? 0) >= 3;
 
-            // Preserve the queue number and clinical record. Only reset the
-            // call state so the patient re-enters the waiting pool naturally.
-            $skipNote = '[Skipped] Returned to queue at ' . now()->format('H:i');
-            $existingNotes = $queue->check_in_notes;
-            $updatedNotes  = $existingNotes
-                ? $existingNotes . ' | ' . $skipNote
-                : $skipNote;
+            if ($isThirdMiss) {
+                $this->logHistory($queue, 'skipped', 'requires_checkin', $userId,
+                    'Patient did not respond 3 times. Please return to Registration for check-in.');
 
-            $queue->update([
-                'status'     => 'waiting',
-                'called_at'  => null,
-                // keep call_count: the patient was already announced once
-                'check_in_notes' => $updatedNotes,
-            ]);
+                $queue->update([
+                    'status'         => 'requires_checkin',
+                    'recall_stage'   => 'requires_checkin',
+                    'no_response_at' => now(),
+                    'called_at'      => null,
+                ]);
+            } else {
+                $this->logHistory($queue, 'skipped', 'waiting', $userId,
+                    'Patient skipped — returned to waiting queue to allow next patient to be called');
+
+                // Preserve the queue number and clinical record. Only reset the
+                // call state so the patient re-enters the waiting pool naturally.
+                $skipNote = '[Skipped] Returned to queue at ' . now()->format('H:i');
+                $existingNotes = $queue->check_in_notes;
+                $updatedNotes  = $existingNotes
+                    ? $existingNotes . ' | ' . $skipNote
+                    : $skipNote;
+
+                $queue->update([
+                    'status'         => 'waiting',
+                    'called_at'      => null,
+                    // keep call_count: unchanged
+                    'check_in_notes' => $updatedNotes,
+                ]);
+            }
 
             $this->flushCache($clinicId, $queue->queue_date->toDateString());
 
@@ -1123,10 +1177,14 @@ class QueueController extends Controller
 
             if (!$next) {
                 // No other patient waiting — skip succeeded, queue is now empty.
+                $emptyMsg = $isThirdMiss
+                    ? 'Patient did not respond 3 times. Please return to Registration for check-in.'
+                    : "#{$queue->queue_number} returned to queue. No other patients are waiting.";
                 return response()->json([
-                    'message'       => "#{$queue->queue_number} returned to queue. No other patients are waiting.",
-                    'skipped_queue' => $queue->fresh()->load(['patient', 'biteIncident']),
-                    'next_called'   => null,
+                    'message'          => $emptyMsg,
+                    'skipped_queue'    => $queue->fresh()->load(['patient', 'biteIncident']),
+                    'next_called'      => null,
+                    'requires_checkin' => $isThirdMiss,
                 ]);
             }
 
@@ -1140,10 +1198,14 @@ class QueueController extends Controller
 
             if (!$nextQueue) {
                 // Race condition — another workstation already called this patient
+                $raceMsg = $isThirdMiss
+                    ? 'Patient did not respond 3 times. Please return to Registration for check-in.'
+                    : "#{$queue->queue_number} returned to queue. Next patient was already called.";
                 return response()->json([
-                    'message'       => "#{$queue->queue_number} returned to queue. Next patient was already called.",
-                    'skipped_queue' => $queue->fresh()->load(['patient', 'biteIncident']),
-                    'next_called'   => null,
+                    'message'          => $raceMsg,
+                    'skipped_queue'    => $queue->fresh()->load(['patient', 'biteIncident']),
+                    'next_called'      => null,
+                    'requires_checkin' => $isThirdMiss,
                 ], 200);
             }
 
@@ -1152,7 +1214,6 @@ class QueueController extends Controller
             $nextQueue->update([
                 'status'             => 'called',
                 'called_at'          => now(),
-                'call_count'         => ($nextQueue->call_count ?? 0) + 1,
                 'handled_by'         => $userId,
                 'served_by'          => $userId,
                 'serving_started_at' => now(),
@@ -1161,11 +1222,16 @@ class QueueController extends Controller
 
             $this->flushCache($clinicId, $date);
 
+            $calledMsg = $isThirdMiss
+                ? "Patient did not respond 3 times. Please return to Registration for check-in. Now calling #{$nextQueue->queue_number}."
+                : "#{$queue->queue_number} skipped. Now calling #{$nextQueue->queue_number}.";
+
             return response()->json([
-                'message'       => "#{$queue->queue_number} skipped. Now calling #{$nextQueue->queue_number}.",
-                'skipped_queue' => $queue->fresh()->load(['patient', 'biteIncident']),
-                'next_called'   => $nextQueue->fresh()->load(['patient', 'biteIncident', 'servedBy', 'station']),
-                'queue_number'  => $nextQueue->queue_number,
+                'message'          => $calledMsg,
+                'skipped_queue'    => $queue->fresh()->load(['patient', 'biteIncident']),
+                'next_called'      => $nextQueue->fresh()->load(['patient', 'biteIncident', 'servedBy', 'station']),
+                'queue_number'     => $nextQueue->queue_number,
+                'requires_checkin' => $isThirdMiss,
             ]);
         });
     }
@@ -1178,6 +1244,7 @@ class QueueController extends Controller
         $query = Queue::where('clinic_id', $clinicId)
             ->whereNull('deleted_at')
             ->where('status', 'waiting')
+            ->where('call_count', '<', 3)
             ->where('queue_id', '!=', $excludeQueueId)
             ->where(function ($q) use ($date) {
                 $q->where('queue_date', $date)

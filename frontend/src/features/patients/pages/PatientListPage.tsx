@@ -1,5 +1,5 @@
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { Typography } from '@mui/material';
@@ -32,6 +32,26 @@ const formatDate = (d: string) =>
 
 const fullName = (p: Patient) =>
   [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
+
+// Clinic timezone date helpers (Asia/Manila)
+const getManilaDateString = (): string => {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+};
+
+const getMsUntilNextManilaMidnight = (): number => {
+  const now = new Date();
+  const manilaNowStr = now.toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+  const manilaDate = new Date(manilaNowStr);
+  const nextMidnight = new Date(manilaDate);
+  nextMidnight.setHours(24, 0, 0, 0);
+  const diff = nextMidnight.getTime() - manilaDate.getTime();
+  return Math.max(diff, 1000);
+};
 
 // ─── Main Component ───────────────────────────────────────────
 export default function PatientList() {
@@ -353,6 +373,57 @@ export default function PatientList() {
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
   useEffect(() => { setPage(1); }, [perPage, membershipFilter, tab]);
 
+  // Track clinic date for automatic midnight refresh when the page remains open overnight
+  const clinicDateRef = useRef(getManilaDateString());
+
+  useEffect(() => {
+    let midnightTimeoutId: ReturnType<typeof setTimeout>;
+
+    const scheduleMidnightRefresh = () => {
+      const msUntilMidnight = getMsUntilNextManilaMidnight();
+      // Add a buffer (500ms) to ensure midnight in Asia/Manila has elapsed
+      midnightTimeoutId = setTimeout(() => {
+        const newDate = getManilaDateString();
+        if (newDate !== clinicDateRef.current) {
+          clinicDateRef.current = newDate;
+          fetchPatients();
+        }
+        scheduleMidnightRefresh();
+      }, msUntilMidnight + 500);
+    };
+
+    scheduleMidnightRefresh();
+
+    // Periodic check every 30s for date change (e.g. system wake from sleep, tab restore)
+    const intervalId = setInterval(() => {
+      const newDate = getManilaDateString();
+      if (newDate !== clinicDateRef.current) {
+        clinicDateRef.current = newDate;
+        fetchPatients();
+      }
+    }, 30_000);
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        const newDate = getManilaDateString();
+        if (newDate !== clinicDateRef.current) {
+          clinicDateRef.current = newDate;
+          fetchPatients();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      clearTimeout(midnightTimeoutId);
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [fetchPatients]);
+
   // Visible walk-in patients on current page
   const visibleWalkins = useMemo(() => {
     return patients.filter(p => !isOnlinePatient(p));
@@ -447,6 +518,17 @@ export default function PatientList() {
     }
 
     if (inactiveQueue && !activeQueue) {
+      if (inactiveQueue.status === 'completed') {
+        const station = inactiveQueue.visit_type === 'new_case' || inactiveQueue.visit_type === 'consultation'
+          ? 'Triage Completed'
+          : (inactiveQueue.visit_type === 'booster' ? 'Doctor Assessment Done' : 'Treatment Completed');
+        return {
+          label: `Queue #${inactiveQueue.queue_number || ''} (${station})`,
+          icon: CheckmarkCircle02Icon,
+          bg: '#ecfdf5',
+          color: '#059669',
+        };
+      }
       if (inactiveQueue.status === 'requires_checkin') {
         return { label: `Queue #${inactiveQueue.queue_number || ''} (Requires Check-In)`, icon: AlertCircleIcon, bg: '#fee2e2', color: '#b91c1c', isPastAppt: true };
       }
@@ -598,10 +680,12 @@ export default function PatientList() {
 
   // Build the patient table HTML for the print window
   const buildPrintBody = () => {
+    const isTodayQueue = tab === 'today_queue';
     const rows = patients.map((p, i) => {
       const dob    = new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const reg    = new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      const status = p.status ?? 'active';
+      const statusInfo = getLiveStatus(p);
+      const displayStatus = isTodayQueue ? statusInfo.label : (p.status ?? 'active');
       return `<tr>
         <td style="text-align:center">${i + 1}</td>
         <td style="font-family:monospace">${p.patient_number}</td>
@@ -610,12 +694,17 @@ export default function PatientList() {
         <td style="text-align:center;text-transform:capitalize">${p.gender}</td>
         <td>${p.address || '—'}</td>
         <td style="text-align:center">${reg}</td>
-        <td style="text-align:center;text-transform:capitalize">${status}</td>
+        <td style="text-align:center">${displayStatus}</td>
       </tr>`;
     }).join('');
+    const sectionTitle = isTodayQueue ? `Today's Queue (${patients.length} shown)` : `I. Registered Patients (${patients.length} shown)`;
+    const countNote = isTodayQueue
+      ? `Total patients in today's queue: ${total}`
+      : `Total registered patients in the system: ${total}`;
+    const emptyMsg = isTodayQueue ? "No patients in today’s queue." : "No patients found.";
     return `
-      <h3 class="sec">I. Registered Patients (${patients.length} shown)</h3>
-      <p class="note">Total registered patients in the system: ${total}</p>
+      <h3 class="sec">${sectionTitle}</h3>
+      <p class="note">${countNote}</p>
       <table>
         <thead><tr>
           <th style="text-align:center;width:3%">#</th>
@@ -624,18 +713,19 @@ export default function PatientList() {
           <th style="text-align:center">Gender</th>
           <th>Address</th>
           <th style="text-align:center">Registered On</th>
-          <th style="text-align:center">Status</th>
+          <th style="text-align:center">${isTodayQueue ? 'Status / Schedule' : 'Status'}</th>
         </tr></thead>
-        <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#888">No patients found.</td></tr>'}</tbody>
+        <tbody>${rows || `<tr><td colspan="8" style="text-align:center;color:#888">${emptyMsg}</td></tr>`}</tbody>
       </table>`;
   };
 
   const handleConfirmPrint = () => {
+    const isTodayQueue = tab === 'today_queue';
     printDocument({
       clinicName,
       printedBy,
-      title: 'Patient List',
-      refPrefix: 'PT',
+      title: isTodayQueue ? "Today's Queue" : 'Patient List',
+      refPrefix: isTodayQueue ? 'TQ' : 'PT',
       leftLogoUrl,
       rightLogoUrl,
       province,
@@ -887,7 +977,13 @@ export default function PatientList() {
                   <circle cx="9" cy="7" r="4"/>
                   <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
-                <p>{search ? 'No patients match your search.' : 'No patients registered in this category.'}</p>
+                <p>
+                  {search
+                    ? 'No patients match your search.'
+                    : tab === 'today_queue'
+                    ? 'No patients in today’s queue.'
+                    : 'No patients registered in this category.'}
+                </p>
               </div>
             ) : (
               <table className="pm-table">
@@ -1193,7 +1289,7 @@ export default function PatientList() {
 
       {showPrintModal && (
         <PrintPreviewModal
-          title="Patient List"
+          title={tab === 'today_queue' ? "Today's Queue" : 'Patient List'}
           clinicName={clinicName}
           printedBy={printedBy}
           leftLogoUrl={leftLogoUrl}
@@ -1206,35 +1302,49 @@ export default function PatientList() {
         >
           {/* Preview table */}
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-h)', borderLeft: '3px solid #10b981', paddingLeft: 10, marginBottom: 10 }}>
-            Registered Patients ({patients.length} shown)
+            {tab === 'today_queue' ? `Today's Queue (${patients.length} shown)` : `Registered Patients (${patients.length} shown)`}
           </div>
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>{['#', 'Patient No.', 'Full Name', 'DOB', 'Gender', 'Registered On', 'Status'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+                <tr>{['#', 'Patient No.', 'Full Name', 'DOB', 'Gender', 'Registered On', tab === 'today_queue' ? 'Status / Schedule' : 'Status'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {patients.length === 0
-                  ? <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>No patients.</td></tr>
-                  : patients.map((p, i) => (
-                    <tr key={`print-patient-${p.patient_id || p.id}`} style={i % 2 !== 0 ? { background: '#f9fafb' } : {}}>
-                      <td style={td}>{i + 1}</td>
-                      <td style={{ ...td, fontFamily: 'monospace', fontSize: 10 }}>{p.patient_number}</td>
-                      <td style={{ ...td, fontWeight: 600 }}>{fullName(p)}</td>
-                      <td style={td}>{formatDate(p.date_of_birth)}</td>
-                      <td style={{ ...td, textTransform: 'capitalize' }}>{p.gender}</td>
-                      <td style={td}>{formatDate(p.created_at)}</td>
-                      <td style={td}>
-                        <span style={{
-                          padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
-                          background: p.status === 'active' ? '#d1fae5' : p.status === 'pending' ? '#fef3c7' : '#f3f4f6',
-                          color:      p.status === 'active' ? '#065f46' : p.status === 'pending' ? '#92400e' : '#374151',
-                        }}>
-                          {(p.status ?? 'active').charAt(0).toUpperCase() + (p.status ?? 'active').slice(1)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                  ? <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>{tab === 'today_queue' ? "No patients in today’s queue." : "No patients."}</td></tr>
+                  : patients.map((p, i) => {
+                    const statusInfo = getLiveStatus(p);
+                    const isTodayQueue = tab === 'today_queue';
+                    return (
+                      <tr key={`print-patient-${p.patient_id || p.id}`} style={i % 2 !== 0 ? { background: '#f9fafb' } : {}}>
+                        <td style={td}>{i + 1}</td>
+                        <td style={{ ...td, fontFamily: 'monospace', fontSize: 10 }}>{p.patient_number}</td>
+                        <td style={{ ...td, fontWeight: 600 }}>{fullName(p)}</td>
+                        <td style={td}>{formatDate(p.date_of_birth)}</td>
+                        <td style={{ ...td, textTransform: 'capitalize' }}>{p.gender}</td>
+                        <td style={td}>{formatDate(p.created_at)}</td>
+                        <td style={td}>
+                          {isTodayQueue ? (
+                            <span style={{
+                              padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                              background: statusInfo.bg,
+                              color: statusInfo.color,
+                            }}>
+                              {statusInfo.label}
+                            </span>
+                          ) : (
+                            <span style={{
+                              padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                              background: p.status === 'active' ? '#d1fae5' : p.status === 'pending' ? '#fef3c7' : '#f3f4f6',
+                              color:      p.status === 'active' ? '#065f46' : p.status === 'pending' ? '#92400e' : '#374151',
+                            }}>
+                              {(p.status ?? 'active').charAt(0).toUpperCase() + (p.status ?? 'active').slice(1)}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 }
               </tbody>
             </table>

@@ -155,6 +155,7 @@ export default function SetupWizard() {
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userData', JSON.stringify(data.user));
         localStorage.setItem('clinicData', JSON.stringify(data.clinic));
+        localStorage.setItem('lastActivityAt', String(Date.now()));
 
         // Proceed to next step (now authenticated!)
         setErrors({});

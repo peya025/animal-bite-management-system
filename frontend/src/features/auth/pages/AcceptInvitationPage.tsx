@@ -113,6 +113,7 @@ export default function AcceptInvitationPage() {
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user.clinic));
+      localStorage.setItem('lastActivityAt', String(Date.now()));
 
       draft.clearDraft();
 

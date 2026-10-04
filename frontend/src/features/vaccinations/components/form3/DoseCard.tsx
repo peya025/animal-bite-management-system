@@ -1,4 +1,13 @@
 import React from 'react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CheckmarkCircle02Icon,
+  Hospital02Icon,
+  Share01Icon,
+  PackageIcon,
+  SignatureIcon,
+  AlertCircleIcon,
+} from '@hugeicons/core-free-icons';
 import { SegmentedControl } from './SegmentedControl';
 import SignatureImage from '../../../../shared/components/SignatureImage';
 
@@ -93,10 +102,11 @@ export function DoseCard({
                 borderRadius: BORDER_RADIUS,
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 4,
+                gap: 5,
               }}
             >
-              ✓ Administered
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} color="#15803d" />
+              <span>Administered</span>
             </span>
           ) : isExternal ? (
             <span
@@ -107,9 +117,13 @@ export function DoseCard({
                 background: '#e0f2fe',
                 padding: '3px 10px',
                 borderRadius: BORDER_RADIUS,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
               }}
             >
-              🏥 External
+              <HugeiconsIcon icon={Hospital02Icon} size={14} color="#0369a1" />
+              <span>External</span>
             </span>
           ) : (
             <span
@@ -244,8 +258,9 @@ export function DoseCard({
       {/* FIFO Batch Preview & Multi-Dose Vial Progress block */}
       <div style={{ marginBottom: 14 }}>
         {isExternal ? (
-          <div style={{ fontSize: 12, color: '#0284c7', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: BORDER_RADIUS, padding: '8px 12px' }}>
-            🏥 Transferred-in dose ({dose.external_facility_name || 'External facility'}) · 0 local stock deducted
+          <div style={{ fontSize: 12, color: '#0284c7', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: BORDER_RADIUS, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <HugeiconsIcon icon={Hospital02Icon} size={14} color="#0284c7" />
+            <span>Transferred-in dose ({dose.external_facility_name || 'External facility'}) · 0 local stock deducted</span>
           </div>
         ) : isCompleted ? (
           <div
@@ -336,7 +351,8 @@ export function DoseCard({
                         gap: 4,
                       }}
                     >
-                      🤝 Auto-Shared Vial · 0 stock deducted
+                      <HugeiconsIcon icon={Share01Icon} size={12} color="#0e7490" />
+                      <span>Auto-Shared Vial · 0 stock deducted</span>
                     </span>
                   ) : (
                     <span
@@ -352,7 +368,8 @@ export function DoseCard({
                         gap: 4,
                       }}
                     >
-                      📦 Opens New Vial · 1 vial deducted
+                      <HugeiconsIcon icon={PackageIcon} size={12} color="#1e40af" />
+                      <span>Opens New Vial · 1 vial deducted</span>
                     </span>
                   )}
 
@@ -364,8 +381,9 @@ export function DoseCard({
                 </div>
 
                 {dose.available_stock !== undefined && (
-                  <span style={{ fontSize: 12, fontWeight: 600, color: dose.available_stock > 5 ? '#047857' : '#b45309' }}>
-                    📦 {dose.available_stock} vials in stock
+                  <span style={{ fontSize: 12, fontWeight: 600, color: dose.available_stock > 5 ? '#047857' : '#b45309', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <HugeiconsIcon icon={PackageIcon} size={13} color={dose.available_stock > 5 ? '#047857' : '#b45309'} />
+                    <span>{dose.available_stock} vials in stock</span>
                   </span>
                 )}
               </div>
@@ -416,8 +434,9 @@ export function DoseCard({
               </div>
             </div>
           ) : fifoError ? (
-            <div style={{ fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: BORDER_RADIUS, padding: '8px 12px', fontWeight: 600 }}>
-              ⚠ {fifoError}
+            <div style={{ fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: BORDER_RADIUS, padding: '8px 12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <HugeiconsIcon icon={AlertCircleIcon} size={14} color="#dc2626" />
+              <span>{fifoError}</span>
             </div>
           ) : (
             <span style={{ fontSize: 12, fontStyle: 'italic', color: '#64748b' }}>
@@ -510,19 +529,25 @@ export function DoseCard({
                     background: '#dcfce7',
                     padding: '2px 8px',
                     borderRadius: 4,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
                   }}
                 >
-                  ✓ Digitally Signed
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} color="#15803d" />
+                  <span>Digitally Signed</span>
                 </span>
               </div>
             ) : (
-              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
-                ✍️ {dose.signature && dose.signature !== 'On File' ? dose.signature : 'Signed on file'}
+              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <HugeiconsIcon icon={SignatureIcon} size={13} color="#64748b" />
+                <span>{dose.signature && dose.signature !== 'On File' ? dose.signature : 'Signed on file'}</span>
               </span>
             )
           ) : isExternal ? (
-            <span style={{ fontSize: 12, color: '#0369a1', fontWeight: 500 }}>
-              🏥 External clinic record
+            <span style={{ fontSize: 12, color: '#0369a1', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <HugeiconsIcon icon={Hospital02Icon} size={13} color="#0369a1" />
+              <span>External clinic record</span>
             </span>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -580,19 +605,26 @@ export function DoseCard({
                       </label>
                     )}
                   </div>
-                  <span style={{ fontSize: 11, color: applySignature ? '#15803d' : '#64748b' }}>
-                    {applySignature
-                      ? '✓ Signature will be stamped on official treatment record and card upon save'
-                      : 'Hand-sign printed record if digital signature is not applied'}
+                  <span style={{ fontSize: 11, color: applySignature ? '#15803d' : '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    {applySignature ? (
+                      <>
+                        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} color="#15803d" />
+                        <span>Signature will be stamped on official treatment record and card upon save</span>
+                      </>
+                    ) : (
+                      <span>Hand-sign printed record if digital signature is not applied</span>
+                    )}
                   </span>
                 </>
               ) : signatureLoadError ? (
-                <div style={{ fontSize: 11.5, color: '#dc2626' }}>
-                  <span>⚠️ Could not load signature preview. You can hand-sign the printed record.</span>
+                <div style={{ fontSize: 11.5, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <HugeiconsIcon icon={AlertCircleIcon} size={13} color="#dc2626" />
+                  <span>Could not load signature preview. You can hand-sign the printed record.</span>
                 </div>
               ) : (
-                <div style={{ fontSize: 11.5, color: '#64748b' }}>
-                  <span>✍️ No digital signature in profile. Hand-sign printout, or upload in profile.</span>
+                <div style={{ fontSize: 11.5, color: '#64748b', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <HugeiconsIcon icon={SignatureIcon} size={13} color="#64748b" />
+                  <span>No digital signature in profile. Hand-sign printout, or upload in profile.</span>
                 </div>
               )}
             </div>

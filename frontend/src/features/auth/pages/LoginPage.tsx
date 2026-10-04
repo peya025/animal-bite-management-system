@@ -107,8 +107,8 @@ export default function Login() {
     const userData = localStorage.getItem('userData');
     const lastActivity = Number(localStorage.getItem('lastActivityAt') || 0);
 
-    // If session has expired, purge auth tokens to prevent redirect loops
-    if (token && lastActivity && Date.now() - lastActivity >= 15 * 60 * 1000) {
+    // If session has expired (60 mins inactivity), purge auth tokens to prevent redirect loops
+    if (token && lastActivity && Date.now() - lastActivity >= 60 * 60 * 1000) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
       localStorage.removeItem('clinicData');

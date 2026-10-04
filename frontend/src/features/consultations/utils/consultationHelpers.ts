@@ -1,3 +1,5 @@
+import { focusFirstError } from '../accessibility/consultationAccessibility';
+
 export function asText(val: unknown): string {
   if (!val) return '';
   if (Array.isArray(val)) return val.join('\n');
@@ -141,21 +143,9 @@ export function syncChecklistWithText(
 }
 
 export function scrollToFirstError(firstErrorKey: string): void {
-  setTimeout(() => {
-    const el = document.getElementById(`field-${firstErrorKey}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const scrollParent = el.closest('[class*="Body"]') || el.closest('.fm-body');
-    if (scrollParent) {
-      const rect = el.getBoundingClientRect();
-      const parentRect = scrollParent.getBoundingClientRect();
-      if (rect.top < parentRect.top || rect.bottom > parentRect.bottom) {
-        scrollParent.scrollBy({ top: rect.top - parentRect.top - 40, behavior: 'smooth' });
-      }
-    }
-    const focusable = el.querySelector('input, textarea, select') as HTMLElement | null;
-    if (focusable) {
-      focusable.focus({ preventScroll: true });
-    }
-  }, 50);
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      focusFirstError(document.body, firstErrorKey);
+    }, 40);
+  });
 }

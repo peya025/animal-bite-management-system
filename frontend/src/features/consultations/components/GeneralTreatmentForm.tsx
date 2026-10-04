@@ -3,6 +3,7 @@ import FormModal from '../../../components/forms/FormModal';
 import type { GeneralTreatmentFormProps } from '../types/consultation.types';
 import { useGeneralTreatmentForm } from '../hooks/useGeneralTreatmentForm';
 import { ConsultationDialog } from '../styles/ConsultationDialog.styles';
+import { FormField } from './FormField';
 import {
   ConsultationErrors,
   advanceOnEnter,
@@ -78,9 +79,13 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
   useLayoutEffect(() => {
     if (formRef.current && focusErrorsRef.current && Object.keys(fieldErrors).length) {
       focusErrorsRef.current = false;
-      focusFirstError(formRef.current, summaryRef.current);
+      const fieldOrder = shouldHideConsultationType
+        ? ['nature_of_visit', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine']
+        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine'];
+      const firstKey = fieldOrder.find((key) => fieldErrors[key]);
+      focusFirstError(formRef.current, firstKey, summaryRef.current);
     }
-  }, [fieldErrors]);
+  }, [fieldErrors, shouldHideConsultationType]);
 
   if (!entry) return null;
 
@@ -185,20 +190,36 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         )}
 
         {/* SECTION 6: Clinical Notes (Chief Complaints + Diagnosis checklist) */}
-        <div className="fm-section" id="field-exposure_category">
-          <h3 className="fm-section-title" id="exposure-category-label">Exposure Category <span style={{ color: '#ef4444' }}>*</span></h3>
-          <div role="radiogroup" aria-labelledby="exposure-category-label" aria-required="true" style={{ display: 'flex', gap: 24 }}>
-            {(['I', 'II', 'III'] as const).map(category => (
-              <label key={category} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                <input type="radio" name="exposure_category" value={category}
-                  checked={formData.exposure_category === category}
-                  onChange={handleFieldChange('exposure_category')}
-                  disabled={isFormDisabled} />
-                {category}
-              </label>
-            ))}
-          </div>
-          {fieldErrors.exposure_category && <p role="alert" style={{ color: '#dc2626', fontSize: 12 }}>{fieldErrors.exposure_category}</p>}
+        <div className="fm-section">
+          <FormField
+            id="field-exposure_category"
+            label="Exposure Category"
+            required
+            error={!!fieldErrors.exposure_category}
+            errorText={fieldErrors.exposure_category}
+          >
+            <div
+              role="radiogroup"
+              aria-label="Exposure Category"
+              aria-required="true"
+              className="fm-radio-group"
+              style={{ display: 'flex', gap: 24 }}
+            >
+              {(['I', 'II', 'III'] as const).map(category => (
+                <label key={category} className="fm-radio" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                  <input
+                    type="radio"
+                    name="exposure_category"
+                    value={category}
+                    checked={formData.exposure_category === category}
+                    onChange={handleFieldChange('exposure_category')}
+                    disabled={isFormDisabled}
+                  />
+                  Category {category}
+                </label>
+              ))}
+            </div>
+          </FormField>
         </div>
         <ClinicalNotesSection
           formData={formData}
@@ -217,11 +238,20 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           requiresReExposureDecision={requiresReExposureDecision}
           isFormDisabled={isFormDisabled}
           treatmentPlan={treatmentPlan}
+          error={fieldErrors.treatment_plan}
           onUpdateTreatmentPlan={setTreatmentPlan}
         />
 
         {/* SECTION 8: Prescribed PEP Vaccine (Doctor's Order & Live Inventory Badge) */}
-        <ProphylaxisOrderSection value={formData.prophylaxis_orders} stock={prophylaxisStock} tetanusBrands={tetanusBrands} atsBrands={atsBrands} disabled={isFormDisabled} onChange={handleProphylaxisChange} />
+        <ProphylaxisOrderSection
+          value={formData.prophylaxis_orders}
+          stock={prophylaxisStock}
+          tetanusBrands={tetanusBrands}
+          atsBrands={atsBrands}
+          disabled={isFormDisabled}
+          errors={fieldErrors}
+          onChange={handleProphylaxisChange}
+        />
         <PrescribedVaccineSection
           prescribedVaccineType={formData.prescribed_vaccine_type}
           medicationTreatment={formData.medication_treatment}

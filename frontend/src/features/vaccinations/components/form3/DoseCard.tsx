@@ -20,6 +20,7 @@ interface DoseCardProps {
   prescribedVaccineType: string;
   availableVaccineTypes: string[];
   fifoError?: string;
+  fieldErrors?: Record<string, string>;
   readOnly: boolean;
   currentUser: any;
   applySignature: boolean;
@@ -44,6 +45,7 @@ export function DoseCard({
   prescribedVaccineType,
   availableVaccineTypes,
   fifoError,
+  fieldErrors,
   readOnly: _readOnly,
   currentUser,
   applySignature,
@@ -61,6 +63,11 @@ export function DoseCard({
     { value: 'ID', label: 'ID' },
     { value: 'IM', label: 'IM' },
   ] as const;
+
+  const dateError = fieldErrors?.[`dose_${dose.period}_date`] || (isToday ? fieldErrors?.dose_date : undefined);
+  const vaccineError = fieldErrors?.[`dose_${dose.period}_vaccine_type`] || (isToday ? fieldErrors?.vaccine_type : undefined);
+  const routeError = fieldErrors?.[`dose_${dose.period}_route`] || fieldErrors?.route;
+  const facilityError = fieldErrors?.[`dose_${dose.period}_external_facility_name`] || fieldErrors?.external_facility_name;
 
   return (
     <div
@@ -153,8 +160,8 @@ export function DoseCard({
         }}
       >
         {/* 1. Route */}
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)', marginBottom: 6 }}>
+        <div id={`field-dose_route-${dose.period}`}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: routeError ? '#dc2626' : 'var(--text-h, #374151)', marginBottom: 6 }}>
             Route
           </label>
           <SegmentedControl
@@ -162,13 +169,14 @@ export function DoseCard({
             value={dose.route || 'ID'}
             onChange={(val) => onDoseChange(index, 'route', val)}
             disabled={isLocked}
+            error={routeError}
             ariaLabel={`Route for ${dose.period}`}
           />
         </div>
 
         {/* 2. Date */}
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)', marginBottom: 6 }}>
+        <div id={`field-dose_date-${dose.period}`}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: dateError ? '#dc2626' : 'var(--text-h, #374151)', marginBottom: 6 }}>
             Date
           </label>
           <input
@@ -179,20 +187,45 @@ export function DoseCard({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid var(--input-border, #d1d5db)',
+              border: dateError ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
               borderRadius: BORDER_RADIUS,
               fontSize: 13,
               backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
               color: 'var(--input-text, #111827)',
               boxSizing: 'border-box',
               outline: 'none',
+              boxShadow: dateError ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+            }}
+            onFocus={(e) => {
+              if (dateError) {
+                e.currentTarget.style.borderColor = '#ef4444';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.25)';
+              } else {
+                e.currentTarget.style.borderColor = '#10b981';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.2)';
+              }
+            }}
+            onBlur={(e) => {
+              if (dateError) {
+                e.currentTarget.style.borderColor = '#ef4444';
+                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.15)';
+              } else {
+                e.currentTarget.style.borderColor = 'var(--input-border, #d1d5db)';
+                e.currentTarget.style.boxShadow = 'none';
+              }
             }}
           />
+          {dateError && (
+            <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 4, display: 'block' }}>
+              {dateError}
+            </span>
+          )}
         </div>
 
         {/* 3. Vaccine */}
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)', marginBottom: 6 }}>
+        <div id={`field-vaccine_type-${dose.period}`}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: vaccineError ? '#dc2626' : 'var(--text-h, #374151)', marginBottom: 6 }}>
             Vaccine {prescribedVaccineType && <span style={{ fontWeight: 400, color: '#047857' }}>(doctor's order: {prescribedVaccineType})</span>}
           </label>
           <select
@@ -202,14 +235,38 @@ export function DoseCard({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: prescribedVaccineType && !isCompleted ? '1.5px solid #86efac' : '1px solid var(--input-border, #d1d5db)',
+              border: vaccineError
+                ? '1.5px solid #ef4444'
+                : prescribedVaccineType && !isCompleted
+                ? '1.5px solid #86efac'
+                : '1px solid var(--input-border, #d1d5db)',
               borderRadius: BORDER_RADIUS,
               fontSize: 13,
               backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
               color: 'var(--input-text, #111827)',
               boxSizing: 'border-box',
               outline: 'none',
+              boxShadow: vaccineError ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
               cursor: (isCompleted || Boolean(prescribedVaccineType && !isCompleted)) ? 'not-allowed' : 'pointer',
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+            }}
+            onFocus={(e) => {
+              if (vaccineError) {
+                e.currentTarget.style.borderColor = '#ef4444';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.25)';
+              } else {
+                e.currentTarget.style.borderColor = '#10b981';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.2)';
+              }
+            }}
+            onBlur={(e) => {
+              if (vaccineError) {
+                e.currentTarget.style.borderColor = '#ef4444';
+                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.15)';
+              } else {
+                e.currentTarget.style.borderColor = prescribedVaccineType && !isCompleted ? '#86efac' : 'var(--input-border, #d1d5db)';
+                e.currentTarget.style.boxShadow = 'none';
+              }
             }}
           >
             <option value="">— Select Vaccine —</option>
@@ -219,6 +276,11 @@ export function DoseCard({
               </option>
             ))}
           </select>
+          {vaccineError && (
+            <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 4, display: 'block' }}>
+              {vaccineError}
+            </span>
+          )}
 
           {/* Transferred-in toggle */}
           <div style={{ marginTop: 6 }}>
@@ -232,24 +294,38 @@ export function DoseCard({
               <span>Transferred-in (External Clinic)</span>
             </label>
             {isExternal && (
-              <input
-                type="text"
-                value={dose.external_facility_name || ''}
-                placeholder="External hospital / clinic name"
-                disabled={isLocked}
-                onChange={(e) => onDoseChange(index, 'external_facility_name', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: 6,
-                  padding: '6px 10px',
-                  fontSize: 12,
-                  borderRadius: BORDER_RADIUS,
-                  border: '1px solid #7dd3fc',
-                  backgroundColor: '#f0f9ff',
-                  color: '#0c4a6e',
-                  boxSizing: 'border-box',
-                }}
-              />
+              <div id={`field-dose_external_facility-${dose.period}`} style={{ marginTop: 6 }}>
+                <input
+                  type="text"
+                  value={dose.external_facility_name || ''}
+                  placeholder="External hospital / clinic name"
+                  disabled={isLocked}
+                  onChange={(e) => onDoseChange(index, 'external_facility_name', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    borderRadius: BORDER_RADIUS,
+                    border: facilityError ? '1.5px solid #ef4444' : '1px solid #7dd3fc',
+                    backgroundColor: '#f0f9ff',
+                    color: '#0c4a6e',
+                    boxSizing: 'border-box',
+                    boxShadow: facilityError ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
+                    outline: 'none',
+                  }}
+                  onFocus={(e) => {
+                    if (facilityError) {
+                      e.currentTarget.style.borderColor = '#ef4444';
+                      e.currentTarget.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.25)';
+                    }
+                  }}
+                />
+                {facilityError && (
+                  <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 4, display: 'block' }}>
+                    {facilityError}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -434,7 +510,7 @@ export function DoseCard({
               </div>
             </div>
           ) : fifoError ? (
-            <div style={{ fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: BORDER_RADIUS, padding: '8px 12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div id={`field-fifo-${dose.period}`} style={{ fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1.5px solid #ef4444', borderRadius: BORDER_RADIUS, padding: '8px 12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
               <HugeiconsIcon icon={AlertCircleIcon} size={14} color="#dc2626" />
               <span>{fifoError}</span>
             </div>

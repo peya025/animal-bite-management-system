@@ -49,7 +49,7 @@ export default function FormModal({
         </Header>
 
         {/* Scrollable body */}
-        <Body>{children}</Body>
+        <Body className="fm-body" data-form-modal-body="true">{children}</Body>
 
         {/* Footer */}
         {footer && <Footer>{footer}</Footer>}

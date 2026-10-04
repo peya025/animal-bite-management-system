@@ -29,8 +29,11 @@ export function FormField({ id, label, required, error, errorText, hint, classNa
   collect(children);
 
   const first = controls[0];
-  const fieldKey = first?.props.name || id?.replace(/^field-/, '');
-  const message = errorText || (fieldKey ? errors[fieldKey] : undefined);
+  const rawId = id?.replace(/^field-/, '');
+  const fieldKey = (rawId && errors[rawId] !== undefined)
+    ? rawId
+    : (first?.props.name || rawId);
+  const message = errorText || (fieldKey ? errors[fieldKey] : undefined) || (rawId ? errors[rawId] : undefined);
   const invalid = Boolean(error || message);
   const isGroup = controls.length > 1;
   const labelId = uid + '-label';
@@ -59,7 +62,7 @@ export function FormField({ id, label, required, error, errorText, hint, classNa
       role={isGroup ? (controls.every(control => control.props.type === 'radio') ? 'radiogroup' : 'group') : undefined}
       aria-labelledby={isGroup ? labelId : undefined}
       aria-required={isGroup && required ? true : undefined}
-      style={invalid ? { padding: '8px', border: '2px solid #ef4444', borderRadius: '8px', backgroundColor: '#fef2f2' } : undefined}
+      style={invalid && isGroup ? { padding: '8px', border: '1.5px solid #ef4444', borderRadius: '8px', backgroundColor: '#fef2f2' } : undefined}
     >
       {isGroup ? (
         <span id={labelId} className="fm-label">

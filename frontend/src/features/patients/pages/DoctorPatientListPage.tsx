@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import {
@@ -44,6 +44,23 @@ export default function DoctorPatientListPage() {
   const [showForm2, setShowForm2] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
+
+  const form2Entry = useMemo(() => {
+    if (!selectedPatient) return null;
+    return {
+      patient: {
+        patient_id: selectedPatient.patient_id,
+        name: `${selectedPatient.last_name}, ${selectedPatient.first_name}`,
+        last_name: selectedPatient.last_name,
+        first_name: selectedPatient.first_name,
+        middle_name: selectedPatient.middle_name,
+        age: selectedPatient.age,
+        gender: selectedPatient.gender,
+        address: selectedPatient.address,
+      },
+      queue_id: null,
+    };
+  }, [selectedPatient]);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -422,22 +439,10 @@ export default function DoctorPatientListPage() {
       </Paper>
 
       {/* Form 2 Modal */}
-      {showForm2 && selectedPatient && (
+      {showForm2 && selectedPatient && form2Entry && (
         <GeneralTreatmentForm
           open={showForm2}
-          entry={{
-            patient: {
-              patient_id: selectedPatient.patient_id,
-              name: `${selectedPatient.last_name}, ${selectedPatient.first_name}`,
-              last_name: selectedPatient.last_name,
-              first_name: selectedPatient.first_name,
-              middle_name: selectedPatient.middle_name,
-              age: selectedPatient.age,
-              gender: selectedPatient.gender,
-              address: selectedPatient.address,
-            },
-            queue_id: null,
-          }}
+          entry={form2Entry}
           onClose={() => {
             setShowForm2(false);
             setSelectedPatient(null);

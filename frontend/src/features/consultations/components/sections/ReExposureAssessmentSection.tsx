@@ -6,6 +6,7 @@ interface ReExposureAssessmentSectionProps {
   requiresReExposureDecision: boolean;
   isFormDisabled: boolean;
   treatmentPlan: string;
+  error?: string;
   onUpdateTreatmentPlan: (plan: string) => void;
 }
 
@@ -18,6 +19,7 @@ export default function ReExposureAssessmentSection({
   requiresReExposureDecision,
   isFormDisabled,
   treatmentPlan,
+  error,
   onUpdateTreatmentPlan,
 }: ReExposureAssessmentSectionProps) {
   const incident = entry?.incident || entry?.bite_incident || entry?.biteIncident;
@@ -42,7 +44,13 @@ export default function ReExposureAssessmentSection({
       </div>
 
       <div className="fm-grid fm-grid--1">
-        <FormField label="Treatment Plan" required>
+        <FormField
+          id="field-treatment_plan"
+          label="Treatment Plan"
+          required
+          error={!!error}
+          errorText={error}
+        >
           <select
             className="fm-select"
             name="treatment_plan"
@@ -51,7 +59,14 @@ export default function ReExposureAssessmentSection({
             disabled={isFormDisabled}
           >
             {DOCTOR_RE_EXPOSURE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <option
+                key={option.value}
+                value={option.value}
+                disabled={option.value === ''}
+                hidden={option.value === ''}
+              >
+                {option.label}
+              </option>
             ))}
           </select>
         </FormField>

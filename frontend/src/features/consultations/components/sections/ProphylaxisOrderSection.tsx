@@ -1,5 +1,6 @@
 import { EMPTY_PROPHYLAXIS_ORDERS, getTetanusCategoryFromOrders } from '../../../../shared/types/prophylaxis';
 import type { ProphylaxisOrders, ProphylaxisStock } from '../../../../shared/types/prophylaxis';
+import { FormField } from '../FormField';
 
 interface ProphylaxisOrderSectionProps {
   value: ProphylaxisOrders;
@@ -7,6 +8,7 @@ interface ProphylaxisOrderSectionProps {
   tetanusBrands?: string[];
   atsBrands?: string[];
   disabled: boolean;
+  errors?: Record<string, string>;
   onChange: (orders: ProphylaxisOrders) => void;
 }
 
@@ -16,6 +18,7 @@ export default function ProphylaxisOrderSection({
   tetanusBrands = [],
   atsBrands = [],
   disabled,
+  errors,
   onChange,
 }: ProphylaxisOrderSectionProps) {
   const orders = { ...EMPTY_PROPHYLAXIS_ORDERS, ...value };
@@ -105,11 +108,11 @@ export default function ProphylaxisOrderSection({
   };
 
   const handleAtsChange = (nextAts: string) => {
-    onChange({ ...orders, tetanus_passive: nextAts });
+    onChange({ ...orders, tetanus_category: currentCategory || 'ats', tetanus_passive: nextAts });
   };
 
   const handleTtChange = (nextTt: string) => {
-    onChange({ ...orders, tetanus_vaccine: nextTt });
+    onChange({ ...orders, tetanus_category: currentCategory || 'tt', tetanus_vaccine: nextTt });
   };
 
   const showAtsField = currentCategory === 'ats' || currentCategory === 'ats_tt';
@@ -123,35 +126,47 @@ export default function ProphylaxisOrderSection({
       </p>
       <div className="fm-grid">
         {/* Primary Dropdown: Tetanus Prophylaxis */}
-        <label className="fm-field">
-          <span className="fm-label">Tetanus Prophylaxis</span>
+        <FormField
+          id="field-tetanus_category"
+          label="Tetanus Prophylaxis"
+          required
+          error={!!errors?.tetanus_category}
+          errorText={errors?.tetanus_category}
+        >
           <select
             className="fm-select"
+            name="tetanus_category"
             aria-label="Tetanus prophylaxis assessment"
             value={currentCategory}
             disabled={disabled}
             onChange={(e) => handleCategoryChange(e.target.value)}
           >
-            <option value="">Select tetanus prophylaxis</option>
+            <option value="" disabled hidden>Select tetanus prophylaxis</option>
             <option value="ats">ATS (Anti-Tetanus Serum)</option>
             <option value="tt">Tetanus Vaccine (TT)</option>
             <option value="ats_tt">ATS + TT</option>
             <option value="not_indicated">Not Indicated</option>
           </select>
-        </label>
+        </FormField>
 
         {/* Conditional ATS Inventory Dropdown */}
         {showAtsField && (
-          <label className="fm-field">
-            <span className="fm-label">ATS Product / Stock</span>
+          <FormField
+            id="field-tetanus_passive"
+            label="ATS Product / Stock"
+            required
+            error={!!errors?.tetanus_passive}
+            errorText={errors?.tetanus_passive}
+          >
             <select
               className="fm-select"
+              name="tetanus_passive"
               aria-label="ATS product selection"
               value={orders.tetanus_passive && orders.tetanus_passive !== 'none' ? orders.tetanus_passive : ''}
-              disabled={disabled || isAtsNoStock}
+              disabled={disabled}
               onChange={(e) => handleAtsChange(e.target.value)}
             >
-              <option value="">[ Select available ATS ▼ ]</option>
+              <option value="" disabled hidden>[ Select available ATS ▼ ]</option>
               {availableAtsBrands.map((brand) => (
                 <option key={brand} value={brand}>
                   {brand === 'ATS' ? 'ATS (Anti-Tetanus Serum)' : brand}
@@ -179,21 +194,27 @@ export default function ProphylaxisOrderSection({
                 {totalAtsStock} vial{totalAtsStock === 1 ? '' : 's'} available in clinic stock
               </span>
             )}
-          </label>
+          </FormField>
         )}
 
         {/* Conditional TT Inventory Dropdown */}
         {showTtField && (
-          <label className="fm-field">
-            <span className="fm-label">TT Product / Stock</span>
+          <FormField
+            id="field-tetanus_vaccine"
+            label="TT Product / Stock"
+            required
+            error={!!errors?.tetanus_vaccine}
+            errorText={errors?.tetanus_vaccine}
+          >
             <select
               className="fm-select"
+              name="tetanus_vaccine"
               aria-label="TT vaccine product selection"
               value={orders.tetanus_vaccine && orders.tetanus_vaccine !== 'none' ? orders.tetanus_vaccine : ''}
-              disabled={disabled || isTtNoStock}
+              disabled={disabled}
               onChange={(e) => handleTtChange(e.target.value)}
             >
-              <option value="">[ Select available TT vaccine ▼ ]</option>
+              <option value="" disabled hidden>[ Select available TT vaccine ▼ ]</option>
               {availableTtBrands.map((brand) => (
                 <option key={brand} value={brand}>
                   {brand}
@@ -221,20 +242,20 @@ export default function ProphylaxisOrderSection({
                 {totalTtStock} vial{totalTtStock === 1 ? '' : 's'} available in clinic stock
               </span>
             )}
-          </label>
+          </FormField>
         )}
 
-        {/* Last Tetanus Dose (If Known) Date Picker - Unchanged */}
-        <label className="fm-field">
-          <span className="fm-label">Last tetanus dose (if known)</span>
+        {/* Last Tetanus Dose (If Known) Date Picker */}
+        <FormField label="Last tetanus dose (if known)">
           <input
             className="fm-input"
             type="date"
+            name="tetanus_last_dose"
             value={orders.tetanus_last_dose || ''}
             disabled={disabled}
             onChange={(e) => onChange({ ...orders, tetanus_last_dose: e.target.value })}
           />
-        </label>
+        </FormField>
       </div>
     </div>
   );

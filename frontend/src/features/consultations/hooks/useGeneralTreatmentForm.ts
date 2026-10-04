@@ -22,6 +22,7 @@ import {
   resolveHealthCareProvider,
   syncChecklistWithText,
   scrollToFirstError,
+  isValidFourDigitYearDate,
 } from '../utils/consultationHelpers';
 import {
   fetchVaccineNames,
@@ -498,6 +499,12 @@ export function useGeneralTreatmentForm({
         delete next.tetanus_vaccine;
         changed = true;
       }
+      if (next.tetanus_last_dose) {
+        if (!nextOrders.tetanus_last_dose || isValidFourDigitYearDate(nextOrders.tetanus_last_dose)) {
+          delete next.tetanus_last_dose;
+          changed = true;
+        }
+      }
       if (changed) {
         if (Object.keys(next).length === 0) {
           setError('');
@@ -605,6 +612,27 @@ export function useGeneralTreatmentForm({
       }
     }
 
+    // Validate Tetanus Last Dose (if entered, must have exactly 4-digit year and be a valid date)
+    if (pOrders?.tetanus_last_dose && pOrders.tetanus_last_dose.trim()) {
+      const lastDoseVal = pOrders.tetanus_last_dose.trim();
+      const parts = lastDoseVal.split('-');
+      const yearStr = parts[0] || '';
+      const yearNum = parseInt(yearStr, 10);
+      const todayStr = getManilaCurrentDateTime().date;
+
+      if (
+        yearStr.length !== 4 ||
+        isNaN(yearNum) ||
+        yearNum < 1000 ||
+        yearNum > 9999 ||
+        !isValidFourDigitYearDate(lastDoseVal)
+      ) {
+        newFieldErrors.tetanus_last_dose = 'Please enter a valid 4-digit year.';
+      } else if (lastDoseVal > todayStr) {
+        newFieldErrors.tetanus_last_dose = 'Last tetanus dose cannot be a future date.';
+      }
+    }
+
     setFieldErrors(newFieldErrors);
 
     if (Object.keys(newFieldErrors).length > 0) {
@@ -612,8 +640,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine']
-        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine'];
+        ? ['nature_of_visit', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {

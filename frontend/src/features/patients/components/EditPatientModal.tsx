@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import FormModal from '../../../components/forms/FormModal';
 import { formatPhilHealthNumber, formatPWDNumber } from '../../../shared/utils';
+import { isValidFourDigitYearDate, sanitizeDateInput } from '../../../shared/utils/date';
 import { PatientFormContent } from '../styles/AddPatientModal.styles';
 import type { Patient, EnrolmentFormData } from '../types';
 import { INITIAL_ENROLMENT_DATA } from '../types';
@@ -79,6 +80,8 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     let value = ev.target.value;
     if (key === 'contact_number' || key === 'emergency_contact_phone') {
       value = value.replace(/\D/g, '').slice(0, 11);
+    } else if (key === 'date_of_birth') {
+      value = sanitizeDateInput(value);
     } else if (key === 'philhealth_no') {
       value = formatPhilHealthNumber(value);
     } else if (key === 'other_membership_no' && enrolment.other_membership === 'pwd') {
@@ -102,6 +105,11 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
   const handleSubmit = async () => {
     if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
       setError('Please fill in all required fields (Last Name, First Name, Date of Birth, Sex).');
+      return;
+    }
+
+    if (!isValidFourDigitYearDate(enrolment.date_of_birth)) {
+      setError('Please enter a valid 4-digit year for Date of Birth.');
       return;
     }
 

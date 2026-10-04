@@ -23,6 +23,7 @@ import { RegistrationErrors } from './AddPatientModal/registrationAccessibility'
 import ConfirmationDialog, { SuccessModal } from '../../../components/feedback/ConfirmationDialog';
 import PatientEditModal from './PatientEditModal';
 import api from '../../../shared/services/api';
+import { isValidFourDigitYearDate, sanitizeDateInput } from '../../../shared/utils/date';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import type { Patient } from '../types';
 import { getMembershipByType, getPatientMemberships } from '../utils/memberships';
@@ -533,6 +534,8 @@ export default function PatientDetailsModal({
     // Re-exposure bite date
     if (!newExposure.bite_date || !newExposure.bite_date.trim()) {
       errors.bite_date = 'Date of re-exposure is required.';
+    } else if (!isValidFourDigitYearDate(newExposure.bite_date)) {
+      errors.bite_date = 'Please enter a valid 4-digit year.';
     } else if (newExposure.bite_date > today) {
       errors.bite_date = 'Date of re-exposure cannot be in the future.';
     }
@@ -547,6 +550,8 @@ export default function PatientDetailsModal({
     // Section III: Date of Consultation
     if (!newExposure.reg_date_of_consultation || !newExposure.reg_date_of_consultation.trim()) {
       errors.reg_date_of_consultation = 'Date of consultation is required.';
+    } else if (!isValidFourDigitYearDate(newExposure.reg_date_of_consultation)) {
+      errors.reg_date_of_consultation = 'Please enter a valid 4-digit year.';
     } else if (newExposure.reg_date_of_consultation > today) {
       errors.reg_date_of_consultation = 'Date of consultation cannot be in the future.';
     }
@@ -1156,7 +1161,7 @@ export default function PatientDetailsModal({
                 {/* Exposure Date Field (Full Width) */}
                 <div className="fm-section" style={{ marginBottom: 20 }}>
                   <h3 className="fm-section-title">Re-Exposure Incident Date</h3>
-                  <div className="fm-field" style={{ width: '100%' }}>
+                  <div className={`fm-field ${formErrors.bite_date ? 'fm-field--error' : ''}`} style={{ width: '100%' }}>
                     <label className="fm-label" htmlFor="bite_date">
                       Date of Re-Exposure / Bite <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
                     </label>
@@ -1166,10 +1171,21 @@ export default function PatientDetailsModal({
                       id="bite_date"
                       name="bite_date"
                       required
+                      aria-invalid={!!formErrors.bite_date}
+                      min="1000-01-01"
                       max={new Date().toISOString().split('T')[0]}
                       value={newExposure.bite_date}
+                      onInput={(e) => {
+                        const target = e.currentTarget;
+                        const val = sanitizeDateInput(target.value);
+                        if (val !== target.value) {
+                          target.value = val;
+                          setNewExposure((prev) => ({ ...prev, bite_date: val }));
+                        }
+                      }}
                       onChange={(e) => {
-                        setNewExposure((prev) => ({ ...prev, bite_date: e.target.value }));
+                        const val = sanitizeDateInput(e.target.value);
+                        setNewExposure((prev) => ({ ...prev, bite_date: val }));
                         if (formErrors.bite_date) {
                           setFormErrors((prev) => {
                             const next = { ...prev };

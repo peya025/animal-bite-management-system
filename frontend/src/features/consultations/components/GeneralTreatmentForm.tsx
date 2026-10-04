@@ -80,8 +80,8 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     if (formRef.current && focusErrorsRef.current && Object.keys(fieldErrors).length) {
       focusErrorsRef.current = false;
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine']
-        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine'];
+        ? ['nature_of_visit', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
       const firstKey = fieldOrder.find((key) => fieldErrors[key]);
       focusFirstError(formRef.current, firstKey, summaryRef.current);
     }

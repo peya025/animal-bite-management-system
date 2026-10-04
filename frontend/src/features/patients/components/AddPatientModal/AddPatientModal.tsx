@@ -4,6 +4,7 @@ import { RegistrationAddressSection } from './RegistrationAddressSection';
 import { RegistrationErrors, advanceOnEnter, focusFirstError, registrationServerErrors } from './registrationAccessibility';
 import FormModal from '../../../../components/forms/FormModal';
 import { formatPhilHealthNumber, formatPWDNumber } from '../../../../shared/utils';
+import { isValidFourDigitYearDate, sanitizeDateInput } from '../../../../shared/utils/date';
 import { PatientFormContent } from '../../styles/AddPatientModal.styles';
 import type { AddPatientModalProps, EnrolmentFormData } from '../../types';
 import { getInitialEnrolmentData } from '../../types';
@@ -111,6 +112,8 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     }
     if (key === 'contact_number' || key === 'emergency_contact_phone') {
       value = value.replace(/\D/g, '').slice(0, 11);
+    } else if (key === 'date_of_birth' || key === 'reg_date_of_consultation') {
+      value = sanitizeDateInput(value);
     } else if (key === 'philhealth_no') {
       value = formatPhilHealthNumber(value);
     } else if (key === 'other_membership_no' && enrolment.other_membership === 'pwd') {
@@ -152,8 +155,17 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     }
     if (!enrolment.date_of_birth) {
       newFieldErrors.date_of_birth = 'Date of Birth is required';
+    } else if (!isValidFourDigitYearDate(enrolment.date_of_birth)) {
+      newFieldErrors.date_of_birth = 'Please enter a valid 4-digit year.';
     } else if (enrolment.date_of_birth > new Date().toISOString().split('T')[0]) {
       newFieldErrors.date_of_birth = 'Date of Birth cannot be a future date.';
+    }
+    if (!enrolment.reg_date_of_consultation) {
+      newFieldErrors.reg_date_of_consultation = 'Date of Consultation is required';
+    } else if (!isValidFourDigitYearDate(enrolment.reg_date_of_consultation)) {
+      newFieldErrors.reg_date_of_consultation = 'Please enter a valid 4-digit year.';
+    } else if (enrolment.reg_date_of_consultation > new Date().toISOString().split('T')[0]) {
+      newFieldErrors.reg_date_of_consultation = 'Date of Consultation cannot be a future date.';
     }
     if (canQueuePatient && !enrolment.queue_priority_group) {
       newFieldErrors.queue_priority_group = 'Priority category is required';
@@ -286,6 +298,7 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
             data={enrolment}
             onChange={handleFieldChange}
             onDirectChange={(key, value) => handleDirectChange(key, value)}
+            errors={fieldErrors}
           />
         </form>
         </RegistrationErrors.Provider>

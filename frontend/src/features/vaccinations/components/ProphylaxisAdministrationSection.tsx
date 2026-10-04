@@ -3,6 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { Medicine01Icon, AlertCircleIcon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { PROPHYLAXIS_GROUPS, PROPHYLAXIS_LABELS, PROPHYLAXIS_PRODUCTS } from '../../../shared/types/prophylaxis';
 import type { ProphylaxisOrders, ProphylaxisAdministration, ProphylaxisStock } from '../../../shared/types/prophylaxis';
+import { sanitizeDateInput } from '../../../shared/utils/date';
 import { ConsultationDialog } from '../../consultations/styles/ConsultationDialog.styles';
 
 const HISTORICAL_GROUP_PRODUCTS: Record<string, string[]> = {
@@ -376,8 +377,17 @@ export default function ProphylaxisAdministrationSection({
                           value={item.date}
                           disabled={disabled}
                           required
+                          min="1000-01-01"
                           max={today}
-                          onChange={(e) => update(product, 'date', e.target.value)}
+                          onInput={(e) => {
+                            const target = e.currentTarget;
+                            const val = sanitizeDateInput(target.value);
+                            if (val !== target.value) {
+                              target.value = val;
+                              update(product, 'date', val);
+                            }
+                          }}
+                          onChange={(e) => update(product, 'date', sanitizeDateInput(e.target.value))}
                           style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
                         />
                       </label>

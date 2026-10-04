@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { LockOutlined as LockIcon, CheckCircleOutlined as CheckIcon } from '@mui/icons-material';
 import api from '../../../shared/services/api';
+import { isValidFourDigitYearDate, sanitizeDateInput } from '../../../shared/utils/date';
 import type { Patient } from '../types';
 import ButtonSpinner from '../../../components/common/ButtonSpinner';
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
@@ -128,8 +129,12 @@ export default function PatientEditModal({
   }, [open, patient]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value;
+    if (field === 'date_of_birth') {
+      val = sanitizeDateInput(val);
+    }
     setFormData((prev) => {
-      const next = { ...prev, [field]: e.target.value };
+      const next = { ...prev, [field]: val };
       draft.saveDraft(next);
       return next;
     });
@@ -147,6 +152,17 @@ export default function PatientEditModal({
     if (formData.emergency_contact_number && !/^09\d{9}$/.test(formData.emergency_contact_number.trim())) {
       setError('Emergency contact phone must start with 09 and contain 11 digits.');
       return;
+    }
+
+    if (isAdminOrReg && formData.date_of_birth) {
+      if (!isValidFourDigitYearDate(formData.date_of_birth)) {
+        setError('Please enter a valid 4-digit year.');
+        return;
+      }
+      if (formData.date_of_birth > new Date().toISOString().split('T')[0]) {
+        setError('Date of Birth cannot be a future date.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -300,7 +316,7 @@ export default function PatientEditModal({
                 type="date"
                 label="Date of Birth"
                 InputLabelProps={{ shrink: true }}
-                inputProps={{ max: new Date().toISOString().split('T')[0] }}
+                inputProps={{ min: '1900-01-01', max: new Date().toISOString().split('T')[0] }}
                 value={formData.date_of_birth}
                 onChange={handleChange('date_of_birth')}
                 disabled={!isAdminOrReg}

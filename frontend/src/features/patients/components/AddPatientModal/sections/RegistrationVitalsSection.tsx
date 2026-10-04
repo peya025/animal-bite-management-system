@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { FormField } from './FormField';
 import { RegistrationErrors } from '../registrationAccessibility';
 import type { EnrolmentFormData } from '../../../types';
@@ -158,8 +158,11 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
   onChange,
   onDirectChange,
   layout = 'two-column',
-  errors,
+  errors: propsErrors,
 }: RegistrationVitalsSectionProps<T>) {
+  const contextErrors = useContext(RegistrationErrors);
+  const errors = propsErrors || contextErrors || {};
+
   // --- Blood pressure split/combine ---
   const splitBP = (bp: string) => {
     if (!bp) return { systolic: '', diastolic: '' };
@@ -481,18 +484,54 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               marginBottom: 16,
             }}
           >
-            <FormField label="Date of Consultation" required>
+            <FormField
+              id="field-reg_date_of_consultation"
+              label="Date of Consultation"
+              required
+              error={!!errors?.reg_date_of_consultation}
+              errorText={errors?.reg_date_of_consultation}
+            >
               <input
                 className="fm-input"
                 type="date"
                 name="reg_date_of_consultation"
+                min="1900-01-01"
                 max={new Date().toISOString().split('T')[0]}
                 value={data.reg_date_of_consultation}
-                onChange={onChange('reg_date_of_consultation')}
+                onChange={(e) => {
+                  let val = e.target.value;
+                  if (val) {
+                    const parts = val.split('-');
+                    if (parts.length > 0 && parts[0].length > 4) {
+                      parts[0] = parts[0].slice(0, 4);
+                      val = parts.join('-');
+                    }
+                  }
+                  const customEv = { ...e, target: { ...e.target, value: val, name: 'reg_date_of_consultation' } } as any;
+                  onChange('reg_date_of_consultation')(customEv);
+                }}
+                onInput={(e) => {
+                  const target = e.currentTarget;
+                  if (target.value) {
+                    const parts = target.value.split('-');
+                    if (parts.length > 0 && parts[0].length > 4) {
+                      parts[0] = parts[0].slice(0, 4);
+                      target.value = parts.join('-');
+                      const customEv = { target: { value: target.value, name: 'reg_date_of_consultation' } } as any;
+                      onChange('reg_date_of_consultation')(customEv);
+                    }
+                  }
+                }}
                 style={{ width: '100%', boxSizing: 'border-box' }}
               />
             </FormField>
-            <FormField label="Consultation Time (AM/PM)" required>
+            <FormField
+              id="field-reg_consultation_time"
+              label="Consultation Time (AM/PM)"
+              required
+              error={!!errors?.reg_consultation_time}
+              errorText={errors?.reg_consultation_time}
+            >
               <input
                 className="fm-input"
                 type="time"
@@ -515,8 +554,10 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
             }}
           >
             <FormField
+              id="field-reg_blood_pressure"
               label="Blood Pressure (mmHg)"
               required
+              error={!!(errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic)}
               errorText={errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic}
             >
               <div
@@ -607,7 +648,13 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               </div>
             </FormField>
 
-            <FormField label="Temperature (°C)" required>
+            <FormField
+              id="field-reg_temperature"
+              label="Temperature (°C)"
+              required
+              error={!!errors?.reg_temperature}
+              errorText={errors?.reg_temperature}
+            >
               <input
                 className="fm-input"
                 type="text"
@@ -630,7 +677,13 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               marginBottom: 16,
             }}
           >
-            <FormField label="Height (cm)" required>
+            <FormField
+              id="field-reg_height"
+              label="Height (cm)"
+              required
+              error={!!errors?.reg_height}
+              errorText={errors?.reg_height}
+            >
               <input
                 className="fm-input"
                 type="text"
@@ -641,7 +694,13 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 style={{ width: '100%', boxSizing: 'border-box' }}
               />
             </FormField>
-            <FormField label="Weight (kg)" required>
+            <FormField
+              id="field-reg_weight"
+              label="Weight (kg)"
+              required
+              error={!!errors?.reg_weight}
+              errorText={errors?.reg_weight}
+            >
               <input
                 className="fm-input"
                 type="text"
@@ -656,7 +715,14 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
 
           {/* Row 4: Attending Provider */}
           <div style={{ marginBottom: 16 }}>
-            <FormField label="Name of Attending Provider" required hint="From patient's referral paper form">
+            <FormField
+              id="field-reg_attending_provider"
+              label="Name of Attending Provider"
+              required
+              hint="From patient's referral paper form"
+              error={!!errors?.reg_attending_provider}
+              errorText={errors?.reg_attending_provider}
+            >
               <input
                 className="fm-input"
                 type="text"
@@ -674,17 +740,53 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         <>
           {/* Row 1: Date + Time */}
           <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-            <FormField label="Date of Consultation" required>
+            <FormField
+              id="field-reg_date_of_consultation"
+              label="Date of Consultation"
+              required
+              error={!!errors?.reg_date_of_consultation}
+              errorText={errors?.reg_date_of_consultation}
+            >
               <input
                 className="fm-input"
                 type="date"
                 name="reg_date_of_consultation"
+                min="1900-01-01"
                 max={new Date().toISOString().split('T')[0]}
                 value={data.reg_date_of_consultation}
-                onChange={onChange('reg_date_of_consultation')}
+                onChange={(e) => {
+                  let val = e.target.value;
+                  if (val) {
+                    const parts = val.split('-');
+                    if (parts.length > 0 && parts[0].length > 4) {
+                      parts[0] = parts[0].slice(0, 4);
+                      val = parts.join('-');
+                    }
+                  }
+                  const customEv = { ...e, target: { ...e.target, value: val, name: 'reg_date_of_consultation' } } as any;
+                  onChange('reg_date_of_consultation')(customEv);
+                }}
+                onInput={(e) => {
+                  const target = e.currentTarget;
+                  if (target.value) {
+                    const parts = target.value.split('-');
+                    if (parts.length > 0 && parts[0].length > 4) {
+                      parts[0] = parts[0].slice(0, 4);
+                      target.value = parts.join('-');
+                      const customEv = { target: { value: target.value, name: 'reg_date_of_consultation' } } as any;
+                      onChange('reg_date_of_consultation')(customEv);
+                    }
+                  }
+                }}
               />
             </FormField>
-            <FormField label="Consultation Time (AM/PM)" required>
+            <FormField
+              id="field-reg_consultation_time"
+              label="Consultation Time (AM/PM)"
+              required
+              error={!!errors?.reg_consultation_time}
+              errorText={errors?.reg_consultation_time}
+            >
               <input
                 className="fm-input"
                 type="time"
@@ -698,8 +800,10 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
           {/* Row 2: BP + Temperature */}
           <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
             <FormField
+              id="field-reg_blood_pressure"
               label="Blood Pressure (mmHg)"
               required
+              error={!!(errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic)}
               errorText={errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic}
             >
               <div
@@ -764,7 +868,13 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               </div>
             </FormField>
 
-            <FormField label="Temperature (°C)" required>
+            <FormField
+              id="field-reg_temperature"
+              label="Temperature (°C)"
+              required
+              error={!!errors?.reg_temperature}
+              errorText={errors?.reg_temperature}
+            >
               <input
                 className="fm-input"
                 type="text"
@@ -778,7 +888,13 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
 
           {/* Row 3: Height + Weight */}
           <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-            <FormField label="Height (cm)" required>
+            <FormField
+              id="field-reg_height"
+              label="Height (cm)"
+              required
+              error={!!errors?.reg_height}
+              errorText={errors?.reg_height}
+            >
               <input
                 className="fm-input"
                 type="text"
@@ -788,7 +904,13 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 placeholder="170"
               />
             </FormField>
-            <FormField label="Weight (kg)" required>
+            <FormField
+              id="field-reg_weight"
+              label="Weight (kg)"
+              required
+              error={!!errors?.reg_weight}
+              errorText={errors?.reg_weight}
+            >
               <input
                 className="fm-input"
                 type="text"
@@ -802,7 +924,14 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
 
           {/* Row 4: Attending Provider (full width) */}
           <div style={{ marginBottom: 14 }}>
-            <FormField label="Name of Attending Provider" required hint="Enter name from patient's referral paper form">
+            <FormField
+              id="field-reg_attending_provider"
+              label="Name of Attending Provider"
+              required
+              hint="Enter name from patient's referral paper form"
+              error={!!errors?.reg_attending_provider}
+              errorText={errors?.reg_attending_provider}
+            >
               <input
                 className="fm-input"
                 type="text"

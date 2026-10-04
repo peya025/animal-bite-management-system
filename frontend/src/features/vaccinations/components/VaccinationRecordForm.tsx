@@ -9,6 +9,7 @@ import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { formatPhilHealthNumber } from '../../../shared/utils';
+import { isValidFourDigitYearDate } from '../../../shared/utils/date';
 import {
   getNextFifoBatch,
   getVaccineNames,
@@ -1246,6 +1247,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       if (!activeDose.date) {
         newFieldErrors[`dose_${activeDose.period}_date`] = 'Please enter a valid date.';
         newFieldErrors.dose_date = 'Please enter a valid date.';
+      } else if (!isValidFourDigitYearDate(activeDose.date)) {
+        newFieldErrors[`dose_${activeDose.period}_date`] = 'Please enter a valid 4-digit year.';
+        newFieldErrors.dose_date = 'Please enter a valid 4-digit year.';
       } else if (activeDose.date > todayStr) {
         newFieldErrors[`dose_${activeDose.period}_date`] = 'Date cannot be a future date.';
         newFieldErrors.dose_date = 'Date cannot be a future date.';
@@ -1292,12 +1296,27 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       return;
     }
 
+    const invalidYearDose = filledDoses.find(d => d.date && !isValidFourDigitYearDate(d.date));
+    if (invalidYearDose) {
+      newFieldErrors[`dose_${invalidYearDose.period}_date`] = 'Please enter a valid 4-digit year.';
+      newFieldErrors.dose_date = 'Please enter a valid 4-digit year.';
+      setFieldErrors(newFieldErrors);
+      scrollToFirstError(`field-dose_date-${invalidYearDose.period}`);
+      return;
+    }
+
     const futureDose = filledDoses.find(d => d.date && d.date > todayStr);
     if (futureDose) {
       newFieldErrors[`dose_${futureDose.period}_date`] = 'Date cannot be a future date.';
       newFieldErrors.dose_date = 'Date cannot be a future date.';
       setFieldErrors(newFieldErrors);
       scrollToFirstError(`field-dose_date-${futureDose.period}`);
+      return;
+    }
+
+    const invalidProphDate = prophylaxisAdministrations.find(p => p.date && !isValidFourDigitYearDate(p.date));
+    if (invalidProphDate) {
+      setError('Please enter a valid 4-digit year for prophylaxis administration date.');
       return;
     }
 

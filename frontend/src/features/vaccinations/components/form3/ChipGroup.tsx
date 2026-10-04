@@ -29,7 +29,7 @@ export function ChipGroup({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
       {label && (
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: error ? '#dc2626' : 'var(--text-h, #374151)' }}>
           {label}
         </span>
       )}
@@ -41,6 +41,12 @@ export function ChipGroup({
           flexWrap: 'wrap',
           gap: 8,
           alignItems: 'center',
+          padding: error ? 4 : 0,
+          border: error ? '1.5px solid #ef4444' : '1px solid transparent',
+          borderRadius: BORDER_RADIUS,
+          boxShadow: error ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
+          boxSizing: 'border-box',
+          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
         }}
       >
         {options.map((opt) => {
@@ -57,12 +63,16 @@ export function ChipGroup({
                 borderRadius: BORDER_RADIUS,
                 border: isSelected
                   ? '1.5px solid #10b981'
+                  : error
+                  ? '1px solid #fca5a5'
                   : '1px solid var(--border-color, #e2e8f0)',
                 background: isSelected
                   ? 'var(--chip-selected-bg, #ecfdf5)'
                   : 'var(--card-bg-solid, #ffffff)',
                 color: isSelected
                   ? '#065f46'
+                  : error
+                  ? '#991b1b'
                   : 'var(--text-secondary, #475569)',
                 fontWeight: isSelected ? 600 : 400,
                 fontSize: 13,
@@ -75,7 +85,11 @@ export function ChipGroup({
                 justifyContent: 'center',
               }}
               onFocus={(e) => {
-                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.2)';
+                if (error) {
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.3)';
+                } else {
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.2)';
+                }
               }}
               onBlur={(e) => {
                 e.currentTarget.style.boxShadow = 'none';
@@ -86,7 +100,11 @@ export function ChipGroup({
           );
         })}
       </div>
-      {error && <span style={{ color: '#ef4444', fontSize: 12 }}>{error}</span>}
+      {error && (
+        <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 2, display: 'block' }}>
+          {error}
+        </span>
+      )}
     </div>
   );
 }

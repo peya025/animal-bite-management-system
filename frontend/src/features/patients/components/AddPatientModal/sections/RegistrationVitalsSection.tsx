@@ -251,7 +251,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
   };
 
   return (
-    <>
+    <RegistrationErrors.Provider value={errors || {}}>
       {/* SECTION II: For CHU / RHU Personnel Only */}
       <div className="fm-section">
         <h3 className="fm-section-title">
@@ -283,7 +283,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
             {data.mode_of_transaction === 'referral' && <div style={{ marginTop: 8 }}>
               <div style={{ marginBottom: 10 }}>
                 <label className="fm-label" style={{ fontWeight: 600, fontSize: 13, display: 'block' }}>
-                  Referred by
+                  Referred by <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
                 </label>
                 <span className="registration-field-hint" style={{ display: 'block', marginTop: 2, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
                   Select referring facility location from referral paper form, or enter facility name manually.
@@ -348,6 +348,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               <div style={{ marginBottom: 14 }}>
                 <FormField
                   label="3. Health Center / Facility Name"
+                  required
                   hint="Auto-populates from municipality & barangay, or can be specified manually"
                 >
                   <input
@@ -367,7 +368,9 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
           <>
             {/* Referred by (City/Municipality → Barangay → Facility) */}
             {data.mode_of_transaction === 'referral' && <div style={{ marginBottom: 14 }}>
-              <label className="fm-label">Referred by</label>
+              <label className="fm-label">
+                Referred by <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
+              </label>
               <div
                 className="fm-grid"
                 style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 16px', marginTop: 6 }}
@@ -437,26 +440,21 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 </div>
 
                 {/* 3. Health Center / Facility Name */}
-                <div>
-                  <span
-                    style={{
-                      display: 'block',
-                      fontSize: 12,
-                      fontWeight: 500,
-                      color: 'var(--text-secondary, #6b7280)',
-                      marginBottom: 6,
-                    }}
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <FormField
+                    label="3. Health Center / Facility Name"
+                    required
+                    hint="Auto-populates from municipality & barangay, or can be specified manually"
                   >
-                    3. Health Center / Facility Name
-                  </span>
-                  <input
-                    className="fm-input"
-                    type="text"
-                    name="reg_referred_by"
-                    value={data.reg_referred_by}
-                    onChange={onChange('reg_referred_by')}
-                    placeholder="e.g. Barangay Health Station"
-                  />
+                    <input
+                      className="fm-input"
+                      type="text"
+                      name="reg_referred_by"
+                      value={data.reg_referred_by}
+                      onChange={onChange('reg_referred_by')}
+                      placeholder="e.g. Barangay Health Station"
+                    />
+                  </FormField>
                 </div>
               </div>
             </div>}
@@ -483,7 +481,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               marginBottom: 16,
             }}
           >
-            <FormField label="Date of Consultation">
+            <FormField label="Date of Consultation" required>
               <input
                 className="fm-input"
                 type="date"
@@ -494,7 +492,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 style={{ width: '100%', boxSizing: 'border-box' }}
               />
             </FormField>
-            <FormField label="Consultation Time (AM/PM)">
+            <FormField label="Consultation Time (AM/PM)" required>
               <input
                 className="fm-input"
                 type="time"
@@ -516,12 +514,18 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               marginBottom: 16,
             }}
           >
-            <FormField label="Blood Pressure (mmHg)">
+            <FormField
+              label="Blood Pressure (mmHg)"
+              required
+              errorText={errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic}
+            >
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  border: '1px solid var(--text-secondary, #6b7280)',
+                  border: (errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic)
+                    ? '1px solid #ef4444'
+                    : '1px solid var(--text-secondary, #6b7280)',
                   borderRadius: 8,
                   minHeight: 46,
                   height: 46,
@@ -538,7 +542,9 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 }}
                 onBlur={(e) => {
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    e.currentTarget.style.borderColor = 'var(--text-secondary, #6b7280)';
+                    e.currentTarget.style.borderColor = (errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic)
+                      ? '#ef4444'
+                      : 'var(--text-secondary, #6b7280)';
                     e.currentTarget.style.boxShadow = 'none';
                   }
                 }}
@@ -601,7 +607,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               </div>
             </FormField>
 
-            <FormField label="Temperature (°C)">
+            <FormField label="Temperature (°C)" required>
               <input
                 className="fm-input"
                 type="text"
@@ -624,7 +630,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               marginBottom: 16,
             }}
           >
-            <FormField label="Height (cm)">
+            <FormField label="Height (cm)" required>
               <input
                 className="fm-input"
                 type="text"
@@ -635,7 +641,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 style={{ width: '100%', boxSizing: 'border-box' }}
               />
             </FormField>
-            <FormField label="Weight (kg)">
+            <FormField label="Weight (kg)" required>
               <input
                 className="fm-input"
                 type="text"
@@ -650,7 +656,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
 
           {/* Row 4: Attending Provider */}
           <div style={{ marginBottom: 16 }}>
-            <FormField label="Name of Attending Provider" hint="From patient's referral paper form">
+            <FormField label="Name of Attending Provider" required hint="From patient's referral paper form">
               <input
                 className="fm-input"
                 type="text"
@@ -668,7 +674,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         <>
           {/* Row 1: Date + Time */}
           <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-            <FormField label="Date of Consultation">
+            <FormField label="Date of Consultation" required>
               <input
                 className="fm-input"
                 type="date"
@@ -678,7 +684,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 onChange={onChange('reg_date_of_consultation')}
               />
             </FormField>
-            <FormField label="Consultation Time (AM/PM)">
+            <FormField label="Consultation Time (AM/PM)" required>
               <input
                 className="fm-input"
                 type="time"
@@ -691,12 +697,18 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
 
           {/* Row 2: BP + Temperature */}
           <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-            <FormField label="Blood Pressure (mmHg)">
+            <FormField
+              label="Blood Pressure (mmHg)"
+              required
+              errorText={errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic}
+            >
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  border: '1px solid var(--input-border, #d1d5db)',
+                  border: (errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic)
+                    ? '1px solid #ef4444'
+                    : '1px solid var(--input-border, #d1d5db)',
                   borderRadius: 8,
                   minHeight: 46,
                   height: 46,
@@ -752,7 +764,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               </div>
             </FormField>
 
-            <FormField label="Temperature (°C)">
+            <FormField label="Temperature (°C)" required>
               <input
                 className="fm-input"
                 type="text"
@@ -766,7 +778,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
 
           {/* Row 3: Height + Weight */}
           <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-            <FormField label="Height (cm)">
+            <FormField label="Height (cm)" required>
               <input
                 className="fm-input"
                 type="text"
@@ -776,7 +788,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 placeholder="170"
               />
             </FormField>
-            <FormField label="Weight (kg)">
+            <FormField label="Weight (kg)" required>
               <input
                 className="fm-input"
                 type="text"
@@ -790,7 +802,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
 
           {/* Row 4: Attending Provider (full width) */}
           <div style={{ marginBottom: 14 }}>
-            <FormField label="Name of Attending Provider" hint="Enter name from patient's referral paper form">
+            <FormField label="Name of Attending Provider" required hint="Enter name from patient's referral paper form">
               <input
                 className="fm-input"
                 type="text"
@@ -805,6 +817,6 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         </>
       )}
     </div>
-    </>
+    </RegistrationErrors.Provider>
   );
 }

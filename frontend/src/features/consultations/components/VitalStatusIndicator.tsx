@@ -31,6 +31,7 @@ export default function VitalStatusIndicator({ status }: VitalStatusIndicatorPro
         fontSize: 12,
         lineHeight: 1.3,
         fontWeight: 600,
+        fontFamily: "'Poppins', sans-serif",
       }}
     >
       <StatusIcon name={status.icon} />

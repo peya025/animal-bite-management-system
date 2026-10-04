@@ -6,7 +6,7 @@ import axios, { AxiosError } from 'axios';
 import type { AxiosInstance } from 'axios';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
 const LAST_ACTIVITY_KEY = 'lastActivityAt';
 
 const api: AxiosInstance = axios.create({

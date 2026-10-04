@@ -70,6 +70,7 @@ class AuthService {
       localStorage.setItem('authToken',  res.token);
       localStorage.setItem('userData',   JSON.stringify(res.user));
       localStorage.setItem('clinicData', JSON.stringify(clinic));
+      localStorage.setItem('lastActivityAt', String(Date.now()));
     }
 
     return { token: res.token, user: res.user, clinic };

@@ -71,37 +71,24 @@ function getNotificationVisuals(category: string, type: string): {
   }
 }
 
+import { useNotifications } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useAccessDenied } from '../contexts/AccessDeniedContext';
+import { canUserAccessRoute } from '../utils/accessControl';
+
 export default function NotificationButton() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(false);
+  const { user } = useAuth();
+  const { showAccessDenied } = useAccessDenied();
+  const {
+    notifications,
+    unreadCount,
+    fetchNotifications,
+    markAllAsRead,
+    markAsRead,
+  } = useNotifications();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-
-  const fetchNotifications = useCallback(async () => {
-    const token = localStorage.getItem('authToken');
-    if (!token) return;
-
-    try {
-      const res = await api.get('/notifications');
-      if (res.data) {
-        setNotifications(res.data.notifications || []);
-        setUnreadCount(typeof res.data.unread_count === 'number' ? res.data.unread_count : 0);
-      }
-    } catch (err) {
-      // Silently catch to avoid disrupting workstation UI during background poll
-      console.warn('Failed to fetch clinical notifications:', err);
-    }
-  }, []);
-
-  // Poll notifications periodically and fetch on mount
-  useEffect(() => {
-    fetchNotifications();
-
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
 
   // When dropdown is opened, fetch fresh notifications
   useEffect(() => {
@@ -126,38 +113,19 @@ export default function NotificationButton() {
     };
   }, [isOpen]);
 
-  const handleMarkAllRead = async () => {
-    // Optimistic update
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_unread: false })));
-    setUnreadCount(0);
-
-    try {
-      await api.post('/notifications/read-all');
-    } catch (err) {
-      console.error('Failed to mark all notifications as read:', err);
-      // Re-fetch to synchronize with server state
-      fetchNotifications();
-    }
-  };
-
-  const handleItemClick = async (item: NotificationRecord) => {
-    // Optimistic update
+  const handleItemClick = (item: NotificationRecord) => {
     if (item.is_unread) {
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === item.id ? { ...n, is_unread: false } : n))
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-
-      try {
-        await api.post(`/notifications/${item.id}/read`);
-      } catch (err) {
-        console.error(`Failed to mark notification ${item.id} as read:`, err);
-      }
+      markAsRead(item.id);
     }
 
     if (item.action_url) {
       setIsOpen(false);
-      navigate(item.action_url);
+      if (canUserAccessRoute(user, item.action_url)) {
+        navigate(item.action_url);
+      } else {
+        // Keep user on their current authorized page and show popup
+        showAccessDenied();
+      }
     }
   };
 
@@ -190,7 +158,7 @@ export default function NotificationButton() {
               <button
                 type="button"
                 className="mark-read"
-                onClick={handleMarkAllRead}
+                onClick={markAllAsRead}
               >
                 Mark all as read
               </button>
@@ -223,7 +191,7 @@ export default function NotificationButton() {
                         )}
                       </NotificationTitle>
                       <NotificationText unread={n.is_unread}>
-                        {n.message}
+                        {n.message || (n as any).text}
                       </NotificationText>
                       <NotificationMeta>
                         <NotificationTime>{n.time_ago}</NotificationTime>

@@ -604,13 +604,18 @@ class NotificationService
 
         // Find all notifications visible to this user
         $notifications = Notification::where('clinic_id', $clinicId)
-            ->where(function ($q) use ($user, $userRole) {
+            ->where(function ($q) use ($user) {
                 $q->whereNull('user_id')->orWhere('user_id', $user->id);
             })
             ->where(function ($q) use ($userRole) {
-                $q->whereNull('role')
-                  ->orWhere('role', $userRole)
-                  ->orWhere('role', 'all');
+                if ($userRole === 'registration') {
+                    $q->whereNotIn('category', ['inventory', 'expiry']);
+                }
+                $q->where(function ($sub) use ($userRole) {
+                    $sub->whereNull('role')
+                        ->orWhere('role', $userRole)
+                        ->orWhere('role', 'all');
+                });
             })
             ->pluck('notification_id');
 
@@ -654,9 +659,14 @@ class NotificationService
                 $q->whereNull('user_id')->orWhere('user_id', $user->id);
             })
             ->where(function ($q) use ($userRole) {
-                $q->whereNull('role')
-                  ->orWhere('role', $userRole)
-                  ->orWhere('role', 'all');
+                if ($userRole === 'registration') {
+                    $q->whereNotIn('category', ['inventory', 'expiry']);
+                }
+                $q->where(function ($sub) use ($userRole) {
+                    $sub->whereNull('role')
+                        ->orWhere('role', $userRole)
+                        ->orWhere('role', 'all');
+                });
             })
             ->with(['reads' => function ($q) use ($user) {
                 $q->where('user_id', $user->id);
@@ -681,6 +691,7 @@ class NotificationService
             return [
                 'id'            => $notif->notification_id,
                 'title'         => $notif->title,
+                'message'       => $notif->message,
                 'text'          => $notif->message,
                 'category'      => $notif->category,
                 'type'          => $notif->type,
@@ -710,9 +721,14 @@ class NotificationService
                 $q->whereNull('user_id')->orWhere('user_id', $user->id);
             })
             ->where(function ($q) use ($userRole) {
-                $q->whereNull('role')
-                  ->orWhere('role', $userRole)
-                  ->orWhere('role', 'all');
+                if ($userRole === 'registration') {
+                    $q->whereNotIn('category', ['inventory', 'expiry']);
+                }
+                $q->where(function ($sub) use ($userRole) {
+                    $sub->whereNull('role')
+                        ->orWhere('role', $userRole)
+                        ->orWhere('role', 'all');
+                });
             });
 
         $readIds = NotificationRead::where('user_id', $user->id)->pluck('notification_id');

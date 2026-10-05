@@ -4,6 +4,7 @@ import {
   Autocomplete,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -55,6 +56,15 @@ const SOURCE_OF_SUPPLY_OPTIONS = [
 
 type SourceOfSupply = (typeof SOURCE_OF_SUPPLY_OPTIONS)[number];
 const OTHER_SPECIFY = 'Other (Specify)' satisfies SourceOfSupply;
+
+/** Standard vaccine categories from Vaccine Setup */
+export const VACCINE_CATEGORIES = [
+  'Anti-Rabies Vaccines (ARV)',
+  'Rabies Immunoglobulins (RIG)',
+  'Tetanus & Toxoids',
+  'Anti-Tetanus Serum (ATS)',
+  'Other Biologicals',
+] as const;
 
 /**
  * Curated supplier catalog for consistent DOH audit records.
@@ -132,11 +142,29 @@ export default function AddEditInventoryDialog({
   );
   const [supplierOther, setSupplierOther] = useState('');
   const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedPreset, setSelectedPreset] = useState<VaccineTypePreset | null>(null);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [expirationMode, setExpirationMode] = useState<'auto' | 'manual'>('auto');
   const [presetLoadError, setPresetLoadError] = useState('');
+
+  const categoryOptions = useMemo(() => {
+    const list = [...VACCINE_CATEGORIES] as string[];
+    presets.forEach((preset) => {
+      if (preset.category && !list.includes(preset.category)) {
+        list.push(preset.category);
+      }
+    });
+    return list;
+  }, [presets]);
+
+  const availableVaccines = useMemo(() => {
+    if (!selectedCategory) return [];
+    return presets.filter(
+      (preset) => (preset.category || '').toLowerCase() === selectedCategory.toLowerCase()
+    );
+  }, [presets, selectedCategory]);
 
   const fetchPresets = async () => {
     try {
@@ -160,7 +188,12 @@ export default function AddEditInventoryDialog({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setSelectedCategory('');
+      setSelectedPreset(null);
+      setErrors({});
+      return;
+    }
 
     const timer = window.setTimeout(() => {
       const baseType = editItem?.vaccine_type || initialVaccineType || '';
@@ -189,6 +222,9 @@ export default function AddEditInventoryDialog({
       setSourceOfSupply(restoredSource);
       setSupplierOther(restoredOther);
       setSelectedPreset(matchedPreset);
+      if (matchedPreset?.category) {
+        setSelectedCategory(matchedPreset.category);
+      }
       setExpirationMode(nextMode);
       setForm({
         clinic_id: editItem?.clinic_id || 1,
@@ -207,16 +243,25 @@ export default function AddEditInventoryDialog({
       setErrors({});
 
       // Restore draft for new entries
-      if (!editItem) {
+      if (!editItem && !initialVaccineType) {
         const savedDraft = draft.readDraft<{
           form: typeof form;
           sourceOfSupply: SourceOfSupply;
           supplierOther: string;
+          selectedCategory?: string;
         }>();
         if (savedDraft?.form) {
           setForm(savedDraft.form);
           if (savedDraft.sourceOfSupply) setSourceOfSupply(savedDraft.sourceOfSupply);
           if (savedDraft.supplierOther !== undefined) setSupplierOther(savedDraft.supplierOther);
+          if (savedDraft.selectedCategory) {
+            setSelectedCategory(savedDraft.selectedCategory);
+          } else if (savedDraft.form.vaccine_type) {
+            const draftPreset = presets.find(
+              (p) => p.vaccine_name.toLowerCase() === savedDraft.form.vaccine_type.toLowerCase()
+            );
+            if (draftPreset?.category) setSelectedCategory(draftPreset.category);
+          }
         }
       }
     }, 0);
@@ -227,21 +272,40 @@ export default function AddEditInventoryDialog({
   // Auto-save draft for new entries
   useEffect(() => {
     if (!open || isEdit) return;
-    draft.saveDraft({ form, sourceOfSupply, supplierOther });
+    draft.saveDraft({ form, sourceOfSupply, supplierOther, selectedCategory });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, sourceOfSupply, supplierOther]);
+  }, [form, sourceOfSupply, supplierOther, selectedCategory]);
 
   const [todayMs] = useState(() => Date.now());
   const expiryDays = form.expiration_date
     ? Math.ceil((new Date(form.expiration_date).getTime() - todayMs) / 86_400_000)
     : null;
 
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    setSelectedPreset(null);
+    setForm((prev) => ({
+      ...prev,
+      vaccine_type: '',
+    }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.category;
+      delete next.vaccine_type;
+      return next;
+    });
+  };
+
   const handleBlurField = (field: string) => () => {
     setErrors((prev) => {
       const next = { ...prev };
       switch (field) {
+        case 'category':
+          if (!selectedCategory.trim()) next.category = 'Vaccine category is required.';
+          else delete next.category;
+          break;
         case 'vaccine_type':
-          if (!form.vaccine_type.trim()) next.vaccine_type = 'Vaccine type is required.';
+          if (!form.vaccine_type.trim()) next.vaccine_type = 'Vaccine name / type is required.';
           else delete next.vaccine_type;
           break;
         case 'batch_number':
@@ -299,11 +363,16 @@ export default function AddEditInventoryDialog({
           : prev.expiration_date,
       };
     });
-    setErrors((prev) => ({ ...prev, vaccine_type: '' }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.vaccine_type;
+      return next;
+    });
   };
 
   const isSubmitDisabled = useMemo(() => {
     if (presets.length === 0) return true;
+    if (!selectedCategory.trim()) return true;
     if (!form.vaccine_type.trim()) return true;
     if (!form.batch_number.trim()) return true;
     if (!form.received_from.trim()) return true;
@@ -321,13 +390,15 @@ export default function AddEditInventoryDialog({
     form.vaccine_type,
     isEdit,
     presets.length,
+    selectedCategory,
     sourceOfSupply,
     supplierOther,
   ]);
 
   const validate = () => {
     const next: Record<string, string> = {};
-    if (!form.vaccine_type.trim()) next.vaccine_type = 'Vaccine type is required.';
+    if (!selectedCategory.trim()) next.category = 'Vaccine category is required.';
+    if (!form.vaccine_type.trim()) next.vaccine_type = 'Vaccine name / type is required.';
     if (!form.batch_number.trim()) next.batch_number = 'Batch / lot number is required.';
     if (!form.received_from.trim()) next.received_from = 'Source / Supplier is required.';
     if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim()) {
@@ -464,31 +535,83 @@ export default function AddEditInventoryDialog({
           {errors.submit && <Alert severity="error">{errors.submit}</Alert>}
 
           <Grid container spacing={2.5}>
-            {/* Row 1: Vaccine Type & Batch / Lot No. */}
+            {/* Row 1: Vaccine Category * & Vaccine Name / Type * */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth size="small" error={!!errors.category}>
+                <InputLabel id="inventory-vaccine-category-label" shrink>
+                  Vaccine Category *
+                </InputLabel>
+                <Select
+                  labelId="inventory-vaccine-category-label"
+                  value={selectedCategory}
+                  label="Vaccine Category *"
+                  notched
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  onBlur={handleBlurField('category')}
+                  displayEmpty
+                  renderValue={(selected) => {
+                    if (!selected) {
+                      return <span style={{ color: '#94a3b8' }}>Select vaccine category</span>;
+                    }
+                    return selected;
+                  }}
+                  sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
+                >
+                  {categoryOptions.map((cat) => (
+                    <MenuItem key={cat} value={cat}>
+                      {cat}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.category && <FormHelperText error>{errors.category}</FormHelperText>}
+              </FormControl>
+            </Grid>
+
             <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth size="small" error={!!errors.vaccine_type || !!presetLoadError}>
-                <InputLabel id="inventory-vaccine-type-label">Vaccine Type *</InputLabel>
+                <InputLabel id="inventory-vaccine-type-label" shrink>
+                  Vaccine Name / Type *
+                </InputLabel>
                 <Select
                   labelId="inventory-vaccine-type-label"
                   value={form.vaccine_type}
-                  label="Vaccine Type *"
+                  label="Vaccine Name / Type *"
+                  notched
                   onChange={(e) => handleVaccineTypeSelect(e.target.value)}
                   onBlur={handleBlurField('vaccine_type')}
-                  disabled={presets.length === 0}
+                  disabled={!selectedCategory || availableVaccines.length === 0 || presets.length === 0}
+                  displayEmpty
+                  renderValue={(selected) => {
+                    if (!selected) {
+                      if (!selectedCategory) {
+                        return <span style={{ color: '#94a3b8' }}>Select vaccine category first</span>;
+                      }
+                      if (availableVaccines.length === 0) {
+                        return <span style={{ color: '#94a3b8' }}>No vaccines available for this category.</span>;
+                      }
+                      return <span style={{ color: '#94a3b8' }}>Select vaccine name / type</span>;
+                    }
+                    return selected;
+                  }}
                   sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
                 >
-                  {presets.map((preset) => (
+                  {availableVaccines.map((preset) => (
                     <MenuItem key={preset.vaccine_name} value={preset.vaccine_name}>
                       {preset.vaccine_name}
                     </MenuItem>
                   ))}
                 </Select>
-                {(errors.vaccine_type || presetLoadError) && (
-                  <FormHelperText error>{errors.vaccine_type || presetLoadError}</FormHelperText>
+                {Boolean(errors.vaccine_type || presetLoadError || (selectedCategory && availableVaccines.length === 0)) && (
+                  <FormHelperText error={Boolean(errors.vaccine_type || presetLoadError || (selectedCategory && availableVaccines.length === 0))}>
+                    {errors.vaccine_type ||
+                      presetLoadError ||
+                      (selectedCategory && availableVaccines.length === 0 ? 'No vaccines available for this category.' : '')}
+                  </FormHelperText>
                 )}
               </FormControl>
             </Grid>
 
+            {/* Row 2: Batch / Lot No. * & Initial Quantity * */}
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
@@ -510,7 +633,29 @@ export default function AddEditInventoryDialog({
               />
             </Grid>
 
-            {/* Row 2: Source / Supplier & Initial Quantity */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                size="small"
+                type="number"
+                label={isEdit ? 'Balance (vials) *' : 'Initial Quantity (vials) *'}
+                value={form.quantity}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, quantity: e.target.value }));
+                  setErrors((prev) => ({ ...prev, quantity: '' }));
+                }}
+                onBlur={handleBlurField('quantity')}
+                error={!!errors.quantity}
+                helperText={errors.quantity}
+                placeholder="e.g. 100"
+                slotProps={{
+                  htmlInput: { min: 1, step: 1 },
+                }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
+              />
+            </Grid>
+
+            {/* Row 3: Source / Supplier * & Manufactured Date */}
             <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth size="small" error={!!errors.received_from}>
                 <InputLabel id="source-of-supply-label">Source / Supplier *</InputLabel>
@@ -579,29 +724,6 @@ export default function AddEditInventoryDialog({
               <TextField
                 fullWidth
                 size="small"
-                type="number"
-                label={isEdit ? 'Balance (vials) *' : 'Initial Quantity (vials) *'}
-                value={form.quantity}
-                onChange={(e) => {
-                  setForm((prev) => ({ ...prev, quantity: e.target.value }));
-                  setErrors((prev) => ({ ...prev, quantity: '' }));
-                }}
-                onBlur={handleBlurField('quantity')}
-                error={!!errors.quantity}
-                helperText={errors.quantity}
-                placeholder="e.g. 100"
-                slotProps={{
-                  htmlInput: { min: 1, step: 1 },
-                }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
-              />
-            </Grid>
-
-            {/* Row 3: Manufactured Date & Expiration Date */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                size="small"
                 type="date"
                 label="Manufactured Date"
                 value={form.manufactured_date}
@@ -625,6 +747,7 @@ export default function AddEditInventoryDialog({
               />
             </Grid>
 
+            {/* Row 4: Expiration Date * & Vaccine Specifications Preview */}
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
@@ -650,7 +773,65 @@ export default function AddEditInventoryDialog({
               />
             </Grid>
 
-            {/* Row 4: Remarks */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: selectedPreset ? '#cbd5e1' : '#e2e8f0',
+                  bgcolor: selectedPreset ? '#f8fafc' : '#f8fafc',
+                  minHeight: 56,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                }}
+              >
+                {selectedPreset ? (
+                  <Stack spacing={0.5}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                      <Typography sx={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#64748b' }}>
+                        Specifications
+                      </Typography>
+                      <Chip
+                        size="small"
+                        label={selectedPreset.is_multidose ? `Multi-dose (${selectedPreset.doses_per_vial || 1} doses)` : 'Single-dose'}
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: 11,
+                          height: 20,
+                          bgcolor: selectedPreset.is_multidose ? '#eff6ff' : '#f1f5f9',
+                          color: selectedPreset.is_multidose ? '#1d4ed8' : '#475569',
+                          border: '1px solid',
+                          borderColor: selectedPreset.is_multidose ? '#bfdbfe' : '#e2e8f0',
+                        }}
+                      />
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                      <Typography sx={{ fontSize: 12, color: '#334155' }}>
+                        Shelf Life: <strong>{selectedPreset.default_shelf_life_months || form.shelf_life_months || 24} mos</strong>
+                      </Typography>
+                      <Typography sx={{ fontSize: 12, color: '#334155' }}>
+                        Discard: <strong>{selectedPreset.default_open_vial_hours ? `${selectedPreset.default_open_vial_hours} hrs` : 'Immediate'}</strong>
+                      </Typography>
+                    </Box>
+                    {selectedPreset.storage_temperature_notes && (
+                      <Typography sx={{ fontSize: 11, color: '#64748b', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        ❄️ {selectedPreset.storage_temperature_notes}
+                      </Typography>
+                    )}
+                  </Stack>
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 0.5 }}>
+                    <Typography sx={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>
+                      Vaccine specs (shelf life, doses/vial) will show here once selected.
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Grid>
+
+            {/* Row 5: Remarks */}
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth

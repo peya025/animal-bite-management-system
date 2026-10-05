@@ -485,6 +485,7 @@ export const SetupWizardRoot = styled('div')`
   .form-group input[type="email"],
   .form-group input[type="tel"],
   .form-group input[type="password"],
+  .form-group select,
   .form-group textarea {
     width: 100%;
     padding: 14px 20px 14px 48px;
@@ -494,6 +495,26 @@ export const SetupWizardRoot = styled('div')`
     color: #ffffff;
     background: rgba(255, 255, 255, 0.04);
     transition: all 0.3s ease;
+  }
+
+  .form-group select {
+    padding-right: 42px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 18px center;
+  }
+
+  .form-group select option {
+    background: #0f172a;
+    color: #ffffff;
+  }
+
+  .form-group select:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
   .form-group textarea {
@@ -507,12 +528,14 @@ export const SetupWizardRoot = styled('div')`
   }
 
   .form-group input:hover,
+  .form-group select:hover,
   .form-group textarea:hover {
     border-color: rgba(255, 255, 255, 0.2);
     background: rgba(255, 255, 255, 0.07);
   }
 
   .form-group input:focus,
+  .form-group select:focus,
   .form-group textarea:focus {
     outline: none;
     border-color: #10b981;
@@ -523,20 +546,91 @@ export const SetupWizardRoot = styled('div')`
   }
 
   .form-group input:focus + .input-icon-wrapper,
-  .form-group input:focus ~ .input-icon-wrapper {
+  .form-group input:focus ~ .input-icon-wrapper,
+  .form-group select:focus + .input-icon-wrapper,
+  .form-group select:focus ~ .input-icon-wrapper {
     color: #10b981;
   }
 
   /* Form validation error styling */
   .form-group input.has-error,
+  .form-group select.has-error,
   .form-group textarea.has-error {
     border-color: #ef4444 !important;
     box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15) !important;
   }
 
   .form-group input.has-error ~ .input-icon-wrapper,
+  .form-group select.has-error ~ .input-icon-wrapper,
   .form-group textarea.has-error ~ .input-icon-wrapper {
     color: #ef4444 !important;
+  }
+
+  .full-address-preview {
+    margin-top: -6px;
+    margin-bottom: 24px;
+    padding: 12px 18px;
+    border-radius: 16px;
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .full-address-preview-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .address-pin-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .address-preview-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .address-preview-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #10b981;
+    line-height: 1.2;
+  }
+
+  .address-preview-text {
+    font-size: 13px;
+    color: #ffffff;
+    font-weight: 600;
+    word-break: break-word;
+    margin-top: 2px;
+  }
+
+  .btn-toggle-manual {
+    background: none;
+    border: none;
+    color: #10b981;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+
+  .btn-toggle-manual:hover {
+    color: #34d399;
   }
 
   .error-text {
@@ -1075,10 +1169,22 @@ export const SetupWizardRoot = styled('div')`
     .form-group input[type="email"],
     .form-group input[type="tel"],
     .form-group input[type="password"],
+    .form-group select,
     .form-group textarea {
       border-color: #cbd5e1;
       color: #0f172a;
       background: #ffffff;
+    }
+
+    .form-group select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 18px center;
+    }
+
+    .form-group select option {
+      background: #ffffff;
+      color: #0f172a;
     }
 
     .form-group input::placeholder,
@@ -1087,12 +1193,14 @@ export const SetupWizardRoot = styled('div')`
     }
 
     .form-group input:hover,
+    .form-group select:hover,
     .form-group textarea:hover {
       border-color: #94a3b8;
       background: #f8fafc;
     }
 
     .form-group input:focus,
+    .form-group select:focus,
     .form-group textarea:focus {
       border-color: #10b981;
       background: #ffffff;
@@ -1102,8 +1210,31 @@ export const SetupWizardRoot = styled('div')`
     }
 
     .form-group input:focus + .input-icon-wrapper,
-    .form-group input:focus ~ .input-icon-wrapper {
+    .form-group input:focus ~ .input-icon-wrapper,
+    .form-group select:focus + .input-icon-wrapper,
+    .form-group select:focus ~ .input-icon-wrapper {
       color: #059669;
+    }
+
+    .full-address-preview {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+    }
+
+    .address-preview-label {
+      color: #047857;
+    }
+
+    .address-preview-text {
+      color: #0f172a;
+    }
+
+    .btn-toggle-manual {
+      color: #059669;
+    }
+
+    .btn-toggle-manual:hover {
+      color: #047857;
     }
 
     .input-icon-wrapper {

@@ -16,9 +16,12 @@ import {
   TableRow,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { DownloadOutlined, Refresh, PeopleAltOutlined } from '@mui/icons-material';
 import api from '../../../services/api';
+import type { VaccineTypePreset } from '../../inventory/types';
+import { getCategoryBadgeStyle } from '../../inventory/utils/inventoryStatus';
 
 const POPPINS = "'Poppins', sans-serif";
 
@@ -48,6 +51,7 @@ export interface InventoryItem {
   open_vial_discard_at?: string;
   discarded_vials?: number;
   created_at?: string;
+  vaccine_category?: string | null;
 }
 
 export interface InventoryStats {
@@ -89,6 +93,7 @@ export interface AdministrationRecord {
 
 export interface VaccinePatientUsage {
   vaccineType: string;
+  vaccineCategory: string;
   uniquePatients: number;
   dosesAdministered: number;
   vialsUsed: number;
@@ -137,6 +142,27 @@ function InvStatusBadge({ status }: { status: string }) {
   );
 }
 
+function VaccineCategoryBadge({ category, isDark = false }: { category?: string | null; isDark?: boolean }) {
+  const cat = category && category.trim() ? category.trim() : 'Not specified';
+  const style = getCategoryBadgeStyle(cat === 'Not specified' ? null : cat, isDark);
+  return (
+    <Chip
+      label={cat}
+      size="small"
+      sx={{
+        fontWeight: 600,
+        fontSize: '0.72rem',
+        height: 22,
+        bgcolor: style.bg,
+        color: style.color,
+        border: `1px solid ${style.border}`,
+        whiteSpace: 'nowrap',
+        fontFamily: POPPINS,
+      }}
+    />
+  );
+}
+
 export interface VaccineInventoryReportSectionProps {
   rolePrefix?: string;
   initialInvItems?: InventoryItem[];
@@ -150,9 +176,13 @@ export default function VaccineInventoryReportSection({
   loading: externalLoading,
   onRefresh: externalOnRefresh,
 }: VaccineInventoryReportSectionProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   const [internalInvItems, setInternalInvItems] = useState<InventoryItem[]>([]);
   const [administrations, setAdministrations] = useState<AdministrationRecord[]>([]);
   const [internalLoading, setInternalLoading] = useState(false);
+  const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
   const [presetTypes, setPresetTypes] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -160,6 +190,25 @@ export default function VaccineInventoryReportSection({
   const isControlled = initialInvItems !== undefined;
   const invItems = isControlled ? initialInvItems : internalInvItems;
   const invLoading = isControlled ? (externalLoading ?? false) : internalLoading;
+
+  // Helper to retrieve category from Vaccine Setup / inventory data relationship
+  const getCategoryForVaccine = (vaccineType?: string, directCategory?: string | null): string => {
+    if (directCategory && directCategory.trim()) return directCategory.trim();
+    if (!vaccineType) return 'Not specified';
+    const found = presets.find(
+      p => (p.vaccine_name || '').trim().toLowerCase() === vaccineType.trim().toLowerCase()
+    );
+    if (found?.category && found.category.trim()) {
+      return found.category.trim();
+    }
+    const invMatch = invItems.find(
+      i => (i.vaccine_type || '').trim().toLowerCase() === vaccineType.trim().toLowerCase() && i.vaccine_category
+    );
+    if (invMatch?.vaccine_category && invMatch.vaccine_category.trim()) {
+      return invMatch.vaccine_category.trim();
+    }
+    return 'Not specified';
+  };
 
   // ─── Status & Entity Filters ─────────────────────────────────
   const [usageStatusFilter, setUsageStatusFilter] = useState<'ALL' | 'used' | 'not_used' | 'wasted'>('ALL');
@@ -196,9 +245,13 @@ export default function VaccineInventoryReportSection({
       }
 
       if (presetsRes.status === 'fulfilled') {
-        const presets = presetsRes.value.data?.data ?? presetsRes.value.data ?? [];
-        if (Array.isArray(presets)) {
-          setPresetTypes(presets.map((p: any) => p.name || p.vaccine_name || p.vaccine_type).filter(Boolean));
+        const presetsData =
+          presetsRes.value.data?.presets ??
+          presetsRes.value.data?.data ??
+          (Array.isArray(presetsRes.value.data) ? presetsRes.value.data : []);
+        if (Array.isArray(presetsData)) {
+          setPresets(presetsData);
+          setPresetTypes(presetsData.map((p: any) => p.name || p.vaccine_name || p.vaccine_type).filter(Boolean));
         }
       }
 
@@ -477,6 +530,7 @@ export default function VaccineInventoryReportSection({
       if (entry.batchCount > 0 || entry.dosesCount > 0 || entry.uniquePatientIds.size > 0) {
         result.push({
           vaccineType: originalName,
+          vaccineCategory: getCategoryForVaccine(originalName),
           uniquePatients: entry.uniquePatientIds.size,
           dosesAdministered: entry.dosesCount,
           vialsUsed: entry.vialsUsed,
@@ -488,7 +542,7 @@ export default function VaccineInventoryReportSection({
     });
 
     return result.sort((a, b) => b.dosesAdministered - a.dosesAdministered || b.uniquePatients - a.uniquePatients);
-  }, [availableVaccineTypes, filteredAdministrations, filteredInvItems, selectedVaccineType]);
+  }, [availableVaccineTypes, filteredAdministrations, filteredInvItems, selectedVaccineType, presets]);
 
   // Overall unique patient count across all vaccines in selected period
   const totalPeriodUniquePatients = useMemo(() => {
@@ -509,14 +563,29 @@ export default function VaccineInventoryReportSection({
     setExporting(true);
     try {
       // 1. Batch utilization section
-      const batchHeaders = ['#', 'Vaccine Type', 'Batch No', 'Supplier / Source', 'Received', 'Used', 'Sealed Vials', 'Open Vial Status', 'Wastage', 'Expiration', 'Status'];
+      const batchHeaders = [
+        '#',
+        'Vaccine Category',
+        'Vaccine Type',
+        'Batch No',
+        'Supplier / Source',
+        'Received',
+        'Used',
+        'Sealed Vials',
+        'Open Vial Status',
+        'Wastage',
+        'Expiration',
+        'Status',
+      ];
       const batchRows = filteredInvItems.map((item, i) => {
         const recQty = item.initial_quantity ?? item.current_quantity + (item.total_dispensed ?? 0);
         const usedQty = item.total_dispensed ?? 0;
         const openStatus = item.open_vial_status ? `${item.open_vial_doses_remaining ?? 0} doses left` : 'Sealed';
         const wasteQty = item.status === 'expired' ? item.current_quantity : item.discarded_vials ?? 0;
+        const category = getCategoryForVaccine(item.vaccine_type, item.vaccine_category);
         return [
           i + 1,
+          `"${category.replace(/"/g, '""')}"`,
           `"${(item.vaccine_type || '').replace(/"/g, '""')}"`,
           `"${item.batch_number || ''}"`,
           `"${(item.received_from || 'DOH Central Supply').replace(/"/g, '""')}"`,
@@ -531,9 +600,17 @@ export default function VaccineInventoryReportSection({
       });
 
       // 2. Patient Usage section
-      const usageHeaders = ['\n\n--- VACCINE USAGE BY PATIENT SUMMARY ---', '', '', '', ''];
-      const usageSubHeaders = ['Vaccine Type', 'Unique Patients', 'Doses Administered', 'Quantity Used (Vials)', 'Wasted Quantity'];
+      const usageHeaders = ['\n\n--- VACCINE USAGE BY PATIENT SUMMARY ---', '', '', '', '', ''];
+      const usageSubHeaders = [
+        'Vaccine Category',
+        'Vaccine Type',
+        'Unique Patients',
+        'Doses Administered',
+        'Quantity Used (Vials)',
+        'Wasted Quantity',
+      ];
       const usageRows = vaccineUsageByPatient.map(v => [
+        `"${(v.vaccineCategory || 'Not specified').replace(/"/g, '""')}"`,
         `"${v.vaccineType.replace(/"/g, '""')}"`,
         v.uniquePatients,
         v.dosesAdministered,
@@ -900,8 +977,9 @@ export default function VaccineInventoryReportSection({
           <Table size="small" aria-label="Vaccine usage by patient table">
             <TableHead>
               <TableRow sx={{ bgcolor: 'action.hover' }}>
-                <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Vaccine Type</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, width: '45px' }}>#</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, minWidth: '175px' }}>Vaccine Category</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, minWidth: '140px' }}>Vaccine Type</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, textAlign: 'center' }}>Unique Patients</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, textAlign: 'center' }}>Doses Administered</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, textAlign: 'center' }}>Quantity Used (Vials)</TableCell>
@@ -912,14 +990,14 @@ export default function VaccineInventoryReportSection({
             <TableBody>
               {invLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
+                  <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
                     <CircularProgress size={24} sx={{ mb: 1, display: 'block', mx: 'auto', color: '#10b981' }} />
                     Loading patient usage analytics…
                   </TableCell>
                 </TableRow>
               ) : vaccineUsageByPatient.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} sx={{ textAlign: 'center', py: 3, color: 'text.secondary', fontFamily: POPPINS }}>
+                  <TableCell colSpan={8} sx={{ textAlign: 'center', py: 3, color: 'text.secondary', fontFamily: POPPINS }}>
                     No vaccine administrations or inventory recorded for this selection.
                   </TableCell>
                 </TableRow>
@@ -927,6 +1005,9 @@ export default function VaccineInventoryReportSection({
                 vaccineUsageByPatient.map((item, idx) => (
                   <TableRow key={item.vaccineType || idx} hover>
                     <TableCell sx={{ fontFamily: POPPINS }}>{idx + 1}</TableCell>
+                    <TableCell sx={{ fontFamily: POPPINS }}>
+                      <VaccineCategoryBadge category={item.vaccineCategory} isDark={isDark} />
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 600, fontFamily: POPPINS }}>
                       <span>{item.vaccineType}</span>
                     </TableCell>
@@ -996,8 +1077,9 @@ export default function VaccineInventoryReportSection({
           <Table size="small" aria-label="Inventory audit table">
             <TableHead>
               <TableRow sx={{ bgcolor: 'action.hover' }}>
-                <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Vaccine Type</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, width: '45px' }}>#</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, minWidth: '175px' }}>Vaccine Category</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, minWidth: '130px' }}>Vaccine Type</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Batch No.</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Supplier / Source</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, textAlign: 'center' }}>Received</TableCell>
@@ -1012,14 +1094,14 @@ export default function VaccineInventoryReportSection({
             <TableBody>
               {invLoading ? (
                 <TableRow>
-                  <TableCell colSpan={11} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
+                  <TableCell colSpan={12} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
                     <CircularProgress size={24} sx={{ mb: 1, display: 'block', mx: 'auto', color: '#10b981' }} />
                     Loading inventory audit data…
                   </TableCell>
                 </TableRow>
               ) : filteredInvItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
+                  <TableCell colSpan={12} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
                     No inventory records match the selected filters.
                   </TableCell>
                 </TableRow>
@@ -1032,10 +1114,14 @@ export default function VaccineInventoryReportSection({
                     ? `${item.open_vial_doses_remaining ?? 0} doses remaining`
                     : 'Sealed';
                   const wasteQty = item.status === 'expired' ? item.current_quantity : item.discarded_vials ?? 0;
+                  const itemCategory = getCategoryForVaccine(item.vaccine_type, item.vaccine_category);
 
                   return (
                     <TableRow key={item.inventory_id || i} hover>
                       <TableCell sx={{ fontFamily: POPPINS }}>{i + 1}</TableCell>
+                      <TableCell sx={{ fontFamily: POPPINS }}>
+                        <VaccineCategoryBadge category={itemCategory} isDark={isDark} />
+                      </TableCell>
                       <TableCell sx={{ fontWeight: 600, fontFamily: POPPINS }}>{item.vaccine_type}</TableCell>
                       <TableCell sx={{ fontFamily: POPPINS }}>{item.batch_number}</TableCell>
                       <TableCell sx={{ fontFamily: POPPINS }}>{supplier}</TableCell>

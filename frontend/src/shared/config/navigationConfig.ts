@@ -40,17 +40,17 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
   {
     label: 'Treatment Queues',
     icon: GLOBAL_NAV_ICONS['Patient Queue'],
-    roles: ['registration', 'triage', 'treatment', 'admin'],
+    roles: ['registration', 'triage', 'treatment', 'admin', 'developer'],
     submenu: [
       {
         label: 'Station 1: New & Day 0',
         path: ROUTES.QUEUE.DASHBOARD,
-        roles: ['registration', 'triage', 'treatment', 'admin'],
+        roles: ['registration', 'triage', 'treatment', 'admin', 'developer'],
       },
       {
         label: 'Station 2: Follow-up Doses',
         path: ROUTES.PATIENTS.NURSE_LIST,
-        roles: ['treatment'],
+        roles: ['treatment', 'admin', 'developer'],
       },
     ],
   },

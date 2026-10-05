@@ -18,8 +18,10 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { DownloadOutlined, Refresh, PeopleAltOutlined } from '@mui/icons-material';
+import { DownloadOutlined, Refresh, PeopleAltOutlined, PrintOutlined } from '@mui/icons-material';
 import api from '../../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
+import { printDocument } from '../../../components/print/printDocument';
 import type { VaccineTypePreset } from '../../inventory/types';
 import { getCategoryBadgeStyle } from '../../inventory/utils/inventoryStatus';
 
@@ -178,6 +180,9 @@ export default function VaccineInventoryReportSection({
 }: VaccineInventoryReportSectionProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const { user, clinic: authClinic } = useAuth();
+  const storedClinic = localStorage.getItem('clinicData') ? JSON.parse(localStorage.getItem('clinicData')!) : null;
+  const clinic = authClinic || storedClinic;
 
   const [internalInvItems, setInternalInvItems] = useState<InventoryItem[]>([]);
   const [administrations, setAdministrations] = useState<AdministrationRecord[]>([]);
@@ -185,6 +190,7 @@ export default function VaccineInventoryReportSection({
   const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
   const [presetTypes, setPresetTypes] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [error, setError] = useState('');
 
   const isControlled = initialInvItems !== undefined;
@@ -641,6 +647,177 @@ export default function VaccineInventoryReportSection({
     }
   };
 
+  // ─── Print Report Handler ────────────────────────────────────
+  const handlePrintReport = () => {
+    setPrinting(true);
+    try {
+      const activeFiltersSummary = [
+        usageStatusFilter !== 'ALL' ? `Usage: ${usageStatusFilter}` : '',
+        selectedVaccineType !== 'ALL' ? `Vaccine: ${selectedVaccineType}` : '',
+        supplierFilter !== 'ALL' ? `Supplier: ${supplierFilter}` : '',
+        expiryFilter !== 'ALL' ? `Expiry: ${expiryFilter}` : '',
+        activityPeriod !== 'ALL' ? `Period: ${periodLabelText}` : '',
+      ].filter(Boolean).join(' | ') || 'All Active Records';
+
+      const statsRows = `
+        <table class="info-table" style="border:1px solid #000;border-collapse:collapse;width:100%;margin-bottom:16px;">
+          <tr>
+            <td class="lbl" style="border:1px solid #000;">Active Batches</td>
+            <td class="val" style="border:1px solid #000;">${invDisplayStats.active_batches}</td>
+            <td class="lbl" style="border:1px solid #000;">Total Sealed Vials</td>
+            <td class="val" style="border:1px solid #000;">${invDisplayStats.total_stock}</td>
+          </tr>
+          <tr>
+            <td class="lbl" style="border:1px solid #000;">Expiring Soon (≤ 60d)</td>
+            <td class="val" style="border:1px solid #000;">${invDisplayStats.expiring_soon}</td>
+            <td class="lbl" style="border:1px solid #000;">Depleted Batches</td>
+            <td class="val" style="border:1px solid #000;">${invDisplayStats.depleted_batches}</td>
+          </tr>
+          <tr>
+            <td class="lbl" style="border:1px solid #000;">Expired Batches</td>
+            <td class="val" style="border:1px solid #000;">${invDisplayStats.expired_batches}</td>
+            <td class="lbl" style="border:1px solid #000;">Total Batches Listed</td>
+            <td class="val" style="border:1px solid #000;">${filteredInvItems.length}</td>
+          </tr>
+        </table>
+      `;
+
+      // 1. Vaccine summary table (Vaccine Usage by Patient)
+      const usageRowsHtml = vaccineUsageByPatient.map((item, idx) => `
+        <tr>
+          <td style="text-align:center;border:1px solid #000;">${idx + 1}</td>
+          <td style="border:1px solid #000;">${item.vaccineCategory || 'Not specified'}</td>
+          <td style="font-weight:700;border:1px solid #000;">${item.vaccineType}</td>
+          <td style="text-align:center;border:1px solid #000;">${item.uniquePatients}</td>
+          <td style="text-align:center;border:1px solid #000;">${item.dosesAdministered}</td>
+          <td style="text-align:center;border:1px solid #000;">${item.vialsUsed}</td>
+          <td style="text-align:center;border:1px solid #000;">${item.vialsWasted}</td>
+          <td style="text-align:center;border:1px solid #000;">${item.activeBatches > 0 ? `${item.activeBatches} Active Batch(es)` : 'Out of Stock'}</td>
+        </tr>
+      `).join('');
+
+      // 2. Batch Utilization & Wastage Audit Log
+      let totalReceived = 0;
+      let totalUsed = 0;
+      let totalSealed = 0;
+      let totalWaste = 0;
+
+      const batchRowsHtml = filteredInvItems.map((item, i) => {
+        const recQty = item.initial_quantity ?? item.current_quantity + (item.total_dispensed ?? 0);
+        const usedQty = item.total_dispensed ?? 0;
+        const openStatus = item.open_vial_status ? `${item.open_vial_doses_remaining ?? 0} doses left` : 'Sealed';
+        const wasteQty = item.status === 'expired' ? item.current_quantity : (item.discarded_vials ?? 0);
+        const category = getCategoryForVaccine(item.vaccine_type, item.vaccine_category);
+
+        totalReceived += Number(recQty) || 0;
+        totalUsed += Number(usedQty) || 0;
+        totalSealed += Number(item.current_quantity) || 0;
+        totalWaste += Number(wasteQty) || 0;
+
+        return `
+          <tr>
+            <td style="text-align:center;border:1px solid #000;">${i + 1}</td>
+            <td style="border:1px solid #000;">${category}</td>
+            <td style="font-weight:700;border:1px solid #000;">${item.vaccine_type}</td>
+            <td style="text-align:center;border:1px solid #000;">${item.batch_number}</td>
+            <td style="border:1px solid #000;">${item.received_from || 'DOH Central Supply'}</td>
+            <td style="text-align:center;border:1px solid #000;">${recQty}</td>
+            <td style="text-align:center;border:1px solid #000;">${usedQty}</td>
+            <td style="text-align:center;border:1px solid #000;${item.current_quantity === 0 ? 'font-weight:700' : ''}">${item.current_quantity}</td>
+            <td style="text-align:center;border:1px solid #000;">${openStatus}</td>
+            <td style="text-align:center;border:1px solid #000;">${wasteQty}</td>
+            <td style="text-align:center;border:1px solid #000;">${fmtDate(item.expiration_date)}</td>
+            <td style="text-align:center;text-transform:capitalize;border:1px solid #000;">${item.status}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const bodyHtml = `
+        <div class="meta-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:16px;font-size:9pt;border:1px solid #000;padding:8px 12px;">
+          <span>Activity Period:</span><span style="font-weight:700;">${periodLabelText} (${totalPeriodUniquePatients} unique patients, ${totalDosesAdministered} doses administered)</span>
+          <span>Active Filters:</span><span style="font-weight:700;">${activeFiltersSummary}</span>
+          <span>Date Generated:</span><span style="font-weight:700;">${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} (${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })})</span>
+          <span>Prepared by:</span><span style="font-weight:700;">${user?.name || 'Administrator'}</span>
+        </div>
+
+        <h3 class="sec">I. Vaccine Stock &amp; Utilization Summary</h3>
+        ${statsRows}
+
+        <h3 class="sec">II. Vaccine Usage by Patient Summary</h3>
+        <p class="note" style="font-size:8.5pt;margin-bottom:8px;font-style:italic;">Distinct patients and doses administered per vaccine type during ${periodLabelText}</p>
+        <table style="border:1px solid #000;border-collapse:collapse;width:100%;margin-bottom:16px;">
+          <thead>
+            <tr style="background:#fff;">
+              <th style="text-align:center;width:4%;border:1px solid #000;">#</th>
+              <th style="border:1px solid #000;">Vaccine Category</th>
+              <th style="border:1px solid #000;">Vaccine Type</th>
+              <th style="text-align:center;border:1px solid #000;">Unique Patients</th>
+              <th style="text-align:center;border:1px solid #000;">Doses Administered</th>
+              <th style="text-align:center;border:1px solid #000;">Quantity Used (Vials)</th>
+              <th style="text-align:center;border:1px solid #000;">Wasted Quantity</th>
+              <th style="text-align:center;border:1px solid #000;">Stock Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${usageRowsHtml || '<tr><td colspan="8" style="text-align:center;border:1px solid #000;">No vaccine usage recorded for this selection.</td></tr>'}
+          </tbody>
+        </table>
+
+        <h3 class="sec">III. Comprehensive Batch Utilization &amp; Wastage Audit Log</h3>
+        <p class="note" style="font-size:8.5pt;margin-bottom:8px;font-style:italic;">Showing ${filteredInvItems.length} of ${invItems.length} inventory batches</p>
+        <table style="border:1px solid #000;border-collapse:collapse;width:100%;">
+          <thead>
+            <tr style="background:#fff;">
+              <th style="text-align:center;width:4%;border:1px solid #000;">#</th>
+              <th style="border:1px solid #000;">Vaccine Category</th>
+              <th style="border:1px solid #000;">Vaccine Type</th>
+              <th style="text-align:center;border:1px solid #000;">Batch No.</th>
+              <th style="border:1px solid #000;">Supplier / Source</th>
+              <th style="text-align:center;border:1px solid #000;">Received</th>
+              <th style="text-align:center;border:1px solid #000;">Used</th>
+              <th style="text-align:center;border:1px solid #000;">Sealed</th>
+              <th style="text-align:center;border:1px solid #000;">Open Vial Status</th>
+              <th style="text-align:center;border:1px solid #000;">Wastage</th>
+              <th style="text-align:center;border:1px solid #000;">Expiration</th>
+              <th style="text-align:center;border:1px solid #000;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${batchRowsHtml || '<tr><td colspan="12" style="text-align:center;border:1px solid #000;">No inventory records match the selected filters.</td></tr>'}
+          </tbody>
+          <tfoot>
+            <tr style="font-weight:700;background:#fff;">
+              <td colspan="5" style="border:1px solid #000;">Total Inventory Quantities</td>
+              <td style="text-align:center;border:1px solid #000;">${totalReceived}</td>
+              <td style="text-align:center;border:1px solid #000;">${totalUsed}</td>
+              <td style="text-align:center;border:1px solid #000;">${totalSealed}</td>
+              <td style="border:1px solid #000;"></td>
+              <td style="text-align:center;border:1px solid #000;">${totalWaste}</td>
+              <td colspan="2" style="border:1px solid #000;"></td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+
+      printDocument({
+        clinicName: clinic?.name || 'Animal Bite Treatment Center',
+        printedBy: user?.name || 'Administrator',
+        title: 'Vaccine Inventory & Wastage Report',
+        refPrefix: 'INV',
+        province: clinic?.province,
+        municipality: clinic?.municipality,
+        address: clinic?.address,
+        contactNumber: clinic?.contact_number || (clinic as any)?.phone,
+        bodyHtml,
+        orientation: 'landscape',
+      });
+    } catch (err) {
+      console.error('Failed to print report:', err);
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const periodLabelText =
     activityPeriod === 'today'
       ? 'Today'
@@ -1060,6 +1237,16 @@ export default function VaccineInventoryReportSection({
           </Box>
 
           <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={printing ? <CircularProgress size={16} /> : <PrintOutlined />}
+              onClick={handlePrintReport}
+              disabled={filteredInvItems.length === 0 || printing}
+              sx={{ fontFamily: POPPINS }}
+            >
+              Print Report
+            </Button>
             <Button
               variant="outlined"
               size="small"

@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -25,6 +26,7 @@ import {
   Tabs,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import {
   DownloadOutlined,
@@ -38,6 +40,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { printWhenReady } from '../../../components/print/printReady';
 import { useAddressLocation } from '../../patients/hooks/useAddressLocation';
+import type { VaccineTypePreset } from '../../inventory/types';
+import { getCategoryBadgeStyle } from '../../inventory/utils/inventoryStatus';
 
 // ─── Interfaces & Types ──────────────────────────────────────────
 export interface ReportStats {
@@ -117,6 +121,28 @@ export interface InventoryItem {
   open_vial_doses_remaining?: number;
   open_vial_discard_at?: string;
   discarded_vials?: number;
+  vaccine_category?: string | null;
+}
+
+function VaccineCategoryBadge({ category, isDark = false }: { category?: string | null; isDark?: boolean }) {
+  const cat = category && category.trim() ? category.trim() : 'Not specified';
+  const style = getCategoryBadgeStyle(cat === 'Not specified' ? null : cat, isDark);
+  return (
+    <Chip
+      label={cat}
+      size="small"
+      sx={{
+        fontWeight: 600,
+        fontSize: '0.72rem',
+        height: 22,
+        bgcolor: style.bg,
+        color: style.color,
+        border: `1px solid ${style.border}`,
+        whiteSpace: 'nowrap',
+        fontFamily: "'Poppins', sans-serif",
+      }}
+    />
+  );
 }
 
 export interface InventoryStats {
@@ -564,7 +590,8 @@ const buildReportBodyHtml = (
   },
   activeFiltersText: string,
   dFrom: string,
-  dTo: string
+  dTo: string,
+  presets: VaccineTypePreset[] = []
 ): string => {
   if (tab === 'summary') {
     if (card) {
@@ -684,6 +711,20 @@ const buildReportBodyHtml = (
       <tr><td class="lbl" style="border:1px solid #000;">Expired Batches</td><td class="val" style="border:1px solid #000;">${invDispStats.expired_batches}</td><td class="lbl" style="border:1px solid #000;">Total Batches Listed</td><td class="val" style="border:1px solid #000;">${filtInv.length}</td></tr>
     </table>`;
 
+    const getCategory = (vType?: string, directCat?: string | null): string => {
+      if (directCat && directCat.trim()) return directCat.trim();
+      if (!vType) return 'Not specified';
+      const found = presets.find(
+        p => (p.vaccine_name || '').trim().toLowerCase() === vType.trim().toLowerCase()
+      );
+      if (found?.category && found.category.trim()) return found.category.trim();
+      const invMatch = allInv.find(
+        i => (i.vaccine_type || '').trim().toLowerCase() === vType.trim().toLowerCase() && i.vaccine_category
+      );
+      if (invMatch?.vaccine_category && invMatch.vaccine_category.trim()) return invMatch.vaccine_category.trim();
+      return 'Not specified';
+    };
+
     const rows = filtInv
       .map((item, i) => {
         const exp = item.expiration_date
@@ -699,9 +740,11 @@ const buildReportBodyHtml = (
         const usedQty = item.total_dispensed ?? 0;
         const openStatus = item.open_vial_status ? `${item.open_vial_doses_remaining ?? 0} doses left` : 'Sealed';
         const wasteQty = item.status === 'expired' ? item.current_quantity : item.discarded_vials ?? 0;
+        const itemCategory = getCategory(item.vaccine_type, item.vaccine_category);
 
         return `<tr>
         <td style="text-align:center;border:1px solid #000;">${i + 1}</td>
+        <td style="border:1px solid #000;">${itemCategory}</td>
         <td style="font-weight:700;border:1px solid #000;">${item.vaccine_type}</td>
         <td style="text-align:center;border:1px solid #000;">${item.batch_number}</td>
         <td style="border:1px solid #000;">${supplier}</td>
@@ -724,6 +767,7 @@ const buildReportBodyHtml = (
         <thead>
           <tr style="background:#fff;">
             <th style="text-align:center;width:4%;border:1px solid #000;">#</th>
+            <th style="border:1px solid #000;">Vaccine Category</th>
             <th style="border:1px solid #000;">Vaccine Type</th>
             <th style="text-align:center;border:1px solid #000;">Batch No.</th>
             <th style="border:1px solid #000;">Supplier / Source</th>
@@ -736,10 +780,10 @@ const buildReportBodyHtml = (
             <th style="text-align:center;border:1px solid #000;">Status</th>
           </tr>
         </thead>
-        <tbody>${rows || '<tr><td colspan="11" style="text-align:center;color:#000;border:1px solid #000;">No inventory records matching selected filters.</td></tr>'}</tbody>
+        <tbody>${rows || '<tr><td colspan="12" style="text-align:center;color:#000;border:1px solid #000;">No inventory records matching selected filters.</td></tr>'}</tbody>
         <tfoot>
           <tr style="font-weight:700;background:#fff">
-            <td colspan="4" style="border:1px solid #000;">Total Inventory Quantities</td>
+            <td colspan="5" style="border:1px solid #000;">Total Inventory Quantities</td>
             <td style="text-align:center;border:1px solid #000;">${totalReceived}</td>
             <td style="text-align:center;border:1px solid #000;">${totalDispensed}</td>
             <td style="text-align:center;border:1px solid #000;">${totalSealed}</td>
@@ -752,6 +796,8 @@ const buildReportBodyHtml = (
 
 // ─── Main Treatment Nurse Reports Page ─────────────────────────
 export default function TreatmentNurseReportsPage() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const { user, clinic: authClinic } = useAuth();
   const storedClinic = localStorage.getItem('clinicData') ? JSON.parse(localStorage.getItem('clinicData')!) : null;
   const clinic = authClinic || storedClinic;
@@ -779,7 +825,27 @@ export default function TreatmentNurseReportsPage() {
   const [invItems, setInvItems] = useState<InventoryItem[]>([]);
   const [invStats, setInvStats] = useState<InventoryStats | null>(null);
   const [invLoading, setInvLoading] = useState(false);
+  const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
   const [presetTypes, setPresetTypes] = useState<string[]>([]);
+
+  // Category resolver helper
+  const getCategoryForVaccine = (vaccineType?: string, directCategory?: string | null): string => {
+    if (directCategory && directCategory.trim()) return directCategory.trim();
+    if (!vaccineType) return 'Not specified';
+    const found = presets.find(
+      p => (p.vaccine_name || '').trim().toLowerCase() === vaccineType.trim().toLowerCase()
+    );
+    if (found?.category && found.category.trim()) {
+      return found.category.trim();
+    }
+    const invMatch = invItems.find(
+      i => (i.vaccine_type || '').trim().toLowerCase() === vaccineType.trim().toLowerCase() && i.vaccine_category
+    );
+    if (invMatch?.vaccine_category && invMatch.vaccine_category.trim()) {
+      return invMatch.vaccine_category.trim();
+    }
+    return 'Not specified';
+  };
 
   // Inventory Filters
   const [selectedVaccineType, setSelectedVaccineType] = useState<string>('ALL');
@@ -922,9 +988,13 @@ export default function TreatmentNurseReportsPage() {
       }
       if (statsRes.status === 'fulfilled') setInvStats(statsRes.value.data);
       if (presetsRes.status === 'fulfilled') {
-        const presets = presetsRes.value.data?.data ?? presetsRes.value.data ?? [];
-        if (Array.isArray(presets)) {
-          setPresetTypes(presets.map((p: any) => p.name || p.vaccine_name || p.vaccine_type).filter(Boolean));
+        const presetsData =
+          presetsRes.value.data?.presets ??
+          presetsRes.value.data?.data ??
+          (Array.isArray(presetsRes.value.data) ? presetsRes.value.data : []);
+        if (Array.isArray(presetsData)) {
+          setPresets(presetsData);
+          setPresetTypes(presetsData.map((p: any) => p.name || p.vaccine_name || p.vaccine_type).filter(Boolean));
         }
       }
     } catch {
@@ -1289,7 +1359,8 @@ export default function TreatmentNurseReportsPage() {
       invDisplayStats,
       getActiveFiltersSummaryText(),
       dateFrom,
-      dateTo
+      dateTo,
+      presets
     );
     setPrintHtml(bodyHtml);
     setShowPrintModal(true);
@@ -1316,7 +1387,8 @@ export default function TreatmentNurseReportsPage() {
         ? 'Patient List Report'
         : 'Vaccine Inventory & Wastage Report';
 
-    const CSS = `@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Poppins',sans-serif;color:#000;background:#fff;padding:24px 32px;font-size:10pt;line-height:1.4}.letterhead{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:4px}.logo{width:68px;height:68px;object-fit:contain}.org{text-align:center;line-height:1.3}.org .republic{font-size:8pt;font-style:italic}.org .dept{font-size:9.5pt;font-weight:700}.org .mho{font-size:11pt;font-weight:800;margin-top:1px}.org .address{font-size:8pt;font-style:italic}.divider-thick{border:none;border-top:2px solid #000;margin:4px 0 14px}.doc-title{text-align:center;margin:12px 0 16px}.doc-title h2{font-size:14pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;text-decoration:underline}.doc-title p{font-size:9pt;margin:2px 0 0}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:16px;font-size:9pt;border:1px solid #000;padding:8px 12px}h3.sec{font-size:10pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #000;padding-bottom:3px;margin:18px 0 10px}table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:9pt;border:1px solid #000}th{background:#fff;color:#000;font-weight:700;padding:6px 8px;text-align:left;font-size:9pt;border:1px solid #000}td{padding:5px 8px;border:1px solid #000;color:#000;background:#fff}tr:nth-child(even) td{background:#fff}table.info-table td{border:1px solid #000;padding:5px 10px;vertical-align:top;background:#fff}table.info-table td.lbl{background:#fff;font-weight:700;font-size:9pt;width:22%;color:#000}table.info-table td.val{font-size:9pt;width:28%;color:#000;background:#fff}p.note{font-size:8.5pt;color:#000;margin-bottom:8px;font-style:italic}.sig-section{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px}.sig-block .line{border-top:1px solid #000;margin-top:36px;padding-top:4px}.sig-block .name{font-weight:700;font-size:10pt;text-transform:uppercase}.sig-block .position{font-size:9pt;color:#000}.footer-bar{margin-top:40px;padding-top:8px;border-top:2px solid #000;display:flex;justify-content:space-between;font-size:8.5pt;color:#000}@media print{body{padding:16px 20px}@page{margin:1.0cm}}`;
+    const isLandscape = activeTab === 'inventory';
+    const CSS = `@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Poppins',sans-serif;color:#000;background:#fff;padding:${isLandscape ? '16px 24px' : '24px 32px'};font-size:${isLandscape ? '9pt' : '10pt'};line-height:1.4}.letterhead{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:4px}.logo{width:68px;height:68px;object-fit:contain}.org{text-align:center;line-height:1.3}.org .republic{font-size:8pt;font-style:italic}.org .dept{font-size:9.5pt;font-weight:700}.org .mho{font-size:11pt;font-weight:800;margin-top:1px}.org .address{font-size:8pt;font-style:italic}.divider-thick{border:none;border-top:2px solid #000;margin:4px 0 14px}.doc-title{text-align:center;margin:12px 0 16px}.doc-title h2{font-size:14pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;text-decoration:underline}.doc-title p{font-size:9pt;margin:2px 0 0}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:16px;font-size:9pt;border:1px solid #000;padding:8px 12px}h3.sec{font-size:10pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #000;padding-bottom:3px;margin:18px 0 10px}table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:${isLandscape ? '8.5pt' : '9pt'};border:1px solid #000}th{background:#fff;color:#000;font-weight:700;padding:6px 8px;text-align:left;font-size:${isLandscape ? '8.5pt' : '9pt'};border:1px solid #000}td{padding:5px 8px;border:1px solid #000;color:#000;background:#fff}tr:nth-child(even) td{background:#fff}table.info-table td{border:1px solid #000;padding:5px 10px;vertical-align:top;background:#fff}table.info-table td.lbl{background:#fff;font-weight:700;font-size:9pt;width:22%;color:#000}table.info-table td.val{font-size:9pt;width:28%;color:#000;background:#fff}p.note{font-size:8.5pt;color:#000;margin-bottom:8px;font-style:italic}.sig-section{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px}.sig-block .line{border-top:1px solid #000;margin-top:36px;padding-top:4px}.sig-block .name{font-weight:700;font-size:10pt;text-transform:uppercase}.sig-block .position{font-size:9pt;color:#000}.footer-bar{margin-top:40px;padding-top:8px;border-top:2px solid #000;display:flex;justify-content:space-between;font-size:8.5pt;color:#000}@media print{body{padding:16px 20px}@page{size:${isLandscape ? 'landscape' : 'portrait'};margin:${isLandscape ? '0.8cm' : '1.0cm'}}} `;
 
     const metaGridHtml = `
       <div class="meta-grid">
@@ -1395,14 +1467,16 @@ export default function TreatmentNurseReportsPage() {
           `"${p.created_at || ''}"`,
         ].join(','));
       } else if (type === 'inventory') {
-        headers = ['#', 'Vaccine Type', 'Batch No', 'Supplier', 'Received', 'Used', 'Sealed Vials', 'Open Vial Status', 'Wastage', 'Expiration', 'Status'];
+        headers = ['#', 'Vaccine Category', 'Vaccine Type', 'Batch No', 'Supplier / Source', 'Received', 'Used', 'Sealed Vials', 'Open Vial Status', 'Wastage', 'Expiration', 'Status'];
         csvRows = filteredInvItems.map((item, i) => {
           const recQty = item.initial_quantity ?? item.current_quantity + (item.total_dispensed ?? 0);
           const usedQty = item.total_dispensed ?? 0;
           const openStatus = item.open_vial_status ? `${item.open_vial_doses_remaining ?? 0} doses left` : 'Sealed';
           const wasteQty = item.status === 'expired' ? item.current_quantity : item.discarded_vials ?? 0;
+          const itemCategory = getCategoryForVaccine(item.vaccine_type, item.vaccine_category);
           return [
             i + 1,
+            `"${(itemCategory || 'Not specified').replace(/"/g, '""')}"`,
             `"${(item.vaccine_type || '').replace(/"/g, '""')}"`,
             `"${item.batch_number || ''}"`,
             `"${(item.received_from || 'DOH Central Supply').replace(/"/g, '""')}"`,
@@ -2734,12 +2808,13 @@ export default function TreatmentNurseReportsPage() {
               </Stack>
             </Box>
 
-            <TableContainer>
+            <TableContainer sx={{ overflowX: 'auto' }}>
               <Table size="small" aria-label="Inventory audit table">
                 <TableHead>
                   <TableRow sx={{ bgcolor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>#</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Vaccine Type</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, width: '45px' }}>#</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, minWidth: '175px' }}>Vaccine Category</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, minWidth: '130px' }}>Vaccine Type</TableCell>
                     <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Batch No.</TableCell>
                     <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS }}>Supplier / Source</TableCell>
                     <TableCell sx={{ fontWeight: 700, fontFamily: POPPINS, textAlign: 'center' }}>Received</TableCell>
@@ -2754,14 +2829,14 @@ export default function TreatmentNurseReportsPage() {
                 <TableBody>
                   {invLoading ? (
                     <TableRow>
-                      <TableCell colSpan={11} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
+                      <TableCell colSpan={12} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
                         <CircularProgress size={24} sx={{ mb: 1, display: 'block', mx: 'auto', color: '#10b981' }} />
                         Loading inventory audit data…
                       </TableCell>
                     </TableRow>
                   ) : filteredInvItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={11} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
+                      <TableCell colSpan={12} sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontFamily: POPPINS }}>
                         No inventory records match the selected filters.
                       </TableCell>
                     </TableRow>
@@ -2774,10 +2849,14 @@ export default function TreatmentNurseReportsPage() {
                         ? `${item.open_vial_doses_remaining ?? 0} doses remaining`
                         : 'Sealed';
                       const wasteQty = item.status === 'expired' ? item.current_quantity : item.discarded_vials ?? 0;
+                      const itemCategory = getCategoryForVaccine(item.vaccine_type, item.vaccine_category);
 
                       return (
                         <TableRow key={item.inventory_id || i} hover>
                           <TableCell sx={{ fontFamily: POPPINS }}>{i + 1}</TableCell>
+                          <TableCell sx={{ fontFamily: POPPINS }}>
+                            <VaccineCategoryBadge category={itemCategory} isDark={isDark} />
+                          </TableCell>
                           <TableCell sx={{ fontWeight: 600, fontFamily: POPPINS }}>{item.vaccine_type}</TableCell>
                           <TableCell sx={{ fontFamily: POPPINS }}>{item.batch_number}</TableCell>
                           <TableCell sx={{ fontFamily: POPPINS }}>{supplier}</TableCell>

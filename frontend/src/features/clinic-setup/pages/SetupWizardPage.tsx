@@ -139,27 +139,68 @@ export default function SetupWizard() {
   ];
 
   const handleNext = async () => {
-    // Step 1: Admin Account Creation (PUBLIC - no auth required)
+    // Step 1: Admin Account Creation (PUBLIC - no auth required on initial creation)
     if (currentStep === 1) {
       const step1Errors: Record<string, string> = {};
       if (!setupData.clinicName) step1Errors.clinicName = 'Clinic Name is required';
       if (!setupData.adminName) step1Errors.adminName = 'Your Full Name is required';
       if (!setupData.adminEmail) step1Errors.adminEmail = 'Email Address is required';
-      if (!setupData.adminPassword) step1Errors.adminPassword = 'Password is required';
-      if (!setupData.adminPasswordConfirm) step1Errors.adminPasswordConfirm = 'Confirm Password is required';
-      
+
+      const token = localStorage.getItem('authToken');
+      const isAlreadyInitialized = !!token;
+
+      // Only require password if the account has not been initialized yet
+      if (!isAlreadyInitialized) {
+        if (!setupData.adminPassword) step1Errors.adminPassword = 'Password is required';
+        if (!setupData.adminPasswordConfirm) step1Errors.adminPasswordConfirm = 'Confirm Password is required';
+      }
+
+      if (setupData.adminPassword && setupData.adminPassword !== setupData.adminPasswordConfirm) {
+        step1Errors.adminPasswordConfirm = 'Passwords do not match';
+      }
+
+      if (setupData.adminPassword && setupData.adminPassword.length < 8) {
+        step1Errors.adminPassword = 'Password must be at least 8 characters';
+      }
+
       if (Object.keys(step1Errors).length > 0) {
         setErrors(step1Errors);
         return;
       }
-      
-      if (setupData.adminPassword !== setupData.adminPasswordConfirm) {
-        setErrors({ adminPasswordConfirm: 'Passwords do not match' });
-        return;
-      }
-      
-      if (setupData.adminPassword.length < 8) {
-        setErrors({ adminPassword: 'Password must be at least 8 characters' });
+
+      if (isAlreadyInitialized) {
+        // Account already initialized. User went back to Step 1 and clicked Next.
+        // Sync any updated clinic name or admin name without re-calling initialize.
+        try {
+          await fetch(`${API_BASE_URL}/setup/clinic`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              name: setupData.clinicName,
+            }),
+          });
+
+          await fetch(`${API_BASE_URL}/me`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              name: setupData.adminName,
+            }),
+          });
+        } catch (e) {
+          console.warn('Non-fatal error updating admin/clinic on Step 1 revisit:', e);
+        }
+
+        setErrors({});
+        setCurrentStep(2);
         return;
       }
 
@@ -187,7 +228,7 @@ export default function SetupWizard() {
         }
 
         const data = await response.json();
-        
+
         // Store authentication token
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userData', JSON.stringify(data.user));
@@ -624,6 +665,9 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
 function AdminAccountStep({ data, setData, errors, setErrors }: any) {
   const [passwordsMatch, setPasswordsMatch] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const isAlreadyInitialized = !!localStorage.getItem('authToken');
 
   /** 23.1 — Blur-first per-field validation for Step 1 */
   const handleBlur = (field: string) => () => {
@@ -644,14 +688,24 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
           else delete next.adminEmail;
           break;
         case 'adminPassword':
-          if (!data.adminPassword) next.adminPassword = 'Password is required';
-          else if (data.adminPassword.length < 8) next.adminPassword = 'Password must be at least 8 characters';
-          else delete next.adminPassword;
+          if (!data.adminPassword) {
+            if (!isAlreadyInitialized) next.adminPassword = 'Password is required';
+            else delete next.adminPassword;
+          } else if (data.adminPassword.length < 8) {
+            next.adminPassword = 'Password must be at least 8 characters';
+          } else {
+            delete next.adminPassword;
+          }
           break;
         case 'adminPasswordConfirm':
-          if (!data.adminPasswordConfirm) next.adminPasswordConfirm = 'Confirm Password is required';
-          else if (data.adminPasswordConfirm !== data.adminPassword) next.adminPasswordConfirm = 'Passwords do not match';
-          else delete next.adminPasswordConfirm;
+          if (!data.adminPasswordConfirm) {
+            if (!isAlreadyInitialized) next.adminPasswordConfirm = 'Confirm Password is required';
+            else delete next.adminPasswordConfirm;
+          } else if (data.adminPasswordConfirm !== data.adminPassword) {
+            next.adminPasswordConfirm = 'Passwords do not match';
+          } else {
+            delete next.adminPasswordConfirm;
+          }
           break;
         default:
           break;
@@ -798,13 +852,13 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
         </div>
         </div>{/* end form-row: Name + Email */}
 
-        {/* 23.2 — 2-column pair: Password + Confirm Password */}
+        {/* 23.2 — 2-column pair: Password + Confirm Password with Visibility Toggles */}
         <div className="form-row">
         <div className="form-group">
-          <label>Password *</label>
+          <label>Password {isAlreadyInitialized ? '(Optional)' : '*'}</label>
           <div className="input-with-icon">
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={data.adminPassword}
               onChange={(e) => {
                 setData({ ...data, adminPassword: e.target.value });
@@ -816,10 +870,11 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                   });
                 }
               }}
-              placeholder="Minimum 8 characters"
+              placeholder={isAlreadyInitialized ? '•••••••• (Keep current password)' : 'Minimum 8 characters'}
               onBlur={handleBlur('adminPassword')}
               className={errors?.adminPassword ? 'has-error' : ''}
-              required
+              required={!isAlreadyInitialized}
+              style={{ paddingRight: '48px' }}
             />
             <div className="input-icon-wrapper">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -827,6 +882,25 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </div>
+            <button
+              type="button"
+              className="password-toggle-btn"
+              onClick={() => setShowPassword(!showPassword)}
+              title={showPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.26 3.64m-5.88-2.88a3 3 0 0 1-4.24-4.24" />
+                  <line x1="1" y1="23" x2="23" y2="1" />
+                </svg>
+              )}
+            </button>
           </div>
           {errors?.adminPassword ? (
             <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -837,6 +911,10 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
               </svg>
               <span>{errors.adminPassword}</span>
             </div>
+          ) : isAlreadyInitialized ? (
+            <p style={{ fontSize: '11px', color: '#10b981', marginTop: '6px', fontWeight: 500 }}>
+              Admin account already created. Leave blank to keep existing password.
+            </p>
           ) : (
             <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontWeight: 500 }}>
               Must contain uppercase, lowercase, and a number
@@ -845,10 +923,10 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
         </div>
 
         <div className="form-group">
-          <label>Confirm Password *</label>
+          <label>Confirm Password {isAlreadyInitialized ? '(Optional)' : '*'}</label>
           <div className="input-with-icon">
             <input
-              type="password"
+              type={showConfirmPassword ? 'text' : 'password'}
               value={data.adminPasswordConfirm}
               onChange={(e) => {
                 setData({ ...data, adminPasswordConfirm: e.target.value });
@@ -861,10 +939,11 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                   });
                 }
               }}
-              placeholder="Re-enter password"
+              placeholder={isAlreadyInitialized ? '•••••••• (Keep current password)' : 'Re-enter password'}
               onBlur={handleBlur('adminPasswordConfirm')}
               className={errors?.adminPasswordConfirm ? 'has-error' : ''}
-              required
+              required={!isAlreadyInitialized}
+              style={{ paddingRight: '48px' }}
             />
             <div className="input-icon-wrapper">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -872,6 +951,25 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </div>
+            <button
+              type="button"
+              className="password-toggle-btn"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              title={showConfirmPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              {showConfirmPassword ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.26 3.64m-5.88-2.88a3 3 0 0 1-4.24-4.24" />
+                  <line x1="1" y1="23" x2="23" y2="1" />
+                </svg>
+              )}
+            </button>
           </div>
           {errors?.adminPasswordConfirm ? (
             <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1447,7 +1545,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
                 }
               }}
               maxLength={11}
-              placeholder="09123456789"
+              placeholder="09XX XXX XXXX"
               onBlur={handleClinicBlur('phone')}
               className={errors?.phone ? 'has-error' : ''}
               required

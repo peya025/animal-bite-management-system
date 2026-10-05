@@ -20,10 +20,32 @@ class ClinicSetupController extends Controller
      */
     public function initialize(Request $request)
     {
-        // Security: Only allow if database is empty
-        if (Clinic::count() > 0) {
+        // Resume setup if valid setup token was provided for an in-progress setup
+        $token = $request->bearerToken();
+        if ($token) {
+            $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+            if ($personalAccessToken && $user = $personalAccessToken->tokenable) {
+                if ($user->clinic && !$user->clinic->is_setup_complete) {
+                    return response()->json([
+                        'message' => 'Setup already initialized, resuming setup',
+                        'token' => $token,
+                        'user' => $user->load('clinic'),
+                        'clinic' => $user->clinic,
+                    ], 200);
+                }
+            }
+        }
+
+        // Security: Only allow if database is empty or if clinic is completed
+        if (Clinic::where('is_setup_complete', true)->exists()) {
             return response()->json([
                 'message' => 'Setup has already been completed',
+            ], 403);
+        }
+
+        if (Clinic::count() > 0) {
+            return response()->json([
+                'message' => 'Setup has already been started. Please log in to complete setup.',
             ], 403);
         }
 

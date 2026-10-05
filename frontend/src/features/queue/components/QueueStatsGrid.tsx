@@ -7,8 +7,6 @@ import {
   UserCheck01Icon,
   Stethoscope02Icon,
   CheckmarkCircle02Icon,
-  Cancel01Icon,
-  UserBlock01Icon,
 } from '@hugeicons/core-free-icons';
 import type { QueueStats } from '../types';
 import { VISIT_LABEL } from '../types';
@@ -217,9 +215,6 @@ export function SecondaryCountersRow({ stats }: SecondaryCountersRowProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const secondChance = stats?.second_chance ?? 0;
-  const finalRecall = stats?.final_recall ?? 0;
-  const absentCancelled = (stats?.absent ?? 0) + (stats?.cancelled ?? 0);
-  const noResponse = stats?.no_response ?? 0;
 
   return (
     <Box
@@ -249,21 +244,6 @@ export function SecondaryCountersRow({ stats }: SecondaryCountersRowProps) {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
         <HugeiconsIcon icon={UserCheck01Icon} size={15} strokeWidth={1.8} style={{ color: '#34d399' }} />
         <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Second Chance: <strong style={{ color: secondChance > 0 ? (isDark ? '#34d399' : '#059669') : (isDark ? '#ffffff' : '#111827') }}>{secondChance}</strong></span>
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
-        <HugeiconsIcon icon={UserBlock01Icon} size={15} strokeWidth={1.8} style={{ color: '#f87171' }} />
-        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Final Recall: <strong style={{ color: finalRecall > 0 ? '#f87171' : (isDark ? '#ffffff' : '#111827') }}>{finalRecall}</strong></span>
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
-        <HugeiconsIcon icon={Cancel01Icon} size={15} strokeWidth={1.8} style={{ color: '#94a3b8' }} />
-        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Cancelled / Absent: <strong style={{ color: isDark ? '#ffffff' : '#111827' }}>{absentCancelled}</strong></span>
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
-        <HugeiconsIcon icon={UserBlock01Icon} size={15} strokeWidth={1.8} style={{ color: '#c084fc' }} />
-        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>No Response: <strong style={{ color: noResponse > 0 ? '#c084fc' : (isDark ? '#ffffff' : '#111827') }}>{noResponse}</strong></span>
       </Box>
     </Box>
   );

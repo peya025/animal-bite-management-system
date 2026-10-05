@@ -389,7 +389,9 @@ export default function QueueDashboard() {
   const completedTreatmentEntries = isTreatmentNurse
     ? queue.filter(entry => entry.visit_type === 'vaccination' && entry.status === 'completed')
     : [];
-  const isAdminOrReg = user?.role === 'admin' || isRegistrationStaff;
+  const isAdmin = user?.role === 'admin'
+    || Boolean(user?.roles?.some((role: any) => ['admin', 'administrator'].includes(role.slug)));
+  const isAdminOrReg = isAdmin || isRegistrationStaff;
   const stationScopedQueue = stationMode === 'intake'
     ? queue.filter(entry => isIntakeStationEntry(entry) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(entry.visit_type)))
     : stationMode === 'follow_up'
@@ -862,7 +864,16 @@ export default function QueueDashboard() {
         const isSecondChance = e.status === 'second_chance' || e.status === 'final_recall';
         const isActive  = MAIN_STATUSES.includes(e.status);
         const isDone    = ['completed', 'cancelled', 'absent'].includes(e.status);
-        const canCancelOrTrash = !isTriageDoctor && !isTreatmentNurse;
+        const canCancelOrTrash = !isAdmin && !isTriageDoctor && !isTreatmentNurse;
+        const hasActions = (isWaiting || isCalled) || isSecondChance || (canCancelOrTrash && isActive) || (canCancelOrTrash && !isServing && !isDone);
+
+        if (!hasActions) {
+          return (
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', px: 0.5 }}>—</Typography>
+            </Box>
+          );
+        }
 
         return (
           <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', alignItems: 'center' }}>
@@ -921,10 +932,6 @@ export default function QueueDashboard() {
                   <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
-            )}
-
-            {isDone && (
-              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', px: 0.5 }}>—</Typography>
             )}
           </Box>
         );

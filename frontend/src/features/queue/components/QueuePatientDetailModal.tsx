@@ -925,7 +925,7 @@ export default function QueuePatientDetailModal({
                 <AbsentIcon sx={{ fontSize: 17 }} /> Mark No-Show
               </MenuItem>
             )}
-            {userRole !== 'triage' && userRole !== 'treatment' && (
+            {userRole !== 'triage' && userRole !== 'treatment' && userRole !== 'admin' && (
               <MenuItem onClick={() => { setMenuAnchor(null); setCancelDialog(true); }} sx={{ gap: 1.5, fontSize: 13, color: '#dc2626' }}>
                 <CancelIcon sx={{ fontSize: 17 }} /> Cancel Queue Entry
               </MenuItem>

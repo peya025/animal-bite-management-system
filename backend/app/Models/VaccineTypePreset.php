@@ -37,4 +37,12 @@ class VaccineTypePreset extends Model
     {
         return $this->belongsTo(Clinic::class, 'clinic_id', 'id');
     }
+
+    /**
+     * Relationship: VaccineTypePreset has many VaccineInventory batches
+     */
+    public function inventoryBatches()
+    {
+        return $this->hasMany(VaccineInventory::class, 'vaccine_type', 'vaccine_name');
+    }
 }

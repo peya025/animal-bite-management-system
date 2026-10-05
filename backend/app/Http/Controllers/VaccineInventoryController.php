@@ -166,15 +166,18 @@ class VaccineInventoryController extends Controller
             $item->is_fifo_priority = ($rankIndex === 0 && $item->status === 'active' && $item->current_quantity > 0);
             $item->fifo_rank = $rankIndex !== false ? ($rankIndex + 1) : null;
 
-            // Resolve doses_per_vial (patients per vial) from preset if configured
+            // Resolve doses_per_vial (patients per vial) and vaccine category from preset if configured
             $matchedPreset = $presets->get(strtolower(trim($item->vaccine_type)));
             if ($matchedPreset) {
                 $item->doses_per_vial = $matchedPreset->is_multidose 
                     ? max(1, (int) ($matchedPreset->doses_per_vial ?? 1))
                     : 1;
+                $item->vaccine_category = $matchedPreset->category;
             } else {
                 $item->doses_per_vial = max(1, (int) ($item->doses_per_vial ?? 1));
+                $item->vaccine_category = null;
             }
+
             
             // Add total dispensed (sum of all 'used' transactions)
             $usedQuantity = $item->transactions()
@@ -786,10 +789,16 @@ class VaccineInventoryController extends Controller
 
                 app(\App\Services\NotificationService::class)->notifyStockReceived($inventory, $request->user(), (int) $request->quantity);
 
+                if ($preset) {
+                    $inventory->setRelation('vaccinePreset', $preset);
+                    $inventory->vaccine_category = $preset->category;
+                }
+
                 return response()->json([
                     'message'   => 'Vaccine inventory added successfully',
                     'inventory' => $inventory,
                 ], 201);
+
             });
         } catch (\Illuminate\Database\QueryException $e) {
             if (($e->errorInfo[1] ?? null) == 1062 || str_contains($e->getMessage(), 'Duplicate entry') || str_contains($e->getMessage(), 'uniq_clinic_batch')) {
@@ -807,11 +816,12 @@ class VaccineInventoryController extends Controller
     public function show(Request $request, $id)
     {
         $inventory = VaccineInventory::where('clinic_id', $request->user()->clinic_id)
-            ->with(['transactions.staff'])
+            ->with(['transactions.staff', 'vaccinePreset'])
             ->findOrFail($id);
 
         return response()->json($inventory);
     }
+
 
     /**
      * Update vaccine inventory (admin only)

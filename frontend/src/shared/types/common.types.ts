@@ -239,7 +239,9 @@ export interface InventoryItem {
   open_vial_status?: 'unopened' | 'opened' | 'discarded' | 'depleted';
   open_vial_doses_used?: number;
   doses_per_vial?: number;
+  vaccine_category?: string | null;
 }
+
 
 export interface InventoryStats {
   total_batches: number;

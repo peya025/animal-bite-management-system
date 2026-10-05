@@ -25,7 +25,6 @@ import {
 } from '@mui/material';
 import {
   AccessTime as OpenVialIcon,
-  AcUnit as ColdChainIcon,
   Archive as ArchiveIcon,
   Cancel as DiscardIcon,
   CheckCircleOutlined as ActiveIcon,
@@ -179,14 +178,7 @@ export default function InventoryTable({
       key: 'vaccine_type',
       header: 'Vaccine',
       render: (item) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 13, color: primaryText }}>{item.vaccine_type}</Typography>
-          {item.cold_chain_notes && (
-            <Tooltip title={item.cold_chain_notes} arrow>
-              <ColdChainIcon sx={{ fontSize: 14, color: '#0284c7' }} />
-            </Tooltip>
-          )}
-        </Box>
+        <Typography sx={{ fontWeight: 700, fontSize: 13, color: primaryText }}>{item.vaccine_type}</Typography>
       ),
     },
     {

@@ -39,7 +39,6 @@ import {
   RemoveCircleOutlined as DepletedIcon,
   Search as SearchIcon,
   Tune as AdjustIcon,
-  Visibility as ViewIcon,
   HourglassBottom as ExpiringIcon,
 } from '@mui/icons-material';
 import { DataTable, TablePaginator } from '../../../../components/data-display';
@@ -280,7 +279,7 @@ export default function InventoryTable({
       width: '150px',
       render: (item) => (
         <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center' }}>
-          {onViewStockCard && <Button size="small" variant="outlined" startIcon={<ViewIcon sx={{ fontSize: '15px !important' }} />} onClick={() => onViewStockCard(item)} sx={{ minWidth: 70, px: 1, py: 0.35, borderRadius: 1.5, borderColor: '#a7f3d0', color: '#047857', textTransform: 'none', fontSize: 11, '&:hover': { bgcolor: '#ecfdf5', borderColor: '#6ee7b7' } }}>View</Button>}
+          {onViewStockCard && <Button size="small" variant="outlined" onClick={() => onViewStockCard(item)} sx={{ minWidth: 70, px: 1.25, py: 0.35, borderRadius: 1.5, borderColor: '#a7f3d0', color: '#047857', textTransform: 'none', fontSize: 11, '&:hover': { bgcolor: '#ecfdf5', borderColor: '#6ee7b7' } }}>View</Button>}
           <Tooltip title="More actions">
             <IconButton size="small" aria-label={`More actions for ${item.vaccine_type} ${item.batch_number}`} onClick={(event) => { setActionAnchor(event.currentTarget); setActionItem(item); }} sx={{ width: 30, height: 30, color: secondaryText, border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`, borderRadius: 1.5 }}><MoreIcon sx={{ fontSize: 17 }} /></IconButton>
           </Tooltip>

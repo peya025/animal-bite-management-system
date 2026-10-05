@@ -19,12 +19,13 @@ import {
   TextField,
   Typography,
   InputAdornment,
+  IconButton,
   Switch,
   FormControlLabel,
   Grid,
   useTheme,
 } from '@mui/material';
-import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined, Lock } from '@mui/icons-material';
+import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined, Lock, Visibility, VisibilityOff, Close } from '@mui/icons-material';
 import api from '../../../services/api';
 import SignatureUpload from '../components/SignatureUpload';
 import DataTable from '../../../components/ui/DataTable';
@@ -309,6 +310,8 @@ export default function UserListPage() {
     is_active: true,
   });
   const [creating, setCreating] = useState(false);
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   // Invite state
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
@@ -893,28 +896,113 @@ export default function UserListPage() {
       <Dialog
         open={!!editing}
         onClose={() => setEditing(null)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3.5,
+              overflow: 'hidden',
+              maxWidth: 680,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            },
+          },
+        }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Edit color="primary" />
-          Edit user
-        </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={3} sx={{ pt: 1 }}>
+        <Box
+          sx={{
+            background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+            px: 3,
+            py: 2.25,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <Box
+            sx={{
+              width: 42,
+              height: 42,
+              borderRadius: 2,
+              bgcolor: 'rgba(255,255,255,0.18)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Edit sx={{ color: '#fff', fontSize: 22 }} />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: '1.15rem', lineHeight: 1.2 }}>
+              Edit user
+            </Typography>
+            <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, mt: 0.25 }}>
+              Update staff account profile, credentials, and permissions.
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={() => setEditing(null)}
+            size="small"
+            aria-label="Close dialog"
+            sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' } }}
+          >
+            <Close fontSize="small" />
+          </IconButton>
+        </Box>
+
+        <DialogContent sx={{ px: 3, py: 3, bgcolor: 'var(--card-bg, #ffffff)' }}>
+          <Stack spacing={2.5}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Full name"
                   value={editing?.name || ''}
                   onChange={(e) =>
                     setEditing((u) => u && { ...u, name: e.target.value })
                   }
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Person color="action" />
+                        <Person sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -923,16 +1011,53 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Email"
                   type="email"
                   value={editing?.email || ''}
                   onChange={(e) =>
                     setEditing((u) => u && { ...u, email: e.target.value })
                   }
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Email sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Email color="action" />
+                        <Email sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -941,23 +1066,79 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Phone"
                   value={editing?.phone || ''}
                   onChange={(e) =>
                     setEditing((u) => u && { ...u, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })
                   }
                   inputProps={{ maxLength: 11, pattern: '[0-9]*' }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Phone sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { maxLength: 11, pattern: '[0-9]*', autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Phone color="action" />
+                        <Phone sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                >
                   <InputLabel>Workstation Role</InputLabel>
                   <Select
                     label="Workstation Role"
@@ -967,7 +1148,7 @@ export default function UserListPage() {
                     }
                     startAdornment={
                       <InputAdornment position="start">
-                        <Shield color="action" />
+                        <Shield sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     }
                   >
@@ -982,16 +1163,53 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="PRC License No."
                   value={editing?.professional_license_no || ''}
                   onChange={(e) =>
                     setEditing((u) => u && { ...u, professional_license_no: e.target.value })
                   }
                   inputProps={{ style: { fontFamily: 'monospace' } }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Shield sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { style: { fontFamily: 'monospace' }, autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Shield color="action" />
+                        <Shield sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -1000,17 +1218,80 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="New Password"
-                  type="password"
+                  type={showEditPassword ? 'text' : 'password'}
                   value={editing?.password || ''}
                   onChange={(e) =>
                     setEditing((u) => u && { ...u, password: e.target.value })
                   }
                   helperText="Leave blank to keep current password"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle password visibility"
+                            onClick={() => setShowEditPassword(!showEditPassword)}
+                            edge="end"
+                            size="small"
+                            sx={{ color: '#64748b' }}
+                          >
+                            {showEditPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'new-password' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Lock color="action" />
+                        <Lock sx={{ color: '#64748b', fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={() => setShowEditPassword(!showEditPassword)}
+                          edge="end"
+                          size="small"
+                          sx={{ color: '#64748b' }}
+                        >
+                          {showEditPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        </IconButton>
                       </InputAdornment>
                     ),
                   }}
@@ -1023,32 +1304,58 @@ export default function UserListPage() {
                   onChange={(data, removed) => setEditing(u => u && { ...u, signature_data: data, remove_signature: removed })} />
               </Grid>
             </Grid>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={editing?.is_active ?? true}
-                  onChange={(e) =>
-                    setEditing((u) => u && { ...u, is_active: e.target.checked })
-                  }
-                  color="primary"
-                />
-              }
-              label={
-                <Stack direction="row" alignItems="center" gap={0.5}>
-                  {editing?.is_active ? (
-                    <CheckCircle fontSize="small" color="success" />
-                  ) : (
-                    <CheckCircle fontSize="small" color="disabled" />
-                  )}
-                  <Typography variant="body2">
-                    {editing?.is_active ? 'Active' : 'Inactive'}
-                  </Typography>
-                </Stack>
-              }
-            />
+            
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                bgcolor: 'var(--bg-subtle, #f8fafc)',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box>
+                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary, #1e293b)' }}>
+                  Account Status
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                  {editing?.is_active ? 'Active — User has full workstation access' : 'Inactive — User account is deactivated'}
+                </Typography>
+              </Box>
+              <FormControlLabel
+                sx={{ m: 0 }}
+                control={
+                  <Switch
+                    checked={editing?.is_active ?? true}
+                    onChange={(e) =>
+                      setEditing((u) => u && { ...u, is_active: e.target.checked })
+                    }
+                    color="success"
+                  />
+                }
+                label={
+                  <Stack direction="row" alignItems="center" gap={0.5}>
+                    <CheckCircle fontSize="small" color={editing?.is_active ? 'success' : 'disabled'} />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {editing?.is_active ? 'Active' : 'Inactive'}
+                    </Typography>
+                  </Stack>
+                }
+              />
+            </Box>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
+        <DialogActions
+          sx={{
+            px: 3,
+            py: 2,
+            borderTop: '1px solid var(--border-color, #e2e8f0)',
+            bgcolor: 'var(--bg-subtle, #f8fafc)',
+            gap: 1,
+          }}
+        >
           <AppButton variant="secondary" onClick={() => setEditing(null)}>
             Cancel
           </AppButton>
@@ -1079,29 +1386,114 @@ export default function UserListPage() {
       <Dialog
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3.5,
+              overflow: 'hidden',
+              maxWidth: 680,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            },
+          },
+        }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Add color="primary" />
-          Add new user
-        </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={3} sx={{ pt: 1 }}>
+        <Box
+          sx={{
+            background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+            px: 3,
+            py: 2.25,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <Box
+            sx={{
+              width: 42,
+              height: 42,
+              borderRadius: 2,
+              bgcolor: 'rgba(255,255,255,0.18)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Add sx={{ color: '#fff', fontSize: 24 }} />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: '1.15rem', lineHeight: 1.2 }}>
+              Add new user
+            </Typography>
+            <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, mt: 0.25 }}>
+              Create a new staff account and assign workstation permissions.
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={() => setCreateModalOpen(false)}
+            size="small"
+            aria-label="Close dialog"
+            sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' } }}
+          >
+            <Close fontSize="small" />
+          </IconButton>
+        </Box>
+
+        <DialogContent sx={{ px: 3, py: 3, bgcolor: 'var(--card-bg, #ffffff)' }}>
+          <Stack spacing={2.5}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   required
+                  size="small"
                   label="Full name"
                   value={newUser.name}
                   onChange={(e) =>
                     setNewUser((u) => ({ ...u, name: e.target.value }))
                   }
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Person color="action" />
+                        <Person sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -1111,16 +1503,53 @@ export default function UserListPage() {
                 <TextField
                   fullWidth
                   required
+                  size="small"
                   label="Email"
                   type="email"
                   value={newUser.email}
                   onChange={(e) =>
                     setNewUser((u) => ({ ...u, email: e.target.value }))
                   }
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Email sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Email color="action" />
+                        <Email sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -1129,23 +1558,79 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Phone"
                   value={newUser.phone}
                   onChange={(e) =>
                     setNewUser((u) => ({ ...u, phone: e.target.value.replace(/\D/g, '').slice(0, 11) }))
                   }
                   inputProps={{ maxLength: 11, pattern: '[0-9]*' }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Phone sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { maxLength: 11, pattern: '[0-9]*', autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Phone color="action" />
+                        <Phone sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                >
                   <InputLabel>Workstation Role</InputLabel>
                   <Select
                     label="Workstation Role"
@@ -1155,7 +1640,7 @@ export default function UserListPage() {
                     }
                     startAdornment={
                       <InputAdornment position="start">
-                        <Shield color="action" />
+                        <Shield sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     }
                   >
@@ -1170,16 +1655,53 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="PRC License No."
                   value={newUser.professional_license_no || ''}
                   onChange={(e) =>
                     setNewUser((u) => ({ ...u, professional_license_no: e.target.value }))
                   }
                   inputProps={{ style: { fontFamily: 'monospace' } }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Shield sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { style: { fontFamily: 'monospace' }, autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Shield color="action" />
+                        <Shield sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -1189,16 +1711,79 @@ export default function UserListPage() {
                 <TextField
                   fullWidth
                   required
+                  size="small"
                   label="Password"
-                  type="password"
+                  type={showNewUserPassword ? 'text' : 'password'}
                   value={newUser.password || ''}
                   onChange={(e) =>
                     setNewUser((u) => ({ ...u, password: e.target.value }))
                   }
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle password visibility"
+                            onClick={() => setShowNewUserPassword(!showNewUserPassword)}
+                            edge="end"
+                            size="small"
+                            sx={{ color: '#64748b' }}
+                          >
+                            {showNewUserPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'new-password' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Lock color="action" />
+                        <Lock sx={{ color: '#64748b', fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={() => setShowNewUserPassword(!showNewUserPassword)}
+                          edge="end"
+                          size="small"
+                          sx={{ color: '#64748b' }}
+                        >
+                          {showNewUserPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        </IconButton>
                       </InputAdornment>
                     ),
                   }}
@@ -1209,37 +1794,73 @@ export default function UserListPage() {
                   onChange={data => setNewUser(u => ({ ...u, signature_data: data }))} />
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <Alert severity="info" sx={{ fontSize: '13px' }}>
+                <Alert
+                  severity="info"
+                  sx={{
+                    fontSize: 12.5,
+                    borderRadius: 2,
+                    bgcolor: 'rgba(2, 132, 199, 0.08)',
+                    border: '1px solid rgba(2, 132, 199, 0.2)',
+                    color: '#0369a1',
+                    '& .MuiAlert-icon': { color: '#0284c7', fontSize: 20 },
+                  }}
+                >
                   Electronic signatures are optional. Staff identity and administration time are recorded even without a signature.
                 </Alert>
               </Grid>
             </Grid>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={newUser.is_active}
-                  onChange={(e) =>
-                    setNewUser((u) => ({ ...u, is_active: e.target.checked }))
-                  }
-                  color="primary"
-                />
-              }
-              label={
-                <Stack direction="row" alignItems="center" gap={0.5}>
-                  {newUser.is_active ? (
-                    <CheckCircle fontSize="small" color="success" />
-                  ) : (
-                    <CheckCircle fontSize="small" color="disabled" />
-                  )}
-                  <Typography variant="body2">
-                    {newUser.is_active ? 'Active' : 'Inactive'}
-                  </Typography>
-                </Stack>
-              }
-            />
+            
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                bgcolor: 'var(--bg-subtle, #f8fafc)',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box>
+                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary, #1e293b)' }}>
+                  Account Status
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                  {newUser.is_active ? 'Active — User can log in and perform duties' : 'Inactive — User login will be disabled'}
+                </Typography>
+              </Box>
+              <FormControlLabel
+                sx={{ m: 0 }}
+                control={
+                  <Switch
+                    checked={newUser.is_active}
+                    onChange={(e) =>
+                      setNewUser((u) => ({ ...u, is_active: e.target.checked }))
+                    }
+                    color="success"
+                  />
+                }
+                label={
+                  <Stack direction="row" alignItems="center" gap={0.5}>
+                    <CheckCircle fontSize="small" color={newUser.is_active ? 'success' : 'disabled'} />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {newUser.is_active ? 'Active' : 'Inactive'}
+                    </Typography>
+                  </Stack>
+                }
+              />
+            </Box>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
+        <DialogActions
+          sx={{
+            px: 3,
+            py: 2,
+            borderTop: '1px solid var(--border-color, #e2e8f0)',
+            bgcolor: 'var(--bg-subtle, #f8fafc)',
+            gap: 1,
+          }}
+        >
           <AppButton
             variant="secondary"
             onClick={() => setCreateModalOpen(false)}

@@ -86,7 +86,7 @@ const ROUTE_PERMISSIONS: Array<{ pattern: RegExp; allowedRoles: string[] }> = [
   { pattern: /^\/staff-activity(\/.*)?$/, allowedRoles: ['admin', 'developer'] },
   { pattern: /^\/reports(\/.*)?$/, allowedRoles: ['registration', 'triage', 'treatment', 'admin', 'developer'] },
   { pattern: /^\/profile(\/.*)?$/, allowedRoles: ['developer', 'admin', 'registration', 'triage', 'treatment'] },
-  { pattern: /^\/developer(\/.*)?$/, allowedRoles: ['developer', 'admin'] },
+  { pattern: /^\/developer(\/.*)?$/, allowedRoles: ['developer'] },
   { pattern: /^\/setup(\/.*)?$/, allowedRoles: ['admin', 'developer'] },
   { pattern: /^\/registration(\/.*)?$/, allowedRoles: ['registration', 'admin', 'developer'] },
 ];

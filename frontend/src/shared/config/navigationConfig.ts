@@ -117,7 +117,7 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
   {
     label: 'Developer Tools',
     icon: GLOBAL_NAV_ICONS['Developer Settings'],
-    roles: ['developer', 'admin'],
+    roles: ['developer'],
     submenu: [
       { label: 'Appointment Bug Catcher', path: ROUTES.APPOINTMENT_DIAGNOSTICS },
       { label: 'Landing & Footer Settings', path: ROUTES.DEVELOPER_SETTINGS },

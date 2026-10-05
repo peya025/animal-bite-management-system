@@ -135,6 +135,10 @@
     </style>
 </head>
 <body>
+    {{-- Non-printable print toolbar --}}
+    <div class="no-print-bar no-print">
+        <button class="btn-print" onclick="window.print()">🖨️ Print Report</button>
+    </div>
 
     <div class="page-container">
         <!-- Header with Configurable Logos & Dynamic Clinic Metadata -->
@@ -356,13 +360,5 @@
             Page 1 of 1
         </div>
     </div>
-
-    <script>
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                window.print();
-            }, 350);
-        });
-    </script>
 </body>
 </html>

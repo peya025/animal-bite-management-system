@@ -1020,11 +1020,15 @@ function PrintPreviewModal({
 }
 
 // ─── Main Component ───────────────────────────────────────────
-export default function ReportsDashboardPage() {
+interface ReportsDashboardPageProps {
+  initialTab?: 'summary' | 'cases' | 'patients' | 'inventory';
+}
+
+export default function ReportsDashboardPage({ initialTab }: ReportsDashboardPageProps = {}) {
   const { user } = useAuth();
-  if (user?.role === 'admin') return <AdminReportsPage />;
+  if (user?.role === 'admin') return <AdminReportsPage initialTab={initialTab} />;
   if (user?.role === 'registration') return <RegistrationReportsPage />;
-  return <TreatmentNurseReportsPage />;
+  return <TreatmentNurseReportsPage initialTab={initialTab} />;
 }
 
 function LegacyReportsDashboardPage() {

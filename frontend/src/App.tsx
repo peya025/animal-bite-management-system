@@ -88,6 +88,7 @@ function App() {
               <Route path="/users" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="User Management"><UserListPage /></AppLayout></ProtectedRoute>} />
               <Route path="/staff-activity" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="Staff Activity Monitor"><StaffActivityPage /></AppLayout></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute allowedRoles={['registration', 'triage', 'treatment', 'admin', 'developer']}><AppLayout title="Reports & Analytics"><ReportsDashboardPage /></AppLayout></ProtectedRoute>} />
+              <Route path="/reports/inventory" element={<ProtectedRoute allowedRoles={['admin', 'treatment', 'developer']}><AppLayout title="Reports & Analytics"><ReportsDashboardPage initialTab="inventory" /></AppLayout></ProtectedRoute>} />
               <Route path="/treatment-records" element={<ProtectedRoute allowedRoles={['triage', 'admin', 'developer']}><AppLayout title="Individual Treatment Record (Form 2)"><TreatmentRecordsPage /></AppLayout></ProtectedRoute>} />
               <Route path="/users/create" element={<ProtectedRoute allowedRoles={['admin', 'developer']}><AppLayout title="User Management"><UserCreatePage /></AppLayout></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute allowedRoles={['developer', 'admin', 'registration', 'triage', 'treatment']}><AppLayout title="My Profile"><UserProfilePage /></AppLayout></ProtectedRoute>} />

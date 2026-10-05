@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import {
   Alert, Box, Button, CircularProgress, MenuItem, Pagination, Paper, Skeleton,
   Stack, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -186,11 +186,14 @@ function DoseFunnel({ counts }: { counts: ReportResponse['stats']['dose_funnel']
   </Paper>;
 }
 
-export default function AdminReportsPage() {
+export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary' | 'cases' | 'patients' | 'inventory' } = {}) {
   const { user, clinic } = useAuth();
   const { leftLogoUrl, rightLogoUrl } = getGlobalPrintLogos(clinic);
+  const [searchParams] = useSearchParams();
 
-  const [section, setSection] = useState<Section>('overview');
+  const tabParam = searchParams.get('tab');
+  const resolvedSection: Section = initialTab === 'inventory' || tabParam === 'inventory' ? 'inventory' : 'overview';
+  const [section, setSection] = useState<Section>(resolvedSection);
   const [preset, setPreset] = useState('month');
   const [draft, setDraft] = useState<Filters>(initialFilters);
   const [filters, setFilters] = useState<Filters>(initialFilters);

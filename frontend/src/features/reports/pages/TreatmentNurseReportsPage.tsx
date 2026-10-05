@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
+import { useAccessDenied } from '../../../shared/contexts/AccessDeniedContext';
 import {
   Alert,
   Box,
@@ -795,19 +796,85 @@ const buildReportBodyHtml = (
 };
 
 // ─── Main Treatment Nurse Reports Page ─────────────────────────
-export default function TreatmentNurseReportsPage() {
+interface TreatmentNurseReportsPageProps {
+  initialTab?: SectionTab;
+}
+
+export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurseReportsPageProps = {}) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const { user, clinic: authClinic } = useAuth();
   const storedClinic = localStorage.getItem('clinicData') ? JSON.parse(localStorage.getItem('clinicData')!) : null;
   const clinic = authClinic || storedClinic;
 
+  // Doctor / Triage Doctor role detection
+  const isDoctor =
+    user?.role === 'triage' ||
+    (user as any)?.role === 'doctor' ||
+    Boolean(user?.roles?.some((r: any) => ['triage', 'doctor'].includes(r?.slug)));
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { showAccessDenied } = useAccessDenied();
+
   const today = new Date();
   const todayStr = dateString(today);
   const firstOfMonth = dateString(new Date(today.getFullYear(), today.getMonth(), 1));
 
+  // Determine initial tab from props or URL query parameter
+  const tabParam = searchParams.get('tab') as SectionTab | null;
+  const resolvedInitialTab: SectionTab = (() => {
+    if (initialTab && initialTab !== 'inventory') return initialTab;
+    if (initialTab === 'inventory') return isDoctor ? 'summary' : 'inventory';
+    if (tabParam && tabParam !== 'inventory') {
+      if (['summary', 'cases', 'patients'].includes(tabParam)) return tabParam;
+    }
+    if (tabParam === 'inventory') return isDoctor ? 'summary' : 'inventory';
+    return 'summary';
+  })();
+
   // Section Tab
-  const [activeTab, setActiveTab] = useState<SectionTab>('summary');
+  const [activeTab, setActiveTab] = useState<SectionTab>(resolvedInitialTab);
+
+  // Sync tab with URL search parameter and block unauthorized access to inventory report
+  useEffect(() => {
+    const currentTabParam = searchParams.get('tab');
+    if (currentTabParam === 'inventory') {
+      if (isDoctor) {
+        showAccessDenied('Access denied. You do not have permission to view Vaccine Inventory & Wastage reports.');
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('tab');
+        setSearchParams(nextParams, { replace: true });
+        setActiveTab('summary');
+      } else {
+        setActiveTab('inventory');
+      }
+    } else if (currentTabParam === 'cases' || currentTabParam === 'patients' || currentTabParam === 'summary') {
+      setActiveTab(currentTabParam);
+    }
+  }, [searchParams, isDoctor, showAccessDenied, setSearchParams]);
+
+  // Safety fallback if activeTab is somehow set to inventory for Doctor
+  useEffect(() => {
+    if (isDoctor && activeTab === 'inventory') {
+      setActiveTab('summary');
+    }
+  }, [isDoctor, activeTab]);
+
+  const handleTabChange = (_: React.SyntheticEvent, value: SectionTab) => {
+    if (isDoctor && value === 'inventory') {
+      showAccessDenied('Access denied. You do not have permission to view Vaccine Inventory & Wastage reports.');
+      return;
+    }
+    setActiveTab(value);
+    setSelectedCard(null);
+    const nextParams = new URLSearchParams(searchParams);
+    if (value === 'summary') {
+      nextParams.delete('tab');
+    } else {
+      nextParams.set('tab', value);
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
 
   // Date Range state
   const [dateFrom, setDateFrom] = useState(firstOfMonth);
@@ -975,6 +1042,7 @@ export default function TreatmentNurseReportsPage() {
   };
 
   const loadInventory = async () => {
+    if (isDoctor) return;
     setInvLoading(true);
     try {
       const [itemsRes, statsRes, presetsRes] = await Promise.allSettled([
@@ -1006,14 +1074,16 @@ export default function TreatmentNurseReportsPage() {
 
   useEffect(() => {
     loadReports();
-    loadInventory();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'inventory' && invItems.length === 0 && !invLoading) {
+    if (!isDoctor) {
       loadInventory();
     }
-  }, [activeTab]);
+  }, [isDoctor]);
+
+  useEffect(() => {
+    if (!isDoctor && activeTab === 'inventory' && invItems.length === 0 && !invLoading) {
+      loadInventory();
+    }
+  }, [activeTab, invItems.length, invLoading, isDoctor]);
 
   // Handle Preset Changes
   const handlePresetChange = (nextPreset: string) => {
@@ -1343,6 +1413,10 @@ export default function TreatmentNurseReportsPage() {
 
   // ─── Print Handlers ──────────────────────────────────────────
   const handleOpenPrint = () => {
+    if (isDoctor && activeTab === 'inventory') {
+      showAccessDenied('Access denied. You do not have permission to print inventory reports.');
+      return;
+    }
     const bodyHtml = buildReportBodyHtml(
       activeTab,
       cardData,
@@ -1439,6 +1513,10 @@ export default function TreatmentNurseReportsPage() {
 
   // ─── Export CSV Handlers ─────────────────────────────────────
   const exportCsv = (type: 'cases' | 'patients' | 'inventory') => {
+    if (type === 'inventory' && isDoctor) {
+      showAccessDenied('Access denied. You do not have permission to export inventory reports.');
+      return;
+    }
     setExporting(true);
     try {
       let headers: string[] = [];
@@ -1562,7 +1640,7 @@ export default function TreatmentNurseReportsPage() {
             variant="contained"
             startIcon={<PrintOutlined />}
             onClick={handleOpenPrint}
-            disabled={loading || (activeTab === 'inventory' && invLoading)}
+            disabled={loading || (!isDoctor && activeTab === 'inventory' && invLoading)}
             sx={{
               fontFamily: POPPINS,
               fontWeight: 600,
@@ -1583,13 +1661,10 @@ export default function TreatmentNurseReportsPage() {
       {/* ── Section Tabs ───────────────────────────────────────── */}
       <Tabs
         value={activeTab}
-        onChange={(_, value: SectionTab) => {
-          setActiveTab(value);
-          setSelectedCard(null);
-        }}
+        onChange={handleTabChange}
         variant="scrollable"
         allowScrollButtonsMobile
-        aria-label="Treatment Nurse report sections"
+        aria-label={isDoctor ? 'Doctor report sections' : 'Treatment Nurse report sections'}
         sx={{
           borderBottom: 1,
           borderColor: 'divider',
@@ -1614,7 +1689,7 @@ export default function TreatmentNurseReportsPage() {
         <Tab value="summary" label="Summary & Overview" />
         <Tab value="cases" label="Bite Cases" />
         <Tab value="patients" label="Patients" />
-        <Tab value="inventory" label="Vaccine Inventory & Wastage" />
+        {!isDoctor && <Tab value="inventory" label="Vaccine Inventory & Wastage" />}
       </Tabs>
 
       {/* ── Contextual Filter Bar ───────────────────────────────── */}
@@ -2074,7 +2149,7 @@ export default function TreatmentNurseReportsPage() {
           )}
 
           {/* Inventory Tab Filters */}
-          {activeTab === 'inventory' && (
+          {!isDoctor && activeTab === 'inventory' && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
               <TextField
                 select
@@ -2183,7 +2258,7 @@ export default function TreatmentNurseReportsPage() {
               `Showing ${filteredBiteCases.length} of ${biteCases.length} bite incident records.`}
             {activeTab === 'patients' &&
               `Showing ${filteredPatients.length} of ${patients.length} registered patient records.`}
-            {activeTab === 'inventory' &&
+            {!isDoctor && activeTab === 'inventory' &&
               `Showing ${filteredInvItems.length} of ${invItems.length} vaccine inventory batches.`}
           </Typography>
         </Paper>
@@ -2670,7 +2745,7 @@ export default function TreatmentNurseReportsPage() {
       {/* ══════════════════════════════════════════════════════════ */}
       {/* ── TAB 4: VACCINE INVENTORY & WASTAGE ────────────────── */}
       {/* ══════════════════════════════════════════════════════════ */}
-      {activeTab === 'inventory' && (
+      {!isDoctor && activeTab === 'inventory' && (
         <>
           {/* Stock Metrics Overview */}
           <Box

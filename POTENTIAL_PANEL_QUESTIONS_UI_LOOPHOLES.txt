@@ -1,0 +1,415 @@
+═══════════════════════════════════════════════════════════════
+  POTENTIAL PANEL QUESTIONS & UI/UX LOOPHOLES
+  Critical Issues That Might Be Questioned During Presentation
+═══════════════════════════════════════════════════════════════
+
+## 🚨 CRITICAL UI/UX ISSUES
+
+### 1. INCONSISTENT TERMINOLOGY
+❌ Form labels not standardized across the system
+   - Sometimes "Form 2", sometimes "Individual Treatment"
+   - Sometimes "Day 0", sometimes "Initial Dose"
+   - "Vaccination Card" vs "Treatment Card" vs "Form 3"
+
+**Panel Question:** "Bakit hindi consistent ang labels? Malilito ba ang staff?"
+
+**Answer:**
+"We use multiple terms para sa context - technical name (Form 2) for workflow, 
+plain language (Individual Treatment) for users. But agree po, we can standardize 
+further based on user feedback."
+
+---
+
+### 2. PLACE OF EXPOSURE - NOW VISIBLE IN DOCTOR FORM
+✅ JUST FIXED: Added place of exposure field in doctor form
+❌ OLD ISSUE: Was hidden, data from mobile not editable
+
+**Panel Question:** "Pano kung mali yung place na nilagay ng patient sa mobile?"
+
+**Answer:**
+"Good catch! We just added editable place of exposure field sa doctor form. 
+Doctor can now verify and correct yung location during consultation."
+
+---
+
+### 3. EMAIL FIELD WITH NO EMAIL SENDING
+❌ System asks for email pero walang email notifications currently
+
+**Panel Question:** "Bakit need pa ng email kung walang email sending?"
+
+**Answer (SAFE):**
+"Email serves as unique login identifier + planned for future implementation:
+- Password recovery via email reset
+- Notifications for overdue patients
+- Standard practice sa modern systems for future-proofing"
+
+---
+
+### 4. PHONE NUMBER VALIDATION INCONSISTENCY
+❌ Multiple formats: "0917-xxx-xxxx", "09XXXXXXXXX", "+63 XXX XXX XXXX"
+❌ Some fields allow 10 digits, some require 11
+
+**Panel Question:** "Bakit magkaiba ang phone format requirements?"
+
+**Answer:**
+"Different fields use different formats for display vs storage. 
+Backend standardizes to 11 digits (09XXXXXXXXX). 
+Can improve by standardizing input masks across all forms."
+
+---
+
+### 5. PHILHEALTH & PWD NUMBER FORMATTING
+❌ Format examples shown pero no real-time validation
+   - PhilHealth: XX-XXXXXXXXX-X (12 digits)
+   - PWD: XX-XXXX-XXXXXXXXXX-XXXXX
+❌ Users can enter wrong format, system accepts it
+
+**Panel Question:** "Pano sigurado na tama ang format ng government IDs?"
+
+**Answer:**
+"Currently accepts any input for flexibility. Validation is format-only 
+(number of digits), not against actual government databases. 
+Real-time validation against PhilHealth/PWD registry requires API integration 
+with government systems - possible future enhancement."
+
+---
+
+### 6. "UNKNOWN" LOCATION IN BITE CASES
+❌ Cases with no address show as "Unknown" location
+❌ Scores same priority as named locations
+
+**Panel Question:** "Paano nyo ipri-prioritize ang 'Unknown' locations?"
+
+**Answer:**
+"Unknown means incomplete data entry - should be flagged for review. 
+Currently gets 'Limited Data' badge if <3 cases. 
+Better handling: require address during registration, or separate 'Data Quality' report."
+
+---
+
+### 7. LIMITED DATA BADGE (<3 cases)
+❌ Small barangays with 2 severe Cat III cases = Low priority lang
+
+**Panel Question:** "Pero what if yung 2 cases ay severe? Mali ba yung priority?"
+
+**Answer:**
+"Valid concern. Limited Data badge prevents overreacting to single cases. 
+But you're right - 2 Cat III is serious. 
+Mitigation: Staff reviews all high-severity cases manually, hindi purely automated."
+
+---
+
+### 8. RE-EXPOSURE PROTOCOL CONFUSION
+❌ Multiple eligibility rules not clearly explained in UI
+❌ "After Day 7" pero booster patients have different rules
+
+**Panel Question:** "Paano malalaman ng staff kung eligible for re-exposure?"
+
+**Answer:**
+"System has automated checks:
+- Primary series: Must finish Day 7 (Days 0,3,7 complete)
+- Booster regimen: After booster dose complete
+UI shows eligibility status, pero we can add clearer guidelines/tooltips."
+
+---
+
+### 9. PASSWORD VISIBILITY IN STAFF CREATION
+❌ Admin creates password for staff = security risk
+❌ Password visible during creation, no enforce strong password UI
+
+**Panel Question:** "Secure ba na admin ang gumagawa ng password? Nakikita ng admin yung password?"
+
+**Answer:**
+"Trade-off po yan between convenience vs security:
+- Option 1 (current): Admin sets password, faster onboarding
+- Option 2: Email invitation, staff sets own password (more secure pero need email system)
+
+Backend encrypts all passwords with bcrypt hashing. 
+Best practice: Admin should tell staff verbally then change password immediately after first login. 
+Can add 'Force password change on first login' feature."
+
+---
+
+### 10. DEVELOPER ROLE IN PRODUCTION
+❌ "Developer" role with full access exists in production
+❌ "Bug Catcher" and "Database Explorer" tools accessible
+
+**Panel Question:** "Bakit may developer tools sa production? Security risk ba yan?"
+
+**Answer:**
+"Developer role is for emergency troubleshooting and system maintenance. 
+Protected by role-based access control - only assigned to system admin. 
+Production deployment should disable these dev tools or require separate authentication. 
+Acknowledged as security concern - should be environment-based (dev vs prod)."
+
+---
+
+### 11. DOSE SCHEDULING INCONSISTENCY
+❌ Sometimes "Day 0, 3, 7, 14, 28"
+❌ Sometimes "Day 0, 3, 7, 28" (no Day 14)
+❌ Landing page shows different schedule vs actual system
+
+**Panel Question:** "Ano ba talaga ang schedule? 4 doses or 5 doses?"
+
+**Answer:**
+"WHO updated protocol 2018: 4-dose schedule (Days 0, 3, 7, 28) replaces old 5-dose (0,3,7,14,28).
+System follows 4-dose. Landing page text needs update to remove Day 14 reference.
+Some old documentation not yet updated - inconsistency is documentation issue, not system logic."
+
+---
+
+### 12. BITE CASES SUMMARY - NO EXPORT FILTER CLARITY
+❌ "Export CSV" button - not clear if exports ALL cases or FILTERED cases
+
+**Panel Question:** "Pag nag-export, kasama ba yung filtered data lang or all?"
+
+**Answer:**
+"Export follows current active filters. 
+UI should be clearer - change button label to 'Export Filtered Data' or add tooltip.
+Good catch - clarity improvement needed."
+
+---
+
+### 13. VACCINATION RECORD FORM LOCKING
+❌ Form locks after Day 0 administered - pero bakit?
+❌ Confusing alert message for users
+
+**Panel Question:** "Bakit nag-lock? Pano kung may correction?"
+
+**Answer:**
+"Patient demographics lock after Day 0 to prevent data tampering after treatment starts.
+Ensures data integrity for medical records and reporting.
+But you're right - should allow admin override for genuine corrections.
+Can add 'Request Unlock' feature requiring admin approval."
+
+---
+
+### 14. MULTIPLE "CASE NUMBER" FORMATS
+❌ Auto-generated case numbers not standardized
+❌ Different formats: ABC-2026-001, TABTC-001, etc.
+
+**Panel Question:** "Paano ang format ng case numbers? Standardized ba?"
+
+**Answer:**
+"Format is clinic-configurable:
+- Clinic code (ABC) + Year + Sequential number
+- Ensures uniqueness within clinic
+- DOH reporting may require specific format - can adjust based on guidance."
+
+---
+
+### 15. SIGNATURE UPLOAD QUALITY
+❌ No file size/dimension validation
+❌ PNG only? What about JPG?
+❌ No preview before save
+
+**Panel Question:** "Paano kung blurry yung signature? May validation ba?"
+
+**Answer:**
+"Current implementation accepts PNG format with basic validation.
+Enhancement needed:
+- Show preview before save
+- Validate minimum dimensions (e.g. 200x100px)
+- File size limit (e.g. 500KB max)
+- Accept JPG/PNG formats
+Good feedback - will add to improvement list."
+
+---
+
+### 16. OVERDUE PATIENT RECALL - SMS OR MANUAL?
+❌ System shows overdue patients pero SMS sending not implemented
+❌ UI suggests SMS recall pero manual lang pala
+
+**Panel Question:** "Automatic ba ang SMS reminders or manual pa rin?"
+
+**Answer:**
+"Current: System identifies overdue patients, generates suggested SMS text.
+Staff manually copies and sends via personal phone or SMS gateway.
+Planned: Integration with SMS gateway API for automated sending.
+Trade-off: Automated requires budget for SMS credits."
+
+---
+
+### 17. QUEUE PRIORITY VS APPOINTMENT TIME
+❌ Walk-in patients and appointments both in queue
+❌ No clear visual priority indicator
+
+**Panel Question:** "Paano priority ng walk-in vs appointment?"
+
+**Answer:**
+"Current logic:
+- Appointments get priority if within scheduled time window
+- Walk-ins processed based on registration time
+- Staff can manually adjust priority
+UI improvement: Color-code appointments vs walk-ins, show priority number."
+
+---
+
+### 18. VACCINATION CARD PRINTING - BLANK VS FILLED
+❌ Two print modes not explained in UI
+❌ Users might print wrong version
+
+**Panel Question:** "Ano difference ng 'Filled' vs 'Blank' print?"
+
+**Answer:**
+"Filled = Complete patient data for records
+Blank = Empty template for handwritten cards (fallback if no printer during consultation)
+Should add tooltips or radio button labels for clarity."
+
+---
+
+### 19. CLINIC MODULE CONFIGURATION CONFUSION
+❌ "Enable/disable modules" feature not intuitive
+❌ What happens to data if module disabled?
+
+**Panel Question:** "Pag nag-disable ng module, mawawala ba yung data?"
+
+**Answer:**
+"Data retained, modules just hide/show UI features.
+Example: Disable inventory module = hide stock management screens, data safe.
+Should add confirmation dialog explaining data is safe when disabling."
+
+---
+
+### 20. MOBILE APP - "REPORT BITE" WITHOUT LOGIN?
+❌ Patients can report bite before account creation
+❌ Confusing flow - register after submitting report?
+
+**Panel Question:** "Paano yung flow? Register first or report first?"
+
+**Answer:**
+"Design decision: Emergency-first approach.
+- Patient can report bite immediately without registration (faster)
+- System creates 'pending' record
+- Patient registers account later to track appointments
+Trade-off: Some reports may be incomplete if patient doesn't follow through.
+Alternative: Force registration first - slower pero complete data."
+
+---
+
+## 📊 SCORING/CALCULATION QUESTIONS
+
+### 21. BITE CASES PRIORITY WEIGHTS
+**Panel:** "Bakit 35-35-20-10? Why not 40-30-20-10?"
+
+**Answer:** (Already covered in script)
+"Tested different combinations. 35-35 balances current problems (volume + severity).
+Too heavy on one makes priority imbalanced. This gave most clinically sensible rankings."
+
+---
+
+### 22. PEP COMPLIANCE CALCULATION
+❌ How is 87% calculated? Not explained in UI
+
+**Panel Question:** "Paano nakuha ang 87% compliance?"
+
+**Answer:**
+"Formula: (Patients on schedule / Total active patients) × 100
+On schedule = no overdue doses
+Excludes completed cases
+Should add info icon with formula explanation in UI."
+
+---
+
+## 🔒 SECURITY CONCERNS
+
+### 23. PASSWORD POLICY MISSING
+❌ No minimum password requirements shown
+❌ "8 characters" pero no complexity requirement
+
+**Panel Question:** "Secure ba yung passwords? May requirements ba?"
+
+**Answer:**
+"Backend requires minimum 8 characters.
+Enhancement needed: Enforce complexity (uppercase, number, special char).
+Show password strength meter during creation.
+Currently relies on admin to create strong passwords."
+
+---
+
+### 24. SESSION TIMEOUT NOT VISIBLE
+❌ Users don't know when session expires
+❌ Sudden logout confusing
+
+**Panel Question:** "Gaano katagal ang session? May warning ba before timeout?"
+
+**Answer:**
+"24-hour token expiry (configurable).
+Should add:
+- Idle timeout warning (e.g. 5 min before expiry)
+- Auto-save draft before logout
+- Session countdown in UI
+Good security vs UX balance needed."
+
+---
+
+### 25. AUDIT LOG VISIBILITY
+❌ Audit logs exist pero staff can't view their own actions
+❌ Only admin sees logs
+
+**Panel Question:** "Pano malalaman ng staff kung sino nag-edit ng record?"
+
+**Answer:**
+"Admin-only access prevents tampering.
+Enhancement: Show 'Last edited by [name] on [date]' in record view.
+Staff see who edited, pero can't modify audit trail.
+Transparency without compromising security."
+
+---
+
+## 💡 RECOMMENDED ANSWERS TO COMMON QUESTIONS
+
+### "Bakit ganito ang design?"
+"Based on actual workflow ng Tagoloan ABTC. Iterative development with staff feedback.
+Open for improvements based on other clinic needs."
+
+### "Paano kung mali yung data?"
+"Edit functions available for most fields. Locked fields (after treatment) require admin approval.
+Audit trail tracks all changes for accountability."
+
+### "Secure ba yung system?"
+"Multi-layer security:
+- Password hashing (bcrypt)
+- Role-based access control
+- Token-based authentication
+- Audit logging
+Always improving based on security reviews."
+
+### "Paano kung walang internet?"
+"Mobile app offline-capable for bite reporting.
+Desktop requires internet (cloud-based).
+Planned: Offline sync feature for desktop."
+
+---
+
+## 🎯 GENERAL DEFENSE STRATEGY
+
+1. **Acknowledge limitations honestly**
+   "Version 1 pa lang. Identified issues for next iteration."
+
+2. **Show openness to feedback**
+   "Great observation! Will add to improvement backlog."
+
+3. **Explain trade-offs**
+   "Security vs convenience - we chose [X] because [reason]."
+
+4. **Cite standards**
+   "Follows WHO guidelines / DOH protocols / industry best practices."
+
+5. **Demonstrate testing**
+   "Tested with Tagoloan ABTC staff, incorporated feedback."
+
+---
+
+## ✅ STRENGTHS TO EMPHASIZE
+
+1. **Real-world validation** - Used by actual clinic
+2. **WHO protocol compliance** - Evidence-based
+3. **Transparency** - Open calculations, audit trails
+4. **Flexibility** - Configurable to different clinics
+5. **Iterative improvement** - Acknowledges room for enhancement
+
+═══════════════════════════════════════════════════════════════
+Remember: Panels appreciate HONESTY over perfection.
+Show awareness of limitations + plans for improvement.
+═══════════════════════════════════════════════════════════════

@@ -50,6 +50,7 @@ import {
   describeOpenVialCountdown,
   getExpiryVisual,
   getStatusVisual,
+  getCategoryBadgeStyle,
 } from '../../utils/inventoryStatus';
 
 interface InventoryTableProps {
@@ -176,13 +177,42 @@ export default function InventoryTable({
     {
       key: 'vaccine_type',
       header: 'Vaccine',
+      width: '120px',
       render: (item) => (
         <Typography sx={{ fontWeight: 700, fontSize: 13, color: primaryText }}>{item.vaccine_type}</Typography>
       ),
     },
     {
+      key: 'vaccine_category',
+      header: 'Vaccine Category',
+      width: '190px',
+      render: (item) => {
+        const matchedPreset = presets?.find(
+          (p) => p.vaccine_name.toLowerCase() === item.vaccine_type.toLowerCase()
+        );
+        const category = item.vaccine_category || matchedPreset?.category || null;
+        const style = getCategoryBadgeStyle(category, isDark);
+        return (
+          <Chip
+            label={category || 'Not specified'}
+            size="small"
+            sx={{
+              fontWeight: 700,
+              fontSize: 11,
+              height: 24,
+              bgcolor: style.bg,
+              color: style.color,
+              border: `1px solid ${style.border}`,
+              whiteSpace: 'nowrap',
+            }}
+          />
+        );
+      },
+    },
+    {
       key: 'batch_number',
       header: 'Batch / Lot',
+      width: '120px',
       render: (item) => {
         const eligible = item.current_quantity > 0 && deriveInventoryStatus(item) !== 'Expired';
         return (
@@ -197,15 +227,17 @@ export default function InventoryTable({
     {
       key: 'received_from',
       header: 'Supplier',
+      width: '180px',
       render: (item) => {
         const supplier = item.received_from || '—';
-        return <Tooltip title={supplier} arrow><Typography sx={{ maxWidth: 185, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: primaryText }}>{supplier}</Typography></Tooltip>;
+        return <Tooltip title={supplier} arrow><Typography sx={{ maxWidth: 175, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: primaryText }}>{supplier}</Typography></Tooltip>;
       },
     },
     {
       key: 'current_quantity',
       header: 'Available / Capacity',
       align: 'center',
+      width: '145px',
       render: (item) => {
         const empty = item.current_quantity <= 0;
         const low = !empty && item.current_quantity <= 10;
@@ -241,13 +273,14 @@ export default function InventoryTable({
     {
       key: 'expiration',
       header: 'Expiration',
+      width: '155px',
       render: (item) => {
         const derivedStatus = deriveInventoryStatus(item);
         const expiry = getExpiryVisual(item.expiration_date);
         const emphasized = derivedStatus === 'Expiring' || derivedStatus === 'Expired';
         const openVial = item.open_vial_status === 'opened' ? describeOpenVialCountdown(item.open_vial_discard_at) : null;
         return (
-          <Box sx={{ minWidth: 150 }}>
+          <Box sx={{ minWidth: 140 }}>
             <Box sx={{ display: 'inline-block', px: emphasized ? 0.8 : 0, py: emphasized ? 0.45 : 0, borderRadius: 1.5, bgcolor: emphasized ? expiry.bg : 'transparent', border: emphasized ? `1px solid ${expiry.border}` : 'none' }}>
               <Typography sx={{ fontSize: 12, fontWeight: 600, color: emphasized ? expiry.color : primaryText }}>{formatDate(item.expiration_date)}</Typography>
               <Typography sx={{ fontSize: 10, color: emphasized ? expiry.color : secondaryText }}>{expiry.detail}</Typography>
@@ -266,6 +299,7 @@ export default function InventoryTable({
       key: 'status',
       header: 'Status',
       align: 'center',
+      width: '125px',
       render: (item) => {
         const status = deriveInventoryStatus(item);
         const visual = getStatusVisual(status);
@@ -276,7 +310,7 @@ export default function InventoryTable({
       key: 'actions',
       header: 'Actions',
       align: 'center',
-      width: '150px',
+      width: '135px',
       render: (item) => (
         <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center' }}>
           {onViewStockCard && <Button size="small" variant="outlined" onClick={() => onViewStockCard(item)} sx={{ minWidth: 70, px: 1.25, py: 0.35, borderRadius: 1.5, borderColor: '#a7f3d0', color: '#047857', textTransform: 'none', fontSize: 11, '&:hover': { bgcolor: '#ecfdf5', borderColor: '#6ee7b7' } }}>View</Button>}
@@ -286,7 +320,7 @@ export default function InventoryTable({
         </Stack>
       ),
     },
-  ], [isDark, onViewStockCard, primaryText, secondaryText]);
+  ], [isDark, onViewStockCard, primaryText, secondaryText, presets]);
 
   return (
     <Box>
@@ -314,9 +348,10 @@ export default function InventoryTable({
           <Typography sx={{ fontSize: 10.5, color: secondaryText }}>{total} record{total === 1 ? '' : 's'}</Typography>
           <Button size="small" startIcon={<InfoIcon sx={{ fontSize: '15px !important' }} />} onClick={() => setGuideOpen(true)} sx={{ ml: 'auto', color: secondaryText, textTransform: 'none', fontSize: 11 }}>Inventory guide</Button>
         </Box>
-        <DataTable columns={columns} rows={items} rowKey={(item) => item.inventory_id} rowId={(item) => `inventory-batch-${item.inventory_id}`} loading={loading} emptyState={<Box sx={{ textAlign: 'center', py: 8, px: 2 }}><InventoryIcon sx={{ fontSize: 42, color: '#cbd5e1', mb: 1 }} /><Typography sx={{ fontWeight: 700, fontSize: 15, color: primaryText }}>No vaccine batches found</Typography><Typography sx={{ fontSize: 12, color: secondaryText, mt: 0.5, mb: 2 }}>{hasFilters ? 'No inventory batches match the current filters.' : 'Add the clinic’s first stock batch to begin tracking inventory.'}</Typography>{!hasFilters && <Button variant="contained" onClick={onAddFirst} sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' }, textTransform: 'none', fontWeight: 700 }}>Add first stock batch</Button>}</Box>} />
+        <DataTable minWidth={1060} columns={columns} rows={items} rowKey={(item) => item.inventory_id} rowId={(item) => `inventory-batch-${item.inventory_id}`} loading={loading} emptyState={<Box sx={{ textAlign: 'center', py: 8, px: 2 }}><InventoryIcon sx={{ fontSize: 42, color: '#cbd5e1', mb: 1 }} /><Typography sx={{ fontWeight: 700, fontSize: 15, color: primaryText }}>No vaccine batches found</Typography><Typography sx={{ fontSize: 12, color: secondaryText, mt: 0.5, mb: 2 }}>{hasFilters ? 'No inventory batches match the current filters.' : 'Add the clinic’s first stock batch to begin tracking inventory.'}</Typography>{!hasFilters && <Button variant="contained" onClick={onAddFirst} sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' }, textTransform: 'none', fontWeight: 700 }}>Add first stock batch</Button>}</Box>} />
         <TablePaginator count={total} page={page} rowsPerPage={rowsPerPage} onPageChange={onPageChange} onRowsPerPageChange={onRowsPerPageChange} rowsPerPageOptions={[10, 15, 25, 50]} />
       </Paper>
+
 
       <Menu anchorEl={actionAnchor} open={Boolean(actionAnchor && actionItem)} onClose={closeActionMenu} slotProps={{ paper: { sx: { mt: 0.5, minWidth: 205, borderRadius: 2 } } }}>
         {actionItem?.current_quantity && actionItem.open_vial_hours && actionItem.open_vial_status !== 'opened' && onOpenVial ? <MenuItem onClick={() => runAction(onOpenVial)} sx={{ fontSize: 12 }}><OpenVialIcon sx={{ fontSize: 16, mr: 1, color: '#2563eb' }} />Mark vial opened</MenuItem> : null}

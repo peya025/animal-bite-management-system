@@ -188,7 +188,10 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const derivedStatus = deriveInventoryStatus(item);
-      const matchesSearch = !search || item.vaccine_type.toLowerCase().includes(search.toLowerCase());
+      const category = item.vaccine_category || presets.find((p) => p.vaccine_name.toLowerCase() === item.vaccine_type.toLowerCase())?.category;
+      const matchesSearch = !search || 
+        item.vaccine_type.toLowerCase().includes(search.toLowerCase()) ||
+        Boolean(category && category.toLowerCase().includes(search.toLowerCase()));
       const matchesBatch = !batchFilter || (item.batch_number || '').toLowerCase().includes(batchFilter.toLowerCase());
       const matchesSource = !sourceFilter || (item.received_from || '').toLowerCase().includes(sourceFilter.toLowerCase());
 
@@ -224,7 +227,8 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
 
       return matchesSearch && matchesBatch && matchesSource && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [items, search, batchFilter, sourceFilter, statusFilter, expiryFrom, expiryTo]);
+  }, [items, search, batchFilter, sourceFilter, statusFilter, expiryFrom, expiryTo, presets]);
+
 
   const pagedItems = useMemo(() => {
     const start = page * rowsPerPage;

@@ -179,3 +179,49 @@ export function getExpiryVisual(expirationDate?: string | null) {
     border: '#86efac',
   };
 }
+
+export const VACCINE_CATEGORIES = [
+  'Anti-Rabies Vaccines (ARV)',
+  'Rabies Immunoglobulins (RIG)',
+  'Tetanus & Toxoids',
+  'Anti-Tetanus Serum (ATS)',
+  'Other Biologicals',
+] as const;
+
+export type VaccineCategory = (typeof VACCINE_CATEGORIES)[number];
+
+export function getCategoryBadgeStyle(category?: string | null, isDark: boolean = false) {
+  if (!category) {
+    return isDark
+      ? { bg: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8', border: '#334155' }
+      : { bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1' };
+  }
+
+  switch (category) {
+    case 'Anti-Rabies Vaccines (ARV)':
+      return isDark
+        ? { bg: 'rgba(29, 78, 216, 0.15)', color: '#93c5fd', border: '#1e40af' }
+        : { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' };
+    case 'Rabies Immunoglobulins (RIG)':
+      return isDark
+        ? { bg: 'rgba(15, 118, 110, 0.15)', color: '#5eead4', border: '#115e59' }
+        : { bg: '#ecfeff', color: '#0f766e', border: '#a5f3fc' };
+    case 'Tetanus & Toxoids':
+      return isDark
+        ? { bg: 'rgba(194, 65, 12, 0.15)', color: '#fdba74', border: '#9a3412' }
+        : { bg: '#fff7ed', color: '#c2410c', border: '#fdba74' };
+    case 'Anti-Tetanus Serum (ATS)':
+      return isDark
+        ? { bg: 'rgba(153, 27, 27, 0.15)', color: '#fca5a5', border: '#991b1b' }
+        : { bg: '#fef2f2', color: '#991b1b', border: '#fca5a5' };
+    case 'Other Biologicals':
+      return isDark
+        ? { bg: 'rgba(109, 40, 217, 0.15)', color: '#c4b5fd', border: '#6d28d9' }
+        : { bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe' };
+    default:
+      return isDark
+        ? { bg: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8', border: '#334155' }
+        : { bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1' };
+  }
+}
+

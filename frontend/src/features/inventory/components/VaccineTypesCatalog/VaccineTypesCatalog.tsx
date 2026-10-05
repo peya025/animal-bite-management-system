@@ -244,7 +244,6 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
             >
               <MenuItem value="">All Categories</MenuItem>
               <MenuItem value="Anti-Rabies Vaccines (ARV)">Anti-Rabies Vaccines (ARV)</MenuItem>
-              <MenuItem value="Rabies Immunoglobulins (RIG)">Rabies Immunoglobulins (RIG)</MenuItem>
               <MenuItem value="Tetanus & Toxoids">Tetanus &amp; Toxoids</MenuItem>
               <MenuItem value="Anti-Tetanus Serum (ATS)">Anti-Tetanus Serum (ATS)</MenuItem>
               <MenuItem value="Other Biologicals">Other Biologicals</MenuItem>

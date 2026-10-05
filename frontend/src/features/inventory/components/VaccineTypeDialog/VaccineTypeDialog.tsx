@@ -36,7 +36,6 @@ interface VaccineTypeDialogProps {
 
 const CATEGORIES = [
   'Anti-Rabies Vaccines (ARV)',
-  'Rabies Immunoglobulins (RIG)',
   'Tetanus & Toxoids',
   'Anti-Tetanus Serum (ATS)',
   'Other Biologicals',
@@ -62,9 +61,12 @@ export default function VaccineTypeDialog({ open, preset, onClose, onSaved }: Va
 
     if (preset) {
       const isMulti = Boolean(preset.is_multidose);
+      const categoryValue = preset.category && CATEGORIES.includes(preset.category)
+        ? preset.category
+        : 'Anti-Rabies Vaccines (ARV)';
       setForm({
         vaccine_name: preset.vaccine_name || '',
-        category: preset.category || 'Anti-Rabies Vaccines (ARV)',
+        category: categoryValue,
         is_multidose: isMulti,
         doses_per_vial: isMulti ? Math.max(1, Number(preset.doses_per_vial ?? 3)) : 1,
         default_open_vial_hours: preset.default_open_vial_hours ?? 6,

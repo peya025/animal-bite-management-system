@@ -84,7 +84,7 @@ export default function PrescribedVaccineSection({
               disabled={isFormDisabled}
               style={{ flex: 1, minWidth: 260 }}
             >
-              <option value="">— No PEP vaccine prescribed (Category I only) —</option>
+              <option value="">— No PEP vaccine prescribed —</option>
               {displayOptions.map((name) => (
                 <option key={name} value={name}>
                   {name}

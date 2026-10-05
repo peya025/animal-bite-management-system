@@ -17,7 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DownloadOutlined, Refresh, PeopleAltOutlined, LocalHospitalOutlined } from '@mui/icons-material';
+import { DownloadOutlined, Refresh, PeopleAltOutlined } from '@mui/icons-material';
 import api from '../../../services/api';
 
 const POPPINS = "'Poppins', sans-serif";
@@ -928,10 +928,7 @@ export default function VaccineInventoryReportSection({
                   <TableRow key={item.vaccineType || idx} hover>
                     <TableCell sx={{ fontFamily: POPPINS }}>{idx + 1}</TableCell>
                     <TableCell sx={{ fontWeight: 600, fontFamily: POPPINS }}>
-                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                        <LocalHospitalOutlined sx={{ fontSize: 16, color: '#10b981' }} />
-                        <span>{item.vaccineType}</span>
-                      </Stack>
+                      <span>{item.vaccineType}</span>
                     </TableCell>
                     <TableCell sx={{ textAlign: 'center', fontWeight: 700, color: item.uniquePatients > 0 ? '#3b82f6' : 'text.secondary', fontFamily: POPPINS }}>
                       {item.uniquePatients}

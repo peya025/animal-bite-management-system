@@ -481,6 +481,29 @@ export const SetupWizardRoot = styled('div')`
     transition: color 0.3s;
   }
 
+  .password-toggle-btn {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    transition: color 0.2s, background-color 0.2s;
+    z-index: 2;
+
+    &:hover {
+      color: rgba(255, 255, 255, 0.95);
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+  }
+
   .form-group input[type="text"],
   .form-group input[type="email"],
   .form-group input[type="tel"],
@@ -495,6 +518,10 @@ export const SetupWizardRoot = styled('div')`
     color: #ffffff;
     background: rgba(255, 255, 255, 0.04);
     transition: all 0.3s ease;
+  }
+
+  .form-group input[type="password"] {
+    padding-right: 48px;
   }
 
   .form-group select {
@@ -1214,6 +1241,15 @@ export const SetupWizardRoot = styled('div')`
     .form-group select:focus + .input-icon-wrapper,
     .form-group select:focus ~ .input-icon-wrapper {
       color: #059669;
+    }
+
+    .password-toggle-btn {
+      color: #94a3b8;
+
+      &:hover {
+        color: #1e293b;
+        background-color: rgba(0, 0, 0, 0.05);
+      }
     }
 
     .full-address-preview {

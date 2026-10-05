@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { ROUTES } from '../../../shared/config/routes';
-import { Alert, Box, Divider, Paper, Snackbar, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Divider, Paper, Snackbar, Stack, TextField, Typography, IconButton, InputAdornment } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import api from '../../../services/api';
 import AppButton from '../../../components/button';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
@@ -21,6 +22,9 @@ export default function UserProfilePage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     api.get('/me')
@@ -146,9 +150,115 @@ export default function UserProfilePage() {
           <Divider sx={{ my: 1 }}>
             <Typography sx={{ fontSize: 12, color: '#6b7280' }}>CHANGE PASSWORD (OPTIONAL)</Typography>
           </Divider>
-          <TextField type="password" label="Current password" value={form.current_password} onChange={e => set('current_password', e.target.value)} />
-          <TextField type="password" label="New password" helperText="At least 8 characters" value={form.password} onChange={e => set('password', e.target.value)} />
-          <TextField type="password" label="Confirm new password" value={form.password_confirmation} onChange={e => set('password_confirmation', e.target.value)} />
+          <TextField
+            type={showCurrentPassword ? 'text' : 'password'}
+            label="Current password"
+            value={form.current_password}
+            onChange={e => set('current_password', e.target.value)}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle current password visibility"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      edge="end"
+                      size="small"
+                    >
+                      {showCurrentPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle current password visibility"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    edge="end"
+                    size="small"
+                  >
+                    {showCurrentPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            type={showNewPassword ? 'text' : 'password'}
+            label="New password"
+            helperText="At least 8 characters"
+            value={form.password}
+            onChange={e => set('password', e.target.value)}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle new password visibility"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      edge="end"
+                      size="small"
+                    >
+                      {showNewPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle new password visibility"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    edge="end"
+                    size="small"
+                  >
+                    {showNewPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            type={showConfirmPassword ? 'text' : 'password'}
+            label="Confirm new password"
+            value={form.password_confirmation}
+            onChange={e => set('password_confirmation', e.target.value)}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle confirm password visibility"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      edge="end"
+                      size="small"
+                    >
+                      {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle confirm password visibility"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    edge="end"
+                    size="small"
+                  >
+                    {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.5 }}>
             <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
             <AppButton type="submit" disabled={saving}>Save profile</AppButton>

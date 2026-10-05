@@ -14,7 +14,10 @@ import {
   Stack,
   TextField,
   Typography,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import api from '../../../services/api';
 import AppButton from '../../../components/button';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
@@ -31,6 +34,7 @@ export default function UserCreatePage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmCreate, setConfirmCreate] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // 23.1 — per-field error state (blur-first)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -224,13 +228,43 @@ export default function UserCreatePage() {
           <TextField
             required
             fullWidth
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             label="Temporary password"
             value={form.password}
             onChange={e => set('password', e.target.value)}
             onBlur={handleBlur('password')}
             error={!!fieldErrors.password}
             helperText={fieldErrors.password || 'At least 8 characters'}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                      size="small"
+                    >
+                      {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle password visibility"
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                    size="small"
+                  >
+                    {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
 
           {/* 23.4 — Primary action in-line at the bottom of the form stack */}

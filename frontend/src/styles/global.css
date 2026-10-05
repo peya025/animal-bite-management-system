@@ -787,9 +787,9 @@ tbody tr:last-child td,
 /* ══════════════════════════════════════════════════════════════════
    6. GLOBAL TEXTBOX & INPUT HOVER / FOCUS SYSTEM (Matches Login Page)
    ══════════════════════════════════════════════════════════════════ */
-input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):hover:not(:disabled),
-textarea:hover:not(:disabled),
-select:hover:not(:disabled),
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):hover:not(:disabled),
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):hover:not(:disabled),
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):hover:not(:disabled),
 .fm-input:hover:not(:disabled),
 .fm-select:hover:not(:disabled),
 .fm-textarea:hover:not(:disabled),
@@ -798,12 +798,12 @@ select:hover:not(:disabled),
   border-color: #10b981 !important;
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus,
-input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus-visible,
-textarea:focus,
-textarea:focus-visible,
-select:focus,
-select:focus-visible,
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus,
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
 .fm-input:focus,
 .fm-input:focus-visible,
 .fm-select:focus,
@@ -826,11 +826,33 @@ select:focus-visible,
 
 .MuiOutlinedInput-root.Mui-focused:not(.Mui-error) .MuiOutlinedInput-notchedOutline {
   border-color: #10b981 !important;
-  border-width: 2px !important;
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1) !important;
+  border-width: 1.5px !important;
 }
 
 .MuiOutlinedInput-root.Mui-focused {
+  outline: none !important;
+}
+
+/* Material UI inner input element reset — prevent double highlights or inner box pills */
+.MuiInputBase-input,
+.MuiOutlinedInput-input,
+.MuiFilledInput-input,
+.MuiInput-input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.MuiInputBase-input:focus,
+.MuiOutlinedInput-input:focus,
+.MuiFilledInput-input:focus,
+.MuiInput-input:focus,
+.MuiInputBase-input:focus-visible,
+.MuiOutlinedInput-input:focus-visible {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
   outline: none !important;
 }
 
@@ -850,9 +872,9 @@ select:focus-visible,
 }
 
 /* Form inputs, selects & textareas in dark mode */
-[data-theme='dark'] input,
-[data-theme='dark'] select,
-[data-theme='dark'] textarea,
+[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input),
+[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select),
+[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input),
 [data-theme='dark'] .pm-search,
 [data-theme='dark'] .pm-entries-select,
 [data-theme='dark'] .sd-filter-select {
@@ -870,12 +892,12 @@ select:focus-visible,
   color: #64748b !important;
 }
 
-[data-theme='dark'] input:focus,
-[data-theme='dark'] input:focus-visible,
-[data-theme='dark'] select:focus,
-[data-theme='dark'] select:focus-visible,
-[data-theme='dark'] textarea:focus,
-[data-theme='dark'] textarea:focus-visible,
+[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
+[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
+[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus,
+[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
+[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
+[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
 [data-theme='dark'] .pm-search:focus,
 [data-theme='dark'] .pm-entries-select:focus,
 [data-theme='dark'] .sd-filter-select:focus {
@@ -1013,7 +1035,9 @@ select:focus-visible,
 }
 
 /* Inputs & Form Controls */
-input, select, textarea {
+input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input),
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select),
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input) {
   font-family: var(--sans);
   color: var(--input-text);
   background-color: var(--input-bg);
@@ -1025,7 +1049,9 @@ input, select, textarea {
   transition: all 0.18s ease;
 }
 
-input:focus, select:focus, textarea:focus {
+input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus,
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus {
   outline: none;
   border-color: var(--accent-green);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);

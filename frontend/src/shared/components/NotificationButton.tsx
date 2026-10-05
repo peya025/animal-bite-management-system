@@ -1,10 +1,13 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BellButton,
   NotificationBadge,
   NotificationDropdown,
   DropdownHeader,
+  DropdownTabs,
+  TabButton,
+  TabBadge,
   NotificationList,
   NotificationItem,
   NotificationItemIcon,
@@ -17,9 +20,17 @@ import {
   ActionHint,
   UnreadDot,
   DropdownFooter,
+  EmptyStateContainer,
+  EmptyIconWrapper,
+  EmptyTitle,
+  EmptySubtitle,
 } from './NotificationButton.styles';
 import { Icon, type IconName } from './ui/Icon';
-import api from '../../services/api';
+import { useNotifications } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useAccessDenied } from '../contexts/AccessDeniedContext';
+import { canUserAccessRoute } from '../utils/accessControl';
+import { resolveNotificationDestination } from '../utils/notificationNavigation';
 
 export interface NotificationRecord {
   id: number;
@@ -31,10 +42,12 @@ export interface NotificationRecord {
   action_url: string | null;
   is_active: boolean;
   resolved_at: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any> | null;
   created_at: string | null;
   time_ago: string;
   is_unread: boolean;
+  is_read?: boolean;
 }
 
 function getNotificationVisuals(category: string, type: string): {
@@ -66,20 +79,14 @@ function getNotificationVisuals(category: string, type: string): {
       if (category === 'queue') return { icon: 'queue', variant: 'info' };
       if (category === 'appointment') return { icon: 'calendar', variant: 'purple' };
       if (category === 'patient') return { icon: 'patients', variant: 'info' };
-      if (category === 'surveillance') return { icon: 'biteCases', variant: 'danger' };
+      if (category === 'surveillance' || category === 'high_risk') return { icon: 'biteCases', variant: 'danger' };
       return { icon: 'notification', variant: 'info' };
   }
 }
 
-import { useNotifications } from '../contexts/NotificationContext';
-import { useAuth } from '../contexts/AuthContext';
-import { useAccessDenied } from '../contexts/AccessDeniedContext';
-import { canUserAccessRoute } from '../utils/accessControl';
-
-import { resolveNotificationDestination } from '../utils/notificationNavigation';
-
 export default function NotificationButton() {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'unread' | 'read'>('unread');
   const { user } = useAuth();
   const { showAccessDenied } = useAccessDenied();
   const {
@@ -92,7 +99,18 @@ export default function NotificationButton() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
+  const handleToggleOpen = () => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setActiveTab('unread');
+      }
+      return next;
+    });
+  };
+
   // When dropdown is opened, fetch fresh notifications
+  // Opening the dropdown alone does not mark notifications as read
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
@@ -115,11 +133,38 @@ export default function NotificationButton() {
     };
   }, [isOpen]);
 
-  const handleItemClick = (item: NotificationRecord) => {
-    // Always close dropdown upon selection
-    setIsOpen(false);
+  // Filter unread and read notifications
+  const unreadList = useMemo(() => {
+    return notifications.filter((n) => n.is_unread);
+  }, [notifications]);
 
-    // Mark only this notification as read, updating the unread count
+  const readList = useMemo(() => {
+    return notifications.filter((n) => !n.is_unread || n.is_read);
+  }, [notifications]);
+
+  // Sort each list by newest first (descending by created_at, then by id)
+  const sortedUnread = useMemo(() => {
+    return [...unreadList].sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || 0) - (a.id || 0);
+    });
+  }, [unreadList]);
+
+  const sortedRead = useMemo(() => {
+    return [...readList].sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || 0) - (a.id || 0);
+    });
+  }, [readList]);
+
+  const currentList = activeTab === 'unread' ? sortedUnread : sortedRead;
+
+  const handleItemClick = useCallback((item: NotificationRecord) => {
+    // Mark specific notification as read if unread
     if (item.is_unread) {
       markAsRead(item.id);
     }
@@ -127,14 +172,22 @@ export default function NotificationButton() {
     const destinationUrl = resolveNotificationDestination(item, user);
 
     if (destinationUrl) {
+      setIsOpen(false);
       if (canUserAccessRoute(user, destinationUrl)) {
         navigate(destinationUrl);
       } else {
-        // Keep user on their current authorized page and show popup
+        // Keep user on current page and show access denied popup
+        showAccessDenied();
+      }
+    } else if (item.action_url) {
+      setIsOpen(false);
+      if (canUserAccessRoute(user, item.action_url)) {
+        navigate(item.action_url);
+      } else {
         showAccessDenied();
       }
     }
-  };
+  }, [markAsRead, user, navigate, showAccessDenied]);
 
   return (
     <div style={{ position: 'relative' }} ref={dropdownRef}>
@@ -142,7 +195,7 @@ export default function NotificationButton() {
         type="button"
         title="Notifications"
         aria-label="Notifications"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggleOpen}
       >
         {unreadCount > 0 && (
           <NotificationBadge>
@@ -157,30 +210,66 @@ export default function NotificationButton() {
           <DropdownHeader>
             <div className="header-left">
               <h3>Notifications</h3>
-              {unreadCount > 0 && (
-                <span className="count-chip">{unreadCount} new</span>
-              )}
             </div>
             {unreadCount > 0 && (
               <button
                 type="button"
                 className="mark-read"
                 onClick={markAllAsRead}
+                title="Mark all notifications as read"
               >
                 Mark all as read
               </button>
             )}
           </DropdownHeader>
 
+          <DropdownTabs role="tablist" aria-label="Notification filters">
+            <TabButton
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'unread'}
+              $isActive={activeTab === 'unread'}
+              onClick={() => setActiveTab('unread')}
+            >
+              <span>Unread</span>
+              <TabBadge $isActive={activeTab === 'unread'}>
+                ({sortedUnread.length})
+              </TabBadge>
+            </TabButton>
+            <TabButton
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'read'}
+              $isActive={activeTab === 'read'}
+              onClick={() => setActiveTab('read')}
+            >
+              <span>Read</span>
+              <TabBadge $isActive={activeTab === 'read'}>
+                ({sortedRead.length})
+              </TabBadge>
+            </TabButton>
+          </DropdownTabs>
+
           <NotificationList>
-            {notifications.length > 0 ? (
-              notifications.map((n) => {
+            {currentList.length > 0 ? (
+              currentList.map((n) => {
                 const visuals = getNotificationVisuals(n.category, n.type);
+                const destination = resolveNotificationDestination(n, user) || n.action_url;
+                const hasDestination = Boolean(destination);
+
                 return (
                   <NotificationItem
                     key={n.id}
-                    isUnread={n.is_unread}
+                    $isUnread={n.is_unread}
                     onClick={() => handleItemClick(n)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleItemClick(n);
+                      }
+                    }}
                   >
                     <NotificationItemIcon
                       iconName={visuals.icon}
@@ -189,7 +278,7 @@ export default function NotificationButton() {
                       <Icon name={visuals.icon} size={16} />
                     </NotificationItemIcon>
                     <NotificationContent>
-                      <NotificationTitle>
+                      <NotificationTitle $isUnread={n.is_unread}>
                         <span>{n.title}</span>
                         {n.is_active && (
                           <AlertChip variant={visuals.variant === 'danger' ? 'danger' : 'warning'}>
@@ -197,13 +286,27 @@ export default function NotificationButton() {
                           </AlertChip>
                         )}
                       </NotificationTitle>
-                      <NotificationText unread={n.is_unread}>
-                        {n.message || (n as any).text}
+                      <NotificationText $unread={n.is_unread}>
+                        {n.message || (n as { text?: string }).text}
                       </NotificationText>
                       <NotificationMeta>
                         <NotificationTime>{n.time_ago}</NotificationTime>
-                        {n.action_url && (
-                          <ActionHint>
+                        {hasDestination && (
+                          <ActionHint
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleItemClick(n);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleItemClick(n);
+                              }
+                            }}
+                          >
                             View details &rarr;
                           </ActionHint>
                         )}
@@ -214,50 +317,19 @@ export default function NotificationButton() {
                 );
               })
             ) : (
-              <div
-                style={{
-                  padding: '36px 20px',
-                  textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <div
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    background: 'var(--bg-secondary, #f3f4f6)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--text-secondary, #9ca3af)',
-                  }}
-                >
+              <EmptyStateContainer>
+                <EmptyIconWrapper>
                   <Icon name="notification" size={18} />
-                </div>
-                <div
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--text-h, #111827)',
-                  }}
-                >
-                  No notifications
-                </div>
-                <div
-                  style={{
-                    fontSize: '11.5px',
-                    color: 'var(--text-secondary, #6b7280)',
-                    maxWidth: '220px',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  You're all caught up with clinic inventory, queue, and surveillance events.
-                </div>
-              </div>
+                </EmptyIconWrapper>
+                <EmptyTitle>
+                  {activeTab === 'unread' ? 'No unread notifications' : 'No read notifications'}
+                </EmptyTitle>
+                <EmptySubtitle>
+                  {activeTab === 'unread'
+                    ? "You're all caught up! No unread notifications at this time."
+                    : "Notifications you've already read will appear here."}
+                </EmptySubtitle>
+              </EmptyStateContainer>
             )}
           </NotificationList>
 

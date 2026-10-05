@@ -26,7 +26,7 @@ class NotificationController extends Controller
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        $notifications = $this->notificationService->getNotificationsForUser($user, (int) $request->input('limit', 40));
+        $notifications = $this->notificationService->getNotificationsForUser($user, (int) $request->input('limit', 50));
         $unreadCount = $this->notificationService->getUnreadCountForUser($user);
 
         return response()->json([

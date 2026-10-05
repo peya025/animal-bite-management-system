@@ -521,4 +521,52 @@ class NotificationBellTest extends TestCase
             'is_active' => false,
         ]);
     }
+
+    public function test_notifications_isolation_and_sorting_newest_first()
+    {
+        $olderNotif = Notification::create([
+            'clinic_id'  => $this->clinic->id,
+            'type'       => 'test_older',
+            'category'   => 'system',
+            'title'      => 'Older Notification',
+            'message'    => 'Older message',
+            'created_at' => Carbon::now()->subHours(2),
+        ]);
+
+        $newerNotif = Notification::create([
+            'clinic_id'  => $this->clinic->id,
+            'type'       => 'test_newer',
+            'category'   => 'system',
+            'title'      => 'Newer Notification',
+            'message'    => 'Newer message',
+            'created_at' => Carbon::now()->subMinutes(5),
+        ]);
+
+        // Verify sorting: newer notification should come first
+        $docNotifs = $this->service->getNotificationsForUser($this->doctor);
+        $this->assertGreaterThanOrEqual(2, $docNotifs->count());
+        $this->assertEquals($newerNotif->notification_id, $docNotifs[0]['id']);
+
+        // Doctor marks the newer notification as read
+        $this->service->markAsRead($newerNotif, $this->doctor);
+
+        // Doctor's view: newerNotif is read, olderNotif is unread
+        $docNotifsAfter = $this->service->getNotificationsForUser($this->doctor);
+        $docNewer = collect($docNotifsAfter)->firstWhere('id', $newerNotif->notification_id);
+        $docOlder = collect($docNotifsAfter)->firstWhere('id', $olderNotif->notification_id);
+        $this->assertTrue($docNewer['is_read']);
+        $this->assertFalse($docNewer['is_unread']);
+        $this->assertFalse($docOlder['is_read']);
+        $this->assertTrue($docOlder['is_unread']);
+
+        // Nurse's view: both remain unread; doctor's read action has ZERO effect on nurse
+        $nurseNotifs = $this->service->getNotificationsForUser($this->nurse);
+        $nurseNewer = collect($nurseNotifs)->firstWhere('id', $newerNotif->notification_id);
+        $nurseOlder = collect($nurseNotifs)->firstWhere('id', $olderNotif->notification_id);
+        $this->assertFalse($nurseNewer['is_read']);
+        $this->assertTrue($nurseNewer['is_unread']);
+        $this->assertFalse($nurseOlder['is_read']);
+        $this->assertTrue($nurseOlder['is_unread']);
+    }
 }
+

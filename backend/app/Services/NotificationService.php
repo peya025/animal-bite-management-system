@@ -653,7 +653,7 @@ class NotificationService
     /**
      * Get paginated or listed notifications for a user, with is_read status computed per user.
      */
-    public function getNotificationsForUser(User $user, int $limit = 30)
+    public function getNotificationsForUser(User $user, int $limit = 50)
     {
         $clinicId = $user->clinic_id;
         $userRole = $user->role;
@@ -678,8 +678,8 @@ class NotificationService
             ->with(['reads' => function ($q) use ($user) {
                 $q->where('user_id', $user->id);
             }])
-            ->orderByRaw('is_active DESC')
             ->orderBy('created_at', 'desc')
+            ->orderBy('notification_id', 'desc')
             ->limit($limit)
             ->get();
 

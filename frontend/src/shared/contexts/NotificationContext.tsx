@@ -154,7 +154,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const markAsRead = useCallback(async (id: number) => {
     // Optimistic update
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_unread: false } : n))
+      prev.map((n) => (n.id === id ? { ...n, is_unread: false, is_read: true } : n))
     );
     setUnreadCount((prev) => Math.max(0, prev - 1));
     dismissToast(id);
@@ -168,7 +168,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markAllAsRead = useCallback(async () => {
     // Optimistic update
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_unread: false })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_unread: false, is_read: true })));
     setUnreadCount(0);
     setActiveToasts([]);
 

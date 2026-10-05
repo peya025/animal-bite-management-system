@@ -33,14 +33,12 @@ import {
   Print as PrintIcon,
   Download as DownloadIcon,
   Close as CloseIcon,
-  Visibility as ViewIcon,
   Vaccines as VaccineIcon,
   CheckCircle as CheckIcon,
   Warning as WarningIcon,
   TrendingDown as DispensedIcon,
   TrendingUp as ReceivedIcon,
   CalendarMonth as CalendarIcon,
-  Description as DescriptionIcon,
   InfoOutlined as InfoIcon,
 } from '@mui/icons-material';
 import type { InventoryItem } from '../../types';
@@ -1178,7 +1176,6 @@ export default function StockCardView({ items, loading, initialItemId }: StockCa
                   >
                     <TableCell sx={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <DescriptionIcon sx={{ fontSize: 16, color: '#059669' }} />
                         <span>{summary.monthYear}</span>
                         {summary.activityCount > 0 && (
                           <Chip
@@ -1222,7 +1219,6 @@ export default function StockCardView({ items, loading, initialItemId }: StockCa
                       <Button
                         size="small"
                         variant="outlined"
-                        startIcon={<ViewIcon sx={{ fontSize: 15 }} />}
                         onClick={() => setPreviewMonthSummary(summary)}
                         sx={{
                           textTransform: 'none',

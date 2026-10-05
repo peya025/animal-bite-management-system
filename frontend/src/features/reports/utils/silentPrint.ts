@@ -36,7 +36,13 @@ export async function silentPrintReport(
     throw new Error(`Failed to load print template (HTTP ${response.status})`);
   }
 
-  const html = resolvePrintLogoUrls(await response.text());
+  const rawHtml = await response.text();
+  const cleanHtml = rawHtml
+    .replace(/<div class="[^"]*no-print-bar[^"]*">[\s\S]*?<\/div>/gi, '')
+    .replace(/<button class="btn-print"[^>]*>[\s\S]*?<\/button>/gi, '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '');
+
+  const html = resolvePrintLogoUrls(cleanHtml);
 
   // Create temporary hidden iframe
   const iframe = document.createElement('iframe');

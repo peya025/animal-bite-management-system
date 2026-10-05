@@ -64,7 +64,8 @@ async function fetchPrintHtml(type: ReportType, query: string, signal?: AbortSig
   const rawHtml = await response.text();
   const cleanHtml = rawHtml
     .replace(/<div class="[^"]*no-print-bar[^"]*">[\s\S]*?<\/div>/gi, '')
-    .replace(/<button class="btn-print"[^>]*>[\s\S]*?<\/button>/gi, '');
+    .replace(/<button class="btn-print"[^>]*>[\s\S]*?<\/button>/gi, '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '');
   return resolvePrintLogoUrls(cleanHtml);
 }
 
@@ -139,8 +140,11 @@ export default function AdminDohReportsSection() {
       await new Promise(resolve => window.setTimeout(resolve, 400));
       await waitForPrintImages(frameDoc);
       iframe.contentWindow?.focus();
+      iframe.contentWindow?.addEventListener('afterprint', () => {
+        iframe?.remove();
+      }, { once: true });
       iframe.contentWindow?.print();
-      window.setTimeout(() => iframe?.remove(), 2000);
+      window.setTimeout(() => iframe?.remove(), 5000);
     } catch (error) {
       iframe?.remove();
       setErrorMsg(error instanceof Error ? error.message : 'Unable to print the report.');

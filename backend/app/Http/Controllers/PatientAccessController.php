@@ -4,35 +4,37 @@ namespace App\Http\Controllers;
 
 use App\Models\Patient;
 use App\Models\PatientAccount;
+use App\Services\Auth\PatientAccessService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PatientAccessController extends Controller
 {
-    public function verify(Request $request, Patient $patient, PatientAccount $account)
+    public function __construct(
+        protected PatientAccessService $accessService
+    ) {}
+
+    /**
+     * Verify patient profile access for a patient portal account.
+     */
+    public function verify(Request $request, Patient $patient, PatientAccount $account): JsonResponse
     {
-        abort_unless($patient->clinic_id === $request->user()->clinic_id, 404);
-        $patient->accounts()->whereKey($account->id)->firstOrFail();
+        $this->accessService->verify($patient, $account, $request->user());
 
-        $patient->accounts()->updateExistingPivot($account->id, [
-            'status' => 'verified',
-            'verified_by' => $request->user()->id,
-            'verified_at' => now(),
+        return response()->json([
+            'message' => 'Patient profile access verified.',
         ]);
-
-        return response()->json(['message' => 'Patient profile access verified.']);
     }
 
-    public function reject(Request $request, Patient $patient, PatientAccount $account)
+    /**
+     * Reject patient profile access for a patient portal account.
+     */
+    public function reject(Request $request, Patient $patient, PatientAccount $account): JsonResponse
     {
-        abort_unless($patient->clinic_id === $request->user()->clinic_id, 404);
-        $patient->accounts()->whereKey($account->id)->firstOrFail();
+        $this->accessService->reject($patient, $account, $request->user());
 
-        $patient->accounts()->updateExistingPivot($account->id, [
-            'status' => 'rejected',
-            'verified_by' => $request->user()->id,
-            'verified_at' => now(),
+        return response()->json([
+            'message' => 'Patient profile access rejected.',
         ]);
-
-        return response()->json(['message' => 'Patient profile access rejected.']);
     }
 }

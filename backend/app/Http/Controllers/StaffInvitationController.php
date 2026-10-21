@@ -2,244 +2,65 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\StaffInvitation;
-use App\Models\User;
+use App\Http\Requests\Staff\AcceptStaffInvitationRequest;
+use App\Http\Requests\Staff\SendStaffInvitationRequest;
+use App\Services\Staff\StaffInvitationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
 class StaffInvitationController extends Controller
 {
+    public function __construct(
+        protected StaffInvitationService $invitationService
+    ) {}
+
     /**
-     * Send staff invitation
+     * Send staff invitation.
      */
-    public function invite(Request $request)
+    public function invite(SendStaffInvitationRequest $request): JsonResponse
     {
-        $request->validate([
-            'email'            => 'required|email|max:255',
-            'role'             => ['nullable', 'string'],
-            'workstation_role' => ['nullable', 'string'],
-        ]);
+        $result = $this->invitationService->invite($request->user(), $request->validated());
 
-        $user = $request->user();
-        
-        // Check if user already exists with this email
-        if (User::where('email', $request->email)->exists()) {
-            throw ValidationException::withMessages([
-                'email' => ['A user with this email already exists.'],
-            ]);
-        }
-
-        // Check for existing pending invitation
-        $existingInvitation = StaffInvitation::where('email', $request->email)
-            ->where('status', 'pending')
-            ->where('clinic_id', $user->clinic_id)
-            ->first();
-
-        if ($existingInvitation && !$existingInvitation->isExpired()) {
-            throw ValidationException::withMessages([
-                'email' => ['An invitation has already been sent to this email.'],
-            ]);
-        }
-
-        $inputRole = $request->workstation_role ?? $request->role ?? 'registration';
-
-        // Map canonical/workstation role
-        $legacyRole = 'registration';
-        $workstationRole = $inputRole;
-
-        if (in_array($inputRole, ['intake_nurse', 'follow_up_nurse', 'solo_nurse', 'treatment'])) {
-            $legacyRole = 'treatment';
-            $workstationRole = ($inputRole === 'treatment') ? 'solo_nurse' : $inputRole;
-        } elseif (in_array($inputRole, ['doctor', 'triage'])) {
-            $legacyRole = 'triage';
-            $workstationRole = 'doctor';
-        } elseif (in_array($inputRole, ['receptionist', 'registration'])) {
-            $legacyRole = 'registration';
-            $workstationRole = 'receptionist';
-        } elseif (in_array($inputRole, ['clinic_admin', 'admin'])) {
-            $legacyRole = 'admin';
-            $workstationRole = 'clinic_admin';
-        }
-
-        // Create invitation
-        $invitation = StaffInvitation::createInvitation([
-            'clinic_id'        => $user->clinic_id,
-            'invited_by'       => $user->id,
-            'email'            => $request->email,
-            'role'             => $legacyRole,
-            'workstation_role' => $workstationRole,
-        ]);
-
-        // Send invitation email
-        try {
-            \Mail::to($invitation->email)->send(new \App\Mail\StaffInvitationMail($invitation));
-            $emailSent = true;
-        } catch (\Exception $e) {
-            \Log::error('Failed to send invitation email: ' . $e->getMessage());
-            $emailSent = false;
-        }
-
-        return response()->json([
-            'message' => $emailSent 
-                ? 'Invitation sent successfully' 
-                : 'Invitation created but email failed to send',
-            'invitation' => $invitation,
-            'email_sent' => $emailSent,
-            'invitation_link' => config('app.frontend_url') . '/accept-invitation/' . $invitation->token,
-        ], 201);
+        return response()->json($result, 201);
     }
 
     /**
-     * Get all invitations
+     * Get all invitations for current clinic.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $invitations = StaffInvitation::where('clinic_id', $request->user()->clinic_id)
-            ->with('inviter')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $invitations = $this->invitationService->index($request->user());
 
         return response()->json($invitations);
     }
 
     /**
-     * Validate invitation token
+     * Validate invitation token.
      */
-    public function validateToken(string $token)
+    public function validateToken(string $token): JsonResponse
     {
-        $invitation = StaffInvitation::where('token', $token)->first();
+        $result = $this->invitationService->validateToken($token);
 
-        if (!$invitation) {
-            return response()->json([
-                'valid' => false,
-                'message' => 'Invalid invitation token',
-            ], 404);
-        }
-
-        if (!$invitation->isValid()) {
-            return response()->json([
-                'valid' => false,
-                'message' => $invitation->isExpired() ? 'This invitation has expired' : 'This invitation has already been used',
-            ], 400);
-        }
-
-        return response()->json([
-            'valid' => true,
-            'invitation' => [
-                'email' => $invitation->email,
-                'role' => $invitation->role,
-                'clinic_name' => $invitation->clinic->name,
-                'expires_at' => $invitation->expires_at,
-            ],
-        ]);
+        return response()->json($result['data'], $result['status']);
     }
 
     /**
-     * Accept invitation and create account
+     * Accept invitation and create staff account.
      */
-    public function accept(Request $request, string $token)
+    public function accept(AcceptStaffInvitationRequest $request, string $token): JsonResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'password' => 'required|string|min:8|confirmed',
-            'phone' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
-        ], [
-            'phone.regex' => 'Mobile number must start with 09 and contain 11 digits.',
-        ]);
+        $result = $this->invitationService->accept($token, $request->validated());
 
-        $invitation = StaffInvitation::where('token', $token)->first();
-
-        if (!$invitation || !$invitation->isValid()) {
-            return response()->json([
-                'message' => 'Invalid or expired invitation',
-            ], 400);
-        }
-
-        // Create user
-        $user = User::create([
-            'clinic_id'               => $invitation->clinic_id,
-            'name'                    => $request->name,
-            'email'                   => $invitation->email,
-            'password'                => Hash::make($request->password),
-            'role'                    => $invitation->role,
-            'phone'                   => $request->phone,
-            'signature_path'          => null,
-            'professional_license_no' => $request->professional_license_no ?? null,
-            'is_active'               => true,
-        ]);
-
-        // Attach workstation roles to user_roles
-        $targetSlugs = [];
-        $wr = $invitation->workstation_role;
-        if ($wr === 'solo_nurse') {
-            $targetSlugs = ['intake_nurse', 'follow_up_nurse'];
-        } elseif ($wr) {
-            $targetSlugs = [$wr];
-        } elseif ($invitation->role === 'treatment') {
-            $targetSlugs = ['intake_nurse', 'follow_up_nurse'];
-        } elseif ($invitation->role === 'triage') {
-            $targetSlugs = ['doctor'];
-        } elseif ($invitation->role === 'registration') {
-            $targetSlugs = ['receptionist'];
-        } elseif ($invitation->role === 'admin') {
-            $targetSlugs = ['clinic_admin'];
-        }
-
-        if (!empty($targetSlugs)) {
-            $roleModels = \App\Models\Role::whereIn('slug', $targetSlugs)->get();
-            $syncData = [];
-            foreach ($roleModels as $rm) {
-                $syncData[$rm->id] = [
-                    'assigned_by' => $invitation->invited_by,
-                    'assigned_at' => now(),
-                ];
-            }
-            $user->roles()->sync($syncData);
-        }
-
-        // Mark invitation as accepted
-        $invitation->markAsAccepted();
-
-        // Generate auth token for auto-login
-        $token = $user->createToken('auth_token')->plainTextToken;
-        $user->load(['clinic', 'roles']);
-
-        return response()->json([
-            'message' => 'Account created successfully',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'phone' => $user->phone,
-                'is_active' => $user->is_active,
-                'clinic' => $user->clinic,
-            ],
-            'token' => $token,
-            'token_type' => 'Bearer',
-        ], 201);
+        return response()->json($result['data'], $result['status']);
     }
 
     /**
-     * Cancel invitation
+     * Cancel pending invitation.
      */
-    public function cancel(Request $request, int $id)
+    public function cancel(Request $request, int $id): JsonResponse
     {
-        $invitation = StaffInvitation::where('clinic_id', $request->user()->clinic_id)
-            ->findOrFail($id);
+        $result = $this->invitationService->cancel($request->user(), $id);
 
-        if (!$invitation->isPending()) {
-            return response()->json([
-                'message' => 'Only pending invitations can be cancelled',
-            ], 400);
-        }
-
-        $invitation->update(['status' => 'expired']);
-
-        return response()->json([
-            'message' => 'Invitation cancelled successfully',
-        ]);
+        return response()->json($result['data'], $result['status']);
     }
 }

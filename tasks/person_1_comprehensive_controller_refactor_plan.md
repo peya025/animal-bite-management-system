@@ -321,10 +321,10 @@ During all 8 cycles, Person 1 will strictly uphold these contract invariants:
 | Cycle | Controller | Characterization Test Status | FormRequest Extracted | Service Extracted | Resource Extracted | Thin Controller | Full Test Suite Pass | Verified in React & Flutter |
 | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **C1** | `AuthController.php` | [x] PASS (12/12) | [x] | [x] | [x] | [x] (75 LOC) | [x] (22/22) | [x] Verified |
-| **C2** | `StaffSignatureController.php` | [ ] Pending | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| **C3** | `PatientAccessController.php` | [ ] Pending | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| **C4** | `StaffInvitationController.php` | [ ] Pending | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| **C5** | `PatientInvitationController.php` | [ ] Pending | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
+| **C2** | `StaffSignatureController.php` | [x] PASS (9/9) | N/A (GET only) | [x] | [x] | [x] (48 LOC) | [x] (31/31) | [x] Verified |
+| **C3** | `PatientAccessController.php` | [x] PASS (8/8) | N/A (Route model binding) | [x] | N/A (Standard Message) | [x] (40 LOC) | [x] (39/39) | [x] Verified |
+| **C4** | `StaffInvitationController.php` | [x] PASS (12/12) | [x] | [x] | [x] | [x] (60 LOC) | [x] (51/51) | [x] Verified |
+| **C5** | `PatientInvitationController.php` | [x] PASS (12/12) | [x] | [x] | [x] | [x] (83 LOC) | [x] (63/63) | [x] Verified |
 | **C6** | `UserController.php` | [ ] Pending | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | **C7** | `Mobile/PatientProfileController.php` | [ ] Pending | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | **C8** | `Mobile/PatientAccountAuthController.php` | [ ] Pending | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |

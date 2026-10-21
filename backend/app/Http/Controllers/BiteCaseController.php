@@ -2,460 +2,96 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\BiteIncident;
-use App\Models\BiteIncidentIntake;
-use App\Models\Queue;
-use App\Models\QueueHistory;
-use App\Models\TreatmentRecord;
-use App\Models\VaccinationSchedule;
-use App\Services\GeocodingService;
-use Carbon\Carbon;
+use App\Http\Requests\Clinical\RegisterExposureRequest;
+use App\Http\Requests\Clinical\ReviewExternalProofRequest;
+use App\Http\Requests\Clinical\StoreBiteCaseRequest;
+use App\Http\Requests\Clinical\TransferOutBiteCaseRequest;
+use App\Http\Requests\Clinical\UpdateBiteCaseRequest;
+use App\Services\Clinical\BiteCaseService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class BiteCaseController extends Controller
 {
+    public function __construct(
+        protected BiteCaseService $biteCaseService
+    ) {}
+
     /**
-     * Registration creates an incident and queues it for Doctor assessment.
-     * It deliberately does not choose a regimen or create treatment appointments.
+     * Register a new bite exposure episode for an existing patient.
+     * POST /api/cases/register-exposure
+     * Access: admin, registration
      */
-    public function registerNewExposure(Request $request)
+    public function registerNewExposure(RegisterExposureRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'patient_id' => 'required|exists:patients,patient_id',
-            'bite_date' => 'required|date|before_or_equal:today',
-            'bite_place' => 'nullable|string|max:255',
-            'site_washed' => 'nullable|boolean',
-            'exposure_type' => 'nullable|in:bite,scratch,lick,other',
-            'severity' => 'nullable|in:minor,moderate,severe',
-            'animal_type' => 'nullable|string|max:100',
-            'animal_status' => 'nullable|in:owned,stray,unknown',
-            'animal_captured' => 'nullable|boolean',
-            'animal_observation_status' => 'nullable|in:healthy,sick,died,unknown',
-            'site_number' => 'nullable|string|max:255',
-            'wound_description' => 'nullable|string',
-            'remarks' => 'nullable|string',
+        $result = $this->biteCaseService->registerNewExposure(
+            $request->user()->clinic_id,
+            $request->validated(),
+            $request->user(),
+            $request->all()
+        );
 
-            // III. Consultation Details & Vitals — entered by Registration Staff during re-exposure check-in
-            'consultation_date' => 'nullable|date',
-            'consultation_time' => 'nullable|string|max:20',
-            'blood_pressure' => 'nullable|string|max:20',
-            'temperature' => 'nullable|string|max:10',
-            'height' => 'nullable|string|max:10',
-            'weight' => 'nullable|string|max:10',
-            'attending_provider' => 'nullable|string|max:255',
-            'referred_by' => 'nullable|string|max:255',
-            // Also support reg_ prefix from frontend form
-            'reg_date_of_consultation' => 'nullable|date',
-            'reg_consultation_time' => 'nullable|string|max:20',
-            'reg_blood_pressure' => 'nullable|string|max:20',
-            'reg_temperature' => 'nullable|string|max:10',
-            'reg_height' => 'nullable|string|max:10',
-            'reg_weight' => 'nullable|string|max:10',
-            'reg_attending_provider' => 'nullable|string|max:255',
-            'reg_referred_by' => 'nullable|string|max:255',
-        ]);
-
-        $clinicId = $request->user()->clinic_id;
-        $patient = \App\Models\Patient::where('clinic_id', $clinicId)
-            ->where('patient_id', $validated['patient_id'])
-            ->first();
-
-        abort_unless($patient, 404);
-
-        if (!$patient->has_completed_primary) {
-            return response()->json([
-                'message' => 'Patient is not eligible for re-exposure registration. The primary anti-rabies series (Days 0, 3, 7) must be completed first.',
-            ], 422);
-        }
-
-        $hasPendingAppointments = $patient->appointments()
-            ->where('status', 'scheduled')
-            ->exists();
-        if ($hasPendingAppointments) {
-            return response()->json([
-                'message' => 'Patient cannot register a new exposure while an active treatment appointment is still scheduled.',
-            ], 422);
-        }
-
-        $activeQueue = $patient->queues()
-            ->whereDate('created_at', Carbon::today())
-            ->whereIn('status', ['waiting', 'in_consultation', 'serving', 'called', 'no_response', 'absent', 'second_chance', 'final_recall'])
-            ->exists();
-        if ($activeQueue) {
-            return response()->json([
-                'message' => 'Patient cannot register a new exposure while currently active in a clinic queue.',
-            ], 422);
-        }
-
-        return DB::transaction(function () use ($validated, $clinicId, $request) {
-            // Serialize episode numbering per permanent patient profile.
-            \App\Models\Patient::where('clinic_id', $clinicId)
-                ->where('patient_id', $validated['patient_id'])
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            $todayDate = Carbon::today()->toDateString();
-            $episodeNumber = (BiteIncident::where('clinic_id', $clinicId)
-                ->where('patient_id', $validated['patient_id'])
-                ->max('episode_number') ?? 0) + 1;
-
-            // This is intentionally pending. Previous history informs the Doctor,
-            // but never selects full PEP, booster, or no vaccine automatically.
-            $incident = BiteIncident::create([
-                'clinic_id' => $clinicId,
-                'patient_id' => $validated['patient_id'],
-                'episode_number' => $episodeNumber,
-                'episode_type' => 'pending_assessment',
-                'is_previously_vaccinated' => null,
-                'bite_date' => $validated['bite_date'],
-                'bite_place' => $validated['bite_place'] ?? null,
-                'site_washed' => null,
-                'exposure_type' => 'unassessed',
-                'severity' => 'unassessed',
-                'animal_type' => null,
-                'animal_status' => 'unassessed',
-                'animal_captured' => null,
-                'animal_observation_status' => null,
-                'site_number' => null,
-                'wound_description' => null,
-                'status' => 'awaiting_assessment',
-                'remarks' => $validated['remarks'] ?? null,
-                'created_by' => $request->user()->id,
-            ]);
-
-            // Resolve III. Consultation Details & Vitals entered by Registration
-            $consultationDate = $request->input('consultation_date')
-                ?? $request->input('reg_date_of_consultation')
-                ?? Carbon::today()->toDateString();
-            $consultationTime = $request->input('consultation_time')
-                ?? $request->input('reg_consultation_time')
-                ?? Carbon::now()->format('H:i');
-            $bloodPressure = $request->input('blood_pressure')
-                ?? $request->input('reg_blood_pressure');
-            $temperature = $request->input('temperature')
-                ?? $request->input('reg_temperature');
-            $height = $request->input('height')
-                ?? $request->input('reg_height');
-            $weight = $request->input('weight')
-                ?? $request->input('reg_weight');
-            $attendingProvider = $request->input('attending_provider')
-                ?? $request->input('reg_attending_provider');
-            $referredBy = $request->input('referred_by')
-                ?? $request->input('reg_referred_by');
-
-            // Create initial TreatmentRecord (status='scheduled', dose_number=null)
-            // with Section III Consultation Details & Vitals entered by Registration.
-            // This anchors to the new re-exposure episode (bite_id) so the Doctor
-            // sees these vitals read-only when opening Form 2.
-            $treatmentRecord = TreatmentRecord::create([
-                'clinic_id'           => $clinicId,
-                'patient_id'          => $validated['patient_id'],
-                'bite_id'             => $incident->bite_id,
-                'dose_number'         => null,
-                'status'              => 'scheduled',
-                'consultation_date'   => $consultationDate,
-                'treatment_date'      => $consultationDate,
-                'consultation_time'   => $consultationTime,
-                'blood_pressure'      => $bloodPressure,
-                'temperature'         => $temperature,
-                'height'              => $height,
-                'weight'              => $weight,
-                'attending_provider'  => $attendingProvider,
-                'referred_by'         => $referredBy,
-                'mode_of_transaction' => in_array($request->input('mode_of_transaction') ?? $request->input('reg_mode_of_transaction'), ['walk-in', 'visited', 'referral'])
-                    ? ($request->input('mode_of_transaction') ?? $request->input('reg_mode_of_transaction'))
-                    : 'walk-in',
-                'administered_by'     => $request->user()->id,
-            ]);
-
-            // Must scan ALL rows (including soft-deleted) because the
-            // unique_daily_queue index covers deleted rows too.
-            $lastQueueNumber = DB::table('queues')
-                ->where('clinic_id', $clinicId)
-                ->where('queue_date', $todayDate)
-                ->max('queue_number') ?? 0;
-
-            $queue = Queue::create([
-                'clinic_id' => $clinicId,
-                'patient_id' => $validated['patient_id'],
-                'bite_id' => $incident->bite_id,
-                'queue_number' => $lastQueueNumber + 1,
-                'queue_date' => $todayDate,
-                'visit_type' => 'new_case',
-                'queue_category' => 'regular',
-                'priority' => 'normal',
-                'status' => 'waiting',
-                'checked_in_at' => now(),
-                'checked_in_by' => $request->user()->id,
-                'check_in_notes' => 'Re-exposure registered with vitals — Doctor assessment required before any treatment.',
-                'call_count' => 0,
-            ]);
-
-            QueueHistory::create([
-                'queue_id' => $queue->queue_id,
-                'clinic_id' => $clinicId,
-                'patient_id' => $queue->patient_id,
-                'action' => 'checked_in',
-                'from_status' => 'new',
-                'to_status' => 'waiting',
-                'call_count' => 0,
-                'performed_by' => $request->user()->id,
-                'notes' => 'New exposure registered and queued for Doctor assessment.',
-                'occurred_at' => now(),
-            ]);
-
-            Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
-
-            app(\App\Services\NotificationService::class)->notifyQueueEvent($queue->load('patient'), 'registered', $request->user());
-
-            return response()->json([
-                'message' => 'New exposure registered and sent to Doctor assessment.',
-                'incident' => $incident,
-                'treatment_record' => $treatmentRecord,
-                'queue' => $queue->load(['patient', 'biteIncident']),
-            ], 201);
-        });
+        return $this->json($result['data'], $result['status']);
     }
 
     /**
-     * List all bite cases
+     * Display a listing of bite cases with filtering.
      * Access: admin, triage, treatment
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $clinicId = $request->user()->clinic_id;
-        
-        // Create cache key based on filters
-        $cacheKey = sprintf(
-            'web:bite-cases:clinic:%s:status:%s:from:%s:to:%s:search:%s:page:%s',
-            $clinicId,
-            $request->get('status', 'all'),
-            $request->get('from_date', 'all'),
-            $request->get('to_date', 'all'),
-            $request->get('search', 'none'),
-            $request->get('page', 1)
+        $paginated = $this->biteCaseService->getPaginatedBiteCases(
+            $request->user()->clinic_id,
+            $request->all(),
+            (int) $request->get('per_page', 15)
         );
 
-        // Cache for 2 minutes
-        return response()->json(
-            Cache::remember($cacheKey, 120, function () use ($request, $clinicId) {
-                $query = BiteIncident::where('clinic_id', $clinicId)
-                    ->with(['patient', 'createdBy']);
-
-                // Filter by status
-                if ($request->has('status')) {
-                    $query->where('status', $request->status);
-                }
-
-                // Filter by date range
-                if ($request->has('from_date')) {
-                    $query->where('bite_date', '>=', $request->from_date);
-                }
-                if ($request->has('to_date')) {
-                    $query->where('bite_date', '<=', $request->to_date);
-                }
-
-                // Search
-                if ($request->has('search')) {
-                    $search = $request->search;
-                    $query->where(function ($q) use ($search) {
-                        $q->where('case_number', 'like', "%{$search}%")
-                            ->orWhereHas('patient', function ($pq) use ($search) {
-                                $pq->searchName($search);
-                            });
-                    });
-                }
-
-                return $query->orderBy('bite_date', 'desc')->paginate(15);
-            })
-        );
+        return $this->json($paginated);
     }
 
     /**
-     * Create new bite case with auto vaccination schedule
+     * Store a newly created bite case.
      * Access: admin, triage
      */
-    public function store(Request $request)
+    public function store(StoreBiteCaseRequest $request): JsonResponse
     {
-        $request->validate([
-            'patient_id' => 'required|exists:patients,patient_id',
-            'bite_date' => 'required|date|before_or_equal:today',
-            'bite_place' => 'nullable|string|max:255',
-            'site_washed' => 'required|boolean',
-            'exposure_type' => 'required|in:bite,scratch,lick,other',
-            'victim_of_exposure' => 'nullable|string',
-            'severity' => 'required|in:minor,moderate,severe',
-            'animal_type' => 'nullable|string|max:100',
-            'animal_status' => 'required|in:owned,stray,unknown',
-            'animal_captured' => 'nullable|boolean',
-            'animal_observation_status' => 'nullable|in:healthy,sick,died,unknown',
-            'site_number' => 'nullable|string',
-            'wound_description' => 'nullable|string',
-            'referred_from' => 'nullable|string',
-            'remarks' => 'nullable|string',
-            'intake_id' => 'nullable|exists:bite_incident_intakes,intake_id',
-            'episode_type' => 'nullable|in:primary,re_exposure',
-            'is_previously_vaccinated' => 'nullable|boolean',
-            'verification_source' => 'nullable|in:system_record,external_certificate_reviewed,patient_self_report_unverified',
-            'rig_decision_reason' => 'nullable|string',
-            'wound_condition' => 'nullable|string|max:50',
-        ]);
+        $incident = $this->biteCaseService->storeBiteCase(
+            $request->user()->clinic_id,
+            $request->validated(),
+            $request->user(),
+            $request->all()
+        );
 
-        DB::beginTransaction();
-        try {
-            // Serialize episode numbering per permanent patient profile.
-            \App\Models\Patient::where('clinic_id', $request->user()->clinic_id)
-                ->where('patient_id', $request->patient_id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            // Auto-compute next episode number for this patient
-            $lastEpisode = BiteIncident::where('patient_id', $request->patient_id)->max('episode_number') ?? 0;
-            $episodeNumber = $lastEpisode + 1;
-
-            // Create bite incident
-            $incident = BiteIncident::create([
-                'clinic_id' => $request->user()->clinic_id,
-                'patient_id' => $request->patient_id,
-                'episode_number' => $episodeNumber,
-                'episode_type' => $request->episode_type ?? ($episodeNumber > 1 ? 're_exposure' : 'primary'),
-                'is_previously_vaccinated' => $request->is_previously_vaccinated ?? ($episodeNumber > 1),
-                'verification_source' => $request->verification_source,
-                'rig_decision_reason' => $request->rig_decision_reason,
-                'bite_date' => $request->bite_date,
-                'bite_place' => $request->bite_place,
-                'site_washed' => $request->site_washed,
-                'exposure_type' => $request->exposure_type,
-                'victim_of_exposure' => $request->victim_of_exposure,
-                'severity' => $request->severity,
-                'animal_type' => $request->animal_type,
-                'animal_status' => $request->animal_status,
-                'animal_captured' => $request->animal_captured ?? false,
-                'animal_observation_status' => $request->animal_observation_status,
-                'site_number' => $request->site_number,
-                'wound_description' => $request->wound_description,
-                'wound_condition' => $request->wound_condition ?? 'clean',
-                'referred_from' => $request->referred_from,
-                'status' => 'active',
-                'remarks' => $request->remarks,
-                'created_by' => $request->user()->id,
-            ]);
-
-            if ($request->filled('intake_id')) {
-                $intake = BiteIncidentIntake::where('clinic_id', $request->user()->clinic_id)
-                    ->where('patient_id', $request->patient_id)
-                    ->findOrFail($request->intake_id);
-                $intake->update([
-                    'status' => 'converted',
-                    'reviewed_by' => $request->user()->id,
-                    'reviewed_at' => now(),
-                    'bite_id' => $incident->bite_id,
-                ]);
-            }
-
-            // Auto-generate vaccination schedule if needed
-            if ($incident->requiresVaccination()) {
-                VaccinationSchedule::generateWhoSchedule($incident);
-            }
-
-            // ── Auto-advance queue: move patient from Triage → Treatment ──
-            // Find today's active queue entry for this patient
-            $todayQueue = \App\Models\Queue::where('clinic_id', $request->user()->clinic_id)
-                ->where('patient_id', $request->patient_id)
-                ->where('queue_date', \Carbon\Carbon::today()->toDateString())
-                ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving'])
-                ->whereIn('visit_type', ['new_case', 'follow_up', 'observation'])
-                ->whereNull('bite_id')
-                ->whereNull('deleted_at')
-                ->latest('queue_id')
-                ->first();
-
-            if ($todayQueue) {
-                $todayQueue->update([
-                    'visit_type'  => 'vaccination',
-                    'status'      => 'waiting',   // reset to waiting for Treatment nurse
-                    'called_at'   => null,
-                    'serving_at'  => null,
-                    'bite_id'     => $incident->bite_id,
-                    'consultation_notes' => 'Referred to Treatment after Triage assessment.',
-                ]);
-            }
-
-            DB::commit();
-
-            // Invalidate bite cases cache
-            $this->clearBiteCasesCache($request->user()->clinic_id);
-
-            return response()->json([
-                'message' => 'Bite case created successfully',
-                'incident' => $incident->load(['patient', 'createdBy', 'vaccinationSchedules']),
-                'who_category' => $incident->getWhoCategory(),
-                'vaccination_required' => $incident->requiresVaccination(),
-            ], 201);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return response()->json([
-                'message' => 'Failed to create bite case',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Get bite case details
-     * Access: admin, triage, treatment
-     */
-    public function show(Request $request, $id)
-    {
-        $incident = BiteIncident::where('clinic_id', $request->user()->clinic_id)
-            ->with([
-                'patient',
-                'createdBy',
-                'treatmentPlan',
-                'vaccinationSchedules' => function ($query) {
-                    $query->orderBy('dose_number');
-                },
-                'queues',
-            ])
-            ->findOrFail($id);
-
-        return response()->json([
+        return $this->json([
+            'message' => 'Bite case registered successfully',
             'incident' => $incident,
-            'who_category' => $incident->getWhoCategory(),
-            'vaccination_required' => $incident->requiresVaccination(),
-        ]);
+        ], 201);
     }
 
     /**
-     * Update bite case
+     * Display the specified bite case.
+     * Access: admin, triage, treatment
+     */
+    public function show(Request $request, int|string $id): JsonResponse
+    {
+        $incident = $this->biteCaseService->getBiteCase($request->user()->clinic_id, (int) $id);
+
+        return $this->json($incident);
+    }
+
+    /**
+     * Update the specified bite case.
      * Access: admin, triage
      */
-    public function update(Request $request, $id)
+    public function update(UpdateBiteCaseRequest $request, int|string $id): JsonResponse
     {
-        $incident = BiteIncident::where('clinic_id', $request->user()->clinic_id)
-            ->findOrFail($id);
+        $incident = $this->biteCaseService->updateBiteCase(
+            $request->user()->clinic_id,
+            (int) $id,
+            $request->validated()
+        );
 
-        $request->validate([
-            'bite_place' => 'nullable|string|max:255',
-            'site_washed' => 'sometimes|boolean',
-            'severity' => 'sometimes|in:minor,moderate,severe',
-            'animal_observation_status' => 'nullable|in:healthy,sick,died,unknown',
-            'wound_description' => 'nullable|string',
-            'status' => 'sometimes|in:active,completed,referred,abandoned',
-            'remarks' => 'nullable|string',
-        ]);
-
-        $incident->update($request->all());
-
-        // Invalidate caches
-        $this->clearBiteCasesCache($request->user()->clinic_id);
-        Cache::forget("web:bite-case:{$id}:clinic:{$request->user()->clinic_id}");
-
-        return response()->json([
+        return $this->json([
             'message' => 'Bite case updated successfully',
             'incident' => $incident,
         ]);
@@ -465,95 +101,41 @@ class BiteCaseController extends Controller
      * Delete bite case (soft delete)
      * Access: admin only
      */
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int|string $id): JsonResponse
     {
-        $incident = BiteIncident::where('clinic_id', $request->user()->clinic_id)
-            ->findOrFail($id);
+        $this->biteCaseService->deleteBiteCase($request->user()->clinic_id, (int) $id);
 
-        $incident->delete();
-
-        // Invalidate caches
-        $this->clearBiteCasesCache($request->user()->clinic_id);
-        Cache::forget("web:bite-case:{$id}:clinic:{$request->user()->clinic_id}");
-
-        return response()->json([
+        return $this->json([
             'message' => 'Bite case deleted successfully',
         ]);
     }
 
     /**
-     * Helper method to clear bite cases cache
-     */
-    private function clearBiteCasesCache($clinicId)
-    {
-        $statuses = ['all', 'active', 'completed', 'referred', 'abandoned'];
-        
-        // Clear first 5 pages of common cache variations
-        foreach ($statuses as $status) {
-            for ($page = 1; $page <= 5; $page++) {
-                $cacheKey = sprintf(
-                    'web:bite-cases:clinic:%s:status:%s:from:%s:to:%s:search:%s:page:%s',
-                    $clinicId, $status, 'all', 'all', 'none', $page
-                );
-                Cache::forget($cacheKey);
-            }
-        }
-        
-        // Clear statistics cache
-        Cache::forget("web:bite-cases:stats:clinic:{$clinicId}");
-    }
-
-    /**
      * Get vaccination schedule for a bite case
+     * Access: admin, triage, treatment
      */
-    public function vaccinations(Request $request, $id)
+    public function vaccinations(Request $request, int|string $id): JsonResponse
     {
-        $incident = BiteIncident::where('clinic_id', $request->user()->clinic_id)
-            ->findOrFail($id);
+        $vaccinations = $this->biteCaseService->getBiteVaccinations($request->user()->clinic_id, (int) $id);
 
-        $schedules = $incident->vaccinationSchedules()
-            ->with(['administeredBy'])
-            ->orderBy('dose_number')
-            ->get();
-
-        return response()->json($schedules);
+        return $this->json($vaccinations);
     }
 
     /**
-     * Get statistics
+     * Get statistics for bite cases
+     * Access: admin, triage
      */
-    public function statistics(Request $request)
+    public function statistics(Request $request): JsonResponse
     {
-        $clinicId = $request->user()->clinic_id;
-        $cacheKey = "web:bite-cases:stats:clinic:{$clinicId}";
+        $stats = $this->biteCaseService->getStatistics($request->user()->clinic_id);
 
-        // Cache for 5 minutes
-        return response()->json(
-            Cache::remember($cacheKey, 300, function () use ($clinicId) {
-                return [
-                    'total_cases' => BiteIncident::where('clinic_id', $clinicId)->count(),
-                    'active_cases' => BiteIncident::where('clinic_id', $clinicId)->where('status', 'active')->count(),
-                    'completed_cases' => BiteIncident::where('clinic_id', $clinicId)->where('status', 'completed')->count(),
-                    'by_severity' => BiteIncident::where('clinic_id', $clinicId)
-                        ->select('severity', DB::raw('count(*) as count'))
-                        ->groupBy('severity')
-                        ->pluck('count', 'severity'),
-                    'by_animal_type' => BiteIncident::where('clinic_id', $clinicId)
-                        ->select('animal_type', DB::raw('count(*) as count'))
-                        ->groupBy('animal_type')
-                        ->pluck('count', 'animal_type'),
-                ];
-            })
-        );
+        return $this->json($stats);
     }
 
     /**
      * Descriptive bite surveillance grouped by place of exposure.
-     *
-     * This endpoint intentionally aggregates the complete clinic data set for
-     * the selected period. The UI must not derive risk from a paginated list.
      */
-    public function locationRiskSummary(Request $request)
+    public function locationRiskSummary(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'from' => 'nullable|date',
@@ -564,665 +146,81 @@ class BiteCaseController extends Controller
             'search' => 'nullable|string|max:255',
         ]);
 
-        $clinicId = $request->user()->clinic_id;
-        $from = isset($validated['from']) ? Carbon::parse($validated['from'])->startOfDay() : null;
-        $to = isset($validated['to']) ? Carbon::parse($validated['to'])->endOfDay() : null;
+        $summary = $this->biteCaseService->getLocationRiskSummary($request->user()->clinic_id, $validated);
 
-        $makeQuery = function () use ($clinicId, $validated, $from, $to) {
-            $query = BiteIncident::where('clinic_id', $clinicId)
-                ->with(['patient', 'intake', 'appointments', 'treatmentRecords']);
-
-            if ($from) $query->whereDate('bite_date', '>=', $from);
-            if ($to) $query->whereDate('bite_date', '<=', $to);
-            if (!empty($validated['status'])) $query->where('status', $validated['status']);
-            if (!empty($validated['animal'])) {
-                $validated['animal'] === 'other'
-                    ? $query->where(fn ($q) => $q->whereNotIn('animal_type', ['dog', 'cat'])->orWhereNull('animal_type'))
-                    : $query->where('animal_type', $validated['animal']);
-            }
-            if (!empty($validated['search'])) {
-                $search = $validated['search'];
-                $query->where(function ($q) use ($search) {
-                    $q->where('case_number', 'like', "%{$search}%")
-                        ->orWhere('bite_place', 'like', "%{$search}%")
-                        ->orWhereHas('patient', fn ($patient) => $patient->searchName($search));
-                });
-            }
-
-            return $query;
-        };
-
-        $cases = $makeQuery()->get()->filter(function (BiteIncident $case) use ($validated) {
-            return empty($validated['severity']) || $case->bite_category === $validated['severity'];
-        })->values();
-
-        // Compare with the immediately preceding period of identical length.
-        $periodEnd = $to ? $to->copy()->startOfDay() : Carbon::today();
-        $periodStart = $from ? $from->copy()->startOfDay() : $periodEnd->copy()->startOfMonth();
-        $periodDays = max(1, $periodStart->diffInDays($periodEnd) + 1);
-        $previousStart = $periodStart->copy()->subDays($periodDays);
-        $previousEnd = $periodStart->copy()->subDay();
-
-        $previousCases = BiteIncident::where('clinic_id', $clinicId)
-            ->whereBetween('bite_date', [$previousStart->toDateString(), $previousEnd->toDateString()])
-            ->when(!empty($validated['status']), fn ($q) => $q->where('status', $validated['status']))
-            ->when(!empty($validated['animal']), function ($q) use ($validated) {
-                $validated['animal'] === 'other'
-                    ? $q->where(fn ($inner) => $inner->whereNotIn('animal_type', ['dog', 'cat'])->orWhereNull('animal_type'))
-                    : $q->where('animal_type', $validated['animal']);
-            })
-            ->when(!empty($validated['search']), function ($q) use ($validated) {
-                $search = $validated['search'];
-                $q->where(function ($inner) use ($search) {
-                    $inner->where('case_number', 'like', "%{$search}%")
-                        ->orWhere('bite_place', 'like', "%{$search}%")
-                        ->orWhereHas('patient', fn ($patient) => $patient->searchName($search));
-                });
-            })
-            ->with('intake')
-            ->get()
-            ->filter(fn (BiteIncident $case) => empty($validated['severity']) || $case->bite_category === $validated['severity'])
-            ->groupBy(fn (BiteIncident $case) => trim((string) $case->bite_place) ?: 'Unknown');
-
-        $hasReceivedDose = function (BiteIncident $case): bool {
-            return $case->treatmentRecords->contains(function ($record) {
-                return $record->dose_number !== null
-                    && ($record->treatment_date || $record->administered_at || in_array($record->status, ['administered', 'completed'], true));
-            });
-        };
-        $hasOverdueDose = function (BiteIncident $case): bool {
-            return $case->appointments->contains(function ($appointment) {
-                $scheduled = $appointment->scheduled_date ?? $appointment->appointment_date;
-                return $scheduled && Carbon::parse($scheduled)->lt(Carbon::today())
-                    && !in_array($appointment->status, ['completed', 'cancelled'], true);
-            });
-        };
-        $getOverdueInfo = function (BiteIncident $case) {
-            $overdueAppts = $case->appointments->filter(function ($appointment) {
-                $scheduled = $appointment->scheduled_date ?? $appointment->appointment_date;
-                return $scheduled && Carbon::parse($scheduled)->lt(Carbon::today())
-                    && !in_array($appointment->status, ['completed', 'cancelled'], true);
-            });
-            if ($overdueAppts->isEmpty()) {
-                return [
-                    'is_overdue' => false,
-                    'days_overdue' => 0,
-                    'overdue_dose' => null,
-                ];
-            }
-            $earliest = $overdueAppts->sortBy(fn ($a) => $a->scheduled_date ?? $a->appointment_date)->first();
-            $scheduledDate = Carbon::parse($earliest->scheduled_date ?? $earliest->appointment_date)->startOfDay();
-            $daysOverdue = max(1, abs(Carbon::today()->diffInDays($scheduledDate)));
-            $doseLabel = $earliest->dose_number ? "Dose {$earliest->dose_number}" : ($earliest->appointment_type ?: 'PEP Dose');
-
-            return [
-                'is_overdue' => true,
-                'days_overdue' => $daysOverdue,
-                'overdue_dose' => $doseLabel,
-            ];
-        };
-
-        $locations = $cases->groupBy(fn (BiteIncident $case) => trim((string) $case->bite_place) ?: 'Unknown')
-            ->map(function ($locationCases, $location) use ($previousCases, $hasReceivedDose, $hasOverdueDose) {
-                $total = $locationCases->count();
-                $categories = $locationCases->map(fn (BiteIncident $case) => $case->bite_category);
-                $cat1 = $categories->filter(fn ($category) => $category === 'I')->count();
-                $cat2 = $categories->filter(fn ($category) => $category === 'II')->count();
-                $cat3 = $categories->filter(fn ($category) => $category === 'III')->count();
-                $riskScore = $total ? (int) round((($cat3 * 1.5) + $cat2) / $total * 100) : 0;
-                $riskLevel = $riskScore >= 65 ? 'high' : ($riskScore >= 35 ? 'medium' : 'low');
-                $eligibleCases = $locationCases->reject(fn (BiteIncident $case) => in_array($case->status, ['cancelled', 'abandoned'], true));
-                $compliant = $eligibleCases->filter($hasReceivedDose)->count();
-                $previousCount = $previousCases->get($location)?->count();
-                $lastIncident = $locationCases->sortByDesc('bite_date')->first()?->bite_date;
-
-                $animalTypes = $locationCases->map(function (BiteIncident $case) {
-                    return strtolower(trim((string) ($case->intake?->animal_type ?: $case->animal_type ?: 'other')));
-                })->map(fn ($type) => in_array($type, ['dog', 'cat'], true) ? $type : 'other')->countBy();
-
-                return [
-                    'location' => $location,
-                    'location_level' => $location === 'Unknown' ? 'Unknown' : 'Barangay',
-                    'risk_score' => $riskScore,
-                    'risk_level' => $riskLevel,
-                    'total_cases' => $total,
-                    'cat_1' => $cat1,
-                    'cat_2' => $cat2,
-                    'cat_3' => $cat3,
-                    'animal_types' => $animalTypes,
-                    'pep_compliance' => $eligibleCases->count() ? (int) round($compliant / $eligibleCases->count() * 100) : 0,
-                    'overdue_doses' => $locationCases->filter($hasOverdueDose)->count(),
-                    'trend' => is_null($previousCount) ? 'new' : ($total > $previousCount ? 'up' : ($total < $previousCount ? 'down' : 'neutral')),
-                    'trend_diff' => is_null($previousCount) ? null : $total - $previousCount,
-                    'last_incident' => $lastIncident?->format('M d, Y'),
-                    'last_incident_days_ago' => $lastIncident ? abs(Carbon::today()->diffInDays($lastIncident)) : null,
-                ];
-            })->sortByDesc('risk_score')->values();
-
-        // Clinic-wide follow-up metrics deliberately ignore the period filter.
-        $activeCases = BiteIncident::where('clinic_id', $clinicId)->where('status', 'active')
-            ->with(['appointments', 'treatmentRecords'])->get();
-        $overdueDoses = $activeCases->filter($hasOverdueDose)->count();
-        $patientsWithDose = $activeCases->filter($hasReceivedDose)->count();
-
-        return response()->json([
-            'summary' => [
-                'total_cases' => $cases->count(),
-                'active_cases' => $cases->where('status', 'active')->count(),
-                'completed' => $cases->where('status', 'completed')->count(),
-                'high_risk_zones' => $locations->where('risk_level', 'high')->count(),
-                'overdue_doses' => $overdueDoses,
-                'pep_compliance' => $activeCases->count() ? (int) round($patientsWithDose / $activeCases->count() * 100) : 0,
-            ],
-            'locations' => $locations,
-            'cases' => $cases->sortByDesc('bite_date')->values()->map(function (BiteIncident $case) use ($getOverdueInfo) {
-                $overdue = $getOverdueInfo($case);
-                return [
-                    'bite_id' => $case->bite_id,
-                    'case_number' => $case->case_number,
-                    'patient_id' => $case->patient_id,
-                    'patient_name' => $case->patient?->name ?? 'Unknown patient',
-                    'bite_date' => $case->bite_date?->format('M d, Y'),
-                    'location' => trim((string) $case->bite_place) ?: 'Unknown',
-                    'category' => $case->bite_category,
-                    'animal_type' => strtolower(trim((string) ($case->intake?->animal_type ?: $case->animal_type ?: 'other'))),
-                    'status' => $case->status,
-                    'is_overdue' => $overdue['is_overdue'],
-                    'days_overdue' => $overdue['days_overdue'],
-                    'overdue_dose' => $overdue['overdue_dose'],
-                ];
-            }),
-            'risk_alerts' => [
-                'high_risk_zones' => $locations->where('risk_level', 'high')->pluck('location')->values(),
-                'overdue_count' => $overdueDoses,
-            ],
-        ]);
+        return $this->json($summary);
     }
 
     /**
      * Get bite cases with location data for map visualization
      * Access: admin
      */
-    public function getMapData(Request $request)
+    public function getMapData(Request $request): JsonResponse
     {
-        $clinicId = $request->user()->clinic_id;
-        $geocodingService = new GeocodingService();
-        
-        // Get clinic info for map center
-        $clinic = DB::table('clinics')->find($clinicId);
-        $clinicMunicipality = $this->resolveClinicMunicipality($clinic);
-        $clinicProvince = $this->resolveClinicProvince($clinic);
-        
-        $query = BiteIncident::where('clinic_id', $clinicId)
-            ->with(['patient.details'])
-            ->whereNotNull('bite_place')
-            ->where('bite_place', '!=', '')
-            ->whereIn('severity', ['minor', 'moderate', 'severe']);
+        $mapData = $this->biteCaseService->getMapData($request->user()->clinic_id, $request->all());
 
-        // Filter by status (default to active, completed, finished)
-        if ($request->filled('status') && $request->status !== 'all') {
-            $query->where('status', $request->status);
-        } else {
-            $query->whereIn('status', ['active', 'completed', 'finished']);
-        }
-        
-        // Filter by date range
-        if ($request->has('date_from')) {
-            $query->where('bite_date', '>=', $request->date_from);
-        }
-        if ($request->has('date_to')) {
-            $query->where('bite_date', '<=', $request->date_to);
-        }
-        
-        // Filter by severity
-        if ($request->has('severity')) {
-            $query->where('severity', $request->severity);
-        }
-        
-        $cases = $query->get()->map(function ($case) use ($geocodingService, $clinicMunicipality, $clinicProvince) {
-            // Parse location data from bite_place (Place of Exposure)
-            $locationParts = array_map('trim', explode(',', $case->bite_place));
-            $count = count($locationParts);
-
-            $homeBrgy = $case->patient->details->address_barangay ?? $case->patient->address_barangay ?? '';
-            $homeMun = $case->patient->details->address_municipality ?? $case->patient->address_municipality ?? '';
-            $homeProvince = $case->patient->details->province ?? $clinicProvince ?? 'Misamis Oriental';
-            $patientResidence = trim(implode(', ', array_filter([$homeBrgy, $homeMun, $homeProvince])), ', ');
-
-            $address = '';
-            $barangay = '';
-            $municipality = '';
-            $province = $clinicProvince ?: 'Misamis Oriental';
-
-            // Check if the last part is a province
-            $isLastPartProvince = false;
-            if ($count >= 2) {
-                $lastPart = end($locationParts);
-                if (stripos($lastPart, 'Misamis') !== false || stripos($lastPart, 'Oriental') !== false || stripos($lastPart, 'Bukidnon') !== false || stripos($lastPart, 'Province') !== false || (strcasecmp($lastPart, (string)$clinicProvince) === 0 && !empty($clinicProvince))) {
-                    $isLastPartProvince = true;
-                    $province = $lastPart;
-                }
-            }
-
-            if ($isLastPartProvince) {
-                if ($count >= 4) {
-                    $address = $locationParts[0];
-                    $barangay = $locationParts[1];
-                    $municipality = $locationParts[2];
-                } elseif ($count === 3) {
-                    $address = '';
-                    $barangay = $locationParts[0];
-                    $municipality = $locationParts[1];
-                } elseif ($count === 2) {
-                    $address = '';
-                    $barangay = '';
-                    $municipality = $locationParts[0];
-                }
-            } else {
-                if ($count >= 3) {
-                    $address = $locationParts[0];
-                    $barangay = $locationParts[1];
-                    $municipality = $locationParts[2];
-                } elseif ($count === 2) {
-                    $address = '';
-                    $barangay = $locationParts[0];
-                    $municipality = $locationParts[1];
-                } else {
-                    $rawPlace = trim($case->bite_place);
-                    if (strcasecmp($rawPlace, 'home') === 0 || stripos($rawPlace, 'residence') !== false) {
-                        $address = $rawPlace;
-                        $barangay = $homeBrgy ?: 'Poblacion';
-                        $municipality = $homeMun ?: ($clinicMunicipality ?: 'Tagoloan');
-                    } else {
-                        $address = $rawPlace;
-                        $barangay = '';
-                        $municipality = $clinicMunicipality ?: 'Tagoloan';
-                    }
-                }
-            }
-
-            if (empty($barangay) || $barangay === 'Unknown') {
-                $barangay = $homeBrgy ?: '';
-            }
-            if (empty($municipality) || $municipality === 'Unknown') {
-                $municipality = $homeMun ?: ($clinicMunicipality ?: 'Tagoloan');
-            }
-            if (empty($province)) {
-                $province = $homeProvince ?: 'Misamis Oriental';
-            }
-            
-            // Get real coordinates using hybrid geocoding based on Place of Exposure
-            $coordinates = $geocodingService->getCoordinates($barangay, $municipality, $province);
-
-            $isResident = !empty($homeMun) && !empty($clinicMunicipality) && (strcasecmp($homeMun, $clinicMunicipality) === 0);
-            
-            return [
-                'bite_id' => $case->bite_id,
-                'case_number' => $case->case_number,
-                'bite_date' => $case->bite_date,
-                'latitude' => $coordinates['latitude'],
-                'longitude' => $coordinates['longitude'],
-                'barangay' => $barangay,
-                'municipality' => $municipality,
-                'province' => $province,
-                'address' => $address,
-                'place_of_exposure' => $case->bite_place,
-                'patient_residence' => $patientResidence,
-                'patient_home_barangay' => $homeBrgy,
-                'patient_home_municipality' => $homeMun,
-                'is_resident' => $isResident,
-                'severity' => $case->severity,
-                'animal_type' => $case->animal_type ?? 'Unknown',
-                'exposure_type' => $case->exposure_type,
-                'patient_name' => $case->patient ? 
-                    "{$case->patient->first_name} {$case->patient->last_name}" : 'Unknown',
-                'status' => $case->status,
-                'coord_source' => $coordinates['source'], // For debugging
-            ];
-        });
-        
-        // Generate statistics
-        $stats = [
-            'total_cases' => $cases->count(),
-            'by_municipality' => $cases->groupBy('municipality')->map->count(),
-            'by_barangay' => $cases->groupBy('barangay')->map->count(),
-            'by_severity' => [
-                'minor' => $cases->where('severity', 'minor')->count(),
-                'moderate' => $cases->where('severity', 'moderate')->count(),
-                'severe' => $cases->where('severity', 'severe')->count(),
-                'unclassified' => $cases->whereIn('severity', ['unclassified', 'pending', null, ''])->count(),
-            ],
-            'by_status' => [
-                'active' => $cases->where('status', 'active')->count(),
-                'completed' => $cases->whereIn('status', ['completed', 'finished'])->count(),
-            ],
-            'by_animal' => $cases->groupBy('animal_type')->map->count(),
-        ];
-        
-        // Determine map center and zoom
-        $mapCenter = null;
-        $mapZoom = 12;
-        
-        if ($clinic) {
-            if ($clinic->latitude && $clinic->longitude) {
-                // Use clinic coordinates if available
-                $mapCenter = [
-                    'latitude' => (float) $clinic->latitude,
-                    'longitude' => (float) $clinic->longitude
-                ];
-                $mapZoom = $clinic->map_default_zoom ?? 13;
-            } else {
-                // Extract municipality from clinic record or parse from clinic address string
-                $mun = $clinic->municipality;
-                if (!$mun && $clinic->address) {
-                    $parts = array_map('trim', explode(',', $clinic->address));
-                    if (count($parts) >= 4) {
-                        $mun = $parts[2];
-                    } elseif (count($parts) >= 2) {
-                        $mun = $parts[count($parts) - 2];
-                    }
-                }
-                if ($mun) {
-                    $coords = $geocodingService->getCoordinates('', $mun, $clinicProvince);
-                    $mapCenter = [
-                        'latitude' => $coords['latitude'],
-                        'longitude' => $coords['longitude']
-                    ];
-                    $mapZoom = 13;
-
-                    // Update clinic record with geocoded coordinates for future instant loads
-                    DB::table('clinics')->where('id', $clinicId)->update([
-                        'municipality' => $mun,
-                        'latitude' => $coords['latitude'],
-                        'longitude' => $coords['longitude'],
-                        'map_default_zoom' => 13,
-                    ]);
-                }
-            }
-        }
-        
-        // Fallback: use first case location or default
-        if (!$mapCenter && $cases->count() > 0) {
-            $firstCase = $cases->first();
-            $mapCenter = [
-                'latitude' => $firstCase['latitude'],
-                'longitude' => $firstCase['longitude']
-            ];
-        }
-        
-        return response()->json([
-            'cases' => $cases->values(),
-            'statistics' => $stats,
-            'map_center' => $mapCenter,
-            'map_zoom' => $mapZoom,
-            'clinic' => [
-                'name' => $clinic->name ?? '',
-                'municipality' => $clinicMunicipality ?? '',
-                'province' => $clinicProvince ?? '',
-            ]
-        ]);
-    }
-
-    private function resolveClinicMunicipality(?object $clinic): ?string
-    {
-        if (! $clinic) {
-            return null;
-        }
-
-        $municipality = trim((string) ($clinic->municipality ?? ''));
-        if ($municipality !== '') {
-            return $municipality;
-        }
-
-        $parts = $this->splitAddressParts($clinic->address ?? null);
-
-        return count($parts) >= 2 ? $parts[count($parts) - 2] : null;
-    }
-
-    private function resolveClinicProvince(?object $clinic): ?string
-    {
-        if (! $clinic) {
-            return null;
-        }
-
-        $province = trim((string) ($clinic->province ?? ''));
-        if ($province !== '') {
-            return $province;
-        }
-
-        $parts = $this->splitAddressParts($clinic->address ?? null);
-
-        return count($parts) >= 1 ? $parts[count($parts) - 1] : null;
-    }
-
-    private function splitAddressParts(?string $address): array
-    {
-        if (! $address) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map('trim', explode(',', $address)), fn ($part) => $part !== ''));
+        return $this->json($mapData);
     }
 
     /**
      * Get all bite episodes for a patient with immunization history summary
      * GET /api/cases/patient/{patientId}/episodes
      */
-    public function patientEpisodes(Request $request, $patientId)
+    public function patientEpisodes(Request $request, int|string $patientId): JsonResponse
     {
-        try {
-            $clinicId = $request->user()->clinic_id;
+        $episodes = $this->biteCaseService->getPatientEpisodes($request->user()->clinic_id, (int) $patientId);
 
-            $patient = \App\Models\Patient::where('clinic_id', $clinicId)
-                ->with(['details'])
-                ->findOrFail($patientId);
-
-            $episodes = BiteIncident::where('clinic_id', $clinicId)
-                ->where('patient_id', $patientId)
-                ->with([
-                    'treatmentRecords' => function ($q) {
-                        $q->orderByRaw('CASE WHEN dose_number IS NULL THEN 0 ELSE 1 END')
-                            ->orderBy('consultation_date')
-                            ->orderBy('dose_number')
-                            ->orderBy('scheduled_date');
-                    },
-                    'treatmentPlan:treatment_plan_id,bite_id,plan_type,status,ordered_dose_days,doctor_decision_notes,decided_at',
-                    'externalProofReviewer:id,name,role',
-                    'createdBy:id,name',
-                ])
-                ->orderByDesc('episode_number')
-                ->orderByDesc('bite_id')
-                ->get();
-
-            $historySummary = $patient->getImmunizationHistorySummary();
-
-            return response()->json([
-                'patient_id' => $patientId,
-                'patient_name' => $patient->full_name,
-                'history_summary' => $historySummary,
-                'summary' => $historySummary,
-                'episodes' => $episodes,
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Fetch patient episodes error: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Failed to load patient episodes',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
+        return $this->json($episodes);
     }
 
     /**
-     * Record outgoing cross-clinic transfer and generate referral certificate data
+     * Transfer patient case out to external facility
      * POST /api/cases/{id}/transfer-out
      */
-    public function transferOut(Request $request, $id)
+    public function transferOut(TransferOutBiteCaseRequest $request, int|string $id): JsonResponse
     {
-        $request->validate([
-            'transferred_to_facility' => 'required|string|max:255',
-            'transfer_reason' => 'nullable|string',
-            'transfer_date' => 'nullable|date',
+        $incident = $this->biteCaseService->transferOut(
+            $request->user()->clinic_id,
+            (int) $id,
+            $request->validated()
+        );
+
+        return $this->json([
+            'message' => 'Patient case transferred out successfully',
+            'incident' => $incident,
         ]);
-
-        DB::beginTransaction();
-        try {
-            $clinicId = $request->user()->clinic_id;
-
-            $incident = BiteIncident::where('clinic_id', $clinicId)->findOrFail($id);
-
-            $transferDate = $request->transfer_date ? \Carbon\Carbon::parse($request->transfer_date) : now();
-
-            $incident->update([
-                'status' => 'transferred_out',
-                'transferred_to_facility' => $request->transferred_to_facility,
-                'transferred_at' => $transferDate,
-                'transfer_reason' => $request->transfer_reason,
-            ]);
-
-            // Cancel any pending future appointments for this episode at our clinic
-            \App\Models\Appointment::where('bite_id', $incident->bite_id)
-                ->where('status', 'scheduled')
-                ->where('appointment_date', '>=', $transferDate->toDateString())
-                ->update([
-                    'status' => 'cancelled',
-                    'cancellation_reason' => "Patient transferred to {$request->transferred_to_facility}",
-                ]);
-
-            DB::commit();
-
-            // Load complete referral data for the DOH Transfer Slip modal
-            $incident->load([
-                'patient.details',
-                'treatmentRecords.administeredBy',
-                'clinic',
-            ]);
-
-            return response()->json([
-                'message' => 'Patient case transferred out successfully',
-                'incident' => $incident,
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Transfer out error: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Failed to transfer patient',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
     }
 
     /**
      * Review and verify external vaccination proof / certificate
      * POST /api/cases/{id}/review-proof
      */
-    public function reviewExternalProof(Request $request, $id)
+    public function reviewExternalProof(ReviewExternalProofRequest $request, int|string $id): JsonResponse
     {
-        $request->validate([
-            'is_verified' => 'required|boolean',
-            'remarks' => 'nullable|string',
+        $incident = $this->biteCaseService->reviewExternalProof(
+            $request->user()->clinic_id,
+            (int) $id,
+            $request->validated(),
+            $request->user()
+        );
+
+        return $this->json([
+            'message' => 'External proof review recorded',
+            'incident' => $incident,
         ]);
-
-        try {
-            $clinicId = $request->user()->clinic_id;
-            $incident = BiteIncident::where('clinic_id', $clinicId)->findOrFail($id);
-
-            $incident->update([
-                'verification_source' => $request->is_verified ? 'external_certificate_reviewed' : 'patient_self_report_unverified',
-                'external_proof_reviewed_by' => $request->user()->id,
-                'external_proof_reviewed_at' => now(),
-                'remarks' => trim(($incident->remarks ?? '') . ' | Proof review: ' . ($request->remarks ?? ($request->is_verified ? 'Verified' : 'Rejected'))),
-            ]);
-
-            return response()->json([
-                'message' => 'External proof review recorded',
-                'incident' => $incident->fresh(['externalProofReviewer']),
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Review proof error: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Failed to record proof review',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
     }
 
     /**
      * Get distinct saved Purok/Zone options for a given Barangay and Municipality.
      * GET /api/cases/puroks or /api/locations/puroks
      */
-    public function getPuroks(Request $request)
+    public function getPuroks(Request $request): JsonResponse
     {
-        $barangay = trim((string) $request->query('barangay', ''));
-        $municipality = trim((string) $request->query('municipality', ''));
+        $puroks = $this->biteCaseService->getPuroks(
+            trim((string) $request->query('barangay', '')),
+            trim((string) $request->query('municipality', ''))
+        );
 
-        if (empty($barangay)) {
-            return response()->json(['puroks' => []]);
-        }
-
-        $puroks = collect();
-
-        // 1. Fetch from patient_details
-        $patientPuroks = DB::table('patient_details')
-            ->whereNotNull('address_purok')
-            ->where('address_purok', '!=', '')
-            ->where(function ($q) use ($barangay) {
-                $q->where('address_barangay', $barangay)
-                  ->orWhere('address_barangay', 'like', "%{$barangay}%");
-            })
-            ->when(!empty($municipality), function ($q) use ($municipality) {
-                $q->where(function ($mq) use ($municipality) {
-                    $mq->where('address_municipality', $municipality)
-                       ->orWhere('address_municipality', 'like', "%{$municipality}%");
-                });
-            })
-            ->pluck('address_purok');
-
-        $puroks = $puroks->concat($patientPuroks);
-
-        // 2. Fetch from bite_incidents bite_place
-        $incidentPlaces = DB::table('bite_incidents')
-            ->whereNull('deleted_at')
-            ->whereNotNull('bite_place')
-            ->where('bite_place', '!=', '')
-            ->where('bite_place', 'like', "%{$barangay}%")
-            ->pluck('bite_place');
-
-        foreach ($incidentPlaces as $place) {
-            $parts = array_map('trim', explode(',', (string) $place));
-            $count = count($parts);
-
-            // Strip province if present
-            if ($count >= 2) {
-                $last = end($parts);
-                if (stripos($last, 'Misamis') !== false || stripos($last, 'Oriental') !== false) {
-                    array_pop($parts);
-                    $count = count($parts);
-                }
-            }
-
-            if ($count >= 3) {
-                // If count >= 3, purok is the 3rd from the end (e.g. [Purok, Barangay, Municipality])
-                $purokCandidate = $parts[$count - 3];
-                if (!empty($purokCandidate)) {
-                    $puroks->push($purokCandidate);
-                }
-            }
-        }
-
-        // 3. Normalize, deduplicate, and natural sort
-        $normalized = $puroks
-            ->map(function ($p) {
-                $cleaned = trim(preg_replace('/\s+/', ' ', (string) $p));
-                $cleaned = trim($cleaned, ",.- ");
-                return preg_replace_callback('/\b(purok|zone|sitio|block|blk|street|st|phase|prk)\b/i', fn($m) => ucfirst(strtolower($m[0])), $cleaned);
-            })
-            ->filter(fn ($p) => !empty($p) && strlen($p) >= 2)
-            ->unique(fn ($p) => strtolower($p))
-            ->values()
-            ->sort(fn ($a, $b) => strnatcasecmp($a, $b))
-            ->values();
-
-        return response()->json(['puroks' => $normalized]);
+        return $this->json(['puroks' => $puroks]);
     }
 }
-

@@ -108,7 +108,8 @@ The 38 controllers are partitioned into four distinct, non-overlapping domains t
 
 ---
 
-### PERSON 2: Clinical Care, Bite Cases & Treatment Records
+### PERSON 2: Clinical Care, Bite Cases & Treatment Records (COMPLETED)
+- **Status:** **COMPLETED** (Refactored into Thin Controllers + FormRequests & Services, 61 Feature Tests Passing)
 - **Scope:** Clinical bite exposure incidents, master patient demographics registry, triage intake desk, clinical doctor consultation sheets, and official municipal treatment cards.
 - **Total Workload:** 6 Controllers, ~3,092 lines of code.
 - **Risk Profile:** **High Clinical & Transaction Risk**. Manages multi-table transactions across `patients`, `bite_cases`, and `treatment_records`. Contains complex DOH exposure categories (Category I, II, III) and clinical rules.
@@ -408,7 +409,7 @@ Wait for my approval before changing anything.
 
 | Controller File | Person | Status | Pre-Tests | Refactored | Verified | PR Merged |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Shared Infrastructure Setup** | P4 | In Progress | [ ] | [ ] | [ ] | [ ] |
+| **Shared Infrastructure Setup** | P4 | Completed | [x] | [x] | [x] | [ ] |
 | `AuthController.php` | P1 | Planning | [ ] | [ ] | [ ] | [ ] |
 | `UserController.php` | P1 | Pending | [ ] | [ ] | [ ] | [ ] |
 | `StaffInvitationController.php` | P1 | Pending | [ ] | [ ] | [ ] | [ ] |
@@ -417,12 +418,12 @@ Wait for my approval before changing anything.
 | `PatientAccessController.php` | P1 | Pending | [ ] | [ ] | [ ] | [ ] |
 | `Mobile/PatientAccountAuthController.php` | P1 | Pending | [ ] | [ ] | [ ] | [ ] |
 | `Mobile/PatientProfileController.php` | P1 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `BiteCaseController.php` | P2 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `PatientController.php` | P2 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `TreatmentRecordController.php` | P2 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `TagoloanTreatmentCardController.php` | P2 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `BiteIncidentIntakeController.php` | P2 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `BiteIntakeSchemaController.php` | P2 | Pending | [ ] | [ ] | [ ] | [ ] |
+| `BiteCaseController.php` | P2 | Completed | [x] | [x] | [x] | [ ] |
+| `PatientController.php` | P2 | Completed | [x] | [x] | [x] | [ ] |
+| `TreatmentRecordController.php` | P2 | Completed | [x] | [x] | [x] | [ ] |
+| `TagoloanTreatmentCardController.php` | P2 | Completed | [x] | [x] | [x] | [ ] |
+| `BiteIncidentIntakeController.php` | P2 | Completed | [x] | [x] | [x] | [ ] |
+| `BiteIntakeSchemaController.php` | P2 | Completed | [x] | [x] | [x] | [ ] |
 | `VaccinationRecordController.php` | P3 | Pending | [ ] | [ ] | [ ] | [ ] |
 | `QueueController.php` | P3 | Pending | [ ] | [ ] | [ ] | [ ] |
 | `AppointmentController.php` | P3 | Pending | [ ] | [ ] | [ ] | [ ] |

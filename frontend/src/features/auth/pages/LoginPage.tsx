@@ -93,8 +93,8 @@ export default function Login() {
   const [googleError, setGoogleError]     = useState('');
   const [gisReady, setGisReady]           = useState(false);
 
-  // Demo accounts are hidden by default; visit /login?demo=true or set SHOW_DEMO_ACCOUNTS to true to re-enable
-  const SHOW_DEMO_ACCOUNTS = false;
+  // Demo accounts quick-access buttons enabled on login page
+  const SHOW_DEMO_ACCOUNTS = true;
   const showDemoAccounts = SHOW_DEMO_ACCOUNTS || searchParams.get('demo') === 'true' || searchParams.get('demo') === '1';
 
   // Detect ?reason=idle-timeout, show user-friendly message, and clean URL with replace: true

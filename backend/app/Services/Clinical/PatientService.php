@@ -1,0 +1,755 @@
+<?php
+
+namespace App\Services\Clinical;
+
+use App\Http\Controllers\QueueController;
+use App\Models\Appointment;
+use App\Models\AuditLog;
+use App\Models\BiteIncident;
+use App\Models\Patient;
+use App\Models\Queue;
+use App\Models\QueueHistory;
+use App\Models\TreatmentRecord;
+use App\Models\User;
+use App\Services\NotificationService;
+use App\Services\PatientMembershipService;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+
+class PatientService
+{
+    public function __construct(
+        protected PatientMembershipService $membershipService,
+        protected NotificationService $notificationService
+    ) {}
+
+    /**
+     * Get paginated patient registry with tab filtering and search.
+     */
+    public function getPaginatedPatients(int $clinicId, array $filters, int $perPage = 15): array
+    {
+        $tab = $filters['tab'] ?? 'all';
+
+        $nowManila = Carbon::now('Asia/Manila');
+        $todayDate = $nowManila->toDateString();
+        $startOfDay = $nowManila->copy()->startOfDay();
+        $endOfDay = $nowManila->copy()->endOfDay();
+
+        $query = Patient::where('clinic_id', $clinicId)
+            ->with([
+                'registeredBy',
+                'details',
+                'memberships',
+                'latestTreatmentRecord',
+                'latestConsultationRecord',
+                'upcomingAppointment',
+                'biteIncidents' => function ($bi) {
+                    $bi->latest('bite_date');
+                },
+                'appointments' => function ($app) {
+                    $app->orderBy('scheduled_date', 'asc');
+                },
+                'biteIntakes' => function ($bi) {
+                    $bi->latest();
+                },
+                'accounts',
+                'queues' => function ($q) use ($todayDate, $startOfDay, $endOfDay) {
+                    $q->whereNull('deleted_at')
+                      ->where(function ($sub) use ($todayDate, $startOfDay, $endOfDay) {
+                          $sub->where('queue_date', $todayDate)
+                              ->orWhereBetween('checked_in_at', [$startOfDay, $endOfDay])
+                              ->orWhere(function ($ts) use ($startOfDay, $endOfDay) {
+                                  $ts->whereNull('queue_date')
+                                     ->whereBetween('created_at', [$startOfDay, $endOfDay]);
+                              });
+                      })
+                      ->where('status', '!=', 'cancelled')
+                      ->latest();
+                }
+            ]);
+
+        switch ($tab) {
+            case 'today_queue':
+                $query->whereHas('queues', function ($qu) use ($todayDate, $startOfDay, $endOfDay) {
+                    $qu->whereNull('deleted_at')
+                       ->where(function ($sub) use ($todayDate, $startOfDay, $endOfDay) {
+                           $sub->where('queue_date', $todayDate)
+                               ->orWhereBetween('checked_in_at', [$startOfDay, $endOfDay])
+                               ->orWhere(function ($ts) use ($startOfDay, $endOfDay) {
+                                   $ts->whereNull('queue_date')
+                                      ->whereBetween('created_at', [$startOfDay, $endOfDay]);
+                               });
+                       })
+                       ->where('status', '!=', 'cancelled');
+                });
+                break;
+
+            case 'online':
+                $query->where(function ($q) {
+                    $q->whereHas('biteIntakes')
+                      ->orWhereHas('appointments', function ($app) {
+                          $app->whereNotNull('booked_by_account_id')
+                              ->where('status', '!=', 'cancelled');
+                      })
+                      ->orWhere(function ($sub) {
+                          $sub->where('registration_source', 'mobile')
+                              ->whereHas('appointments');
+                      });
+                });
+                break;
+
+            case 'overdue':
+                $query->whereHas('appointments', function ($q) use ($todayDate) {
+                    $q->where(function ($d) use ($todayDate) {
+                        $d->whereDate('appointment_date', '<', $todayDate)
+                          ->orWhereDate('scheduled_date', '<', $todayDate);
+                    })->whereIn('status', ['scheduled', 'missed']);
+                });
+                break;
+
+            case 'pre_registered':
+                $query->where(function ($q) {
+                    $q->where('registration_source', 'mobile')
+                      ->orWhereHas('accounts');
+                })->whereDoesntHave('biteIntakes')
+                  ->whereDoesntHave('appointments');
+                break;
+
+            case 'all':
+            default:
+                break;
+        }
+
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function($q) use ($search) {
+                $q->where('patient_number', 'like', "%{$search}%")
+                  ->orWhere(function ($nameQuery) use ($search) {
+                      $nameQuery->searchName($search);
+                  });
+            });
+        }
+
+        if (!empty($filters['gender'])) {
+            $query->where('gender', $filters['gender']);
+        }
+
+        if (!empty($filters['membership_type']) && $filters['membership_type'] !== 'all') {
+            $type = $filters['membership_type'];
+            $query->whereHas('memberships', function ($mQuery) use ($type) {
+                $mQuery->where('membership_type', $type)->where('is_active', true);
+            });
+        }
+
+        if ($tab === 'today_queue' && empty($filters['sort_by'])) {
+            $query->orderBy(
+                Queue::select('queue_number')
+                    ->whereColumn('queues.patient_id', 'patients.patient_id')
+                    ->where('queues.clinic_id', $clinicId)
+                    ->whereNull('queues.deleted_at')
+                    ->where(function ($sub) use ($todayDate, $startOfDay, $endOfDay) {
+                        $sub->where('queue_date', $todayDate)
+                            ->orWhereBetween('checked_in_at', [$startOfDay, $endOfDay])
+                            ->orWhere(function ($ts) use ($startOfDay, $endOfDay) {
+                                $ts->whereNull('queue_date')
+                                   ->whereBetween('created_at', [$startOfDay, $endOfDay]);
+                            });
+                    })
+                    ->orderBy('queue_number', 'asc')
+                    ->limit(1),
+                'asc'
+            );
+        } else {
+            $sortBy = $filters['sort_by'] ?? 'created_at';
+            $sortOrder = $filters['sort_order'] ?? 'desc';
+            $query->orderBy($sortBy, $sortOrder);
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        $allCount = Patient::where('clinic_id', $clinicId)->count();
+
+        $todayQueueCount = Patient::where('clinic_id', $clinicId)->whereHas('queues', function ($qu) use ($todayDate, $startOfDay, $endOfDay) {
+            $qu->whereNull('deleted_at')
+               ->where(function ($sub) use ($todayDate, $startOfDay, $endOfDay) {
+                   $sub->where('queue_date', $todayDate)
+                       ->orWhereBetween('checked_in_at', [$startOfDay, $endOfDay])
+                       ->orWhere(function ($ts) use ($startOfDay, $endOfDay) {
+                           $ts->whereNull('queue_date')
+                              ->whereBetween('created_at', [$startOfDay, $endOfDay]);
+                       });
+               })
+               ->where('status', '!=', 'cancelled');
+        })->count();
+
+        $onlineCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
+            $q->whereHas('biteIntakes')
+              ->orWhereHas('appointments', function ($app) {
+                  $app->whereNotNull('booked_by_account_id')
+                      ->where('status', '!=', 'cancelled');
+              })
+              ->orWhere(function ($sub) {
+                  $sub->where('registration_source', 'mobile')
+                      ->whereHas('appointments');
+              });
+        })->count();
+
+        $overdueCount = Patient::where('clinic_id', $clinicId)->whereHas('appointments', function ($q) use ($todayDate) {
+            $q->where(function ($d) use ($todayDate) {
+                $d->whereDate('appointment_date', '<', $todayDate)
+                  ->orWhereDate('scheduled_date', '<', $todayDate);
+            })->whereIn('status', ['scheduled', 'missed']);
+        })->count();
+
+        $preRegisteredCount = Patient::where('clinic_id', $clinicId)->where(function ($q) {
+            $q->where('registration_source', 'mobile')
+              ->orWhereHas('accounts');
+        })->whereDoesntHave('biteIntakes')
+          ->whereDoesntHave('appointments')
+          ->count();
+
+        $res = $paginated->toArray();
+        $res['all_count'] = $allCount;
+        $res['today_queue_count'] = $todayQueueCount;
+        $res['online_count'] = $onlineCount;
+        $res['overdue_count'] = $overdueCount;
+        $res['pre_registered_count'] = $preRegisteredCount;
+
+        return $res;
+    }
+
+    /**
+     * Store new patient registration with optional vitals and pending episode.
+     */
+    public function storePatient(int $clinicId, array $validated, User $user, array $rawInput): Patient
+    {
+        $patient = DB::transaction(function () use ($clinicId, $validated, $user, $rawInput) {
+            $patient = Patient::create([
+                'clinic_id' => $clinicId,
+                'first_name' => $validated['first_name'],
+                'middle_name' => $validated['middle_name'] ?? null,
+                'last_name' => $validated['last_name'],
+                'suffix' => $validated['suffix'] ?? null,
+                'gender' => $validated['gender'],
+                'age' => $validated['age'] ?? null,
+                'date_of_birth' => $validated['date_of_birth'] ?? null,
+                'address' => $validated['address'] ?? null,
+                'contact_number' => $validated['contact_number'] ?? null,
+                'email' => $validated['email'] ?? null,
+                'emergency_contact_name' => $validated['emergency_contact_name'] ?? null,
+                'emergency_contact_number' => $validated['emergency_contact_number'] ?? null,
+                'registered_by' => $user->id,
+                'registration_source' => 'staff',
+            ]);
+
+            $detailsKeys = [
+                'hospital_no',
+                'blood_type', 'mother_maiden_name', 'civil_status', 'spouse_name',
+                'address_municipality', 'address_barangay', 'address_purok', 'province',
+                'educational_attainment', 'employment_status', 'family_member',
+                'philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category',
+                'fourps_member', 'fourps_category', 'fourps_relationship', 'registered_fourps_beneficiary',
+                'dswd_nhts', 'has_membership', 'other_membership', 'other_membership_name', 'other_membership_no'
+            ];
+
+            $detailsData = [];
+            foreach ($detailsKeys as $key) {
+                if (array_key_exists($key, $rawInput)) {
+                    $detailsData[$key] = $rawInput[$key] === '' ? null : $rawInput[$key];
+                }
+            }
+
+            $memberships = $this->membershipService->membershipsFromPayload($rawInput);
+            $detailsData = array_merge($detailsData, $this->membershipService->legacyFieldsFromMemberships($memberships));
+
+            if (!empty(array_filter($detailsData, fn($v) => !is_null($v)))) {
+                $patient->details()->create($detailsData);
+            }
+
+            $this->membershipService->syncForPatient($patient, $memberships);
+
+            $vitalsFields = [
+                'reg_date_of_consultation', 'reg_consultation_time', 'reg_blood_pressure',
+                'reg_temperature', 'reg_height', 'reg_weight',
+                'reg_attending_provider', 'reg_referred_by',
+            ];
+            $hasVitals = collect($vitalsFields)->contains(
+                fn($f) => !empty($rawInput[$f])
+            );
+
+            if ($hasVitals) {
+                $biteIncident = BiteIncident::create([
+                    'clinic_id'             => $clinicId,
+                    'patient_id'            => $patient->patient_id,
+                    'episode_number'        => 1,
+                    'episode_type'          => 'pending_assessment',
+                    'is_previously_vaccinated' => null,
+                    'bite_date'             => !empty($rawInput['reg_date_of_consultation'])
+                        ? Carbon::parse($rawInput['reg_date_of_consultation'])->toDateString()
+                        : Carbon::now('Asia/Manila')->toDateString(),
+                    'bite_place'            => null,
+                    'site_washed'           => null,
+                    'exposure_type'         => 'unassessed',
+                    'exposure_mode'         => null,
+                    'severity'              => 'unassessed',
+                    'animal_type'           => null,
+                    'animal_status'         => 'unassessed',
+                    'animal_available'      => null,
+                    'site_number'           => null,
+                    'body_part_exposed'     => null,
+                    'laterality'            => null,
+                    'wound_description'     => null,
+                    'status'                => 'awaiting_assessment',
+                    'remarks'               => 'Episode created during Registration Staff patient registration. Exposure details await Doctor/Nurse assessment.',
+                    'created_by'            => $user->id,
+                ]);
+
+                $consultationDate = !empty($rawInput['reg_date_of_consultation'])
+                    ? Carbon::parse($rawInput['reg_date_of_consultation'])->toDateString()
+                    : Carbon::now('Asia/Manila')->toDateString();
+
+                $consultationTime = !empty($rawInput['reg_consultation_time'])
+                    ? $rawInput['reg_consultation_time']
+                    : Carbon::now('Asia/Manila')->format('H:i');
+
+                $modeOfTx = $rawInput['mode_of_transaction'] ?? ($rawInput['reg_mode_of_transaction'] ?? null);
+                $validMode = in_array($modeOfTx, ['walk-in', 'visited', 'referral'], true) ? $modeOfTx : 'walk-in';
+
+                TreatmentRecord::create([
+                    'clinic_id'             => $clinicId,
+                    'patient_id'            => $patient->patient_id,
+                    'bite_id'               => $biteIncident->bite_id,
+                    'dose_number'           => null,
+                    'status'                => 'scheduled',
+                    'consultation_date'     => $consultationDate,
+                    'treatment_date'        => $consultationDate,
+                    'consultation_time'     => $consultationTime,
+                    'blood_pressure'        => $rawInput['reg_blood_pressure'] ?? null,
+                    'temperature'           => $rawInput['reg_temperature'] ?? null,
+                    'height'                => $rawInput['reg_height'] ?? null,
+                    'weight'                => $rawInput['reg_weight'] ?? null,
+                    'attending_provider'    => $rawInput['reg_attending_provider'] ?? null,
+                    'referred_by'           => $rawInput['reg_referred_by'] ?? null,
+                    'mode_of_transaction'   => $validMode,
+                    'administered_by'       => $user->id,
+                ]);
+            }
+
+            return $patient;
+        });
+
+        Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
+
+        return $patient;
+    }
+
+    /**
+     * Get patient details with related records.
+     */
+    public function getPatientDetails(int $clinicId, int $id): Patient
+    {
+        return Patient::where('clinic_id', $clinicId)
+            ->with([
+                'registeredBy',
+                'details',
+                'memberships',
+                'latestConsultationRecord',
+                'biteIncidents' => function($query) {
+                    $query->with(['treatmentRecords' => function($q) {
+                        $q->orderBy('dose_number')->orderBy('scheduled_date');
+                    }])->latest('bite_date');
+                },
+                'treatmentRecords' => function($query) {
+                    $query->orderBy('dose_number')->orderBy('scheduled_date');
+                },
+            ])
+            ->findOrFail($id);
+    }
+
+    /**
+     * Update patient information.
+     */
+    public function updatePatient(int $clinicId, int $id, array $validated, User $user, array $rawInput): Patient
+    {
+        $patient = Patient::where('clinic_id', $clinicId)->findOrFail($id);
+
+        DB::transaction(function () use ($patient, $validated, $rawInput) {
+            $patientFields = [
+                'first_name', 'middle_name', 'last_name', 'suffix', 'gender', 'age',
+                'date_of_birth', 'address', 'contact_number', 'email',
+                'emergency_contact_name', 'emergency_contact_number',
+            ];
+            $patientUpdate = [];
+            foreach ($patientFields as $f) {
+                if (array_key_exists($f, $validated)) {
+                    $patientUpdate[$f] = $validated[$f];
+                }
+            }
+            $patient->update($patientUpdate);
+
+            $detailsFields = [
+                'hospital_no',
+                'blood_type', 'mother_maiden_name', 'civil_status', 'spouse_name',
+                'address_municipality', 'address_barangay', 'address_purok', 'province',
+                'educational_attainment', 'employment_status', 'family_member',
+                'philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category',
+                'fourps_member', 'fourps_category', 'fourps_relationship', 'registered_fourps_beneficiary',
+                'dswd_nhts', 'has_membership', 'other_membership', 'other_membership_name', 'other_membership_no'
+            ];
+
+            $detailsData = [];
+            foreach ($detailsFields as $key) {
+                if (array_key_exists($key, $rawInput)) {
+                    $detailsData[$key] = $rawInput[$key] === '' ? null : $rawInput[$key];
+                }
+            }
+
+            if ($this->membershipService->payloadHasMembershipData($rawInput)) {
+                $memberships = $this->membershipService->membershipsFromPayload($rawInput);
+                $detailsData = array_merge($detailsData, $this->membershipService->legacyFieldsFromMemberships($memberships));
+                $this->membershipService->syncForPatient($patient, $memberships);
+            }
+
+            if (!empty($detailsData)) {
+                if ($patient->details) {
+                    $patient->details->update($detailsData);
+                } elseif (!empty(array_filter($detailsData, fn($v) => !is_null($v)))) {
+                    $patient->details()->create($detailsData);
+                }
+            }
+        });
+
+        AuditLog::log('update', 'Patient', $patient->id, [
+            'description' => "Patient demographic record updated by {$user->name} ({$user->role})",
+            'new_values' => array_intersect_key($rawInput, array_flip([
+                'first_name', 'last_name', 'contact_number', 'email', 'address',
+                'emergency_contact_name', 'emergency_contact_number',
+                'address_purok', 'address_barangay', 'address_municipality'
+            ])),
+        ]);
+
+        $this->clearPatientListCache($clinicId);
+        Cache::forget("web:patient:{$id}:clinic:{$clinicId}");
+
+        return $patient->fresh()->load(['details', 'memberships']);
+    }
+
+    /**
+     * Delete patient (soft delete).
+     */
+    public function deletePatient(int $clinicId, int $id): void
+    {
+        $patient = Patient::where('clinic_id', $clinicId)->findOrFail($id);
+        $patient->delete();
+    }
+
+    /**
+     * Get patient bite case history.
+     */
+    public function getPatientBiteCases(int $clinicId, int $id): mixed
+    {
+        $patient = Patient::where('clinic_id', $clinicId)->findOrFail($id);
+
+        return $patient->biteIncidents()
+            ->with(['createdBy', 'vaccinationSchedules'])
+            ->orderBy('bite_date', 'desc')
+            ->get();
+    }
+
+    /**
+     * Get patient vaccination schedule history.
+     */
+    public function getPatientVaccinations(int $clinicId, int $id): mixed
+    {
+        $patient = Patient::where('clinic_id', $clinicId)->findOrFail($id);
+
+        return $patient->vaccinationSchedules()
+            ->with(['biteIncident', 'administeredBy'])
+            ->orderBy('scheduled_date')
+            ->get();
+    }
+
+    /**
+     * Check in a returning patient who missed their initial triage schedule.
+     *
+     * @return array{status: int, data: array<string, mixed>}
+     */
+    public function checkInReturningPatient(int $clinicId, int $id, User $user): array
+    {
+        $patient = Patient::where('clinic_id', $clinicId)->find($id);
+        if (!$patient) {
+            return [
+                'status' => 404,
+                'data' => [
+                    'message' => 'This patient is no longer available in your clinic. Refresh the patient list and try again.',
+                    'code' => 'patient_not_found',
+                ],
+            ];
+        }
+        $todayDate = Carbon::today()->toDateString();
+
+        $activeStatuses = ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'];
+        $existingQueue = Queue::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->where('queue_date', $todayDate)
+            ->whereNull('deleted_at')
+            ->whereIn('status', $activeStatuses)
+            ->first();
+
+        if ($existingQueue) {
+            return [
+                'status' => 200,
+                'data' => [
+                    'message' => "{$patient->first_name} {$patient->last_name} is already active in today's Doctor Triage queue (Queue #{$existingQueue->queue_number})",
+                    'queue' => $existingQueue->load(['patient', 'biteIncident']),
+                    'queue_number' => $existingQueue->queue_number,
+                    'station' => 'Doctor Assessment',
+                    'already_checked_in' => true,
+                ],
+            ];
+        }
+
+        $hasCompletedDoses = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereNotNull('dose_number')
+            ->where('status', 'completed')
+            ->exists();
+
+        $hasCompletedConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereNull('dose_number')
+            ->where(function ($q) {
+                $q->where('status', 'completed')
+                  ->orWhereNotNull('nature_of_visit')
+                  ->orWhereNotNull('diagnosis');
+            })
+            ->exists();
+
+        $hasConfirmedEpisode = BiteIncident::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->where(function ($q) {
+                $q->whereNotNull('confirmed_at')
+                  ->orWhereIn('status', ['active', 'completed'])
+                  ->orWhereIn('episode_type', ['primary', 're_exposure']);
+            })
+            ->exists();
+
+        if ($hasCompletedDoses || $hasCompletedConsultation || $hasConfirmedEpisode) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'message' => 'This patient has already proceeded to Doctor Triage or started treatment.',
+                ],
+            ];
+        }
+
+        $isMobileOrAccount = ($patient->registration_source === 'mobile') || $patient->accounts()->exists();
+        $hasIntakeOrAppt = $patient->biteIntakes()->exists() || $patient->appointments()->exists() || $patient->biteIncidents()->exists();
+        if ($isMobileOrAccount && !$hasIntakeOrAppt) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'message' => 'This patient is only pre-registered from the mobile app and has not booked an appointment or submitted an intake.',
+                ],
+            ];
+        }
+
+        $regDate = Carbon::parse($patient->created_at)->toDateString();
+        $pastAppointment = Appointment::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->where(function ($q) use ($todayDate) {
+                $q->whereDate('scheduled_date', '<', $todayDate)
+                  ->orWhereDate('appointment_date', '<', $todayDate);
+            })
+            ->whereIn('status', ['scheduled', 'missed'])
+            ->first();
+
+        $pastConsultationRecord = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereNull('dose_number')
+            ->where('status', 'scheduled')
+            ->whereDate('consultation_date', '<', $todayDate)
+            ->first();
+
+        $pastQueue = Queue::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereDate('queue_date', '<', $todayDate)
+            ->first();
+
+        $hasRequiresCheckinToday = Queue::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->where('queue_date', $todayDate)
+            ->whereNull('deleted_at')
+            ->where(function ($q) {
+                $q->where('status', 'requires_checkin')
+                  ->orWhere(function ($sub) {
+                      $sub->where('status', 'no_response')
+                          ->where('call_count', '>=', 3);
+                  });
+            })
+            ->exists();
+
+        $isReturningOnLaterDate = ($regDate < $todayDate)
+            || ($pastAppointment !== null)
+            || ($pastConsultationRecord !== null)
+            || ($pastQueue !== null);
+
+        if (!$isReturningOnLaterDate && !$hasRequiresCheckinToday) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'message' => 'Check In is for returning patients who were previously registered or scheduled and are returning on a later date.',
+                ],
+            ];
+        }
+
+        return DB::transaction(function () use ($clinicId, $patient, $todayDate, $pastAppointment, $hasRequiresCheckinToday, $user) {
+            app(QueueController::class)->expireStaleTickets($clinicId, $todayDate);
+
+            $lockName = "queue_checkin_{$clinicId}_{$todayDate}";
+            $lockTimeout = 5;
+            $isMysql = DB::connection()->getDriverName() === 'mysql';
+
+            if ($isMysql) {
+                DB::statement("SELECT GET_LOCK(?, ?)", [$lockName, $lockTimeout]);
+            }
+
+            try {
+                $maxNumber = DB::table('queues')
+                    ->where('clinic_id', $clinicId)
+                    ->where('queue_date', $todayDate)
+                    ->max('queue_number');
+
+                $nextQueueNumber = $maxNumber ? ($maxNumber + 1) : 1;
+
+                $patientDetail = $patient->details;
+                $category = 'regular';
+                if ($pastAppointment && $pastAppointment->booked_by_account_id) {
+                    $category = 'appointment';
+                } elseif ($patientDetail) {
+                    if ($patientDetail->fourps_member === 'yes' || $patientDetail->has_membership === 'pwd') {
+                        $category = 'pwd';
+                    } elseif ($patient->age >= 60) {
+                        $category = 'senior_citizen';
+                    } elseif ($patientDetail->has_membership === 'pregnant') {
+                        $category = 'pregnant';
+                    }
+                }
+
+                $biteIncident = BiteIncident::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patient->patient_id)
+                    ->whereIn('status', ['awaiting_assessment', 'pending_assessment'])
+                    ->latest('bite_id')
+                    ->first();
+
+                $appointment = $pastAppointment ?? Appointment::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patient->patient_id)
+                    ->whereIn('status', ['scheduled', 'missed'])
+                    ->orderBy('scheduled_date', 'asc')
+                    ->first();
+
+                if ($appointment) {
+                    $appointment->update([
+                        'status' => 'confirmed',
+                        'appointment_date' => $todayDate,
+                        'scheduled_date' => $todayDate,
+                        'queue_number' => $nextQueueNumber,
+                    ]);
+
+                    if ($appointment->biteIntake()->exists()) {
+                        $intake = $appointment->biteIntake()->where('status', 'pending')->first();
+                        if ($intake) {
+                            $intake->update([
+                                'status' => 'converted',
+                                'checked_in_by' => $user->id,
+                                'checked_in_at' => now(),
+                                'bite_id' => $biteIncident?->bite_id,
+                            ]);
+                        }
+                    }
+                }
+
+                $treatmentRecord = TreatmentRecord::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patient->patient_id)
+                    ->whereNull('dose_number')
+                    ->where('status', 'scheduled')
+                    ->latest('treatment_id')
+                    ->first();
+
+                if ($treatmentRecord) {
+                    $treatmentRecord->update([
+                        'consultation_date' => $todayDate,
+                        'treatment_date' => $todayDate,
+                        'consultation_time' => Carbon::now('Asia/Manila')->format('H:i'),
+                    ]);
+                }
+
+                $checkInNotes = $hasRequiresCheckinToday
+                    ? 'Patient re-checked in at Registration after 3 missed triage calls'
+                    : 'Returning patient checked in for Triage Doctor assessment';
+
+                $queue = Queue::create([
+                    'clinic_id'      => $clinicId,
+                    'patient_id'     => $patient->patient_id,
+                    'appointment_id' => $appointment?->appointment_id,
+                    'bite_id'        => $biteIncident?->bite_id,
+                    'queue_number'   => $nextQueueNumber,
+                    'queue_date'     => $todayDate,
+                    'visit_type'     => 'new_case',
+                    'queue_category' => $category,
+                    'priority'       => 'normal',
+                    'status'         => 'waiting',
+                    'checked_in_at'  => now(),
+                    'checked_in_by'  => $user->id,
+                    'check_in_notes' => $checkInNotes,
+                    'call_count'     => 0,
+                ]);
+
+                QueueHistory::create([
+                    'queue_id'     => $queue->queue_id,
+                    'clinic_id'    => $clinicId,
+                    'patient_id'   => $patient->patient_id,
+                    'action'       => 'checked_in',
+                    'from_status'  => null,
+                    'to_status'    => 'waiting',
+                    'call_count'   => 0,
+                    'performed_by' => $user->id,
+                    'notes'        => $checkInNotes,
+                    'occurred_at'  => now(),
+                ]);
+
+                Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
+
+                $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
+
+                return [
+                    'status' => 200,
+                    'data' => [
+                        'message' => "{$patient->first_name} {$patient->last_name} checked in successfully to Doctor Triage (Queue #{$nextQueueNumber})",
+                        'queue' => $queue->load(['patient', 'biteIncident']),
+                        'queue_number' => $nextQueueNumber,
+                        'station' => 'Doctor Assessment',
+                    ],
+                ];
+            } finally {
+                if ($isMysql) {
+                    DB::statement("SELECT RELEASE_LOCK(?)", [$lockName]);
+                }
+            }
+        });
+    }
+
+    /**
+     * Clear cached patient lists for clinic.
+     */
+    public function clearPatientListCache(int $clinicId): void
+    {
+        $tabs = ['all', 'today_queue', 'online', 'overdue', 'pre_registered'];
+        foreach ($tabs as $tab) {
+            for ($page = 1; $page <= 5; $page++) {
+                Cache::forget("web:patients:list:clinic:{$clinicId}:tab:{$tab}:page:{$page}");
+            }
+        }
+    }
+}

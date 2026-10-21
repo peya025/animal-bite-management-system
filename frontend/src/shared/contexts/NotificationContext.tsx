@@ -187,7 +187,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     if (targetUrl) {
       if (canUserAccessRoute(user, targetUrl)) {
-        navigate(targetUrl);
+        navigate(targetUrl, {
+          state: { deliberateClickToken: `${notification.id || notification.type}-${Date.now()}` },
+        });
       } else {
         showAccessDenied();
       }

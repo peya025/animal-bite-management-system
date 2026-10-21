@@ -849,23 +849,36 @@ export default function QueuePatientDetailModal({
           <Typography sx={{ color: '#6b7280', fontSize: 14 }}>Loading patient queue details…</Typography>
         </Box>
       ) : error || !entry ? (
-        <Box sx={{ p: 4 }}>
-          <Alert severity="error">{error ?? 'Queue entry not found'}</Alert>
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-            <button
+        <Box sx={{ p: 3.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#111827' }}>
+              Queue Record Unavailable
+            </Typography>
+            <Tooltip title="Close">
+              <IconButton size="small" onClick={onClose} sx={{ color: '#9ca3af', '&:hover': { color: '#374151' } }}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }}>
+            {error && (error.toLowerCase().includes('no query results') || error.toLowerCase().includes('not found'))
+              ? 'The requested queue record is unavailable or no longer exists.'
+              : (error ?? 'The requested queue record is unavailable or no longer exists.')}
+          </Alert>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="outlined"
               onClick={onClose}
-              style={{
-                padding: '6px 14px',
-                backgroundColor: '#e5e7eb',
-                border: 'none',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontSize: 13,
+              sx={{
+                textTransform: 'none',
                 fontWeight: 600,
+                color: '#4b5563',
+                borderColor: '#d1d5db',
+                '&:hover': { borderColor: '#9ca3af', bgcolor: '#f3f4f6' },
               }}
             >
               Close
-            </button>
+            </Button>
           </Box>
         </Box>
       ) : (

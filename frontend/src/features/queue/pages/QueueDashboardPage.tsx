@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
 import {
@@ -234,10 +234,12 @@ export default function QueueDashboard() {
     setSnackbar({ open: true, message: msg, severity });
 
   const queueToast = (location.state as { queueToast?: { message: string; severity: 'success' | 'error' | 'warning' } } | null)?.queueToast;
-  if (queueToast && !snackbar.open && snackbar.message !== queueToast.message) {
-    setSnackbar({ open: true, message: queueToast.message, severity: queueToast.severity });
-    navigate(location.pathname, { replace: true, state: null });
-  }
+  useEffect(() => {
+    if (queueToast && !snackbar.open && snackbar.message !== queueToast.message) {
+      setSnackbar({ open: true, message: queueToast.message, severity: queueToast.severity });
+      navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
+    }
+  }, [queueToast, snackbar.open, snackbar.message, navigate, location.pathname, location.search]);
 
   const { queue, secondChanceQueue, stats, loading, nextEntry, reload } =
     useQueueData(msg => toast(msg, 'error'));
@@ -316,6 +318,10 @@ export default function QueueDashboard() {
   const [searchParams] = useSearchParams();
   const queueIdParam = searchParams.get('queueId');
   const stationParam = searchParams.get('station');
+
+  const deliberateClickToken = (location.state as any)?.deliberateClickToken ?? null;
+  const lastHandledClickRef = useRef<string | null>(null);
+  const dismissedQueueIdRef = useRef<number | null>(null);
 
 
   const [actionPending, setActionPending] = useState(false);
@@ -469,42 +475,47 @@ export default function QueueDashboard() {
 
   // ── Filter + Pagination ───────────────────────────────────────────────────
 
-  const filtered  = roleScopedQueue.filter(q => {
-    const matchSearch = !search ||
-      q.patient.name.toLowerCase().includes(search.toLowerCase()) ||
-      String(q.queue_number).includes(search);
-    const matchStatus = !statusFilter
-      ? true
-      : statusFilter === 'cancelled_or_absent'
-        ? (q.status === 'cancelled' || q.status === 'absent')
-        : statusFilter === 'serving'
-          ? (q.status === 'serving' || q.status === 'in_consultation')
-          : q.status === statusFilter;
-    const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
+  const filtered = useMemo(() => {
+    return roleScopedQueue.filter(q => {
+      const matchSearch = !search ||
+        q.patient.name.toLowerCase().includes(search.toLowerCase()) ||
+        String(q.queue_number).includes(search);
+      const matchStatus = !statusFilter
+        ? true
+        : statusFilter === 'cancelled_or_absent'
+          ? (q.status === 'cancelled' || q.status === 'absent')
+          : statusFilter === 'serving'
+            ? (q.status === 'serving' || q.status === 'in_consultation')
+            : q.status === statusFilter;
+      const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
 
-    let matchVisitType = true;
-    if (isTriageDoctor) {
-      // Triage scope already enforced by roleScopedQueue (TRIAGE_VISIT_TYPES).
-      // Do NOT apply the nurse-station isIntakeStationEntry filter here — it
-      // excludes new_case visit types, which are exactly what triage sees.
-      matchVisitType = true;
-    } else if (visitTypeFilter === 'intake') {
-      matchVisitType = isIntakeStationEntry(q) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(q.visit_type));
-    } else if (visitTypeFilter === 'follow_up_station') {
-      matchVisitType = isFollowUpStationEntry(q);
-    } else if (visitTypeFilter) {
-      matchVisitType = q.visit_type === visitTypeFilter;
-    }
+      let matchVisitType = true;
+      if (isTriageDoctor) {
+        // Triage scope already enforced by roleScopedQueue (TRIAGE_VISIT_TYPES).
+        // Do NOT apply the nurse-station isIntakeStationEntry filter here — it
+        // excludes new_case visit types, which are exactly what triage sees.
+        matchVisitType = true;
+      } else if (visitTypeFilter === 'intake') {
+        matchVisitType = isIntakeStationEntry(q) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(q.visit_type));
+      } else if (visitTypeFilter === 'follow_up_station') {
+        matchVisitType = isFollowUpStationEntry(q);
+      } else if (visitTypeFilter) {
+        matchVisitType = q.visit_type === visitTypeFilter;
+      }
 
-    // Main table only shows active/second-chance entries unless a specific status filter is set
-    const isActiveOrFiltered = statusFilter
-      ? true
-      : (MAIN_STATUSES as string[]).includes(q.status);
-    return matchSearch && matchStatus && matchCategory && matchVisitType && isActiveOrFiltered;
-  });
-  const sortedQueue = isTriageDoctor || isTreatmentNurse
-    ? [...filtered].sort(sortQueueForDisplay)
-    : filtered;
+      // Main table only shows active/second-chance entries unless a specific status filter is set
+      const isActiveOrFiltered = statusFilter
+        ? true
+        : (MAIN_STATUSES as string[]).includes(q.status);
+      return matchSearch && matchStatus && matchCategory && matchVisitType && isActiveOrFiltered;
+    });
+  }, [roleScopedQueue, search, statusFilter, categoryFilter, isTriageDoctor, visitTypeFilter, isAdminOrReg]);
+
+  const sortedQueue = useMemo(() => {
+    return isTriageDoctor || isTreatmentNurse
+      ? [...filtered].sort(sortQueueForDisplay)
+      : filtered;
+  }, [isTriageDoctor, isTreatmentNurse, filtered]);
   const paginated = sortedQueue.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   // ── Highlight waiting rows on KPI click ────────────────────────────────────
@@ -535,38 +546,78 @@ export default function QueueDashboard() {
     }
   }, [stationParam, isTriageDoctor]);
 
-  // Locate and highlight referenced queue entry or open historical detail modal
+  // Close patient record modal and clear URL parameters that trigger automatic opening
+  // (queueId, patientId, date), while preserving unrelated filters and selected station.
+  const handleClosePatientModal = useCallback(() => {
+    if (selectedQueueId) {
+      dismissedQueueIdRef.current = selectedQueueId;
+    }
+    setSelectedQueueId(null);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('queueId');
+    nextParams.delete('patientId');
+    nextParams.delete('date');
+
+    const newSearch = nextParams.toString();
+    navigate(
+      {
+        pathname: location.pathname,
+        search: newSearch ? `?${newSearch}` : '',
+      },
+      { replace: true, state: null }
+    );
+  }, [selectedQueueId, searchParams, navigate, location.pathname]);
+
+  // Locate and open referenced patient record modal once per deliberate notification click or URL query parameter
   useEffect(() => {
-    if (!queueIdParam || loading) return;
+    if (!queueIdParam) return;
     const targetId = parseInt(queueIdParam, 10);
-    if (!targetId) return;
+    if (!targetId || isNaN(targetId)) return;
 
-    // 1. Check if present in current active queue view
-    const activeIdx = sortedQueue.findIndex(e => e.queue_id === targetId);
-    if (activeIdx !== -1) {
-      const targetPage = Math.floor(activeIdx / rowsPerPage);
-      if (page !== targetPage) {
-        setPage(targetPage);
+    // Check if this is a fresh deliberate notification click
+    const isNewDeliberateClick = Boolean(
+      deliberateClickToken && deliberateClickToken !== lastHandledClickRef.current
+    );
+
+    if (isNewDeliberateClick) {
+      // Clear dismissal lock since this is a new intentional click
+      dismissedQueueIdRef.current = null;
+      lastHandledClickRef.current = deliberateClickToken;
+    }
+
+    // If this record was explicitly dismissed (via X or Close), do not reopen on background updates/polling
+    if (dismissedQueueIdRef.current === targetId) {
+      return;
+    }
+
+    // Highlight row if present in active queue (waiting for queue data to finish loading)
+    if (!loading) {
+      const activeIdx = sortedQueue.findIndex(e => e.queue_id === targetId);
+      if (activeIdx !== -1) {
+        const targetPage = Math.floor(activeIdx / rowsPerPage);
+        if (page !== targetPage) {
+          setPage(targetPage);
+        }
+        setTimeout(() => {
+          highlightRecordElement(`queue-entry-${targetId}`);
+        }, 350);
+      } else {
+        const scIdx = visibleSecondChanceQueue.findIndex(e => e.queue_id === targetId);
+        if (scIdx !== -1) {
+          setTimeout(() => {
+            highlightRecordElement(`queue-second-chance-${targetId}`);
+          }, 350);
+        }
       }
-      setTimeout(() => {
-        highlightRecordElement(`queue-entry-${targetId}`);
-      }, 350);
-      return;
     }
 
-    // 2. Check if present in visible second chance queue
-    const scIdx = visibleSecondChanceQueue.findIndex(e => e.queue_id === targetId);
-    if (scIdx !== -1) {
-      setTimeout(() => {
-        highlightRecordElement(`queue-second-chance-${targetId}`);
-      }, 350);
-      return;
-    }
-
-    // 3. Historical, completed, or cancelled ticket:
-    // Open QueuePatientDetailModal without injecting old patient into Today's Queue
+    // Open patient detail modal (for active, completed, or historical records)
     setSelectedQueueId(targetId);
-  }, [queueIdParam, loading, sortedQueue, visibleSecondChanceQueue, rowsPerPage, page]);
+    if (!lastHandledClickRef.current) {
+      lastHandledClickRef.current = `initial-${targetId}`;
+    }
+  }, [queueIdParam, deliberateClickToken, loading, sortedQueue, visibleSecondChanceQueue, rowsPerPage, page]);
 
   // ── Table Columns (Sentence Case Headers) ─────────────────────────────────
 
@@ -839,7 +890,10 @@ export default function QueueDashboard() {
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Tooltip title="View Patient Details & Forms">
             <button
-              onClick={() => setSelectedQueueId(e.queue_id)}
+              onClick={() => {
+                dismissedQueueIdRef.current = null;
+                setSelectedQueueId(e.queue_id);
+              }}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '4px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0',
@@ -1332,9 +1386,10 @@ export default function QueueDashboard() {
         <QueuePatientDetailModal
           open={Boolean(selectedQueueId)}
           queueId={selectedQueueId}
-          onClose={() => setSelectedQueueId(null)}
+          onClose={handleClosePatientModal}
           onSaved={() => {
             reload();
+            handleClosePatientModal();
           }}
         />
       )}

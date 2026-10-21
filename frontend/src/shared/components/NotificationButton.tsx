@@ -174,7 +174,9 @@ export default function NotificationButton() {
     if (destinationUrl) {
       setIsOpen(false);
       if (canUserAccessRoute(user, destinationUrl)) {
-        navigate(destinationUrl);
+        navigate(destinationUrl, {
+          state: { deliberateClickToken: `${item.id || item.type}-${Date.now()}` },
+        });
       } else {
         // Keep user on current page and show access denied popup
         showAccessDenied();
@@ -182,7 +184,9 @@ export default function NotificationButton() {
     } else if (item.action_url) {
       setIsOpen(false);
       if (canUserAccessRoute(user, item.action_url)) {
-        navigate(item.action_url);
+        navigate(item.action_url, {
+          state: { deliberateClickToken: `${item.id || item.type}-${Date.now()}` },
+        });
       } else {
         showAccessDenied();
       }

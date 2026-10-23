@@ -381,11 +381,12 @@ export const PatientListRoot = styled('div')`
     transform: translateY(-50%);
     color: var(--text-secondary, #94a3b8);
     pointer-events: none;
+    z-index: 1;
   }
   .pm-search {
     width: 100%;
     height: 38px;
-    padding: 0 34px 0 36px;
+    padding: 0 34px 0 38px !important;
     border: 1px solid var(--border-glow, #e2e8f0);
     border-radius: 8px;
     font-size: 13px;

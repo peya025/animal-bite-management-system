@@ -886,7 +886,7 @@ export default function PatientList() {
               <svg className="pm-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <input className="pm-search" placeholder="Search patients…" value={search} onChange={e => setSearch(e.target.value)} />
+              <input className="pm-search" style={{ paddingLeft: '38px', paddingRight: '34px' }} placeholder="Search patients…" value={search} onChange={e => setSearch(e.target.value)} />
               {search && (
                 <button className="pm-search-clear" onClick={() => setSearch('')}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -1035,7 +1035,7 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
 }
 
 /* Inputs & Form Controls */
-input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input),
+input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.pm-search),
 select:not(.MuiSelect-select):not(.MuiNativeSelect-select),
 textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input) {
   font-family: var(--sans);
@@ -1304,4 +1304,10 @@ input[type='month']:hover::-webkit-calendar-picker-indicator {
   animation: notification-pill-glow 3.5s ease-out forwards !important;
   outline: 2px solid #10b981 !important;
   border-color: #10b981 !important;
+}
+
+
+.pm-search {
+  padding-left: 38px !important;
+  padding-right: 34px !important;
 }

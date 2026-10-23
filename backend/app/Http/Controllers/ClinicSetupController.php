@@ -2,139 +2,47 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Clinic\InitializeClinicSetupRequest;
+use App\Http\Requests\Clinic\UpdateClinicProfileRequest;
+use App\Services\Clinic\ClinicSetupService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use App\Models\Clinic;
-use App\Models\User;
-use App\Models\ClinicModuleConfig;
 
 class ClinicSetupController extends Controller
 {
+    public function __construct(
+        protected ClinicSetupService $setupService
+    ) {}
+
     /**
      * Initialize clinic with admin account
      * PUBLIC endpoint - no authentication required
      * Only works if NO clinics exist in database
      */
-    public function initialize(Request $request)
+    public function initialize(InitializeClinicSetupRequest $request): JsonResponse
     {
-        // Resume setup if valid setup token was provided for an in-progress setup
-        $token = $request->bearerToken();
-        if ($token) {
-            $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-            if ($personalAccessToken && $user = $personalAccessToken->tokenable) {
-                if ($user->clinic && !$user->clinic->is_setup_complete) {
-                    return response()->json([
-                        'message' => 'Setup already initialized, resuming setup',
-                        'token' => $token,
-                        'user' => $user->load('clinic'),
-                        'clinic' => $user->clinic,
-                    ], 200);
-                }
-            }
-        }
+        $result = $this->setupService->initialize(
+            $request->validated(),
+            $request->bearerToken()
+        );
 
-        // Security: Only allow if database is empty or if clinic is completed
-        if (Clinic::where('is_setup_complete', true)->exists()) {
-            return response()->json([
-                'message' => 'Setup has already been completed',
-            ], 403);
-        }
-
-        if (Clinic::count() > 0) {
-            return response()->json([
-                'message' => 'Setup has already been started. Please log in to complete setup.',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'clinic_name' => 'required|string|max:255',
-            'admin_name' => 'required|string|max:255',
-            'admin_email' => 'required|email|unique:users,email',
-            'admin_password' => [
-                'required',
-                'string',
-                'min:8',
-                'confirmed',
-                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/',
-            ],
-        ], [
-            'admin_password.regex' => 'Password must contain at least one lowercase letter, one uppercase letter, and one number',
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            // 1. Create clinic
-            $clinic = Clinic::create([
-                'name' => $validated['clinic_name'],
-                'is_setup_complete' => false, // Will be completed later
-            ]);
-
-            // 2. Create admin user
-            $admin = User::create([
-                'clinic_id' => $clinic->id,
-                'name' => $validated['admin_name'],
-                'email' => $validated['admin_email'],
-                'password' => Hash::make($validated['admin_password']),
-                'role' => 'admin',
-                'assigned_module' => 'all',
-            ]);
-
-            // 3. Create default module config
-            ClinicModuleConfig::create([
-                'clinic_id' => $clinic->id,
-                'triage_module_enabled' => true,
-                'field_rules' => [
-                    'bite_location' => 'required',
-                    'exposure_category' => 'required',
-                    'animal_status' => 'optional',
-                    'philhealth_info' => 'optional',
-                    'fourps_info' => 'optional',
-                    'wound_washing' => 'optional',
-                ],
-            ]);
-
-            // 4. Create authentication token
-            $token = $admin->createToken('setup-token')->plainTextToken;
-
-            DB::commit();
-
-            return response()->json([
-                'message' => 'Clinic and admin account created successfully',
-                'token' => $token,
-                'user' => $admin->load('clinic'),
-                'clinic' => $clinic,
-            ], 201);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Failed to initialize setup',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
+        return response()->json($result['payload'], $result['status']);
     }
 
     /**
      * Check setup status
      */
-    public function checkSetup(Request $request)
+    public function checkSetup(Request $request): JsonResponse
     {
-        $clinic = $request->user()->clinic;
+        $status = $this->setupService->checkSetup($request->user()->clinic);
 
-        return response()->json([
-            'is_setup_complete' => $clinic->is_setup_complete,
-            'clinic' => $clinic->is_setup_complete ? $clinic : null,
-        ]);
+        return response()->json($status);
     }
 
     /**
      * Get clinic profile
      */
-    public function getProfile(Request $request)
+    public function getProfile(Request $request): JsonResponse
     {
         $clinic = $request->user()->clinic;
 
@@ -150,205 +58,30 @@ class ClinicSetupController extends Controller
     /**
      * Update clinic information
      */
-    public function updateClinic(Request $request)
+    public function updateClinic(UpdateClinicProfileRequest $request): JsonResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'subtitle' => 'nullable|string|max:255',
-            'address' => 'nullable|string',
-            'contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
-            'email' => 'nullable|email|max:255',
-            'license_number' => 'nullable|string|max:255',
-            'hospital_no' => 'nullable|string|max:100',
-            'doh_accreditation_no' => 'nullable|string|max:100',
-            'philhealth_accreditation_no' => 'nullable|string|max:100',
-            'opening_hours' => 'nullable|string',
-            'logo' => 'nullable|image|max:2048', // 2MB max
-            'remove_logo' => 'nullable',
-            'left_print_logo' => 'nullable|image|max:2048',
-            'remove_left_print_logo' => 'nullable',
-            'right_print_logo' => 'nullable|image|max:2048',
-            'remove_right_print_logo' => 'nullable',
-        ], [
-            'contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
-        ]);
-
-        $clinic = $request->user()->clinic;
-        
-        $data = $request->except(['logo', 'remove_logo', 'left_print_logo', 'remove_left_print_logo', 'right_print_logo', 'remove_right_print_logo']);
-        
-        // Handle logo removal
-        if ($request->boolean('remove_logo') || $request->input('remove_logo') === '1' || $request->input('remove_logo') === 'true') {
-            if ($clinic->logo_path) {
-                Storage::disk('public')->delete($clinic->logo_path);
-            }
-            $data['logo_path'] = null;
-        }
-
-        // Handle logo upload
-        if ($request->hasFile('logo')) {
-            // Delete old logo if exists
-            if ($clinic->logo_path) {
-                Storage::disk('public')->delete($clinic->logo_path);
-            }
-            
-            $data['logo_path'] = $request->file('logo')->store('clinic-logos', 'public');
-        }
-
-        // Handle left print logo removal
-        if ($request->boolean('remove_left_print_logo') || $request->input('remove_left_print_logo') === '1' || $request->input('remove_left_print_logo') === 'true') {
-            if ($clinic->left_print_logo_path) {
-                Storage::disk('public')->delete($clinic->left_print_logo_path);
-            }
-            $data['left_print_logo_path'] = null;
-        }
-
-        // Handle left print logo upload
-        if ($request->hasFile('left_print_logo')) {
-            if ($clinic->left_print_logo_path) {
-                Storage::disk('public')->delete($clinic->left_print_logo_path);
-            }
-            $data['left_print_logo_path'] = $request->file('left_print_logo')->store('clinic-logos', 'public');
-        }
-
-        // Handle right print logo removal
-        if ($request->boolean('remove_right_print_logo') || $request->input('remove_right_print_logo') === '1' || $request->input('remove_right_print_logo') === 'true') {
-            if ($clinic->right_print_logo_path) {
-                Storage::disk('public')->delete($clinic->right_print_logo_path);
-            }
-            $data['right_print_logo_path'] = null;
-        }
-
-        // Handle right print logo upload
-        if ($request->hasFile('right_print_logo')) {
-            if ($clinic->right_print_logo_path) {
-                Storage::disk('public')->delete($clinic->right_print_logo_path);
-            }
-            $data['right_print_logo_path'] = $request->file('right_print_logo')->store('clinic-logos', 'public');
-        }
-
-        // Auto-geocode if address changed
-        if ($request->filled('address') && $request->address !== $clinic->address) {
-            $this->geocodeClinicAddress($request->address, $data);
-        }
-
-        $clinic->update($data);
-
-        // Clear map cache so new center is used
-        Cache::forget("web:bite-cases:map-data:clinic:{$clinic->id}");
+        $clinic = $this->setupService->updateClinic(
+            $request->user()->clinic,
+            $request->validated(),
+            $request
+        );
 
         return response()->json([
             'message' => 'Clinic information updated successfully',
-            'clinic' => $clinic->fresh(),
+            'clinic'  => $clinic,
         ]);
-    }
-
-    /**
-     * Geocode clinic address and extract location data
-     */
-    private function geocodeClinicAddress(string $address, array &$data)
-    {
-        // Parse address format: "Street, Barangay, Municipality, Province"
-        // or "Street, Municipality, Province"
-        $parts = array_map('trim', explode(',', $address));
-        
-        // Try to extract municipality (usually 2nd or 3rd part)
-        $municipality = null;
-        $province = null;
-        
-        if (count($parts) >= 3) {
-            // Format: Street, Barangay, Municipality, Province
-            if (count($parts) >= 4) {
-                $municipality = $parts[2];
-                $province = $parts[3];
-            } else {
-                // Format: Street, Municipality, Province
-                $municipality = $parts[1];
-                $province = $parts[2] ?? null;
-            }
-        } elseif (count($parts) == 2) {
-            // Format: Municipality, Province
-            $municipality = $parts[0];
-            $province = $parts[1];
-        }
-
-        if ($municipality) {
-            try {
-                $geocodingService = new \App\Services\GeocodingService();
-                $coords = $geocodingService->getCoordinates('', $municipality, $province);
-                
-                $data['municipality'] = $municipality;
-                if ($province) {
-                    $data['province'] = $province;
-                }
-                $data['latitude'] = $coords['latitude'];
-                $data['longitude'] = $coords['longitude'];
-                
-                // Set smart zoom based on area type
-                $data['map_default_zoom'] = $this->getSmartZoomLevel($municipality);
-                
-                \Log::info('Clinic address geocoded', [
-                    'municipality' => $municipality,
-                    'coords' => $coords,
-                    'source' => $coords['source']
-                ]);
-            } catch (\Exception $e) {
-                \Log::warning('Failed to geocode clinic address', [
-                    'address' => $address,
-                    'error' => $e->getMessage()
-                ]);
-                // Don't fail the update, just skip geocoding
-            }
-        }
-    }
-
-    /**
-     * Determine smart zoom level based on area type
-     */
-    private function getSmartZoomLevel(string $municipality): int
-    {
-        // Large cities need wider zoom
-        $largeCities = [
-            'Cagayan de Oro', 'Manila', 'Quezon City', 'Makati', 
-            'Pasig', 'Taguig', 'Cebu City', 'Davao City'
-        ];
-        
-        if (in_array($municipality, $largeCities)) {
-            return 12; // Wider for large cities
-        }
-        
-        return 13; // Standard for municipalities
     }
 
     /**
      * Complete clinic setup
      */
-    public function completeSetup(Request $request)
+    public function completeSetup(Request $request): JsonResponse
     {
-        $clinic = $request->user()->clinic;
-        
-        // Validate required fields are filled
-        if (!$clinic->name) {
-            return response()->json([
-                'message' => 'Please complete all required fields before finishing setup',
-            ], 422);
-        }
-
-        $updateData = [
-            'is_setup_complete' => true,
-            'setup_completed_at' => now(),
-        ];
-
-        // Auto-geocode clinic address during setup completion
-        if ($clinic->address) {
-            $this->geocodeClinicAddress($clinic->address, $updateData);
-        }
-
-        $clinic->update($updateData);
+        $clinic = $this->setupService->completeSetup($request->user()->clinic);
 
         return response()->json([
             'message' => 'Setup completed successfully',
-            'clinic' => $clinic->fresh(),
+            'clinic'  => $clinic,
         ]);
     }
 }

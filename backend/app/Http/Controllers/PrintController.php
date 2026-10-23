@@ -3,81 +3,34 @@
 namespace App\Http\Controllers;
 
 use App\Models\Patient;
-use App\Services\DohReportService;
+use App\Services\Print\PrintDocumentService;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
-use Laravel\Sanctum\PersonalAccessToken;
 
 class PrintController extends Controller
 {
     public function __construct(
-        protected DohReportService $dohReportService
+        protected PrintDocumentService $printDocumentService
     ) {}
-
-    /**
-     * Helper to authenticate user either via Sanctum session/bearer or query token
-     */
-    protected function resolveAuthenticatedUser(Request $request)
-    {
-        $user = $request->user();
-        if (!$user && $request->query('token')) {
-            $tokenModel = PersonalAccessToken::findToken($request->query('token'));
-            if ($tokenModel) {
-                $user = $tokenModel->tokenable;
-            }
-        }
-        return $user;
-    }
 
     /**
      * Display DOH iCLINICSYS Patient Enrolment Record (Form 1 Printout)
      * GET /print/patient/{patient}/enrolment
      */
-    public function enrolment(Request $request, Patient $patient)
+    public function enrolment(Request $request, Patient $patient): View
     {
-        $patient->load(['clinic', 'details']);
+        $data = $this->printDocumentService->getEnrolmentData($request, $patient);
 
-        if (!$patient->clinic) {
-            $user = $this->resolveAuthenticatedUser($request);
-            $clinicId = $user?->clinic_id ?? $request->query('clinic_id');
-            $clinic = ($clinicId ? \App\Models\Clinic::find($clinicId) : null) ?? \App\Models\Clinic::first();
-            if ($clinic) {
-                $patient->setRelation('clinic', $clinic);
-            }
-        }
-
-        // Load the most recent consultation TreatmentRecord (dose_number = null)
-        // for this patient so Form 1 can display Consultation Details & Vitals.
-        // Prefer records that were entered during patient registration (status = 'pending')
-        // but fall back to any consultation record so that existing records still display.
-        $latestConsultation = \App\Models\TreatmentRecord::where('patient_id', $patient->patient_id)
-            ->whereNull('dose_number')
-            ->whereNotNull('consultation_date')
-            ->latest('consultation_date')
-            ->latest('treatment_id')
-            ->first();
-
-        return view('prints.patient-enrolment', compact('patient', 'latestConsultation'));
+        return view('prints.patient-enrolment', $data);
     }
 
     /**
      * REPORT 1 — Rabies Exposure Registry (Weekly)
      * GET /print/reports/exposure-registry
      */
-    public function exposureRegistry(Request $request)
+    public function exposureRegistry(Request $request): View
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        $clinicId = $user?->clinic_id ?? $request->query('clinic_id') ?? \App\Models\Clinic::first()?->id;
-        abort_unless($clinicId, 403, 'A clinic assignment is required.');
-
-        $data = $this->dohReportService->getExposureRegistry(
-            clinicId: (int) $clinicId,
-            fromDate: $request->query('from'),
-            toDate: $request->query('to'),
-            quarter: $request->query('quarter'),
-            year: $request->query('year') ? (int) $request->query('year') : null,
-            user: $user,
-            category: $request->query('category')
-        );
+        $data = $this->printDocumentService->getExposureRegistryData($request);
 
         return view('prints.exposure-registry', $data);
     }
@@ -86,20 +39,9 @@ class PrintController extends Controller
      * REPORT 2 — ABTC Monthly Report
      * GET /print/reports/monthly
      */
-    public function monthlyReport(Request $request)
+    public function monthlyReport(Request $request): View
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        $clinicId = $user?->clinic_id ?? $request->query('clinic_id') ?? \App\Models\Clinic::first()?->id;
-        abort_unless($clinicId, 403, 'A clinic assignment is required.');
-
-        $data = $this->dohReportService->getMonthlyReport(
-            clinicId: (int) $clinicId,
-            monthStr: $request->query('month'),
-            user: $user,
-            category: $request->query('category'),
-            fromDate: $request->query('from'),
-            toDate: $request->query('to')
-        );
+        $data = $this->printDocumentService->getMonthlyReportData($request);
 
         return view('prints.monthly-report', $data);
     }
@@ -108,20 +50,10 @@ class PrintController extends Controller
      * REPORT 3 — Cohort Report (Quarterly)
      * GET /print/reports/cohort
      */
-    public function cohortReport(Request $request)
+    public function cohortReport(Request $request): View
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        $clinicId = $user?->clinic_id ?? $request->query('clinic_id') ?? \App\Models\Clinic::first()?->id;
-        abort_unless($clinicId, 403, 'A clinic assignment is required.');
-
-        $data = $this->dohReportService->getCohortReport(
-            clinicId: (int) $clinicId,
-            yearParam: $request->query('year') ? (int) $request->query('year') : null,
-            user: $user,
-            category: $request->query('category')
-        );
+        $data = $this->printDocumentService->getCohortReportData($request);
 
         return view('prints.cohort-report', $data);
     }
-
 }

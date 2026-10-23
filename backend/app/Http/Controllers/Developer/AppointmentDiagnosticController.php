@@ -3,23 +3,22 @@
 namespace App\Http\Controllers\Developer;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Developer\RepairSingleDiagnosticRequest;
 use App\Services\AppointmentHealthService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AppointmentDiagnosticController extends Controller
 {
-    protected AppointmentHealthService $healthService;
-
-    public function __construct(AppointmentHealthService $healthService)
-    {
-        $this->healthService = $healthService;
-    }
+    public function __construct(
+        private readonly AppointmentHealthService $healthService
+    ) {}
 
     /**
      * Run full appointment & scheduling diagnostic scan
      * GET /api/developer/diagnostics/appointments
      */
-    public function scan(Request $request)
+    public function scan(Request $request): JsonResponse
     {
         $user = $request->user();
         $clinicId = $user->clinic_id ?? 1;
@@ -33,7 +32,7 @@ class AppointmentDiagnosticController extends Controller
      * Auto-repair all fixable anomalies
      * POST /api/developer/diagnostics/appointments/repair-all
      */
-    public function repairAll(Request $request)
+    public function repairAll(Request $request): JsonResponse
     {
         $user = $request->user();
         $clinicId = $user->clinic_id ?? 1;
@@ -50,16 +49,9 @@ class AppointmentDiagnosticController extends Controller
      * Repair a single anomaly by ID and action
      * POST /api/developer/diagnostics/appointments/repair-single
      */
-    public function repairSingle(Request $request)
+    public function repairSingle(RepairSingleDiagnosticRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'id' => ['required', 'string'],
-            'appointment_id' => ['nullable', 'integer'],
-            'patient_id' => ['nullable', 'integer'],
-            'auto_fix_action' => ['required', 'string'],
-            'rule_code' => ['nullable', 'string'],
-        ]);
-
+        $validated = $request->validated();
         $success = $this->healthService->repairSingleAnomaly($validated);
 
         if (!$success) {

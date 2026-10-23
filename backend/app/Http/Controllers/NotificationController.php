@@ -2,31 +2,32 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Notification;
+use App\Http\Requests\Notification\NotificationListRequest;
 use App\Services\NotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
-    protected NotificationService $notificationService;
-
-    public function __construct(NotificationService $notificationService)
-    {
-        $this->notificationService = $notificationService;
-    }
+    public function __construct(
+        protected NotificationService $notificationService
+    ) {}
 
     /**
      * Get notifications for authenticated web user.
      * GET /api/notifications
      */
-    public function index(Request $request)
+    public function index(NotificationListRequest $request): JsonResponse
     {
         $user = $request->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        $notifications = $this->notificationService->getNotificationsForUser($user, (int) $request->input('limit', 50));
+        $notifications = $this->notificationService->getNotificationsForUser(
+            $user,
+            (int) $request->input('limit', 50)
+        );
         $unreadCount = $this->notificationService->getUnreadCountForUser($user);
 
         return response()->json([
@@ -39,7 +40,7 @@ class NotificationController extends Controller
      * Get unread notifications badge count.
      * GET /api/notifications/unread-count
      */
-    public function unreadCount(Request $request)
+    public function unreadCount(Request $request): JsonResponse
     {
         $user = $request->user();
         if (!$user) {
@@ -55,17 +56,14 @@ class NotificationController extends Controller
      * Mark a single notification as read.
      * POST /api/notifications/{id}/read
      */
-    public function markAsRead(Request $request, $id)
+    public function markAsRead(Request $request, int|string $id): JsonResponse
     {
         $user = $request->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        $notification = Notification::where('clinic_id', $user->clinic_id)
-            ->findOrFail($id);
-
-        $this->notificationService->markAsRead($notification, $user);
+        $this->notificationService->markNotificationAsReadForUser((int) $id, $user);
 
         return response()->json([
             'success' => true,
@@ -77,7 +75,7 @@ class NotificationController extends Controller
      * Mark all notifications as read for current user.
      * POST /api/notifications/read-all
      */
-    public function markAllAsRead(Request $request)
+    public function markAllAsRead(Request $request): JsonResponse
     {
         $user = $request->user();
         if (!$user) {

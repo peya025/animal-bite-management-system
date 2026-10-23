@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\Appointment;
 use App\Models\Clinic;
 use App\Models\ClinicSchedule;
 use App\Models\ClinicScheduleException;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ClinicScheduleService
@@ -367,6 +370,187 @@ class ClinicScheduleService
         }
 
         return $updatedAppointments;
+    }
+
+    /**
+     * Get clinic weekly schedule, exceptions, and policies (ensuring 7 days initialized)
+     *
+     * @return array{clinic: array<string, mixed>, schedules: mixed, exceptions: mixed}
+     */
+    public function getScheduleWithDetails(int $clinicId): array
+    {
+        $clinic = Clinic::with(['schedules' => function ($q) {
+            $q->orderBy('day_of_week');
+        }, 'scheduleExceptions' => function ($q) {
+            $q->orderBy('exception_date', 'desc');
+        }])->findOrFail($clinicId);
+
+        // Ensure 7 days exist
+        if ($clinic->schedules->count() < 7) {
+            for ($day = 0; $day <= 6; $day++) {
+                if (!$clinic->schedules->contains('day_of_week', $day)) {
+                    $isOpen = in_array($day, [1, 2, 3, 4, 5]);
+                    ClinicSchedule::create([
+                        'clinic_id'             => $clinicId,
+                        'day_of_week'           => $day,
+                        'is_open'               => $isOpen,
+                        'open_time'             => $isOpen ? '08:00:00' : null,
+                        'close_time'            => $isOpen ? '17:00:00' : null,
+                        'slot_interval_minutes' => 30,
+                        'max_patients_per_slot' => 10,
+                    ]);
+                }
+            }
+            $clinic->load(['schedules' => function ($q) {
+                $q->orderBy('day_of_week');
+            }]);
+        }
+
+        return [
+            'clinic' => [
+                'id'                               => $clinic->id,
+                'name'                             => $clinic->name,
+                'schedule_drift_policy'            => $clinic->schedule_drift_policy ?? 'forward_only',
+                'backward_max_days'                => $clinic->backward_max_days ?? 1,
+                'urgent_access_policy'             => $clinic->urgent_access_policy ?? 'walk_ins_accepted_outside_hours',
+                'urgent_referral_facility_name'    => $clinic->urgent_referral_facility_name,
+                'urgent_referral_facility_address' => $clinic->urgent_referral_facility_address,
+                'urgent_referral_facility_contact' => $clinic->urgent_referral_facility_contact,
+                'urgent_referral_instructions'     => $clinic->urgent_referral_instructions,
+            ],
+            'schedules'  => $clinic->schedules,
+            'exceptions' => $clinic->scheduleExceptions,
+        ];
+    }
+
+    /**
+     * Get all schedule exceptions for a clinic
+     */
+    public function getExceptions(int $clinicId)
+    {
+        return ClinicScheduleException::where('clinic_id', $clinicId)
+            ->orderBy('exception_date', 'desc')
+            ->get();
+    }
+
+    /**
+     * Update weekly recurring operating schedule
+     *
+     * @param array<int, array<string, mixed>> $schedules
+     * @return array{schedules: mixed, shifted_count: int}
+     */
+    public function updateWeeklySchedule(int $clinicId, array $schedules): array
+    {
+        DB::transaction(function () use ($clinicId, $schedules) {
+            foreach ($schedules as $row) {
+                ClinicSchedule::updateOrCreate(
+                    [
+                        'clinic_id'   => $clinicId,
+                        'day_of_week' => $row['day_of_week'],
+                    ],
+                    [
+                        'is_open'               => $row['is_open'],
+                        'open_time'             => $row['is_open'] ? ($row['open_time'] ?? '08:00:00') : null,
+                        'close_time'            => $row['is_open'] ? ($row['close_time'] ?? '17:00:00') : null,
+                        'slot_interval_minutes' => $row['slot_interval_minutes'] ?? 30,
+                        'max_patients_per_slot' => $row['max_patients_per_slot'] ?? 10,
+                    ]
+                );
+            }
+        });
+
+        $shiftedCount = $this->recalculatePendingAppointments($clinicId);
+
+        return [
+            'schedules'     => ClinicSchedule::where('clinic_id', $clinicId)->orderBy('day_of_week')->get(),
+            'shifted_count' => $shiftedCount,
+        ];
+    }
+
+    /**
+     * Store or update a calendar exception
+     *
+     * @param array<string, mixed> $data
+     * @return array{exception: ClinicScheduleException, shifted_count: int}
+     */
+    public function storeException(int $clinicId, array $data, ?int $userId = null): array
+    {
+        $exception = ClinicScheduleException::updateOrCreate(
+            [
+                'clinic_id'      => $clinicId,
+                'exception_date' => $data['exception_date'],
+            ],
+            [
+                'is_open'    => $data['is_open'],
+                'open_time'  => $data['is_open'] ? ($data['open_time'] ?? '08:00:00') : null,
+                'close_time' => $data['is_open'] ? ($data['close_time'] ?? '17:00:00') : null,
+                'reason'     => $data['reason'],
+                'created_by' => $userId,
+            ]
+        );
+
+        $shiftedCount = $this->recalculatePendingAppointments($clinicId);
+
+        return [
+            'exception'     => $exception,
+            'shifted_count' => $shiftedCount,
+        ];
+    }
+
+    /**
+     * Delete a calendar exception
+     */
+    public function deleteException(int $clinicId, int $exceptionId): int
+    {
+        $exception = ClinicScheduleException::where('clinic_id', $clinicId)->findOrFail($exceptionId);
+        $exception->delete();
+
+        return $this->recalculatePendingAppointments($clinicId);
+    }
+
+    /**
+     * Update clinic PEP regimen drift & emergency policies
+     *
+     * @param array<string, mixed> $policies
+     * @return array{clinic: Clinic, shifted_count: int}
+     */
+    public function updatePolicies(int $clinicId, array $policies): array
+    {
+        $clinic = Clinic::findOrFail($clinicId);
+        $clinic->update($policies);
+
+        $shiftedCount = $this->recalculatePendingAppointments($clinicId);
+
+        return [
+            'clinic'        => $clinic->fresh(),
+            'shifted_count' => $shiftedCount,
+        ];
+    }
+
+    /**
+     * Recalculate all future scheduled appointments according to the latest operating pattern
+     */
+    public function recalculatePendingAppointments(int $clinicId): int
+    {
+        $patientIds = Appointment::where('clinic_id', $clinicId)
+            ->where('status', 'scheduled')
+            ->distinct()
+            ->pluck('patient_id');
+
+        $updatedCount = 0;
+        foreach ($patientIds as $pId) {
+            $updated = $this->recalculatePatientSequentialSchedule($clinicId, $pId);
+            $updatedCount += count($updated);
+        }
+
+        // Clear mobile notification caches
+        try {
+            Cache::flush();
+        } catch (\Throwable $e) {
+            Log::warning("Cache flush failed: " . $e->getMessage());
+        }
+
+        return $updatedCount;
     }
 }
 

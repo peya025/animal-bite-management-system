@@ -602,6 +602,17 @@ class NotificationService
     }
 
     /**
+     * Mark a notification as read by ID for a user within their clinic.
+     */
+    public function markNotificationAsReadForUser(int $notificationId, User $user): void
+    {
+        $notification = Notification::where('clinic_id', $user->clinic_id)
+            ->findOrFail($notificationId);
+
+        $this->markAsRead($notification, $user);
+    }
+
+    /**
      * Mark all visible notifications as read for a specific user.
      */
     public function markAllAsReadForUser(User $user): void

@@ -23,6 +23,7 @@ class RequestIdMiddleware
         }
 
         // Bind request_id to structured logging context
+        Log::shareContext(['request_id' => $requestId]);
         Log::withContext(['request_id' => $requestId]);
 
         $response = $next($request);

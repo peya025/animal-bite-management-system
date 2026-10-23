@@ -1,15 +1,17 @@
 <?php
 
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\EnsureEmailIsVerified;
 use App\Http\Middleware\EnsurePatientAccount;
-use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\EnsurePublicSetupIsAvailable;
+use App\Http\Middleware\RequestIdMiddleware;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\HandleCors;
-use App\Http\Middleware\SecurityHeaders;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -19,8 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Apply CORS middleware globally to all routes
+        // Apply Request ID, CORS, and Security Headers globally
         $middleware->use([
+            RequestIdMiddleware::class,
             HandleCors::class,
             SecurityHeaders::class,
         ]);
@@ -34,5 +37,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Ensure all API routes render consistent JSON responses
+        $exceptions->shouldRenderJsonWhen(function (Request $request, Throwable $e): bool {
+            return $request->is('api/*') || $request->expectsJson();
+        });
     })->create();

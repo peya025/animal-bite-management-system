@@ -424,13 +424,13 @@ Wait for my approval before changing anything.
 | `TagoloanTreatmentCardController.php` | P2 | Completed | [x] | [x] | [x] | [ ] |
 | `BiteIncidentIntakeController.php` | P2 | Completed | [x] | [x] | [x] | [ ] |
 | `BiteIntakeSchemaController.php` | P2 | Completed | [x] | [x] | [x] | [ ] |
-| `VaccinationRecordController.php` | P3 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `QueueController.php` | P3 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `AppointmentController.php` | P3 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `VaccineInventoryController.php` | P3 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `VaccinationJourneyController.php` | P3 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `VaccinationController.php` | P3 | Pending | [ ] | [ ] | [ ] | [ ] |
-| `Mobile/MobileVaccinationCardController.php` | P3 | Pending | [ ] | [ ] | [ ] | [ ] |
+| `VaccinationRecordController.php` | P3 | ✅ Done | [x] | [x] | [x] | [ ] |
+| `QueueController.php` | P3 | ✅ Done | [x] | [x] | [x] | [ ] |
+| `AppointmentController.php` | P3 | ✅ Done | [x] | [x] | [x] | [ ] |
+| `VaccineInventoryController.php` | P3 | ✅ Done | [x] | [x] | [x] | [ ] |
+| `VaccinationJourneyController.php` | P3 | ✅ Done | [x] | [x] | [x] | [ ] |
+| `VaccinationController.php` | P3 | ✅ Done | [x] | [x] | [x] | [ ] |
+| `Mobile/MobileVaccinationCardController.php` | P3 | ✅ Done | [x] | [x] | [x] | [ ] |
 | `NotificationController.php` | P4 | Pending | [ ] | [ ] | [ ] | [ ] |
 | `LandingPageSettingsController.php` | P4 | Pending | [ ] | [ ] | [ ] | [ ] |
 | `ReportController.php` | P4 | Pending | [ ] | [ ] | [ ] | [ ] |

@@ -2,12 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Queue\CancelQueueRequest;
+use App\Http\Requests\Queue\CompleteQueueRequest;
+use App\Http\Requests\Queue\StoreQueueRequest;
+use App\Http\Requests\Queue\UpdatePriorityRequest;
+use App\Models\Appointment;
 use App\Models\Queue;
 use App\Models\QueueHistory;
+use App\Models\Station;
+use App\Models\TreatmentPlan;
+use App\Services\QueueService;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class QueueController extends Controller
 {
@@ -16,7 +25,6 @@ class QueueController extends Controller
     const SECOND_STATUSES = ['second_chance', 'final_recall'];
     const DONE_STATUSES   = ['completed', 'cancelled', 'absent', 'no_response', 'requires_checkin'];
 
-    // Priority order for category-based sorting (lower = higher priority)
     const CATEGORY_ORDER = [
         'priority'       => 1,
         'senior_citizen' => 2,
@@ -26,300 +34,151 @@ class QueueController extends Controller
         'regular'        => 4,
     ];
 
-    // ── Helper: log history ──────────────────────────────────────────────────
-    private function logHistory(Queue $queue, string $action, string $toStatus, ?int $userId, ?string $notes = null): void
-    {
-        QueueHistory::create([
-            'queue_id'     => $queue->queue_id,
-            'clinic_id'    => $queue->clinic_id,
-            'patient_id'   => $queue->patient_id,
-            'action'       => $action,
-            'from_status'  => $queue->status,
-            'to_status'    => $toStatus,
-            'call_count'   => $queue->call_count ?? 0,
-            'performed_by' => $userId,
-            'notes'        => $notes,
-            'occurred_at'  => now(),
-        ]);
-    }
-
-    // ── Helper: flush cache ──────────────────────────────────────────────────
-    private function flushCache(int $clinicId, ?string $date = null): void
-    {
-        $date = $date ?? Carbon::today()->toDateString();
-        Cache::forget("web:queue:clinic:{$clinicId}:date:{$date}");
-    }
-
-    // ── Helper: patient select fields ────────────────────────────────────────
-    private function patientFields(): string
-    {
-        return 'patient_id,first_name,middle_name,last_name,suffix,date_of_birth,gender,contact_number';
-    }
-
-    // ── Helper: find next eligible patient (priority-aware FIFO, station-scoped) ─────
-    private function getNextEligible(int $clinicId, string $date, ?string $station = null): ?Queue
-    {
-        // Priority categories first, then FIFO within same category
-        $categoryOrder = self::CATEGORY_ORDER;
-
-        $query = Queue::where('clinic_id', $clinicId)
-            ->whereNull('deleted_at')
-            ->where('status', 'waiting')
-            ->where('call_count', '<', 3)
-            ->where(function ($q) use ($date) {
-                $q->where('queue_date', $date)
-                  ->orWhere(function ($s) use ($date) {
-                      $s->where('queue_date', '<', $date)
-                        ->whereIn('status', self::MAIN_STATUSES);
-                  });
-            });
-
-        if ($station === 'triage') {
-            $query->whereIn('visit_type', ['new_case', 'consultation']);
-        } elseif ($station === 'treatment') {
-            $query->whereIn('visit_type', ['vaccination', 'follow_up', 'observation', 'booster']);
-        }
-
-        $waiting = $query->with(['patient:' . $this->patientFields(), 'biteIncident:bite_id,case_number,patient_id'])
-            ->get();
-
-        if ($waiting->isEmpty()) return null;
-
-        // Sort: by category priority, then by priority level, then by queue_number (FIFO)
-        $priorityLevel = ['emergency' => 1, 'urgent' => 2, 'normal' => 3];
-
-        return $waiting->sortBy([
-            fn($a, $b) => ($categoryOrder[$a->queue_category] ?? 4) <=> ($categoryOrder[$b->queue_category] ?? 4),
-            fn($a, $b) => ($priorityLevel[$a->priority] ?? 3) <=> ($priorityLevel[$b->priority] ?? 3),
-            fn($a, $b) => $a->queue_number <=> $b->queue_number,
-        ])->first();
-    }
-
-    // ── Helper: auto-expire unserved tickets from previous days ─────────────
-    public function expireStaleTickets(int $clinicId, string $date): int
-    {
-        $staleStatuses = array_merge(self::MAIN_STATUSES, self::SECOND_STATUSES);
-        $staleTickets = Queue::where('clinic_id', $clinicId)
-            ->where('queue_date', '<', $date)
-            ->whereIn('status', $staleStatuses)
-            ->whereNull('deleted_at')
-            ->get();
-
-        $count = 0;
-        foreach ($staleTickets as $ticket) {
-            $ticket->update([
-                'status'             => 'no_response',
-                'no_response_at'     => now(),
-                'consultation_notes' => 'Auto-expired: patient did not complete visit before clinic closed',
-            ]);
-            $this->logHistory($ticket, 'auto_expired', 'no_response', null, 'Auto-expired at end of clinic day');
-            $count++;
-        }
-
-        return $count;
-    }
+    public function __construct(private readonly QueueService $queueService) {}
 
     // ────────────────────────────────────────────────────────────────────────
-    // GET /queue  —  Main + second chance queues + stats
+    // GET /queue
     // ────────────────────────────────────────────────────────────────────────
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        try {
-            $clinicId = $request->user()->clinic_id;
-            $date     = $request->get('date', Carbon::today()->toDateString());
-            $cacheKey = "web:queue:clinic:{$clinicId}:date:{$date}";
+        $clinicId     = $request->user()->clinic_id;
+        $date         = $request->get('date', Carbon::today()->toDateString());
+        $cacheKey     = "web:queue:clinic:{$clinicId}:date:{$date}";
 
-            $stationParam = $request->get('station');
-            if (!$stationParam) {
-                $userRole = $request->user()?->role;
-                if ($userRole === 'triage') $stationParam = 'triage';
-                elseif ($userRole === 'treatment') $stationParam = 'treatment';
+        $stationParam = $request->get('station');
+        if (!$stationParam) {
+            $role = $request->user()?->role;
+            if ($role === 'triage')    $stationParam = 'triage';
+            elseif ($role === 'treatment') $stationParam = 'treatment';
+        }
+
+        $data = Cache::remember($cacheKey, 30, function () use ($clinicId, $date) {
+            $baseQuery = Queue::where('clinic_id', $clinicId)
+                ->whereNull('deleted_at')
+                ->with([
+                    'patient:' . $this->queueService->patientFields(),
+                    'biteIncident:bite_id,case_number,patient_id,episode_number,episode_type,status,bite_date,exposure_type,severity,remarks,rig_decision_reason',
+                    'biteIncident.treatmentPlan:treatment_plan_id,bite_id,plan_type,status,ordered_dose_days',
+                    'handledBy:id,name,role,professional_license_no',
+                    'handledByUser:id,name,role,professional_license_no',
+                    'servedBy:id,name,role,signature_path,professional_license_no',
+                    'station:id,name',
+                ])
+                ->select(
+                    'queue_id','queue_number','queue_category','patient_id','bite_id',
+                    'visit_type','priority','status','checked_in_at','called_at',
+                    'completed_at','cancelled_at','serving_at','second_chance_at',
+                    'final_recall_at','absent_at','no_response_at',
+                    'checked_in_by','handled_by','served_by','serving_started_at','station_id',
+                    'check_in_notes','consultation_notes',
+                    'call_count','recall_stage','clinic_id','queue_date'
+                );
+
+            $this->queueService->expireStaleTickets($clinicId, $date);
+
+            $categoryOrder = self::CATEGORY_ORDER;
+            $priorityLevel = ['emergency' => 1, 'urgent' => 2, 'normal' => 3];
+            $statusOrder   = [
+                'serving'         => 1, 'in_consultation' => 1,
+                'called'          => 2, 'waiting'         => 3,
+                'second_chance'   => 4, 'final_recall'    => 5,
+                'completed'       => 6, 'cancelled'       => 7,
+                'no_response'     => 8, 'absent'          => 9,
+            ];
+
+            $mainQueue = (clone $baseQuery)
+                ->where('queue_date', $date)
+                ->get()
+                ->sortBy([
+                    fn($a, $b) => ($statusOrder[$a->status] ?? 3)             <=> ($statusOrder[$b->status] ?? 3),
+                    fn($a, $b) => ($categoryOrder[$a->queue_category] ?? 4)   <=> ($categoryOrder[$b->queue_category] ?? 4),
+                    fn($a, $b) => ($priorityLevel[$a->priority] ?? 3)         <=> ($priorityLevel[$b->priority] ?? 3),
+                    fn($a, $b) => $a->queue_number <=> $b->queue_number,
+                ])
+                ->values();
+
+            $secondQueue = (clone $baseQuery)
+                ->where('queue_date', $date)
+                ->whereIn('status', self::SECOND_STATUSES)
+                ->orderBy('no_response_at', 'asc')
+                ->get();
+
+            foreach ($mainQueue as $entry) {
+                $entry->is_carry_over = $entry->queue_date &&
+                    $entry->queue_date->toDateString() < $date &&
+                    in_array($entry->status, self::MAIN_STATUSES);
+            }
+            foreach ($secondQueue as $entry) {
+                $entry->is_carry_over = false;
             }
 
-            $data = Cache::remember($cacheKey, 30, function () use ($clinicId, $date) {
+            $counts             = array_fill_keys(['waiting','called','in_consultation','serving','completed','cancelled','no_response','second_chance','final_recall','absent'], 0);
+            $visitTypeCounts    = [];
+            $categoryTypeCounts = [];
 
-                $baseQuery = Queue::where('clinic_id', $clinicId)
-                    ->whereNull('deleted_at')
-                    ->with([
-                        'patient:' . $this->patientFields(),
-                        // The Doctor form must receive the episode state. Without it a
-                        // newly registered exposure could look like an ordinary ticket.
-                        'biteIncident:bite_id,case_number,patient_id,episode_number,episode_type,status,bite_date,exposure_type,severity,remarks,rig_decision_reason',
-                        'biteIncident.treatmentPlan:treatment_plan_id,bite_id,plan_type,status,ordered_dose_days',
-                        'handledBy:id,name,role,professional_license_no',
-                        'handledByUser:id,name,role,professional_license_no',
-                        'servedBy:id,name,role,signature_path,professional_license_no',
-                        'station:id,name',
-                    ])
-                    ->select(
-                        'queue_id','queue_number','queue_category','patient_id','bite_id',
-                        'visit_type','priority','status','checked_in_at','called_at',
-                        'completed_at','cancelled_at','serving_at','second_chance_at',
-                        'final_recall_at','absent_at','no_response_at',
-                        'checked_in_by','handled_by','served_by','serving_started_at','station_id',
-                        'check_in_notes','consultation_notes',
-                        'call_count','recall_stage','clinic_id','queue_date'
-                    );
+            foreach ($mainQueue as $entry) {
+                if (isset($counts[$entry->status])) $counts[$entry->status]++;
+                $visitTypeCounts[$entry->visit_type]        = ($visitTypeCounts[$entry->visit_type] ?? 0) + 1;
+                $categoryTypeCounts[$entry->queue_category] = ($categoryTypeCounts[$entry->queue_category] ?? 0) + 1;
+            }
+            foreach ($secondQueue as $entry) {
+                if (isset($counts[$entry->status])) $counts[$entry->status]++;
+            }
 
-                // Auto-expire stale unserved tickets from previous days (both main and second-chance)
-                $this->expireStaleTickets($clinicId, $date);
+            $activeServers = $mainQueue
+                ->filter(fn($e) => in_array($e->status, ['serving', 'in_consultation']))
+                ->map(fn($e)    => $e->servedBy?->name ?? $e->handledBy?->name ?? null)
+                ->filter()->unique()->values()->all();
 
-                // Main queue: strictly today's tickets sorted by: Active > Priority > FIFO
-                $categoryOrder = self::CATEGORY_ORDER;
-                $priorityLevel = ['emergency' => 1, 'urgent' => 2, 'normal' => 3];
-                $statusOrder = [
-                    'serving'         => 1,
-                    'in_consultation' => 1,
-                    'called'          => 2,
-                    'waiting'         => 3,
-                    'second_chance'   => 4,
-                    'final_recall'    => 5,
-                    'completed'       => 6,
-                    'cancelled'       => 7,
-                    'no_response'     => 8,
-                    'absent'          => 9,
-                ];
+            return [
+                'date'                => $date,
+                'queue'               => $mainQueue,
+                'second_chance_queue' => $secondQueue,
+                'stats'               => array_merge($counts, [
+                    'date'           => $date,
+                    'total'          => $mainQueue->count() + $secondQueue->count(),
+                    'by_visit_type'  => $visitTypeCounts,
+                    'by_category'    => $categoryTypeCounts,
+                    'active_servers' => $activeServers,
+                ]),
+            ];
+        });
 
-                $mainQueue = (clone $baseQuery)
-                    ->where('queue_date', $date)
-                    ->get()
-                    ->sortBy([
-                        fn($a, $b) => ($statusOrder[$a->status] ?? 3) <=> ($statusOrder[$b->status] ?? 3),
-                        fn($a, $b) => ($categoryOrder[$a->queue_category] ?? 4) <=> ($categoryOrder[$b->queue_category] ?? 4),
-                        fn($a, $b) => ($priorityLevel[$a->priority] ?? 3) <=> ($priorityLevel[$b->priority] ?? 3),
-                        fn($a, $b) => $a->queue_number <=> $b->queue_number,
-                    ])
-                    ->values();
+        $data['next_patient'] = $this->queueService->getNextEligible($clinicId, $date, $stationParam);
 
-                // Second chance queue: strictly for the requested date
-                $secondQueue = (clone $baseQuery)
-                    ->where('queue_date', $date)
-                    ->whereIn('status', self::SECOND_STATUSES)
-                    ->orderBy('no_response_at', 'asc')
-                    ->get();
-
-                // Carry-over flags
-                foreach ($mainQueue as $entry) {
-                    $entry->is_carry_over = $entry->queue_date &&
-                        $entry->queue_date->toDateString() < $date &&
-                        in_array($entry->status, self::MAIN_STATUSES);
-                }
-                foreach ($secondQueue as $entry) {
-                    $entry->is_carry_over = false;
-                }
-
-                // Stats
-                $counts = array_fill_keys([
-                    'waiting','called','in_consultation','serving',
-                    'completed','cancelled','no_response',
-                    'second_chance','final_recall','absent',
-                ], 0);
-                $visitTypeCounts     = [];
-                $categoryTypeCounts  = [];
-
-                foreach ($mainQueue as $entry) {
-                    if (isset($counts[$entry->status])) $counts[$entry->status]++;
-                    $visitTypeCounts[$entry->visit_type]         = ($visitTypeCounts[$entry->visit_type]         ?? 0) + 1;
-                    $categoryTypeCounts[$entry->queue_category]  = ($categoryTypeCounts[$entry->queue_category]  ?? 0) + 1;
-                }
-                foreach ($secondQueue as $entry) {
-                    if (isset($counts[$entry->status])) $counts[$entry->status]++;
-                }
-
-                $activeServers = $mainQueue
-                    ->filter(fn($e) => in_array($e->status, ['serving', 'in_consultation']))
-                    ->map(function ($e) {
-                        return $e->servedBy?->name ?? $e->handledBy?->name ?? null;
-                    })
-                    ->filter()
-                    ->unique()
-                    ->values()
-                    ->all();
-
-                return [
-                    'date'                => $date,
-                    'queue'               => $mainQueue,
-                    'second_chance_queue' => $secondQueue,
-                    'stats'               => array_merge($counts, [
-                        'date'            => $date,
-                        'total'           => $mainQueue->count() + $secondQueue->count(),
-                        'by_visit_type'   => $visitTypeCounts,
-                        'by_category'     => $categoryTypeCounts,
-                        'active_servers'  => $activeServers,
-                    ]),
-                ];
-            });
-
-            // Priority-aware next patient (computed per station/user role dynamically)
-            $data['next_patient'] = $this->getNextEligible($clinicId, $date, $stationParam);
-
-            return response()->json($data);
-        } catch (\Exception $e) {
-            \Log::error('Queue index error: ' . $e->getMessage());
-            return response()->json([
-                'date' => Carbon::today()->toDateString(),
-                'queue' => [], 'second_chance_queue' => [], 'next_patient' => null,
-                'stats' => [
-                    'date'=>Carbon::today()->toDateString(),
-                    'total'=>0,'waiting'=>0,'called'=>0,'in_consultation'=>0,'serving'=>0,
-                    'completed'=>0,'cancelled'=>0,'no_response'=>0,
-                    'second_chance'=>0,'final_recall'=>0,'absent'=>0,
-                    'by_visit_type'=>[],'by_category'=>[],
-                ],
-                'error' => $e->getMessage(),
-            ], 500);
-        }
+        return response()->json($data);
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // POST /queue/call-next  —  Auto-select + call next eligible patient
+    // POST /queue/call-next
     // ────────────────────────────────────────────────────────────────────────
-    public function callNext(Request $request)
+    public function callNext(Request $request): JsonResponse
     {
         $clinicId = $request->user()->clinic_id;
         $date     = Carbon::today()->toDateString();
-        $userRole = $request->user()->role ?? null;
-        $station  = $request->get('station');
-
-        if (!$station) {
-            if ($userRole === 'triage') {
-                $station = 'triage';
-            } elseif ($userRole === 'treatment') {
-                $station = 'treatment';
-            }
-        }
+        $station  = $this->resolveStation($request);
 
         return DB::transaction(function () use ($clinicId, $date, $request, $station) {
-            // Task 2.3: Expire stale tickets before picking next
-            $this->expireStaleTickets($clinicId, $date);
+            $this->queueService->expireStaleTickets($clinicId, $date);
 
-            $next = $this->getNextEligible($clinicId, $date, $station);
-
+            $next = $this->queueService->getNextEligible($clinicId, $date, $station);
             if (!$next) {
                 $label = $station ? ucfirst($station) . ' queue' : 'queue';
                 return response()->json(['message' => "No patients waiting in the {$label}"], 404);
             }
 
-            // Re-fetch with lock to prevent simultaneous calls
-            $queue = Queue::where('clinic_id', $clinicId)
-                ->whereNull('deleted_at')
-                ->where('queue_id', $next->queue_id)
-                ->where('status', 'waiting')
-                ->lockForUpdate()
-                ->first();
+            $queue = Queue::where('clinic_id', $clinicId)->whereNull('deleted_at')
+                ->where('queue_id', $next->queue_id)->where('status', 'waiting')
+                ->lockForUpdate()->first();
 
             if (!$queue) {
                 return response()->json(['message' => 'Patient was already called by another staff member'], 409);
             }
-
             if (($queue->call_count ?? 0) >= 3 || $queue->status === 'requires_checkin') {
-                return response()->json([
-                    'message' => 'Patient did not respond 3 times. Please return to Registration for check-in.',
-                ], 422);
+                return response()->json(['message' => 'Patient did not respond 3 times. Please return to Registration for check-in.'], 422);
             }
 
-            $this->logHistory($queue, 'called', 'called', $request->user()->id, 'Auto call-next');
-
+            $this->queueService->logHistory($queue, 'called', 'called', $request->user()->id, 'Auto call-next');
             $queue->update([
                 'status'             => 'called',
                 'called_at'          => now(),
@@ -329,7 +188,7 @@ class QueueController extends Controller
                 'station_id'         => $request->get('station_id') ?: $queue->station_id,
             ]);
 
-            $this->flushCache($clinicId, $date);
+            $this->queueService->flushCache($clinicId, $date);
 
             return response()->json([
                 'message'      => "Called #{$queue->queue_number}",
@@ -340,36 +199,27 @@ class QueueController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // POST /queue/{id}/call  —  WAITING → CALLED (with lock)
+    // POST /queue/{id}/call
     // ────────────────────────────────────────────────────────────────────────
-    public function call(Request $request, $id)
+    public function call(Request $request, int $id): JsonResponse
     {
         $clinicId = $request->user()->clinic_id;
         $userId   = $request->user()->id;
 
         DB::beginTransaction();
         try {
-            $queue = Queue::where('clinic_id', $clinicId)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->findOrFail($id);
+            $queue = Queue::where('clinic_id', $clinicId)->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
 
             if (($queue->call_count ?? 0) >= 3 || $queue->status === 'requires_checkin') {
                 DB::rollBack();
-                return response()->json([
-                    'message' => 'Patient did not respond 3 times. Please return to Registration for check-in.',
-                ], 422);
+                return response()->json(['message' => 'Patient did not respond 3 times. Please return to Registration for check-in.'], 422);
             }
-
             if ($queue->status !== 'waiting') {
                 DB::rollBack();
-                return response()->json([
-                    'message' => 'Only waiting patients can be called. Current status: ' . $queue->status,
-                ], 400);
+                return response()->json(['message' => 'Only waiting patients can be called. Current status: ' . $queue->status], 400);
             }
 
-            $this->logHistory($queue, 'called', 'called', $userId);
-
+            $this->queueService->logHistory($queue, 'called', 'called', $userId);
             $queue->update([
                 'status'             => 'called',
                 'called_at'          => now(),
@@ -379,7 +229,7 @@ class QueueController extends Controller
                 'station_id'         => $request->get('station_id') ?: $queue->station_id,
             ]);
 
-            $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -393,44 +243,37 @@ class QueueController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // POST /queue/{id}/serve  —  CALLED / SECOND_CHANCE / FINAL_RECALL → SERVING
+    // POST /queue/{id}/serve
     // ────────────────────────────────────────────────────────────────────────
-    public function serve(Request $request, $id)
+    public function serve(Request $request, int $id): JsonResponse
     {
         $clinicId = $request->user()->clinic_id;
         $userId   = $request->user()->id;
 
         DB::beginTransaction();
         try {
-            $queue = Queue::where('clinic_id', $clinicId)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->findOrFail($id);
+            $queue = Queue::where('clinic_id', $clinicId)->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
 
-            if (!in_array($queue->status, ['waiting', 'called', 'serving', 'second_chance', 'final_recall', 'in_consultation'])) {
+            if (!in_array($queue->status, ['waiting','called','serving','second_chance','final_recall','in_consultation'])) {
                 DB::rollBack();
-                return response()->json([
-                    'message' => 'Cannot serve queue ticket with status: ' . $queue->status,
-                ], 400);
+                return response()->json(['message' => 'Cannot serve queue ticket with status: ' . $queue->status], 400);
             }
 
             $staleThresholdMinutes = 30;
-            $isStale = $queue->serving_started_at && Carbon::parse($queue->serving_started_at)->diffInMinutes(now()) >= $staleThresholdMinutes;
+            $isStale = $queue->serving_started_at &&
+                Carbon::parse($queue->serving_started_at)->diffInMinutes(now()) >= $staleThresholdMinutes;
 
             if ($queue->status === 'serving' && $queue->served_by && $queue->served_by !== $userId && !$isStale) {
                 $attendingNurse = $queue->servedBy?->name ?? 'another staff member';
                 DB::rollBack();
-                return response()->json([
-                    'error'   => 'conflict',
-                    'message' => "Patient is currently being attended by {$attendingNurse}.",
-                ], 409);
+                return response()->json(['error' => 'conflict', 'message' => "Patient is currently being attended by {$attendingNurse}."], 409);
             }
 
-            if ($isStale && $queue->served_by && $queue->served_by !== $userId) {
-                $this->logHistory($queue, 'transferred', 'serving', $userId, "Takeover from {$queue->servedBy?->name} after {$staleThresholdMinutes}m stale lock");
-            } else {
-                $this->logHistory($queue, 'serving', 'serving', $userId);
-            }
+            $historyNote = ($isStale && $queue->served_by && $queue->served_by !== $userId)
+                ? "Takeover from {$queue->servedBy?->name} after {$staleThresholdMinutes}m stale lock"
+                : null;
+            $historyAction = ($isStale && $queue->served_by && $queue->served_by !== $userId) ? 'transferred' : 'serving';
+            $this->queueService->logHistory($queue, $historyAction, 'serving', $userId, $historyNote);
 
             $queue->update([
                 'status'             => 'serving',
@@ -441,7 +284,7 @@ class QueueController extends Controller
                 'recall_stage'       => null,
             ]);
 
-            $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -455,64 +298,40 @@ class QueueController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // POST /queue/{id}/no-response  —  Auto-progress: CALLED → SECOND_CHANCE → FINAL_RECALL
+    // POST /queue/{id}/no-response
     // ────────────────────────────────────────────────────────────────────────
-    public function noResponse(Request $request, $id)
+    public function noResponse(Request $request, int $id): JsonResponse
     {
         return DB::transaction(function () use ($request, $id) {
             $queue = Queue::where('clinic_id', $request->user()->clinic_id)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->findOrFail($id);
+                ->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
 
             if (!in_array($queue->status, ['waiting', 'called', 'in_consultation'])) {
-                return response()->json([
-                    'message' => 'Patient must be active (waiting/called) to mark as no response. Current: ' . $queue->status,
-                ], 400);
+                return response()->json(['message' => 'Patient must be active (waiting/called) to mark as no response. Current: ' . $queue->status], 400);
             }
 
-            // Use call_count to determine which No Response miss this is (max 3 occurrences)
             $currentCount = (int) ($queue->call_count ?? 0);
-            $newCount = $currentCount + 1;
+            $newCount     = $currentCount + 1;
 
             if ($newCount >= 3) {
-                // Third miss → requires_checkin
-                $this->logHistory($queue, 'no_response', 'requires_checkin', $request->user()->id, 'Patient did not respond 3 times. Please return to Registration for check-in.');
-                $queue->update([
-                    'status'          => 'requires_checkin',
-                    'recall_stage'    => 'requires_checkin',
-                    'call_count'      => 3,
-                    'no_response_at'  => now(),
-                ]);
+                $this->queueService->logHistory($queue, 'no_response', 'requires_checkin', $request->user()->id,
+                    'Patient did not respond 3 times. Please return to Registration for check-in.');
+                $queue->update(['status' => 'requires_checkin', 'recall_stage' => 'requires_checkin', 'call_count' => 3, 'no_response_at' => now()]);
                 $msg = 'Patient did not respond 3 times. Please return to Registration for check-in.';
                 $requiresCheckin = true;
             } elseif ($newCount === 2) {
-                // Second miss → second_chance
-                $this->logHistory($queue, 'no_response', 'second_chance', $request->user()->id, 'Missed second call — Second Chance (2/3)');
-                $queue->update([
-                    'status'           => 'second_chance',
-                    'no_response_at'   => now(),
-                    'recall_stage'     => 'second_chance',
-                    'second_chance_at' => now(),
-                    'call_count'       => 2,
-                ]);
+                $this->queueService->logHistory($queue, 'no_response', 'second_chance', $request->user()->id, 'Missed second call — Second Chance (2/3)');
+                $queue->update(['status' => 'second_chance', 'no_response_at' => now(), 'recall_stage' => 'second_chance', 'second_chance_at' => now(), 'call_count' => 2]);
                 $msg = "#{$queue->queue_number} moved to Second Chance Queue";
                 $requiresCheckin = false;
             } else {
-                // First miss → second_chance
-                $this->logHistory($queue, 'no_response', 'second_chance', $request->user()->id, 'Missed first call — Second Chance (1/3)');
-                $queue->update([
-                    'status'           => 'second_chance',
-                    'no_response_at'   => now(),
-                    'recall_stage'     => 'second_chance',
-                    'second_chance_at' => now(),
-                    'call_count'       => 1,
-                ]);
+                $this->queueService->logHistory($queue, 'no_response', 'second_chance', $request->user()->id, 'Missed first call — Second Chance (1/3)');
+                $queue->update(['status' => 'second_chance', 'no_response_at' => now(), 'recall_stage' => 'second_chance', 'second_chance_at' => now(), 'call_count' => 1]);
                 $msg = "#{$queue->queue_number} moved to Second Chance Queue";
                 $requiresCheckin = false;
             }
 
-            $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json([
                 'message'          => $msg,
@@ -523,38 +342,25 @@ class QueueController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // POST /queue/{id}/recall  —  SECOND_CHANCE / FINAL_RECALL → CALLED
+    // POST /queue/{id}/recall
     // ────────────────────────────────────────────────────────────────────────
-    public function recall(Request $request, $id)
+    public function recall(Request $request, int $id): JsonResponse
     {
         return DB::transaction(function () use ($request, $id) {
             $queue = Queue::where('clinic_id', $request->user()->clinic_id)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->findOrFail($id);
+                ->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
 
             if (($queue->call_count ?? 0) >= 3 || $queue->status === 'requires_checkin') {
-                return response()->json([
-                    'message' => 'Patient did not respond 3 times. Please return to Registration for check-in.',
-                ], 422);
+                return response()->json(['message' => 'Patient did not respond 3 times. Please return to Registration for check-in.'], 422);
             }
-
             if (!in_array($queue->status, ['second_chance', 'final_recall'])) {
-                return response()->json([
-                    'message' => 'Patient must be in second chance or final recall to recall. Current: ' . $queue->status,
-                ], 400);
+                return response()->json(['message' => 'Patient must be in second chance or final recall to recall. Current: ' . $queue->status], 400);
             }
 
             $stage = $queue->status === 'final_recall' ? 'Final Recall' : 'Second Chance';
-            $this->logHistory($queue, 'recalled', 'called', $request->user()->id, "Recalled from {$stage}");
-
-            $queue->update([
-                'status'     => 'called',
-                'called_at'  => now(),
-                'handled_by' => $request->user()->id,
-            ]);
-
-            $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            $this->queueService->logHistory($queue, 'recalled', 'called', $request->user()->id, "Recalled from {$stage}");
+            $queue->update(['status' => 'called', 'called_at' => now(), 'handled_by' => $request->user()->id]);
+            $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json([
                 'message' => "#{$queue->queue_number} recalled ({$stage})",
@@ -564,36 +370,26 @@ class QueueController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // POST /queue/{id}/return-to-queue  —  SECOND_CHANCE / FINAL_RECALL → WAITING
+    // POST /queue/{id}/return-to-queue
     // ────────────────────────────────────────────────────────────────────────
-    public function returnToQueue(Request $request, $id)
+    public function returnToQueue(Request $request, int $id): JsonResponse
     {
         return DB::transaction(function () use ($request, $id) {
             $queue = Queue::where('clinic_id', $request->user()->clinic_id)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->findOrFail($id);
+                ->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
 
             if (($queue->call_count ?? 0) >= 3 || $queue->status === 'requires_checkin') {
-                return response()->json([
-                    'message' => 'Patient did not respond 3 times. Please return to Registration for check-in.',
-                ], 422);
+                return response()->json(['message' => 'Patient did not respond 3 times. Please return to Registration for check-in.'], 422);
             }
-
             if (!in_array($queue->status, ['second_chance', 'final_recall', 'no_response'])) {
-                return response()->json([
-                    'message' => 'Patient must be in second chance queue to return to queue. Current: ' . $queue->status,
-                ], 400);
+                return response()->json(['message' => 'Patient must be in second chance queue to return to queue. Current: ' . $queue->status], 400);
             }
 
             $stage = $queue->status === 'final_recall' ? 'Final Recall' : 'Second Chance';
-            $this->logHistory($queue, 'returned_to_queue', 'waiting', $request->user()->id, "Returned to queue from {$stage}");
+            $this->queueService->logHistory($queue, 'returned_to_queue', 'waiting', $request->user()->id, "Returned to queue from {$stage}");
 
-            $returnNote = '[Brought Back] Returned to waiting queue at ' . now()->format('H:i');
-            $existingNotes = $queue->check_in_notes;
-            $updatedNotes  = $existingNotes
-                ? $existingNotes . ' | ' . $returnNote
-                : $returnNote;
+            $returnNote   = '[Brought Back] Returned to waiting queue at ' . now()->format('H:i');
+            $updatedNotes = $queue->check_in_notes ? $queue->check_in_notes . ' | ' . $returnNote : $returnNote;
 
             $queue->update([
                 'status'           => 'waiting',
@@ -605,7 +401,7 @@ class QueueController extends Controller
                 'check_in_notes'   => $updatedNotes,
             ]);
 
-            $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json([
                 'message' => 'Patient returned to the queue.',
@@ -615,30 +411,21 @@ class QueueController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // POST /queue/{id}/absent  —  FINAL_RECALL / SECOND_CHANCE → ABSENT (No-Show)
+    // POST /queue/{id}/absent
     // ────────────────────────────────────────────────────────────────────────
-    public function markAbsent(Request $request, $id)
+    public function markAbsent(Request $request, int $id): JsonResponse
     {
         return DB::transaction(function () use ($request, $id) {
             $queue = Queue::where('clinic_id', $request->user()->clinic_id)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->findOrFail($id);
+                ->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
 
             if (!in_array($queue->status, ['final_recall', 'second_chance', 'no_response'])) {
-                return response()->json([
-                    'message' => 'Patient must be in final recall or second chance to mark absent. Current: ' . $queue->status,
-                ], 400);
+                return response()->json(['message' => 'Patient must be in final recall or second chance to mark absent. Current: ' . $queue->status], 400);
             }
 
-            $this->logHistory($queue, 'absent', 'absent', $request->user()->id, 'No response after all recall attempts — marked No-Show');
-
-            $queue->update([
-                'status'    => 'absent',
-                'absent_at' => now(),
-            ]);
-
-            $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            $this->queueService->logHistory($queue, 'absent', 'absent', $request->user()->id, 'No response after all recall attempts — marked No-Show');
+            $queue->update(['status' => 'absent', 'absent_at' => now()]);
+            $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json([
                 'message' => "#{$queue->queue_number} marked as No-Show",
@@ -648,63 +435,42 @@ class QueueController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // POST /queue/{id}/complete  —  SERVING → COMPLETED
+    // POST /queue/{id}/complete
     // ────────────────────────────────────────────────────────────────────────
-    public function complete(Request $request, $id)
+    public function complete(CompleteQueueRequest $request, int $id): JsonResponse
     {
         return DB::transaction(function () use ($request, $id) {
             $queue = Queue::where('clinic_id', $request->user()->clinic_id)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->findOrFail($id);
+                ->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
 
-            if (!in_array($queue->status, ['waiting', 'serving', 'in_consultation', 'called', 'second_chance', 'final_recall'])) {
-                return response()->json([
-                    'message' => 'Cannot complete ticket with status: ' . $queue->status,
-                ], 400);
+            if (!in_array($queue->status, ['waiting','serving','in_consultation','called','second_chance','final_recall'])) {
+                return response()->json(['message' => 'Cannot complete ticket with status: ' . $queue->status], 400);
             }
 
-            $request->validate(['consultation_notes' => 'nullable|string|max:2000']);
-
-            $servedAt = $queue->serving_at ?? $queue->called_at ?? $queue->checked_in_at;
-            $waitingSeconds = $queue->checked_in_at
-                ? now()->diffInSeconds($queue->checked_in_at)
-                : null;
+            $servedAt       = $queue->serving_at ?? $queue->called_at ?? $queue->checked_in_at;
+            $waitingSeconds = $queue->checked_in_at ? now()->diffInSeconds($queue->checked_in_at) : null;
             $serviceSeconds = $servedAt ? now()->diffInSeconds($servedAt) : null;
 
-            $incidentPlan = $queue->bite_id
-                ? \App\Models\TreatmentPlan::where('clinic_id', $queue->clinic_id)
-                    ->where('bite_id', $queue->bite_id)
-                    ->first()
+            $incidentPlan      = $queue->bite_id
+                ? TreatmentPlan::where('clinic_id', $queue->clinic_id)->where('bite_id', $queue->bite_id)->first()
                 : null;
             $isPendingExposure = $queue->biteIncident?->isAwaitingAssessment() ?? false;
+
             if ($isPendingExposure && !$incidentPlan) {
-                return response()->json([
-                    'message' => 'Doctor treatment decision is required before this new exposure can be transferred to treatment.',
-                ], 422);
+                return response()->json(['message' => 'Doctor treatment decision is required before this new exposure can be transferred to treatment.'], 422);
             }
 
             $isTriageTransfer = in_array($request->user()->role, ['triage', 'doctor', 'admin'])
                 && in_array($queue->visit_type, ['new_case', 'follow_up', 'observation', 'consultation', 'booster']);
 
             if ($isTriageTransfer) {
-                $transferNotes = collect([
-                    'Doctor completed Form 2 — referred to Treatment.',
-                    $request->consultation_notes,
-                ])->filter()->implode(' | ');
-
-                // The first vaccination after consultation remains part of the
-                // patient's Day 0/new episode, so route it to Station 1.
-                $intakeStationId = \App\Models\Station::where('clinic_id', $queue->clinic_id)
+                $transferNotes  = collect(['Doctor completed Form 2 — referred to Treatment.', $request->consultation_notes])->filter()->implode(' | ');
+                $intakeStationId = Station::where('clinic_id', $queue->clinic_id)
                     ->where('is_active', true)
-                    ->where(function ($station) {
-                        $station->where('name', 'like', '%Intake%')
-                            ->orWhere('name', 'like', '%Station 1%');
-                    })
+                    ->where(fn($q) => $q->where('name', 'like', '%Intake%')->orWhere('name', 'like', '%Station 1%'))
                     ->value('id');
 
-                $this->logHistory($queue, 'transferred_to_treatment', 'waiting', $request->user()->id, $transferNotes);
-
+                $this->queueService->logHistory($queue, 'transferred_to_treatment', 'waiting', $request->user()->id, $transferNotes);
                 $queue->update([
                     'visit_type'         => 'vaccination',
                     'status'             => 'waiting',
@@ -715,34 +481,30 @@ class QueueController extends Controller
                     'recall_stage'       => null,
                     'station_id'         => $intakeStationId ?? $queue->station_id,
                 ]);
-
-                $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+                $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
                 return response()->json([
-                    'message'          => 'Patient transferred to treatment queue',
-                    'queue'            => $queue->fresh(),
-                    'waiting_seconds'  => $waitingSeconds,
-                    'service_seconds'  => $serviceSeconds,
+                    'message'         => 'Patient transferred to treatment queue',
+                    'queue'           => $queue->fresh(),
+                    'waiting_seconds' => $waitingSeconds,
+                    'service_seconds' => $serviceSeconds,
                 ]);
             }
 
-            $this->logHistory($queue, 'completed', 'completed', $request->user()->id,
-                $request->consultation_notes ?? null);
-
+            $this->queueService->logHistory($queue, 'completed', 'completed', $request->user()->id, $request->consultation_notes ?? null);
             $queue->update([
                 'status'             => 'completed',
                 'completed_at'       => now(),
                 'consultation_notes' => $request->consultation_notes,
                 'recall_stage'       => null,
             ]);
-
-            $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json([
-                'message'          => 'Consultation completed',
-                'queue'            => $queue->fresh(),
-                'waiting_seconds'  => $waitingSeconds,
-                'service_seconds'  => $serviceSeconds,
+                'message'         => 'Consultation completed',
+                'queue'           => $queue->fresh(),
+                'waiting_seconds' => $waitingSeconds,
+                'service_seconds' => $serviceSeconds,
             ]);
         });
     }
@@ -750,81 +512,62 @@ class QueueController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     // POST /queue/{id}/cancel
     // ────────────────────────────────────────────────────────────────────────
-    public function cancel(Request $request, $id)
+    public function cancel(CancelQueueRequest $request, int $id): JsonResponse
     {
         return DB::transaction(function () use ($request, $id) {
             $queue = Queue::where('clinic_id', $request->user()->clinic_id)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->findOrFail($id);
+                ->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
 
             if (in_array($queue->status, ['completed', 'absent', 'cancelled'])) {
-                return response()->json([
-                    'message' => 'Cannot cancel a ' . $queue->status . ' patient',
-                ], 400);
+                return response()->json(['message' => 'Cannot cancel a ' . $queue->status . ' patient'], 400);
             }
 
-            $request->validate(['reason' => 'nullable|string|max:500']);
-
-            $this->logHistory($queue, 'cancelled', 'cancelled', $request->user()->id,
-                $request->reason ?? null);
-
+            $this->queueService->logHistory($queue, 'cancelled', 'cancelled', $request->user()->id, $request->reason ?? null);
             $queue->update([
-                'status'       => 'cancelled',
-                'cancelled_at' => now(),
-                'recall_stage' => null,
+                'status'         => 'cancelled',
+                'cancelled_at'   => now(),
+                'recall_stage'   => null,
                 'check_in_notes' => $request->reason
                     ? ($queue->check_in_notes ? $queue->check_in_notes . ' | Cancelled: ' . $request->reason : 'Cancelled: ' . $request->reason)
                     : $queue->check_in_notes,
             ]);
 
-            // If this queue ticket was linked to a confirmed appointment, revert it back to scheduled or missed
             if ($queue->patient_id) {
-                $confirmedAppts = \App\Models\Appointment::where('clinic_id', $queue->clinic_id)
+                $confirmedAppts = Appointment::where('clinic_id', $queue->clinic_id)
                     ->where('patient_id', $queue->patient_id)
                     ->where('status', 'confirmed')
-                    ->where(function ($q) use ($queue) {
-                        $q->where('queue_number', $queue->queue_number)
-                          ->orWhereNull('queue_number');
-                    })
+                    ->where(fn($q) => $q->where('queue_number', $queue->queue_number)->orWhereNull('queue_number'))
                     ->get();
 
                 foreach ($confirmedAppts as $appt) {
                     $apptDate = $appt->scheduled_date ?? $appt->appointment_date;
-                    $isPast = $apptDate && \Carbon\Carbon::parse($apptDate)->isBefore(\Carbon\Carbon::today());
-                    $appt->update([
-                        'status' => $isPast ? 'missed' : 'scheduled',
-                        'queue_number' => null,
-                    ]);
+                    $isPast   = $apptDate && Carbon::parse($apptDate)->isBefore(Carbon::today());
+                    $appt->update(['status' => $isPast ? 'missed' : 'scheduled', 'queue_number' => null]);
                 }
             }
 
-            $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json(['message' => "#{$queue->queue_number} cancelled"]);
         });
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // GET /queue/{id}  —  Single entry with history + performer names
+    // GET /queue/{id}
     // ────────────────────────────────────────────────────────────────────────
-    public function show(Request $request, $id)
+    public function show(Request $request, int $id): JsonResponse
     {
         $queue = Queue::where('clinic_id', $request->user()->clinic_id)
             ->with(['patient.details', 'patient.memberships', 'biteIncident', 'checkedInBy:id,name', 'handledBy:id,name', 'history'])
             ->findOrFail($id);
 
-        // Resolve model casts before JsonResponse starts encoding. Some legacy patient
-        // contact fields are stored as plaintext and are intentionally handled by the
-        // compatibility encryption cast; serializing the Eloquent model directly can
-        // leave PHP's JSON error state set by that fallback.
         return response()->json($queue->toArray());
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // GET /queue/{id}/history  —  Audit trail with performer names
+    // GET /queue/{id}/history
     // ────────────────────────────────────────────────────────────────────────
-    public function history(Request $request, $id)
+    public function history(Request $request, int $id): JsonResponse
     {
         $queue = Queue::where('clinic_id', $request->user()->clinic_id)->findOrFail($id);
 
@@ -842,186 +585,72 @@ class QueueController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // POST /queue  —  Add patient to queue (with race-condition-safe number generation)
+    // POST /queue
     // ────────────────────────────────────────────────────────────────────────
-    public function store(Request $request)
+    public function store(StoreQueueRequest $request): JsonResponse
     {
-        $clinicId = $request->user()->clinic_id;
-
-        $request->validate([
-            'patient_id'       => 'required|exists:patients,patient_id',
-            'bite_incident_id' => 'nullable|exists:bite_incidents,bite_id',
-            'visit_type'       => 'required|in:new_case,consultation,follow_up,vaccination,observation,booster',
-            'priority'         => 'nullable|in:normal,urgent,emergency',
-            'queue_category'   => 'nullable|in:regular,appointment,senior_citizen,pwd,pregnant,priority',
-            'check_in_notes'   => 'nullable|string|max:1000',
-        ]);
-
+        $clinicId  = $request->user()->clinic_id;
         $todayDate = Carbon::today()->toDateString();
 
         return DB::transaction(function () use ($request, $clinicId, $todayDate) {
-            // Task 9: Prevent duplicate — same patient cannot be active in queue twice today
-            $existing = Queue::where('clinic_id', $clinicId)
-                ->where('patient_id', $request->patient_id)
-                ->where('queue_date', $todayDate)
-                ->whereNull('deleted_at')
-                ->whereIn('status', array_merge(self::MAIN_STATUSES, self::SECOND_STATUSES))
-                ->lockForUpdate()
-                ->first();
+            $result = $this->queueService->addToQueue(
+                clinicId:       $clinicId,
+                user:           $request->user(),
+                patientId:      (int) $request->patient_id,
+                biteIncidentId: $request->bite_incident_id ? (int) $request->bite_incident_id : null,
+                visitType:      $request->visit_type,
+                priority:       $request->get('priority', 'normal'),
+                category:       $request->get('queue_category', 'regular'),
+                checkInNotes:   $request->check_in_notes,
+                todayDate:      $todayDate,
+            );
 
-            if ($existing) {
+            if ($result['duplicate']) {
                 return response()->json([
-                    'message' => 'This patient is already active in today\'s queue (Queue #' . $existing->queue_number . ', Status: ' . $existing->status . ')',
-                    'existing_queue' => $existing->load(['patient', 'biteIncident']),
+                    'message'        => 'This patient is already active in today\'s queue (Queue #' . $result['existing']->queue_number . ', Status: ' . $result['existing']->status . ')',
+                    'existing_queue' => $result['existing'],
                 ], 409);
             }
 
-            // Task 2.3: Auto-expire unserved tickets from prior days before generating today's queue
-            $this->expireStaleTickets($clinicId, $todayDate);
-
-            // Task 1: Race-condition-safe queue number generation.
-            //
-            // Using MAX(queue_number) + 1 with a MySQL advisory lock (GET_LOCK) instead
-            // of lockForUpdate() on the last row, because lockForUpdate() cannot protect
-            // the "no rows yet today" case — two concurrent first-of-day inserts both see
-            // zero rows, both compute 1, and the second insert hits the unique_daily_queue
-            // constraint.  The advisory lock serialises all check-in requests for the same
-            // clinic+date regardless of whether any row exists yet.
-            $lockName    = "queue_checkin_{$clinicId}_{$todayDate}";
-            $lockTimeout = 5; // seconds
-
-            DB::statement("SELECT GET_LOCK(?, ?)", [$lockName, $lockTimeout]);
-
-            try {
-                // MAX must scan ALL rows for today (including soft-deleted) because the
-                // unique_daily_queue index is not filtered by deleted_at — a soft-deleted
-                // row still physically occupies its queue_number slot.
-                $maxNumber = DB::table('queues')
-                    ->where('clinic_id', $clinicId)
-                    ->where('queue_date', $todayDate)
-                    ->max('queue_number');
-
-                $nextQueueNumber = $maxNumber ? ($maxNumber + 1) : 1;
-
-                // Determine category — if patient is pregnant/senior/pwd and not explicitly set,
-                // default to regular (staff can always override)
-                $category = $request->get('queue_category', 'regular');
-
-                $visitType = $request->visit_type;
-                if ($visitType === 'consultation') {
-                    $visitType = 'new_case';
-                }
-                if ($visitType === 'follow_up') {
-                    $visitType = 'vaccination';
-                }
-
-                // A booster request is a new clinical assessment, not a direct nurse
-                // appointment. Keep it in the Doctor queue until Form 2 approves the
-                // treatment; the approval transfer will then route its Day 0 dose to
-                // Station 1 just like any other newly assessed episode.
-                $isBoosterRequest = $visitType === 'booster';
-                if ($isBoosterRequest) {
-                    $visitType = 'new_case';
-                }
-                $checkInNotes = $request->check_in_notes;
-                if ($isBoosterRequest) {
-                    $checkInNotes = trim(implode(' | ', array_filter([
-                        $checkInNotes,
-                        'Booster request: Doctor assessment and Form 2 approval required before treatment.',
-                    ])));
-                }
-
-                $queue = Queue::create([
-                    'clinic_id'      => $clinicId,
-                    'patient_id'     => $request->patient_id,
-                    'bite_id'        => $request->bite_incident_id,
-                    'queue_number'   => $nextQueueNumber,
-                    'queue_date'     => $todayDate,
-                    'visit_type'     => $visitType,
-                    'priority'       => $request->get('priority', 'normal'),
-                    'queue_category' => $category,
-                    'status'         => 'waiting',
-                    'checked_in_at'  => now(),
-                    'checked_in_by'  => $request->user()->id,
-                    'check_in_notes' => $checkInNotes,
-                    'call_count'     => 0,
-                ]);
-
-                // Sync any scheduled appointments for today with this queue number
-                \App\Models\Appointment::where('patient_id', $request->patient_id)
-                    ->where('status', 'scheduled')
-                    ->where(function ($q) use ($todayDate) {
-                        $q->whereDate('scheduled_date', $todayDate)
-                          ->orWhereDate('appointment_date', $todayDate);
-                    })
-                    ->update([
-                        'queue_number' => $nextQueueNumber,
-                    ]);
-
-                $this->logHistory($queue, 'checked_in', 'waiting', $request->user()->id,
-                    "Category: {$category}, Priority: {$queue->priority}");
-
-                $this->flushCache($clinicId, $todayDate);
-
-                app(\App\Services\NotificationService::class)->notifyQueueEvent($queue->load('patient'), 'checked_in', $request->user());
-
-                return response()->json([
-                    'message'        => "Patient added to queue as #{$nextQueueNumber}",
-                    'queue'          => $queue->load(['patient', 'biteIncident']),
-                    'queue_number'   => $nextQueueNumber,
-                    'queue_category' => $category,
-                    'visit_type'     => $visitType,
-                ], 201);
-            } finally {
-                DB::statement("SELECT RELEASE_LOCK(?)", [$lockName]);
-            }
+            return response()->json([
+                'message'        => "Patient added to queue as #{$result['queue_number']}",
+                'queue'          => $result['queue'],
+                'queue_number'   => $result['queue_number'],
+                'queue_category' => $result['queue_category'],
+                'visit_type'     => $result['visit_type'],
+            ], 201);
         });
     }
 
     // ────────────────────────────────────────────────────────────────────────
     // PUT /queue/{id}/priority
     // ────────────────────────────────────────────────────────────────────────
-    public function updatePriority(Request $request, $id)
+    public function updatePriority(UpdatePriorityRequest $request, int $id): JsonResponse
     {
-        $queue = Queue::where('clinic_id', $request->user()->clinic_id)
-            ->whereNull('deleted_at')->findOrFail($id);
-
-        $request->validate(['priority' => 'required|in:normal,urgent,emergency']);
-
-        $old = $queue->priority;
+        $queue = Queue::where('clinic_id', $request->user()->clinic_id)->whereNull('deleted_at')->findOrFail($id);
+        $old   = $queue->priority;
         $queue->update(['priority' => $request->priority]);
 
-        // Task 8: Log priority changes
-        $this->logHistory($queue, 'priority_changed', $queue->status, $request->user()->id,
-            "Priority changed: {$old} → {$request->priority}");
+        $this->queueService->logHistory($queue, 'priority_changed', $queue->status, $request->user()->id, "Priority changed: {$old} → {$request->priority}");
+        $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
-        $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
-
-        return response()->json([
-            'message' => "Priority updated to {$request->priority}",
-            'queue'   => $queue->fresh(),
-        ]);
+        return response()->json(['message' => "Priority updated to {$request->priority}", 'queue' => $queue->fresh()]);
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // DELETE /queue/{id}  —  Soft delete (trash)
+    // DELETE /queue/{id}  (soft delete)
     // ────────────────────────────────────────────────────────────────────────
-    public function softDelete(Request $request, $id)
+    public function softDelete(Request $request, int $id): JsonResponse
     {
-        $queue = Queue::where('clinic_id', $request->user()->clinic_id)
-            ->whereNull('deleted_at')->findOrFail($id);
+        $queue = Queue::where('clinic_id', $request->user()->clinic_id)->whereNull('deleted_at')->findOrFail($id);
 
         if (in_array($queue->status, ['in_consultation', 'serving', 'called'])) {
-            return response()->json([
-                'message' => 'Cannot trash an active patient (status: ' . $queue->status . '). Complete or cancel first.',
-            ], 400);
+            return response()->json(['message' => 'Cannot trash an active patient (status: ' . $queue->status . '). Complete or cancel first.'], 400);
         }
 
-        // Task 8: Log trash action
-        $this->logHistory($queue, 'trashed', $queue->status, $request->user()->id);
-
+        $this->queueService->logHistory($queue, 'trashed', $queue->status, $request->user()->id);
         $queue->update(['deleted_at' => now()]);
-        $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+        $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
         return response()->json(['message' => "Queue #{$queue->queue_number} moved to trash"]);
     }
@@ -1029,37 +658,27 @@ class QueueController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     // POST /queue/{id}/restore
     // ────────────────────────────────────────────────────────────────────────
-    public function restore(Request $request, $id)
+    public function restore(Request $request, int $id): JsonResponse
     {
-        $queue = Queue::where('clinic_id', $request->user()->clinic_id)
-            ->whereNotNull('deleted_at')->findOrFail($id);
-
-        // Task 8: Log restore action
-        $this->logHistory($queue, 'restored', $queue->status, $request->user()->id);
-
+        $queue = Queue::where('clinic_id', $request->user()->clinic_id)->whereNotNull('deleted_at')->findOrFail($id);
+        $this->queueService->logHistory($queue, 'restored', $queue->status, $request->user()->id);
         $queue->update(['deleted_at' => null]);
-        $this->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+        $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
-        return response()->json([
-            'message' => "Queue #{$queue->queue_number} restored",
-            'queue'   => $queue->fresh()->load(['patient', 'biteIncident']),
-        ]);
+        return response()->json(['message' => "Queue #{$queue->queue_number} restored", 'queue' => $queue->fresh()->load(['patient', 'biteIncident'])]);
     }
 
     // ────────────────────────────────────────────────────────────────────────
     // GET /queue/trashed
     // ────────────────────────────────────────────────────────────────────────
-    public function trashed(Request $request)
+    public function trashed(Request $request): JsonResponse
     {
         $clinicId = $request->user()->clinic_id;
         $date     = $request->get('date', Carbon::today()->toDateString());
 
-        $trashed = Queue::where('clinic_id', $clinicId)
-            ->where('queue_date', $date)
-            ->whereNotNull('deleted_at')
+        $trashed = Queue::where('clinic_id', $clinicId)->where('queue_date', $date)->whereNotNull('deleted_at')
             ->with(['patient:patient_id,first_name,middle_name,last_name,gender', 'biteIncident:bite_id,case_number'])
-            ->orderBy('deleted_at', 'desc')
-            ->get();
+            ->orderBy('deleted_at', 'desc')->get();
 
         return response()->json($trashed);
     }
@@ -1067,19 +686,14 @@ class QueueController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     // GET /queue/waiting
     // ────────────────────────────────────────────────────────────────────────
-    public function waiting(Request $request)
+    public function waiting(Request $request): JsonResponse
     {
         $clinicId = $request->user()->clinic_id;
         $today    = Carbon::today()->toDateString();
 
-        $queue = Queue::where('clinic_id', $clinicId)
-            ->whereNull('deleted_at')
-            ->where(function ($q) use ($today) {
-                $q->where('queue_date', $today)
-                  ->orWhere(function ($s) use ($today) {
-                      $s->where('queue_date', '<', $today)->whereIn('status', self::MAIN_STATUSES);
-                  });
-            })
+        $queue = Queue::where('clinic_id', $clinicId)->whereNull('deleted_at')
+            ->where(fn($q) => $q->where('queue_date', $today)
+                ->orWhere(fn($s) => $s->where('queue_date', '<', $today)->whereIn('status', self::MAIN_STATUSES)))
             ->whereIn('status', ['waiting', 'called'])
             ->with(['patient', 'biteIncident'])
             ->orderBy('queue_date')->orderBy('queue_number')->get();
@@ -1090,139 +704,68 @@ class QueueController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     // GET /queue/next
     // ────────────────────────────────────────────────────────────────────────
-    public function next(Request $request)
+    public function next(Request $request): JsonResponse
     {
         $clinicId = $request->user()->clinic_id;
         $date     = Carbon::today()->toDateString();
-        $stationParam = $request->get('station');
-        if (!$stationParam) {
-            $userRole = $request->user()?->role;
-            if ($userRole === 'triage') $stationParam = 'triage';
-            elseif ($userRole === 'treatment') $stationParam = 'treatment';
-        }
-        $next = $this->getNextEligible($clinicId, $date, $stationParam);
-        return response()->json(['next_patient' => $next]);
+        $station  = $this->resolveStation($request);
+        return response()->json(['next_patient' => $this->queueService->getNextEligible($clinicId, $date, $station)]);
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // POST /queue/{id}/skip  —  CALLED → WAITING (skip current, call next)
-    // Returns the called patient to the waiting queue without marking them
-    // absent or penalising their position. The client then calls /call-next
-    // to advance to the next eligible patient.
+    // POST /queue/{id}/skip
     // ────────────────────────────────────────────────────────────────────────
-    public function skip(Request $request, $id)
+    public function skip(Request $request, int $id): JsonResponse
     {
         return DB::transaction(function () use ($request, $id) {
             $clinicId = $request->user()->clinic_id;
             $userId   = $request->user()->id;
 
-            $queue = Queue::where('clinic_id', $clinicId)
-                ->whereNull('deleted_at')
-                ->lockForUpdate()
-                ->findOrFail($id);
+            $queue = Queue::where('clinic_id', $clinicId)->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
 
-            // Only a patient currently in "called" state can be skipped.
-            // Patients who are already being served/in consultation have
-            // started their clinical process and must not be reset.
             if ($queue->status !== 'called') {
-                return response()->json([
-                    'message' => 'Only patients with status "called" can be skipped. Current status: ' . $queue->status,
-                ], 400);
+                return response()->json(['message' => 'Only patients with status "called" can be skipped. Current status: ' . $queue->status], 400);
             }
 
             $isThirdMiss = ($queue->call_count ?? 0) >= 3;
 
             if ($isThirdMiss) {
-                $this->logHistory($queue, 'skipped', 'requires_checkin', $userId,
-                    'Patient did not respond 3 times. Please return to Registration for check-in.');
-
-                $queue->update([
-                    'status'         => 'requires_checkin',
-                    'recall_stage'   => 'requires_checkin',
-                    'no_response_at' => now(),
-                    'called_at'      => null,
-                ]);
+                $this->queueService->logHistory($queue, 'skipped', 'requires_checkin', $userId, 'Patient did not respond 3 times. Please return to Registration for check-in.');
+                $queue->update(['status' => 'requires_checkin', 'recall_stage' => 'requires_checkin', 'no_response_at' => now(), 'called_at' => null]);
             } else {
-                $this->logHistory($queue, 'skipped', 'waiting', $userId,
-                    'Patient skipped — returned to waiting queue to allow next patient to be called');
-
-                // Preserve the queue number and clinical record. Only reset the
-                // call state so the patient re-enters the waiting pool naturally.
-                $skipNote = '[Skipped] Returned to queue at ' . now()->format('H:i');
-                $existingNotes = $queue->check_in_notes;
-                $updatedNotes  = $existingNotes
-                    ? $existingNotes . ' | ' . $skipNote
-                    : $skipNote;
-
-                $queue->update([
-                    'status'         => 'waiting',
-                    'called_at'      => null,
-                    // keep call_count: unchanged
-                    'check_in_notes' => $updatedNotes,
-                ]);
+                $this->queueService->logHistory($queue, 'skipped', 'waiting', $userId, 'Patient skipped — returned to waiting queue to allow next patient to be called');
+                $skipNote     = '[Skipped] Returned to queue at ' . now()->format('H:i');
+                $updatedNotes = $queue->check_in_notes ? $queue->check_in_notes . ' | ' . $skipNote : $skipNote;
+                $queue->update(['status' => 'waiting', 'called_at' => null, 'check_in_notes' => $updatedNotes]);
             }
 
-            $this->flushCache($clinicId, $queue->queue_date->toDateString());
+            $this->queueService->flushCache($clinicId, $queue->queue_date->toDateString());
 
-            // Determine the station scope for the next call (mirrors callNext logic)
-            $userRole = $request->user()->role ?? null;
-            $station  = $request->get('station');
-            if (!$station) {
-                if ($userRole === 'triage') $station = 'triage';
-                elseif ($userRole === 'treatment') $station = 'treatment';
-            }
-
-            // Pick the next eligible patient, explicitly excluding the just-skipped
-            // patient so they are not immediately re-called in the same action.
-            $date = Carbon::today()->toDateString();
-            $next = $this->getNextEligibleExcluding($clinicId, $date, $station, $queue->queue_id);
+            $station = $this->resolveStation($request);
+            $date    = Carbon::today()->toDateString();
+            $next    = $this->queueService->getNextEligibleExcluding($clinicId, $date, $station, $queue->queue_id);
 
             if (!$next) {
-                // No other patient waiting — skip succeeded, queue is now empty.
                 $emptyMsg = $isThirdMiss
                     ? 'Patient did not respond 3 times. Please return to Registration for check-in.'
                     : "#{$queue->queue_number} returned to queue. No other patients are waiting.";
-                return response()->json([
-                    'message'          => $emptyMsg,
-                    'skipped_queue'    => $queue->fresh()->load(['patient', 'biteIncident']),
-                    'next_called'      => null,
-                    'requires_checkin' => $isThirdMiss,
-                ]);
+                return response()->json(['message' => $emptyMsg, 'skipped_queue' => $queue->fresh()->load(['patient', 'biteIncident']), 'next_called' => null, 'requires_checkin' => $isThirdMiss]);
             }
 
-            // Lock and call the next patient
-            $nextQueue = Queue::where('clinic_id', $clinicId)
-                ->whereNull('deleted_at')
-                ->where('queue_id', $next->queue_id)
-                ->where('status', 'waiting')
-                ->lockForUpdate()
-                ->first();
+            $nextQueue = Queue::where('clinic_id', $clinicId)->whereNull('deleted_at')
+                ->where('queue_id', $next->queue_id)->where('status', 'waiting')
+                ->lockForUpdate()->first();
 
             if (!$nextQueue) {
-                // Race condition — another workstation already called this patient
                 $raceMsg = $isThirdMiss
                     ? 'Patient did not respond 3 times. Please return to Registration for check-in.'
                     : "#{$queue->queue_number} returned to queue. Next patient was already called.";
-                return response()->json([
-                    'message'          => $raceMsg,
-                    'skipped_queue'    => $queue->fresh()->load(['patient', 'biteIncident']),
-                    'next_called'      => null,
-                    'requires_checkin' => $isThirdMiss,
-                ], 200);
+                return response()->json(['message' => $raceMsg, 'skipped_queue' => $queue->fresh()->load(['patient', 'biteIncident']), 'next_called' => null, 'requires_checkin' => $isThirdMiss]);
             }
 
-            $this->logHistory($nextQueue, 'called', 'called', $userId, 'Called after skip');
-
-            $nextQueue->update([
-                'status'             => 'called',
-                'called_at'          => now(),
-                'handled_by'         => $userId,
-                'served_by'          => $userId,
-                'serving_started_at' => now(),
-                'station_id'         => $request->get('station_id') ?: $nextQueue->station_id,
-            ]);
-
-            $this->flushCache($clinicId, $date);
+            $this->queueService->logHistory($nextQueue, 'called', 'called', $userId, 'Called after skip');
+            $nextQueue->update(['status' => 'called', 'called_at' => now(), 'handled_by' => $userId, 'served_by' => $userId, 'serving_started_at' => now(), 'station_id' => $request->get('station_id') ?: $nextQueue->station_id]);
+            $this->queueService->flushCache($clinicId, $date);
 
             $calledMsg = $isThirdMiss
                 ? "Patient did not respond 3 times. Please return to Registration for check-in. Now calling #{$nextQueue->queue_number}."
@@ -1238,67 +781,22 @@ class QueueController extends Controller
         });
     }
 
-    // ── Helper: next eligible patient excluding a specific queue_id ───────────
-    private function getNextEligibleExcluding(int $clinicId, string $date, ?string $station, int $excludeQueueId): ?Queue
-    {
-        $categoryOrder = self::CATEGORY_ORDER;
-
-        $query = Queue::where('clinic_id', $clinicId)
-            ->whereNull('deleted_at')
-            ->where('status', 'waiting')
-            ->where('call_count', '<', 3)
-            ->where('queue_id', '!=', $excludeQueueId)
-            ->where(function ($q) use ($date) {
-                $q->where('queue_date', $date)
-                  ->orWhere(function ($s) use ($date) {
-                      $s->where('queue_date', '<', $date)
-                        ->whereIn('status', self::MAIN_STATUSES);
-                  });
-            });
-
-        if ($station === 'triage') {
-            $query->whereIn('visit_type', ['new_case', 'consultation']);
-        } elseif ($station === 'treatment') {
-            $query->whereIn('visit_type', ['vaccination', 'follow_up', 'observation', 'booster']);
-        }
-
-        $waiting = $query->with(['patient:' . $this->patientFields(), 'biteIncident:bite_id,case_number,patient_id'])
-            ->get();
-
-        if ($waiting->isEmpty()) return null;
-
-        $priorityLevel = ['emergency' => 1, 'urgent' => 2, 'normal' => 3];
-
-        return $waiting->sortBy([
-            fn($a, $b) => ($categoryOrder[$a->queue_category] ?? 4) <=> ($categoryOrder[$b->queue_category] ?? 4),
-            fn($a, $b) => ($priorityLevel[$a->priority] ?? 3) <=> ($priorityLevel[$b->priority] ?? 3),
-            fn($a, $b) => $a->queue_number <=> $b->queue_number,
-        ])->first();
-    }
-
     // ────────────────────────────────────────────────────────────────────────
     // GET /queue/statistics
     // ────────────────────────────────────────────────────────────────────────
-    public function statistics(Request $request)
+    public function statistics(Request $request): JsonResponse
     {
         $clinicId = $request->user()->clinic_id;
         $date     = $request->get('date', Carbon::today()->toDateString());
 
         $agg = DB::table('queues')
-            ->where('clinic_id', $clinicId)
-            ->where('queue_date', $date)
-            ->whereNull('deleted_at')
+            ->where('clinic_id', $clinicId)->where('queue_date', $date)->whereNull('deleted_at')
             ->selectRaw('COUNT(*) as total,
-                SUM(status="waiting") as waiting,
-                SUM(status="called") as called,
-                SUM(status="in_consultation") as in_consultation,
-                SUM(status="serving") as serving,
-                SUM(status="completed") as completed,
-                SUM(status="cancelled") as cancelled,
-                SUM(status="no_response") as no_response,
-                SUM(status="second_chance") as second_chance,
-                SUM(status="final_recall") as final_recall,
-                SUM(status="absent") as absent')
+                SUM(status="waiting") as waiting, SUM(status="called") as called,
+                SUM(status="in_consultation") as in_consultation, SUM(status="serving") as serving,
+                SUM(status="completed") as completed, SUM(status="cancelled") as cancelled,
+                SUM(status="no_response") as no_response, SUM(status="second_chance") as second_chance,
+                SUM(status="final_recall") as final_recall, SUM(status="absent") as absent')
             ->first();
 
         return response()->json([
@@ -1315,5 +813,26 @@ class QueueController extends Controller
             'final_recall'    => (int)($agg->final_recall    ?? 0),
             'absent'          => (int)($agg->absent          ?? 0),
         ]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Public helper: exposeStaleTickets for external callers (e.g. cron job)
+    // ────────────────────────────────────────────────────────────────────────
+    public function expireStaleTickets(int $clinicId, string $date): int
+    {
+        return $this->queueService->expireStaleTickets($clinicId, $date);
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────
+
+    private function resolveStation(Request $request): ?string
+    {
+        $station = $request->get('station');
+        if (!$station) {
+            $role = $request->user()?->role;
+            if ($role === 'triage')    return 'triage';
+            if ($role === 'treatment') return 'treatment';
+        }
+        return $station;
     }
 }

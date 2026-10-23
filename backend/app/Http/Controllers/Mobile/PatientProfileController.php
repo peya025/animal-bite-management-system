@@ -3,198 +3,55 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Mobile\StoreMobilePatientRequest;
+use App\Http\Requests\Mobile\UpdateMobilePatientRequest;
 use App\Models\Patient;
-use App\Services\PatientMembershipService;
+use App\Services\Mobile\MobilePatientProfileService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
 class PatientProfileController extends Controller
 {
-    private function validatePatientPayload(Request $request, ?Patient $patient = null): array
+    public function __construct(
+        protected MobilePatientProfileService $profileService
+    ) {}
+
+    /**
+     * Retrieve all patient profiles linked to the mobile account.
+     */
+    public function index(Request $request): JsonResponse
     {
-        // Form 1 calls these fields sex and emergency_contact_phone in parts
-        // of the web client. Accept those aliases while returning the shared
-        // persisted representation used by both clients.
-        $request->merge([
-            'gender' => $request->input('gender', $request->input('sex')),
-            'emergency_contact_number' => $request->input(
-                'emergency_contact_number',
-                $request->input('emergency_contact_phone'),
-            ),
-        ]);
+        $patients = $this->profileService->listPatients($request->user());
 
-        $membershipService = app(PatientMembershipService::class);
-
-        $patientData = $request->validate([
-            'clinic_id' => ['sometimes', 'integer', 'exists:clinics,id'],
-            'relationship' => ['required', 'in:self,child,dependent'],
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'suffix' => ['nullable', 'string', 'max:50'],
-            'gender' => ['required', 'in:male,female'],
-            'date_of_birth' => ['nullable', 'date', 'before:today'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
-            'email' => ['nullable', 'string', 'email', 'max:255'],
-            'emergency_contact_name' => ['nullable', 'string', 'max:255'],
-            'emergency_contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
-        ], [
-            'contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
-            'emergency_contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
-        ]);
-
-        $detailsData = $request->validate(array_merge([
-            'blood_type' => ['nullable', 'string', 'max:10'],
-            'mother_maiden_name' => ['nullable', 'string', 'max:255'],
-            'civil_status' => ['nullable', 'in:single,married,widowed,separated,annulled,cohabitation'],
-            'spouse_name' => ['nullable', 'string', 'max:255'],
-            'address_municipality' => ['nullable', 'string', 'max:255'],
-            'address_barangay' => ['nullable', 'string', 'max:255'],
-            'address_purok' => ['nullable', 'string', 'max:255'],
-            'province' => ['nullable', 'string', 'max:100'],
-            'educational_attainment' => ['nullable', 'string', 'max:50'],
-            'employment_status' => ['nullable', 'string', 'max:50'],
-            'family_member' => ['nullable', 'string', 'max:50'],
-            'philhealth_member' => ['nullable', 'in:yes,no'],
-            'philhealth_status' => ['nullable', 'in:member,dependent'],
-            'philhealth_no' => [
-                'nullable',
-                'string',
-                'max:50',
-                Rule::unique('patient_details', 'philhealth_no')->ignore($patient?->details?->id),
-            ],
-            'philhealth_category' => ['nullable', 'string', 'max:50'],
-            'fourps_member' => ['nullable', 'in:yes,no'],
-            'fourps_category' => ['nullable', 'string', 'max:50'],
-            'fourps_relationship' => ['nullable', 'string', 'max:50'],
-            'registered_fourps_beneficiary' => ['nullable', 'string', 'max:50'],
-            'dswd_nhts' => ['nullable', 'in:yes,no'],
-            'has_membership' => ['nullable', 'string', 'max:10'],
-            'other_membership' => ['nullable', 'string', 'max:500'],
-            'other_membership_name' => ['nullable', 'string', 'max:500'],
-            'other_membership_no' => ['nullable', 'string', 'max:500'],
-        ], $membershipService->validationRules()));
-
-        return [$patientData, $detailsData, $membershipService];
+        return response()->json($patients);
     }
 
-    public function index(Request $request)
+    /**
+     * Create a new patient profile and attach to the mobile account.
+     */
+    public function store(StoreMobilePatientRequest $request): JsonResponse
     {
-        $accountId = $request->user()->id;
-        $cacheKey = "mobile:patients:account:{$accountId}";
-
-        // Cache for 10 minutes (patient profiles don't change often)
-        return response()->json(
-            Cache::remember($cacheKey, 600, function () use ($request) {
-                return $request->user()->patients()->with(['details', 'memberships'])->orderByPivot('is_primary', 'desc')->get();
-            })
+        $patient = $this->profileService->createPatient(
+            $request->user(),
+            $request->validated(),
+            $request->all()
         );
+
+        return response()->json($patient, 201);
     }
 
-    public function store(Request $request)
+    /**
+     * Update an existing patient profile linked to the mobile account.
+     */
+    public function update(UpdateMobilePatientRequest $request, Patient $patient): JsonResponse
     {
-        [$patientData, $detailsData, $membershipService] = $this->validatePatientPayload($request);
-
-        $account = $request->user();
-
-        if ($patientData['relationship'] === 'self'
-            && $account->patients()->wherePivot('relationship', 'self')->exists()) {
-            throw ValidationException::withMessages([
-                'relationship' => ['This account already has a self profile.'],
-            ]);
-        }
-
-        $patient = DB::transaction(function () use ($account, $patientData, $detailsData, $request, $membershipService) {
-            $relationship = $patientData['relationship'];
-            unset($patientData['relationship']);
-
-            $patient = Patient::create([
-                ...$patientData,
-                'registration_source' => 'mobile',
-            ]);
-
-            $detailsPayload = array_map(fn($value) => ($value === '' ? null : $value), $detailsData);
-            $memberships = $membershipService->membershipsFromPayload($request->all());
-            $detailsPayload = array_merge($detailsPayload, $membershipService->legacyFieldsFromMemberships($memberships));
-
-            if (!empty(array_filter($detailsPayload, fn($value) => !is_null($value)))) {
-                $patient->details()->create($detailsPayload);
-            }
-
-            $membershipService->syncForPatient($patient, $memberships);
-
-            $account->patients()->attach($patient->patient_id, [
-                'relationship' => $relationship,
-                'is_primary' => ! $account->patients()->exists(),
-                'status' => 'pending',
-            ]);
-
-            return $patient;
-        });
-
-        // Invalidate cache after creating patient
-        Cache::forget("mobile:patients:account:{$account->id}");
-
-        return response()->json(
-            $account->patients()->with(['details', 'memberships'])->whereKey($patient->patient_id)->firstOrFail(),
-            201,
+        $updated = $this->profileService->updatePatient(
+            $request->user(),
+            $patient,
+            $request->validated(),
+            $request->all()
         );
-    }
 
-    public function update(Request $request, Patient $patient)
-    {
-        $account = $request->user();
-
-        $linkedPatient = $account->patients()
-            ->with(['details', 'memberships'])
-            ->whereKey($patient->patient_id)
-            ->wherePivotIn('status', ['pending', 'verified'])
-            ->firstOrFail();
-
-        [$patientData, $detailsData, $membershipService] = $this->validatePatientPayload($request, $linkedPatient);
-
-        if ($patientData['relationship'] === 'self'
-            && $account->patients()
-                ->wherePivot('relationship', 'self')
-                ->where('patients.patient_id', '!=', $linkedPatient->patient_id)
-                ->exists()) {
-            throw ValidationException::withMessages([
-                'relationship' => ['This account already has a self profile.'],
-            ]);
-        }
-
-        $updatedPatient = DB::transaction(function () use ($account, $linkedPatient, $patientData, $detailsData, $request, $membershipService) {
-            $relationship = $patientData['relationship'];
-            unset($patientData['relationship'], $patientData['clinic_id']);
-
-            $linkedPatient->update($patientData);
-
-            $detailsPayload = array_map(fn($value) => ($value === '' ? null : $value), $detailsData);
-            $memberships = $membershipService->membershipsFromPayload($request->all());
-            $detailsPayload = array_merge($detailsPayload, $membershipService->legacyFieldsFromMemberships($memberships));
-
-            if ($linkedPatient->details) {
-                $linkedPatient->details->update($detailsPayload);
-            } elseif (!empty(array_filter($detailsPayload, fn($value) => !is_null($value)))) {
-                $linkedPatient->details()->create($detailsPayload);
-            }
-
-            $membershipService->syncForPatient($linkedPatient, $memberships);
-
-            $account->patients()->updateExistingPivot($linkedPatient->patient_id, [
-                'relationship' => $relationship,
-            ]);
-
-            return $linkedPatient->fresh(['details', 'memberships']);
-        });
-
-        Cache::forget("mobile:patients:account:{$account->id}");
-        Cache::forget("mobile:account:me:{$account->id}");
-
-        return response()->json($updatedPatient);
+        return response()->json($updated);
     }
 }

@@ -325,6 +325,6 @@ During all 8 cycles, Person 1 will strictly uphold these contract invariants:
 | **C3** | `PatientAccessController.php` | [x] PASS (8/8) | N/A (Route model binding) | [x] | N/A (Standard Message) | [x] (40 LOC) | [x] (39/39) | [x] Verified |
 | **C4** | `StaffInvitationController.php` | [x] PASS (12/12) | [x] | [x] | [x] | [x] (60 LOC) | [x] (51/51) | [x] Verified |
 | **C5** | `PatientInvitationController.php` | [x] PASS (12/12) | [x] | [x] | [x] | [x] (83 LOC) | [x] (63/63) | [x] Verified |
-| **C6** | `UserController.php` | [ ] Pending | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| **C7** | `Mobile/PatientProfileController.php` | [ ] Pending | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| **C8** | `Mobile/PatientAccountAuthController.php` | [ ] Pending | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
+| **C6** | `UserController.php` | [x] PASS (13/13) | [x] | [x] | [x] | [x] (134 LOC) | [x] (76/76) | [x] Verified |
+| **C7** | `Mobile/PatientProfileController.php` | [x] PASS (9/9) | [x] | [x] | [x] | [x] (55 LOC) | [x] (85/85) | [x] Verified |
+| **C8** | `Mobile/PatientAccountAuthController.php` | [x] PASS (13/13) | [x] | [x] | [x] | [x] (86 LOC) | [x] (98/98) | [x] Verified |

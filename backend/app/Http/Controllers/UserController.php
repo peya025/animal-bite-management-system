@@ -2,261 +2,92 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Services\StaffSignatureService;
-use Illuminate\Support\Facades\DB;
+use App\Http\Requests\User\StoreUserRequest;
+use App\Http\Requests\User\UpdateAssignedModuleRequest;
+use App\Http\Requests\User\UpdateUserRequest;
+use App\Services\User\UserManagementService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    public function __construct(
+        protected UserManagementService $userService
+    ) {}
+
     /**
-     * Get all users (admin only)
+     * Get all clinic staff users (admin only).
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        // Check if user is admin
         if (!$request->user()->isAdmin()) {
             return response()->json([
                 'message' => 'Unauthorized. Admin access required.',
             ], 403);
         }
 
-        $clinicId = $request->user()->clinic_id;
-
-        $users = User::where('clinic_id', $clinicId)
-            ->with('roles')
-            ->select('id', 'name', 'email', 'phone', 'role', 'assigned_module', 'is_active', 'signature_path', 'professional_license_no', 'created_at')
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        $signatures = app(StaffSignatureService::class);
-        $users->each(fn (User $user) => $user->setAttribute('signature_available', $signatures->available($user->signature_path)));
+        $users = $this->userService->listClinicUsers((int) $request->user()->clinic_id);
 
         return response()->json($users);
     }
 
     /**
-     * Create new user (admin only)
+     * Create new staff user with workstation roles (admin only).
      */
-    public function store(Request $request)
+    public function store(StoreUserRequest $request): JsonResponse
     {
-        if (!$request->user()->isAdmin()) {
-            return response()->json([
-                'message' => 'Unauthorized. Admin access required.',
-            ], 403);
-        }
+        $user = $this->userService->createUser(
+            (int) $request->user()->clinic_id,
+            $request->all(),
+            $request,
+            (int) $request->user()->id
+        );
 
-        $request->validate([
-            'name'                    => 'required|string|max:255',
-            'email'                   => 'required|email|max:255|unique:users',
-            'password'                => 'required|string|min:8',
-            'role'                    => 'nullable|string',
-            'workstation_role'        => 'nullable|string',
-            'roles'                   => 'nullable|array',
-            'phone'                   => ['nullable', 'string', 'regex:/^09\d{9}$/'],
-            'professional_license_no' => 'nullable|string|max:100',
-            ...StaffSignatureService::rules(),
-        ], [
-            'phone.regex' => 'Mobile number must start with 09 and contain 11 digits.',
-        ]);
-
-        $signatures = app(StaffSignatureService::class);
-        $png = $signatures->prepare($request);
-        return DB::transaction(function () use ($request, $signatures, $png) {
-            $roleSlugInput = $request->workstation_role ?? $request->role ?? 'registration';
-            $legacyRole = $this->determineLegacyRole($roleSlugInput, $request->roles);
-
-            $user = User::create([
-                'clinic_id'               => $request->user()->clinic_id,
-                'name'                    => $request->name,
-                'email'                   => $request->email,
-                'password'                => Hash::make($request->password),
-                'role'                    => $legacyRole,
-                'phone'                   => $request->phone,
-                'professional_license_no' => $request->professional_license_no,
-                'is_active'               => $request->boolean('is_active', true),
-            ]);
-
-            // Attach workstation roles
-            $this->syncWorkstationRoles($user, $request, $request->user()->id);
-
-            $user->load('roles');
-            $signatures->apply($user, $request, $png);
-
-            return response()->json([
-                'message' => 'User created successfully',
-                'user'    => $user,
-            ], 201);
-        });
+        return response()->json([
+            'message' => 'User created successfully',
+            'user'    => $user,
+        ], 201);
     }
 
     /**
-     * Get single user
+     * Get single user in current clinic.
      */
-    public function show(Request $request, $id)
+    public function show(Request $request, $id): JsonResponse
     {
-        $user = User::where('clinic_id', $request->user()->clinic_id)
-            ->with('roles')
-            ->findOrFail($id);
+        $user = $this->userService->getClinicUser((int) $request->user()->clinic_id, (int) $id);
 
         return response()->json($user);
     }
 
     /**
-     * Update user
+     * Update user details, password, workstation roles, and signature.
      */
-    public function update(Request $request, $id)
+    public function update(UpdateUserRequest $request, $id): JsonResponse
     {
-        $user = User::where('clinic_id', $request->user()->clinic_id)
-            ->findOrFail($id);
+        $user = $this->userService->updateUser(
+            (int) $request->user()->clinic_id,
+            (int) $id,
+            $request->all(),
+            $request,
+            (int) $request->user()->id
+        );
 
-        $request->validate([
-            'name'                    => 'sometimes|required|string|max:255',
-            'email'                   => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'password'                => 'sometimes|nullable|string|min:8',
-            'role'                    => 'nullable|string',
-            'workstation_role'        => 'nullable|string',
-            'roles'                   => 'nullable|array',
-            'phone'                   => ['nullable', 'string', 'regex:/^09\d{9}$/'],
-            'professional_license_no' => 'nullable|string|max:100',
-            ...StaffSignatureService::rules(),
-            'is_active'               => 'sometimes|boolean',
-        ], [
-            'phone.regex' => 'Mobile number must start with 09 and contain 11 digits.',
+        return response()->json([
+            'message' => 'User updated successfully',
+            'user'    => $user,
         ]);
-
-        $signatures = app(StaffSignatureService::class);
-        $png = $signatures->prepare($request);
-        return DB::transaction(function () use ($request, $user, $signatures, $png) {
-            $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
-            $data = $request->only(['name', 'email', 'phone', 'professional_license_no', 'is_active']);
-
-            if ($request->filled('password')) {
-                $data['password'] = Hash::make($request->password);
-            }
-
-            if ($request->filled('workstation_role') || $request->filled('roles') || $request->filled('role')) {
-                $roleSlugInput = $request->workstation_role ?? $request->role;
-                $data['role'] = $this->determineLegacyRole($roleSlugInput, $request->roles);
-            }
-
-            $user->update($data);
-
-            // Security: If password changed or account deactivated, revoke all existing API tokens
-            if ($request->filled('password') || ($request->has('is_active') && !$user->is_active)) {
-                $user->tokens()->delete();
-            }
-
-            // Sync roles if provided
-            if ($request->has('workstation_role') || $request->has('roles') || $request->has('role')) {
-                $this->syncWorkstationRoles($user, $request, $request->user()->id);
-            }
-
-            $user->load('roles');
-            $signatures->apply($user, $request, $png);
-
-            return response()->json([
-                'message' => 'User updated successfully',
-                'user'    => $user,
-            ]);
-        });
     }
 
     /**
-     * Determine legacy role enum from inputs
+     * Delete user from clinic.
      */
-    private function determineLegacyRole(?string $input, ?array $rolesArray = null): string
+    public function destroy(Request $request, $id): JsonResponse
     {
-        $allSlugs = [];
-        if (!empty($rolesArray)) {
-            $allSlugs = array_merge($allSlugs, $rolesArray);
-        }
-        if ($input) {
-            $allSlugs[] = $input;
-        }
-
-        foreach ($allSlugs as $slug) {
-            if (in_array($slug, ['intake_nurse', 'follow_up_nurse', 'solo_nurse', 'treatment'])) {
-                return 'treatment';
-            }
-            if (in_array($slug, ['doctor', 'triage'])) {
-                return 'triage';
-            }
-            if (in_array($slug, ['receptionist', 'registration'])) {
-                return 'registration';
-            }
-            if (in_array($slug, ['clinic_admin', 'admin', 'developer'])) {
-                return in_array('developer', $allSlugs) ? 'developer' : 'admin';
-            }
-        }
-
-        return 'registration';
-    }
-
-    /**
-     * Sync workstation roles in user_roles table
-     */
-    private function syncWorkstationRoles(User $user, Request $request, ?int $assignedById = null): void
-    {
-        $slugs = [];
-
-        if ($request->filled('roles') && is_array($request->roles)) {
-            $slugs = $request->roles;
-        } elseif ($request->filled('workstation_role')) {
-            $wr = $request->workstation_role;
-            if ($wr === 'solo_nurse' || $wr === 'dual_nurse') {
-                $slugs = ['intake_nurse', 'follow_up_nurse'];
-            } else {
-                $slugs = [$wr];
-            }
-        } elseif ($request->filled('role')) {
-            $r = $request->role;
-            if ($r === 'treatment') {
-                $slugs = ['intake_nurse', 'follow_up_nurse'];
-            } elseif ($r === 'triage') {
-                $slugs = ['doctor'];
-            } elseif ($r === 'registration') {
-                $slugs = ['receptionist'];
-            } elseif ($r === 'admin' || $r === 'developer') {
-                $slugs = ['clinic_admin'];
-            } elseif ($r === 'solo_nurse' || $r === 'dual_nurse') {
-                $slugs = ['intake_nurse', 'follow_up_nurse'];
-            } else {
-                $slugs = [$r];
-            }
-        }
-
-        if (!empty($slugs)) {
-            $roleModels = \App\Models\Role::whereIn('slug', $slugs)->get();
-            $syncData = [];
-            foreach ($roleModels as $rm) {
-                $syncData[$rm->id] = [
-                    'assigned_by' => $assignedById,
-                    'assigned_at' => now(),
-                ];
-            }
-            $user->roles()->sync($syncData);
-        }
-    }
-
-    /**
-     * Delete user
-     */
-    public function destroy(Request $request, $id)
-    {
-        $user = User::where('clinic_id', $request->user()->clinic_id)
-            ->findOrFail($id);
-
-        // Prevent deleting yourself
-        if ($user->id === $request->user()->id) {
-            return response()->json([
-                'message' => 'You cannot delete your own account',
-            ], 403);
-        }
-
-        $user->delete();
+        $this->userService->deleteUser(
+            (int) $request->user()->clinic_id,
+            (int) $id,
+            (int) $request->user()->id
+        );
 
         return response()->json([
             'message' => 'User deleted successfully',
@@ -264,113 +95,46 @@ class UserController extends Controller
     }
 
     /**
-     * Update staff member's assigned module
-     * Access: Admin only
+     * Update staff member's assigned module (admin only).
      */
-    public function updateAssignedModule(Request $request, $id)
+    public function updateAssignedModule(UpdateAssignedModuleRequest $request, $id): JsonResponse
     {
-        // Check if user is admin
-        if (!$request->user()->isAdmin()) {
-            return response()->json([
-                'message' => 'Unauthorized. Admin access required.',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'assigned_module' => 'required|in:all,registration,triage,treatment,inventory',
-        ]);
-
-        $user = User::where('clinic_id', $request->user()->clinic_id)
-            ->findOrFail($id);
-
-        $user->update($validated);
+        $user = $this->userService->updateAssignedModule(
+            (int) $request->user()->clinic_id,
+            (int) $id,
+            (string) $request->assigned_module
+        );
 
         return response()->json([
             'message' => 'Staff module assignment updated successfully',
-            'user' => $user,
+            'user'    => $user,
         ]);
     }
 
     /**
-     * List all patient accounts (admin only)
+     * List all patient accounts (admin only).
      */
-    public function patientAccounts(Request $request)
+    public function patientAccounts(Request $request): JsonResponse
     {
         if (!$request->user()->isAdmin()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $accounts = \App\Models\PatientAccount::with([
-            'patients.biteIncidents',
-            'patients.treatmentRecords',
-            'patients.appointments' => function ($q) {
-                $q->orderBy('scheduled_date', 'asc');
-            },
-        ])
-        ->withCount('patients')
-        ->orderBy('created_at', 'desc')
-        ->get()
-        ->map(fn($a) => [
-            'id'             => $a->id,
-            'name'           => $a->name,
-            'email'          => $a->email,
-            'phone'          => $a->phone,
-            'is_active'      => (bool) $a->is_active,
-            'patients_count' => $a->patients_count,
-            'patients'       => $a->patients->map(function ($p) {
-                $hasBiteIncident = $p->biteIncidents->isNotEmpty();
-                $hasScheduledAppt = $p->appointments->where('status', 'scheduled')->isNotEmpty();
-                $hasTreatment = $p->treatmentRecords->isNotEmpty();
-
-                $latestBite = $p->biteIncidents->sortByDesc('created_at')->first();
-                $nextAppt = $p->appointments->first(fn($app) => $app->status === 'scheduled');
-
-                return [
-                    'id'                        => $p->patient_id,
-                    'patient_id'                => $p->patient_id,
-                    'patient_number'            => $p->patient_number,
-                    'first_name'                => $p->first_name,
-                    'middle_name'               => $p->middle_name,
-                    'last_name'                 => $p->last_name,
-                    'relationship'              => $p->pivot->relationship ?? 'self',
-                    'gender'                    => $p->gender,
-                    'age'                       => $p->age,
-                    'date_of_birth'             => $p->date_of_birth,
-                    'address'                   => $p->address,
-                    'contact_number'            => $p->contact_number,
-                    'emergency_contact_name'    => $p->emergency_contact_name,
-                    'emergency_contact_number'  => $p->emergency_contact_number,
-                    'status'                    => $p->status,
-                    'has_active_case'           => $hasBiteIncident || $hasScheduledAppt,
-                    'case_summary'              => $latestBite ? [
-                        'case_number' => $latestBite->case_number,
-                        'category'    => $latestBite->exposure_category ?? 'Category II',
-                        'animal'      => $latestBite->animal_type ?? 'Dog',
-                    ] : null,
-                    'next_appointment'          => $nextAppt ? [
-                        'date'  => \Carbon\Carbon::parse($nextAppt->scheduled_date ?? $nextAppt->appointment_date)->format('M j, Y'),
-                        'label' => $nextAppt->dose_number === 0 ? 'Day 0' : "Day {$nextAppt->dose_number}",
-                    ] : null,
-                ];
-            }),
-            'last_login_at'  => $a->last_login_at,
-            'created_at'     => $a->created_at,
-        ]);
+        $accounts = $this->userService->listPatientAccounts();
 
         return response()->json($accounts);
     }
 
     /**
-     * Toggle patient account active status (admin only)
+     * Toggle patient account active status (admin only).
      */
-    public function togglePatientAccount(Request $request, $id)
+    public function togglePatientAccount(Request $request, $id): JsonResponse
     {
         if (!$request->user()->isAdmin()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $account = \App\Models\PatientAccount::findOrFail($id);
-        $account->update(['is_active' => !$account->is_active]);
+        $account = $this->userService->togglePatientAccount((int) $id);
 
         return response()->json([
             'message' => 'Patient account ' . ($account->is_active ? 'activated' : 'deactivated'),

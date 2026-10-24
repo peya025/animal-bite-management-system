@@ -23,4 +23,5 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 .env.example
+.env.railway
 .env.railway.example

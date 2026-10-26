@@ -2,6 +2,7 @@
 
 namespace App\Services\Clinical;
 
+use App\Exceptions\DuplicatePatientException;
 use App\Http\Controllers\Operations\QueueController;
 use App\Models\Appointment;
 use App\Models\AuditLog;

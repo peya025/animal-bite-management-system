@@ -174,8 +174,8 @@ export function useGeneralTreatmentForm({
       },
       chief_complaints: record.chief_complaints || '',
       diagnosis: diagText,
-      medication_treatment: record.prescribed_vaccine_type || medText,
-      prescribed_vaccine_type: record.prescribed_vaccine_type || '',
+      medication_treatment: (record.exposure_category ?? prev.exposure_category) === 'I' ? 'No PEP vaccine prescribed' : (record.prescribed_vaccine_type || medText),
+      prescribed_vaccine_type: (record.exposure_category ?? prev.exposure_category) === 'I' ? '' : (record.prescribed_vaccine_type || ''),
       prophylaxis_orders: normalizeProphylaxisOrders(record.prophylaxis_orders),
       name_of_provider: resolveHealthCareProvider(record) || prev.name_of_provider,
       name_of_attending_provider: resolveAttendingProvider(entryRef.current, record) || prev.name_of_attending_provider,
@@ -246,7 +246,11 @@ export function useGeneralTreatmentForm({
       .then((data) => {
         const category = data?.exposure_category ?? data?.active_bite_incident?.exposure_category ?? '';
         const record = data?.latest_treatment ? { ...data.latest_treatment, exposure_category: category } : null;
-        setFormData(prev => ({ ...prev, exposure_category: category }));
+        setFormData(prev => ({
+          ...prev,
+          exposure_category: category,
+          ...(category === 'I' ? { prescribed_vaccine_type: '', medication_treatment: 'No PEP vaccine prescribed' } : {}),
+        }));
         const isVaccinated = Boolean(data?.has_administered_vaccine);
         const isReturning = Boolean(data?.is_returning_new_bite);
         const needsReExposureDecision = Boolean(data?.requires_re_exposure_decision);
@@ -325,6 +329,10 @@ export function useGeneralTreatmentForm({
               ...INITIAL_FORM_DATA,
               ...savedDraft.formData,
               exposure_category: savedDraft.formData.exposure_category ?? category,
+              ...((savedDraft.formData.exposure_category ?? category) === 'I' ? {
+                prescribed_vaccine_type: '',
+                medication_treatment: 'No PEP vaccine prescribed',
+              } : {}),
               ...(isRegistrationStaffPrefill && record ? {
                 mode_of_transaction: record.mode_of_transaction || 'walk-in',
                 referred_by: record.referred_by || '',
@@ -387,7 +395,14 @@ export function useGeneralTreatmentForm({
   ) => {
     const val = ev.target.value;
     setFormData((prev) => {
-      const next = { ...prev, [key]: val };
+      let next: TreatmentFormData = { ...prev, [key]: val };
+      if (key === 'exposure_category') {
+        if (val === 'I') {
+          next = { ...next, prescribed_vaccine_type: '', medication_treatment: 'No PEP vaccine prescribed' };
+        } else if (prev.exposure_category === 'I') {
+          next = { ...next, prescribed_vaccine_type: '', medication_treatment: '' };
+        }
+      }
       saveDraftSnapshot(next);
       return next;
     });
@@ -395,6 +410,9 @@ export function useGeneralTreatmentForm({
       setFieldErrors((prev) => {
         const next = { ...prev };
         delete next[key as string];
+        if (key === 'exposure_category' && val === 'I') {
+          delete next.prescribed_vaccine_type;
+        }
         if (Object.keys(next).length === 0) {
           setError('');
         } else {
@@ -467,6 +485,7 @@ export function useGeneralTreatmentForm({
   };
 
   const handlePrescribedVaccineChange = (vaccineType: string) => {
+    if (formData.exposure_category === 'I') return;
     setFormData((prev) => {
       const next = {
         ...prev,
@@ -579,6 +598,8 @@ export function useGeneralTreatmentForm({
 
     if (!formData.exposure_category) {
       newFieldErrors.exposure_category = 'Please select Exposure Category';
+    } else if (formData.exposure_category === 'I' && formData.prescribed_vaccine_type) {
+      newFieldErrors.prescribed_vaccine_type = 'Category I exposures do not require Rabies PEP vaccination.';
     }
 
     if (!formData.chief_complaints.trim()) {
@@ -660,7 +681,7 @@ export function useGeneralTreatmentForm({
         patient_id: patientId,
         queue_id: entry.queue_id || null,
         bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
-        treatment_plan: treatmentPlan || null,
+        treatment_plan: formData.exposure_category === 'I' ? 'no_vaccine' : (treatmentPlan || null),
         consultation_date: formData.date_of_consultation,
         consultation_time: formData.consultation_time,
         mode_of_transaction: formData.mode_of_transaction || 'walk-in',
@@ -682,8 +703,8 @@ export function useGeneralTreatmentForm({
         ),
         chief_complaints: formData.chief_complaints,
         diagnosis: formData.diagnosis,
-        medication_treatment: formData.medication_treatment,
-        prescribed_vaccine_type: formData.prescribed_vaccine_type || null,
+        medication_treatment: formData.exposure_category === 'I' ? 'No PEP vaccine prescribed' : formData.medication_treatment,
+        prescribed_vaccine_type: formData.exposure_category === 'I' ? null : (formData.prescribed_vaccine_type || null),
         prophylaxis_orders: {
           ...formData.prophylaxis_orders,
           tetanus_category: tetanusCat,
@@ -705,7 +726,7 @@ export function useGeneralTreatmentForm({
       }
 
       draft.clearDraft();
-      onSave();
+      onSave(res);
       if (!inline) {
         onClose();
       }
@@ -752,6 +773,7 @@ export function useGeneralTreatmentForm({
     checkedHistory,
     fieldErrors,
     touchedFields,
+    isCategory1: formData.exposure_category === 'I',
     isFormDisabled,
     isNatureOfVisitAutomatic,
     shouldHideConsultationType,

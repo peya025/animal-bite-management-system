@@ -285,7 +285,10 @@ class VaccinationJourneyService
             }
 
             // Overall patient compliance status
-            if (!$hasForm2 && !$hasAnyDose) {
+            if ($p->is_category1_no_treatment || ($maxPrimaryDoseDone >= 7 && !$hasBoosterDueOrMissed)) {
+                $patientStatus = 'completed';
+                $kpi['completed']++;
+            } elseif (!$hasForm2 && !$hasAnyDose) {
                 $patientStatus = 'awaiting_triage';
                 $kpi['awaiting_triage']++;
             } elseif ($nextAppt && $nextAppt['is_missed']) {
@@ -294,9 +297,6 @@ class VaccinationJourneyService
             } elseif ($nextAppt && $nextAppt['is_today']) {
                 $patientStatus = 'due_today';
                 $kpi['due_today']++;
-            } elseif ($maxPrimaryDoseDone >= 7 && !$hasBoosterDueOrMissed) {
-                $patientStatus = 'completed';
-                $kpi['completed']++;
             } else {
                 $patientStatus = 'on_track';
                 $kpi['on_track']++;

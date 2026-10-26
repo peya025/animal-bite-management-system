@@ -221,9 +221,12 @@ export default function DoctorPatientListPage() {
           )
         );
 
-        if (hasTodayConsultation) {
+        if (hasTodayConsultation || (patient as any).is_category1_no_treatment) {
           if (activeQueue && activeQueue.visit_type === 'vaccination') {
             return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Referred to Treatment" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} /></Box>;
+          }
+          if ((patient as any).is_category1_no_treatment) {
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Assessment Completed — No Treatment Required" size="small" sx={{ bgcolor: '#ecfdf5', color: '#059669', fontSize: 11, fontWeight: 600 }} /></Box>;
           }
           return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Consultation Done" size="small" sx={{ bgcolor: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 600 }} /></Box>;
         }

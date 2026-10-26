@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Patient;
 use App\Models\Queue;
 use App\Models\QueueHistory;
 use Carbon\Carbon;
@@ -154,6 +155,15 @@ class QueueService
         // Normalise visit type
         if ($visitType === 'consultation') $visitType = 'new_case';
         if ($visitType === 'follow_up')    $visitType = 'vaccination';
+
+        $patient = Patient::where('clinic_id', $clinicId)->find($patientId);
+        if ($patient && $patient->is_category1_no_treatment) {
+            if ($visitType === 'vaccination') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'visit_type' => ['Doctor assessment is completed (Category I — No Treatment Required). Patient cannot enter the treatment queue.'],
+                ]);
+            }
+        }
 
         $isBoosterRequest = ($visitType === 'booster');
         if ($isBoosterRequest) {

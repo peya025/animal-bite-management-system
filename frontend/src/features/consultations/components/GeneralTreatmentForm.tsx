@@ -59,6 +59,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     patientReportedIntake,
     checkedDiagnoses,
     fieldErrors,
+    isCategory1,
     isFormDisabled,
     isNatureOfVisitAutomatic,
     shouldHideConsultationType,
@@ -165,6 +166,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         <VitalsConsultationSection
           formData={formData}
           isFormDisabled={isFormDisabled}
+
           onFieldChange={handleFieldChange}
           onSetReferredBy={(val) => setFormData((prev) => ({ ...prev, referred_by: val }))}
         />
@@ -173,6 +175,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         <NatureOfVisitSection
           natureOfVisit={formData.nature_of_visit}
           isFormDisabled={isFormDisabled}
+
           isAutomaticallySet={isNatureOfVisitAutomatic}
           error={fieldErrors.nature_of_visit}
           onChange={handleFieldChange('nature_of_visit')}
@@ -184,6 +187,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           <ConsultationTypesSection
             consultationTypes={formData.consultation_types}
             isFormDisabled={isFormDisabled}
+
             error={fieldErrors.consultation_types}
             onChange={handleCheckboxChange}
           />
@@ -193,6 +197,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         <ClinicalNotesSection
           formData={formData}
           isFormDisabled={isFormDisabled}
+
           checkedDiagnoses={checkedDiagnoses}
           fieldErrors={fieldErrors}
           onFieldChange={handleFieldChange}
@@ -206,6 +211,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           entry={entry}
           requiresReExposureDecision={requiresReExposureDecision}
           isFormDisabled={isFormDisabled}
+
           treatmentPlan={treatmentPlan}
           error={fieldErrors.treatment_plan}
           onUpdateTreatmentPlan={setTreatmentPlan}
@@ -258,8 +264,10 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           prescribedVaccineType={formData.prescribed_vaccine_type}
           medicationTreatment={formData.medication_treatment}
           isFormDisabled={isFormDisabled}
+
           vaccineNames={vaccineNames}
           vaccineStockMap={vaccineStockMap}
+          isCategory1={isCategory1}
           onChange={handlePrescribedVaccineChange}
         />
 
@@ -267,6 +275,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         <ProviderFindingsSection
           formData={formData}
           isFormDisabled={isFormDisabled}
+
           onFieldChange={handleFieldChange}
         />
 

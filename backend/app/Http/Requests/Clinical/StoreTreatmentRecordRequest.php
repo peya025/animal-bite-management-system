@@ -88,4 +88,22 @@ class StoreTreatmentRecordRequest extends FormRequest
             'attending_provider' => 'nullable|string|max:255',
         ];
     }
+
+    /**
+     * Configure the validator instance.
+     */
+    public function withValidator(\Illuminate\Validation\Validator $validator): void
+    {
+        $validator->after(function (\Illuminate\Validation\Validator $validator) {
+            $category = $this->input('exposure_category');
+            $prescribed = trim((string) $this->input('prescribed_vaccine_type', ''));
+
+            if ($category === 'I' && $prescribed !== '' && strtolower($prescribed) !== 'none') {
+                $validator->errors()->add(
+                    'prescribed_vaccine_type',
+                    'Category I exposures do not require Rabies PEP vaccination. Prescribed PEP vaccine must be empty.'
+                );
+            }
+        });
+    }
 }

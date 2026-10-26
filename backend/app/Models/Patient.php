@@ -49,6 +49,7 @@ class Patient extends Model
         'name',
         'age',
         'has_completed_primary',
+        'is_category1_no_treatment',
     ];
 
     /**
@@ -76,6 +77,99 @@ class Patient extends Model
 
         $allCompletedDoses = array_unique(array_merge($completedTreatmentDoses, $completedApptDoses));
         return count(array_intersect([0, 3, 7], $allCompletedDoses)) === 3;
+    }
+
+    /**
+     * Determine if the doctor has finalized the Category I assessment and confirmed
+     * that no nurse-administered treatment (PEP vaccine, tetanus prophylaxis, RIG) is required.
+     */
+    public function getIsCategory1NoTreatmentAttribute(): bool
+    {
+        $incident = $this->relationLoaded('biteIncidents')
+            ? $this->biteIncidents->first()
+            : $this->biteIncidents()->latest('bite_date')->latest('bite_id')->first();
+
+        if (!$incident) {
+            return false;
+        }
+
+        $category = $incident->exposure_category ?? $incident->bite_category;
+        $severity = strtolower(trim((string) ($incident->severity ?? '')));
+        $isCategory1 = in_array($category, ['I', 'Category I', '1'], true)
+            || in_array($severity, ['minor', 'category i', 'i'], true);
+
+        if (!$isCategory1) {
+            return false;
+        }
+
+        // Doctor assessment must be finalized
+        $isIncidentConfirmed = !empty($incident->confirmed_at)
+            || in_array($incident->status, ['completed', 'active'], true);
+        if (!$isIncidentConfirmed) {
+            return false;
+        }
+
+        $consultation = $this->relationLoaded('latestConsultationRecord')
+            ? $this->latestConsultationRecord
+            : $this->latestConsultationRecord()->first();
+
+        if (!$consultation || ($consultation->status !== 'completed' && empty($consultation->nature_of_visit) && empty($consultation->diagnosis))) {
+            return false;
+        }
+
+        // Must not have a prescribed PEP vaccine
+        if (!empty($consultation->prescribed_vaccine_type) && $consultation->prescribed_vaccine_type !== 'none') {
+            return false;
+        }
+
+        $plan = $incident->relationLoaded('treatmentPlan')
+            ? $incident->treatmentPlan
+            : $incident->treatmentPlan()->first();
+
+        if ($plan && !empty($plan->plan_type) && $plan->plan_type !== 'no_vaccine') {
+            return false;
+        }
+
+        // Check prophylaxis orders for any nurse-administered treatments (tetanus, RIG)
+        $pOrders = $consultation->prophylaxis_orders ?? [];
+        if (is_array($pOrders)) {
+            $tetCat = strtolower(trim((string) ($pOrders['tetanus_category'] ?? '')));
+            $tetVac = strtolower(trim((string) ($pOrders['tetanus_vaccine'] ?? '')));
+            $tetPas = strtolower(trim((string) ($pOrders['tetanus_passive'] ?? '')));
+
+            $hasTetanusOrder = in_array($tetCat, ['ats', 'tt', 'ats_tt'], true) && (
+                ($tetVac !== '' && $tetVac !== 'none') ||
+                ($tetPas !== '' && $tetPas !== 'none')
+            );
+            if ($hasTetanusOrder) {
+                return false;
+            }
+
+            $rig = strtolower(trim((string) ($pOrders['rig'] ?? '')));
+            if ($rig !== '' && $rig !== 'none') {
+                return false;
+            }
+        }
+
+        // Must not have administered doses
+        $hasDoses = $this->relationLoaded('latestTreatmentRecord')
+            ? ($this->latestTreatmentRecord && $this->latestTreatmentRecord->dose_number !== null)
+            : $this->treatmentRecords()->whereNotNull('dose_number')->exists();
+
+        if ($hasDoses) {
+            return false;
+        }
+
+        // Must not have scheduled follow-up appointments
+        $hasScheduledAppt = $this->relationLoaded('appointments')
+            ? $this->appointments->contains(fn($a) => in_array($a->status, ['scheduled', 'confirmed'], true))
+            : $this->appointments()->whereIn('status', ['scheduled', 'confirmed'])->exists();
+
+        if ($hasScheduledAppt) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -359,7 +453,8 @@ class Patient extends Model
     {
         return $this->hasOne(TreatmentRecord::class, 'patient_id', 'patient_id')
             ->whereNull('dose_number')
-            ->latest('consultation_date');
+            ->orderBy('consultation_date', 'desc')
+            ->orderBy('treatment_id', 'desc');
     }
 
     /**

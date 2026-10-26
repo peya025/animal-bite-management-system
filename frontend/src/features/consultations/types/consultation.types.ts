@@ -126,7 +126,7 @@ export interface GeneralTreatmentFormProps {
   open: boolean;
   entry: any; // Queue entry with patient data
   onClose: () => void;
-  onSave: () => void;
+  onSave: (savedData?: any) => void;
   readOnly?: boolean;
   inline?: boolean;
   hideConsultationType?: boolean;

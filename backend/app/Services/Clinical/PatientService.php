@@ -46,7 +46,7 @@ class PatientService
                 'latestConsultationRecord',
                 'upcomingAppointment',
                 'biteIncidents' => function ($bi) {
-                    $bi->latest('bite_date');
+                    $bi->with('treatmentPlan')->latest('bite_date')->latest('bite_id');
                 },
                 'appointments' => function ($app) {
                     $app->orderBy('scheduled_date', 'asc');
@@ -66,7 +66,7 @@ class PatientService
                               });
                       })
                       ->where('status', '!=', 'cancelled')
-                      ->latest();
+                      ->latest('queue_id');
                 }
             ]);
 
@@ -728,6 +728,15 @@ class PatientService
             })
             ->exists();
 
+        if ($patient->is_category1_no_treatment) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'message' => 'Doctor assessment is completed (Category I — No Treatment Required). This patient cannot enter the treatment queue.',
+                ],
+            ];
+        }
+
         if ($hasCompletedDoses || $hasCompletedConsultation || $hasConfirmedEpisode) {
             return [
                 'status' => 422,
@@ -770,18 +779,17 @@ class PatientService
             ->whereDate('queue_date', '<', $todayDate)
             ->first();
 
-        $hasRequiresCheckinToday = Queue::where('clinic_id', $clinicId)
+        $latestQueueToday = Queue::where('clinic_id', $clinicId)
             ->where('patient_id', $patient->patient_id)
             ->where('queue_date', $todayDate)
             ->whereNull('deleted_at')
-            ->where(function ($q) {
-                $q->where('status', 'requires_checkin')
-                  ->orWhere(function ($sub) {
-                      $sub->where('status', 'no_response')
-                          ->where('call_count', '>=', 3);
-                  });
-            })
-            ->exists();
+            ->latest('queue_id')
+            ->first();
+
+        $hasRequiresCheckinToday = $latestQueueToday && (
+            $latestQueueToday->status === 'requires_checkin' ||
+            ($latestQueueToday->status === 'no_response' && $latestQueueToday->call_count >= 3)
+        );
 
         $isReturningOnLaterDate = ($regDate < $todayDate)
             || ($pastAppointment !== null)

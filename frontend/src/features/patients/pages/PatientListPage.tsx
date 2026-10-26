@@ -177,6 +177,67 @@ export default function PatientList() {
     return true;
   };
 
+  /**
+   * Helper to check whether the doctor has finalized the Category I assessment
+   * and confirmed that no nurse-administered treatment (PEP vaccine, tetanus prophylaxis, RIG) is required.
+   */
+  const isCategory1NoTreatmentRequired = (p: Patient | any): boolean => {
+    if (p?.is_category1_no_treatment !== undefined && p?.is_category1_no_treatment !== null) {
+      return Boolean(p.is_category1_no_treatment);
+    }
+
+    const biteIncidents: any[] = p?.bite_incidents || p?.biteIncidents || [];
+    const latestIncident = biteIncidents[0];
+    const consultation = p?.latest_consultation_record || p?.latestConsultationRecord;
+
+    if (!latestIncident || !consultation) return false;
+
+    const category = (latestIncident.exposure_category || latestIncident.bite_category || '').toString().toUpperCase();
+    const severity = (latestIncident.severity || '').toString().toLowerCase();
+    const isCategory1 = category === 'I' || severity === 'minor' || severity === 'category i';
+    if (!isCategory1) return false;
+
+    const isConsultationCompleted = consultation.status === 'completed' || Boolean(consultation.nature_of_visit && consultation.diagnosis);
+    const isIncidentConfirmed = Boolean(latestIncident.confirmed_at || ['completed', 'active'].includes(latestIncident.status));
+    if (!isConsultationCompleted || !isIncidentConfirmed) return false;
+
+    const prescribedVaccine = consultation.prescribed_vaccine_type;
+    if (prescribedVaccine && prescribedVaccine !== 'none') return false;
+
+    const treatmentPlan = latestIncident.treatment_plan || latestIncident.treatmentPlan;
+    if (treatmentPlan?.plan_type && treatmentPlan.plan_type !== 'no_vaccine') return false;
+
+    const pOrders = consultation.prophylaxis_orders || {};
+    const tetCat = (pOrders.tetanus_category || '').toString().toLowerCase();
+    const tetVac = (pOrders.tetanus_vaccine || '').toString().toLowerCase();
+    const tetPas = (pOrders.tetanus_passive || '').toString().toLowerCase();
+
+    const hasTetanusOrder = ['ats', 'tt', 'ats_tt'].includes(tetCat) && (
+      (tetVac !== '' && tetVac !== 'none') ||
+      (tetPas !== '' && tetPas !== 'none')
+    );
+    if (hasTetanusOrder) return false;
+
+    const rig = (pOrders.rig || '').toString().toLowerCase();
+    if (rig !== '' && rig !== 'none') return false;
+
+    const latestRecord = p?.latest_treatment_record || p?.latestTreatmentRecord;
+    if (latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined) return false;
+
+    const appts: any[] = p?.appointments || [];
+    const hasScheduledAppt = appts.some((a: any) => ['scheduled', 'confirmed'].includes(a.status));
+    if (hasScheduledAppt) return false;
+
+    const todayQueues: any[] = p?.queues || [];
+    const hasActiveTreatmentQueue = todayQueues.some((q: any) =>
+      q.visit_type === 'vaccination' &&
+      ['waiting', 'called', 'serving', 'in_consultation'].includes(q.status)
+    );
+    if (hasActiveTreatmentQueue) return false;
+
+    return true;
+  };
+
   const getMobileIntakeReadyForCheckIn = (p: Patient) => {
     const intakes = (p as any).bite_intakes || (p as any).biteIntakes || [];
     const appointments = (p as any).appointments || [];
@@ -264,16 +325,25 @@ export default function PatientList() {
     // are not awaiting triage and cannot be checked in
     if (isPreRegisteredOnly(p)) return false;
 
-    // 1. Must not already be active in today's queue
+    // Doctor finalized Category I assessment with no treatment required — must not enter triage or treatment queue
+    if (isCategory1NoTreatmentRequired(p)) return false;
+
+    // 1. Must not already be active or completed in today's queue
     const todayQueues: any[] = (p as any).queues || [];
+    const sortedTodayQueues = [...todayQueues].sort((a, b) => (Number(b.queue_id ?? b.id ?? 0) - Number(a.queue_id ?? a.id ?? 0)));
+    const latestQueue = sortedTodayQueues[0];
+
     const hasActiveQueueToday = todayQueues.some((q: any) =>
       ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
     );
     if (hasActiveQueueToday) return false;
 
-    // Check if patient specifically requires check-in today after 3 missed calls
-    const requiresCheckinToday = todayQueues.some((q: any) =>
-      q.status === 'requires_checkin' || (q.status === 'no_response' && Number(q.call_count) >= 3)
+    // If today's latest queue ticket was completed, the patient was already attended to today
+    if (latestQueue && latestQueue.status === 'completed') return false;
+
+    // Check if patient specifically requires check-in today after 3 missed calls on their latest ticket
+    const requiresCheckinToday = latestQueue && (
+      latestQueue.status === 'requires_checkin' || (latestQueue.status === 'no_response' && Number(latestQueue.call_count) >= 3)
     );
     if (requiresCheckinToday) return true;
 
@@ -477,13 +547,31 @@ export default function PatientList() {
 
   const getLiveStatus = (p: Patient): { label: string; icon?: any; bg: string; color: string; isPastAppt?: boolean } => {
     const todayQueues: any[] = (p as any).queues || [];
-    const activeQueue = todayQueues.find((q: any) =>
+    const sortedTodayQueues = [...todayQueues].sort((a, b) => (Number(b.queue_id ?? b.id ?? 0) - Number(a.queue_id ?? a.id ?? 0)));
+    const latestQueue = sortedTodayQueues[0];
+
+    const isCat1NoTreatment = isCategory1NoTreatmentRequired(p);
+
+    // 0. Finalized Category I with No Treatment Required
+    if (isCat1NoTreatment) {
+      const qNum = latestQueue?.queue_number;
+      return {
+        label: qNum
+          ? `Queue #${qNum} (Assessment Completed — No Treatment Required)`
+          : 'Assessment Completed — No Treatment Required',
+        icon: CheckmarkCircle02Icon,
+        bg: '#ecfdf5',
+        color: '#059669',
+      };
+    }
+
+    const activeQueue = sortedTodayQueues.find((q: any) =>
       ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
     );
-    const requiresCheckinQueue = todayQueues.find((q: any) =>
-      q.status === 'requires_checkin' || (q.status === 'no_response' && Number(q.call_count) >= 3)
-    );
-    const inactiveQueue = todayQueues[0];
+    const requiresCheckinQueue = (latestQueue && (
+      latestQueue.status === 'requires_checkin' || (latestQueue.status === 'no_response' && Number(latestQueue.call_count) >= 3)
+    )) ? latestQueue : null;
+    const inactiveQueue = latestQueue;
     const appts: any[] = (p as any).appointments || [];
     const todayDate = new Date();
     const todayStr = todayDate.toDateString();
@@ -685,7 +773,8 @@ export default function PatientList() {
       const dob    = new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const reg    = new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const statusInfo = getLiveStatus(p);
-      const displayStatus = isTodayQueue ? statusInfo.label : (p.status ?? 'active');
+      const isCat1NoTreatment = isCategory1NoTreatmentRequired(p);
+      const displayStatus = isTodayQueue ? statusInfo.label : (isCat1NoTreatment ? 'Assessment Completed — No Treatment Required' : (p.status ?? 'active'));
       return `<tr>
         <td style="text-align:center">${i + 1}</td>
         <td style="font-family:monospace">${p.patient_number}</td>
@@ -1010,15 +1099,18 @@ export default function PatientList() {
                 </thead>
                 <tbody>
                   {patients.map(p => {
+                    const isCat1NoTreatment = isCategory1NoTreatmentRequired(p);
                     const statusInfo = getLiveStatus(p);
                     const isOnline = isOnlinePatient(p);
                     const todayQueues: any[] = (p as any).queues || [];
-                    const activeQueue = todayQueues.find((q: any) =>
+                    const sortedTodayQueues = [...todayQueues].sort((a, b) => (Number(b.queue_id ?? b.id ?? 0) - Number(a.queue_id ?? a.id ?? 0)));
+                    const latestQueue = sortedTodayQueues[0];
+                    const activeQueue = sortedTodayQueues.find((q: any) =>
                       ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
                     );
-                    const requiresCheckinQueue = todayQueues.find((q: any) =>
-                      q.status === 'requires_checkin' || (q.status === 'no_response' && Number(q.call_count) >= 3)
-                    );
+                    const requiresCheckinQueue = (!isCat1NoTreatment && latestQueue && (
+                      latestQueue.status === 'requires_checkin' || (latestQueue.status === 'no_response' && Number(latestQueue.call_count) >= 3)
+                    )) ? latestQueue : null;
                     const latestRecord = (p as any).latest_treatment_record;
                     const hasDosesAdministered = Boolean(latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined);
                     const hasCompletedTriage = Boolean(
@@ -1060,6 +1152,7 @@ export default function PatientList() {
                       isAuthorizedRegistrationRole &&
                       !isPreRegistered &&
                       !activeQueue &&
+                      !isCat1NoTreatment &&
                       (isReturningAwaitingTriage || Boolean(requiresCheckinQueue))
                     );
                     const patientId = p.patient_id || p.id;

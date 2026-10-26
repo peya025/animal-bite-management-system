@@ -90,14 +90,35 @@ class TagoloanTreatmentCardService
                 ->latest('treatment_id')
                 ->first();
         }
+        $pOrders = $latestConsultation?->prophylaxis_orders ?? [];
+        $tetCat = $pOrders['tetanus_category'] ?? null;
+        $hasTetanusOrder = in_array($tetCat, ['ats', 'tt', 'ats_tt'], true)
+            && (
+                (!empty($pOrders['tetanus_passive']) && $pOrders['tetanus_passive'] !== 'none') ||
+                (!empty($pOrders['tetanus_vaccine']) && $pOrders['tetanus_vaccine'] !== 'none')
+            );
+
+        $isCategory1 = $latestBite && ($latestBite->exposure_category === 'I' || $latestBite->severity === 'minor');
+
         $planAllowsTreatment = $latestBite
             && $latestBite->treatmentPlan
             && $latestBite->treatmentPlan->status === 'approved'
             && in_array($latestBite->treatmentPlan->plan_type, ['full_pep', 'single_booster', 'two_dose_booster'], true);
-        $form3Ready = (bool) ($latestBite
-            && $latestBite->confirmed_at
-            && $latestConsultation
-            && $planAllowsTreatment);
+
+        if ($isCategory1) {
+            $form3Ready = (bool) ($latestBite && $latestBite->confirmed_at && $latestConsultation && $hasTetanusOrder);
+            $form3BlockReason = $form3Ready
+                ? null
+                : 'Form 3 is unavailable because Doctor assessment confirmed Category I with no nurse-administered treatment required.';
+        } else {
+            $form3Ready = (bool) ($latestBite
+                && $latestBite->confirmed_at
+                && $latestConsultation
+                && ($planAllowsTreatment || $hasTetanusOrder));
+            $form3BlockReason = $form3Ready
+                ? null
+                : 'Form 3 is available after a Doctor confirms Form 2 and approves a treatment plan.';
+        }
 
         $biteData = null;
         if ($latestBite) {
@@ -150,9 +171,7 @@ class TagoloanTreatmentCardService
             'bite_incident' => $biteData,
             'patient_reported_intake' => $latestIntake,
             'form3_ready' => $form3Ready,
-            'form3_block_reason' => $form3Ready
-                ? null
-                : 'Form 3 is available after a Doctor confirms Form 2 and approves a vaccine treatment plan.',
+            'form3_block_reason' => $form3BlockReason,
             'existing_card' => $existingCard,
             'latest_consultation' => $latestConsultation,
             'treatment_records' => $treatmentRecords,
@@ -173,20 +192,67 @@ class TagoloanTreatmentCardService
         $plan = TreatmentPlan::where('clinic_id', $clinicId)
             ->where('bite_id', $validated['bite_id'])
             ->first();
-        $hasConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+        $latestConsultation = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $validated['patient_id'])
             ->where('bite_id', $validated['bite_id'])
             ->whereNull('dose_number')
             ->where('status', 'completed')
-            ->exists();
+            ->latest('treatment_id')
+            ->first();
+        $hasConsultation = (bool) $latestConsultation;
 
-        if (!$incident || !$incident->confirmed_at || !$hasConsultation
-            || !$plan || $plan->status !== 'approved'
-            || !in_array($plan->plan_type, ['full_pep', 'single_booster', 'two_dose_booster'], true)) {
+        $pOrders = $latestConsultation?->prophylaxis_orders ?? [];
+        $tetCat = $pOrders['tetanus_category'] ?? null;
+        $hasTetanusOrder = in_array($tetCat, ['ats', 'tt', 'ats_tt'], true)
+            && (
+                (!empty($pOrders['tetanus_passive']) && $pOrders['tetanus_passive'] !== 'none') ||
+                (!empty($pOrders['tetanus_vaccine']) && $pOrders['tetanus_vaccine'] !== 'none')
+            );
+        $planAllowsTreatment = $plan && $plan->status === 'approved'
+            && in_array($plan->plan_type, ['full_pep', 'single_booster', 'two_dose_booster'], true);
+        $isCategory1 = $incident && ($incident->exposure_category === 'I' || $incident->severity === 'minor');
+
+        if (!$incident || !$incident->confirmed_at || !$hasConsultation) {
             return [
                 'status' => 422,
                 'data' => [
-                    'message' => 'Form 3 cannot be saved until a Doctor confirms Form 2 and approves a vaccine treatment plan for this episode.',
+                    'message' => 'Form 3 cannot be saved until a Doctor confirms Form 2 for this episode.',
+                ],
+            ];
+        }
+
+        if ($isCategory1 && !$hasTetanusOrder) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'message' => 'Form 3 is unavailable because Doctor assessment confirmed Category I with no nurse-administered treatment required.',
+                    'errors' => [
+                        'category' => ['Form 3 is unavailable because Doctor assessment confirmed Category I with no nurse-administered treatment required.'],
+                    ],
+                ],
+            ];
+        }
+
+        if ($isCategory1 && !empty($rawInput['doses'])) {
+            $hasRabiesDose = collect($rawInput['doses'])->contains(fn($d) => !empty($d['date']) && !empty($d['vaccine_type']));
+            if ($hasRabiesDose) {
+                return [
+                    'status' => 422,
+                    'data' => [
+                        'message' => 'Rabies vaccine doses cannot be administered for Category I exposures.',
+                        'errors' => [
+                            'doses' => ['Rabies vaccine doses cannot be administered for Category I exposures.'],
+                        ],
+                    ],
+                ];
+            }
+        }
+
+        if (!$planAllowsTreatment && !$hasTetanusOrder) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'message' => 'Form 3 cannot be saved until a Doctor approves a treatment order for this episode.',
                 ],
             ];
         }

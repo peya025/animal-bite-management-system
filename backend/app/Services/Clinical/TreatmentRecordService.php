@@ -288,6 +288,21 @@ class TreatmentRecordService
             ->where('status', 'scheduled')
             ->first();
 
+        $submittedCategory = $validated['exposure_category'] ?? null;
+        $effectiveCategory = $submittedCategory ?? $activeIncident->exposure_category;
+        $isCategory1 = ($effectiveCategory === 'I');
+
+        $pOrders = $validated['prophylaxis_orders'] ?? [];
+        $tetCat = $pOrders['tetanus_category'] ?? null;
+        $hasTetanusOrder = in_array($tetCat, ['ats', 'tt', 'ats_tt'], true)
+            && (
+                (!empty($pOrders['tetanus_passive']) && $pOrders['tetanus_passive'] !== 'none') ||
+                (!empty($pOrders['tetanus_vaccine']) && $pOrders['tetanus_vaccine'] !== 'none')
+            );
+
+        $prescribedVaccine = $isCategory1 ? null : ($validated['prescribed_vaccine_type'] ?? null);
+        $medicationTreatment = $isCategory1 ? 'No PEP vaccine prescribed' : ($validated['medication_treatment'] ?? null);
+
         $recordPayload = [
             'clinic_id' => $clinicId,
             'patient_id' => $validated['patient_id'],
@@ -314,8 +329,8 @@ class TreatmentRecordService
             'consultation_types' => $validated['consultation_types'],
             'chief_complaints' => $validated['chief_complaints'],
             'diagnosis' => $validated['diagnosis'] ?? null,
-            'medication_treatment' => $validated['medication_treatment'] ?? null,
-            'prescribed_vaccine_type' => $validated['prescribed_vaccine_type'] ?? null,
+            'medication_treatment' => $medicationTreatment,
+            'prescribed_vaccine_type' => $prescribedVaccine,
             'prophylaxis_orders' => $validated['prophylaxis_orders'] ?? null,
             'laboratory_findings' => $validated['laboratory_findings'] ?? null,
             'performed_lab_test' => $validated['performed_lab_test'] ?? null,
@@ -349,9 +364,14 @@ class TreatmentRecordService
         $referredToFacility = trim((string) ($validated['referred_to'] ?? ''));
         $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral'
             && TreatmentRecord::isExternalReferralDestination($referredToFacility);
-        $planType = $validated['treatment_plan'] ?? null;
-        if (!$planType && !$isReferralOut) {
-            $planType = 'full_pep';
+        
+        if ($isCategory1) {
+            $planType = 'no_vaccine';
+        } else {
+            $planType = $validated['treatment_plan'] ?? null;
+            if (!$planType && !$isReferralOut) {
+                $planType = 'full_pep';
+            }
         }
 
         if ($planType) {
@@ -362,13 +382,15 @@ class TreatmentRecordService
                 default => [],
             };
 
+            $planStatus = ($planType === 'no_vaccine' && !$hasTetanusOrder) ? 'completed' : 'approved';
+
             TreatmentPlan::updateOrCreate(
                 ['bite_id' => $activeIncident->bite_id],
                 [
                     'clinic_id' => $clinicId,
                     'patient_id' => $validated['patient_id'],
                     'plan_type' => $planType,
-                    'status' => $planType === 'no_vaccine' ? 'completed' : 'approved',
+                    'status' => $planStatus,
                     'ordered_dose_days' => $orderedDoseDays,
                     'doctor_decision_notes' => $validated['diagnosis'] ?? $validated['chief_complaints'],
                     'decided_by' => $user->id,
@@ -376,10 +398,11 @@ class TreatmentRecordService
                 ]
             );
 
+            $incidentStatus = ($planType === 'no_vaccine' && !$hasTetanusOrder) ? 'completed' : 'active';
             $incidentUpdates = [
                 'episode_type' => in_array($planType, ['single_booster', 'two_dose_booster'], true) ? 're_exposure' : 'primary',
                 'is_previously_vaccinated' => in_array($planType, ['single_booster', 'two_dose_booster', 'continue_existing_schedule'], true),
-                'status' => $planType === 'no_vaccine' ? 'completed' : 'active',
+                'status' => $incidentStatus,
             ];
 
             $activeIncident->update($incidentUpdates);
@@ -391,7 +414,7 @@ class TreatmentRecordService
         }
 
         $todayQueue = null;
-        $planStopsImmediateTreatment = in_array($planType, ['continue_existing_schedule', 'no_vaccine'], true);
+        $planStopsImmediateTreatment = in_array($planType, ['continue_existing_schedule', 'no_vaccine'], true) && !$hasTetanusOrder;
 
         if (!empty($validated['queue_id'])) {
             $todayQueue = Queue::where('clinic_id', $clinicId)
@@ -425,9 +448,13 @@ class TreatmentRecordService
                 $referralNotes = "Referred to external facility: {$referredToFacility} — Visit Completed.";
 
                 if (!$isReferralOut) {
-                    $referralNotes = $planType === 'no_vaccine'
-                        ? 'Doctor decision: no additional rabies vaccine indicated.'
-                        : 'Doctor decision: continue the existing prescribed schedule; no immediate treatment ordered.';
+                    if ($isCategory1) {
+                        $referralNotes = 'Doctor decision: Category I — No treatment required.';
+                    } elseif ($planType === 'no_vaccine') {
+                        $referralNotes = 'Doctor decision: no additional rabies vaccine indicated.';
+                    } else {
+                        $referralNotes = 'Doctor decision: continue the existing prescribed schedule; no immediate treatment ordered.';
+                    }
                 }
 
                 QueueHistory::create([
@@ -453,7 +480,9 @@ class TreatmentRecordService
                 Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
             }
         } else {
-            $transferNotes = 'Doctor completed Form 2 — referred to Treatment.';
+            $transferNotes = ($isCategory1 && $hasTetanusOrder)
+                ? 'Doctor completed Form 2 — Tetanus prophylaxis prescribed.'
+                : 'Doctor completed Form 2 — referred to Treatment.';
 
             if ($todayQueue) {
                 QueueHistory::create([

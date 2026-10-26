@@ -87,30 +87,65 @@ class VaccinationRecordService
 
             $planType = TreatmentPlan::where('clinic_id', $clinicId)->where('bite_id', $biteId)->value('plan_type');
 
-            // Auto-heal: if plan_type is missing but episode is active + has Doctor consultation
-            if (!$planType && $treatmentIncident->status === 'active' && $treatmentIncident->isPrimary()) {
-                $hasConsultation = TreatmentRecord::where('clinic_id', $clinicId)
-                    ->where('bite_id', $biteId)->whereNull('dose_number')->exists();
-                if ($hasConsultation) {
-                    TreatmentPlan::updateOrCreate(
-                        ['bite_id' => $biteId],
-                        [
-                            'clinic_id' => $clinicId, 'patient_id' => $patientId,
-                            'plan_type' => 'full_pep', 'status' => 'approved',
-                            'ordered_dose_days' => [0, 3, 7],
-                            'doctor_decision_notes' => 'Primary series - approved from Doctor consultation.',
-                            'decided_by' => $treatmentIncident->created_by ?? $userId,
-                            'decided_at' => now(),
-                        ]
-                    );
-                    $planType = 'full_pep';
-                }
-            }
+            $isCategory1 = ($treatmentIncident->exposure_category === 'I' || $treatmentIncident->severity === 'minor');
 
-            if (!in_array($planType, ['full_pep', 'single_booster', 'two_dose_booster'], true)) {
-                throw ValidationException::withMessages([
-                    'bite_id' => 'This episode has no Doctor-approved vaccine treatment order.',
-                ]);
+            if ($isCategory1) {
+                $hasRabiesDose = collect($doses)->contains(fn($d) => !empty($d['date']) && !empty($d['vaccine_type']));
+                if ($hasRabiesDose) {
+                    throw ValidationException::withMessages([
+                        'doses' => 'Rabies vaccine doses cannot be administered for Category I exposures.',
+                    ]);
+                }
+
+                $latestConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->where('bite_id', $biteId)
+                    ->whereNull('dose_number')
+                    ->where('status', 'completed')
+                    ->latest('treatment_id')
+                    ->first();
+                $pOrders = $latestConsultation?->prophylaxis_orders ?? [];
+                $tetCat = $pOrders['tetanus_category'] ?? null;
+                $hasTetanusOrder = in_array($tetCat, ['ats', 'tt', 'ats_tt'], true)
+                    && (
+                        (!empty($pOrders['tetanus_passive']) && $pOrders['tetanus_passive'] !== 'none') ||
+                        (!empty($pOrders['tetanus_vaccine']) && $pOrders['tetanus_vaccine'] !== 'none')
+                    );
+
+                if (!$hasTetanusOrder || empty($validated['prophylaxis_administrations'])) {
+                    throw ValidationException::withMessages([
+                        'bite_id' => 'Form 3 administration is not permitted because no treatment was prescribed by the doctor.',
+                    ]);
+                }
+
+                $doses = []; // Category I never has rabies vaccine doses
+                $planType = 'no_vaccine';
+            } else {
+                // Auto-heal: if plan_type is missing but episode is active + has Doctor consultation
+                if (!$planType && $treatmentIncident->status === 'active' && $treatmentIncident->isPrimary()) {
+                    $hasConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+                        ->where('bite_id', $biteId)->whereNull('dose_number')->exists();
+                    if ($hasConsultation) {
+                        TreatmentPlan::updateOrCreate(
+                            ['bite_id' => $biteId],
+                            [
+                                'clinic_id' => $clinicId, 'patient_id' => $patientId,
+                                'plan_type' => 'full_pep', 'status' => 'approved',
+                                'ordered_dose_days' => [0, 3, 7],
+                                'doctor_decision_notes' => 'Primary series - approved from Doctor consultation.',
+                                'decided_by' => $treatmentIncident->created_by ?? $userId,
+                                'decided_at' => now(),
+                            ]
+                        );
+                        $planType = 'full_pep';
+                    }
+                }
+
+                if (!in_array($planType, ['full_pep', 'single_booster', 'two_dose_booster'], true)) {
+                    throw ValidationException::withMessages([
+                        'bite_id' => 'This episode has no Doctor-approved vaccine treatment order.',
+                    ]);
+                }
             }
 
             // ── Promote nurse-verified exposure details to BiteIncident ──────────
@@ -392,7 +427,8 @@ class VaccinationRecordService
 
             // ── Auto-complete today's queue ──────────────────────────────────────
             $todayQueue = null;
-            if (!empty($savedDoseNumbers)) {
+            $hasProphylaxisAdministered = !empty($validated['prophylaxis_administrations'] ?? []);
+            if (!empty($savedDoseNumbers) || $hasProphylaxisAdministered) {
                 if (!empty($validated['queue_id'] ?? null)) {
                     $todayQueue = Queue::where('clinic_id', $clinicId)
                         ->where('queue_id', $validated['queue_id'])
@@ -407,7 +443,9 @@ class VaccinationRecordService
                 }
 
                 if ($todayQueue) {
-                    $completionNotes = 'Vaccination administered (Form 3 completed by Nurse) — Visit Completed.';
+                    $completionNotes = !empty($savedDoseNumbers)
+                        ? 'Vaccination administered (Form 3 completed by Nurse) — Visit Completed.'
+                        : 'Prescribed prophylaxis administered (Form 3 completed by Nurse) — Visit Completed.';
                     QueueHistory::create([
                         'queue_id'     => $todayQueue->queue_id,
                         'clinic_id'    => $todayQueue->clinic_id,
@@ -475,7 +513,10 @@ class VaccinationRecordService
                 if ($incident && $incident->status !== 'completed') {
                     $finalPlanType = TreatmentPlan::where('clinic_id', $clinicId)->where('bite_id', $incident->bite_id)->value('plan_type');
                     $isBooster     = $incident->isReExposure();
-                    if ($finalPlanType === 'single_booster' && in_array(0, $savedDoseNumbers)) {
+                    if ($finalPlanType === 'no_vaccine' && $hasProphylaxisAdministered) {
+                        $incident->update(['status' => 'completed']);
+                        TreatmentPlan::where('clinic_id', $clinicId)->where('bite_id', $incident->bite_id)->update(['status' => 'completed']);
+                    } elseif ($finalPlanType === 'single_booster' && in_array(0, $savedDoseNumbers)) {
                         $incident->update(['status' => 'completed']);
                     } elseif ($isBooster && in_array(3, $savedDoseNumbers)) {
                         $incident->update(['status' => 'completed']);

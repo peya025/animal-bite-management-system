@@ -26,6 +26,7 @@ import {
   Replay as RecallIcon,
   PersonOff as AbsentIcon,
   Undo as ReturnQueueIcon,
+  CheckCircleOutlined as CheckCircleIcon,
 } from '@mui/icons-material';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -127,6 +128,29 @@ function ReadOnlyBanner() {
       <Typography sx={{ fontSize: 13, color: '#92400e' }}>
         You are viewing this form in <strong>read-only mode</strong>.
       </Typography>
+    </Box>
+  );
+}
+
+function Category1NoTreatmentBanner() {
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1.5,
+      px: 2.5, py: 2,
+      mb: 3,
+      bgcolor: '#f0fdf4',
+      border: '1px solid #bbf7d0',
+      borderRadius: 2,
+    }}>
+      <CheckCircleIcon sx={{ fontSize: 18, color: '#16a34a', flexShrink: 0 }} />
+      <Box>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#166534', mb: 0.25 }}>
+          Category I Exposure · No Treatment Required
+        </Typography>
+        <Typography sx={{ fontSize: 12, color: '#15803d' }}>
+          Doctor assessment confirmed Category I exposure with no nurse-administered treatment required. Form 3 administration is locked. The completed consultation and episode record are preserved in history.
+        </Typography>
+      </Box>
     </Box>
   );
 }
@@ -765,8 +789,16 @@ export default function QueuePatientDetailModal({
               open={true}
               entry={formEntry}
               onClose={onClose}
-              onSave={() => {
-                toast('Form 2 saved successfully · Patient referred to Treatment');
+              onSave={(savedData: any) => {
+                const notes = (savedData as any)?.queue?.consultation_notes || '';
+                const isNoTreatment = savedData?.queue?.status === 'completed' || notes.includes('No treatment required');
+                if (isNoTreatment) {
+                  toast('Form 2 saved · Category I consultation finalized (No treatment required)');
+                } else if (notes.includes('Tetanus prophylaxis prescribed')) {
+                  toast('Form 2 saved · Category I referred to Treatment for Tetanus Prophylaxis');
+                } else {
+                  toast('Form 2 saved successfully · Patient referred to Treatment');
+                }
                 onSaved?.();
                 onClose();
               }}
@@ -782,11 +814,17 @@ export default function QueuePatientDetailModal({
         const isNewCaseAwaitingTriage = !historicalEpisode && entry.visit_type === 'new_case' && !entry.consultation_notes?.includes('Form 2');
         const isBoosterRequest = !historicalEpisode && entry.check_in_notes?.toLowerCase().includes('booster request');
         const isReExposure = !historicalEpisode && isReExposureAssessment(entry);
+        const isCategory1NoTreatment = !historicalEpisode && (
+          Boolean(entry.consultation_notes?.includes('Category I — No treatment required')) ||
+          (((entry.biteIncident as any)?.exposure_category === 'I' || (entry as any).incident?.exposure_category === 'I' || entry.biteIncident?.severity === 'minor') && entry.status === 'completed')
+        );
         return (
           <Box sx={{ p: 2.5 }}>
             {episodeContext}
             {isNewCaseAwaitingTriage ? (
               <AwaitingTriageBanner isBoosterRequest={isBoosterRequest} isReExposure={isReExposure} />
+            ) : isCategory1NoTreatment ? (
+              <Category1NoTreatmentBanner />
             ) : !editable ? (
               <ReadOnlyBanner />
             ) : null}
@@ -794,12 +832,12 @@ export default function QueuePatientDetailModal({
               open={true}
               entry={formEntry}
               onClose={onClose}
-              onSave={() => {
+              onSave={(savedData: any) => {
                 toast('Vaccination record saved successfully · Queue ticket completed');
                 onSaved?.();
                 onClose();
               }}
-              readOnly={!editable || isNewCaseAwaitingTriage}
+              readOnly={!editable || isNewCaseAwaitingTriage || isCategory1NoTreatment}
               inline={true}
             />
           </Box>

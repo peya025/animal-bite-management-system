@@ -268,6 +268,21 @@ class VaccinationRecordController extends Controller
             ]);
         }
 
+        $treatmentIncident = BiteIncident::where('clinic_id', $actingUser->clinic_id)
+            ->where('patient_id', $request->patient_id)
+            ->find($biteId);
+        if ($treatmentIncident) {
+            $isCat1 = ($treatmentIncident->exposure_category === 'I' || $treatmentIncident->severity === 'minor');
+            if ($isCat1) {
+                $hasRabiesDose = collect($validated['doses'] ?? [])->contains(fn($d) => !empty($d['date']) && !empty($d['vaccine_type']));
+                if ($hasRabiesDose) {
+                    throw ValidationException::withMessages([
+                        'doses' => 'Rabies vaccine doses cannot be administered for Category I exposures.',
+                    ]);
+                }
+            }
+        }
+
         // Resolve signature
         $signaturePath = null;
         if ($request->boolean('apply_signature')) {

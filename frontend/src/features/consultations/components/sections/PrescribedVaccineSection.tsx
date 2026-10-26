@@ -7,6 +7,7 @@ interface PrescribedVaccineSectionProps {
   prescribedVaccineType: string;
   medicationTreatment: string;
   isFormDisabled: boolean;
+  isCategory1?: boolean;
   vaccineNames: string[];
   vaccineStockMap: VaccineStockMap;
   onChange: (vaccineType: string) => void;
@@ -16,6 +17,7 @@ export default function PrescribedVaccineSection({
   prescribedVaccineType,
   medicationTreatment,
   isFormDisabled,
+  isCategory1 = false,
   vaccineNames,
   vaccineStockMap,
   onChange,
@@ -52,7 +54,24 @@ export default function PrescribedVaccineSection({
             >
               <HugeiconsIcon icon={Stethoscope02Icon} size={12} strokeWidth={2.2} /> Rx — Doctor's Order
             </span>
-            {isFormDisabled && prescribedVaccineType && (
+            {isCategory1 ? (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  background: '#fef3c7',
+                  color: '#92400e',
+                  borderRadius: 99,
+                  padding: '2px 8px',
+                  border: '1px solid #fde68a',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <HugeiconsIcon icon={HugeLockIcon} size={12} strokeWidth={2.2} /> Locked · Category I (No PEP vaccine indicated)
+              </span>
+            ) : isFormDisabled && prescribedVaccineType ? (
               <span
                 style={{
                   fontSize: 11,
@@ -69,19 +88,21 @@ export default function PrescribedVaccineSection({
               >
                 <HugeiconsIcon icon={HugeLockIcon} size={12} strokeWidth={2.2} /> Locked
               </span>
-            )}
+            ) : null}
           </div>
-          <span className="registration-field-hint" style={{ marginBottom: 8, display: 'block' }}>
-            Select the vaccine to prescribe for PEP. This will pre-fill and lock the nurse's Form 3 vaccine selection.
+          <span className="registration-field-hint" style={{ marginBottom: 8, display: 'block', color: isCategory1 ? '#b45309' : undefined, fontWeight: isCategory1 ? 600 : undefined }}>
+            {isCategory1
+              ? 'Category I exposures (intact skin) do not indicate Rabies Post-Exposure Prophylaxis (PEP). PEP vaccine selection is locked.'
+              : 'Select the vaccine to prescribe for PEP. This will pre-fill and lock the nurse\'s Form 3 vaccine selection.'}
           </span>
 
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
             <select
               className="fm-select"
               name="prescribed_vaccine_type"
-              value={prescribedVaccineType}
+              value={isCategory1 ? '' : prescribedVaccineType}
               onChange={(e) => onChange(e.target.value)}
-              disabled={isFormDisabled}
+              disabled={isFormDisabled || isCategory1}
               style={{ flex: 1, minWidth: 260 }}
             >
               <option value="">— No PEP vaccine prescribed —</option>

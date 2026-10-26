@@ -83,7 +83,7 @@ interface VaccinationRecordFormProps {
   open: boolean;
   entry: any;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (data?: any) => void;
   readOnly?: boolean;
   inline?: boolean;
 }
@@ -388,6 +388,20 @@ const formatDateForInput = (dateString: string | null | undefined): string => {
   }
 };
 
+const hasAnyProphylaxisOrder = (orders: any): boolean => {
+  if (!orders) return false;
+  if (Array.isArray(orders)) return orders.length > 0;
+  if (typeof orders === 'object') {
+    return Boolean(
+      (orders.tetanus_category && orders.tetanus_category !== 'not_indicated') ||
+      (orders.tetanus_vaccine && orders.tetanus_vaccine !== 'none') ||
+      (orders.tetanus_passive && orders.tetanus_passive !== 'none') ||
+      (orders.rig && orders.rig !== 'none')
+    );
+  }
+  return false;
+};
+
 export default function VaccinationRecordForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: VaccinationRecordFormProps) {
   const { user: currentUser } = useAuth();
 
@@ -540,6 +554,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [applySignature, setApplySignature] = useState(false);
   const [signatureLoadError, setSignatureLoadError] = useState(false);
   const [signatureRefresh, setSignatureRefresh] = useState(0);
+  const [form3Ready, setForm3Ready] = useState(true);
+  const [form3BlockReason, setForm3BlockReason] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     setApplySignature(false);
@@ -675,6 +691,15 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         activeBiteId ? api.get(`/cases/${activeBiteId}`).catch(() => null) : Promise.resolve(null),
         api.get('/inventory/prophylaxis-stock').catch(() => null),
       ]);
+
+      if (cardRes?.data) {
+        if (cardRes.data.form3_ready !== undefined) {
+          setForm3Ready(Boolean(cardRes.data.form3_ready));
+        }
+        if (cardRes.data.form3_block_reason !== undefined) {
+          setForm3BlockReason(cardRes.data.form3_block_reason);
+        }
+      }
 
       const isReturning = Boolean(vacRes?.data?.is_returning_new_bite);
       setIsReturningNewBite(isReturning);
@@ -836,7 +861,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       });
 
       // 4. Auto-prepare active follow-up dose (either late or on time) ready to update
-      if (!readOnly) {
+      const isCat1Case = bite?.exposure_category === 'I' || bite?.severity === 'minor' || consultation?.treatment_plan === 'no_vaccine';
+      if (!readOnly && !isCat1Case) {
         const staffInfo = getLoggedInStaffInfo();
 
         let activeIdx = -1;
@@ -1286,6 +1312,20 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
     const patientId = entry?.patient?.patient_id || entry?.patient?.id;
 
+    if (!form3Ready) {
+      setError(form3BlockReason || 'Form 3 administration is locked for this patient.');
+      return;
+    }
+
+    const isCat1Submit = exposureCategory === 'I'
+      || currentIncident?.exposure_category === 'I'
+      || currentIncident?.severity === 'minor';
+
+    if ((isCat1Submit || doctorPlanType === 'no_vaccine') && filledDoses.length > 0) {
+      setError('Rabies vaccine doses cannot be administered for Category I exposures.');
+      return;
+    }
+
     if (currentUser?.role === 'triage') {
       setError('Triage doctors are not permitted to record vaccine doses (Form 3). Dose administration must be recorded by the Treatment Nurse.');
       return;
@@ -1456,12 +1496,21 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   if (!entry) return null;
 
+  const isCategory1 = exposureCategory === 'I'
+    || currentIncident?.exposure_category === 'I'
+    || currentIncident?.severity === 'minor'
+    || (entry as any)?.exposure_category === 'I'
+    || (entry as any)?.incident?.exposure_category === 'I'
+    || (entry as any)?.incident?.severity === 'minor';
+
   const isBoosterPlan = doctorPlanType === 'single_booster'
     || doctorPlanType === 'two_dose_booster'
     || currentIncident?.episode_type === 're_exposure'
     || (currentIncident?.episode_number && Number(currentIncident.episode_number) > 1)
     || manualReExposure;
-  const orderedDosePeriods = doctorPlanType === 'single_booster'
+  const orderedDosePeriods = (isCategory1 || doctorPlanType === 'no_vaccine')
+    ? []
+    : doctorPlanType === 'single_booster'
     ? ['Day 0']
     : (doctorPlanType === 'two_dose_booster' || isBoosterPlan)
       ? ['Day 0', 'Day 3']
@@ -1469,7 +1518,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         ? ['Day 0', 'Day 3', 'Day 7']
         : null;
 
-  const candidateDoseList = orderedDosePeriods
+  const candidateDoseList = (isCategory1 || doctorPlanType === 'no_vaccine')
+    ? []
+    : orderedDosePeriods
     ? doses.filter(d => orderedDosePeriods.includes(d.period))
     : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
     ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
@@ -1539,6 +1590,30 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const formContent = (
     <div style={{ padding: inline ? '0' : '24px 32px' }}>
+      {/* Category I Locked Alert - When Doctor confirmed Category I without nurse administration */}
+      {!form3Ready && (
+        <div style={{
+          backgroundColor: '#f0fdf4',
+          border: '1px solid #86efac',
+          borderRadius: BORDER_RADIUS,
+          padding: 14,
+          marginBottom: 20,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12
+        }}>
+          <HugeiconsIcon icon={CheckmarkCircle02Icon} size={22} color="#16a34a" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#166534', marginBottom: 2 }}>
+              Form 3 Locked · Category I (No Nurse-Administered Treatment Required)
+            </div>
+            <div style={{ fontSize: 12, color: '#15803d' }}>
+              {form3BlockReason || 'Doctor assessment confirmed Category I with no nurse-administered treatment required. Form 3 administration is locked. The completed record is safely preserved in patient history.'}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lock Alert - Show when form has completed doses */}
       {hasCompletedDoseInCurrentIncident && !readOnly && (
         <div style={{
@@ -2064,7 +2139,33 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           </div>
         )}
 
-        {/* Dose List: active/selected dose as DoseCard, other doses as DoseRow */}
+        {(isCategory1 || doctorPlanType === 'no_vaccine') ? (
+          <div style={{
+            padding: '16px 18px',
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            borderRadius: BORDER_RADIUS,
+            color: '#166534',
+            fontSize: 13,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            marginBottom: 16,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color="#16a34a" />
+              <span>Category I Exposure · No Rabies PEP Vaccine Prescribed</span>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: '#15803d', lineHeight: 1.5 }}>
+              Per Philippine clinical guidelines, Rabies Post-Exposure Prophylaxis (PEP) vaccine is not indicated for Category I exposures.
+              {hasAnyProphylaxisOrder(latestConsultation?.prophylaxis_orders)
+                ? ' Record the doctor-prescribed tetanus prophylaxis administration in the section below.'
+                : ' No nurse-administered treatments are indicated for this case.'}
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Dose List: active/selected dose as DoseCard, other doses as DoseRow */}
         <div style={{ marginBottom: 12 }}>
           {candidateDoseList.map((dose) => {
             const isCompleted = Boolean(dose.is_completed || dose.inventory_linked);
@@ -2167,13 +2268,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
 
         {/* Subtle helper line */}
-        <p style={{ fontSize: 12, color: '#64748b', marginTop: 12, marginBottom: 0 }}>
-          Automatic FIFO stock deduction on save · Cross-clinic continuity supported
+        <p style={{ fontSize: 12, color: '#64748b', marginTop: 12, marginBottom: 0 }}>Automatic FIFO stock deduction on save · Cross-clinic continuity supported</p></>)}<p style={{ display: 'none' }}>
+
         </p>
       </FormSection>
 
       {/* PROPHYLAXIS (ATS / TT / RIG) ADMINISTRATION IF PRESCRIBED */}
-      {(latestConsultation?.prophylaxis_orders && latestConsultation.prophylaxis_orders.length > 0) && (
+      {hasAnyProphylaxisOrder(latestConsultation?.prophylaxis_orders) && (
         <div style={{ marginTop: 24, borderTop: '1px solid var(--border-color, #e5e7eb)', paddingTop: 20 }}>
           <ProphylaxisAdministrationSection
             orders={latestConsultation?.prophylaxis_orders}
@@ -2181,7 +2282,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             records={prophylaxisRecords}
             value={prophylaxisAdministrations}
             onChange={setProphylaxisAdministrations}
-            disabled={readOnly || saving}
+            disabled={readOnly || saving || !form3Ready}
             today={getLocalDateString()}
             icdCode={icdCode}
             onIcdCodeChange={setIcdCode}
@@ -2235,7 +2336,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={saving || currentUser?.role === 'triage'}
+              disabled={saving || currentUser?.role === 'triage' || !form3Ready}
               style={{
                 padding: '8px 20px',
                 fontSize: 13,
@@ -2244,13 +2345,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 border: 'none',
                 background: '#047857',
                 color: '#ffffff',
-                cursor: (saving || currentUser?.role === 'triage') ? 'not-allowed' : 'pointer',
-                opacity: (saving || currentUser?.role === 'triage') ? 0.6 : 1,
+                cursor: (saving || currentUser?.role === 'triage' || !form3Ready) ? 'not-allowed' : 'pointer',
+                opacity: (saving || currentUser?.role === 'triage' || !form3Ready) ? 0.6 : 1,
                 transition: 'background-color 0.15s ease',
                 boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
               }}
             >
-              {saving ? 'Saving…' : `Save and record ${activeUnlockedPeriod}`}
+              {saving ? 'Saving…' : (isCategory1 || doctorPlanType === 'no_vaccine') ? 'Save prophylaxis administration' : `Save and record ${activeUnlockedPeriod}`}
             </button>
           )}
         </div>
@@ -2280,8 +2381,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
           <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>{readOnly ? 'Close' : 'Cancel'}</button>
           {!readOnly && (
-            <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving || currentUser?.role === 'triage'}>
-              {saving ? 'Saving…' : `Save and record ${activeUnlockedPeriod}`}
+            <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving || currentUser?.role === 'triage' || !form3Ready}>
+              {saving ? 'Saving…' : (isCategory1 || doctorPlanType === 'no_vaccine') ? 'Save prophylaxis administration' : `Save and record ${activeUnlockedPeriod}`}
             </button>
           )}
         </>

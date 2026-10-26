@@ -80,8 +80,8 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     if (formRef.current && focusErrorsRef.current && Object.keys(fieldErrors).length) {
       focusErrorsRef.current = false;
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
       const firstKey = fieldOrder.find((key) => fieldErrors[key]);
       focusFirstError(formRef.current, firstKey, summaryRef.current);
     }
@@ -190,6 +190,28 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         )}
 
         {/* SECTION 6: Clinical Notes (Chief Complaints + Diagnosis checklist) */}
+        <ClinicalNotesSection
+          formData={formData}
+          isFormDisabled={isFormDisabled}
+          checkedDiagnoses={checkedDiagnoses}
+          fieldErrors={fieldErrors}
+          onFieldChange={handleFieldChange}
+          onFieldBlur={handleFieldBlur}
+          onToggleDiagnosis={toggleDiagnosis}
+          onClearDiagnoses={handleClearDiagnoses}
+        />
+
+        {/* SECTION 7: Doctor treatment decision follows the diagnosis */}
+        <ReExposureAssessmentSection
+          entry={entry}
+          requiresReExposureDecision={requiresReExposureDecision}
+          isFormDisabled={isFormDisabled}
+          treatmentPlan={treatmentPlan}
+          error={fieldErrors.treatment_plan}
+          onUpdateTreatmentPlan={setTreatmentPlan}
+        />
+
+        {/* Exposure Category Selection (Immediately above Tetanus Prophylaxis Order) */}
         <div className="fm-section">
           <FormField
             id="field-exposure_category"
@@ -221,26 +243,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
             </div>
           </FormField>
         </div>
-        <ClinicalNotesSection
-          formData={formData}
-          isFormDisabled={isFormDisabled}
-          checkedDiagnoses={checkedDiagnoses}
-          fieldErrors={fieldErrors}
-          onFieldChange={handleFieldChange}
-          onFieldBlur={handleFieldBlur}
-          onToggleDiagnosis={toggleDiagnosis}
-          onClearDiagnoses={handleClearDiagnoses}
-        />
-
-        {/* SECTION 7: Doctor treatment decision follows the diagnosis */}
-        <ReExposureAssessmentSection
-          entry={entry}
-          requiresReExposureDecision={requiresReExposureDecision}
-          isFormDisabled={isFormDisabled}
-          treatmentPlan={treatmentPlan}
-          error={fieldErrors.treatment_plan}
-          onUpdateTreatmentPlan={setTreatmentPlan}
-        />
 
         {/* SECTION 8: Prescribed PEP Vaccine (Doctor's Order & Live Inventory Badge) */}
         <ProphylaxisOrderSection

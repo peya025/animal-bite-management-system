@@ -214,18 +214,26 @@ export default function AddPatientModal({
     }
   };
 
-  // Direct setter for array values or non-string fields (used by GovProgramsSection)
+  // Direct setter for array values or non-string fields (used by GovProgramsSection & RegistrationVitalsSection)
   const handleDirectChange = (key: keyof EnrolmentFormData, value: EnrolmentFormData[keyof EnrolmentFormData]) => {
     setEnrolment(prev => {
       const next = { ...prev, [key]: value };
       draft.saveDraft(next);
       return next;
     });
+    if (fieldErrors[key]) {
+      setFieldErrors(prev => {
+        const e = { ...prev };
+        delete e[key];
+        return e;
+      });
+    }
   };
 
   const handleSubmit = async () => {
     if (savingRef.current) return;
     const newFieldErrors: Record<string, string> = {};
+    const today = new Date().toISOString().split('T')[0];
 
     if (!enrolment.last_name.trim()) {
       newFieldErrors.last_name = 'Last Name is required';
@@ -240,18 +248,21 @@ export default function AddPatientModal({
       newFieldErrors.date_of_birth = 'Date of Birth is required';
     } else if (!isValidFourDigitYearDate(enrolment.date_of_birth)) {
       newFieldErrors.date_of_birth = 'Please enter a valid 4-digit year.';
-    } else if (enrolment.date_of_birth > new Date().toISOString().split('T')[0]) {
+    } else if (enrolment.date_of_birth > today) {
       newFieldErrors.date_of_birth = 'Date of Birth cannot be a future date.';
-    }
-    if (!enrolment.reg_date_of_consultation) {
-      newFieldErrors.reg_date_of_consultation = 'Date of Consultation is required';
-    } else if (!isValidFourDigitYearDate(enrolment.reg_date_of_consultation)) {
-      newFieldErrors.reg_date_of_consultation = 'Please enter a valid 4-digit year.';
-    } else if (enrolment.reg_date_of_consultation > new Date().toISOString().split('T')[0]) {
-      newFieldErrors.reg_date_of_consultation = 'Date of Consultation cannot be a future date.';
     }
     if (canQueuePatient && !enrolment.queue_priority_group) {
       newFieldErrors.queue_priority_group = 'Priority category is required';
+    }
+
+    if (loc.useManual) {
+      if (!loc.manualMun || !loc.manualBrgy) {
+        newFieldErrors.address = 'Please enter Municipality and Barangay.';
+      }
+    } else {
+      if (!loc.municipality || !loc.barangay) {
+        newFieldErrors.address = 'Please select Municipality and Barangay.';
+      }
     }
 
     if (!enrolment.contact_number || !enrolment.contact_number.trim()) {
@@ -280,14 +291,72 @@ export default function AddPatientModal({
       }
     }
 
-    if (loc.useManual) {
-      if (!loc.manualMun || !loc.manualBrgy) {
-        newFieldErrors.address = 'Please enter Municipality and Barangay.';
+    // Section II: For CHU / RHU Personnel Only (Referred by)
+    if (enrolment.mode_of_transaction === 'referral') {
+      if (!enrolment.reg_referred_by || !enrolment.reg_referred_by.trim()) {
+        newFieldErrors.reg_referred_by = 'Referring health center or facility name is required.';
       }
+    }
+
+    // Section III: Consultation Details & Vitals (Required before proceeding to Doctor)
+    if (!enrolment.reg_date_of_consultation || !enrolment.reg_date_of_consultation.trim()) {
+      newFieldErrors.reg_date_of_consultation = 'Date of Consultation is required.';
+    } else if (!isValidFourDigitYearDate(enrolment.reg_date_of_consultation)) {
+      newFieldErrors.reg_date_of_consultation = 'Please enter a valid 4-digit year.';
+    } else if (enrolment.reg_date_of_consultation > today) {
+      newFieldErrors.reg_date_of_consultation = 'Date of Consultation cannot be a future date.';
+    }
+
+    if (!enrolment.reg_consultation_time || !enrolment.reg_consultation_time.trim()) {
+      newFieldErrors.reg_consultation_time = 'Consultation time is required.';
+    }
+
+    const bp = enrolment.reg_blood_pressure ? enrolment.reg_blood_pressure.trim() : '';
+    const [sys, dia] = bp ? bp.split('/') : ['', ''];
+    const hasSys = Boolean(sys && sys.trim());
+    const hasDia = Boolean(dia && dia.trim());
+    if (!hasSys || !hasDia) {
+      newFieldErrors.reg_blood_pressure = 'Blood pressure (both systolic and diastolic) is required.';
     } else {
-      if (!loc.municipality || !loc.barangay) {
-        newFieldErrors.address = 'Please select Municipality and Barangay.';
+      const s = Number(sys);
+      const d = Number(dia);
+      if (isNaN(s) || isNaN(d) || s < 40 || s > 300 || d < 20 || d > 200) {
+        newFieldErrors.reg_blood_pressure = 'Please enter a valid blood pressure (e.g. 120/80).';
       }
+    }
+
+    const tempStr = enrolment.reg_temperature ? enrolment.reg_temperature.trim() : '';
+    if (!tempStr) {
+      newFieldErrors.reg_temperature = 'Temperature is required.';
+    } else {
+      const temp = Number(tempStr);
+      if (isNaN(temp) || temp < 30 || temp > 45) {
+        newFieldErrors.reg_temperature = 'Please enter a valid temperature between 30°C and 45°C.';
+      }
+    }
+
+    const heightStr = enrolment.reg_height ? enrolment.reg_height.trim() : '';
+    if (!heightStr) {
+      newFieldErrors.reg_height = 'Height is required.';
+    } else {
+      const h = Number(heightStr);
+      if (isNaN(h) || h < 20 || h > 300) {
+        newFieldErrors.reg_height = 'Please enter a valid height in cm (e.g. 170).';
+      }
+    }
+
+    const weightStr = enrolment.reg_weight ? enrolment.reg_weight.trim() : '';
+    if (!weightStr) {
+      newFieldErrors.reg_weight = 'Weight is required.';
+    } else {
+      const w = Number(weightStr);
+      if (isNaN(w) || w < 1 || w > 500) {
+        newFieldErrors.reg_weight = 'Please enter a valid weight in kg (e.g. 70).';
+      }
+    }
+
+    if (!enrolment.reg_attending_provider || !enrolment.reg_attending_provider.trim()) {
+      newFieldErrors.reg_attending_provider = 'Name of attending provider is required.';
     }
 
     focusErrorsRef.current = true;

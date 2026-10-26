@@ -356,9 +356,12 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               {/* 3. Health Center / Facility Name */}
               <div style={{ marginBottom: 14 }}>
                 <FormField
+                  id="field-reg_referred_by"
                   label="3. Health Center / Facility Name"
                   required
                   hint="Auto-populates from municipality & barangay, or can be specified manually"
+                  error={!!errors?.reg_referred_by}
+                  errorText={errors?.reg_referred_by}
                 >
                   <input
                     className="fm-input"
@@ -451,9 +454,12 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 {/* 3. Health Center / Facility Name */}
                 <div style={{ gridColumn: '1 / -1' }}>
                   <FormField
+                    id="field-reg_referred_by"
                     label="3. Health Center / Facility Name"
                     required
                     hint="Auto-populates from municipality & barangay, or can be specified manually"
+                    error={!!errors?.reg_referred_by}
+                    errorText={errors?.reg_referred_by}
                   >
                     <input
                       className="fm-input"

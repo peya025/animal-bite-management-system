@@ -414,8 +414,8 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
 
     // Queue Management
     Route::prefix('queue')->group(function () {
-        // View queue (all staff)
-        Route::middleware('role:admin,registration,triage,treatment')->group(function () {
+        // View queue (all staff: admin, registration, triage, treatment, developer)
+        Route::middleware('role:admin,registration,triage,treatment,developer')->group(function () {
             Route::get('/',           [QueueController::class, 'index']);
             Route::get('/waiting',    [QueueController::class, 'waiting']);
             Route::get('/next',       [QueueController::class, 'next']);

@@ -1,4 +1,5 @@
 export * from './FormField';
+export * from './DuplicatePatientBanner';
 export * from './PatientInfoSection';
 export * from './AddressSection';
 export * from './ContactSection';

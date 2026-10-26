@@ -80,6 +80,7 @@ class StorePatientRequest extends FormRequest
             'reg_weight'                => 'nullable|string|max:10',
             'reg_attending_provider'    => 'nullable|string|max:255',
             'reg_referred_by'           => 'nullable|string|max:255',
+            'force_create'              => 'nullable|boolean',
         ], $membershipService->validationRules());
     }
 

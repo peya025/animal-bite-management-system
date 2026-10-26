@@ -265,6 +265,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     // Patient Management (admin, registration, triage, treatment can view)
     Route::prefix('patients')->group(function () {
         Route::get('/', [PatientController::class, 'index']); // All roles
+        Route::get('/check-duplicates', [PatientController::class, 'checkDuplicates']); // Must precede /{id}
         Route::get('/{id}', [PatientController::class, 'show']); // All roles
         Route::get('/{id}/cases', [PatientController::class, 'biteCases']); // All roles
         Route::get('/{id}/vaccinations', [PatientController::class, 'vaccinations']); // All roles

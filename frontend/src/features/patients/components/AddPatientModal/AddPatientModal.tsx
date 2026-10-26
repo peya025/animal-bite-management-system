@@ -6,10 +6,10 @@ import FormModal from '../../../../components/forms/FormModal';
 import { formatPhilHealthNumber, formatPWDNumber } from '../../../../shared/utils';
 import { isValidFourDigitYearDate, sanitizeDateInput } from '../../../../shared/utils/date';
 import { PatientFormContent } from '../../styles/AddPatientModal.styles';
-import type { AddPatientModalProps, EnrolmentFormData } from '../../types';
+import type { AddPatientModalProps, DuplicatePatientMatch, EnrolmentFormData } from '../../types';
 import { getInitialEnrolmentData } from '../../types';
 import { useAddressLocation } from '../../hooks';
-import { createPatientRecord } from '../../services';
+import { checkDuplicatePatients, createPatientRecord } from '../../services';
 import { useFormDraft } from '../../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../../shared/components/DraftStatusBadge';
 import {
@@ -20,7 +20,12 @@ import {
   RegistrationVitalsSection,
 } from './sections';
 
-export default function AddPatientModal({ onClose, onSuccess, role }: AddPatientModalProps) {
+export default function AddPatientModal({
+  onClose,
+  onSuccess,
+  onSelectExistingPatient,
+  role,
+}: AddPatientModalProps) {
   const draft = useFormDraft('add-patient');
 
   const [enrolment, setEnrolment] = useState<EnrolmentFormData>(() => {
@@ -40,6 +45,12 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [duplicateMatches, setDuplicateMatches] = useState<DuplicatePatientMatch[]>([]);
+  const [hasExactDuplicate, setHasExactDuplicate] = useState(false);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  const [confirmedDifferentPerson, setConfirmedDifferentPerson] = useState(false);
+  const [highlightDuplicateConfirmation, setHighlightDuplicateConfirmation] = useState(false);
+
   const loc = useAddressLocation();
   const dialogRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -60,7 +71,79 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
     }
   }, [fieldErrors]);
 
+  // Reset override checkbox if primary identity fields change
+  useEffect(() => {
+    setConfirmedDifferentPerson(false);
+    setHighlightDuplicateConfirmation(false);
+  }, [enrolment.first_name, enrolment.last_name, enrolment.date_of_birth]);
+
+  // Debounced live duplicate & homonym check (Fail-Open: never blocks form input on network error)
+  useEffect(() => {
+    const firstName = enrolment.first_name.trim();
+    const lastName = enrolment.last_name.trim();
+
+    if (firstName.length < 2 || lastName.length < 2) {
+      setDuplicateMatches([]);
+      setHasExactDuplicate(false);
+      setCheckingDuplicates(false);
+      return;
+    }
+
+    const dobValid =
+      !enrolment.date_of_birth || isValidFourDigitYearDate(enrolment.date_of_birth);
+
+    const abortController = new AbortController();
+    const timer = setTimeout(async () => {
+      setCheckingDuplicates(true);
+      try {
+        const result = await checkDuplicatePatients(
+          {
+            first_name: firstName,
+            last_name: lastName,
+            middle_name: enrolment.middle_name,
+            suffix: enrolment.suffix,
+            date_of_birth: dobValid ? enrolment.date_of_birth : undefined,
+            gender: enrolment.sex || undefined,
+          },
+          abortController.signal
+        );
+        if (!abortController.signal.aborted) {
+          setDuplicateMatches(result.matches || []);
+          setHasExactDuplicate(Boolean(result.has_exact_match));
+        }
+      } catch {
+        // Fail-Open: silently ignore aborted or failed background duplicate checks
+      } finally {
+        if (!abortController.signal.aborted) {
+          setCheckingDuplicates(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      abortController.abort();
+    };
+  }, [
+    enrolment.first_name,
+    enrolment.last_name,
+    enrolment.middle_name,
+    enrolment.suffix,
+    enrolment.date_of_birth,
+    enrolment.sex,
+  ]);
+
   const closeDialog = () => { if (!savingRef.current) onClose(); };
+
+  const handleUseExistingPatient = (patientId: number) => {
+    if (savingRef.current) return;
+    draft.clearDraft();
+    if (onSelectExistingPatient) {
+      onSelectExistingPatient(patientId);
+    } else {
+      onClose();
+    }
+  };
 
   const handleDialogKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
@@ -217,8 +300,18 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
       return;
     }
 
+    if (hasExactDuplicate && !confirmedDifferentPerson) {
+      setHighlightDuplicateConfirmation(true);
+      setError(
+        'Possible duplicate patient detected with the same name and birth date. Please click "Use Existing Record" in Section I, or check the confirmation box if you verified this is a different person.'
+      );
+      requestAnimationFrame(() => summaryRef.current?.focus());
+      return;
+    }
+
     setError('');
     setFieldErrors({});
+    setHighlightDuplicateConfirmation(false);
     savingRef.current = true;
     setSaving(true);
 
@@ -234,11 +327,23 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
         purok: loc.purok,
       }, {
         autoQueue: canQueuePatient,
+        forceCreate: confirmedDifferentPerson,
       });
       draft.clearDraft();
       onSuccess();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to save patient record.';
+      const causeResponse = (e as { cause?: { response?: { status?: number; data?: { code?: string; duplicates?: DuplicatePatientMatch[] } } } })?.cause?.response;
+
+      if (causeResponse?.status === 409 && Array.isArray(causeResponse.data?.duplicates)) {
+        setDuplicateMatches(causeResponse.data.duplicates);
+        setHasExactDuplicate(true);
+        setHighlightDuplicateConfirmation(true);
+        setError(message);
+        requestAnimationFrame(() => summaryRef.current?.focus());
+        return;
+      }
+
       const serverErrors = registrationServerErrors(e, enrolment);
       focusErrorsRef.current = true;
       setFieldErrors(serverErrors);
@@ -262,7 +367,14 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
           <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           {draft.hasDraft && draft.status === 'idle' && (
             <button type="button" className="fm-btn fm-btn--cancel" style={{ fontSize: 12, padding: '4px 10px' }}
-              onClick={() => { setEnrolment(getInitialEnrolmentData()); draft.clearDraft(); }}
+              onClick={() => {
+                setEnrolment(getInitialEnrolmentData());
+                setDuplicateMatches([]);
+                setHasExactDuplicate(false);
+                setConfirmedDifferentPerson(false);
+                setHighlightDuplicateConfirmation(false);
+                draft.clearDraft();
+              }}
               disabled={saving}>
               Discard draft
             </button>
@@ -283,13 +395,28 @@ export default function AddPatientModal({ onClose, onSuccess, role }: AddPatient
             const target: EventTarget = event.target;
             const name = target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement ? target.name : '';
             if (name && fieldErrors[name]) setFieldErrors(previous => { const next = { ...previous }; delete next[name]; return next; });
-            // Also schedule a draft save from the current enrolment state captured in next render
-            // (handleFieldChange already calls saveDraft for direct changes; this catches
-            //  any edge-case native changes that may bypass handleFieldChange)
           }}>
           <p className="registration-intro"><strong>Required fields are marked with *.</strong> Press Enter in a text field to move to the next field, or use Tab.</p>
           {error && <p ref={summaryRef} tabIndex={-1} role="alert" className="registration-error">{error}</p>}
-          <PatientInfoSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} showQueueFields={canQueuePatient} />
+          <PatientInfoSection
+            data={enrolment}
+            onChange={handleFieldChange}
+            errors={fieldErrors}
+            showQueueFields={canQueuePatient}
+            duplicateMatches={duplicateMatches}
+            hasExactDuplicate={hasExactDuplicate}
+            checkingDuplicates={checkingDuplicates}
+            confirmedDifferentPerson={confirmedDifferentPerson}
+            onConfirmDifferentPersonChange={(checked) => {
+              setConfirmedDifferentPerson(checked);
+              if (checked) {
+                setHighlightDuplicateConfirmation(false);
+                setError('');
+              }
+            }}
+            onSelectExistingPatient={onSelectExistingPatient ? handleUseExistingPatient : undefined}
+            highlightDuplicateConfirmation={highlightDuplicateConfirmation}
+          />
           <RegistrationAddressSection loc={loc} errors={fieldErrors} />
           <ContactSection data={enrolment} onChange={handleFieldChange} errors={fieldErrors} />
           <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />

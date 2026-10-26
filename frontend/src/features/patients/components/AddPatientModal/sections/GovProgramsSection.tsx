@@ -182,29 +182,27 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
     <div className="fm-section">
       <h3 className="fm-section-title">II. Government Program Information</h3>
       
-      {/* ── Yes / No Radio Choices ── */}
+      {/* ── Yes / No Segmented Pill Choices ── */}
       <FormField label="Any Government Program / Other Membership?">
-        <div className="fm-radio-group" style={{ display: 'flex', gap: 20, marginTop: 4 }}>
-          <label className="fm-radio" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13.5 }}>
-            <input 
-              type="radio" 
-              name="has_membership" 
-              value="yes" 
-              checked={isYes} 
-              onChange={handleHasMembershipChange} 
-              style={{ accentColor: '#10b981', cursor: 'pointer' }}
-            /> 
+        <div className="fm-segmented-group" style={{ marginTop: 4 }}>
+          <label className={`fm-segmented-option ${isYes ? 'fm-segmented-option--selected' : ''}`}>
+            <input
+              type="radio"
+              name="has_membership"
+              value="yes"
+              checked={isYes}
+              onChange={handleHasMembershipChange}
+            />
             Yes
           </label>
-          <label className="fm-radio" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13.5 }}>
-            <input 
-              type="radio" 
-              name="has_membership" 
-              value="no" 
-              checked={isNo} 
-              onChange={handleHasMembershipChange} 
-              style={{ accentColor: '#10b981', cursor: 'pointer' }}
-            /> 
+          <label className={`fm-segmented-option ${isNo ? 'fm-segmented-option--selected' : ''}`}>
+            <input
+              type="radio"
+              name="has_membership"
+              value="no"
+              checked={isNo}
+              onChange={handleHasMembershipChange}
+            />
             No
           </label>
         </div>

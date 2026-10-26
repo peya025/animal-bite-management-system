@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\DuplicatePatientException;
+use App\Http\Requests\Clinical\CheckDuplicatePatientRequest;
 use App\Http\Requests\Clinical\StorePatientRequest;
 use App\Http\Requests\Clinical\UpdatePatientRequest;
 use App\Services\Clinical\PatientService;
@@ -29,17 +31,39 @@ class PatientController extends Controller
     }
 
     /**
+     * Check for potential duplicate or same-name (homonym) patient records.
+     * GET /api/patients/check-duplicates
+     */
+    public function checkDuplicates(CheckDuplicatePatientRequest $request): JsonResponse
+    {
+        $result = $this->patientService->checkDuplicatePatients(
+            $request->user()->clinic_id,
+            $request->validated()
+        );
+
+        return $this->json($result);
+    }
+
+    /**
      * Register new patient
      * Access: admin, registration
      */
     public function store(StorePatientRequest $request): JsonResponse
     {
-        $patient = $this->patientService->storePatient(
-            $request->user()->clinic_id,
-            $request->validated(),
-            $request->user(),
-            $request->all()
-        );
+        try {
+            $patient = $this->patientService->storePatient(
+                $request->user()->clinic_id,
+                $request->validated(),
+                $request->user(),
+                $request->all()
+            );
+        } catch (DuplicatePatientException $e) {
+            return $this->json([
+                'message'    => $e->getMessage(),
+                'code'       => 'duplicate_patient_detected',
+                'duplicates' => $e->getDuplicates(),
+            ], 409);
+        }
 
         return $this->json([
             'message' => 'Patient registered successfully',

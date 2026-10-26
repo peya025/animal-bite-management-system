@@ -1,4 +1,4 @@
-import type { EnrolmentFormData } from '../types';
+import type { DuplicateCheckResponse, EnrolmentFormData } from '../types';
 import api from '../../../shared/services/api';
 import { buildLegacyMembershipFields } from '../utils/memberships';
 
@@ -13,10 +13,38 @@ export async function fetchPatientsList(params: { page?: number; perPage?: numbe
   return response.data;
 }
 
+export async function checkDuplicatePatients(
+  params: {
+    first_name: string;
+    last_name: string;
+    middle_name?: string;
+    suffix?: string;
+    date_of_birth?: string;
+    gender?: string;
+    exclude_patient_id?: number;
+  },
+  signal?: AbortSignal
+): Promise<DuplicateCheckResponse> {
+  const cleanParam = (val?: string) => (val && val.trim() !== '' ? val.trim() : undefined);
+  const response = await api.get<DuplicateCheckResponse>('/patients/check-duplicates', {
+    params: {
+      first_name: params.first_name.trim(),
+      last_name: params.last_name.trim(),
+      middle_name: cleanParam(params.middle_name),
+      suffix: cleanParam(params.suffix),
+      date_of_birth: cleanParam(params.date_of_birth),
+      gender: cleanParam(params.gender),
+      exclude_patient_id: params.exclude_patient_id,
+    },
+    signal,
+  });
+  return response.data;
+}
+
 export async function createPatientRecord(
   enrolment: EnrolmentFormData,
   addressDetails: { full: string; munName: string; brgyName: string; purok: string },
-  options: { autoQueue?: boolean } = {}
+  options: { autoQueue?: boolean; forceCreate?: boolean } = {}
 ) {
   // Map and clean payload to prevent 422 errors (empty strings failing enum validation)
   const cleanField = (val: string) => val.trim() === '' ? null : val;
@@ -75,6 +103,9 @@ export async function createPatientRecord(
     reg_weight: cleanField(enrolment.reg_weight),
     reg_attending_provider: cleanField(enrolment.reg_attending_provider),
     reg_referred_by: enrolment.mode_of_transaction === 'referral' ? cleanField(enrolment.reg_referred_by) : null,
+
+    // Explicit staff override when registering a verified same-name / homonym patient
+    force_create: options.forceCreate ? true : undefined,
 
     // Strip frontend-only fields not known to the backend
     other_memberships: undefined,

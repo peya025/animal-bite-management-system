@@ -159,10 +159,39 @@ export function getInitialEnrolmentData(): EnrolmentFormData {
   };
 }
 
+export type DuplicateMatchTier = 'exact' | 'high' | 'homonym';
+
+export interface DuplicatePatientMatch {
+  patient_id: number;
+  patient_number: string;
+  first_name: string;
+  middle_name?: string | null;
+  last_name: string;
+  suffix?: string | null;
+  full_name: string;
+  gender: 'male' | 'female' | string;
+  date_of_birth?: string | null;
+  age?: number | null;
+  registration_source: string;
+  has_mobile_account: boolean;
+  address_barangay?: string | null;
+  address_municipality?: string | null;
+  mother_maiden_name?: string | null;
+  has_completed_primary: boolean;
+  active_episodes_count: number;
+  last_visit_date?: string | null;
+  match_tier: DuplicateMatchTier;
+}
+
+export interface DuplicateCheckResponse {
+  has_exact_match: boolean;
+  has_matches: boolean;
+  matches: DuplicatePatientMatch[];
+}
 
 export interface AddPatientModalProps {
   onClose: () => void;
   onSuccess: () => void;
+  onSelectExistingPatient?: (patientId: number) => void;
   role?: string;
 }
-

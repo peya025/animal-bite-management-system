@@ -32,6 +32,11 @@ import {
   addMonthsToDate,
   formatDateInput,
 } from '../../utils/inventoryStatus';
+import {
+  getManilaDateString,
+  isValidFourDigitYearDate,
+  sanitizeDateInput,
+} from '../../../../shared/utils/date';
 import { useFormDraft } from '../../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../../shared/components/DraftStatusBadge';
 
@@ -254,7 +259,11 @@ export default function AddEditInventoryDialog({
           selectedCategory?: string;
         }>();
         if (savedDraft?.form) {
-          setForm(savedDraft.form);
+          setForm({
+            ...savedDraft.form,
+            manufactured_date: sanitizeDateInput(savedDraft.form.manufactured_date || ''),
+            expiration_date: sanitizeDateInput(savedDraft.form.expiration_date || ''),
+          });
           if (savedDraft.sourceOfSupply) setSourceOfSupply(savedDraft.sourceOfSupply);
           if (savedDraft.supplierOther !== undefined) setSupplierOther(savedDraft.supplierOther);
           if (savedDraft.selectedCategory) {
@@ -283,6 +292,185 @@ export default function AddEditInventoryDialog({
   const expiryDays = form.expiration_date
     ? Math.ceil((new Date(form.expiration_date).getTime() - todayMs) / 86_400_000)
     : null;
+
+  const todayDate = useMemo(() => getManilaDateString(), []);
+  const tomorrowDate = useMemo(() => {
+    const parts = todayDate.split('-');
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      const next = new Date(y, m, d + 1);
+      return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+    }
+    return '';
+  }, [todayDate]);
+
+  const minExpirationDate = useMemo(() => {
+    if (form.manufactured_date && isValidFourDigitYearDate(form.manufactured_date)) {
+      const parts = form.manufactured_date.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        const next = new Date(y, m, d + 1);
+        return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+      }
+    }
+    if (!isEdit) {
+      return tomorrowDate || todayDate;
+    }
+    return '1900-01-01';
+  }, [form.manufactured_date, isEdit, todayDate, tomorrowDate]);
+
+  const handleManufacturedDateChange = (valOrEvent: string | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const rawVal = typeof valOrEvent === 'string' ? valOrEvent : valOrEvent.target.value;
+    const sanitized = sanitizeDateInput(rawVal);
+
+    setExpirationMode('auto');
+    setForm((prev) => {
+      let autoExp = prev.expiration_date;
+      if (sanitized && isValidFourDigitYearDate(sanitized)) {
+        const calculated = addMonthsToDate(sanitized, Number(prev.shelf_life_months) || 0);
+        if (calculated && isValidFourDigitYearDate(calculated)) {
+          autoExp = calculated;
+        }
+      }
+
+      return {
+        ...prev,
+        manufactured_date: sanitized,
+        expiration_date: autoExp,
+      };
+    });
+
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (!sanitized) {
+        delete next.manufactured_date;
+      } else if (isValidFourDigitYearDate(sanitized)) {
+        if (todayDate && sanitized > todayDate) {
+          next.manufactured_date = 'Manufactured date cannot be in the future.';
+        } else {
+          delete next.manufactured_date;
+        }
+      } else {
+        const yearPart = sanitized.split('-')[0];
+        if (yearPart && yearPart.length >= 4) {
+          next.manufactured_date = 'Manufactured date must be a valid date with a 4-digit year.';
+        }
+      }
+
+      if (next.expiration_date && next.expiration_date.includes('manufactured')) {
+        delete next.expiration_date;
+      }
+      return next;
+    });
+  };
+
+  const handleExpirationDateChange = (valOrEvent: string | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const rawVal = typeof valOrEvent === 'string' ? valOrEvent : valOrEvent.target.value;
+    const sanitized = sanitizeDateInput(rawVal);
+
+    setExpirationMode('manual');
+    setForm((prev) => ({
+      ...prev,
+      expiration_date: sanitized,
+    }));
+
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (!sanitized) {
+        next.expiration_date = 'Expiration date is required.';
+      } else if (isValidFourDigitYearDate(sanitized)) {
+        if (form.manufactured_date && isValidFourDigitYearDate(form.manufactured_date) && sanitized <= form.manufactured_date) {
+          next.expiration_date = 'Expiration date must be later than the manufactured date.';
+        } else if (!isEdit) {
+          const days = Math.ceil((new Date(sanitized).getTime() - todayMs) / 86_400_000);
+          if (days <= 0) {
+            next.expiration_date = 'New stock must have a future expiration date.';
+          } else {
+            delete next.expiration_date;
+          }
+        } else {
+          delete next.expiration_date;
+        }
+      } else {
+        const yearPart = sanitized.split('-')[0];
+        if (yearPart && yearPart.length >= 4) {
+          next.expiration_date = 'Expiration date must be a valid date with a 4-digit year.';
+        }
+      }
+      return next;
+    });
+  };
+
+  const parsePastedDate = (text: string): { iso: string; yearDigits: number } | null => {
+    const clean = text.trim();
+    if (!clean) return null;
+
+    const dmy = clean.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4,})$/);
+    if (dmy) {
+      const day = dmy[1].padStart(2, '0');
+      const month = dmy[2].padStart(2, '0');
+      const year = dmy[3];
+      return { iso: `${year}-${month}-${day}`, yearDigits: year.length };
+    }
+
+    const ymd = clean.match(/^(\d{4,})[./-](\d{1,2})[./-](\d{1,2})$/);
+    if (ymd) {
+      const year = ymd[1];
+      const month = ymd[2].padStart(2, '0');
+      const day = ymd[3].padStart(2, '0');
+      return { iso: `${year}-${month}-${day}`, yearDigits: year.length };
+    }
+
+    const digitsOnly = clean.replace(/\D/g, '');
+    if (digitsOnly.length > 4) {
+      return { iso: '', yearDigits: digitsOnly.length };
+    }
+
+    return null;
+  };
+
+  const handleDatePaste =
+    (field: 'manufactured_date' | 'expiration_date') =>
+    (e: React.ClipboardEvent<HTMLInputElement>) => {
+      const text = e.clipboardData ? e.clipboardData.getData('text') : '';
+      if (!text) return;
+
+      const parsed = parsePastedDate(text);
+      if (parsed) {
+        e.preventDefault();
+        if (parsed.yearDigits > 4 || (parsed.iso && !isValidFourDigitYearDate(parsed.iso))) {
+          setErrors((prev) => ({
+            ...prev,
+            [field]:
+              field === 'manufactured_date'
+                ? 'Manufactured date must have a 4-digit year.'
+                : 'Expiration date must have a 4-digit year.',
+          }));
+          return;
+        }
+
+        if (parsed.iso) {
+          if (field === 'manufactured_date') {
+            handleManufacturedDateChange(parsed.iso);
+          } else {
+            handleExpirationDateChange(parsed.iso);
+          }
+        }
+      } else if (/\d{5,}/.test(text)) {
+        e.preventDefault();
+        setErrors((prev) => ({
+          ...prev,
+          [field]:
+            field === 'manufactured_date'
+              ? 'Manufactured date must have a 4-digit year.'
+              : 'Expiration date must have a 4-digit year.',
+        }));
+      }
+    };
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
@@ -322,9 +510,34 @@ export default function AddEditInventoryDialog({
             delete next.quantity;
           }
           break;
+        case 'manufactured_date':
+          if (form.manufactured_date) {
+            if (!isValidFourDigitYearDate(form.manufactured_date)) {
+              next.manufactured_date = 'Manufactured date must be a valid date with a 4-digit year.';
+            } else if (todayDate && form.manufactured_date > todayDate) {
+              next.manufactured_date = 'Manufactured date cannot be in the future.';
+            } else {
+              delete next.manufactured_date;
+            }
+          } else {
+            delete next.manufactured_date;
+          }
+
+          if (form.expiration_date && isValidFourDigitYearDate(form.expiration_date)) {
+            if (form.manufactured_date && form.expiration_date <= form.manufactured_date) {
+              next.expiration_date = 'Expiration date must be later than the manufactured date.';
+            } else if (next.expiration_date && next.expiration_date.includes('manufactured')) {
+              delete next.expiration_date;
+            }
+          }
+          break;
         case 'expiration_date':
           if (!form.expiration_date) {
             next.expiration_date = 'Expiration date is required.';
+          } else if (!isValidFourDigitYearDate(form.expiration_date)) {
+            next.expiration_date = 'Expiration date must be a valid date with a 4-digit year.';
+          } else if (form.manufactured_date && isValidFourDigitYearDate(form.manufactured_date) && form.expiration_date <= form.manufactured_date) {
+            next.expiration_date = 'Expiration date must be later than the manufactured date.';
           } else if (!isEdit && expiryDays !== null && expiryDays <= 0) {
             next.expiration_date = 'New stock must have a future expiration date.';
           } else {
@@ -361,9 +574,10 @@ export default function AddEditInventoryDialog({
         open_vial_hours: matchedPreset?.default_open_vial_hours ?? null,
         doses_per_vial: nextDpv,
         cold_chain_notes: matchedPreset?.storage_temperature_notes ?? prev.cold_chain_notes,
-        expiration_date: prev.manufactured_date
-          ? addMonthsToDate(prev.manufactured_date, nextShelfLife)
-          : prev.expiration_date,
+        expiration_date:
+          prev.manufactured_date && isValidFourDigitYearDate(prev.manufactured_date)
+            ? addMonthsToDate(prev.manufactured_date, nextShelfLife)
+            : prev.expiration_date,
       };
     });
     setErrors((prev) => {
@@ -381,13 +595,27 @@ export default function AddEditInventoryDialog({
     if (!form.received_from.trim()) return true;
     if (sourceOfSupply === OTHER_SPECIFY && !supplierOther.trim()) return true;
     if (!form.quantity || Number(form.quantity) < 1) return true;
+
+    if (form.manufactured_date) {
+      if (!isValidFourDigitYearDate(form.manufactured_date)) return true;
+      if (todayDate && form.manufactured_date > todayDate) return true;
+    }
+
     if (!form.expiration_date) return true;
+    if (!isValidFourDigitYearDate(form.expiration_date)) return true;
+    if (form.manufactured_date && form.expiration_date <= form.manufactured_date) return true;
     if (!isEdit && expiryDays !== null && expiryDays <= 0) return true;
+
+    if (errors.manufactured_date || errors.expiration_date) return true;
+
     return false;
   }, [
+    errors.expiration_date,
+    errors.manufactured_date,
     expiryDays,
     form.batch_number,
     form.expiration_date,
+    form.manufactured_date,
     form.quantity,
     form.received_from,
     form.vaccine_type,
@@ -396,6 +624,7 @@ export default function AddEditInventoryDialog({
     selectedCategory,
     sourceOfSupply,
     supplierOther,
+    todayDate,
   ]);
 
   const validate = () => {
@@ -410,8 +639,19 @@ export default function AddEditInventoryDialog({
     if (!form.quantity || Number(form.quantity) < 1) {
       next.quantity = isEdit ? 'Balance must be at least 1.' : 'Initial quantity must be at least 1.';
     }
+    if (form.manufactured_date) {
+      if (!isValidFourDigitYearDate(form.manufactured_date)) {
+        next.manufactured_date = 'Manufactured date must be a valid date with a 4-digit year.';
+      } else if (todayDate && form.manufactured_date > todayDate) {
+        next.manufactured_date = 'Manufactured date cannot be in the future.';
+      }
+    }
     if (!form.expiration_date) {
       next.expiration_date = 'Expiration date is required.';
+    } else if (!isValidFourDigitYearDate(form.expiration_date)) {
+      next.expiration_date = 'Expiration date must be a valid date with a 4-digit year.';
+    } else if (form.manufactured_date && isValidFourDigitYearDate(form.manufactured_date) && form.expiration_date <= form.manufactured_date) {
+      next.expiration_date = 'Expiration date must be later than the manufactured date.';
     } else if (!isEdit && expiryDays !== null && expiryDays <= 0) {
       next.expiration_date = 'New stock must have a future expiration date.';
     }
@@ -730,22 +970,29 @@ export default function AddEditInventoryDialog({
                 type="date"
                 label="Manufactured Date"
                 value={form.manufactured_date}
-                onChange={(e) => {
-                  const manufacturedDate = e.target.value;
-                  setExpirationMode('auto');
-                  setForm((prev) => ({
-                    ...prev,
-                    manufactured_date: manufacturedDate,
-                    expiration_date: manufacturedDate
-                      ? addMonthsToDate(manufacturedDate, Number(prev.shelf_life_months) || 0)
-                      : prev.expiration_date,
-                  }));
-                  if (errors.expiration_date) {
-                    setErrors((prev) => ({ ...prev, expiration_date: '' }));
-                  }
+                onChange={handleManufacturedDateChange}
+                onBlur={handleBlurField('manufactured_date')}
+                error={!!errors.manufactured_date}
+                helperText={
+                  errors.manufactured_date || 'Optional. Auto-calculates expiration date when set.'
+                }
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  htmlInput: {
+                    min: '1900-01-01',
+                    max: todayDate,
+                    onPaste: handleDatePaste('manufactured_date'),
+                    onInput: (e: React.FormEvent<HTMLInputElement>) => {
+                      const target = e.currentTarget;
+                      if (target.value) {
+                        const sanitized = sanitizeDateInput(target.value);
+                        if (sanitized !== target.value) {
+                          target.value = sanitized;
+                        }
+                      }
+                    },
+                  },
                 }}
-                slotProps={{ inputLabel: { shrink: true } }}
-                helperText="Optional. Auto-calculates expiration date when set."
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
               />
             </Grid>
@@ -758,14 +1005,26 @@ export default function AddEditInventoryDialog({
                 type="date"
                 label="Expiration Date *"
                 value={form.expiration_date}
-                onChange={(e) => {
-                  setExpirationMode('manual');
-                  setForm((prev) => ({ ...prev, expiration_date: e.target.value }));
-                  setErrors((prev) => ({ ...prev, expiration_date: '' }));
-                }}
+                onChange={handleExpirationDateChange}
                 onBlur={handleBlurField('expiration_date')}
                 error={!!errors.expiration_date}
-                slotProps={{ inputLabel: { shrink: true } }}
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  htmlInput: {
+                    min: minExpirationDate,
+                    max: '9999-12-31',
+                    onPaste: handleDatePaste('expiration_date'),
+                    onInput: (e: React.FormEvent<HTMLInputElement>) => {
+                      const target = e.currentTarget;
+                      if (target.value) {
+                        const sanitized = sanitizeDateInput(target.value);
+                        if (sanitized !== target.value) {
+                          target.value = sanitized;
+                        }
+                      }
+                    },
+                  },
+                }}
                 helperText={
                   errors.expiration_date ||
                   (expirationMode === 'auto' && form.manufactured_date

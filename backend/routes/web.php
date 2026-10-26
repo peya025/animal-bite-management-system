@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Reports\PrintController;
-use App\Http\Controllers\PublicStorageController;
+use App\Http\Controllers\Support\PublicStorageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {

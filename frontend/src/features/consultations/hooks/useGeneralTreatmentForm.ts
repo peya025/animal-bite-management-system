@@ -640,8 +640,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'exposure_category', 'chief_complaints', 'treatment_plan', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {

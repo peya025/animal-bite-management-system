@@ -14,12 +14,27 @@ export interface StatusVisual {
 export function addMonthsToDate(dateInput: string, months: number): string {
   if (!dateInput || !months) return '';
 
-  const base = new Date(dateInput);
-  if (Number.isNaN(base.getTime())) return '';
+  const parts = dateInput.split('-');
+  if (parts.length !== 3 || parts[0].length !== 4) return '';
 
-  const next = new Date(base);
-  next.setMonth(next.getMonth() + months);
-  return next.toISOString().split('T')[0];
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+
+  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return '';
+  if (year < 1000 || year > 9999 || month < 1 || month > 12 || day < 1 || day > 31) return '';
+
+  const totalMonths = month - 1 + months;
+  const targetYear = year + Math.floor(totalMonths / 12);
+  const targetMonth = ((totalMonths % 12) + 12) % 12 + 1;
+
+  // Clamp day to max days in target month (e.g. Feb 28/29)
+  const maxDays = new Date(targetYear, targetMonth, 0).getDate();
+  const targetDay = Math.min(day, maxDays);
+
+  if (targetYear < 1000 || targetYear > 9999) return '';
+
+  return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
 }
 
 export function formatDateInput(dateValue?: string | null): string {

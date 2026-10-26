@@ -53,6 +53,11 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 403) {
+      // Allow specific background/polling calls to opt-out of global access denied modal
+      if ((error.config as any)?.skipAccessDeniedModal || (error.config as any)?.silentAuthError) {
+        return Promise.reject(error);
+      }
+
       // Debounce 403 popups so concurrent forbidden calls don't fire multiple alerts
       const now = Date.now();
       if (now - last403NotificationTime > 1500) {

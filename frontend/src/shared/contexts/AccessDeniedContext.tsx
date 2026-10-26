@@ -16,22 +16,34 @@ export function AccessDeniedProvider({ children }: { children: React.ReactNode }
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState(DEFAULT_DENIED_MESSAGE);
   const lastTriggeredRef = useRef(0);
+  const dismissedInfoRef = useRef<{ message: string; timestamp: number } | null>(null);
   const location = useLocation();
 
   const showAccessDenied = useCallback((customMessage?: string) => {
+    const msg = customMessage || DEFAULT_DENIED_MESSAGE;
     const now = Date.now();
     // Debounce to prevent multiple stacked popups from rapid clicks or concurrent 403 API responses
     if (now - lastTriggeredRef.current < 1200 && isOpen) {
       return;
     }
+    // Prevent the same error from reopening continuously after being dismissed by the user
+    if (!isOpen && dismissedInfoRef.current && dismissedInfoRef.current.message === msg && (now - dismissedInfoRef.current.timestamp < 10000)) {
+      return;
+    }
     lastTriggeredRef.current = now;
-    setMessage(customMessage || DEFAULT_DENIED_MESSAGE);
+    setMessage(msg);
     setIsOpen(true);
   }, [isOpen]);
 
   const closeAccessDenied = useCallback(() => {
+    dismissedInfoRef.current = { message, timestamp: Date.now() };
     setIsOpen(false);
-  }, []);
+  }, [message]);
+
+  // Reset dismissed error suppression when navigating to another route
+  useEffect(() => {
+    dismissedInfoRef.current = null;
+  }, [location.pathname]);
 
   // Listen to custom window event dispatched by API client interceptor or non-react handlers
   useEffect(() => {

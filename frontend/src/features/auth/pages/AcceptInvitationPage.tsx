@@ -248,7 +248,7 @@ export default function AcceptInvitationPage() {
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <input type="email" value={invitation?.email || ''} disabled 
+              <input type="email" className="auth-input login-input" value={invitation?.email || ''} disabled 
                 style={{ background: '#f9fafb', cursor: 'not-allowed' }} />
             </div>
           </div>
@@ -262,6 +262,7 @@ export default function AcceptInvitationPage() {
               </svg>
               <input 
                 type="text" 
+                className="auth-input login-input"
                 placeholder="Juan Dela Cruz"
                 value={name}
                 onChange={e => {
@@ -282,6 +283,7 @@ export default function AcceptInvitationPage() {
               </svg>
               <input 
                 type="tel" 
+                className="auth-input login-input"
                 placeholder="09123456789"
                 value={phone}
                 onChange={e => {

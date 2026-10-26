@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\PrintController;
+use App\Http\Controllers\Reports\PrintController;
 use App\Http\Controllers\PublicStorageController;
 use Illuminate\Support\Facades\Route;
 

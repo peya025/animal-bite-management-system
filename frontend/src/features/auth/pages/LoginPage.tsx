@@ -311,7 +311,7 @@ export default function Login() {
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <input type="email" placeholder="doctor@animalcare.org"
+              <input type="email" className="auth-input login-input" placeholder="doctor@animalcare.org"
                 value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
             </div>
           </div>
@@ -323,7 +323,7 @@ export default function Login() {
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
-              <input type={showPassword ? 'text' : 'password'} placeholder="••••••••"
+              <input type={showPassword ? 'text' : 'password'} className="auth-input login-input" placeholder="••••••••"
                 value={password} onChange={e => setPassword(e.target.value)} disabled={loading} />
               <button type="button" className="visibility-toggle" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
                 {showPassword ? (

@@ -1412,6 +1412,25 @@ export default function PatientList() {
         <AddPatientModal
           role={userRole}
           onClose={() => setShowAddModal(false)}
+          onSelectExistingPatient={(patientId) => {
+            setShowAddModal(false);
+            const cached = patients.find((p) => (p.patient_id || p.id) === patientId);
+            if (cached) {
+              setSelectedViewPatient(cached);
+              setOpenReExposureOnView(false);
+              setShowViewModal(true);
+            }
+            api
+              .get(`/patients/${patientId}`)
+              .then((res) => {
+                if (res.data) {
+                  setSelectedViewPatient(res.data.patient || res.data);
+                  setOpenReExposureOnView(false);
+                  setShowViewModal(true);
+                }
+              })
+              .catch(() => {});
+          }}
           onSuccess={() => {
             setShowAddModal(false);
             fetchPatients();

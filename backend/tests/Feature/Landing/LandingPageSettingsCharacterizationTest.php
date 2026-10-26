@@ -58,8 +58,8 @@ class LandingPageSettingsCharacterizationTest extends TestCase
 
         // Explicitly register developer landing-page routes for this test suite
         \Illuminate\Support\Facades\Route::middleware(['auth:sanctum', 'active.user', 'role:developer'])->group(function () {
-            \Illuminate\Support\Facades\Route::post('/api/developer/landing-page-settings', [\App\Http\Controllers\LandingPageSettingsController::class, 'updateSettings']);
-            \Illuminate\Support\Facades\Route::put('/api/developer/landing-page-settings', [\App\Http\Controllers\LandingPageSettingsController::class, 'updateSettings']);
+            \Illuminate\Support\Facades\Route::post('/api/developer/landing-page-settings', [\App\Http\Controllers\Settings\LandingPageSettingsController::class, 'updateSettings']);
+            \Illuminate\Support\Facades\Route::put('/api/developer/landing-page-settings', [\App\Http\Controllers\Settings\LandingPageSettingsController::class, 'updateSettings']);
         });
     }
 

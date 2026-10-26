@@ -2,7 +2,8 @@
 
 namespace App\Services\Clinical;
 
-use App\Http\Controllers\QueueController;
+use App\Exceptions\DuplicatePatientException;
+use App\Http\Controllers\Operations\QueueController;
 use App\Models\Appointment;
 use App\Models\AuditLog;
 use App\Models\BiteIncident;
@@ -222,10 +223,184 @@ class PatientService
     }
 
     /**
+     * Check for potential duplicate or same-name (homonym) patient records in the clinic.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array{has_exact_match: bool, has_matches: bool, matches: array<int, array<string, mixed>>}
+     */
+    public function checkDuplicatePatients(int $clinicId, array $input): array
+    {
+        $firstName = $this->normalizeNamePart($input['first_name'] ?? '');
+        $lastName = $this->normalizeNamePart($input['last_name'] ?? '');
+        $middleName = $this->normalizeNamePart($input['middle_name'] ?? '');
+        $suffix = $this->normalizeSuffix($input['suffix'] ?? '');
+        $dob = !empty($input['date_of_birth'])
+            ? Carbon::parse($input['date_of_birth'])->toDateString()
+            : null;
+        $excludeId = !empty($input['exclude_patient_id'])
+            ? (int) $input['exclude_patient_id']
+            : null;
+
+        if (mb_strlen($firstName) < 2 || mb_strlen($lastName) < 2) {
+            return [
+                'has_exact_match' => false,
+                'has_matches'     => false,
+                'matches'         => [],
+            ];
+        }
+
+        $candidates = Patient::where('clinic_id', $clinicId)
+            ->when($excludeId, fn($q) => $q->where('patient_id', '!=', $excludeId))
+            ->whereRaw('LOWER(TRIM(last_name)) = ?', [$lastName])
+            ->with([
+                'details',
+                'accounts',
+                'biteIncidents' => fn($q) => $q->latest('bite_date'),
+                'treatmentRecords' => fn($q) => $q->latest('consultation_date'),
+            ])
+            ->limit(50)
+            ->get();
+
+        $matches = [];
+        $tierPriority = ['exact' => 1, 'high' => 2, 'homonym' => 3];
+
+        foreach ($candidates as $candidate) {
+            $candFirst = $this->normalizeNamePart($candidate->first_name);
+            $candMiddle = $this->normalizeNamePart($candidate->middle_name);
+            $candSuffix = $this->normalizeSuffix($candidate->suffix);
+            $candDob = $candidate->date_of_birth
+                ? $candidate->date_of_birth->format('Y-m-d')
+                : null;
+
+            $isExactFirst = ($candFirst === $firstName);
+            $isCompoundFirst = !$isExactFirst && (
+                str_starts_with($candFirst, $firstName . ' ')
+                || str_starts_with($firstName, $candFirst . ' ')
+            );
+
+            if (!$isExactFirst && !$isCompoundFirst) {
+                continue;
+            }
+
+            // Detect explicit suffix conflict (e.g. "Sr." vs "Jr.", or one has "Jr." while the other has "Sr.")
+            $hasExplicitSuffixConflict = ($suffix !== '' && $candSuffix !== '' && $suffix !== $candSuffix)
+                || ($suffix !== '' && $candSuffix === '' && in_array($suffix, ['jr', 'sr', 'ii', 'iii', 'iv'], true))
+                || ($suffix === '' && $candSuffix !== '' && in_array($candSuffix, ['jr', 'sr', 'ii', 'iii', 'iv'], true));
+
+            if ($dob !== null && $candDob !== null) {
+                if ($dob === $candDob && $isExactFirst && !$hasExplicitSuffixConflict) {
+                    $tier = 'exact';
+                } else {
+                    $tier = 'homonym';
+                }
+            } else {
+                if ($hasExplicitSuffixConflict) {
+                    $tier = 'homonym';
+                } elseif ($middleName !== '' && $candMiddle !== '' && $middleName !== $candMiddle) {
+                    $tier = 'homonym';
+                } else {
+                    $tier = 'high';
+                }
+            }
+
+            $latestTreatment = $candidate->treatmentRecords->first();
+            $latestIncident = $candidate->biteIncidents->first();
+            $rawVisitDate = $latestTreatment?->consultation_date
+                ?? $latestTreatment?->treatment_date
+                ?? $latestIncident?->bite_date;
+            $lastVisitDate = $rawVisitDate
+                ? Carbon::parse($rawVisitDate)->toDateString()
+                : null;
+
+            $matches[] = [
+                'patient_id'            => $candidate->patient_id,
+                'patient_number'        => $candidate->patient_number,
+                'first_name'            => $candidate->first_name,
+                'middle_name'           => $candidate->middle_name,
+                'last_name'             => $candidate->last_name,
+                'suffix'                => $candidate->suffix,
+                'full_name'             => $candidate->name,
+                'gender'                => $candidate->gender,
+                'date_of_birth'         => $candDob,
+                'age'                   => $candidate->age,
+                'registration_source'   => $candidate->registration_source ?? 'staff',
+                'has_mobile_account'    => ($candidate->registration_source === 'mobile') || $candidate->accounts->isNotEmpty(),
+                'address_barangay'      => $candidate->details?->address_barangay,
+                'address_municipality'  => $candidate->details?->address_municipality,
+                'mother_maiden_name'    => $candidate->details?->mother_maiden_name,
+                'has_completed_primary' => (bool) $candidate->has_completed_primary,
+                'active_episodes_count' => $candidate->biteIncidents
+                    ->whereIn('status', ['active', 'awaiting_assessment', 'pending_assessment'])
+                    ->count(),
+                'last_visit_date'       => $lastVisitDate,
+                'match_tier'            => $tier,
+            ];
+        }
+
+        usort($matches, fn(array $a, array $b) => ($tierPriority[$a['match_tier']] ?? 9) <=> ($tierPriority[$b['match_tier']] ?? 9));
+        $matches = array_slice($matches, 0, 5);
+
+        $hasExactMatch = collect($matches)->contains(fn(array $m) => $m['match_tier'] === 'exact');
+
+        return [
+            'has_exact_match' => $hasExactMatch,
+            'has_matches'     => !empty($matches),
+            'matches'         => $matches,
+        ];
+    }
+
+    /**
+     * Normalize a name part for case-insensitive and whitespace-insensitive comparison.
+     */
+    private function normalizeNamePart(?string $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        return mb_strtolower((string) preg_replace('/\s+/u', ' ', trim($value)));
+    }
+
+    /**
+     * Normalize a suffix (e.g., "Jr." -> "jr", "Sr." -> "sr").
+     */
+    private function normalizeSuffix(?string $value): string
+    {
+        return rtrim($this->normalizeNamePart($value), '.');
+    }
+
+    /**
      * Store new patient registration with optional vitals and pending episode.
      */
     public function storePatient(int $clinicId, array $validated, User $user, array $rawInput): Patient
     {
+        $forceCreate = filter_var($rawInput['force_create'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $duplicateCheck = $this->checkDuplicatePatients($clinicId, [
+            'first_name'    => $validated['first_name'] ?? '',
+            'last_name'     => $validated['last_name'] ?? '',
+            'middle_name'   => $validated['middle_name'] ?? null,
+            'suffix'        => $validated['suffix'] ?? null,
+            'date_of_birth' => $validated['date_of_birth'] ?? null,
+            'gender'        => $validated['gender'] ?? null,
+        ]);
+
+        $exactMatches = array_values(array_filter(
+            $duplicateCheck['matches'],
+            fn(array $m) => $m['match_tier'] === 'exact'
+        ));
+
+        if (!empty($exactMatches) && !$forceCreate) {
+            $primaryMatch = $exactMatches[0];
+            $dobFormatted = !empty($primaryMatch['date_of_birth'])
+                ? Carbon::parse($primaryMatch['date_of_birth'])->format('M j, Y')
+                : 'unspecified birth date';
+
+            throw new DuplicatePatientException(
+                "A patient with the exact same name and birth date ({$dobFormatted}) is already registered ({$primaryMatch['patient_number']}). Please use the existing record or confirm that this is a different person.",
+                $duplicateCheck['matches']
+            );
+        }
+
         $patient = DB::transaction(function () use ($clinicId, $validated, $user, $rawInput) {
             $patient = Patient::create([
                 'clinic_id' => $clinicId,
@@ -340,6 +515,24 @@ class PatientService
 
             return $patient;
         });
+
+        if ($forceCreate && !empty($duplicateCheck['matches'])) {
+            try {
+                $existingNumbers = implode(', ', array_column($duplicateCheck['matches'], 'patient_number'));
+                AuditLog::log('create_homonym_override', 'Patient', $patient->patient_id, [
+                    'description' => "Staff {$user->name} confirmed new patient {$patient->name} ({$patient->patient_number}) is distinct from existing same-name record(s): {$existingNumbers}",
+                    'new_values'  => [
+                        'patient_number'           => $patient->patient_number,
+                        'full_name'                => $patient->name,
+                        'date_of_birth'            => $patient->date_of_birth?->format('Y-m-d'),
+                        'overridden_patient_ids'   => array_column($duplicateCheck['matches'], 'patient_id'),
+                        'overridden_patient_nos'   => array_column($duplicateCheck['matches'], 'patient_number'),
+                    ],
+                ]);
+            } catch (\Throwable) {
+                // Never allow audit logging failure to disrupt primary patient registration
+            }
+        }
 
         Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
 

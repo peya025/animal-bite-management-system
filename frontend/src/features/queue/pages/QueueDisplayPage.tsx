@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -211,6 +212,7 @@ function SubStationCard({
 // ─── Main Page ────────────────────────────────────────────────
 
 export default function QueueDisplayPage() {
+  const { user } = useAuth();
   const [now, setNow]         = useState(new Date());
   const [queue, setQueue]     = useState<QueueEntry[]>([]);
   const [, setLoading] = useState(true);
@@ -220,7 +222,23 @@ export default function QueueDisplayPage() {
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevCalledRef  = useRef<Set<string>>(new Set());
   const autoCallingRef = useRef<Set<number>>(new Set()); // guard against duplicate auto-calls
+  const attemptedCallIdsRef = useRef<Set<number>>(new Set());
+  const autoCallUnauthorizedRef = useRef<boolean>(false);
   const audioCtxRef   = useRef<AudioContext | null>(null);
+
+  // Registration Staff is explicitly authorized to view the Queue Display and receive
+  // calling announcements/chimes. However, calling, skipping, or completing queue
+  // items is strictly reserved for Admin, Doctor/Triage, and Treatment Nurses.
+  const isRegistrationStaff = user?.role === 'registration';
+  const canCallPatients = Boolean(
+    user && !isRegistrationStaff && (
+      ['admin', 'triage', 'treatment', 'doctor', 'developer'].includes(user.role) ||
+      user.is_nursing ||
+      user.roles?.some((r: any) =>
+        ['admin', 'clinic_admin', 'triage', 'doctor', 'treatment', 'nurse', 'intake_nurse', 'follow_up_nurse', 'developer'].includes(r.slug)
+      )
+    )
+  );
 
   // Clock
   useEffect(() => {
@@ -309,6 +327,12 @@ export default function QueueDisplayPage() {
       }
       prevCalledRef.current = nowCalled;
 
+      // Auto-calling is strictly restricted to clinical & admin staff (Doctors, Nurses, Admins).
+      // Registration Staff and unauthorized viewers only observe and hear announcements.
+      if (!canCallPatients || autoCallUnauthorizedRef.current) {
+        return;
+      }
+
       // Auto-call independently for Doctor, Station 1, and Station 2. One busy
       // nurse must never hold the other treatment station's queue.
       // and there's a waiting patient, call them automatically
@@ -319,8 +343,10 @@ export default function QueueDisplayPage() {
         const nextWaiting = entries.find(e => e.status === 'waiting' && getDisplayLane(e) === lane);
         if (!nextWaiting) continue; // nobody waiting
 
-        // Skip if we're already mid-call for this entry (prevents duplicate POSTs across polls)
-        if (autoCallingRef.current.has(nextWaiting.queue_id)) continue;
+        // Skip if we're already mid-call or if this entry previously failed
+        if (autoCallingRef.current.has(nextWaiting.queue_id) || attemptedCallIdsRef.current.has(nextWaiting.queue_id)) {
+          continue;
+        }
 
         autoCallingRef.current.add(nextWaiting.queue_id);
         api.post(`/queue/${nextWaiting.queue_id}/call`)
@@ -330,11 +356,16 @@ export default function QueueDisplayPage() {
             prevCalledRef.current.add(getCallKey(calledEntry));
             loadQueue();
           })
-          .catch(() => {/* ignore — next poll will retry if still needed */})
+          .catch((err: any) => {
+            attemptedCallIdsRef.current.add(nextWaiting.queue_id);
+            if (err?.response?.status === 403) {
+              autoCallUnauthorizedRef.current = true;
+            }
+          })
           .finally(() => autoCallingRef.current.delete(nextWaiting.queue_id));
       }
     } catch { /* ignore */ }
-  }, [triggerCallNotice]);
+  }, [triggerCallNotice, canCallPatients]);
 
   useEffect(() => {
     loadQueue();

@@ -262,21 +262,27 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         </h3>
         <div className="fm-grid" style={{ marginBottom: 14 }}>
           <FormField label="Mode of Transaction">
-            <div className="fm-radio-group">
-              {(['walk-in', 'visited', 'referral'] as const).map((mode) => (
-                <label key={mode} className="fm-radio">
-                  <input
-                    type="radio"
-                    name="mode_of_transaction"
-                    value={mode}
-                    checked={(data.mode_of_transaction || 'walk-in') === mode}
-                    onChange={handleModeChange}
-                  />
-                  <span style={{ textTransform: 'capitalize' }}>
-                    {mode.replace('-', ' ')}
-                  </span>
-                </label>
-              ))}
+            <div className="fm-segmented-group">
+              {(['walk-in', 'visited', 'referral'] as const).map((mode) => {
+                const isSelected = (data.mode_of_transaction || 'walk-in') === mode;
+                return (
+                  <label
+                    key={mode}
+                    className={`fm-segmented-option ${isSelected ? 'fm-segmented-option--selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="mode_of_transaction"
+                      value={mode}
+                      checked={isSelected}
+                      onChange={handleModeChange}
+                    />
+                    <span style={{ textTransform: 'capitalize' }}>
+                      {mode.replace('-', ' ')}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </FormField>
         </div>
@@ -350,9 +356,12 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               {/* 3. Health Center / Facility Name */}
               <div style={{ marginBottom: 14 }}>
                 <FormField
+                  id="field-reg_referred_by"
                   label="3. Health Center / Facility Name"
                   required
                   hint="Auto-populates from municipality & barangay, or can be specified manually"
+                  error={!!errors?.reg_referred_by}
+                  errorText={errors?.reg_referred_by}
                 >
                   <input
                     className="fm-input"
@@ -445,9 +454,12 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 {/* 3. Health Center / Facility Name */}
                 <div style={{ gridColumn: '1 / -1' }}>
                   <FormField
+                    id="field-reg_referred_by"
                     label="3. Health Center / Facility Name"
                     required
                     hint="Auto-populates from municipality & barangay, or can be specified manually"
+                    error={!!errors?.reg_referred_by}
+                    errorText={errors?.reg_referred_by}
                   >
                     <input
                       className="fm-input"

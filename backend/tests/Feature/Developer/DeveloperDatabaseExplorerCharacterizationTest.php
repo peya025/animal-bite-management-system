@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Developer;
 
-use App\Http\Controllers\DeveloperDatabaseExplorerController;
+use App\Http\Controllers\Support\DeveloperDatabaseExplorerController;
 use App\Models\Clinic;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

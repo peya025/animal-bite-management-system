@@ -1,36 +1,36 @@
 <?php
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\AuditLogController;
-use App\Http\Controllers\AppointmentController;
-use App\Http\Controllers\BiteCaseController;
-use App\Http\Controllers\BiteIncidentIntakeController;
-use App\Http\Controllers\BiteIntakeSchemaController;
-use App\Http\Controllers\ClinicModuleConfigController;
-use App\Http\Controllers\ClinicSetupController;
+use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Operations\AppointmentController;
+use App\Http\Controllers\Clinical\BiteCaseController;
+use App\Http\Controllers\Clinical\BiteIncidentIntakeController;
+use App\Http\Controllers\Clinical\BiteIntakeSchemaController;
+use App\Http\Controllers\Admin\ClinicModuleConfigController;
+use App\Http\Controllers\Admin\ClinicSetupController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
 use App\Http\Controllers\Mobile\MobileLocationController;
 use App\Http\Controllers\Mobile\MobileNotificationController;
 use App\Http\Controllers\Mobile\MobileVaccinationCardController;
 use App\Http\Controllers\Mobile\PatientAccountAuthController;
 use App\Http\Controllers\Mobile\PatientProfileController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\PatientAccessController;
-use App\Http\Controllers\PatientController;
-use App\Http\Controllers\QueueController;
-use App\Http\Controllers\StaffInvitationController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\VaccinationController;
-use App\Http\Controllers\TagoloanTreatmentCardController;
-use App\Http\Controllers\TreatmentRecordController;
-use App\Http\Controllers\VaccinationRecordController;
-use App\Http\Controllers\VaccineInventoryController;
-use App\Http\Controllers\PrintController;
-use App\Http\Controllers\PublicStorageController;
-use App\Http\Controllers\ReportController;
-use App\Http\Controllers\LandingPageSettingsController;
-use App\Http\Controllers\ClinicScheduleController;
-use App\Http\Controllers\VaccinationJourneyController;
+use App\Http\Controllers\Settings\NotificationController;
+use App\Http\Controllers\Auth\PatientAccessController;
+use App\Http\Controllers\Clinical\PatientController;
+use App\Http\Controllers\Operations\QueueController;
+use App\Http\Controllers\Auth\StaffInvitationController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Operations\VaccinationController;
+use App\Http\Controllers\Clinical\TagoloanTreatmentCardController;
+use App\Http\Controllers\Clinical\TreatmentRecordController;
+use App\Http\Controllers\Operations\VaccinationRecordController;
+use App\Http\Controllers\Inventory\VaccineInventoryController;
+use App\Http\Controllers\Reports\PrintController;
+use App\Http\Controllers\Support\PublicStorageController;
+use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Settings\LandingPageSettingsController;
+use App\Http\Controllers\Admin\ClinicScheduleController;
+use App\Http\Controllers\Operations\VaccinationJourneyController;
 use Illuminate\Support\Facades\Route;
 
 // Public media / storage fallback route (works without symlink)
@@ -88,7 +88,7 @@ Route::get('/setup/check-needed', function () {
     ]);
 })->middleware('public.setup');
 
-use App\Http\Controllers\DeveloperDatabaseExplorerController;
+use App\Http\Controllers\Support\DeveloperDatabaseExplorerController;
 use App\Http\Controllers\Developer\AppointmentDiagnosticController;
 
 if (
@@ -149,7 +149,7 @@ Route::prefix('mobile')->group(function () {
     });
 });
 
-use App\Http\Controllers\PatientInvitationController;
+use App\Http\Controllers\Auth\PatientInvitationController;
 
 // Mobile Patient Invitation Activation (public, token-based)
 Route::post('/patient-invitations/activate', [PatientInvitationController::class, 'activate'])->middleware('throttle:invite-activation');
@@ -162,12 +162,12 @@ Route::prefix('staff-invitations')->group(function () {
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
-    Route::get('/staff-signature', [\App\Http\Controllers\StaffSignatureController::class, 'current'])
+    Route::get('/staff-signature', [\App\Http\Controllers\Auth\StaffSignatureController::class, 'current'])
         ->middleware('role:admin,treatment,nurse,triage,doctor');
-    Route::get('/users/{id}/signature', [\App\Http\Controllers\StaffSignatureController::class, 'profile'])
+    Route::get('/users/{id}/signature', [\App\Http\Controllers\Auth\StaffSignatureController::class, 'profile'])
         ->middleware('role:admin,treatment,nurse,triage,doctor');
     Route::get('/bite-intake-schema', BiteIntakeSchemaController::class);
-    Route::get('/reports/registration', [\App\Http\Controllers\RegistrationReportController::class, 'index'])
+    Route::get('/reports/registration', [\App\Http\Controllers\Reports\RegistrationReportController::class, 'index'])
         ->middleware('role:registration,admin,developer');
 
     // DOH Official Reports
@@ -455,7 +455,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::prefix('vaccination-records')->group(function () {
         // View vaccination records (admin, registration, triage, treatment, nurse, doctor, staff)
         Route::middleware('role:admin,registration,triage,treatment,nurse,doctor,staff')->group(function () {
-            Route::get('/{id}/signature', [\App\Http\Controllers\StaffSignatureController::class, 'record']);
+            Route::get('/{id}/signature', [\App\Http\Controllers\Auth\StaffSignatureController::class, 'record']);
             Route::get('/administrations', [VaccinationRecordController::class, 'getAdministrationList']);
             Route::get('/patient/{patientId}', [VaccinationRecordController::class, 'getByPatient']);
             Route::get('/queue/{queueId}', [VaccinationRecordController::class, 'getByQueue']);

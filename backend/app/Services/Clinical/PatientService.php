@@ -2,7 +2,7 @@
 
 namespace App\Services\Clinical;
 
-use App\Http\Controllers\QueueController;
+use App\Http\Controllers\Operations\QueueController;
 use App\Models\Appointment;
 use App\Models\AuditLog;
 use App\Models\BiteIncident;

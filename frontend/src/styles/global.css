@@ -1035,7 +1035,7 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
 }
 
 /* Inputs & Form Controls */
-input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.pm-search),
+input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.pm-search):not(.auth-input):not(.login-input),
 select:not(.MuiSelect-select):not(.MuiNativeSelect-select),
 textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input) {
   font-family: var(--sans);
@@ -1049,7 +1049,7 @@ textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input) {
   transition: all 0.18s ease;
 }
 
-input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
+input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.auth-input):not(.login-input):focus,
 select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus,
 textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus {
   outline: none;

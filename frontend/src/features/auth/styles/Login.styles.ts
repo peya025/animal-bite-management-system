@@ -239,40 +239,60 @@ export const LoginRoot = styled('div')`
     color: var(--gray-700);
     letter-spacing: -0.01em;
   }
-  .input-wrapper { position: relative; display: flex; align-items: center; }
+  .input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
   .input-icon {
     position: absolute;
     left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--gray-400);
     flex-shrink: 0;
     pointer-events: none;
     transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+  }
+  .input-wrapper:focus-within .input-icon {
+    color: var(--primary);
   }
   .input-wrapper input {
-    width: 100%;
-    padding: 14px 14px 14px 44px;
-    border: 2px solid var(--gray-200);
-    border-radius: 12px;
-    font-size: 15px;
-    font-family: inherit;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    background: var(--white);
+    width: 100% !important;
+    height: 48px;
+    padding: 12px 50px 12px 44px !important;
+    border: 2px solid var(--gray-200) !important;
+    border-radius: 12px !important;
+    font-size: 15px !important;
+    font-family: inherit !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    background: var(--white) !important;
+    color: var(--gray-900) !important;
+    box-sizing: border-box !important;
   }
   .input-wrapper input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+    outline: none !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1) !important;
   }
-  .input-wrapper input:focus + .input-icon { color: var(--primary); }
-  .input-wrapper input::placeholder { color: var(--gray-400); }
+  .input-wrapper input::placeholder {
+    color: var(--gray-400) !important;
+  }
   .input-wrapper input:disabled {
-    background: var(--gray-50);
-    cursor: not-allowed;
-    opacity: 0.6;
+    background: var(--gray-50) !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
   }
   .visibility-toggle {
     position: absolute;
     right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
     background: none;
     border: none;
     cursor: pointer;
@@ -280,9 +300,10 @@ export const LoginRoot = styled('div')`
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
+    padding: 6px;
     transition: all 0.3s ease;
     border-radius: 8px;
+    z-index: 2;
   }
   .visibility-toggle:hover { color: var(--primary); background: var(--primary-light); }
   .visibility-toggle:focus {
